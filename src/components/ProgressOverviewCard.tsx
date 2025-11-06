@@ -4,7 +4,6 @@ import { Trophy, Sparkles, CheckCircle } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { isToday, parseISO } from 'date-fns';
-import DailyTasksChart from './DailyTasksChart'; // Import the new chart component
 
 // XP and Leveling Constants
 const XP_PER_LEVEL = 100; // XP needed to gain one level
@@ -61,20 +60,19 @@ const ProgressOverviewCard: React.FC = () => {
             </p>
           </div>
 
-          {/* Daily Activity Section (replaces Today's Summary) */}
+          {/* Today's Summary Section */}
           <div className="border-t border-dashed border-border/50 sm:border-t-0 sm:border-l p-5 rounded-md bg-card border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
             <div className="text-lg font-bold flex items-center gap-2 mb-2 text-foreground">
               <CheckCircle className="h-5 w-5 text-foreground" />
-              Daily Activity
+              Today's Summary
             </div>
             <p className="text-5xl font-extrabold font-mono text-primary mb-2 leading-none">
               {profile.tasks_completed_today} Tasks
             </p>
-            <p className="text-sm text-muted-foreground flex items-center gap-1 mb-4">
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Sparkles className="h-4 w-4 text-[hsl(var(--logo-yellow))]" />
               Earned <span className="font-bold text-foreground font-mono">+{xpGainedToday} XP</span> today!
             </p>
-            <DailyTasksChart tasks={allTasks} /> {/* Render the new chart */}
           </div>
         </div>
       </CardContent>

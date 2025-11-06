@@ -55,6 +55,10 @@ const TaskCreationForm: React.FC = () => {
     mode: 'onChange', // Enable validation on change
   });
 
+  // Watch form values for dynamic dialog defaults
+  const currentPriority = form.watch('priority');
+  const currentDueDate = form.watch('dueDate');
+
   // Reset form defaults if profile/energy changes (e.g., after recharge)
   React.useEffect(() => {
     const newDefaultPriority = getAdaptiveDefaultPriority(profile?.energy);
@@ -154,8 +158,8 @@ const TaskCreationForm: React.FC = () => {
         
         {/* Detailed Task Dialog Button */}
         <CreateTaskDialog 
-          defaultPriority={form.getValues('priority')}
-          defaultDueDate={form.getValues('dueDate')}
+          defaultPriority={currentPriority} // Use watched value
+          defaultDueDate={currentDueDate} // Use watched value
           onTaskCreated={() => form.reset({ title: '', priority: form.getValues('priority'), dueDate: form.getValues('dueDate') })}
         />
 

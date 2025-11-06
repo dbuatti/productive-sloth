@@ -4,7 +4,7 @@ import { Trophy, Loader2 } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { isToday, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { DAILY_CHALLENGE_XP, DAILY_CHALLENGE_ENERGY } from '@/lib/constants'; // Import constants
+import { DAILY_CHALLENGE_XP, DAILY_CHALLENGE_ENERGY, DAILY_CHALLENGE_TASKS_REQUIRED } from '@/lib/constants'; // Import constants
 
 const DailyChallengeClaimButton: React.FC = () => {
   const { profile, claimDailyReward } = useSession();
@@ -17,11 +17,9 @@ const DailyChallengeClaimButton: React.FC = () => {
       return;
     }
 
-    const dailyChallengeTarget = profile.daily_challenge_target || 3; // Fallback to 3 if target is somehow missing
-    
     const lastClaimDate = profile.last_daily_reward_claim ? parseISO(profile.last_daily_reward_claim) : null;
     const hasClaimedToday = lastClaimDate && isToday(lastClaimDate);
-    const hasCompletedTasks = profile.tasks_completed_today >= dailyChallengeTarget;
+    const hasCompletedTasks = profile.tasks_completed_today >= DAILY_CHALLENGE_TASKS_REQUIRED;
 
     setCanClaim(!hasClaimedToday && hasCompletedTasks);
   }, [profile]);

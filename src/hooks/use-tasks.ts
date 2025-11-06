@@ -8,27 +8,19 @@ import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYeste
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants'; // Import constants
 
 // Helper function to calculate date boundaries for server-side filtering
-const getDateRange = (filter: TemporalFilter): { start?: string, end?: string } | null => {
+const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
   const now = new Date();
   const startOfToday = startOfDay(now);
   
-  let startDate: Date | undefined;
-  let endDate: Date | undefined;
+  let startDate: Date;
+  let endDate: Date;
 
   switch (filter) {
-    case 'ALL':
-      return null; // No date filtering
-    case 'OVERDUE':
-      // Tasks due before the start of today
-      startDate = new Date(0); // Epoch time, effectively capturing all past dates
-      endDate = startOfToday; // End date is the start of today (exclusive)
-      break;
     case 'TODAY':
-      // Tasks due today (or before, if we want to include overdue tasks in the 'Today' view)
-      // Since we have a dedicated OVERDUE filter, we focus 'TODAY' on tasks due today.
-      // However, for a task manager, 'TODAY' usually means tasks relevant today, including overdue.
-      // Let's stick to the previous definition: tasks due up until the end of today.
-      startDate = new Date(0); // Epoch time, capturing all past dates
+      // For TODAY, we want tasks due anytime in the past (to catch overdue tasks) 
+      // up until the end of today.
+      // We use a very old date for the start to capture all past dates.
+      startDate = new Date(0); // Epoch time, effectively capturing all past dates
       endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000); // End of today
       break;
     case 'YESTERDAY':
@@ -44,8 +36,8 @@ const getDateRange = (filter: TemporalFilter): { start?: string, end?: string } 
   }
 
   return {
-    start: startDate ? formatISO(startDate) : undefined,
-    end: endDate ? formatISO(endDate) : undefined,
+    start: formatISO(startDate),
+    end: formatISO(endDate),
   };
 };
 
@@ -93,12 +85,10 @@ export const useTasks = () => {
     const dateRange = getDateRange(currentTemporalFilter);
 
     if (dateRange) {
-      if (dateRange.start) {
-        query = query.gte('due_date', dateRange.start);
-      }
-      if (dateRange.end) {
-        query = query.lte('due_date', dateRange.end);
-      }
+      // Use gte for start date and lte for end date
+      query = query
+        .lte('due_date', dateRange.end)
+        .gte('due_date', dateRange.start);
     }
     
     // Server-side sorting optimization

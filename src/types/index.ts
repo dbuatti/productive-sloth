@@ -1,6 +1,6 @@
 export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
-export type TemporalFilter = 'ALL' | 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'OVERDUE'; // Added OVERDUE
+export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
 export type SortBy = 'PRIORITY' | 'DUE_DATE';
 
 export interface Task {

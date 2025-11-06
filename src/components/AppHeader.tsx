@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
+import ThemeSelector from './ThemeSelector';
 
 const AppHeader: React.FC = () => {
   const { user } = useSession();
@@ -55,6 +56,11 @@ const AppHeader: React.FC = () => {
                   </p>
                 </div>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              {/* Theme Selector */}
+              <ThemeSelector />
+              
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />

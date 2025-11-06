@@ -4,6 +4,7 @@ import { Trophy, Sparkles, CheckCircle } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { isToday, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 // XP and Leveling Constants
 const XP_PER_LEVEL = 100; // XP needed to gain one level
@@ -38,16 +39,24 @@ const ProgressOverviewCard: React.FC = () => {
   const { level, xpTowardsNextLevel, xpNeededForNextLevel } = calculateLevelInfo(profile.xp);
 
   return (
-    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
-      <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
+    <Card className="relative w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
+      {/* Level text positioned absolutely */}
+      <div className={cn(
+        "absolute top-0 right-4 z-10", // Position at top-right, z-index to be above card
+        "-translate-y-1/2", // Move up by half its height to overlap the top border
+        "bg-background px-4 py-2 rounded-lg", // Background to create the 'cut out' effect, padding, rounded
+        "text-5xl font-extrabold font-mono flex items-center gap-2 text-primary" // Smaller font size
+      )}>
+        <Sparkles className="h-8 w-8 animate-pulse" /> {/* Icon size matching text */}
+        Level {level}
+      </div>
+
+      <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2 pr-24"> {/* Added right padding to make space */}
         <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
           <Trophy className="h-5 w-5 text-[hsl(var(--logo-yellow))]" />
           Your Progress
         </CardTitle>
-        <div className="text-6xl font-extrabold font-mono flex items-center gap-2 text-primary">
-          <Sparkles className="h-8 w-8 animate-pulse" />
-          Level {level}
-        </div>
+        {/* Removed Level display from here */}
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

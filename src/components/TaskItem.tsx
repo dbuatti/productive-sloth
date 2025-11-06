@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Trash2, Calendar, Pencil } from 'lucide-react';
 import { useTasks } from '@/hooks/use-tasks';
 import { cn } from '@/lib/utils';
-import { format, parseISO, isSameYear } from 'date-fns';
+import { format, parseISO, isSameYear, isPast } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,12 +49,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   
   const dateFormat = isSameYear(dueDate, now) ? 'MMM dd' : 'MMM dd, yyyy';
   const formattedDueDate = format(dueDate, dateFormat);
+  
+  // New: Overdue logic
+  const isOverdue = !task.is_completed && isPast(dueDate);
 
   return (
     <div className={cn(
       "group flex items-center justify-between p-3 border-b last:border-b-0 transition-colors",
       task.is_completed ? "bg-gray-50 dark:bg-gray-800/50 opacity-70" : "hover:bg-accent/50",
-      // New: Prominent left border for priority
+      // Highlight overdue tasks
+      isOverdue && "bg-red-50/50 dark:bg-red-900/20 hover:bg-red-100/50 dark:hover:bg-red-900/30",
+      // Prominent left border for priority
       `border-l-4 ${priorityClasses[task.priority]}`
     )}>
       
@@ -74,7 +79,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           htmlFor={`task-${task.id}`}
           className={cn(
             "text-base font-medium leading-none truncate",
-            task.is_completed ? "line-through text-muted-foreground" : "text-foreground"
+            task.is_completed ? "line-through text-muted-foreground" : "text-foreground",
+            isOverdue && !task.is_completed && "text-destructive dark:text-red-400" // Highlight overdue title
           )}
         >
           {task.title}
@@ -84,7 +90,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       {/* Metadata Tag and Quick Actions */}
       <div className="flex items-center space-x-2 shrink-0">
         {/* Due Date Badge - Always visible */}
-        <Badge variant="secondary" className="text-xs font-mono flex items-center space-x-1">
+        <Badge 
+          variant={isOverdue ? "destructive" : "secondary"} 
+          className={cn(
+            "text-xs font-mono flex items-center space-x-1",
+            isOverdue && "bg-destructive/10 text-destructive border-destructive/50" // Custom styling for overdue badge
+          )}
+        >
           <Calendar className="h-3 w-3" />
           <span>{formattedDueDate}</span>
         </Badge>

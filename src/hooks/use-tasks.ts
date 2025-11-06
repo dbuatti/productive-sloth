@@ -160,10 +160,8 @@ export const useTasks = () => {
       return data as Task;
     },
     onSuccess: async (updatedTask) => {
-      queryClient.setQueryData(['tasks', userId], (oldTasks: Task[] | undefined) => {
-        if (!oldTasks) return [];
-        return oldTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
-      });
+      // Invalidate queries to force a refetch/re-evaluation of tasks
+      await queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
 
       // Handle XP gain, Streak update, and Energy deduction on task completion
       if (updatedTask.is_completed && profile && user) {
@@ -174,10 +172,8 @@ export const useTasks = () => {
           if (profile.energy < updatedTask.energy_cost) {
             showError(`Not enough energy to complete "${updatedTask.title}". You need ${updatedTask.energy_cost} energy, but have ${profile.energy}.`);
             // Revert task completion in UI if energy is insufficient
-            queryClient.setQueryData(['tasks', userId], (oldTasks: Task[] | undefined) => {
-              if (!oldTasks) return [];
-              return oldTasks.map(t => t.id === updatedTask.id ? { ...updatedTask, is_completed: false } : t);
-            });
+            // This optimistic update needs to be reverted if the server-side logic fails
+            // For now, the invalidateQueries above will handle fetching the correct state from DB
             return; // Stop further processing
           }
 
@@ -219,11 +215,6 @@ export const useTasks = () => {
             showSuccess(`Task completed! +${updatedTask.metadata_xp} XP, -${updatedTask.energy_cost} Energy`);
             if (newLevel > profile.level) {
               showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
-              // Trigger confetti for level up!
-              // Note: ConfettiEffect is controlled by TaskItem's state, so we can't directly trigger it here.
-              // The TaskItem itself will handle its own confetti for task completion.
-              // For a global level-up confetti, we'd need a global state or context.
-              // For now, the toast is sufficient.
             }
           }
         } else if (!updatedTask.is_completed && profile && user) {

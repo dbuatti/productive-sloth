@@ -17,7 +17,7 @@ interface DatePickerProps {
   placeholder?: string;
 }
 
-const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, placeholder = "Date" }) => {
+const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, placeholder = "Due Date" }) => {
   return (
     <Popover>
       <PopoverTrigger asChild>

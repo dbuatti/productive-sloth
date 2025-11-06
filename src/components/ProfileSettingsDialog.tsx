@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from './ThemeToggle'; // Import ThemeToggle
 import { LogOut } from 'lucide-react'; // Import LogOut icon
+import { Switch } from '@/components/ui/switch'; // Import Switch component
 
 interface ProfileSettingsDialogProps {
   open: boolean;
@@ -41,6 +42,8 @@ const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters.").nullable(),
   avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')),
+  enable_daily_challenge_notifications: z.boolean(), // Added notification preference
+  enable_low_energy_notifications: z.boolean(), // Added notification preference
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -48,7 +51,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 const MAX_ENERGY = 100;
 
 const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onOpenChange }) => {
-  const { user, profile, refreshProfile, rechargeEnergy, resetDailyStreak } = useSession();
+  const { user, profile, refreshProfile, rechargeEnergy, resetDailyStreak, updateNotificationPreferences } = useSession();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -56,6 +59,8 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
       first_name: '',
       last_name: '',
       avatar_url: '',
+      enable_daily_challenge_notifications: true, // Default to true
+      enable_low_energy_notifications: true, // Default to true
     },
     mode: 'onChange',
   });
@@ -66,6 +71,8 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
         avatar_url: profile.avatar_url || '',
+        enable_daily_challenge_notifications: profile.enable_daily_challenge_notifications,
+        enable_low_energy_notifications: profile.enable_low_energy_notifications,
       });
     }
   }, [open, profile, form]);
@@ -85,6 +92,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
           last_name: values.last_name,
           avatar_url: values.avatar_url === '' ? null : values.avatar_url,
           updated_at: new Date().toISOString(),
+          // Notification preferences are handled by a separate function
         }, { onConflict: 'id' });
 
       if (error) {
@@ -120,6 +128,8 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
           last_daily_reward_notification: null,
           last_low_energy_notification: null,
           updated_at: new Date().toISOString(),
+          enable_daily_challenge_notifications: true, // Reset to default
+          enable_low_energy_notifications: true, // Reset to default
         })
         .eq('id', user.id);
 
@@ -288,10 +298,56 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
             <Separator className="my-4" />
             {/* App Settings */}
             <h3 className="text-lg font-semibold">App Settings</h3>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               <Label>Theme</Label>
               <ThemeToggle />
             </div>
+            <FormField
+              control={form.control}
+              name="enable_daily_challenge_notifications"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Daily Challenge Notifications</FormLabel>
+                    <DialogDescription>
+                      Receive notifications for your daily challenge status.
+                    </DialogDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        updateNotificationPreferences({ enable_daily_challenge_notifications: checked });
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="enable_low_energy_notifications"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Low Energy Notifications</FormLabel>
+                    <DialogDescription>
+                      Receive alerts when your energy is low.
+                    </DialogDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        updateNotificationPreferences({ enable_low_energy_notifications: checked });
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
             <Separator className="my-4" />
             {/* Account Actions Section */}

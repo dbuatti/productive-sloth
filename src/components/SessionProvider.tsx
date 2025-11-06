@@ -26,7 +26,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today') // Select new notification columns and tasks_completed_today
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications') // Select new notification columns and tasks_completed_today
       .eq('id', userId); // Removed .single()
 
     if (error) {
@@ -151,6 +151,30 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error("Claim daily challenge reward error:", error);
     }
   }, [user, profile, refreshProfile]);
+
+  const updateNotificationPreferences = useCallback(async (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => {
+    if (!user) {
+      showError("You must be logged in to update notification preferences.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ ...preferences, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      await refreshProfile();
+      showSuccess("Notification preferences updated!");
+    } catch (error: any) {
+      showError(`Failed to update notification preferences: ${error.message}`);
+      console.error("Update notification preferences error:", error);
+    }
+  }, [user, refreshProfile]);
 
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
@@ -284,6 +308,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const lastRewardNotification = profile.last_daily_reward_notification ? parseISO(profile.last_daily_reward_notification) : null;
 
     const canNotifyDailyChallenge = 
+      profile.enable_daily_challenge_notifications && // Check user preference
       (!lastRewardClaim || !isToday(lastRewardClaim)) && // Challenge not claimed today
       (!lastRewardNotification || !isToday(lastRewardNotification)); // Not notified today
 
@@ -298,6 +323,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Low Energy Notification
     const lastLowEnergyNotification = profile.last_low_energy_notification ? parseISO(profile.last_low_energy_notification) : null;
     const canNotifyLowEnergy = 
+      profile.enable_low_energy_notifications && // Check user preference
       profile.energy <= LOW_ENERGY_THRESHOLD && 
       (!lastLowEnergyNotification || isPast(addMinutes(lastLowEnergyNotification, LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES)));
 
@@ -325,7 +351,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       triggerLevelUp,
       resetLevelUp,
       resetDailyStreak,
-      claimDailyReward
+      claimDailyReward,
+      updateNotificationPreferences
     }}>
       {children}
     </SessionContext.Provider>

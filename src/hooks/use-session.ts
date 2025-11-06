@@ -16,6 +16,8 @@ export interface UserProfile {
   last_daily_reward_notification: string | null; // Added last_daily_reward_notification
   last_low_energy_notification: string | null; // Added last_low_energy_notification
   tasks_completed_today: number; // Added tasks_completed_today
+  enable_daily_challenge_notifications: boolean; // Added notification preference
+  enable_low_energy_notifications: boolean; // Added notification preference
 }
 
 interface SessionContextType {
@@ -31,6 +33,7 @@ interface SessionContextType {
   resetLevelUp: () => void; // Added function to reset level up state
   resetDailyStreak: () => Promise<void>; // Added resetDailyStreak function
   claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>; // Added claimDailyReward function
+  updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>; // Added updateNotificationPreferences
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

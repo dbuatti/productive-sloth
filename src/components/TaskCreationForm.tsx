@@ -27,7 +27,7 @@ const TaskCreationForm: React.FC = () => {
     addTask(newTask);
     setTitle('');
     setPriority('MEDIUM');
-    setDueDate(new Date()); // Reset to today
+    // IMPORTANT: Retain dueDate state for faster batch entry
   };
 
   return (

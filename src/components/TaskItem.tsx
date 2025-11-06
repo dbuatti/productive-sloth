@@ -2,7 +2,7 @@ import { Task } from '@/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Calendar, Pencil } from 'lucide-react';
+import { Trash2, Calendar, Pencil, Zap } from 'lucide-react'; // Import Zap icon for energy
 import { useTasks } from '@/hooks/use-tasks';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isSameYear, isPast } from 'date-fns';
@@ -130,6 +130,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           )}
         >
           +{task.metadata_xp} XP
+        </Badge>
+
+        {/* Energy Cost Badge - Always visible */}
+        <Badge 
+          variant="secondary" 
+          className={cn(
+            "text-xs font-mono flex items-center space-x-1",
+            completedClasses // Apply dimming if completed
+          )}
+        >
+          <Zap className="h-3 w-3 text-yellow-500" />
+          <span>-{task.energy_cost} Energy</span>
         </Badge>
         
         {/* Quick Actions Container: Hidden on desktop by default, visible on hover */}

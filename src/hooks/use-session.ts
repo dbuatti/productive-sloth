@@ -20,6 +20,7 @@ interface SessionContextType {
   profile: UserProfile | null; // Add profile to context
   isLoading: boolean;
   refreshProfile: () => Promise<void>; // Add a function to refresh profile
+  rechargeEnergy: (amount?: number) => Promise<void>; // Added rechargeEnergy function
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

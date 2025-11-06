@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Corrected import syntax
 import { SessionContext, UserProfile } from '@/hooks/use-session';
-import { dismissToast } from '@/utils/toast';
+import { dismissToast, showSuccess, showError } from '@/utils/toast'; // Import showSuccess and showError
+
+const ENERGY_REGEN_AMOUNT = 5; // Amount of energy to regenerate per interval
+const ENERGY_REGEN_INTERVAL_MS = 60 * 1000; // Regenerate every 1 minute (adjust as needed)
+const MAX_ENERGY = 100; // Max energy for the user (should match useTasks)
+const RECHARGE_BUTTON_AMOUNT = 25; // Amount of energy to gain from recharge button
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -33,6 +38,32 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await fetchProfile(user.id);
     }
   }, [user, fetchProfile]);
+
+  const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
+    if (!user || !profile) {
+      showError("You must be logged in to recharge energy.");
+      return;
+    }
+
+    const newEnergy = Math.min(MAX_ENERGY, profile.energy + amount);
+    if (newEnergy === profile.energy) {
+      showSuccess("Energy is already full!");
+      return;
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ energy: newEnergy, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error("Failed to recharge energy:", error.message);
+      showError("Failed to recharge energy.");
+    } else {
+      await refreshProfile();
+      showSuccess(`Energy recharged! +${amount} Energy`);
+    }
+  }, [user, profile, refreshProfile]);
 
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
@@ -100,8 +131,49 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [navigate, fetchProfile]); // Removed isLoading and user?.id from dependencies to prevent re-runs
 
+  // Energy Regeneration Effect
+  useEffect(() => {
+    let regenInterval: NodeJS.Timeout;
+
+    if (user && profile && profile.energy < MAX_ENERGY) {
+      regenInterval = setInterval(async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('energy')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching energy for regeneration:", error.message);
+          return;
+        }
+
+        const currentEnergy = data.energy;
+        const newEnergy = Math.min(MAX_ENERGY, currentEnergy + ENERGY_REGEN_AMOUNT);
+
+        if (newEnergy !== currentEnergy) {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ energy: newEnergy, updated_at: new Date().toISOString() })
+            .eq('id', user.id);
+
+          if (updateError) {
+            console.error("Failed to regenerate energy:", updateError.message);
+          } else {
+            await refreshProfile(); // Refresh local profile state
+          }
+        }
+      }, ENERGY_REGEN_INTERVAL_MS);
+    }
+
+    return () => {
+      if (regenInterval) clearInterval(regenInterval);
+    };
+  }, [user, profile, refreshProfile]);
+
+
   return (
-    <SessionContext.Provider value={{ session, user, profile, isLoading, refreshProfile }}>
+    <SessionContext.Provider value={{ session, user, profile, isLoading, refreshProfile, rechargeEnergy }}>
       {children}
     </SessionContext.Provider>
   );

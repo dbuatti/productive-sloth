@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod'; // Corrected import statement
+import * as z from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onOpenChange }) => {
-  const { user, profile, refreshProfile } = useSession();
+  const { user, profile, refreshProfile, rechargeEnergy } = useSession(); // Get rechargeEnergy
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -136,6 +136,15 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label className="text-right">Energy</Label>
                   <Input className="col-span-3" value={profile.energy} readOnly />
+                </div>
+                <div className="flex justify-end mt-2">
+                  <Button 
+                    type="button" 
+                    onClick={() => rechargeEnergy()} 
+                    disabled={profile.energy >= 100}
+                  >
+                    Recharge Energy
+                  </Button>
                 </div>
               </>
             )}

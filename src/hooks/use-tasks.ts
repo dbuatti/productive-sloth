@@ -219,6 +219,11 @@ export const useTasks = () => {
             showSuccess(`Task completed! +${updatedTask.metadata_xp} XP, -${updatedTask.energy_cost} Energy`);
             if (newLevel > profile.level) {
               showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
+              // Trigger confetti for level up!
+              // Note: ConfettiEffect is controlled by TaskItem's state, so we can't directly trigger it here.
+              // The TaskItem itself will handle its own confetti for task completion.
+              // For a global level-up confetti, we'd need a global state or context.
+              // For now, the toast is sufficient.
             }
           }
         } else if (!updatedTask.is_completed && profile && user) {

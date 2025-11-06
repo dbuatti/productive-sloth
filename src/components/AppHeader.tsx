@@ -44,8 +44,8 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto" /> {/* Logo image */}
-          <h1 className="text-xl font-bold tracking-tight hidden sm:block"> {/* Hide text on small screens */}
+          <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto" />
+          <h1 className="text-xl font-bold tracking-tight hidden sm:block">
             Daily Task Manager
           </h1>
         </div>
@@ -55,6 +55,16 @@ const AppHeader: React.FC = () => {
             <span className="text-sm font-medium hidden sm:inline-block">
               {visibleFirstName}
             </span>
+
+            {/* Always visible Settings button */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8"
+              onClick={() => setIsSettingsDialogOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -81,6 +91,7 @@ const AppHeader: React.FC = () => {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 
+                {/* Settings option in dropdown (can be removed if direct button is preferred as sole entry) */}
                 <DropdownMenuItem onClick={() => setIsSettingsDialogOpen(true)} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
@@ -95,15 +106,6 @@ const AppHeader: React.FC = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 sm:hidden"
-              onClick={() => setIsSettingsDialogOpen(true)}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-
             <ProfileSettingsDialog 
               open={isSettingsDialogOpen} 
               onOpenChange={setIsSettingsDialogOpen} 

@@ -52,7 +52,7 @@ const ProgressOverviewCard: React.FC = () => {
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* XP Summary Section */}
-          <div className="p-5 rounded-md bg-background border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
+          <div className="p-5 rounded-md bg-card border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
             <p className="text-base text-foreground mb-1">Total XP</p>
             <p className="text-5xl font-extrabold font-mono text-primary mb-2 leading-none">{profile.xp}</p>
             <p className="text-sm text-muted-foreground">
@@ -61,9 +61,9 @@ const ProgressOverviewCard: React.FC = () => {
           </div>
 
           {/* Today's Summary Section */}
-          <div className="border-t border-dashed border-border/50 sm:border-t-0 sm:border-l p-5 rounded-md bg-background border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
+          <div className="border-t border-dashed border-border/50 sm:border-t-0 sm:border-l p-5 rounded-md bg-card border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
             <div className="text-lg font-bold flex items-center gap-2 mb-2 text-foreground">
-              <CheckCircle className="h-5 w-5 text-foreground" /> {/* Changed icon color to foreground */}
+              <CheckCircle className="h-5 w-5 text-foreground" />
               Today's Summary
             </div>
             <p className="text-5xl font-extrabold font-mono text-primary mb-2 leading-none">

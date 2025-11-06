@@ -23,6 +23,8 @@ const ModeToggle: React.FC = () => {
 
   const applyMode = React.useCallback((newMode: Mode) => {
     const root = window.document.documentElement;
+    
+    // IMPORTANT: Only remove light/dark classes, leave custom theme classes (e.g., theme-ocean) intact.
     root.classList.remove("light", "dark");
 
     if (newMode === "system") {

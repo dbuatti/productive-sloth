@@ -42,7 +42,7 @@ const Index = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-3xl space-y-6">
+    <div className="container mx-auto p-4 max-w-3xl space-y-4">
       <h1 className="text-3xl font-bold text-center mb-4">Daily Task Manager</h1>
       
       {/* 1. Temporal Filter Tabs */}

@@ -10,18 +10,22 @@ interface PrioritySectionProps {
 
 const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) => {
   const priorityClasses = {
-    HIGH: 'text-red-600 dark:text-red-400 border-red-500',
-    MEDIUM: 'text-yellow-600 dark:text-yellow-400 border-yellow-500',
-    LOW: 'text-green-600 dark:text-green-400 border-green-500',
+    HIGH: 'text-red-600 dark:text-red-400',
+    MEDIUM: 'text-yellow-600 dark:text-yellow-400',
+    LOW: 'text-green-600 dark:text-green-400',
   };
 
   const headerText = `${priority} (${tasks.length})`;
 
   return (
     <Accordion type="single" collapsible defaultValue={priority}>
-      <AccordionItem value={priority} className="border rounded-lg shadow-sm mb-4 bg-card">
+      <AccordionItem 
+        value={priority} 
+        // Removed border, shadow, and mb-4. Added subtle background to the item itself.
+        className="rounded-lg bg-card"
+      >
         <AccordionTrigger className={cn(
-          "px-4 py-3 font-semibold hover:no-underline",
+          "px-4 py-3 font-semibold hover:no-underline bg-muted/30 hover:bg-muted/50 rounded-t-lg", // Added background for header
           priorityClasses[priority]
         )}>
           {headerText}

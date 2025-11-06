@@ -25,7 +25,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     }
   };
 
-  const priorityColor = {
+  const priorityClasses = {
     HIGH: 'border-red-500',
     MEDIUM: 'border-yellow-500',
     LOW: 'border-green-500',
@@ -34,7 +34,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   return (
     <div className={cn(
       "flex items-center justify-between p-3 border-b last:border-b-0 transition-colors",
-      task.is_completed ? "bg-gray-50 dark:bg-gray-800/50 opacity-70" : "hover:bg-accent/50"
+      task.is_completed ? "bg-gray-50 dark:bg-gray-800/50 opacity-70" : "hover:bg-accent/50",
+      // New: Prominent left border for priority
+      `border-l-4 ${priorityClasses[task.priority]}`
     )}>
       
       {/* Completion Toggle and Title */}
@@ -45,7 +47,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           onCheckedChange={handleToggleCompletion}
           className={cn(
             "h-5 w-5 rounded-full border-2",
-            task.is_completed ? "border-primary" : priorityColor[task.priority]
+            // Checkbox border is now standard, priority is shown by the left bar
           )}
         />
         <label

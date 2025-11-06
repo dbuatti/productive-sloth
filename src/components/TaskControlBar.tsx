@@ -1,4 +1,4 @@
-import { TaskStatusFilter, SortBy } from '@/types';
+import { TaskStatusFilter, SortBy } from '@/types'; // Imported missing types
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';

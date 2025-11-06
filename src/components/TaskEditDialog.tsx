@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import DatePicker from './DatePicker';
-import { parseISO } from 'date-fns';
 
 interface TaskEditDialogProps {
   task: Task;
@@ -26,15 +25,17 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
   const { updateTask } = useTasks();
   const [title, setTitle] = useState(task.title);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
-  const [dueDate, setDueDate] = useState<Date | undefined>(parseISO(task.due_date));
+  // Use new Date() for robust ISO string parsing
+  const [dueDate, setDueDate] = useState<Date | undefined>(new Date(task.due_date));
 
   useEffect(() => {
+    // Reset state when the dialog opens or the task changes
     if (open) {
       setTitle(task.title);
       setPriority(task.priority);
-      setDueDate(parseISO(task.due_date));
+      setDueDate(new Date(task.due_date));
     }
-  }, [open, task.title, task.priority, task.due_date]);
+  }, [open, task.id, task.title, task.priority, task.due_date]); // Added task dependencies for completeness, though 'open' and 'task.id' are usually sufficient
 
   const handleSave = () => {
     if (!title.trim() || !dueDate) return;

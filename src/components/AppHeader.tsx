@@ -42,7 +42,7 @@ const AppHeader: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4"> {/* Content constrained here */}
+      <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto" />
         </div>
@@ -67,21 +67,26 @@ const AppHeader: React.FC = () => {
               </Tooltip>
             )}
 
-            {/* User Energy Display (Removed from here, now in ProgressBarHeader) */}
-
             <span className="text-sm font-medium hidden sm:inline-block">
               {visibleFirstName}
             </span>
 
             {/* Always visible Settings button */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8"
-              onClick={() => setIsSettingsDialogOpen(true)}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={() => setIsSettingsDialogOpen(true)}
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Profile Settings</p>
+              </TooltipContent>
+            </Tooltip>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

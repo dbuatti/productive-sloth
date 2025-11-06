@@ -39,7 +39,7 @@ const ProgressOverviewCard: React.FC = () => {
   const { level, xpTowardsNextLevel, xpNeededForNextLevel } = calculateLevelInfo(profile.xp);
 
   return (
-    <Card className="relative w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
+    <Card className="relative w-full transition-all duration-200 ease-in-out hover:scale-[1.005] pt-8"> {/* Added pt-8 here */}
       {/* Level text positioned absolutely */}
       <div className={cn(
         "absolute top-0 right-4 z-10", // Position at top-right, z-index to be above card

@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ defaultLayout = [20, 80], children })
           isCollapsed ? "h-16" : "h-16 px-4"
         )}>
           <img src="/logo.png" alt="Logo" className={cn("h-8 w-auto transition-all duration-300", isCollapsed && "h-6")} />
-          {!isCollapsed && <span className="ml-2 text-lg font-bold text-primary">AetherFlow</span>}
+          {!isCollapsed && <span className="ml-2 text-lg font-bold text-primary animate-pulse-glow">AetherFlow</span>} {/* Added animate-pulse-glow */}
         </div>
         <div className="flex-1 overflow-y-auto py-4">
           <Navigation isCollapsed={isCollapsed} />

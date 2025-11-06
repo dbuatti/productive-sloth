@@ -110,7 +110,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
                   <Label htmlFor="title" className="text-right">Title</Label>
                   <div className="col-span-3">
                     <FormControl>
-                      <Input id="title" {...field} />
+                      <Input id="title" {...field} className="h-10" /> {/* Consistent height */}
                     </FormControl>
                     <FormMessage />
                   </div>
@@ -128,7 +128,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
                   <div className="col-span-3">
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-10"> {/* Consistent height */}
                           <SelectValue placeholder="Priority" />
                         </SelectTrigger>
                       </FormControl>
@@ -191,7 +191,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
                   <Label htmlFor="metadata-xp" className="text-right">XP Reward</Label>
                   <div className="col-span-3">
                     <FormControl>
-                      <Input id="metadata-xp" type="number" {...field} />
+                      <Input id="metadata-xp" type="number" {...field} className="h-10" /> {/* Consistent height */}
                     </FormControl>
                     <FormMessage />
                   </div>
@@ -208,7 +208,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
                   <Label htmlFor="energy-cost" className="text-right">Energy Cost</Label>
                   <div className="col-span-3">
                     <FormControl>
-                      <Input id="energy-cost" type="number" {...field} />
+                      <Input id="energy-cost" type="number" {...field} className="h-10" /> {/* Consistent height */}
                     </FormControl>
                     <FormMessage />
                   </div>

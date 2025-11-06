@@ -15,24 +15,18 @@ import {
   // DAILY_CHALLENGE_TASKS_REQUIRED // Removed static constant
 } from '@/lib/constants'; // Import constants
 
-// Helper to call the Edge Function
-const generateDailyChallenge = async (token: string) => {
-  const response = await fetch(
-    'https://yfgapigmiyclgryqdgne.supabase.co/functions/v1/generate-daily-challenge',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
+// Helper to call the Edge Function using invoke
+const generateDailyChallenge = async () => {
+  // Note: supabase.functions.invoke automatically handles the Authorization header
+  const { data, error } = await supabase.functions.invoke('generate-daily-challenge', {
+    method: 'POST',
+    body: {}, // Empty body as the function doesn't require input data
+  });
   
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to generate daily challenge.');
+  if (error) {
+    throw new Error(error.message || 'Failed to generate daily challenge.');
   }
-  return response.json();
+  return data;
 };
 
 
@@ -212,7 +206,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         // Call Edge Function to ensure daily challenge target is set/reset
         try {
-          await generateDailyChallenge(currentSession.access_token);
+          await generateDailyChallenge();
           await refreshProfile(); // Refresh again to get the potentially new target/tasks_completed_today=0
         } catch (e) {
           console.error(`Failed to generate daily challenge (${event}):`, e);
@@ -251,7 +245,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
           // Call Edge Function on initial load
           try {
-            await generateDailyChallenge(initialSession.access_token);
+            await generateDailyChallenge();
             await fetchProfile(initialSession.user.id); // Refresh again to get the potentially new target/tasks_completed_today=0
           } catch (e) {
             console.error("Failed to generate initial daily challenge:", e);

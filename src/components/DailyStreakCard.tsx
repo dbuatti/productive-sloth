@@ -2,6 +2,7 @@ import React from 'react';
 import { useSession } from '@/hooks/use-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Flame } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const DailyStreakCard: React.FC = () => {
   const { profile } = useSession();
@@ -17,14 +18,21 @@ const DailyStreakCard: React.FC = () => {
           <Flame className="h-4 w-4 text-orange-500" />
           Daily Streak
         </CardTitle>
-        <div className="text-3xl font-bold text-orange-500"> {/* Larger text, orange color */}
+        <div className="text-3xl font-bold text-orange-500">
           {profile.daily_streak} Day{profile.daily_streak !== 1 ? 's' : ''}
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-xs text-muted-foreground">
-          Keep completing tasks to extend your streak!
-        </p>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <p className="text-xs text-muted-foreground cursor-help">
+              Keep completing tasks to extend your streak!
+            </p>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Your current daily task completion streak.</p>
+          </TooltipContent>
+        </Tooltip>
       </CardContent>
     </Card>
   );

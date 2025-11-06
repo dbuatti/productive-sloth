@@ -3,6 +3,7 @@ import { useSession } from '@/hooks/use-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Trophy, Sparkles } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // XP and Leveling Constants (should ideally be shared or fetched from backend)
 const XP_PER_LEVEL = 100; // XP needed to gain one level
@@ -32,18 +33,25 @@ const UserXPCard: React.FC = () => {
           <Trophy className="h-4 w-4 text-yellow-500" />
           Your Progress
         </CardTitle>
-        <div className="text-3xl font-bold flex items-center gap-1 text-primary"> {/* Larger text, primary color */}
-          <Sparkles className="h-6 w-6" /> {/* Larger icon */}
+        <div className="text-3xl font-bold flex items-center gap-1 text-primary">
+          <Sparkles className="h-6 w-6" />
           Level {level}
         </div>
       </CardHeader>
       <CardContent>
         <div className="text-sm text-muted-foreground mb-2">
-          XP: {xpTowardsNextLevel} / {xpNeededForNextLevel}
+          <span className="font-semibold text-foreground">{xpTowardsNextLevel}</span> / {xpNeededForNextLevel} XP
         </div>
-        <Progress value={progressPercentage} className="h-2" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Progress value={progressPercentage} className="h-2" />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{xpTowardsNextLevel} XP towards Level {level + 1}</p>
+          </TooltipContent>
+        </Tooltip>
         <p className="text-xs text-muted-foreground mt-1">
-          {xpNeededForNextLevel - xpTowardsNextLevel} XP to next level!
+          <span className="font-semibold text-foreground">{xpNeededForNextLevel - xpTowardsNextLevel}</span> XP to next level!
         </p>
       </CardContent>
     </Card>

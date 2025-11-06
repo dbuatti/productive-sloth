@@ -101,6 +101,14 @@
     --secondary-foreground: 222.2 47.4% 11.2%;
     --ring: 217.2 91.2% 59.8%;
   }
+  
+  .dark .theme-ocean {
+    --primary: 217.2 91.2% 59.8%; /* Keep bright blue primary */
+    --primary-foreground: 222.2 47.4% 11.2%; /* Dark text on primary */
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --ring: 217.2 91.2% 59.8%;
+  }
 
   /* Forest Green Theme */
   .theme-forest {
@@ -110,6 +118,14 @@
     --secondary-foreground: 222.2 47.4% 11.2%;
     --ring: 142.1 76.2% 36.3%;
   }
+  
+  .dark .theme-forest {
+    --primary: 142.1 76.2% 36.3%; /* Keep muted green primary */
+    --primary-foreground: 222.2 47.4% 11.2%; /* Dark text on primary */
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --ring: 142.1 76.2% 36.3%;
+  }
 
   /* Sunset Orange Theme */
   .theme-sunset {
@@ -117,6 +133,14 @@
     --primary-foreground: 210 40% 98%;
     --secondary: 24.6 95% 90%;
     --secondary-foreground: 222.2 47.4% 11.2%;
+    --ring: 24.6 95% 53.1%;
+  }
+  
+  .dark .theme-sunset {
+    --primary: 24.6 95% 53.1%; /* Keep bright orange primary */
+    --primary-foreground: 222.2 47.4% 11.2%; /* Dark text on primary */
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
     --ring: 24.6 95% 53.1%;
   }
 }

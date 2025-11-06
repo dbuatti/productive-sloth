@@ -18,6 +18,7 @@ export interface UserProfile {
   tasks_completed_today: number; // Added tasks_completed_today
   enable_daily_challenge_notifications: boolean; // Added notification preference
   enable_low_energy_notifications: boolean; // Added notification preference
+  daily_challenge_target: number; // Added daily challenge target
 }
 
 interface SessionContextType {

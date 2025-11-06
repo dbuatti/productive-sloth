@@ -9,8 +9,8 @@ import { Loader2, ClipboardList } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
-import ProgressOverviewCard from '@/components/ProgressOverviewCard';
 import { Accordion } from '@/components/ui/accordion';
+import DailyChallengeCard from '@/components/DailyChallengeCard'; // Import new card
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -48,9 +48,9 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
-      {/* User Stats Dashboard */}
+      {/* Daily Challenge Card */}
       <div className="grid grid-cols-1 gap-4 animate-slide-in-up">
-        <ProgressOverviewCard />
+        <DailyChallengeCard />
       </div>
 
       {/* Input & Controls Layer - Now wrapped in a Card */}

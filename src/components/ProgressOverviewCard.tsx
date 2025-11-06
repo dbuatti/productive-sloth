@@ -4,18 +4,7 @@ import { Trophy, Sparkles, CheckCircle } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { isToday, parseISO } from 'date-fns';
-import { cn } from '@/lib/utils';
-
-// XP and Leveling Constants
-const XP_PER_LEVEL = 100; // XP needed to gain one level
-
-const calculateLevelInfo = (totalXp: number) => {
-  const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
-  const xpForCurrentLevel = (level - 1) * XP_PER_LEVEL;
-  const xpTowardsNextLevel = totalXp - xpForCurrentLevel;
-  const xpNeededForNextLevel = XP_PER_LEVEL; // XP needed for the *next* level is always XP_PER_LEVEL
-  return { level, xpTowardsNextLevel, xpNeededForNextLevel };
-};
+import { cn, calculateLevelInfo } from '@/lib/utils'; // Import calculateLevelInfo
 
 const ProgressOverviewCard: React.FC = () => {
   const { profile } = useSession();
@@ -69,7 +58,7 @@ const ProgressOverviewCard: React.FC = () => {
 
           {/* Today's Summary Section */}
           <div className="border-t border-dashed border-border/50 sm:border-t-0 sm:border-l p-5 rounded-md bg-card border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
-            <div className="text-xl font-bold flex items-center gap-2 mb-2 text-foreground"> {/* Larger font */}
+            <div className="text-xl font-bold flex items-center gap-2 text-foreground"> {/* Larger font */}
               <CheckCircle className="h-6 w-6 text-primary" /> {/* Larger icon, changed to primary */}
               Today's Summary
             </div>

@@ -13,8 +13,8 @@ import { Separator } from '@/components/ui/separator';
 import DailyStreakCard from '@/components/DailyStreakCard';
 import UserEnergyCard from '@/components/UserEnergyCard';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
-import DailyChallengeCard from '@/components/DailyChallengeCard'; // Renamed import
-import ProgressOverviewCard from '@/components/ProgressOverviewCard'; // Import the new combined card
+import DailyChallengeCard from '@/components/DailyChallengeCard';
+import ProgressOverviewCard from '@/components/ProgressOverviewCard';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -53,30 +53,31 @@ const Index = () => {
       <AppHeader />
       <main className="container mx-auto p-4 max-w-3xl space-y-6">
         
-        {/* User Stats Cards - Consolidated and streamlined grid */}
-        <div className="grid grid-cols-1 gap-4"> {/* Single column for all cards */}
-          <ProgressOverviewCard /> {/* This card will now take full width */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* New row for the other three cards */}
-            <DailyStreakCard />
-            <UserEnergyCard />
-            <DailyChallengeCard /> {/* Using the renamed component */}
+        {/* User Stats Dashboard - More balanced and less dense grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Column: Progress Overview (larger, more detailed) */}
+          <ProgressOverviewCard />
+
+          {/* Right Column: Daily Challenge (prominent) and smaller stats */}
+          <div className="grid grid-cols-1 gap-4">
+            <DailyChallengeCard />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <UserEnergyCard />
+              <DailyStreakCard />
+            </div>
           </div>
         </div>
 
-        {/* Input & Controls Layer - Slightly more prominent card */}
-        <Card className="p-5 space-y-5 shadow-lg">
+        {/* Input & Controls Layer - No outer card, rely on main container spacing */}
+        <div className="space-y-4"> {/* Reduced space-y here to make this section feel more cohesive */}
           {/* 1. Temporal Filter Tabs */}
           <TemporalFilterTabs 
             currentFilter={temporalFilter} 
             setFilter={setTemporalFilter} 
           />
 
-          <Separator />
-
           {/* 2. Task Creation Component */}
           <TaskCreationForm />
-
-          <Separator />
 
           {/* 3. Control Bar */}
           <TaskControlBar 
@@ -85,7 +86,7 @@ const Index = () => {
             sortBy={sortBy} 
             setSortBy={setSortBy}
           />
-        </Card>
+        </div>
 
         {/* Task List Layer (Priority Sections) */}
         <div className="space-y-4">

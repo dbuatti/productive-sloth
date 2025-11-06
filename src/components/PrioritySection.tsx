@@ -21,7 +21,7 @@ const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) =>
     <Accordion type="single" collapsible defaultValue={priority}>
       <AccordionItem 
         value={priority} 
-        className="rounded-lg bg-card border shadow-sm overflow-hidden mb-4" // Added mb-4 for spacing
+        className="rounded-lg overflow-hidden mb-4" // Removed bg-card, border, shadow-sm
       >
         <AccordionTrigger className={cn(
           "px-4 py-3 font-semibold hover:no-underline bg-muted/30 hover:bg-muted/50 rounded-t-lg",
@@ -29,8 +29,8 @@ const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) =>
         )}>
           {headerText}
         </AccordionTrigger>
-        <AccordionContent className="p-4"> {/* Increased padding for content */}
-          <div className="space-y-3"> {/* Used space-y-3 for consistent spacing between TaskItems */}
+        <AccordionContent className="p-4 bg-background"> {/* Explicitly set background for content */}
+          <div className="space-y-3">
             {tasks.length > 0 ? (
               tasks.map(task => (
                 <TaskItem key={task.id} task={task} />

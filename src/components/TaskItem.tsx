@@ -72,8 +72,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   return (
     <div className={cn(
-      "group relative flex items-center justify-between p-4 rounded-lg shadow-sm mb-3 transition-all duration-200 ease-in-out", // Card-like styling
-      task.is_completed ? "bg-secondary/30" : "bg-card hover:bg-accent/50 group-hover:shadow-md group-hover:scale-[1.005]", // Hover effect
+      "group relative flex items-center justify-between p-4 rounded-lg mb-3 transition-all duration-200 ease-in-out", // Removed shadow-sm
+      task.is_completed ? "bg-secondary/30" : "bg-card hover:bg-accent/50 group-hover:scale-[1.005]", // Removed group-hover:shadow-md
       isOverdue && "bg-destructive/5 dark:bg-destructive/10 hover:bg-destructive/10 dark:hover:bg-destructive/15",
       `border-l-4 ${priorityClasses[task.priority]}`
     )}>

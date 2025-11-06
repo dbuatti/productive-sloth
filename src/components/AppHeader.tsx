@@ -14,7 +14,6 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import { AvatarImage } from './ui/avatar';
-import DailyChallengeClaimButton from './DailyChallengeClaimButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
@@ -58,9 +57,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
         
         {user && (
           <div className="flex items-center space-x-2">
-            {/* Daily Challenge Claim Button */}
-            <DailyChallengeClaimButton />
-
             {/* Daily Streak Display */}
             {profile && profile.daily_streak > 0 && (
               <Tooltip>

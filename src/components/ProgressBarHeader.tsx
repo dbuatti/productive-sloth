@@ -12,6 +12,7 @@ import {
   DAILY_CHALLENGE_TASKS_REQUIRED, 
   RECHARGE_BUTTON_AMOUNT 
 } from '@/lib/constants'; // Import constants
+import DailyChallengeClaimButton from './DailyChallengeClaimButton'; // Import the claim button
 
 const calculateLevelInfo = (totalXp: number) => {
   const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
@@ -40,19 +41,21 @@ const ProgressBarHeader: React.FC = () => {
   // Daily Challenge Progress
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
   const dailyChallengeProgress = (profile.tasks_completed_today / DAILY_CHALLENGE_TASKS_REQUIRED) * 100;
+  const canClaimDailyChallenge = profile.tasks_completed_today >= DAILY_CHALLENGE_TASKS_REQUIRED && !hasClaimedDailyChallengeToday;
 
   return (
     <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2">
       <div className="container mx-auto max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-3 px-4">
+        
         {/* XP Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Sparkles className="h-4 w-4 text-logo-yellow animate-pulse-glow" /> {/* Added animate-pulse-glow */}
+          <Sparkles className="h-4 w-4 text-logo-yellow animate-pulse-glow" />
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
                 value={xpProgress} 
-                className="h-2 flex-grow bg-primary/20" /* Changed to primary/20 */
-                indicatorClassName="bg-primary" /* Changed to primary */
+                className="h-2 flex-grow bg-primary/20"
+                indicatorClassName="bg-primary"
               />
             </TooltipTrigger>
             <TooltipContent>
@@ -66,13 +69,13 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Energy Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Zap className="h-4 w-4 text-logo-yellow animate-pulse-glow" /> {/* Added animate-pulse-glow */}
+          <Zap className="h-4 w-4 text-logo-yellow animate-pulse-glow" />
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
                 value={energyPercentage} 
-                className="h-2 flex-grow bg-primary/20" /* Changed to primary/20 */
-                indicatorClassName="bg-primary" /* Changed to primary */
+                className="h-2 flex-grow bg-primary/20"
+                indicatorClassName="bg-primary"
               />
             </TooltipTrigger>
             <TooltipContent>
@@ -93,25 +96,31 @@ const ProgressBarHeader: React.FC = () => {
           </Tooltip>
         </div>
 
-        {/* Daily Challenge Progress Bar */}
+        {/* Daily Challenge Progress Bar & Claim Button */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Trophy className="h-4 w-4 text-accent animate-pulse-glow" /> {/* Added animate-pulse-glow */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <CustomProgress 
-                value={dailyChallengeProgress} 
-                className="h-2 flex-grow bg-accent/20" /* Changed to accent/20 */
-                indicatorClassName="bg-accent" /* Changed to accent */
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              {hasClaimedDailyChallengeToday ? (
-                <p>Daily Challenge Claimed!</p>
-              ) : (
-                <p>{profile.tasks_completed_today} / {DAILY_CHALLENGE_TASKS_REQUIRED} tasks for daily challenge</p>
-              )}
-            </TooltipContent>
-          </Tooltip>
+          {canClaimDailyChallenge ? (
+            <DailyChallengeClaimButton />
+          ) : (
+            <>
+              <Trophy className="h-4 w-4 text-accent animate-pulse-glow" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <CustomProgress 
+                    value={dailyChallengeProgress} 
+                    className="h-2 flex-grow bg-accent/20"
+                    indicatorClassName="bg-accent"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  {hasClaimedDailyChallengeToday ? (
+                    <p>Daily Challenge Claimed!</p>
+                  ) : (
+                    <p>{profile.tasks_completed_today} / {DAILY_CHALLENGE_TASKS_REQUIRED} tasks for daily challenge</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
         </div>
       </div>
     </div>

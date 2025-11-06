@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Progress } from '@/components/ui/progress'; // Keep Progress for now, but will replace with CustomProgress
 import { Trophy, Sparkles, CheckCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { isToday, parseISO } from 'date-fns';
+import { CustomProgress } from './CustomProgress'; // Import CustomProgress
 
 // XP and Leveling Constants
 const XP_PER_LEVEL = 100; // XP needed to gain one level
@@ -42,48 +43,52 @@ const ProgressOverviewCard: React.FC = () => {
 
   return (
     <Card className="w-full col-span-1 md:col-span-2 lg:col-span-2"> {/* Span 2 columns on larger screens */}
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-yellow-500" />
+      <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-yellow-500"> {/* Larger title */}
+          <Trophy className="h-5 w-5" /> {/* Larger icon */}
           Your Progress
         </CardTitle>
-        <div className="text-3xl font-bold flex items-center gap-1 text-primary">
-          <Sparkles className="h-6 w-6" />
+        <div className="text-5xl font-extrabold flex items-center gap-2 text-primary"> {/* Much larger level text */}
+          <Sparkles className="h-8 w-8 animate-pulse" /> {/* Larger, animated icon */}
           Level {level}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6"> {/* Increased gap */}
           {/* XP Progress Section */}
-          <div>
-            <div className="text-sm text-muted-foreground mb-2">
-              <span className="font-semibold text-foreground">{xpTowardsNextLevel}</span> / {xpNeededForNextLevel} XP
+          <div className="p-4 rounded-md bg-muted/20"> {/* Subtle background for section */}
+            <div className="text-base text-muted-foreground mb-2">
+              <span className="font-bold text-foreground text-xl">{xpTowardsNextLevel}</span> / {xpNeededForNextLevel} XP
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Progress value={progressPercentage} className="h-2" />
+                <CustomProgress 
+                  value={progressPercentage} 
+                  className="h-3 bg-primary/20" 
+                  indicatorClassName="bg-primary" 
+                />
               </TooltipTrigger>
               <TooltipContent>
                 <p>{xpTowardsNextLevel} XP towards Level {level + 1}</p>
               </TooltipContent>
             </Tooltip>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-2">
               <span className="font-semibold text-foreground">{xpNeededForNextLevel - xpTowardsNextLevel}</span> XP to next level!
             </p>
           </div>
 
           {/* Today's Summary Section */}
-          <div className="border-t sm:border-t-0 sm:border-l border-border pt-4 sm:pt-0 sm:pl-4">
-            <div className="text-sm font-medium flex items-center gap-2 mb-2">
-              <CheckCircle className="h-4 w-4 text-blue-500" />
+          <div className="border-t sm:border-t-0 sm:border-l border-border pt-6 sm:pt-4 sm:pl-6 p-4 rounded-md bg-muted/20"> {/* Subtle background, adjusted padding */}
+            <div className="text-lg font-bold flex items-center gap-2 mb-2 text-blue-500"> {/* Larger title */}
+              <CheckCircle className="h-5 w-5" /> {/* Larger icon */}
               Today's Summary
             </div>
-            <p className="text-xl font-bold text-blue-500 mb-1">
-              {completedTasksToday} Tasks Completed
+            <p className="text-4xl font-extrabold text-blue-500 mb-2"> {/* Much larger task count */}
+              {completedTasksToday} Tasks
             </p>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-yellow-500" />
-              Earned <span className="font-semibold text-foreground">+{xpGainedToday} XP</span> today!
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <Sparkles className="h-4 w-4 text-yellow-500" /> {/* Larger icon */}
+              Earned <span className="font-bold text-foreground">+{xpGainedToday} XP</span> today!
             </p>
           </div>
         </div>

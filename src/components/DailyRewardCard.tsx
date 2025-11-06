@@ -64,33 +64,33 @@ const DailyRewardCard: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Gift className="h-4 w-4 text-purple-500" />
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-purple-500"> {/* Larger title */}
+          <Gift className="h-5 w-5" /> {/* Larger icon */}
           Daily Reward
         </CardTitle>
-        <div className="text-3xl font-bold text-purple-500">
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="text-5xl font-extrabold text-purple-500 mb-2 leading-none"> {/* Much larger status */}
           {canClaim ? 'Ready!' : 'Claimed'}
         </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs text-muted-foreground mb-2">
-          Claim <span className="font-semibold text-foreground">+{DAILY_REWARD_XP} XP</span> and <span className="font-semibold text-foreground">+{DAILY_REWARD_ENERGY} Energy</span> once per day!
+        <p className="text-sm text-muted-foreground mb-3">
+          Claim <span className="font-bold text-foreground">+{DAILY_REWARD_XP} XP</span> and <span className="font-bold text-foreground">+{DAILY_REWARD_ENERGY} Energy</span> once per day!
         </p>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 
               onClick={handleClaim} 
               disabled={!canClaim} 
-              className="w-full flex items-center gap-2"
+              className="w-full flex items-center gap-2 h-10 text-base font-semibold" // Larger button
             >
               {canClaim ? (
                 <>
-                  <Gift className="h-4 w-4" />
+                  <Gift className="h-5 w-5" />
                   Claim Reward
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-5 w-5" />
                   Claimed {timeUntilNextClaim && `(Next in ${timeUntilNextClaim})`}
                 </>
               )}

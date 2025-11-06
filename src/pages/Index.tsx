@@ -7,6 +7,7 @@ import PrioritySection from '@/components/PrioritySection';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Loader2 } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
+import AppHeader from '@/components/AppHeader';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -42,39 +43,41 @@ const Index = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-3xl space-y-4">
-      <h1 className="text-3xl font-bold text-center mb-4">Daily Task Manager</h1>
-      
-      {/* 1. Temporal Filter Tabs */}
-      <TemporalFilterTabs 
-        currentFilter={temporalFilter} 
-        setFilter={setTemporalFilter} 
-      />
+    <>
+      <AppHeader />
+      <main className="container mx-auto p-4 max-w-3xl space-y-4">
+        
+        {/* 1. Temporal Filter Tabs */}
+        <TemporalFilterTabs 
+          currentFilter={temporalFilter} 
+          setFilter={setTemporalFilter} 
+        />
 
-      {/* 2. Task Creation Component */}
-      <TaskCreationForm />
+        {/* 2. Task Creation Component */}
+        <TaskCreationForm />
 
-      {/* 3. Control Bar */}
-      <TaskControlBar 
-        statusFilter={statusFilter} 
-        setStatusFilter={setStatusFilter} 
-        sortBy={sortBy} 
-        setSortBy={setSortBy}
-      />
+        {/* 3. Control Bar */}
+        <TaskControlBar 
+          statusFilter={statusFilter} 
+          setStatusFilter={setStatusFilter} 
+          sortBy={sortBy} 
+          setSortBy={setSortBy}
+        />
 
-      {/* 4. Priority Sections */}
-      <div className="space-y-4">
-        {PRIORITY_ORDER.map(priority => (
-          <PrioritySection 
-            key={priority}
-            priority={priority}
-            tasks={groupedTasks[priority]}
-          />
-        ))}
-      </div>
-      
-      <MadeWithDyad />
-    </div>
+        {/* 4. Priority Sections */}
+        <div className="space-y-4">
+          {PRIORITY_ORDER.map(priority => (
+            <PrioritySection 
+              key={priority}
+              priority={priority}
+              tasks={groupedTasks[priority]}
+            />
+          ))}
+        </div>
+        
+        <MadeWithDyad />
+      </main>
+    </>
   );
 };
 

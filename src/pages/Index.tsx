@@ -10,7 +10,6 @@ import { useSession } from '@/hooks/use-session';
 import AppHeader from '@/components/AppHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import DailyStreakCard from '@/components/DailyStreakCard';
 import UserEnergyCard from '@/components/UserEnergyCard';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
 import DailyChallengeCard from '@/components/DailyChallengeCard';
@@ -61,9 +60,8 @@ const Index = () => {
           {/* Right Column: Daily Challenge (prominent) and smaller stats */}
           <div className="grid grid-cols-1 gap-4">
             <DailyChallengeCard />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4"> {/* Changed to sm:grid-cols-1 as DailyStreakCard is removed */}
               <UserEnergyCard />
-              <DailyStreakCard />
             </div>
           </div>
         </div>

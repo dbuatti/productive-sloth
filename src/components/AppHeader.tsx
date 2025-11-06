@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings, Flame } from 'lucide-react'; // Import Flame icon
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/hooks/use-session';
@@ -16,6 +16,7 @@ import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import ProfileSettingsDialog from './ProfileSettingsDialog';
 import { AvatarImage } from './ui/avatar';
 import DailyChallengeClaimButton from './DailyChallengeClaimButton'; // Import the new component
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 
 const AppHeader: React.FC = () => {
   const { user, profile } = useSession();
@@ -53,6 +54,21 @@ const AppHeader: React.FC = () => {
           <div className="flex items-center space-x-2">
             {/* Daily Challenge Claim Button */}
             <DailyChallengeClaimButton />
+
+            {/* Daily Streak Display */}
+            {profile && profile.daily_streak > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 text-sm font-semibold text-[hsl(var(--logo-orange))]">
+                    <Flame className="h-4 w-4" />
+                    <span>{profile.daily_streak}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Daily Streak: {profile.daily_streak} Day{profile.daily_streak !== 1 ? 's' : ''}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
 
             <span className="text-sm font-medium hidden sm:inline-block">
               {visibleFirstName}

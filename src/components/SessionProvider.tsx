@@ -24,7 +24,7 @@ const generateDailyChallenge = async () => {
   });
   
   if (error) {
-    throw new Error(error.message || 'Failed to generate daily challenge.');
+    throw new Error(error.message || 'Failed to send a request to the Edge Function');
   }
   return data;
 };
@@ -240,8 +240,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           // Perform initial profile fetch
           await fetchProfile(initialSession.user.id);
           
-          // Introduce a small delay before calling the Edge Function
-          await new Promise(resolve => setTimeout(resolve, 50)); 
+          // Introduce a larger delay before calling the Edge Function
+          await new Promise(resolve => setTimeout(resolve, 500)); 
 
           // Call Edge Function on initial load
           try {

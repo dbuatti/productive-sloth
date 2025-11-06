@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { X, Save, Loader2, CalendarIcon, Zap, Sparkles } from "lucide-react";
+import { X, Save, Loader2, Zap, Sparkles, BatteryCharging } from "lucide-react";
 
 import {
   Sheet,
@@ -30,6 +30,7 @@ import { Task, TaskPriority } from "@/types";
 import DatePicker from "./DatePicker";
 import { useTasks } from '@/hooks/use-tasks';
 import { showSuccess } from "@/utils/toast";
+import { useSession } from '@/hooks/use-session'; // Import useSession
 
 // Define the schema for editing, matching the TaskEditDialog logic
 const formSchema = z.object({
@@ -56,6 +57,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
   onOpenChange,
 }) => {
   const { updateTask } = useTasks();
+  const { profile } = useSession(); // Get profile for energy check
 
   const form = useForm<TaskDetailFormValues>({
     resolver: zodResolver(formSchema),
@@ -68,6 +70,11 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       energy_cost: 0,
     },
   });
+
+  // Watch energy cost field for dynamic feedback
+  const energyCost = form.watch('energy_cost');
+  const currentEnergy = profile?.energy ?? 0;
+  const isEnergyInsufficient = energyCost > currentEnergy;
 
   // Reset form when a new task is selected or sheet opens
   useEffect(() => {
@@ -151,6 +158,20 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
             
             <div className="flex-grow overflow-y-auto space-y-6 pb-8">
+              {/* Current Energy Display */}
+              <div className={cn(
+                "flex items-center justify-between p-3 rounded-lg border transition-colors duration-200",
+                isEnergyInsufficient ? "border-destructive bg-destructive/10" : "border-primary/50 bg-primary/5"
+              )}>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <BatteryCharging className={cn("h-4 w-4", isEnergyInsufficient ? "text-destructive" : "text-primary")} />
+                  Current Energy:
+                </div>
+                <span className={cn("font-bold font-mono", isEnergyInsufficient ? "text-destructive" : "text-primary")}>
+                  {currentEnergy}
+                </span>
+              </div>
+
               {/* Metadata Overview - Now editable fields */}
               <div className="grid grid-cols-2 gap-4 text-sm font-medium">
                 <FormField
@@ -179,7 +200,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                   name="energy_cost"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center gap-2 text-primary">
+                      <FormLabel className={cn("flex items-center gap-2", isEnergyInsufficient ? "text-destructive" : "text-primary")}>
                         <Zap className="h-4 w-4" /> Energy Cost
                       </FormLabel>
                       <FormControl>
@@ -188,9 +209,14 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                           placeholder="Energy" 
                           {...field} 
                           onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
-                          className="font-mono text-foreground"
+                          className={cn("font-mono text-foreground", isEnergyInsufficient && "border-destructive focus:ring-destructive")}
                         />
                       </FormControl>
+                      {isEnergyInsufficient && (
+                        <FormDescription className="text-destructive font-semibold">
+                          Warning: Cost exceeds current energy!
+                        </FormDescription>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

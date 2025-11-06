@@ -10,7 +10,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import CreateTaskDialog from './CreateTaskDialog'; // Import the new dialog component
+import CreateTaskDialog from './CreateTaskDialog';
+import { useSession } from '@/hooks/use-session'; // Import useSession
+import { MAX_ENERGY } from '@/lib/constants'; // Import MAX_ENERGY
 
 // 1. Define Schema for Quick Add
 const QuickTaskCreationSchema = z.object({
@@ -21,20 +23,46 @@ const QuickTaskCreationSchema = z.object({
 
 type QuickTaskCreationFormValues = z.infer<typeof QuickTaskCreationSchema>;
 
+// Helper to determine adaptive default priority
+const getAdaptiveDefaultPriority = (energy: number | undefined): TaskPriority => {
+  if (energy === undefined) return 'MEDIUM';
+  
+  const energyPercentage = (energy / MAX_ENERGY) * 100;
+
+  if (energyPercentage < 30) {
+    return 'LOW'; // Low energy, suggest low cost tasks
+  } else if (energyPercentage <= 70) {
+    return 'MEDIUM'; // Medium energy, suggest medium tasks
+  } else {
+    return 'HIGH'; // High energy, suggest high reward/cost tasks
+  }
+};
+
 const TaskCreationForm: React.FC = () => {
   const { addTask } = useTasks();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { profile } = useSession();
+  
+  const defaultPriority = getAdaptiveDefaultPriority(profile?.energy);
   
   // 2. Initialize useForm for Quick Add
   const form = useForm<QuickTaskCreationFormValues>({
     resolver: zodResolver(QuickTaskCreationSchema),
     defaultValues: {
       title: '',
-      priority: 'MEDIUM',
+      priority: defaultPriority, // Use adaptive default
       dueDate: new Date(), // Default to today
     },
     mode: 'onChange', // Enable validation on change
   });
+
+  // Reset form defaults if profile/energy changes (e.g., after recharge)
+  React.useEffect(() => {
+    const newDefaultPriority = getAdaptiveDefaultPriority(profile?.energy);
+    if (form.getValues('priority') !== newDefaultPriority) {
+      form.setValue('priority', newDefaultPriority);
+    }
+  }, [profile?.energy, form]);
+
 
   // 3. Handle Quick Submission
   const onQuickSubmit = (values: QuickTaskCreationFormValues) => {
@@ -61,13 +89,6 @@ const TaskCreationForm: React.FC = () => {
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
-
-  // Function to sync form state to dialog if user opens it
-  const handleOpenDialog = () => {
-    // We don't need to sync values here, as the dialog form manages its own state
-    // but we pass the current quick-add defaults.
-    setIsDialogOpen(true);
-  };
 
   return (
     <Form {...form}>
@@ -97,7 +118,7 @@ const TaskCreationForm: React.FC = () => {
           name="priority"
           render={({ field }) => (
             <FormItem className="w-full sm:w-[120px] shrink-0">
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200">
                     <SelectValue placeholder="Priority" />

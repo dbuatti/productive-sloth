@@ -78,7 +78,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       </div>
 
       {/* Metadata Tag and Quick Actions */}
-      <div className="flex items-center space-x-1 shrink-0">
+      <div className="flex items-center space-x-2 shrink-0">
         {/* Due Date Badge - Now visible on mobile (no 'hidden sm:flex') */}
         <Badge variant="secondary" className="text-xs font-mono flex items-center space-x-1">
           <Calendar className="h-3 w-3" />

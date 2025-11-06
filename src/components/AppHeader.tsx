@@ -45,9 +45,7 @@ const AppHeader: React.FC = () => {
       <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto" />
-          <h1 className="text-xl font-bold tracking-tight hidden sm:block">
-            Daily Task Manager
-          </h1>
+          {/* Removed h1 text to let the logo be the primary identifier */}
         </div>
         
         {user && (

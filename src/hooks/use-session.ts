@@ -12,6 +12,7 @@ export interface UserProfile {
   daily_streak: number; // Added daily streak
   last_streak_update: string | null; // Added last streak update timestamp
   energy: number; // Added energy
+  last_daily_reward_claim: string | null; // Added last_daily_reward_claim
 }
 
 interface SessionContextType {
@@ -26,6 +27,7 @@ interface SessionContextType {
   triggerLevelUp: (level: number) => void; // Added function to trigger level up
   resetLevelUp: () => void; // Added function to reset level up state
   resetDailyStreak: () => Promise<void>; // Added resetDailyStreak function
+  claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>; // Added claimDailyReward function
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom'; // Corrected import syntax
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { dismissToast, showSuccess, showError } from '@/utils/toast'; // Import showSuccess and showError
+import { isToday, parseISO } from 'date-fns';
 
 const ENERGY_REGEN_AMOUNT = 5; // Amount of energy to regenerate per interval
 const ENERGY_REGEN_INTERVAL_MS = 60 * 1000; // Regenerate every 1 minute (adjust as needed)
@@ -22,7 +23,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy') // Select new energy column
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim') // Select new energy column
       .eq('id', userId); // Removed .single()
 
     if (error) {
@@ -104,6 +105,44 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error("Reset daily streak error:", error);
     }
   }, [user, refreshProfile]);
+
+  const claimDailyReward = useCallback(async (xpAmount: number, energyAmount: number) => {
+    if (!user || !profile) {
+      showError("You must be logged in to claim daily reward.");
+      return;
+    }
+
+    const lastClaimDate = profile.last_daily_reward_claim ? parseISO(profile.last_daily_reward_claim) : null;
+    if (lastClaimDate && isToday(lastClaimDate)) {
+      showError("You have already claimed your daily reward today!");
+      return;
+    }
+
+    try {
+      const newXp = profile.xp + xpAmount;
+      const newEnergy = Math.min(MAX_ENERGY, profile.energy + energyAmount);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          xp: newXp,
+          energy: newEnergy,
+          last_daily_reward_claim: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      await refreshProfile();
+      showSuccess(`Daily reward claimed! +${xpAmount} XP, +${energyAmount} Energy!`);
+    } catch (error: any) {
+      showError(`Failed to claim daily reward: ${error.message}`);
+      console.error("Claim daily reward error:", error);
+    }
+  }, [user, profile, refreshProfile]);
 
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
@@ -224,7 +263,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       levelUpLevel,
       triggerLevelUp,
       resetLevelUp,
-      resetDailyStreak
+      resetDailyStreak,
+      claimDailyReward
     }}>
       {children}
     </SessionContext.Provider>

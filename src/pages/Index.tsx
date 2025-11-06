@@ -14,6 +14,7 @@ import UserXPCard from '@/components/UserXPCard';
 import DailyStreakCard from '@/components/DailyStreakCard';
 import UserEnergyCard from '@/components/UserEnergyCard';
 import LevelUpCelebration from '@/components/LevelUpCelebration'; // Import LevelUpCelebration
+import DailyRewardCard from '@/components/DailyRewardCard'; // Import DailyRewardCard
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -57,6 +58,7 @@ const Index = () => {
           <UserXPCard />
           <DailyStreakCard />
           <UserEnergyCard />
+          <DailyRewardCard /> {/* Added DailyRewardCard */}
         </div>
 
         {/* Input & Controls Layer - Slightly more prominent card */}

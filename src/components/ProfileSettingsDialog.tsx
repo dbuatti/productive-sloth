@@ -105,7 +105,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
       showSuccess("Profile updated successfully!");
       onOpenChange(false);
     } catch (error: any) {
-      showError(`Failed to update profile: ${error.message}`); // Fixed: e.message -> error.message
+      showError(`Failed to update profile: ${error.message}`);
       console.error("Profile update error:", error);
     }
   };
@@ -153,7 +153,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
       onOpenChange(false);
       window.location.reload();
     } catch (error: any) {
-      showError(`Failed to reset game progress: ${error.message}`); // Fixed: e.message -> error.message
+      showError(`Failed to reset game progress: ${error.message}`);
       console.error("Reset game progress error:", error);
     }
   };
@@ -178,7 +178,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
       showSuccess("App settings reset to default!");
       await refreshProfile();
     } catch (error: any) {
-      showError(`Failed to reset app settings: ${error.message}`); // Fixed: e.message -> error.message
+      showError(`Failed to reset app settings: ${error.message}`);
       console.error("Reset app settings error:", error);
     }
   };

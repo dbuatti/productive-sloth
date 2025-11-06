@@ -31,6 +31,8 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
+const MAX_ENERGY = 100; // Consistent with SessionProvider and useTasks
+
 const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onOpenChange }) => {
   const { user, profile, refreshProfile, rechargeEnergy } = useSession(); // Get rechargeEnergy
 
@@ -141,7 +143,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                   <Button 
                     type="button" 
                     onClick={() => rechargeEnergy()} 
-                    disabled={profile.energy >= 100}
+                    disabled={profile.energy >= MAX_ENERGY}
                   >
                     Recharge Energy
                   </Button>

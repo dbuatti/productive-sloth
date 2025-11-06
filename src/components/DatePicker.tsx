@@ -24,7 +24,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, placeholder = "D
         <Button
           variant={"outline"}
           className={cn(
-            "w-full sm:w-[150px] justify-start text-left font-normal shrink-0",
+            "w-full sm:w-[180px] justify-start text-left font-normal shrink-0", // Increased width to 180px
             !date && "text-muted-foreground"
           )}
         >

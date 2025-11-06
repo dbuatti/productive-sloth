@@ -47,7 +47,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           onCheckedChange={handleToggleCompletion}
           className={cn(
             "h-5 w-5 rounded-full border-2",
-            // Checkbox border is now standard, priority is shown by the left bar
+            // Checkbox border reflects priority if active, or standard primary if completed
+            task.is_completed ? "border-primary" : priorityClasses[task.priority]
           )}
         />
         <label

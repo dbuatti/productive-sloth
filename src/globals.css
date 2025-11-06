@@ -36,19 +36,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -81,6 +74,7 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -91,7 +85,7 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
   
-  /* --- THEME DEFINITIONS (Moved to end to ensure override) --- */
+  /* --- THEME DEFINITIONS --- */
 
   /* Ocean Blue Theme */
   .theme-ocean {
@@ -114,6 +108,14 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 210 40% 96.1%;
+    --sidebar-foreground: 222.2 47.4% 11.2%;
+    --sidebar-primary: 217.2 91.2% 59.8%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
   
   .dark .theme-ocean {
@@ -136,96 +138,136 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 217.2 32.6% 17.5%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217.2 91.2% 59.8%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   /* Forest Green Theme - EXTREMELY OBVIOUS FOR DEBUGGING */
   .theme-forest {
-    --background: 120 100% 95%; /* Very light green background */
-    --foreground: 120 100% 10%; /* Very dark green text */
-    --card: 120 100% 90%;
-    --card-foreground: 120 100% 10%;
-    --popover: 120 100% 90%;
-    --popover-foreground: 120 100% 10%;
-    --primary: 120 100% 50%; /* Bright Green */
+    --background: 120 100% 50%; /* Solid bright green */
+    --foreground: 0 0% 100%; /* White text */
+    --card: 120 100% 40%;
+    --card-foreground: 0 0% 100%;
+    --popover: 120 100% 40%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 120 100% 30%; /* Darker green primary */
     --primary-foreground: 0 0% 100%; /* White text */
-    --secondary: 120 50% 80%; /* Lighter Green */
+    --secondary: 120 50% 70%; /* Lighter green secondary */
     --secondary-foreground: 222.2 47.4% 11.2%; /* Dark text */
-    --muted: 120 50% 85%;
+    --muted: 120 50% 80%;
     --muted-foreground: 120 100% 20%;
-    --accent: 120 50% 80%; /* Lighter Green accent */
+    --accent: 120 50% 70%; /* Lighter green accent */
     --accent-foreground: 222.2 47.4% 11.2%; /* Dark text */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 120 50% 70%;
-    --input: 120 50% 70%;
-    --ring: 120 100% 50%; /* Bright Green ring */
+    --border: 120 50% 60%;
+    --input: 120 50% 60%;
+    --ring: 120 100% 30%; /* Primary green ring */
+    --sidebar-background: 120 100% 45%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 120 100% 25%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 120 50% 65%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 120 50% 55%;
+    --sidebar-ring: 120 100% 30%;
   }
   
   .dark .theme-forest {
-    --background: 120 100% 5%; /* Very dark green background */
-    --foreground: 120 100% 90%; /* Very light green text */
-    --card: 120 100% 10%;
-    --card-foreground: 120 100% 90%;
-    --popover: 120 100% 10%;
-    --popover-foreground: 120 100% 90%;
-    --primary: 120 100% 50%; /* Bright Green */
-    --primary-foreground: 0 0% 100%; /* White text */
-    --secondary: 120 50% 20%; /* Darker Green */
+    --background: 120 100% 20%; /* Solid dark green background */
+    --foreground: 0 0% 100%; /* White text */
+    --card: 120 100% 15%;
+    --card-foreground: 0 0% 100%;
+    --popover: 120 100% 15%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 120 100% 40%; /* Brighter green primary */
+    --primary-foreground: 222.2 47.4% 11.2%; /* Dark text on primary */
+    --secondary: 120 50% 10%; /* Very dark green secondary */
     --secondary-foreground: 0 0% 100%; /* White text */
-    --muted: 120 50% 15%;
+    --muted: 120 50% 5%;
     --muted-foreground: 120 100% 70%;
-    --accent: 120 50% 20%; /* Darker Green accent */
+    --accent: 120 50% 10%; /* Very dark green accent */
     --accent-foreground: 0 0% 100%; /* White text */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 120 50% 30%;
-    --input: 120 50% 30%;
-    --ring: 120 100% 50%; /* Bright Green ring */
+    --border: 120 50% 20%;
+    --input: 120 50% 20%;
+    --ring: 120 100% 40%; /* Primary green ring */
+    --sidebar-background: 120 100% 18%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 120 100% 35%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 120 50% 8%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 120 50% 18%;
+    --sidebar-ring: 120 100% 35%;
   }
 
-  /* Sunset Orange Theme */
+  /* Sunset Orange Theme - EXTREMELY OBVIOUS FOR DEBUGGING */
   .theme-sunset {
-    --background: 210 40% 98%;
-    --foreground: 222.2 47.4% 11.2%;
-    --card: 210 40% 98%;
-    --card-foreground: 222.2 47.4% 11.2%;
-    --popover: 210 40% 98%;
-    --popover-foreground: 222.2 47.4% 11.2%;
-    --primary: 24.6 95% 53.1%; /* Bright Orange */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 24.6 95% 90%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --background: 30 100% 50%; /* Solid bright orange */
+    --foreground: 0 0% 100%; /* White text */
+    --card: 30 100% 40%;
+    --card-foreground: 0 0% 100%;
+    --popover: 30 100% 40%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 30 100% 30%; /* Darker orange primary */
+    --primary-foreground: 0 0% 100%; /* White text */
+    --secondary: 30 50% 70%; /* Lighter orange secondary */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* Dark text */
+    --muted: 30 50% 80%;
+    --muted-foreground: 30 100% 20%;
+    --accent: 30 50% 70%; /* Lighter orange accent */
+    --accent-foreground: 222.2 47.4% 11.2%; /* Dark text */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 24.6 95% 53.1%;
+    --border: 30 50% 60%;
+    --input: 30 50% 60%;
+    --ring: 30 100% 30%; /* Primary orange ring */
+    --sidebar-background: 30 100% 45%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 30 100% 25%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 50% 65%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 30 50% 55%;
+    --sidebar-ring: 30 100% 30%;
   }
   
   .dark .theme-sunset {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 24.6 95% 53.1%; /* Keep bright orange primary */
+    --background: 30 100% 20%; /* Solid dark orange background */
+    --foreground: 0 0% 100%; /* White text */
+    --card: 30 100% 15%;
+    --card-foreground: 0 0% 100%;
+    --popover: 30 100% 15%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 30 100% 40%; /* Brighter orange primary */
     --primary-foreground: 222.2 47.4% 11.2%; /* Dark text on primary */
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --secondary: 30 50% 10%; /* Very dark orange secondary */
+    --secondary-foreground: 0 0% 100%; /* White text */
+    --muted: 30 50% 5%;
+    --muted-foreground: 30 100% 70%;
+    --accent: 30 50% 10%; /* Very dark orange accent */
+    --accent-foreground: 0 0% 100%; /* White text */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 24.6 95% 53.1%;
+    --border: 30 50% 20%;
+    --input: 30 50% 20%;
+    --ring: 30 100% 40%; /* Primary orange ring */
+    --sidebar-background: 30 100% 18%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 30 100% 35%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 30 50% 8%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 30 50% 18%;
+    --sidebar-ring: 30 100% 35%;
   }
 }
 

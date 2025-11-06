@@ -39,11 +39,10 @@ const ProgressOverviewCard: React.FC = () => {
   const { level, xpTowardsNextLevel, xpNeededForNextLevel } = calculateLevelInfo(profile.xp);
 
   return (
-    <Card className="relative w-full transition-all duration-200 ease-in-out hover:scale-[1.005] pt-16"> {/* Increased pt-12 to pt-16 here */}
+    <Card className="relative w-full transition-all duration-200 ease-in-out hover:scale-[1.005]"> {/* Removed pt-16 from here */}
       {/* Level text positioned absolutely */}
       <div className={cn(
-        "absolute top-0 right-4 z-10", // Position at top-right, z-index to be above card
-        "-translate-y-1/2", // Move up by half its height to overlap the top border
+        "absolute top-[-3rem] right-4 z-10", // Adjusted top to a negative value, removed -translate-y-1/2
         "bg-background px-4 py-2 rounded-lg", // Background to create the 'cut out' effect, padding, rounded
         "text-4xl font-extrabold font-mono flex items-center gap-2 text-primary" // Smaller font size
       )}>
@@ -51,7 +50,7 @@ const ProgressOverviewCard: React.FC = () => {
         Level {level}
       </div>
 
-      <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2 pr-24"> {/* Added right padding to make space */}
+      <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pt-8 pb-2 pr-24"> {/* Added pt-8 here to push content down */}
         <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
           <Trophy className="h-5 w-5 text-[hsl(var(--logo-yellow))]" />
           Your Progress

@@ -15,6 +15,7 @@ export interface UserProfile {
   last_daily_reward_claim: string | null; // Added last_daily_reward_claim
   last_daily_reward_notification: string | null; // Added last_daily_reward_notification
   last_low_energy_notification: string | null; // Added last_low_energy_notification
+  tasks_completed_today: number; // Added tasks_completed_today
 }
 
 interface SessionContextType {

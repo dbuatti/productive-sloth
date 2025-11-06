@@ -163,7 +163,7 @@ export const useTasks = () => {
       // Invalidate queries to force a refetch/re-evaluation of tasks
       await queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
 
-      // Handle XP gain, Streak update, and Energy deduction on task completion
+      // Handle XP gain, Streak update, Energy deduction, and tasks_completed_today increment on task completion
       if (updatedTask.is_completed && profile && user) {
         const taskBeforeUpdate = tasks.find(t => t.id === updatedTask.id);
         // Only process if the task was NOT completed before this update
@@ -180,6 +180,7 @@ export const useTasks = () => {
           const newXp = profile.xp + updatedTask.metadata_xp;
           const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
           const newEnergy = Math.max(0, profile.energy - updatedTask.energy_cost); // Deduct energy, ensure not negative
+          const newTasksCompletedToday = profile.tasks_completed_today + 1; // Increment tasks completed today
 
           let newDailyStreak = profile.daily_streak;
           let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
@@ -203,12 +204,13 @@ export const useTasks = () => {
               daily_streak: newDailyStreak,
               last_streak_update: today.toISOString(), // Update streak date to today
               energy: newEnergy, // Update energy
+              tasks_completed_today: newTasksCompletedToday, // Update tasks completed today
               updated_at: new Date().toISOString() 
             })
             .eq('id', user.id);
 
           if (profileError) {
-            console.error("Failed to update user profile (XP, streak, energy):", profileError.message);
+            console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today):", profileError.message);
             showError("Failed to update profile stats.");
           } else {
             await refreshProfile(); // Refresh profile data in session context

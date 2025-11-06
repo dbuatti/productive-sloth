@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import DailyStreakCard from '@/components/DailyStreakCard';
 import UserEnergyCard from '@/components/UserEnergyCard';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
-import DailyRewardCard from '@/components/DailyRewardCard';
+import DailyChallengeCard from '@/components/DailyChallengeCard'; // Renamed import
 import ProgressOverviewCard from '@/components/ProgressOverviewCard'; // Import the new combined card
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
@@ -59,7 +59,7 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* New row for the other three cards */}
             <DailyStreakCard />
             <UserEnergyCard />
-            <DailyRewardCard />
+            <DailyChallengeCard /> {/* Using the renamed component */}
           </div>
         </div>
 

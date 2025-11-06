@@ -29,7 +29,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, placeholder = "D
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+          {date ? format(date, "MMM dd") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">

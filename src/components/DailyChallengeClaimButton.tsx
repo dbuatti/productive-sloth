@@ -4,11 +4,7 @@ import { Trophy, Loader2 } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { isToday, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-
-// These constants should ideally be sourced from a central place like SessionProvider
-const DAILY_CHALLENGE_XP = 50;
-const DAILY_CHALLENGE_ENERGY = 20;
-const DAILY_CHALLENGE_TASKS_REQUIRED = 3;
+import { DAILY_CHALLENGE_XP, DAILY_CHALLENGE_ENERGY, DAILY_CHALLENGE_TASKS_REQUIRED } from '@/lib/constants'; // Import constants
 
 const DailyChallengeClaimButton: React.FC = () => {
   const { profile, claimDailyReward } = useSession();

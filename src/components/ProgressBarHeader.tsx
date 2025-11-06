@@ -6,12 +6,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Sparkles, Zap, Trophy, BatteryCharging } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isToday, parseISO } from 'date-fns';
-
-// Constants (should ideally be centralized, but defined here for self-containment)
-const XP_PER_LEVEL = 100;
-const MAX_ENERGY = 100;
-const DAILY_CHALLENGE_TASKS_REQUIRED = 3;
-const RECHARGE_BUTTON_AMOUNT = 25;
+import { 
+  XP_PER_LEVEL, 
+  MAX_ENERGY, 
+  DAILY_CHALLENGE_TASKS_REQUIRED, 
+  RECHARGE_BUTTON_AMOUNT 
+} from '@/lib/constants'; // Import constants
 
 const calculateLevelInfo = (totalXp: number) => {
   const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;

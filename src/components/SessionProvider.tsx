@@ -5,14 +5,15 @@ import { useNavigate } from 'react-router-dom'; // Corrected import syntax
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { dismissToast, showSuccess, showError } from '@/utils/toast'; // Import showSuccess and showError
 import { isToday, parseISO, isPast, addMinutes, startOfDay } from 'date-fns';
-
-const ENERGY_REGEN_AMOUNT = 5; // Amount of energy to regenerate per interval
-const ENERGY_REGEN_INTERVAL_MS = 60 * 1000; // Regenerate every 1 minute (adjust as needed)
-const MAX_ENERGY = 100; // Max energy for the user (should match useTasks)
-const RECHARGE_BUTTON_AMOUNT = 25; // Amount of energy to gain from recharge button
-const LOW_ENERGY_THRESHOLD = 20; // Energy level at which to show a notification
-const LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES = 30; // Cooldown for low energy notifications
-const DAILY_CHALLENGE_TASKS_REQUIRED = 3; // Number of tasks to complete for the daily challenge
+import { 
+  ENERGY_REGEN_AMOUNT, 
+  ENERGY_REGEN_INTERVAL_MS, 
+  MAX_ENERGY, 
+  RECHARGE_BUTTON_AMOUNT, 
+  LOW_ENERGY_THRESHOLD, 
+  LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
+  DAILY_CHALLENGE_TASKS_REQUIRED
+} from '@/lib/constants'; // Import constants
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);

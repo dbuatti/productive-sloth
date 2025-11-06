@@ -34,6 +34,7 @@ import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Bell 
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MAX_ENERGY } from '@/lib/constants'; // Import MAX_ENERGY
 
 interface ProfileSettingsDialogProps {
   open: boolean;
@@ -49,8 +50,6 @@ const profileSchema = z.object({
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
-
-const MAX_ENERGY = 100;
 
 const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onOpenChange }) => {
   const { user, profile, refreshProfile, rechargeEnergy, resetDailyStreak, updateNotificationPreferences } = useSession();

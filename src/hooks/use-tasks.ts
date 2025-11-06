@@ -5,6 +5,7 @@ import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy }
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday } from 'date-fns';
+import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants'; // Import constants
 
 // Helper function to calculate date boundaries for server-side filtering
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
@@ -51,10 +52,6 @@ const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
     return 0; 
   });
 };
-
-// XP and Leveling Constants
-const XP_PER_LEVEL = 100; // XP needed to gain one level
-const MAX_ENERGY = 100; // Max energy for the user
 
 const calculateLevelAndRemainingXp = (totalXp: number) => {
   const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
@@ -225,9 +222,6 @@ export const useTasks = () => {
           // No XP/energy deduction or streak change for uncompletion for now.
           await refreshProfile();
         }
-      } else if (!updatedTask.is_completed) {
-        // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
-        await refreshProfile();
       } else if (updatedTask.is_completed) {
         // If task was already completed, just show success (no XP/streak/energy change)
         showSuccess('Task completed!');

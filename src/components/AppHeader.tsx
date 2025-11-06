@@ -42,7 +42,7 @@ const AppHeader: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
+      <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4"> {/* Content constrained here */}
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto" />
         </div>

@@ -62,6 +62,10 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Add custom logo colors here
+        'logo-yellow': 'hsl(var(--logo-yellow))',
+        'logo-orange': 'hsl(var(--logo-orange))',
+        'logo-green': 'hsl(var(--logo-green))',
       },
       borderRadius: {
         lg: "var(--radius)",

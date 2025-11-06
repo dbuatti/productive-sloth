@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Trash2, Calendar, Pencil } from 'lucide-react';
 import { useTasks } from '@/hooks/use-tasks';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isSameYear } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +44,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     LOW: 'border-green-500',
   };
   
-  const formattedDueDate = format(parseISO(task.due_date), 'MMM dd');
+  const dueDate = parseISO(task.due_date);
+  const now = new Date();
+  
+  const dateFormat = isSameYear(dueDate, now) ? 'MMM dd' : 'MMM dd, yyyy';
+  const formattedDueDate = format(dueDate, dateFormat);
 
   return (
     <div className={cn(
@@ -78,7 +82,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       </div>
 
       {/* Metadata Tag and Quick Actions */}
-      <div className="flex items-center space-x-3 shrink-0">
+      <div className="flex items-center space-x-2 shrink-0">
         {/* Due Date Badge - Now visible on mobile (no 'hidden sm:flex') */}
         <Badge variant="secondary" className="text-xs font-mono flex items-center space-x-1">
           <Calendar className="h-3 w-3" />
@@ -91,13 +95,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         </Badge>
         
         {/* Edit Button */}
-        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" onClick={() => setIsEditDialogOpen(true)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditDialogOpen(true)}>
           <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary/80" />
         </Button>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </AlertDialogTrigger>

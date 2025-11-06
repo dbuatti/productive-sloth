@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import DatePicker from './DatePicker';
+import { parseISO } from 'date-fns';
 
 interface TaskEditDialogProps {
   task: Task;
@@ -24,21 +26,24 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
   const { updateTask } = useTasks();
   const [title, setTitle] = useState(task.title);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [dueDate, setDueDate] = useState<Date | undefined>(parseISO(task.due_date));
 
   useEffect(() => {
     if (open) {
       setTitle(task.title);
       setPriority(task.priority);
+      setDueDate(parseISO(task.due_date));
     }
-  }, [open, task.title, task.priority]);
+  }, [open, task.title, task.priority, task.due_date]);
 
   const handleSave = () => {
-    if (!title.trim()) return;
+    if (!title.trim() || !dueDate) return;
 
     updateTask({
       id: task.id,
       title: title.trim(),
       priority: priority,
+      due_date: dueDate.toISOString(),
     });
     onOpenChange(false);
   };
@@ -79,10 +84,18 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChang
               </SelectContent>
             </Select>
           </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="due-date" className="text-right">
+              Due Date
+            </Label>
+            <div className="col-span-3">
+              <DatePicker date={dueDate} setDate={setDueDate} placeholder="Select Date" />
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!title.trim()}>
+          <Button onClick={handleSave} disabled={!title.trim() || !dueDate}>
             Save changes
           </Button>
         </DialogFooter>

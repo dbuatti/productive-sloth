@@ -91,10 +91,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       <div className="flex items-center space-x-2 shrink-0">
         {/* Due Date Badge - Always visible */}
         <Badge 
-          variant={isOverdue ? "destructive" : "secondary"} 
+          variant="secondary" // Standardize variant to secondary
           className={cn(
             "text-xs font-mono flex items-center space-x-1",
-            isOverdue && "bg-destructive/10 text-destructive border-destructive/50" // Custom styling for overdue badge
+            // Apply custom destructive styling via className when overdue
+            isOverdue && "bg-destructive/10 text-destructive border-destructive/50" 
           )}
         >
           <Calendar className="h-3 w-3" />

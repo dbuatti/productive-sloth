@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { SessionProvider } from "./components/SessionProvider";
 import { ThemeProvider } from "next-themes"; // Import ThemeProvider
+import React from "react"; // Import React for Fragment
 
 const queryClient = new QueryClient();
 
@@ -14,17 +15,19 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <TooltipProvider delayDuration={200}> {/* Added delayDuration */}
-        <Sonner />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <SessionProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </SessionProvider>
-        </BrowserRouter>
+        <React.Fragment> {/* Wrap multiple children in a Fragment */}
+          <Sonner />
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <SessionProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </SessionProvider>
+          </BrowserRouter>
+        </React.Fragment>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

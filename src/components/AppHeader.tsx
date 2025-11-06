@@ -13,8 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
-import ProfileSettingsDialog from './ProfileSettingsDialog'; // Import the new dialog
-import { AvatarImage } from './ui/avatar'; // Import AvatarImage
+import ProfileSettingsDialog from './ProfileSettingsDialog';
+import { AvatarImage } from './ui/avatar';
 
 const AppHeader: React.FC = () => {
   const { user, profile } = useSession();
@@ -37,6 +37,9 @@ const AppHeader: React.FC = () => {
   
   const secondaryIdentifier = userId ? `#${userId.substring(0, 8)}` : userEmail;
 
+  // Determine the name to display next to the avatar
+  const visibleFirstName = profile?.first_name || getDisplayNameFromEmail(userEmail).split(' ')[0];
+
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
@@ -45,7 +48,7 @@ const AppHeader: React.FC = () => {
         </h1>
         
         {user && (
-          <>
+          <div className="flex items-center space-x-2"> {/* Wrapper for avatar and name */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -84,12 +87,16 @@ const AppHeader: React.FC = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {/* Display first name next to avatar, hidden on small screens to prevent clutter */}
+            <span className="text-sm font-medium hidden sm:inline-block">
+              {visibleFirstName}
+            </span>
 
             <ProfileSettingsDialog 
               open={isSettingsDialogOpen} 
               onOpenChange={setIsSettingsDialogOpen} 
             />
-          </>
+          </div>
         )}
       </div>
     </header>

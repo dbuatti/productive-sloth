@@ -16,14 +16,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const { data, error } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, avatar_url')
-      .eq('id', userId)
-      .single();
+      .eq('id', userId); // Removed .single()
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for new users
+    if (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);
-    } else if (data) {
-      setProfile(data as UserProfile);
+    } else if (data && data.length > 0) {
+      setProfile(data[0] as UserProfile); // Take the first profile if found
     } else {
       setProfile(null);
     }

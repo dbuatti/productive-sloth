@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/hooks/use-session';
@@ -10,6 +10,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
@@ -59,13 +62,20 @@ const AppHeader: React.FC = () => {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               
-              {/* Theme Selector */}
+              {/* Theme Selector (Color Scheme) */}
               <ThemeSelector />
               
-              {/* Mode Toggle */}
-              <DropdownMenuItem asChild>
-                <ModeToggle />
-              </DropdownMenuItem>
+              {/* Mode Toggle (Light/Dark) */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 mr-2" />
+                  <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 ml-2" />
+                  <span>Mode</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <ModeToggle />
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive cursor-pointer">

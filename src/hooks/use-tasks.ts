@@ -4,28 +4,40 @@ import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { isToday, isYesterday, parseISO, compareDesc, subDays, isAfter } from 'date-fns';
+import { startOfDay, subDays, formatISO, compareDesc, parseISO } from 'date-fns';
 
-// Helper function to determine if a task falls under the current temporal filter
-const applyTemporalFilter = (task: Task, filter: TemporalFilter): boolean => {
-  const date = parseISO(task.due_date);
+// Helper function to calculate date boundaries for server-side filtering
+const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
   const now = new Date();
+  const startOfToday = startOfDay(now);
   
+  let startDate: Date;
+  let endDate: Date;
+
   switch (filter) {
     case 'TODAY':
-      return isToday(date);
+      startDate = startOfToday;
+      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000); // End of today
+      break;
     case 'YESTERDAY':
-      return isYesterday(date);
+      startDate = subDays(startOfToday, 1);
+      endDate = startOfToday; // Start of today
+      break;
     case 'LAST_7_DAYS':
-      // Check if the date is within the last 7 days (including today)
-      const sevenDaysAgo = subDays(now, 7);
-      return isAfter(date, sevenDaysAgo);
+      startDate = subDays(startOfToday, 7);
+      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000); // End of today
+      break;
     default:
-      return true;
+      return null;
   }
+
+  return {
+    start: formatISO(startDate),
+    end: formatISO(endDate),
+  };
 };
 
-// Helper function to sort tasks
+// Helper function to sort tasks (client-side sorting remains for priority/due date)
 const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
   const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
@@ -48,27 +60,40 @@ export const useTasks = () => {
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ALL');
   const [sortBy, setSortBy] = useState<SortBy>('PRIORITY');
 
-  const fetchTasks = useCallback(async (): Promise<Task[]> => {
+  const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter): Promise<Task[]> => {
     if (!userId) return [];
     
-    const { data, error } = await supabase
+    let query = supabase
       .from('tasks')
       .select('*')
       .eq('user_id', userId);
+
+    const dateRange = getDateRange(currentTemporalFilter);
+
+    if (dateRange) {
+      query = query
+        .gte('due_date', dateRange.start)
+        .lte('due_date', dateRange.end);
+    }
+    
+    // Always order by created_at descending for stable results before client-side sort
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
 
     if (error) throw new Error(error.message);
     return data as Task[];
   }, [userId]);
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
-    queryKey: ['tasks', userId],
-    queryFn: fetchTasks,
+    queryKey: ['tasks', userId, temporalFilter], // Refetch when temporal filter changes
+    queryFn: () => fetchTasks(temporalFilter),
     enabled: !!userId,
   });
 
-  // --- Filtering and Sorting Logic ---
+  // --- Filtering and Sorting Logic (Only status filtering and sorting remain client-side) ---
   const filteredTasks = useMemo(() => {
-    let result = tasks.filter(task => applyTemporalFilter(task, temporalFilter));
+    let result = tasks;
 
     if (statusFilter === 'ACTIVE') {
       result = result.filter(task => !task.is_completed);
@@ -77,9 +102,10 @@ export const useTasks = () => {
     }
 
     return sortTasks(result, sortBy);
-  }, [tasks, temporalFilter, statusFilter, sortBy]);
+  }, [tasks, statusFilter, sortBy]);
 
   // --- CRUD Mutations ---
+  // (Mutations remain unchanged)
 
   const addTaskMutation = useMutation({
     mutationFn: async (newTask: NewTask) => {

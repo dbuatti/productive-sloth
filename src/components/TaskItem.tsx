@@ -53,6 +53,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   // New: Overdue logic
   const isOverdue = !task.is_completed && isPast(dueDate);
 
+  // Styling for completed state
+  const completedClasses = task.is_completed ? "opacity-50 text-muted-foreground" : "";
+
   return (
     <div className={cn(
       "group flex items-center justify-between p-3 border-b last:border-b-0 transition-colors",
@@ -94,8 +97,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           variant="secondary" // Standardize variant to secondary
           className={cn(
             "text-xs font-mono flex items-center space-x-1",
-            // Apply custom destructive styling via className when overdue
-            isOverdue && "bg-destructive/10 text-destructive border-destructive/50" 
+            isOverdue && "bg-destructive/10 text-destructive border-destructive/50",
+            completedClasses // Apply dimming if completed
           )}
         >
           <Calendar className="h-3 w-3" />
@@ -103,7 +106,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         </Badge>
         
         {/* XP Badge - Hidden on mobile */}
-        <Badge variant="secondary" className="text-xs font-mono hidden sm:inline-flex">
+        <Badge 
+          variant="secondary" 
+          className={cn(
+            "text-xs font-mono hidden sm:inline-flex",
+            completedClasses // Apply dimming if completed
+          )}
+        >
           +{task.metadata_xp} XP
         </Badge>
         

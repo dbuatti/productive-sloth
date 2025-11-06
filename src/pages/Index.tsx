@@ -62,6 +62,8 @@ const Index = () => {
           {/* 2. Task Creation Component */}
           <TaskCreationForm />
 
+          <Separator />
+
           {/* 3. Control Bar */}
           <TaskControlBar 
             statusFilter={statusFilter} 

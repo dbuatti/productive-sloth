@@ -35,6 +35,10 @@ const ModeToggle: React.FC = () => {
     }
     localStorage.setItem("mode", newMode);
     setMode(newMode);
+
+    // DEBUG: Log the applied mode and current classes
+    console.log(`ModeToggle: Applied mode: ${newMode}`);
+    console.log(`ModeToggle: document.documentElement classes: ${root.className}`);
   }, []);
 
   React.useEffect(() => {

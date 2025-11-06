@@ -2,9 +2,10 @@ import { Task } from '@/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Calendar } from 'lucide-react';
 import { useTasks } from '@/hooks/use-tasks';
 import { cn } from '@/lib/utils';
+import { format, parseISO } from 'date-fns';
 
 interface TaskItemProps {
   task: Task;
@@ -30,6 +31,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     MEDIUM: 'border-yellow-500',
     LOW: 'border-green-500',
   };
+  
+  const formattedDueDate = format(parseISO(task.due_date), 'MMM dd');
 
   return (
     <div className={cn(
@@ -64,6 +67,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
       {/* Metadata Tag and Quick Actions */}
       <div className="flex items-center space-x-3 shrink-0">
+        {/* Due Date Badge */}
+        <Badge variant="secondary" className="text-xs font-mono hidden sm:flex items-center space-x-1">
+          <Calendar className="h-3 w-3" />
+          <span>{formattedDueDate}</span>
+        </Badge>
+        
+        {/* XP Badge */}
         <Badge variant="secondary" className="text-xs font-mono hidden sm:inline-flex">
           +{task.metadata_xp} XP
         </Badge>

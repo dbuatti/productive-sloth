@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO, compareDesc, parseISO } from 'date-fns';
+import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday } from 'date-fns';
 
 // Helper function to calculate date boundaries for server-side filtering
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
@@ -164,7 +164,7 @@ export const useTasks = () => {
         return oldTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
       });
 
-      // Handle XP gain on task completion
+      // Handle XP gain and Streak update on task completion
       if (updatedTask.is_completed && profile && user) {
         const taskBeforeUpdate = tasks.find(t => t.id === updatedTask.id);
         // Only award XP if the task was NOT completed before this update
@@ -172,29 +172,49 @@ export const useTasks = () => {
           const newXp = profile.xp + updatedTask.metadata_xp;
           const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
 
+          let newDailyStreak = profile.daily_streak;
+          let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
+          const now = new Date();
+          const today = startOfDay(now);
+
+          if (!newLastStreakUpdate || isYesterday(newLastStreakUpdate)) {
+            // If no previous update or last update was yesterday, increment streak
+            newDailyStreak += 1;
+          } else if (!isToday(newLastStreakUpdate)) {
+            // If last update was not today or yesterday, reset streak
+            newDailyStreak = 1;
+          }
+          // If isToday(newLastStreakUpdate), streak doesn't change for today
+
           const { error: profileError } = await supabase
             .from('profiles')
-            .update({ xp: newXp, level: newLevel, updated_at: new Date().toISOString() })
+            .update({ 
+              xp: newXp, 
+              level: newLevel, 
+              daily_streak: newDailyStreak,
+              last_streak_update: today.toISOString(), // Update streak date to today
+              updated_at: new Date().toISOString() 
+            })
             .eq('id', user.id);
 
           if (profileError) {
-            console.error("Failed to update user XP:", profileError.message);
-            showError("Failed to update XP.");
+            console.error("Failed to update user XP or streak:", profileError.message);
+            showError("Failed to update XP or streak.");
           } else {
             await refreshProfile(); // Refresh profile data in session context
             showSuccess(`Task completed! +${updatedTask.metadata_xp} XP`);
           }
         } else if (!updatedTask.is_completed && profile && user) {
-          // If task is uncompleted, potentially deduct XP (optional, for now just refresh)
-          // For simplicity, we won't deduct XP on uncompletion for now.
-          // If you want to deduct, you'd need to store original XP or calculate.
-          // For now, just refresh profile to ensure consistency if other updates happened.
+          // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
+          // No XP deduction or streak change for uncompletion for now.
           await refreshProfile();
         }
       } else if (!updatedTask.is_completed) {
         // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
-        // No XP deduction for now.
         await refreshProfile();
+      } else if (updatedTask.is_completed) {
+        // If task was already completed, just show success (no XP/streak change)
+        showSuccess('Task completed!');
       }
     },
     onError: (e) => {

@@ -9,6 +9,8 @@ export interface UserProfile {
   avatar_url: string | null;
   xp: number; // Added XP
   level: number; // Added Level
+  daily_streak: number; // Added daily streak
+  last_streak_update: string | null; // Added last streak update timestamp
 }
 
 interface SessionContextType {

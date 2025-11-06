@@ -10,7 +10,8 @@ import { useSession } from '@/hooks/use-session';
 import AppHeader from '@/components/AppHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import UserXPCard from '@/components/UserXPCard'; // Import the new XP card
+import UserXPCard from '@/components/UserXPCard';
+import DailyStreakCard from '@/components/DailyStreakCard'; // Import the new streak card
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -50,8 +51,11 @@ const Index = () => {
       <AppHeader />
       <main className="container mx-auto p-4 max-w-3xl space-y-4">
         
-        {/* User XP Card */}
-        <UserXPCard />
+        {/* User XP Card and Daily Streak Card */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <UserXPCard />
+          <DailyStreakCard />
+        </div>
 
         {/* Input & Controls Layer */}
         <Card className="p-4 space-y-4">

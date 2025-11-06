@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import TaskEditDialog from './TaskEditDialog';
 import { useState } from 'react';
+import XPGainAnimation from './XPGainAnimation'; // Import the new XP animation component
 
 interface TaskItemProps {
   task: Task;
@@ -27,11 +28,19 @@ interface TaskItemProps {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const { updateTask, deleteTask } = useTasks();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [showXPGain, setShowXPGain] = useState(false); // State to control XP animation
 
   const handleToggleCompletion = (checked: boolean | 'indeterminate') => {
     if (typeof checked === 'boolean') {
       updateTask({ id: task.id, is_completed: checked });
+      if (checked && !task.is_completed) { // Only show animation if task was just completed
+        setShowXPGain(true);
+      }
     }
+  };
+
+  const handleXPGainAnimationEnd = () => {
+    setShowXPGain(false);
   };
 
   const handleDelete = () => {
@@ -58,7 +67,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   return (
     <div className={cn(
-      "group flex items-center justify-between p-3 border-b last:border-b-0 transition-colors",
+      "group relative flex items-center justify-between p-3 border-b last:border-b-0 transition-colors", // Added relative for XP animation positioning
       task.is_completed ? "bg-gray-50 dark:bg-gray-800/50 opacity-70" : "hover:bg-accent/50",
       // Highlight overdue tasks
       isOverdue && "bg-red-50/50 dark:bg-red-900/20 hover:bg-red-100/50 dark:hover:bg-red-900/30",
@@ -156,6 +165,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         open={isEditDialogOpen} 
         onOpenChange={setIsEditDialogOpen} 
       />
+
+      {showXPGain && (
+        <XPGainAnimation xpAmount={task.metadata_xp} onAnimationEnd={handleXPGainAnimationEnd} />
+      )}
     </div>
   );
 };

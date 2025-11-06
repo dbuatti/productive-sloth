@@ -22,15 +22,15 @@ const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatus
       
       {/* Status Filters (Refactored to Tabs) */}
       <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatusFilter)} className="w-full sm:w-auto">
-        {/* Simplified TabsList styling: using standard bg-muted */}
         <TabsList className="grid w-full grid-cols-3 h-9 p-1 bg-muted">
           {statusOptions.map(option => (
             <TabsTrigger 
               key={option.value}
               value={option.value}
               className={cn(
-                "text-sm px-3 py-1 h-auto font-medium", // Added font-medium for emphasis
-                "data-[state=active]:bg-background data-[state=active]:text-foreground" // Removed data-[state=active]:shadow-sm
+                "h-8 px-4 py-2 text-sm font-medium rounded-sm", // Consistent height, padding, and rounded corners
+                "text-muted-foreground hover:bg-muted/50", // Improved hover for inactive tabs
+                "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" // Distinct active state with primary color and shadow
               )}
             >
               {option.label}

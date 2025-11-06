@@ -10,13 +10,13 @@ interface TemporalFilterTabsProps {
 const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, setFilter }) => {
   return (
     <Tabs value={currentFilter} onValueChange={(value) => setFilter(value as TemporalFilter)} className="w-full">
-      {/* Standardized TabsList styling: h-9, bg-muted, rounded-md */}
       <TabsList className="grid w-full grid-cols-3 h-9 p-1 bg-muted rounded-md">
         <TabsTrigger 
           value="TODAY" 
           className={cn(
-            "data-[state=active]:bg-background data-[state=active]:text-foreground", // Removed data-[state=active]:shadow-sm
-            "text-sm font-medium" // Added font-medium for emphasis
+            "h-8 px-4 py-2 text-sm font-medium rounded-sm", // Consistent height, padding, and rounded corners
+            "text-muted-foreground hover:bg-muted/50", // Improved hover for inactive tabs
+            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" // Distinct active state with primary color and shadow
           )}
         >
           Today
@@ -24,8 +24,9 @@ const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, 
         <TabsTrigger 
           value="YESTERDAY"
           className={cn(
-            "data-[state=active]:bg-background data-[state=active]:text-foreground", // Removed data-[state=active]:shadow-sm
-            "text-sm font-medium" // Added font-medium for emphasis
+            "h-8 px-4 py-2 text-sm font-medium rounded-sm",
+            "text-muted-foreground hover:bg-muted/50",
+            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
           )}
         >
           Yesterday
@@ -33,8 +34,9 @@ const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, 
         <TabsTrigger 
           value="LAST_7_DAYS"
           className={cn(
-            "data-[state=active]:bg-background data-[state=active]:text-foreground", // Removed data-[state=active]:shadow-sm
-            "text-sm font-medium" // Added font-medium for emphasis
+            "h-8 px-4 py-2 text-sm font-medium rounded-sm",
+            "text-muted-foreground hover:bg-muted/50",
+            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
           )}
         >
           Last 7 Days

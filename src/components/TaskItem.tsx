@@ -2,7 +2,7 @@ import { Task } from '@/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Calendar } from 'lucide-react';
+import { Trash2, Calendar, Pencil } from 'lucide-react';
 import { useTasks } from '@/hooks/use-tasks';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
@@ -17,6 +17,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import TaskEditDialog from './TaskEditDialog';
+import { useState } from 'react';
 
 interface TaskItemProps {
   task: Task;
@@ -24,6 +26,7 @@ interface TaskItemProps {
 
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const { updateTask, deleteTask } = useTasks();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const handleToggleCompletion = (checked: boolean | 'indeterminate') => {
     if (typeof checked === 'boolean') {
@@ -75,7 +78,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       </div>
 
       {/* Metadata Tag and Quick Actions */}
-      <div className="flex items-center space-x-3 shrink-0">
+      <div className="flex items-center space-x-1 shrink-0">
         {/* Due Date Badge - Now visible on mobile (no 'hidden sm:flex') */}
         <Badge variant="secondary" className="text-xs font-mono flex items-center space-x-1">
           <Calendar className="h-3 w-3" />
@@ -87,6 +90,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           +{task.metadata_xp} XP
         </Badge>
         
+        {/* Edit Button */}
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditDialogOpen(true)}>
+          <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+        </Button>
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -109,6 +117,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      
+      <TaskEditDialog 
+        task={task} 
+        open={isEditDialogOpen} 
+        onOpenChange={setIsEditDialogOpen} 
+      />
     </div>
   );
 };

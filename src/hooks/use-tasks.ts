@@ -203,6 +203,9 @@ export const useTasks = () => {
           } else {
             await refreshProfile(); // Refresh profile data in session context
             showSuccess(`Task completed! +${updatedTask.metadata_xp} XP`);
+            if (newLevel > profile.level) {
+              showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
+            }
           }
         } else if (!updatedTask.is_completed && profile && user) {
           // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.

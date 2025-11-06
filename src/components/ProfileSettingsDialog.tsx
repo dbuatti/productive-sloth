@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/hooks/use-session';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
+import { Separator } from '@/components/ui/separator';
 
 interface ProfileSettingsDialogProps {
   open: boolean;
@@ -119,6 +120,21 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                 </FormItem>
               )}
             />
+
+            {profile && (
+              <>
+                <Separator className="my-2" />
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">XP</Label>
+                  <Input className="col-span-3" value={profile.xp} readOnly />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Level</Label>
+                  <Input className="col-span-3" value={profile.level} readOnly />
+                </div>
+              </>
+            )}
+
             <DialogFooter>
               <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting || !isValid}>

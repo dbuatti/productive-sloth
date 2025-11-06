@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import TaskEditDialog from './TaskEditDialog';
 import { useState } from 'react';
-import XPGainAnimation from './XPGainAnimation'; // Import the new XP animation component
+import XPGainAnimation from './XPGainAnimation';
+import ConfettiEffect from './ConfettiEffect'; // Import ConfettiEffect
 
 interface TaskItemProps {
   task: Task;
@@ -28,19 +29,25 @@ interface TaskItemProps {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const { updateTask, deleteTask } = useTasks();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [showXPGain, setShowXPGain] = useState(false); // State to control XP animation
+  const [showXPGain, setShowXPGain] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false); // State for confetti
 
   const handleToggleCompletion = (checked: boolean | 'indeterminate') => {
     if (typeof checked === 'boolean') {
       updateTask({ id: task.id, is_completed: checked });
       if (checked && !task.is_completed) { // Only show animation if task was just completed
         setShowXPGain(true);
+        setShowConfetti(true); // Trigger confetti
       }
     }
   };
 
   const handleXPGainAnimationEnd = () => {
     setShowXPGain(false);
+  };
+
+  const handleConfettiComplete = () => {
+    setShowConfetti(false); // Reset confetti state after it's done
   };
 
   const handleDelete = () => {
@@ -169,6 +176,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       {showXPGain && (
         <XPGainAnimation xpAmount={task.metadata_xp} onAnimationEnd={handleXPGainAnimationEnd} />
       )}
+      {showConfetti && <ConfettiEffect show={showConfetti} onComplete={handleConfettiComplete} />}
     </div>
   );
 };

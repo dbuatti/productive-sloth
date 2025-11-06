@@ -46,14 +46,14 @@ const ProgressBarHeader: React.FC = () => {
       <div className="container mx-auto max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-3 px-4">
         {/* XP Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Sparkles className="h-4 w-4 text-[hsl(var(--logo-yellow))]" />
+          <Sparkles className="h-4 w-4 text-logo-yellow" /> {/* Changed to text-logo-yellow */}
           <Tooltip>
             <TooltipTrigger asChild>
               {/* Directly wrapping CustomProgress with TooltipTrigger */}
               <CustomProgress 
                 value={xpProgress} 
-                className="h-2 flex-grow bg-[hsl(var(--logo-yellow))]/20" 
-                indicatorClassName="bg-[hsl(var(--logo-yellow))]" 
+                className="h-2 flex-grow bg-logo-yellow/20" // Changed to bg-logo-yellow/20
+                indicatorClassName="bg-logo-yellow" // Changed to bg-logo-yellow
               />
             </TooltipTrigger>
             <TooltipContent>
@@ -68,14 +68,14 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Energy Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Zap className="h-4 w-4 text-[hsl(var(--logo-yellow))]" />
+          <Zap className="h-4 w-4 text-logo-yellow" /> {/* Changed to text-logo-yellow */}
           <Tooltip>
             <TooltipTrigger asChild>
               {/* Directly wrapping CustomProgress with TooltipTrigger */}
               <CustomProgress 
                 value={energyPercentage} 
-                className="h-2 flex-grow bg-[hsl(var(--logo-yellow))]/20" 
-                indicatorClassName="bg-[hsl(var(--logo-yellow))]" 
+                className="h-2 flex-grow bg-logo-yellow/20" // Changed to bg-logo-yellow/20
+                indicatorClassName="bg-logo-yellow" // Changed to bg-logo-yellow
               />
             </TooltipTrigger>
             <TooltipContent>
@@ -99,14 +99,14 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Daily Challenge Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Trophy className="h-4 w-4 text-[hsl(var(--accent))]" />
+          <Trophy className="h-4 w-4 text-accent" /> {/* Changed to text-accent */}
           <Tooltip>
             <TooltipTrigger asChild>
               {/* Directly wrapping CustomProgress with TooltipTrigger */}
               <CustomProgress 
                 value={dailyChallengeProgress} 
-                className="h-2 flex-grow bg-[hsl(var(--accent))]/20" 
-                indicatorClassName="bg-[hsl(var(--accent))]" 
+                className="h-2 flex-grow bg-accent/20" // Changed to bg-accent/20
+                indicatorClassName="bg-accent" // Changed to bg-accent
               />
             </TooltipTrigger>
             <TooltipContent>

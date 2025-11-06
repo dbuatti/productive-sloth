@@ -56,7 +56,7 @@ const AppHeader: React.FC = () => {
             {profile && profile.daily_streak > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 text-sm font-semibold text-[hsl(var(--logo-orange))]">
+                  <div className="flex items-center gap-1 text-sm font-semibold text-logo-orange"> {/* Changed to text-logo-orange */}
                     <Flame className="h-4 w-4" />
                     <span>{profile.daily_streak}</span>
                   </div>

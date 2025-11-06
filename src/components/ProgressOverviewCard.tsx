@@ -52,7 +52,7 @@ const ProgressOverviewCard: React.FC = () => {
 
       <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pt-8 pb-2 pr-24"> {/* Added pt-8 here to push content down */}
         <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-          <Trophy className="h-5 w-5 text-[hsl(var(--logo-yellow))]" />
+          <Trophy className="h-5 w-5 text-logo-yellow" /> {/* Changed to text-logo-yellow */}
           Your Progress
         </CardTitle>
         {/* Removed Level display from here */}
@@ -78,7 +78,7 @@ const ProgressOverviewCard: React.FC = () => {
               {profile.tasks_completed_today} Tasks
             </p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Sparkles className="h-4 w-4 text-[hsl(var(--logo-yellow))]" />
+              <Sparkles className="h-4 w-4 text-logo-yellow" /> {/* Changed to text-logo-yellow */}
               Earned <span className="font-bold text-foreground font-mono">+{xpGainedToday} XP</span> today!
             </p>
           </div>

@@ -43,13 +43,15 @@ const AppHeader: React.FC = () => {
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
-        <h1 className="text-xl font-bold tracking-tight">
-          Daily Task Manager
-        </h1>
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto" /> {/* Logo image */}
+          <h1 className="text-xl font-bold tracking-tight hidden sm:block"> {/* Hide text on small screens */}
+            Daily Task Manager
+          </h1>
+        </div>
         
         {user && (
-          <div className="flex items-center space-x-2"> {/* Wrapper for avatar and name */}
-            {/* Display first name next to avatar, hidden on small screens to prevent clutter */}
+          <div className="flex items-center space-x-2">
             <span className="text-sm font-medium hidden sm:inline-block">
               {visibleFirstName}
             </span>
@@ -93,11 +95,10 @@ const AppHeader: React.FC = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            {/* Direct Settings Button - Always visible for easy access */}
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-8 w-8 sm:hidden" // Show only on small screens if dropdown is primary
+              className="h-8 w-8 sm:hidden"
               onClick={() => setIsSettingsDialogOpen(true)}
             >
               <Settings className="h-4 w-4" />

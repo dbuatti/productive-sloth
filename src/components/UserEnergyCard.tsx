@@ -23,21 +23,21 @@ const UserEnergyCard: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-yellow-400"> {/* Larger title */}
-          <Zap className="h-5 w-5" /> {/* Larger icon */}
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-yellow))]"> {/* Using logo-yellow */}
+          <Zap className="h-5 w-5" />
           Your Energy
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="text-5xl font-extrabold text-yellow-400 mb-2 leading-none"> {/* Much larger energy display */}
+        <div className="text-5xl font-extrabold text-[hsl(var(--logo-yellow))] mb-2 leading-none"> {/* Using logo-yellow */}
           {profile.energy} / {MAX_ENERGY}
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <CustomProgress 
               value={energyPercentage} 
-              className="h-3 bg-yellow-400/20" 
-              indicatorClassName="bg-yellow-400" 
+              className="h-3 bg-[hsl(var(--logo-yellow))]/20" 
+              indicatorClassName="bg-[hsl(var(--logo-yellow))]" 
             />
           </TooltipTrigger>
           <TooltipContent>

@@ -64,13 +64,13 @@ const DailyRewardCard: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-purple-500"> {/* Larger title */}
-          <Gift className="h-5 w-5" /> {/* Larger icon */}
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--accent))]"> {/* Using accent pink */}
+          <Gift className="h-5 w-5" />
           Daily Reward
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="text-5xl font-extrabold text-purple-500 mb-2 leading-none"> {/* Much larger status */}
+        <div className="text-5xl font-extrabold text-[hsl(var(--accent))] mb-2 leading-none"> {/* Using accent pink */}
           {canClaim ? 'Ready!' : 'Claimed'}
         </div>
         <p className="text-sm text-muted-foreground mb-3">
@@ -81,7 +81,7 @@ const DailyRewardCard: React.FC = () => {
             <Button 
               onClick={handleClaim} 
               disabled={!canClaim} 
-              className="w-full flex items-center gap-2 h-10 text-base font-semibold" // Larger button
+              className="w-full flex items-center gap-2 h-10 text-base font-semibold"
             >
               {canClaim ? (
                 <>

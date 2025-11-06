@@ -43,19 +43,19 @@ const ProgressOverviewCard: React.FC = () => {
   return (
     <Card className="w-full"> {/* Removed col-span classes from here, will be handled by parent grid */}
       <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-yellow-500"> {/* Larger title */}
-          <Trophy className="h-5 w-5" /> {/* Larger icon */}
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-yellow))]"> {/* Using logo-yellow */}
+          <Trophy className="h-5 w-5" />
           Your Progress
         </CardTitle>
-        <div className="text-5xl font-extrabold flex items-center gap-2 text-primary"> {/* Much larger level text */}
-          <Sparkles className="h-8 w-8 animate-pulse" /> {/* Larger, animated icon */}
+        <div className="text-5xl font-extrabold flex items-center gap-2 text-primary">
+          <Sparkles className="h-8 w-8 animate-pulse" />
           Level {level}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6"> {/* Increased gap */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* XP Progress Section */}
-          <div className="p-4 rounded-md bg-muted/20"> {/* Subtle background for section */}
+          <div className="p-4 rounded-md bg-muted/20">
             <div className="text-base text-muted-foreground mb-2">
               <span className="font-bold text-foreground text-xl">{xpTowardsNextLevel}</span> / {xpNeededForNextLevel} XP
             </div>
@@ -77,16 +77,16 @@ const ProgressOverviewCard: React.FC = () => {
           </div>
 
           {/* Today's Summary Section */}
-          <div className="border-t sm:border-t-0 sm:border-l border-border pt-6 sm:pt-4 sm:pl-6 p-4 rounded-md bg-muted/20"> {/* Subtle background, adjusted padding */}
-            <div className="text-lg font-bold flex items-center gap-2 mb-2 text-blue-500"> {/* Larger title */}
-              <CheckCircle className="h-5 w-5" /> {/* Larger icon */}
+          <div className="border-t sm:border-t-0 sm:border-l border-border pt-6 sm:pt-4 sm:pl-6 p-4 rounded-md bg-muted/20">
+            <div className="text-lg font-bold flex items-center gap-2 mb-2 text-primary"> {/* Using primary blue */}
+              <CheckCircle className="h-5 w-5" />
               Today's Summary
             </div>
-            <p className="text-4xl font-extrabold text-blue-500 mb-2"> {/* Much larger task count */}
+            <p className="text-4xl font-extrabold text-primary mb-2">
               {completedTasksToday} Tasks
             </p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Sparkles className="h-4 w-4 text-yellow-500" /> {/* Larger icon */}
+              <Sparkles className="h-4 w-4 text-[hsl(var(--logo-yellow))]" /> {/* Using logo-yellow */}
               Earned <span className="font-bold text-foreground">+{xpGainedToday} XP</span> today!
             </p>
           </div>

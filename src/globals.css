@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* Modern Light Theme Palette - Enhanced for richness and vibrancy */
+    /* Logo-Inspired Light Theme Palette */
     --background: 0 0% 98%; /* Very light grey, almost white */
     --foreground: 220 10% 15%; /* Dark charcoal for text */
 
@@ -14,7 +14,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 10% 15%;
 
-    --primary: 215 90% 40%; /* A deeper, more vibrant blue */
+    --primary: 195 90% 45%; /* Vibrant Blue/Cyan from logo */
     --primary-foreground: 0 0% 100%; /* White text on primary */
 
     --secondary: 210 25% 92%; /* Slightly darker, more distinct light blue-grey secondary */
@@ -23,30 +23,34 @@
     --muted: 210 18% 88%; /* Muted light grey, slightly deeper */
     --muted-foreground: 210 10% 50%; /* Medium grey for muted text */
 
-    --accent: 210 25% 92%; /* Same as secondary for accent */
-    --accent-foreground: 210 10% 30%;
+    --accent: 330 80% 60%; /* Vibrant Pink/Magenta from logo */
+    --accent-foreground: 0 0% 100%; /* White text on accent */
 
     --destructive: 0 80% 55%; /* Clearer, slightly deeper red for destructive actions */
     --destructive-foreground: 0 0% 100%;
 
     --border: 210 10% 80%; /* Slightly darker light grey border */
     --input: 210 10% 80%; /* Slightly darker light grey input border */
-    --ring: 215 90% 40%; /* Primary blue ring */
+    --ring: 195 90% 45%; /* Primary blue ring */
 
     --radius: 0.5rem;
+
+    /* Custom colors for specific elements, derived from logo */
+    --logo-yellow: 45 95% 55%; /* Sunny Yellow from logo */
+    --logo-orange: 25 90% 55%; /* A vibrant orange to complement yellow/pink */
 
     /* Sidebar variables (keeping consistent with new palette) */
     --sidebar-background: 210 10% 93%; /* Slightly deeper sidebar background */
     --sidebar-foreground: 220 10% 15%;
-    --sidebar-primary: 215 90% 35%; /* Deeper primary for sidebar */
+    --sidebar-primary: 195 90% 35%; /* Deeper primary for sidebar */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 18% 88%;
     --sidebar-accent-foreground: 210 10% 30%;
     --sidebar-border: 210 10% 75%;
-    --sidebar-ring: 215 90% 40%;
+    --sidebar-ring: 195 90% 45%;
   }
 
-  /* Modern Dark Theme Palette - Enhanced for richness and vibrancy */
+  /* Logo-Inspired Dark Theme Palette */
   .dark {
     --background: 220 10% 8%; /* Even deeper dark grey */
     --foreground: 210 10% 92%; /* Lighter grey for text */
@@ -57,7 +61,7 @@
     --popover: 220 10% 12%;
     --popover-foreground: 210 10% 92%;
 
-    --primary: 215 90% 60%; /* Brighter, more vibrant blue for dark mode primary */
+    --primary: 195 90% 65%; /* Brighter Blue/Cyan for dark mode primary */
     --primary-foreground: 220 10% 15%; /* Dark text on primary */
 
     --secondary: 220 10% 20%; /* Muted dark blue-grey secondary, slightly deeper */
@@ -66,25 +70,29 @@
     --muted: 220 10% 18%; /* Muted dark grey, slightly deeper */
     --muted-foreground: 210 10% 65%; /* Medium grey for muted text */
 
-    --accent: 220 10% 20%; /* Same as secondary for accent */
-    --accent-foreground: 210 10% 85%;
+    --accent: 330 80% 70%; /* Brighter Pink/Magenta for dark mode accent */
+    --accent-foreground: 220 10% 15%;
 
     --destructive: 0 75% 50%; /* Clearer red for destructive actions */
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 10% 22%; /* Dark grey border, slightly deeper */
     --input: 220 10% 22%; /* Dark grey input border, slightly deeper */
-    --ring: 215 90% 60%; /* Primary blue ring */
+    --ring: 195 90% 65%; /* Primary blue ring */
+
+    /* Custom colors for specific elements, derived from logo */
+    --logo-yellow: 45 95% 65%; /* Brighter Sunny Yellow for dark mode */
+    --logo-orange: 25 90% 65%; /* Brighter vibrant orange */
 
     /* Sidebar variables (keeping consistent with new palette) */
     --sidebar-background: 220 10% 15%; /* Deeper sidebar background */
     --sidebar-foreground: 210 10% 92%;
-    --sidebar-primary: 215 90% 55%; /* Brighter primary for sidebar */
+    --sidebar-primary: 195 90% 55%; /* Brighter primary for sidebar */
     --sidebar-primary-foreground: 220 10% 15%;
     --sidebar-accent: 220 10% 18%;
     --sidebar-accent-foreground: 210 10% 85%;
     --sidebar-border: 220 10% 20%;
-    --sidebar-ring: 215 90% 60%;
+    --sidebar-ring: 195 90% 65%;
   }
 }
 

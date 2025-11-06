@@ -14,13 +14,13 @@ const DailyStreakCard: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-orange-500"> {/* Larger title */}
-          <Flame className="h-5 w-5" /> {/* Larger icon */}
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-orange))]"> {/* Using logo-orange */}
+          <Flame className="h-5 w-5" />
           Daily Streak
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center pt-0"> {/* Centered content */}
-        <div className="text-6xl font-extrabold text-orange-500 leading-none"> {/* Much larger streak count */}
+      <CardContent className="flex flex-col items-center justify-center pt-0">
+        <div className="text-6xl font-extrabold text-[hsl(var(--logo-orange))] leading-none"> {/* Using logo-orange */}
           {profile.daily_streak}
         </div>
         <p className="text-lg font-semibold text-muted-foreground mt-1">

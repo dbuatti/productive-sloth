@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -6,16 +6,37 @@ import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
 import { Plus } from 'lucide-react';
 import DatePicker from './DatePicker';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+
+// 1. Define Schema
+const TaskCreationSchema = z.object({
+  title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
+  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
+  dueDate: z.date({ required_error: "Due date is required." }),
+});
+
+type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
 
 const TaskCreationForm: React.FC = () => {
   const { addTask } = useTasks();
-  const [title, setTitle] = useState('');
-  const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
-  const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
+  
+  // 2. Initialize useForm
+  const form = useForm<TaskCreationFormValues>({
+    resolver: zodResolver(TaskCreationSchema),
+    defaultValues: {
+      title: '',
+      priority: 'MEDIUM',
+      dueDate: new Date(), // Default to today
+    },
+    mode: 'onChange', // Enable validation on change
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !dueDate) return;
+  // 3. Handle Submission
+  const onSubmit = (values: TaskCreationFormValues) => {
+    const { title, priority, dueDate } = values;
 
     const newTask: NewTask = {
       title: title.trim(),
@@ -25,39 +46,89 @@ const TaskCreationForm: React.FC = () => {
     };
 
     addTask(newTask);
-    setTitle('');
-    setPriority('MEDIUM');
-    // IMPORTANT: Retain dueDate state for faster batch entry
+    
+    // Reset title, but retain the priority and dueDate for batch entry
+    form.reset({
+      title: '',
+      priority: values.priority, 
+      dueDate: values.dueDate, 
+    });
   };
 
+  const isSubmitting = form.formState.isSubmitting;
+  const isValid = form.formState.isValid;
+
   return (
-    // Removed Card wrapper, now handled by parent Index.tsx
-    <div className="p-0">
-      {/* Use flex-col on mobile, then switch to flex-row on sm: */}
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
-        <Input
-          type="text"
-          placeholder="Add a new task..."
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="flex-grow min-w-[150px]"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col sm:flex-row gap-2">
+        
+        {/* Title Input */}
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem className="flex-grow min-w-[150px]">
+              <FormControl>
+                <Input
+                  placeholder="Add a new task..."
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-        <Select value={priority} onValueChange={(value: TaskPriority) => setPriority(value)}>
-          <SelectTrigger className="w-full sm:w-[120px] shrink-0">
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="HIGH">High</SelectItem>
-            <SelectItem value="MEDIUM">Medium</SelectItem>
-            <SelectItem value="LOW">Low</SelectItem>
-          </SelectContent>
-        </Select>
-        <DatePicker date={dueDate} setDate={setDueDate} />
-        <Button type="submit" disabled={!title.trim() || !dueDate} className="shrink-0 w-full sm:w-auto">
+
+        {/* Priority Select */}
+        <FormField
+          control={form.control}
+          name="priority"
+          render={({ field }) => (
+            <FormItem className="w-full sm:w-[120px] shrink-0">
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="LOW">Low</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Due Date Picker */}
+        <FormField
+          control={form.control}
+          name="dueDate"
+          render={({ field }) => (
+            <FormItem className="shrink-0">
+              <FormControl>
+                <DatePicker 
+                  date={field.value} 
+                  setDate={field.onChange} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Submit Button */}
+        <Button 
+          type="submit" 
+          disabled={isSubmitting || !isValid} 
+          className="shrink-0 w-full sm:w-auto"
+        >
           <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Add</span>
         </Button>
       </form>
-    </div>
+    </Form>
   );
 };
 

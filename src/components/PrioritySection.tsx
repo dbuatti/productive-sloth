@@ -21,23 +21,22 @@ const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) =>
     <Accordion type="single" collapsible defaultValue={priority}>
       <AccordionItem 
         value={priority} 
-        // Added border and shadow for better visual grouping
-        className="rounded-lg bg-card border shadow-sm overflow-hidden"
+        className="rounded-lg bg-card border shadow-sm overflow-hidden mb-4" // Added mb-4 for spacing
       >
         <AccordionTrigger className={cn(
-          "px-4 py-3 font-semibold hover:no-underline bg-muted/30 hover:bg-muted/50 rounded-t-lg", // Added background for header
+          "px-4 py-3 font-semibold hover:no-underline bg-muted/30 hover:bg-muted/50 rounded-t-lg",
           priorityClasses[priority]
         )}>
           {headerText}
         </AccordionTrigger>
-        <AccordionContent className="p-0">
-          <div className="divide-y">
+        <AccordionContent className="p-4"> {/* Increased padding for content */}
+          <div className="space-y-3"> {/* Used space-y-3 for consistent spacing between TaskItems */}
             {tasks.length > 0 ? (
               tasks.map(task => (
                 <TaskItem key={task.id} task={task} />
               ))
             ) : (
-              <p className="p-4 text-center text-muted-foreground text-sm">
+              <p className="text-center text-muted-foreground text-sm">
                 No {priority} priority tasks found for this filter.
               </p>
             )}

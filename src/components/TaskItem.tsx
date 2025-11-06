@@ -2,7 +2,7 @@ import { Task } from '@/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Calendar, Pencil, Zap } from 'lucide-react'; // Import Zap icon for energy
+import { Trash2, Calendar, Pencil, Zap } from 'lucide-react';
 import { useTasks } from '@/hooks/use-tasks';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isSameYear, isPast } from 'date-fns';
@@ -20,7 +20,7 @@ import {
 import TaskEditDialog from './TaskEditDialog';
 import { useState } from 'react';
 import XPGainAnimation from './XPGainAnimation';
-import ConfettiEffect from './ConfettiEffect'; // Import ConfettiEffect
+import ConfettiEffect from './ConfettiEffect';
 
 interface TaskItemProps {
   task: Task;
@@ -30,14 +30,14 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const { updateTask, deleteTask } = useTasks();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [showXPGain, setShowXPGain] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false); // State for confetti
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const handleToggleCompletion = (checked: boolean | 'indeterminate') => {
     if (typeof checked === 'boolean') {
       updateTask({ id: task.id, is_completed: checked });
-      if (checked && !task.is_completed) { // Only show animation if task was just completed
+      if (checked && !task.is_completed) {
         setShowXPGain(true);
-        setShowConfetti(true); // Trigger confetti
+        setShowConfetti(true);
       }
     }
   };
@@ -47,7 +47,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   };
 
   const handleConfettiComplete = () => {
-    setShowConfetti(false); // Reset confetti state after it's done
+    setShowConfetti(false);
   };
 
   const handleDelete = () => {
@@ -66,23 +66,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const dateFormat = isSameYear(dueDate, now) ? 'MMM dd' : 'MMM dd, yyyy';
   const formattedDueDate = format(dueDate, dateFormat);
   
-  // New: Overdue logic
   const isOverdue = !task.is_completed && isPast(dueDate);
 
-  // Styling for completed state
   const completedClasses = task.is_completed ? "opacity-50 text-muted-foreground" : "";
 
   return (
     <div className={cn(
-      "group relative flex items-center justify-between p-3 border-b last:border-b-0 transition-colors", // Added relative for XP animation positioning
-      task.is_completed ? "bg-secondary/30" : "hover:bg-accent/50", // Use secondary/30 for completed background
-      // Highlight overdue tasks
-      isOverdue && "bg-destructive/5 dark:bg-destructive/10 hover:bg-destructive/10 dark:hover:bg-destructive/15", // More subtle overdue highlight
-      // Prominent left border for priority
+      "group relative flex items-center justify-between p-4 rounded-lg shadow-sm mb-3 transition-all duration-200 ease-in-out", // Card-like styling
+      task.is_completed ? "bg-secondary/30" : "bg-card hover:bg-accent/50 group-hover:shadow-md group-hover:scale-[1.005]", // Hover effect
+      isOverdue && "bg-destructive/5 dark:bg-destructive/10 hover:bg-destructive/10 dark:hover:bg-destructive/15",
       `border-l-4 ${priorityClasses[task.priority]}`
     )}>
       
-      {/* Completion Toggle and Title */}
       <div className="flex items-center space-x-4 flex-grow min-w-0">
         <Checkbox
           id={`task-${task.id}`}
@@ -90,7 +85,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           onCheckedChange={handleToggleCompletion}
           className={cn(
             "h-5 w-5 rounded-full border-2",
-            // Checkbox border is now standard, relying on the left bar for priority signal
             task.is_completed ? "border-primary" : "border-input"
           )}
         />
@@ -99,58 +93,51 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           className={cn(
             "text-base font-medium leading-none truncate",
             task.is_completed ? "line-through text-muted-foreground" : "text-foreground",
-            isOverdue && !task.is_completed && "text-destructive dark:text-red-400" // Highlight overdue title
+            isOverdue && !task.is_completed && "text-destructive dark:text-red-400"
           )}
         >
           {task.title}
         </label>
       </div>
 
-      {/* Metadata Tag and Quick Actions */}
       <div className="flex items-center space-x-2 shrink-0">
-        {/* Due Date Badge - Always visible */}
         <Badge 
-          variant="secondary" // Standardize variant to secondary
+          variant="secondary"
           className={cn(
             "text-xs font-mono flex items-center space-x-1",
             isOverdue && "bg-destructive/10 text-destructive border-destructive/50",
-            completedClasses // Apply dimming if completed
+            completedClasses
           )}
         >
           <Calendar className="h-3 w-3" />
           <span>{formattedDueDate}</span>
         </Badge>
         
-        {/* XP Badge - Hidden on mobile */}
         <Badge 
           variant="secondary" 
           className={cn(
             "text-xs font-mono hidden sm:inline-flex",
-            completedClasses // Apply dimming if completed
+            completedClasses
           )}
         >
           +{task.metadata_xp} XP
         </Badge>
 
-        {/* Energy Cost Badge - Always visible */}
         <Badge 
           variant="secondary" 
           className={cn(
             "text-xs font-mono flex items-center space-x-1",
-            completedClasses // Apply dimming if completed
+            completedClasses
           )}
         >
           <Zap className="h-3 w-3 text-yellow-500" />
           <span>-{task.energy_cost} Energy</span>
         </Badge>
         
-        {/* Quick Actions Container: Hidden on desktop by default, visible on hover */}
         <div className={cn(
           "flex items-center space-x-2 transition-opacity",
-          // Hide on desktop (sm+) unless hovered, always visible on mobile
           "sm:opacity-0 sm:group-hover:opacity-100"
         )}>
-          {/* Edit Button */}
           <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" onClick={() => setIsEditDialogOpen(true)}>
             <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary/80" />
           </Button>

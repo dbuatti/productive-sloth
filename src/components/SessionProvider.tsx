@@ -15,6 +15,10 @@ import {
   // DAILY_CHALLENGE_TASKS_REQUIRED // Removed static constant
 } from '@/lib/constants'; // Import constants
 
+// Retry constants
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 200;
+
 // Helper to call the Edge Function using invoke
 const generateDailyChallenge = async () => {
   // Note: supabase.functions.invoke automatically handles the Authorization header
@@ -40,18 +44,32 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const navigate = useNavigate();
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, daily_challenge_target, enable_daily_challenge_notifications, enable_low_energy_notifications') // Select new dynamic target column
-      .eq('id', userId); // Removed .single()
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, daily_challenge_target, enable_daily_challenge_notifications, enable_low_energy_notifications') // Select new dynamic target column
+          .eq('id', userId);
 
-    if (error) {
-      console.error('Error fetching profile:', error);
-      setProfile(null);
-    } else if (data && data.length > 0) {
-      setProfile(data[0] as UserProfile); // Take the first profile if found
-    } else {
-      setProfile(null);
+        if (error) {
+          throw new Error(error.message);
+        } else if (data && data.length > 0) {
+          setProfile(data[0] as UserProfile);
+          return; // Success
+        } else {
+          setProfile(null);
+          return; // No profile found, but no error
+        }
+      } catch (error) {
+        console.error(`Error fetching profile (Attempt ${attempt}/${MAX_RETRIES}):`, error);
+        if (attempt === MAX_RETRIES) {
+          setProfile(null);
+          // Do not re-throw here, let the outer loadSessionAndProfile handle the final failure state
+          return; 
+        }
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      }
     }
   }, []);
 
@@ -237,7 +255,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(initialSession?.user ?? null);
 
         if (initialSession?.user) {
-          // 1. Perform initial profile fetch
+          // 1. Perform initial profile fetch (now with retry logic)
           await fetchProfile(initialSession.user.id);
           
           // 2. Introduce a delay before calling the Edge Function
@@ -247,8 +265,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (initialSession.access_token) {
             try {
               await generateDailyChallenge();
-              // NOTE: Removing the immediate refreshProfile call here to reduce network load
-              // The next render cycle or the energy regen interval will eventually pick up changes.
+              // No immediate profile refresh here
             } catch (e) {
               console.error("Failed to generate initial daily challenge:", e);
             }

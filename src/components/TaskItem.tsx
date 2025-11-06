@@ -44,7 +44,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     LOW: 'border-green-500',
   };
   
-  // Use concise format for task list view
   const formattedDueDate = format(parseISO(task.due_date), 'MMM dd');
 
   return (
@@ -92,13 +91,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         </Badge>
         
         {/* Edit Button */}
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditDialogOpen(true)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" onClick={() => setIsEditDialogOpen(true)}>
           <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary/80" />
         </Button>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80">
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </AlertDialogTrigger>

@@ -5,6 +5,6 @@ export const LOW_ENERGY_THRESHOLD = 20;
 export const LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES = 30;
 export const DAILY_CHALLENGE_XP = 50;
 export const DAILY_CHALLENGE_ENERGY = 20;
-export const DAILY_CHALLENGE_TASKS_REQUIRED = 3;
+// export const DAILY_CHALLENGE_TASKS_REQUIRED = 3; // Removed, now dynamic via profile.daily_challenge_target
 export const ENERGY_REGEN_AMOUNT = 5;
 export const ENERGY_REGEN_INTERVAL_MS = 60 * 1000; // 1 minute

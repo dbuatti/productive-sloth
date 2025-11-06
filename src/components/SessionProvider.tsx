@@ -4,12 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom'; // Corrected import syntax
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { dismissToast, showSuccess, showError } from '@/utils/toast'; // Import showSuccess and showError
-import { isToday, parseISO } from 'date-fns';
+import { isToday, parseISO, isPast, addMinutes } from 'date-fns';
 
 const ENERGY_REGEN_AMOUNT = 5; // Amount of energy to regenerate per interval
 const ENERGY_REGEN_INTERVAL_MS = 60 * 1000; // Regenerate every 1 minute (adjust as needed)
 const MAX_ENERGY = 100; // Max energy for the user (should match useTasks)
 const RECHARGE_BUTTON_AMOUNT = 25; // Amount of energy to gain from recharge button
+const LOW_ENERGY_THRESHOLD = 20; // Energy level at which to show a notification
+const LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES = 30; // Cooldown for low energy notifications
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -23,7 +25,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim') // Select new energy column
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification') // Select new notification columns
       .eq('id', userId); // Removed .single()
 
     if (error) {
@@ -248,6 +250,44 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       if (regenInterval) clearInterval(regenInterval);
     };
+  }, [user, profile, refreshProfile]);
+
+  // Notification Effects
+  useEffect(() => {
+    if (!user || !profile) return;
+
+    const now = new Date();
+
+    // Daily Reward Notification
+    const lastRewardClaim = profile.last_daily_reward_claim ? parseISO(profile.last_daily_reward_claim) : null;
+    const lastRewardNotification = profile.last_daily_reward_notification ? parseISO(profile.last_daily_reward_notification) : null;
+
+    const canNotifyDailyReward = 
+      (!lastRewardClaim || !isToday(lastRewardClaim)) && // Reward not claimed today
+      (!lastRewardNotification || !isToday(lastRewardNotification)); // Not notified today
+
+    if (canNotifyDailyReward) {
+      showSuccess("Your daily reward is ready to claim! 🎉");
+      supabase.from('profiles').update({ last_daily_reward_notification: now.toISOString() }).eq('id', user.id).then(({ error }) => {
+        if (error) console.error("Failed to update last_daily_reward_notification:", error.message);
+        else refreshProfile(); // Refresh to update local profile state
+      });
+    }
+
+    // Low Energy Notification
+    const lastLowEnergyNotification = profile.last_low_energy_notification ? parseISO(profile.last_low_energy_notification) : null;
+    const canNotifyLowEnergy = 
+      profile.energy <= LOW_ENERGY_THRESHOLD && 
+      (!lastLowEnergyNotification || isPast(addMinutes(lastLowEnergyNotification, LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES)));
+
+    if (canNotifyLowEnergy) {
+      showError(`Energy is low (${profile.energy}%)! Recharge to keep completing tasks. ⚡`);
+      supabase.from('profiles').update({ last_low_energy_notification: now.toISOString() }).eq('id', user.id).then(({ error }) => {
+        if (error) console.error("Failed to update last_low_energy_notification:", error.message);
+        else refreshProfile(); // Refresh to update local profile state
+      });
+    }
+
   }, [user, profile, refreshProfile]);
 
 

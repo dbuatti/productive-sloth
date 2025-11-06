@@ -13,6 +13,8 @@ export interface UserProfile {
   last_streak_update: string | null; // Added last streak update timestamp
   energy: number; // Added energy
   last_daily_reward_claim: string | null; // Added last_daily_reward_claim
+  last_daily_reward_notification: string | null; // Added last_daily_reward_notification
+  last_low_energy_notification: string | null; // Added last_low_energy_notification
 }
 
 interface SessionContextType {

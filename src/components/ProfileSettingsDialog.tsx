@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from './ThemeToggle';
 import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Bell } from 'lucide-react';
@@ -237,7 +238,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel> {/* Corrected closing tag */}
+                      <FormLabel>Last Name</FormLabel>
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>

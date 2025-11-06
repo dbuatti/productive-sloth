@@ -9,9 +9,8 @@ import { isToday, parseISO } from 'date-fns';
 import { 
   XP_PER_LEVEL, 
   MAX_ENERGY, 
-  DAILY_CHALLENGE_TASKS_REQUIRED, 
   RECHARGE_BUTTON_AMOUNT 
-} from '@/lib/constants'; // Import constants
+} from '@/lib/constants'; // Removed static constant
 import DailyChallengeClaimButton from './DailyChallengeClaimButton'; // Import the claim button
 
 const calculateLevelInfo = (totalXp: number) => {
@@ -39,9 +38,10 @@ const ProgressBarHeader: React.FC = () => {
   const isEnergyFull = profile.energy >= MAX_ENERGY;
 
   // Daily Challenge Progress
+  const dailyChallengeTarget = profile.daily_challenge_target; // Use dynamic target
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
-  const dailyChallengeProgress = (profile.tasks_completed_today / DAILY_CHALLENGE_TASKS_REQUIRED) * 100;
-  const canClaimDailyChallenge = profile.tasks_completed_today >= DAILY_CHALLENGE_TASKS_REQUIRED && !hasClaimedDailyChallengeToday;
+  const dailyChallengeProgress = (profile.tasks_completed_today / dailyChallengeTarget) * 100;
+  const canClaimDailyChallenge = profile.tasks_completed_today >= dailyChallengeTarget && !hasClaimedDailyChallengeToday;
 
   return (
     <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2">
@@ -115,7 +115,7 @@ const ProgressBarHeader: React.FC = () => {
                   {hasClaimedDailyChallengeToday ? (
                     <p>Daily Challenge Claimed!</p>
                   ) : (
-                    <p>{profile.tasks_completed_today} / {DAILY_CHALLENGE_TASKS_REQUIRED} tasks for daily challenge</p>
+                    <p>{profile.tasks_completed_today} / {dailyChallengeTarget} tasks for daily challenge</p>
                   )}
                 </TooltipContent>
               </Tooltip>

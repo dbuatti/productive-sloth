@@ -55,23 +55,11 @@ const ProgressOverviewCard: React.FC = () => {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* XP Progress Section */}
+          {/* XP Progress Section (Removed from here, now in ProgressBarHeader) */}
           <div className="p-5 rounded-md bg-background border border-dashed border-border/50"> {/* Increased padding, added dashed border */}
             <div className="text-base text-muted-foreground mb-2">
               <span className="font-bold text-foreground text-xl font-mono">{xpTowardsNextLevel}</span> / <span className="font-mono">{xpNeededForNextLevel}</span> XP {/* Added font-mono */}
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <CustomProgress 
-                  value={progressPercentage} 
-                  className="h-3 bg-primary/20" 
-                  indicatorClassName="bg-primary" 
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{xpTowardsNextLevel} XP towards Level {level + 1}</p>
-              </TooltipContent>
-            </Tooltip>
             <p className="text-sm text-muted-foreground mt-2">
               <span className="font-semibold text-foreground font-mono">{xpNeededForNextLevel - xpTowardsNextLevel}</span> XP to next level! {/* Added font-mono */}
             </p>

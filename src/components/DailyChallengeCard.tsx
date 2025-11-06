@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from '@/hooks/use-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trophy, CheckCircle2, Loader2 } from 'lucide-react'; // Changed Gift to Trophy
+import { Trophy, CheckCircle2, Loader2 } from 'lucide-react';
 import { formatDistanceToNowStrict, isToday, isPast, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { CustomProgress } from './CustomProgress'; // Import CustomProgress
@@ -68,7 +68,6 @@ const DailyChallengeCard: React.FC = () => {
     }
   };
 
-  const progressPercentage = (profile.tasks_completed_today / DAILY_CHALLENGE_TASKS_REQUIRED) * 100;
   const isChallengeComplete = profile.tasks_completed_today >= DAILY_CHALLENGE_TASKS_REQUIRED;
   const hasClaimedToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
@@ -88,23 +87,10 @@ const DailyChallengeCard: React.FC = () => {
           Complete <span className="font-bold text-foreground font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED} tasks</span> to earn <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_XP} XP</span> and <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_ENERGY} Energy</span>! {/* Added font-mono */}
         </p>
         
-        <div className="mb-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <CustomProgress 
-                value={progressPercentage} 
-                className="h-3 bg-[hsl(var(--accent))]/20" 
-                indicatorClassName="bg-[hsl(var(--accent))]" 
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{profile.tasks_completed_today} / {DAILY_CHALLENGE_TASKS_REQUIRED} tasks completed</p>
-            </TooltipContent>
-          </Tooltip>
-          <p className="text-xs text-muted-foreground mt-2">
-            <span className="font-mono">{profile.tasks_completed_today}</span> / <span className="font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED}</span> tasks completed today. {/* Added font-mono */}
-          </p>
-        </div>
+        {/* Progress bar removed from here, now in ProgressBarHeader */}
+        <p className="text-xs text-muted-foreground mt-2 mb-3">
+          <span className="font-mono">{profile.tasks_completed_today}</span> / <span className="font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED}</span> tasks completed today. {/* Added font-mono */}
+        </p>
 
         <Tooltip>
           <TooltipTrigger asChild>

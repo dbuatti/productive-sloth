@@ -8,6 +8,7 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Loader2 } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import AppHeader from '@/components/AppHeader';
+import ProgressBarHeader from '@/components/ProgressBarHeader'; // Import new component
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
@@ -49,6 +50,7 @@ const Index = () => {
   return (
     <>
       <AppHeader />
+      <ProgressBarHeader /> {/* Render the new progress bar header */}
       <main className="container mx-auto p-4 max-w-3xl space-y-6">
         
         {/* User Stats Dashboard - More balanced and less dense grid */}
@@ -59,7 +61,6 @@ const Index = () => {
           {/* Right Column: Daily Challenge (prominent) */}
           <div className="grid grid-cols-1 gap-4">
             <DailyChallengeCard />
-            {/* UserEnergyCard was here, now removed */}
           </div>
         </div>
 

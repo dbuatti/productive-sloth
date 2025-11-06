@@ -66,7 +66,7 @@ const calculateLevelAndRemainingXp = (totalXp: number) => {
 
 export const useTasks = () => {
   const queryClient = useQueryClient();
-  const { user, profile, refreshProfile } = useSession(); // Get profile and refreshProfile
+  const { user, profile, refreshProfile, triggerLevelUp } = useSession(); // Get profile, refreshProfile, and triggerLevelUp
   const userId = user?.id;
 
   const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
@@ -215,6 +215,7 @@ export const useTasks = () => {
             showSuccess(`Task completed! +${updatedTask.metadata_xp} XP, -${updatedTask.energy_cost} Energy`);
             if (newLevel > profile.level) {
               showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
+              triggerLevelUp(newLevel); // Trigger the level up celebration
             }
           }
         } else if (!updatedTask.is_completed && profile && user) {

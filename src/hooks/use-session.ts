@@ -21,6 +21,10 @@ interface SessionContextType {
   isLoading: boolean;
   refreshProfile: () => Promise<void>; // Add a function to refresh profile
   rechargeEnergy: (amount?: number) => Promise<void>; // Added rechargeEnergy function
+  showLevelUp: boolean; // Added state for level up celebration
+  levelUpLevel: number; // Added state for the level achieved
+  triggerLevelUp: (level: number) => void; // Added function to trigger level up
+  resetLevelUp: () => void; // Added function to reset level up state
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

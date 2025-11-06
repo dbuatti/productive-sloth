@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import UserXPCard from '@/components/UserXPCard';
 import DailyStreakCard from '@/components/DailyStreakCard';
 import UserEnergyCard from '@/components/UserEnergyCard';
+import LevelUpCelebration from '@/components/LevelUpCelebration'; // Import LevelUpCelebration
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -95,6 +96,7 @@ const Index = () => {
         
         <MadeWithDyad />
       </main>
+      <LevelUpCelebration /> {/* Render the LevelUpCelebration component */}
     </>
   );
 };

@@ -15,6 +15,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Keep true initially
+  const [showLevelUp, setShowLevelUp] = useState(false); // New state for level up celebration
+  const [levelUpLevel, setLevelUpLevel] = useState(0); // New state for the level achieved
   const navigate = useNavigate();
 
   const fetchProfile = useCallback(async (userId: string) => {
@@ -64,6 +66,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       showSuccess(`Energy recharged! +${amount} Energy`);
     }
   }, [user, profile, refreshProfile]);
+
+  const triggerLevelUp = useCallback((level: number) => {
+    setShowLevelUp(true);
+    setLevelUpLevel(level);
+  }, []);
+
+  const resetLevelUp = useCallback(() => {
+    setShowLevelUp(false);
+    setLevelUpLevel(0);
+  }, []);
 
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
@@ -173,7 +185,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 
   return (
-    <SessionContext.Provider value={{ session, user, profile, isLoading, refreshProfile, rechargeEnergy }}>
+    <SessionContext.Provider value={{ 
+      session, 
+      user, 
+      profile, 
+      isLoading, 
+      refreshProfile, 
+      rechargeEnergy,
+      showLevelUp,
+      levelUpLevel,
+      triggerLevelUp,
+      resetLevelUp
+    }}>
       {children}
     </SessionContext.Provider>
   );

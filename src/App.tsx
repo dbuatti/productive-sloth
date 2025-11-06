@@ -6,25 +6,33 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { SessionProvider } from "./components/SessionProvider";
-import { ThemeProvider } from "next-themes"; // Import ThemeProvider
-import React from "react"; // Import React for Fragment
+import { ThemeProvider } from "next-themes";
+import React from "react";
+import MainLayout from "./components/MainLayout"; // Import MainLayout
+import Dashboard from "./pages/Dashboard"; // Pre-emptively import Dashboard
+import TasksPage from "./pages/TasksPage"; // Pre-emptively import TasksPage
+import AchievementsPage from "./pages/AchievementsPage"; // Pre-emptively import AchievementsPage
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <TooltipProvider delayDuration={200}> {/* Added delayDuration */}
-        <React.Fragment> {/* Wrap multiple children in a Fragment */}
+      <TooltipProvider delayDuration={200}>
+        <React.Fragment>
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <SessionProvider>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <MainLayout> {/* Wrap routes with MainLayout */}
+                <Routes>
+                  <Route path="/" element={<Dashboard />} /> {/* Changed default to Dashboard */}
+                  <Route path="/tasks" element={<TasksPage />} /> {/* New route for tasks */}
+                  <Route path="/achievements" element={<AchievementsPage />} /> {/* New route for achievements */}
+                  <Route path="/login" element={<Login />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </MainLayout>
             </SessionProvider>
           </BrowserRouter>
         </React.Fragment>

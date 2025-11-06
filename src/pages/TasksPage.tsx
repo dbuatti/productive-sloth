@@ -1,20 +1,18 @@
+import React from 'react';
 import { useTasks } from '@/hooks/use-tasks';
 import { TaskPriority } from '@/types';
 import TemporalFilterTabs from '@/components/TemporalFilterTabs';
 import TaskCreationForm from '@/components/TaskCreationForm';
 import TaskControlBar from '@/components/TaskControlBar';
 import PrioritySection from '@/components/PrioritySection';
-import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Loader2, ClipboardList } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
-import LevelUpCelebration from '@/components/LevelUpCelebration';
-import ProgressOverviewCard from '@/components/ProgressOverviewCard';
 import { Accordion } from '@/components/ui/accordion';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
-const Dashboard = () => {
+const TasksPage: React.FC = () => {
   const { isLoading: isSessionLoading, user } = useSession();
   const { 
     tasks, 
@@ -48,23 +46,14 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
-      {/* User Stats Dashboard */}
-      <div className="grid grid-cols-1 gap-4 animate-slide-in-up">
-        <ProgressOverviewCard />
-      </div>
+      <h1 className="text-3xl font-bold text-foreground animate-slide-in-up">My Tasks</h1>
 
-      {/* Input & Controls Layer - Now wrapped in a Card */}
       <Card className="p-4 space-y-4 animate-slide-in-up">
-        {/* 1. Temporal Filter Tabs */}
         <TemporalFilterTabs 
           currentFilter={temporalFilter} 
           setFilter={setTemporalFilter} 
         />
-
-        {/* 2. Task Creation Component */}
         <TaskCreationForm />
-
-        {/* 3. Control Bar */}
         <TaskControlBar 
           statusFilter={statusFilter} 
           setStatusFilter={setStatusFilter} 
@@ -73,7 +62,6 @@ const Dashboard = () => {
         />
       </Card>
 
-      {/* Task List Layer (Priority Sections) or Empty State */}
       {hasTasks ? (
         <Accordion type="multiple" className="w-full space-y-4 animate-slide-in-up">
           {PRIORITY_ORDER.map(priority => (
@@ -91,11 +79,8 @@ const Dashboard = () => {
           <p>Start by adding a new task above to get organized.</p>
         </Card>
       )}
-      
-      <MadeWithDyad />
-      <LevelUpCelebration />
     </div>
   );
 };
 
-export default Dashboard;
+export default TasksPage;

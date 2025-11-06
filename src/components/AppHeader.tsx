@@ -18,7 +18,11 @@ import { AvatarImage } from './ui/avatar';
 import DailyChallengeClaimButton from './DailyChallengeClaimButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-const AppHeader: React.FC = () => {
+interface AppHeaderProps {
+  mobileNav?: React.ReactNode; // Add mobileNav prop
+}
+
+const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobileNav prop
   const { user, profile } = useSession();
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
 
@@ -44,6 +48,7 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
+          {mobileNav} {/* Render mobileNav here */}
           <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
         </div>
         

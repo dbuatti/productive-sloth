@@ -105,7 +105,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           variant="secondary"
           className={cn(
             "text-xs font-mono flex items-center space-x-1",
-            isOverdue && "bg-destructive/10 text-destructive border-destructive/50",
+            isOverdue && "bg-destructive text-destructive-foreground border-destructive", // More prominent overdue styling
             completedClasses
           )}
         >
@@ -114,9 +114,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         </Badge>
         
         <Badge 
-          variant="secondary" 
           className={cn(
-            "text-xs font-mono hidden sm:inline-flex",
+            "text-xs font-mono hidden sm:inline-flex bg-[hsl(var(--logo-yellow))] text-black", // Custom XP badge
             completedClasses
           )}
         >
@@ -124,13 +123,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         </Badge>
 
         <Badge 
-          variant="secondary" 
           className={cn(
-            "text-xs font-mono flex items-center space-x-1",
+            "text-xs font-mono flex items-center space-x-1 bg-primary text-primary-foreground", // Custom Energy badge
             completedClasses
           )}
         >
-          <Zap className="h-3 w-3 text-yellow-500" />
+          <Zap className="h-3 w-3" />
           <span>-{task.energy_cost} Energy</span>
         </Badge>
         

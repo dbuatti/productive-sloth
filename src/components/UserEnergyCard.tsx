@@ -22,12 +22,12 @@ const UserEnergyCard: React.FC = () => {
           <Zap className="h-4 w-4 text-yellow-400" />
           Your Energy
         </CardTitle>
-        <div className="text-2xl font-bold">
+        <div className="text-3xl font-bold text-yellow-400"> {/* Larger text, yellow color */}
           {profile.energy} / {MAX_ENERGY}
         </div>
       </CardHeader>
       <CardContent>
-        <Progress value={energyPercentage} className="h-2" /> {/* Removed indicatorColor prop */}
+        <Progress value={energyPercentage} className="h-2" />
         <p className="text-xs text-muted-foreground mt-1">
           Energy regenerates over time (feature coming soon!).
         </p>

@@ -49,7 +49,7 @@ const Index = () => {
   return (
     <>
       <AppHeader />
-      <main className="container mx-auto p-6 max-w-4xl space-y-6"> {/* Increased max-w and padding */}
+      <main className="container mx-auto p-4 max-w-3xl space-y-6"> {/* Adjusted max-w to 3xl and padding to p-4 */}
         
         {/* User Stats Cards - More balanced grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

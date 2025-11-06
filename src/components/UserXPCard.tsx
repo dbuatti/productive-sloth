@@ -32,8 +32,8 @@ const UserXPCard: React.FC = () => {
           <Trophy className="h-4 w-4 text-yellow-500" />
           Your Progress
         </CardTitle>
-        <div className="text-2xl font-bold flex items-center gap-1">
-          <Sparkles className="h-5 w-5 text-primary" />
+        <div className="text-3xl font-bold flex items-center gap-1 text-primary"> {/* Larger text, primary color */}
+          <Sparkles className="h-6 w-6" /> {/* Larger icon */}
           Level {level}
         </div>
       </CardHeader>

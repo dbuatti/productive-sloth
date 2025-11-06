@@ -17,7 +17,7 @@ const DailyStreakCard: React.FC = () => {
           <Flame className="h-4 w-4 text-orange-500" />
           Daily Streak
         </CardTitle>
-        <div className="text-2xl font-bold">
+        <div className="text-3xl font-bold text-orange-500"> {/* Larger text, orange color */}
           {profile.daily_streak} Day{profile.daily_streak !== 1 ? 's' : ''}
         </div>
       </CardHeader>

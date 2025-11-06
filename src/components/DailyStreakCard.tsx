@@ -12,23 +12,23 @@ const DailyStreakCard: React.FC = () => {
   }
 
   return (
-    <Card className="w-full">
+    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Flame className="h-4 w-4 text-muted-foreground" />
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-orange))]">
+          <Flame className="h-5 w-5" />
           Daily Streak
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center pt-0 p-4 border rounded-md">
-        <div className="text-5xl font-extrabold text-primary leading-none">
+      <CardContent className="flex flex-col items-center justify-center pt-0 p-5 border border-dashed border-border/50 rounded-b-lg"> {/* Added padding and dashed border */}
+        <div className="text-7xl font-extrabold font-mono text-[hsl(var(--logo-orange))] leading-none"> {/* Increased size, added font-mono */}
           {profile.daily_streak}
         </div>
-        <p className="text-base font-semibold text-muted-foreground mt-1">
+        <p className="text-lg font-semibold text-muted-foreground mt-1">
           Day{profile.daily_streak !== 1 ? 's' : ''}
         </p>
         <Tooltip>
           <TooltipTrigger asChild>
-            <p className="text-xs text-muted-foreground mt-2 cursor-help">
+            <p className="text-xs text-muted-foreground mt-3 cursor-help">
               Keep completing tasks to extend your streak!
             </p>
           </TooltipTrigger>

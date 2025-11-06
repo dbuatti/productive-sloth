@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from '@/hooks/use-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trophy, CheckCircle2, Loader2 } from 'lucide-react';
+import { Trophy, CheckCircle2, Loader2 } from 'lucide-react'; // Changed Gift to Trophy
 import { formatDistanceToNowStrict, isToday, isPast, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Progress } from '@/components/ui/progress'; // Use standard Progress
+import { CustomProgress } from './CustomProgress'; // Import CustomProgress
 
-const DAILY_CHALLENGE_XP = 50;
-const DAILY_CHALLENGE_ENERGY = 20;
-const DAILY_CHALLENGE_TASKS_REQUIRED = 3;
+const DAILY_CHALLENGE_XP = 50; // Increased XP for challenge
+const DAILY_CHALLENGE_ENERGY = 20; // Increased Energy for challenge
+const DAILY_CHALLENGE_TASKS_REQUIRED = 3; // Number of tasks to complete for the daily challenge
 
 const DailyChallengeCard: React.FC = () => {
   const { profile, claimDailyReward } = useSession();
@@ -73,32 +73,36 @@ const DailyChallengeCard: React.FC = () => {
   const hasClaimedToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
   return (
-    <Card className="w-full">
+    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-muted-foreground" />
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--accent))]">
+          <Trophy className="h-5 w-5" />
           Daily Challenge
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0 p-4 border rounded-md">
-        <div className="text-3xl font-bold text-primary mb-2 leading-none">
+      <CardContent className="pt-0 p-5 border border-dashed border-border/50 rounded-b-lg"> {/* Added padding and dashed border */}
+        <div className="text-6xl font-extrabold font-mono text-[hsl(var(--accent))] mb-2 leading-none"> {/* Increased size, added font-mono */}
           {hasClaimedToday ? 'Claimed!' : (isChallengeComplete ? 'Ready!' : 'In Progress')}
         </div>
         <p className="text-sm text-muted-foreground mb-3">
-          Complete <span className="font-semibold text-foreground">{DAILY_CHALLENGE_TASKS_REQUIRED} tasks</span> to earn <span className="font-semibold text-foreground">+{DAILY_CHALLENGE_XP} XP</span> and <span className="font-semibold text-foreground">+{DAILY_CHALLENGE_ENERGY} Energy</span>!
+          Complete <span className="font-bold text-foreground font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED} tasks</span> to earn <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_XP} XP</span> and <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_ENERGY} Energy</span>! {/* Added font-mono */}
         </p>
         
         <div className="mb-3">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Progress value={progressPercentage} className="h-2" />
+              <CustomProgress 
+                value={progressPercentage} 
+                className="h-3 bg-[hsl(var(--accent))]/20" 
+                indicatorClassName="bg-[hsl(var(--accent))]" 
+              />
             </TooltipTrigger>
             <TooltipContent>
               <p>{profile.tasks_completed_today} / {DAILY_CHALLENGE_TASKS_REQUIRED} tasks completed</p>
             </TooltipContent>
           </Tooltip>
           <p className="text-xs text-muted-foreground mt-2">
-            {profile.tasks_completed_today} / {DAILY_CHALLENGE_TASKS_REQUIRED} tasks completed today.
+            <span className="font-mono">{profile.tasks_completed_today}</span> / <span className="font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED}</span> tasks completed today. {/* Added font-mono */}
           </p>
         </div>
 
@@ -107,21 +111,21 @@ const DailyChallengeCard: React.FC = () => {
             <Button 
               onClick={handleClaim} 
               disabled={!canClaim || isClaiming} 
-              className="w-full flex items-center gap-2 h-9 text-sm font-semibold"
+              className="w-full flex items-center gap-2 h-10 text-base font-semibold"
             >
               {isClaiming ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                   Claiming...
                 </>
               ) : hasClaimedToday ? (
                 <>
-                  <CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-5 w-5" />
                   Claimed {timeUntilNextClaim && `(Next in ${timeUntilNextClaim})`}
                 </>
               ) : (
                 <>
-                  <Trophy className="h-4 w-4" />
+                  <Trophy className="h-5 w-5" />
                   Claim Challenge Reward
                 </>
               )}

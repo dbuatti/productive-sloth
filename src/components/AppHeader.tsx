@@ -22,8 +22,11 @@ const AppHeader: React.FC = () => {
   };
 
   const userEmail = user?.email || 'User';
+  const userId = user?.id;
   const userInitials = userEmail.slice(0, 2).toUpperCase();
   const displayName = getDisplayNameFromEmail(userEmail);
+  
+  const secondaryIdentifier = userId ? `#${userId.substring(0, 8)}` : userEmail;
 
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -48,7 +51,7 @@ const AppHeader: React.FC = () => {
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{displayName}</p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {userEmail}
+                    {secondaryIdentifier}
                   </p>
                 </div>
               </DropdownMenuLabel>

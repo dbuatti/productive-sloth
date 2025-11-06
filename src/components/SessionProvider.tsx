@@ -237,17 +237,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(initialSession?.user ?? null);
 
         if (initialSession?.user) {
-          // Perform initial profile fetch
+          // 1. Perform initial profile fetch
           await fetchProfile(initialSession.user.id);
           
-          // Introduce a larger delay before calling the Edge Function
+          // 2. Introduce a delay before calling the Edge Function
           await new Promise(resolve => setTimeout(resolve, 500)); 
 
-          // Call Edge Function on initial load, only if session is still valid
+          // 3. Call Edge Function on initial load
           if (initialSession.access_token) {
             try {
               await generateDailyChallenge();
-              await fetchProfile(initialSession.user.id); // Refresh again to get the potentially new target/tasks_completed_today=0
+              // NOTE: Removing the immediate refreshProfile call here to reduce network load
+              // The next render cycle or the energy regen interval will eventually pick up changes.
             } catch (e) {
               console.error("Failed to generate initial daily challenge:", e);
             }

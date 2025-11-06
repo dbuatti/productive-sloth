@@ -52,35 +52,6 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
-  /* --- THEME DEFINITIONS --- */
-
-  /* Ocean Blue Theme */
-  .theme-ocean {
-    --primary: 217.2 91.2% 59.8%; /* Bright Blue */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --ring: 217.2 91.2% 59.8%;
-  }
-
-  /* Forest Green Theme */
-  .theme-forest {
-    --primary: 142.1 76.2% 36.3%; /* Muted Green */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 142.1 76.2% 90%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --ring: 142.1 76.2% 36.3%;
-  }
-
-  /* Sunset Orange Theme */
-  .theme-sunset {
-    --primary: 24.6 95% 53.1%; /* Bright Orange */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 24.6 95% 90%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --ring: 24.6 95% 53.1%;
-  }
-
   /* Dark Theme */
   .dark {
     --background: 222.2 84% 4.9%;
@@ -118,6 +89,35 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  
+  /* --- THEME DEFINITIONS (Moved to end to ensure override) --- */
+
+  /* Ocean Blue Theme */
+  .theme-ocean {
+    --primary: 217.2 91.2% 59.8%; /* Bright Blue */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --ring: 217.2 91.2% 59.8%;
+  }
+
+  /* Forest Green Theme */
+  .theme-forest {
+    --primary: 142.1 76.2% 36.3%; /* Muted Green */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 142.1 76.2% 90%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --ring: 142.1 76.2% 36.3%;
+  }
+
+  /* Sunset Orange Theme */
+  .theme-sunset {
+    --primary: 24.6 95% 53.1%; /* Bright Orange */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 24.6 95% 90%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --ring: 24.6 95% 53.1%;
   }
 }
 

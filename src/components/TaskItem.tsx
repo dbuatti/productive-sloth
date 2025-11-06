@@ -52,7 +52,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   return (
     <div className={cn(
-      "flex items-center justify-between p-3 border-b last:border-b-0 transition-colors",
+      "group flex items-center justify-between p-3 border-b last:border-b-0 transition-colors",
       task.is_completed ? "bg-gray-50 dark:bg-gray-800/50 opacity-70" : "hover:bg-accent/50",
       // New: Prominent left border for priority
       `border-l-4 ${priorityClasses[task.priority]}`
@@ -83,7 +83,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
       {/* Metadata Tag and Quick Actions */}
       <div className="flex items-center space-x-2 shrink-0">
-        {/* Due Date Badge - Now visible on mobile (no 'hidden sm:flex') */}
+        {/* Due Date Badge - Always visible */}
         <Badge variant="secondary" className="text-xs font-mono flex items-center space-x-1">
           <Calendar className="h-3 w-3" />
           <span>{formattedDueDate}</span>
@@ -94,32 +94,39 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           +{task.metadata_xp} XP
         </Badge>
         
-        {/* Edit Button */}
-        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" onClick={() => setIsEditDialogOpen(true)}>
-          <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary/80" />
-        </Button>
+        {/* Quick Actions Container: Hidden on desktop by default, visible on hover */}
+        <div className={cn(
+          "flex items-center space-x-2 transition-opacity",
+          // Hide on desktop (sm+) unless hovered, always visible on mobile
+          "sm:opacity-0 sm:group-hover:opacity-100"
+        )}>
+          {/* Edit Button */}
+          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" onClick={() => setIsEditDialogOpen(true)}>
+            <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary/80" />
+          </Button>
 
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the task: "{task.title}".
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                Delete Task
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the task: "{task.title}".
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                  Delete Task
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
       
       <TaskEditDialog 

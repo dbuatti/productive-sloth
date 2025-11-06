@@ -22,7 +22,8 @@ const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatus
       
       {/* Status Filters (Refactored to Tabs) */}
       <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatusFilter)} className="w-full sm:w-auto">
-        <TabsList className="grid w-full grid-cols-3 h-9 p-1 bg-background/50 border">
+        {/* Simplified TabsList styling: using standard bg-muted */}
+        <TabsList className="grid w-full grid-cols-3 h-9 p-1 bg-muted">
           {statusOptions.map(option => (
             <TabsTrigger 
               key={option.value}

@@ -21,8 +21,8 @@ const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) =>
     <Accordion type="single" collapsible defaultValue={priority}>
       <AccordionItem 
         value={priority} 
-        // Removed border, shadow, and mb-4. Added subtle background to the item itself.
-        className="rounded-lg bg-card"
+        // Added border and shadow for better visual grouping
+        className="rounded-lg bg-card border shadow-sm overflow-hidden"
       >
         <AccordionTrigger className={cn(
           "px-4 py-3 font-semibold hover:no-underline bg-muted/30 hover:bg-muted/50 rounded-t-lg", // Added background for header

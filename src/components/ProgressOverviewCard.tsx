@@ -60,7 +60,7 @@ const ProgressOverviewCard: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* XP Summary Section */}
           <div className="p-5 rounded-md bg-card border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
-            <p className="text-base text-foreground mb-1">Total XP</p>
+            <p className="text-base text-foreground mb-1">Total XP</p> {/* Removed duplicate className */}
             <p className="text-6xl font-extrabold font-mono text-primary mb-2 leading-none animate-pop-in">{profile.xp}</p> {/* Larger font, added animate-pop-in */}
             <p className="text-sm text-muted-foreground">
               <span className="font-semibold text-foreground font-mono">{xpNeededForNextLevel - xpTowardsNextLevel}</span> XP to next level!

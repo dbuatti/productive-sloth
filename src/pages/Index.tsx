@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import UserXPCard from '@/components/UserXPCard';
 import DailyStreakCard from '@/components/DailyStreakCard';
-import UserEnergyCard from '@/components/UserEnergyCard'; // Import the new energy card
+import UserEnergyCard from '@/components/UserEnergyCard';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -36,31 +36,30 @@ const Index = () => {
 
   if (isSessionLoading || isTasksLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
   
   if (!user) {
-    // Should be handled by SessionProvider redirecting to /login, but good fallback
     return null; 
   }
 
   return (
     <>
       <AppHeader />
-      <main className="container mx-auto p-4 max-w-3xl space-y-4">
+      <main className="container mx-auto p-6 max-w-4xl space-y-6"> {/* Increased max-w and padding */}
         
-        {/* User XP Card, Daily Streak Card, and Energy Card */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* User Stats Cards - More balanced grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <UserXPCard />
           <DailyStreakCard />
-          <UserEnergyCard /> {/* New Energy Card */}
+          <UserEnergyCard />
         </div>
 
-        {/* Input & Controls Layer */}
-        <Card className="p-4 space-y-4">
+        {/* Input & Controls Layer - Slightly more prominent card */}
+        <Card className="p-5 space-y-5 shadow-lg"> {/* Increased padding, added shadow */}
           {/* 1. Temporal Filter Tabs */}
           <TemporalFilterTabs 
             currentFilter={temporalFilter} 

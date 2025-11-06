@@ -4,54 +4,99 @@
 
 @layer base {
   :root {
-    /* Default Light Theme (Standard Shadcn) */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Modern Light Theme Palette */
+    --background: 0 0% 98%; /* Very light grey, almost white */
+    --foreground: 220 10% 15%; /* Dark charcoal for text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* Pure white cards */
+    --card-foreground: 220 10% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 10% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 210 90% 45%; /* A vibrant, modern blue */
+    --primary-foreground: 0 0% 100%; /* White text on primary */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 20% 95%; /* Light blue-grey secondary */
+    --secondary-foreground: 210 10% 30%; /* Darker text on secondary */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 15% 90%; /* Muted light grey */
+    --muted-foreground: 210 10% 50%; /* Medium grey for muted text */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 210 20% 95%; /* Same as secondary for accent */
+    --accent-foreground: 210 10% 30%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 80% 60%; /* Clear red for destructive actions */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 210 10% 85%; /* Light grey border */
+    --input: 210 10% 85%; /* Light grey input border */
+    --ring: 210 90% 45%; /* Primary blue ring */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar variables (keeping consistent with new palette) */
+    --sidebar-background: 210 10% 95%;
+    --sidebar-foreground: 220 10% 15%;
+    --sidebar-primary: 210 90% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 15% 90%;
+    --sidebar-accent-foreground: 210 10% 30%;
+    --sidebar-border: 210 10% 80%;
+    --sidebar-ring: 210 90% 45%;
+  }
+
+  /* Modern Dark Theme Palette */
+  .dark {
+    --background: 220 10% 10%; /* Deep dark grey */
+    --foreground: 210 10% 90%; /* Light grey for text */
+
+    --card: 220 10% 15%; /* Slightly lighter dark grey cards */
+    --card-foreground: 210 10% 90%;
+
+    --popover: 220 10% 15%;
+    --popover-foreground: 210 10% 90%;
+
+    --primary: 210 90% 55%; /* Brighter blue for dark mode primary */
+    --primary-foreground: 220 10% 15%; /* Dark text on primary */
+
+    --secondary: 220 10% 25%; /* Muted dark blue-grey secondary */
+    --secondary-foreground: 210 10% 80%; /* Lighter text on secondary */
+
+    --muted: 220 10% 20%; /* Muted dark grey */
+    --muted-foreground: 210 10% 60%; /* Medium grey for muted text */
+
+    --accent: 220 10% 25%; /* Same as secondary for accent */
+    --accent-foreground: 210 10% 80%;
+
+    --destructive: 0 70% 50%; /* Clear red for destructive actions */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 10% 25%; /* Dark grey border */
+    --input: 220 10% 25%; /* Dark grey input border */
+    --ring: 210 90% 55%; /* Primary blue ring */
+
+    /* Sidebar variables (keeping consistent with new palette) */
+    --sidebar-background: 220 10% 18%;
+    --sidebar-foreground: 210 10% 90%;
+    --sidebar-primary: 210 90% 50%;
+    --sidebar-primary-foreground: 220 10% 15%;
+    --sidebar-accent: 220 10% 22%;
+    --sidebar-accent-foreground: 210 10% 80%;
+    --sidebar-border: 220 10% 22%;
+    --sidebar-ring: 210 90% 50%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
   body {
     @apply bg-background text-foreground;
+    /* Subtle background pattern for a richer feel */
+    background-image: radial-gradient(var(--muted) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  * {
+    @apply border-border;
   }
 }

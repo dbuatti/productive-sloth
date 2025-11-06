@@ -75,9 +75,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   return (
     <div className={cn(
       "group relative flex items-center justify-between p-3 border-b last:border-b-0 transition-colors", // Added relative for XP animation positioning
-      task.is_completed ? "bg-gray-50 dark:bg-gray-800/50 opacity-70" : "hover:bg-accent/50",
+      task.is_completed ? "bg-secondary/30" : "hover:bg-accent/50", // Use secondary/30 for completed background
       // Highlight overdue tasks
-      isOverdue && "bg-red-50/50 dark:bg-red-900/20 hover:bg-red-100/50 dark:hover:bg-red-900/30",
+      isOverdue && "bg-destructive/5 dark:bg-destructive/10 hover:bg-destructive/10 dark:hover:bg-destructive/15", // More subtle overdue highlight
       // Prominent left border for priority
       `border-l-4 ${priorityClasses[task.priority]}`
     )}>

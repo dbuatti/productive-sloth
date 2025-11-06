@@ -98,6 +98,23 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user) {
+      showError("You must be logged in to delete your account.");
+      return;
+    }
+    // IMPORTANT: Client-side Supabase SDK does not allow direct user deletion for security reasons.
+    // This action typically requires a server-side function (e.g., Supabase Edge Function)
+    // that uses the Supabase Admin client with the service_role key.
+    // For now, this is a placeholder.
+    showError("Account deletion is not yet implemented client-side. Please contact support or use the Supabase dashboard.");
+    console.warn("Attempted client-side account deletion for user:", user.id);
+    // In a real app, you would invoke an Edge Function here:
+    // const { data, error } = await supabase.functions.invoke('delete-user', { body: { userId: user.id } });
+    // if (error) showError(`Failed to delete account: ${error.message}`);
+    // else { showSuccess("Account deleted successfully."); await supabase.auth.signOut(); }
+  };
+
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
 
@@ -216,6 +233,31 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
             </DialogFooter>
           </form>
         </Form>
+
+        {/* Account Actions Section */}
+        <Separator className="my-4" />
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Account Actions</h3>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="w-full">Delete Account</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete your account and all associated data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
+                  Confirm Deletion
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -54,11 +54,13 @@ const Index = () => {
       <main className="container mx-auto p-4 max-w-3xl space-y-6">
         
         {/* User Stats Cards - Consolidated and streamlined grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted grid for 4 cards */}
-          <ProgressOverviewCard /> {/* New combined card */}
-          <DailyStreakCard />
-          <UserEnergyCard />
-          <DailyRewardCard />
+        <div className="grid grid-cols-1 gap-4"> {/* Single column for all cards */}
+          <ProgressOverviewCard /> {/* This card will now take full width */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* New row for the other three cards */}
+            <DailyStreakCard />
+            <UserEnergyCard />
+            <DailyRewardCard />
+          </div>
         </div>
 
         {/* Input & Controls Layer - Slightly more prominent card */}

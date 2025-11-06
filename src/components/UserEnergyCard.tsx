@@ -23,13 +23,13 @@ const UserEnergyCard: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-yellow-400">
-          <Zap className="h-5 w-5" />
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-yellow-400"> {/* Larger title */}
+          <Zap className="h-5 w-5" /> {/* Larger icon */}
           Your Energy
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="text-5xl font-extrabold text-yellow-400 mb-2 leading-none">
+        <div className="text-5xl font-extrabold text-yellow-400 mb-2 leading-none"> {/* Much larger energy display */}
           {profile.energy} / {MAX_ENERGY}
         </div>
         <Tooltip>

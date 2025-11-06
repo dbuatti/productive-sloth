@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress'; // Keep Progress for now, but will replace with CustomProgress
 import { Trophy, Sparkles, CheckCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSession } from '@/hooks/use-session';
@@ -42,7 +41,7 @@ const ProgressOverviewCard: React.FC = () => {
   const { level, xpTowardsNextLevel, xpNeededForNextLevel, progressPercentage } = calculateLevelInfo(profile.xp);
 
   return (
-    <Card className="w-full col-span-1 md:col-span-2 lg:col-span-2"> {/* Span 2 columns on larger screens */}
+    <Card className="w-full"> {/* Removed col-span classes from here, will be handled by parent grid */}
       <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
         <CardTitle className="text-lg font-bold flex items-center gap-2 text-yellow-500"> {/* Larger title */}
           <Trophy className="h-5 w-5" /> {/* Larger icon */}

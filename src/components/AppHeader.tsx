@@ -49,6 +49,11 @@ const AppHeader: React.FC = () => {
         
         {user && (
           <div className="flex items-center space-x-2"> {/* Wrapper for avatar and name */}
+            {/* Display first name next to avatar, hidden on small screens to prevent clutter */}
+            <span className="text-sm font-medium hidden sm:inline-block">
+              {visibleFirstName}
+            </span>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -87,10 +92,16 @@ const AppHeader: React.FC = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {/* Display first name next to avatar, hidden on small screens to prevent clutter */}
-            <span className="text-sm font-medium hidden sm:inline-block">
-              {visibleFirstName}
-            </span>
+            
+            {/* Direct Settings Button - Always visible for easy access */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 sm:hidden" // Show only on small screens if dropdown is primary
+              onClick={() => setIsSettingsDialogOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
 
             <ProfileSettingsDialog 
               open={isSettingsDialogOpen} 

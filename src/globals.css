@@ -4,106 +4,111 @@
 
 @layer base {
   :root {
-    /* Fresh & Vibrant Light Theme Palette */
-    --background: 210 20% 98%; /* Very light blue-grey, almost white */
-    --foreground: 220 15% 15%; /* Deep charcoal for text */
+    /* Cosmic Adventure - Light Theme */
+    --background: 240 30% 98%; /* Very light lavender */
+    --foreground: 240 15% 20%; /* Deep purple-grey for text */
 
     --card: 0 0% 100%; /* Pure white cards */
-    --card-foreground: 220 15% 15%;
+    --card-foreground: 240 15% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
+    --popover-foreground: 240 15% 20%;
 
-    --primary: 210 80% 50%; /* Vibrant Blue */
+    --primary: 200 80% 45%; /* Vibrant Teal */
     --primary-foreground: 0 0% 100%; /* White text on primary */
 
-    --secondary: 210 25% 92%; /* Soft light blue-grey secondary */
-    --secondary-foreground: 210 10% 30%; /* Darker text on secondary */
+    --secondary: 240 20% 90%; /* Soft lavender-grey secondary */
+    --secondary-foreground: 240 10% 30%; /* Darker text on secondary */
 
-    --muted: 210 18% 88%; /* Muted light grey */
-    --muted-foreground: 210 10% 50%; /* Medium grey for muted text */
+    --muted: 240 18% 88%; /* Muted light grey-lavender */
+    --muted-foreground: 240 10% 50%; /* Medium grey for muted text */
 
-    --accent: 30 90% 60%; /* Cheerful Orange/Peach */
+    --accent: 35 90% 60%; /* Bright Orange-Gold */
     --accent-foreground: 0 0% 100%; /* White text on accent */
 
     --destructive: 0 80% 55%; /* Clear red for destructive actions */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 10% 80%; /* Light grey border */
-    --input: 210 10% 80%; /* Light grey input border */
-    --ring: 210 80% 50%; /* Primary blue ring */
+    --border: 240 10% 85%; /* Light grey-lavender border */
+    --input: 240 10% 85%; /* Light grey-lavender input border */
+    --ring: 200 80% 45%; /* Primary teal ring */
 
     --radius: 0.5rem;
 
-    /* Custom colors for specific elements, derived from logo (adjusted slightly for new palette) */
-    --logo-yellow: 45 95% 55%; /* Sunny Yellow */
-    --logo-orange: 25 90% 55%; /* Vibrant orange */
-    --logo-green: 120 70% 40%; /* Green for LOW priority */
+    /* Custom colors for specific elements, derived from logo (adjusted for theme) */
+    --logo-yellow: 45 100% 60%; /* Brighter Sunny Yellow */
+    --logo-orange: 25 100% 60%; /* Fiery Orange */
+    --logo-green: 140 70% 40%; /* Fresh Green for LOW priority */
 
-    /* Sidebar variables (keeping consistent with new palette) */
-    --sidebar-background: 210 20% 95%; /* Slightly deeper sidebar background */
-    --sidebar-foreground: 220 15% 15%;
-    --sidebar-primary: 210 80% 40%; /* Deeper primary for sidebar */
+    /* Sidebar variables (consistent with new palette) */
+    --sidebar-background: 240 20% 95%;
+    --sidebar-foreground: 240 15% 20%;
+    --sidebar-primary: 200 80% 35%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 18% 88%;
-    --sidebar-accent-foreground: 210 10% 30%;
-    --sidebar-border: 210 10% 75%;
-    --sidebar-ring: 210 80% 50%;
+    --sidebar-accent: 240 18% 88%;
+    --sidebar-accent-foreground: 240 10% 30%;
+    --sidebar-border: 240 10% 75%;
+    --sidebar-ring: 200 80% 45%;
   }
 
-  /* Fresh & Modern Dark Theme Palette */
+  /* Cosmic Adventure - Dark Theme */
   .dark {
-    --background: 220 15% 12%; /* Deep, rich blue-grey */
-    --foreground: 210 10% 90%; /* Soft light grey for text */
+    --background: 240 20% 10%; /* Deep Space Purple */
+    --foreground: 240 20% 90%; /* Soft off-white for text */
 
-    --card: 220 15% 18%; /* Slightly lighter dark grey cards */
-    --card-foreground: 210 10% 90%;
+    --card: 240 15% 15%; /* Slightly lighter dark purple cards */
+    --card-foreground: 240 20% 90%;
 
-    --popover: 220 15% 18%;
-    --popover-foreground: 210 10% 90%;
+    --popover: 240 15% 15%;
+    --popover-foreground: 240 20% 90%;
 
-    --primary: 210 60% 55%; /* Muted but vibrant blue for dark mode primary */
-    --primary-foreground: 220 15% 15%; /* Dark text on primary */
+    --primary: 200 70% 55%; /* Lighter, glowing Teal for dark mode primary */
+    --primary-foreground: 240 15% 15%; /* Dark text on primary */
 
-    --secondary: 220 15% 25%;
-    --secondary-foreground: 210 10% 80%;
+    --secondary: 240 15% 20%;
+    --secondary-foreground: 240 10% 80%;
 
-    --muted: 220 15% 20%;
-    --muted-foreground: 210 10% 60%;
+    --muted: 240 15% 20%;
+    --muted-foreground: 240 10% 60%;
 
-    --accent: 30 60% 50%; /* Muted warm orange/peach for dark mode accent */
-    --accent-foreground: 220 15% 15%;
+    --accent: 35 70% 50%; /* Muted Orange-Gold for dark mode accent */
+    --accent-foreground: 240 15% 15%;
 
     --destructive: 0 70% 50%; /* Slightly less saturated red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 30%;
-    --input: 220 15% 30%;
-    --ring: 210 60% 55%; /* Primary blue ring */
+    --border: 240 15% 25%;
+    --input: 240 15% 25%;
+    --ring: 200 70% 55%; /* Primary teal ring */
 
-    /* Custom colors for specific elements, derived from logo (adjusted slightly for new palette) */
-    --logo-yellow: 45 70% 45%; /* Muted Sunny Yellow for dark mode */
-    --logo-orange: 25 65% 45%; /* Muted vibrant orange */
-    --logo-green: 120 60% 35%; /* Green for LOW priority */
+    /* Custom colors for specific elements, derived from logo (adjusted for theme) */
+    --logo-yellow: 45 80% 50%; /* Muted Bright Yellow for dark mode */
+    --logo-orange: 25 80% 50%; /* Muted Fiery Orange */
+    --logo-green: 140 60% 35%; /* Muted Fresh Green for LOW priority */
 
-    /* Sidebar variables (keeping consistent with new palette) */
-    --sidebar-background: 220 15% 15%;
-    --sidebar-foreground: 210 10% 90%;
-    --sidebar-primary: 210 60% 45%; /* Deeper primary for sidebar */
-    --sidebar-primary-foreground: 220 15% 15%;
-    --sidebar-accent: 220 15% 20%;
-    --sidebar-accent-foreground: 210 10% 80%;
-    --sidebar-border: 220 15% 28%;
-    --sidebar-ring: 210 60% 55%;
+    /* Sidebar variables (consistent with new palette) */
+    --sidebar-background: 240 15% 15%;
+    --sidebar-foreground: 240 20% 90%;
+    --sidebar-primary: 200 70% 45%;
+    --sidebar-primary-foreground: 240 15% 15%;
+    --sidebar-accent: 240 15% 20%;
+    --sidebar-accent-foreground: 240 10% 80%;
+    --sidebar-border: 240 15% 28%;
+    --sidebar-ring: 200 70% 55%;
   }
 }
 
 @layer base {
   body {
     @apply bg-background text-foreground;
-    /* Subtle background pattern for a richer feel */
-    background-image: radial-gradient(var(--muted) 1px, transparent 1px);
-    background-size: 20px 20px;
+    /* Subtle radial gradient for depth, giving a 'cosmic' feel */
+    background-image: radial-gradient(
+      at 50% 0%,
+      hsl(var(--muted) / 0.1) 0%,
+      transparent 70%
+    );
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
   }
 
   * {

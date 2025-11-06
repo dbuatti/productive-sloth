@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import ProfileSettingsDialog from './ProfileSettingsDialog';
 import { AvatarImage } from './ui/avatar';
+import DailyChallengeClaimButton from './DailyChallengeClaimButton'; // Import the new component
 
 const AppHeader: React.FC = () => {
   const { user, profile } = useSession();
@@ -50,6 +51,9 @@ const AppHeader: React.FC = () => {
         
         {user && (
           <div className="flex items-center space-x-2">
+            {/* Daily Challenge Claim Button */}
+            <DailyChallengeClaimButton />
+
             <span className="text-sm font-medium hidden sm:inline-block">
               {visibleFirstName}
             </span>

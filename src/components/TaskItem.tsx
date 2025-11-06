@@ -44,6 +44,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     LOW: 'border-green-500',
   };
   
+  // Use concise format for task list view
   const formattedDueDate = format(parseISO(task.due_date), 'MMM dd');
 
   return (
@@ -78,7 +79,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       </div>
 
       {/* Metadata Tag and Quick Actions */}
-      <div className="flex items-center space-x-2 shrink-0">
+      <div className="flex items-center space-x-3 shrink-0">
         {/* Due Date Badge - Now visible on mobile (no 'hidden sm:flex') */}
         <Badge variant="secondary" className="text-xs font-mono flex items-center space-x-1">
           <Calendar className="h-3 w-3" />

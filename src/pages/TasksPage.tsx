@@ -63,7 +63,11 @@ const TasksPage: React.FC = () => {
       </Card>
 
       {hasTasks ? (
-        <Accordion type="multiple" className="w-full space-y-4 animate-slide-in-up">
+        <Accordion 
+          type="multiple" 
+          className="w-full space-y-4 animate-slide-in-up"
+          defaultValue={PRIORITY_ORDER} // Set default to expanded
+        >
           {PRIORITY_ORDER.map(priority => (
             <PrioritySection 
               key={priority}

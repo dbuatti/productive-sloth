@@ -150,63 +150,63 @@
 
   /* Forest Green Theme - EXTREMELY OBVIOUS FOR DEBUGGING */
   .theme-forest {
-    --background: 120 100% 50%; /* Solid bright green */
-    --foreground: 0 0% 100%; /* White text */
-    --card: 120 100% 40%;
-    --card-foreground: 0 0% 100%;
-    --popover: 120 100% 40%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 120 100% 30%; /* Darker green primary */
+    --background: 120 100% 70%; /* Very light, bright green */
+    --foreground: 120 100% 10%; /* Very dark green text */
+    --card: 120 100% 65%;
+    --card-foreground: 120 100% 10%;
+    --popover: 120 100% 65%;
+    --popover-foreground: 120 100% 10%;
+    --primary: 120 100% 40%; /* Medium green primary */
     --primary-foreground: 0 0% 100%; /* White text */
-    --secondary: 120 50% 70%; /* Lighter green secondary */
-    --secondary-foreground: 222.2 47.4% 11.2%; /* Dark text */
-    --muted: 120 50% 80%;
-    --muted-foreground: 120 100% 20%;
-    --accent: 120 50% 70%; /* Lighter green accent */
-    --accent-foreground: 222.2 47.4% 11.2%; /* Dark text */
+    --secondary: 120 50% 85%; /* Lighter green secondary */
+    --secondary-foreground: 120 100% 20%; /* Dark green text */
+    --muted: 120 50% 90%;
+    --muted-foreground: 120 100% 30%;
+    --accent: 120 50% 85%; /* Lighter green accent */
+    --accent-foreground: 120 100% 20%; /* Dark green text */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 120 50% 60%;
-    --input: 120 50% 60%;
-    --ring: 120 100% 30%; /* Primary green ring */
-    --sidebar-background: 120 100% 45%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 120 100% 25%;
+    --border: 120 50% 75%;
+    --input: 120 50% 75%;
+    --ring: 120 100% 40%; /* Primary green ring */
+    --sidebar-background: 120 100% 60%;
+    --sidebar-foreground: 120 100% 10%;
+    --sidebar-primary: 120 100% 35%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 120 50% 65%;
-    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
-    --sidebar-border: 120 50% 55%;
-    --sidebar-ring: 120 100% 30%;
+    --sidebar-accent: 120 50% 80%;
+    --sidebar-accent-foreground: 120 100% 20%;
+    --sidebar-border: 120 50% 70%;
+    --sidebar-ring: 120 100% 35%;
   }
   
   .dark .theme-forest {
-    --background: 120 100% 20%; /* Solid dark green background */
-    --foreground: 0 0% 100%; /* White text */
+    --background: 120 100% 10%; /* Very dark green background */
+    --foreground: 120 100% 90%; /* Very light green text */
     --card: 120 100% 15%;
-    --card-foreground: 0 0% 100%;
+    --card-foreground: 120 100% 90%;
     --popover: 120 100% 15%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 120 100% 40%; /* Brighter green primary */
+    --popover-foreground: 120 100% 90%;
+    --primary: 120 100% 60%; /* Brighter green primary */
     --primary-foreground: 222.2 47.4% 11.2%; /* Dark text on primary */
-    --secondary: 120 50% 10%; /* Very dark green secondary */
-    --secondary-foreground: 0 0% 100%; /* White text */
-    --muted: 120 50% 5%;
+    --secondary: 120 50% 25%; /* Darker green secondary */
+    --secondary-foreground: 120 100% 95%; /* Light green text */
+    --muted: 120 50% 20%;
     --muted-foreground: 120 100% 70%;
-    --accent: 120 50% 10%; /* Very dark green accent */
-    --accent-foreground: 0 0% 100%; /* White text */
+    --accent: 120 50% 25%; /* Darker green accent */
+    --accent-foreground: 120 100% 95%; /* Light green text */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 120 50% 20%;
-    --input: 120 50% 20%;
-    --ring: 120 100% 40%; /* Primary green ring */
+    --border: 120 50% 35%;
+    --input: 120 50% 35%;
+    --ring: 120 100% 60%; /* Primary green ring */
     --sidebar-background: 120 100% 18%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 120 100% 35%;
+    --sidebar-foreground: 120 100% 90%;
+    --sidebar-primary: 120 100% 55%;
     --sidebar-primary-foreground: 222.2 47.4% 11.2%;
-    --sidebar-accent: 120 50% 8%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 120 50% 18%;
-    --sidebar-ring: 120 100% 35%;
+    --sidebar-accent: 120 50% 22%;
+    --sidebar-accent-foreground: 120 100% 95%;
+    --sidebar-border: 120 50% 30%;
+    --sidebar-ring: 120 100% 55%;
   }
 
   /* Sunset Orange Theme - EXTREMELY OBVIOUS FOR DEBUGGING */

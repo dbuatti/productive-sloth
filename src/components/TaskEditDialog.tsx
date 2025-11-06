@@ -92,7 +92,8 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
         title: values.title,
         description: values.description,
         priority: values.priority,
-        due_date: values.dueDate ? values.dueDate.toISOString() : null, // Convert Date to ISO string or null
+        // Ensure due_date is always a valid ISO string, defaulting to now if undefined
+        due_date: values.dueDate ? values.dueDate.toISOString() : new Date().toISOString(), 
       });
       onSubmitSuccess();
       onOpenChange(false);
@@ -151,11 +152,10 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
                   <FormLabel>Priority</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <React.Fragment>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a priority" />
-                        </SelectTrigger>
-                      </React.Fragment>
+                      {/* Removed React.Fragment here */}
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a priority" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="HIGH">High</SelectItem>

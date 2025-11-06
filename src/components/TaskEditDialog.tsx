@@ -29,12 +29,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { Task } from "@/lib/types"; // Assuming Task type is defined
+import { Task, TaskPriority } from "@/types"; // Updated import to use consolidated Task and TaskPriority
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
   description: z.string().optional(),
-  priority: z.enum(["low", "medium", "high"]).default("medium"),
+  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'), // Updated to use TaskPriority enum values
   dueDate: z.date().optional(),
 });
 
@@ -56,7 +56,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
     defaultValues: {
       title: task?.title || "",
       description: task?.description || "",
-      priority: task?.priority || "medium",
+      priority: task?.priority || "MEDIUM", // Updated default value
       dueDate: task?.due_date ? new Date(task.due_date) : undefined,
     },
   });
@@ -73,7 +73,7 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
       form.reset({
         title: "",
         description: "",
-        priority: "medium",
+        priority: "MEDIUM", // Updated default value
         dueDate: undefined,
       });
     }
@@ -149,9 +149,9 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
                       </React.Fragment>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="HIGH">High</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="LOW">Low</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

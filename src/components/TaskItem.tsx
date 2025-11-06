@@ -8,8 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Task } from "@/lib/types"; // Import Task type
-import TaskEditDialog from "./TaskEditDialog"; // Corrected import for default export
+import { Task } from "@/types"; // Updated import to use consolidated Task type
+import TaskEditDialog from "./TaskEditDialog";
 import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -24,7 +24,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const handleToggleComplete = async () => {
     try {
-      // Corrected updateTask call to pass a single object with id and updates
       await updateTask({ id: task.id, is_completed: !task.is_completed });
       toast.success(`Task "${task.title}" marked as ${task.is_completed ? "incomplete" : "complete"}.`);
     } catch (error) {
@@ -57,11 +56,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const getPriorityColor = (priority: Task['priority']) => {
     switch (priority) {
-      case 'high':
+      case 'HIGH': // Updated to match TaskPriority enum
         return 'text-red-500';
-      case 'medium':
+      case 'MEDIUM': // Updated to match TaskPriority enum
         return 'text-yellow-500';
-      case 'low':
+      case 'LOW': // Updated to match TaskPriority enum
         return 'text-green-500';
       default:
         return 'text-gray-500';

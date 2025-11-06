@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'; // Import Card and Car
 import { Separator } from '@/components/ui/separator';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
 import ProgressOverviewCard from '@/components/ProgressOverviewCard';
+import { Accordion } from '@/components/ui/accordion'; // Import Accordion
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -81,7 +82,7 @@ const Index = () => {
 
         {/* Task List Layer (Priority Sections) or Empty State */}
         {hasTasks ? (
-          <div className="space-y-4">
+          <Accordion type="multiple" className="w-full space-y-4"> {/* Wrapped with Accordion */}
             {PRIORITY_ORDER.map(priority => (
               <PrioritySection 
                 key={priority}
@@ -89,7 +90,7 @@ const Index = () => {
                 tasks={groupedTasks[priority]}
               />
             ))}
-          </div>
+          </Accordion>
         ) : (
           <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4">
             <ClipboardList className="h-12 w-12 text-muted-foreground" />

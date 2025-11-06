@@ -1,7 +1,7 @@
 import React from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import TaskItem from './TaskItem';
-import { Task } from '@/lib/types'; // Corrected import to use the Task type from lib/types
+import { Task } from '@/types'; // Updated import to use the consolidated Task type
 
 interface PrioritySectionProps {
   priority: string;

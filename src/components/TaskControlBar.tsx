@@ -1,6 +1,6 @@
 import { TaskStatusFilter, SortBy } from '@/types';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
 interface TaskControlBarProps {
@@ -18,27 +18,25 @@ const statusOptions: { label: string, value: TaskStatusFilter }[] = [
 
 const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatusFilter, sortBy, setSortBy }) => {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4 p-4 bg-muted/50 rounded-lg">
+    <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4 p-0">
       
-      {/* Status Filters */}
-      <div className="flex space-x-2 w-full sm:w-auto justify-center">
-        {statusOptions.map(option => (
-          <Button
-            key={option.value}
-            // Use outline variant for all, and apply custom background for active state
-            variant="outline"
-            onClick={() => setStatusFilter(option.value)}
-            className={cn(
-              "text-sm px-3 py-1 h-auto",
-              statusFilter === option.value 
-                ? "bg-accent/80 hover:bg-accent/90 text-foreground border-primary/50" // Active state: subtle background
-                : "bg-transparent hover:bg-accent" // Inactive state
-            )}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
+      {/* Status Filters (Refactored to Tabs) */}
+      <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatusFilter)} className="w-full sm:w-auto">
+        <TabsList className="grid w-full grid-cols-3 h-9 p-1 bg-background/50 border">
+          {statusOptions.map(option => (
+            <TabsTrigger 
+              key={option.value}
+              value={option.value}
+              className={cn(
+                "text-sm px-3 py-1 h-auto",
+                "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              )}
+            >
+              {option.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Sort Functionality */}
       <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">

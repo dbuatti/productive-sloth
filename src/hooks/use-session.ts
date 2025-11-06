@@ -25,6 +25,7 @@ interface SessionContextType {
   levelUpLevel: number; // Added state for the level achieved
   triggerLevelUp: (level: number) => void; // Added function to trigger level up
   resetLevelUp: () => void; // Added function to reset level up state
+  resetDailyStreak: () => Promise<void>; // Added resetDailyStreak function
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

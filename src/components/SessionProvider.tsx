@@ -77,6 +77,34 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLevelUpLevel(0);
   }, []);
 
+  const resetDailyStreak = useCallback(async () => {
+    if (!user) {
+      showError("You must be logged in to reset your daily streak.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          daily_streak: 0, 
+          last_streak_update: null, // Reset last update to ensure next task starts a new streak
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      await refreshProfile();
+      showSuccess("Daily streak reset to 0.");
+    } catch (error: any) {
+      showError(`Failed to reset daily streak: ${error.message}`);
+      console.error("Reset daily streak error:", error);
+    }
+  }, [user, refreshProfile]);
+
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
       setSession(currentSession);
@@ -195,7 +223,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       showLevelUp,
       levelUpLevel,
       triggerLevelUp,
-      resetLevelUp
+      resetLevelUp,
+      resetDailyStreak
     }}>
       {children}
     </SessionContext.Provider>

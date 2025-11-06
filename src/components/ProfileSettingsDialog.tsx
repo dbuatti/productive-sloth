@@ -18,6 +18,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label'; // Import Label component
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 
 interface ProfileSettingsDialogProps {
   open: boolean;
@@ -35,7 +46,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 const MAX_ENERGY = 100; // Consistent with SessionProvider and useTasks
 
 const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onOpenChange }) => {
-  const { user, profile, refreshProfile, rechargeEnergy } = useSession(); // Get rechargeEnergy
+  const { user, profile, refreshProfile, rechargeEnergy, resetDailyStreak } = useSession(); // Get resetDailyStreak
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -164,6 +175,35 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                   >
                     Recharge Energy
                   </Button>
+                </div>
+
+                <Separator className="my-2" />
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Daily Streak</Label>
+                  <Input className="col-span-3" value={profile.daily_streak} readOnly />
+                </div>
+                <div className="flex justify-end mt-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" type="button">
+                        Reset Daily Streak
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action will reset your daily streak to 0. This cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => resetDailyStreak()} className="bg-destructive hover:bg-destructive/90">
+                          Reset Streak
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </>
             )}

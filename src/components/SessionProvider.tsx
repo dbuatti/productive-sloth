@@ -205,7 +205,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       
-      if (currentSession?.user) {
+      // Skip heavy lifting (profile fetch, challenge generation) on INITIAL_SESSION
+      // as loadSessionAndProfile handles it immediately after.
+      if (currentSession?.user && event !== 'INITIAL_SESSION') { 
         await fetchProfile(currentSession.user.id);
         
         // Call Edge Function to ensure daily challenge target is set/reset
@@ -213,10 +215,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           await generateDailyChallenge(currentSession.access_token);
           await refreshProfile(); // Refresh again to get the potentially new target/tasks_completed_today=0
         } catch (e) {
-          console.error("Failed to generate daily challenge:", e);
+          console.error(`Failed to generate daily challenge (${event}):`, e);
         }
 
-      } else {
+      } else if (!currentSession?.user) {
         setProfile(null);
       }
 
@@ -241,6 +243,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(initialSession?.user ?? null);
 
         if (initialSession?.user) {
+          // Perform initial profile fetch and challenge generation here
           await fetchProfile(initialSession.user.id);
           
           // Call Edge Function on initial load
@@ -281,6 +284,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       authListener.subscription.unsubscribe();
     };
   }, [navigate, fetchProfile, refreshProfile]); // Added refreshProfile dependency
+
+// ... (Energy Regeneration Effect and Daily Reset Effect remain the same)
 
   // Energy Regeneration Effect
   useEffect(() => {

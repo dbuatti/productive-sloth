@@ -10,7 +10,8 @@ interface TemporalFilterTabsProps {
 const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, setFilter }) => {
   return (
     <Tabs value={currentFilter} onValueChange={(value) => setFilter(value as TemporalFilter)} className="w-full">
-      <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-muted/50 rounded-lg">
+      {/* Standardized TabsList styling: h-9, bg-muted, rounded-md */}
+      <TabsList className="grid w-full grid-cols-3 h-9 p-1 bg-muted rounded-md">
         <TabsTrigger 
           value="TODAY" 
           className={cn(

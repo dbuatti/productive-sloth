@@ -29,8 +29,8 @@ const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, placeholder = "D
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {/* Use concise format for creation form to prevent overflow */}
-          {date ? format(date, "MMM dd") : <span>{placeholder}</span>}
+          {/* Use full format (PPP) for clarity in the input field */}
+          {date ? format(date, "PPP") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">

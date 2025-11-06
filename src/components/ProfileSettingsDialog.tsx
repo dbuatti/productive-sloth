@@ -167,7 +167,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Increased width to sm:max-w-lg and added scrolling */}
         <DialogHeader>
           <DialogTitle>Profile Settings</DialogTitle>
           <DialogDescription>

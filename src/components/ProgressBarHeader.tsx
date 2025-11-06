@@ -57,8 +57,11 @@ const ProgressBarHeader: React.FC = () => {
               />
             </TooltipTrigger>
             <TooltipContent>
-              <p>Level {level}: {xpTowardsNextLevel} / {xpNeededForNextLevel} XP</p>
-              <p>{xpNeededForNextLevel - xpTowardsNextLevel} XP to next level!</p>
+              {/* Wrapped multiple children in a div */}
+              <div>
+                <p>Level {level}: {xpTowardsNextLevel} / {xpNeededForNextLevel} XP</p>
+                <p>{xpNeededForNextLevel - xpTowardsNextLevel} XP to next level!</p>
+              </div>
             </TooltipContent>
           </Tooltip>
         </div>

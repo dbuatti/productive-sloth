@@ -67,13 +67,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
       {/* Metadata Tag and Quick Actions */}
       <div className="flex items-center space-x-3 shrink-0">
-        {/* Due Date Badge */}
-        <Badge variant="secondary" className="text-xs font-mono hidden sm:flex items-center space-x-1">
+        {/* Due Date Badge - Now visible on mobile (no 'hidden sm:flex') */}
+        <Badge variant="secondary" className="text-xs font-mono flex items-center space-x-1">
           <Calendar className="h-3 w-3" />
           <span>{formattedDueDate}</span>
         </Badge>
         
-        {/* XP Badge */}
+        {/* XP Badge - Hidden on mobile */}
         <Badge variant="secondary" className="text-xs font-mono hidden sm:inline-flex">
           +{task.metadata_xp} XP
         </Badge>

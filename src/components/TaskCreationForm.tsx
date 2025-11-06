@@ -34,7 +34,8 @@ const TaskCreationForm: React.FC = () => {
   return (
     <Card>
       <CardContent className="p-4">
-        <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 sm:flex-nowrap">
+        {/* Use flex-col on mobile, then switch to flex-row on sm: */}
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
           <Input
             type="text"
             placeholder="Add a new task..."

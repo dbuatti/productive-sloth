@@ -17,7 +17,10 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
 
   switch (filter) {
     case 'TODAY':
-      startDate = startOfToday;
+      // For TODAY, we want tasks due anytime in the past (to catch overdue tasks) 
+      // up until the end of today.
+      // We use a very old date for the start to capture all past dates.
+      startDate = new Date(0); // Epoch time, effectively capturing all past dates
       endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000); // End of today
       break;
     case 'YESTERDAY':
@@ -82,9 +85,10 @@ export const useTasks = () => {
     const dateRange = getDateRange(currentTemporalFilter);
 
     if (dateRange) {
+      // Use gte for start date and lte for end date
       query = query
-        .gte('due_date', dateRange.start)
-        .lte('due_date', dateRange.end);
+        .lte('due_date', dateRange.end)
+        .gte('due_date', dateRange.start);
     }
     
     // Server-side sorting optimization

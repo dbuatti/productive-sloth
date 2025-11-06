@@ -45,9 +45,9 @@ const ProgressOverviewCard: React.FC = () => {
         "absolute top-0 right-4 z-10", // Position at top-right, z-index to be above card
         "-translate-y-1/2", // Move up by half its height to overlap the top border
         "bg-background px-4 py-2 rounded-lg", // Background to create the 'cut out' effect, padding, rounded
-        "text-5xl font-extrabold font-mono flex items-center gap-2 text-primary" // Smaller font size
+        "text-4xl font-extrabold font-mono flex items-center gap-2 text-primary" // Smaller font size
       )}>
-        <Sparkles className="h-8 w-8 animate-pulse" /> {/* Icon size matching text */}
+        <Sparkles className="h-6 w-6 animate-pulse" /> {/* Icon size matching text */}
         Level {level}
       </div>
 

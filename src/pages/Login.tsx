@@ -13,7 +13,7 @@ function Login() {
         <CardContent>
           <Auth
             supabaseClient={supabase}
-            providers={[]}
+            providers={['google']}
             appearance={{
               theme: ThemeSupa,
               variables: {

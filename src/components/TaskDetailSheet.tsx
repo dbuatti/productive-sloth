@@ -115,6 +115,13 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         return 'text-muted-foreground';
     }
   };
+  
+  // Helper to safely format updated_at
+  const lastUpdatedDate = task.updated_at ? new Date(task.updated_at) : null;
+  const formattedLastUpdated = lastUpdatedDate && !isNaN(lastUpdatedDate.getTime()) 
+    ? format(lastUpdatedDate, 'MMM d, yyyy HH:mm') 
+    : 'N/A';
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -127,7 +134,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
             </Button>
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
-            Last updated: {format(new Date(task.updated_at), 'MMM d, yyyy HH:mm')}
+            Last updated: {formattedLastUpdated}
           </SheetDescription>
         </SheetHeader>
 

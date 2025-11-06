@@ -25,11 +25,14 @@ const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatus
         {statusOptions.map(option => (
           <Button
             key={option.value}
-            variant={statusFilter === option.value ? 'default' : 'outline'}
+            // Use outline variant for all, and apply custom background for active state
+            variant="outline"
             onClick={() => setStatusFilter(option.value)}
             className={cn(
               "text-sm px-3 py-1 h-auto",
-              statusFilter === option.value ? "" : "bg-transparent hover:bg-accent"
+              statusFilter === option.value 
+                ? "bg-accent/80 hover:bg-accent/90 text-foreground border-primary/50" // Active state: subtle background
+                : "bg-transparent hover:bg-accent" // Inactive state
             )}
           >
             {option.label}

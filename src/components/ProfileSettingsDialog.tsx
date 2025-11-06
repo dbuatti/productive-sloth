@@ -32,6 +32,7 @@ import {
 import ThemeToggle from './ThemeToggle'; // Import ThemeToggle
 import { LogOut } from 'lucide-react'; // Import LogOut icon
 import { Switch } from '@/components/ui/switch'; // Import Switch component
+import { useTheme } from 'next-themes'; // Import useTheme for resetting theme
 
 interface ProfileSettingsDialogProps {
   open: boolean;
@@ -52,6 +53,7 @@ const MAX_ENERGY = 100;
 
 const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onOpenChange }) => {
   const { user, profile, refreshProfile, rechargeEnergy, resetDailyStreak, updateNotificationPreferences } = useSession();
+  const { setTheme } = useTheme(); // Use useTheme hook
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -127,9 +129,9 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
           last_daily_reward_claim: null,
           last_daily_reward_notification: null,
           last_low_energy_notification: null,
-          updated_at: new Date().toISOString(),
           enable_daily_challenge_notifications: true, // Reset to default
           enable_low_energy_notifications: true, // Reset to default
+          updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
 
@@ -155,6 +157,34 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
     } catch (error: any) {
       showError(`Failed to reset game progress: ${error.message}`);
       console.error("Reset game progress error:", error);
+    }
+  };
+
+  const handleResetAppSettings = async () => {
+    if (!user) {
+      showError("You must be logged in to reset app settings.");
+      return;
+    }
+
+    try {
+      // Reset notification preferences in the database
+      await updateNotificationPreferences({
+        enable_daily_challenge_notifications: true,
+        enable_low_energy_notifications: true,
+      });
+
+      // Reset theme to system default
+      setTheme("system");
+      
+      // Reset form fields for notification preferences
+      form.setValue('enable_daily_challenge_notifications', true);
+      form.setValue('enable_low_energy_notifications', true);
+
+      showSuccess("App settings reset to default!");
+      await refreshProfile(); // Refresh profile to reflect notification changes
+    } catch (error: any) {
+      showError(`Failed to reset app settings: ${error.message}`);
+      console.error("Reset app settings error:", error);
     }
   };
 
@@ -348,6 +378,29 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                 </FormItem>
               )}
             />
+            <div className="flex justify-end mt-4">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" type="button">
+                    Reset App Settings
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action will reset your theme and notification preferences to their default settings. Your game progress will NOT be affected.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetAppSettings}>
+                      Confirm Reset
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
 
             <Separator className="my-4" />
             {/* Account Actions Section */}

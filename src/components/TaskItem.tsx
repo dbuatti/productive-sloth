@@ -1,179 +1,121 @@
-import { Task } from '@/types';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Trash2, Calendar, Pencil, Zap } from 'lucide-react';
-import { useTasks } from '@/hooks/use-tasks';
-import { cn } from '@/lib/utils';
-import { format, parseISO, isSameYear, isPast } from 'date-fns';
+import React, { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { MoreHorizontal, Pencil, Trash } from "lucide-react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import TaskEditDialog from './TaskEditDialog';
-import { useState } from 'react';
-import XPGainAnimation from './XPGainAnimation';
-import ConfettiEffect from './ConfettiEffect';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Task } from "@/lib/types"; // Import Task type
+import TaskEditDialog from "./TaskEditDialog"; // Corrected import for default export
+import { useTasks } from "@/hooks/use-tasks";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface TaskItemProps {
   task: Task;
 }
 
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
-  const { updateTask, deleteTask } = useTasks();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [showXPGain, setShowXPGain] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
+  const { updateTask, deleteTask } = useTasks();
 
-  const handleToggleCompletion = (checked: boolean | 'indeterminate') => {
-    if (typeof checked === 'boolean') {
-      updateTask({ id: task.id, is_completed: checked });
-      if (checked && !task.is_completed) {
-        setShowXPGain(true);
-        setShowConfetti(true);
+  const handleToggleComplete = async () => {
+    try {
+      // Corrected updateTask call to pass a single object with id and updates
+      await updateTask({ id: task.id, is_completed: !task.is_completed });
+      toast.success(`Task "${task.title}" marked as ${task.is_completed ? "incomplete" : "complete"}.`);
+    } catch (error) {
+      toast.error("Failed to update task status.");
+      console.error("Failed to update task status:", error);
+    }
+  };
+
+  const handleEditClick = () => {
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = async () => {
+    if (window.confirm(`Are you sure you want to delete "${task.title}"?`)) {
+      try {
+        await deleteTask(task.id);
+        toast.success(`Task "${task.title}" deleted.`);
+      } catch (error) {
+        toast.error("Failed to delete task.");
+        console.error("Failed to delete task:", error);
       }
     }
   };
 
-  const handleXPGainAnimationEnd = () => {
-    setShowXPGain(false);
+  const handleEditDialogSubmitSuccess = () => {
+    toast.success("Task updated successfully!");
+    // Optionally, you might want to refetch tasks here if useTasks doesn't automatically update
+    // queryClient.invalidateQueries(['tasks']);
   };
 
-  const handleConfettiComplete = () => {
-    setShowConfetti(false);
+  const getPriorityColor = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'high':
+        return 'text-red-500';
+      case 'medium':
+        return 'text-yellow-500';
+      case 'low':
+        return 'text-green-500';
+      default:
+        return 'text-gray-500';
+    }
   };
-
-  const handleDelete = () => {
-    deleteTask(task.id);
-  };
-
-  const priorityClasses = {
-    HIGH: 'border-destructive', // Use destructive for HIGH priority
-    MEDIUM: 'border-[hsl(var(--logo-yellow))]', // Use logo-yellow for MEDIUM priority
-    LOW: 'border-[hsl(var(--logo-green))]', // Use logo-green for LOW priority
-  };
-  
-  const dueDate = parseISO(task.due_date);
-  const now = new Date();
-  
-  const dateFormat = isSameYear(dueDate, now) ? 'MMM dd' : 'MMM dd, yyyy';
-  const formattedDueDate = format(dueDate, dateFormat);
-  
-  const isOverdue = !task.is_completed && isPast(dueDate);
-
-  const completedClasses = task.is_completed ? "opacity-50 text-muted-foreground" : "";
 
   return (
-    <div className={cn(
-      "group relative flex items-center justify-between p-4 rounded-lg mb-3 transition-all duration-200 ease-in-out", // Removed shadow-sm
-      task.is_completed ? "bg-secondary/30" : "bg-card hover:bg-muted/20 group-hover:scale-[1.005]", // Changed hover:bg-accent/50 to hover:bg-muted/20, removed group-hover:shadow-md
-      isOverdue && "bg-destructive/5 dark:bg-destructive/10 hover:bg-destructive/10 dark:hover:bg-destructive/15",
-      `border-l-4 ${priorityClasses[task.priority]}`
-    )}>
-      
-      <div className="flex items-center space-x-4 flex-grow min-w-0">
+    <div className="flex items-center justify-between p-4 border-b last:border-b-0">
+      <div className="flex items-center space-x-3">
         <Checkbox
-          id={`task-${task.id}`}
           checked={task.is_completed}
-          onCheckedChange={handleToggleCompletion}
-          className={cn(
-            "h-5 w-5 rounded-full border-2",
-            task.is_completed ? "border-primary" : "border-input"
-          )}
+          onCheckedChange={handleToggleComplete}
+          id={`task-${task.id}`}
         />
         <label
           htmlFor={`task-${task.id}`}
-          className={cn(
-            "text-base font-medium leading-none truncate",
-            task.is_completed ? "line-through text-muted-foreground" : "text-foreground",
-            isOverdue && !task.is_completed && "text-destructive dark:text-red-400"
-          )}
+          className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${
+            task.is_completed ? "line-through text-muted-foreground" : ""
+          }`}
         >
           {task.title}
+          {task.due_date && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              (Due: {format(new Date(task.due_date), "MMM d")})
+            </span>
+          )}
+          <span className={`ml-2 text-xs ${getPriorityColor(task.priority)}`}>
+            ({task.priority.charAt(0).toUpperCase() + task.priority.slice(1)})
+          </span>
         </label>
       </div>
-
-      <div className="flex items-center space-x-2 shrink-0">
-        <Badge 
-          variant="secondary"
-          className={cn(
-            "text-xs font-mono flex items-center space-x-1",
-            isOverdue && "bg-destructive text-destructive-foreground border-destructive", // More prominent overdue styling
-            completedClasses
-          )}
-        >
-          <Calendar className="h-3 w-3" />
-          <span>{formattedDueDate}</span>
-        </Badge>
-        
-        <Badge 
-          className={cn(
-            "text-xs font-mono hidden sm:inline-flex bg-[hsl(var(--logo-yellow))] text-black", // Custom XP badge
-            completedClasses
-          )}
-        >
-          +{task.metadata_xp} XP
-        </Badge>
-
-        <Badge 
-          className={cn(
-            "text-xs font-mono flex items-center space-x-1 bg-primary text-primary-foreground", // Custom Energy badge
-            completedClasses
-          )}
-        >
-          <Zap className="h-3 w-3" />
-          <span>-{task.energy_cost} Energy</span>
-        </Badge>
-        
-        <div className={cn(
-          "flex items-center space-x-2 transition-opacity",
-          "sm:opacity-0 sm:group-hover:opacity-100"
-        )}>
-          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80" onClick={() => setIsEditDialogOpen(true)}>
-            <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary/80" />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
           </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleEditClick}>
+            <Pencil className="mr-2 h-4 w-4" /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDeleteClick}>
+            <Trash className="mr-2 h-4 w-4" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/80">
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the task: "{task.title}".
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                  Delete Task
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
-      
-      <TaskEditDialog 
-        task={task} 
-        open={isEditDialogOpen} 
-        onOpenChange={setIsEditDialogOpen} 
+      <TaskEditDialog
+        task={task}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSubmitSuccess={handleEditDialogSubmitSuccess}
       />
-
-      {showXPGain && (
-        <XPGainAnimation xpAmount={task.metadata_xp} onAnimationEnd={handleXPGainAnimationEnd} />
-      )}
-      {showConfetti && <ConfettiEffect show={showConfetti} onComplete={handleConfettiComplete} />}
     </div>
   );
 };

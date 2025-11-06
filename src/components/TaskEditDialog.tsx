@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
-import { Task, TaskPriority } from '@/types';
-import { useTasks } from '@/hooks/use-tasks';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+
 import {
   Dialog,
   DialogContent,
@@ -11,216 +12,197 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import DatePicker from './DatePicker';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { Task } from "@/lib/types"; // Assuming Task type is defined
 
-interface TaskEditDialogProps {
-  task: Task;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-// 1. Define Schema
-const TaskEditSchema = z.object({
-  title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
-  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
-  dueDate: z.date({ required_error: "Due date is required." }),
-  isCompleted: z.boolean(), // Added isCompleted
-  metadataXp: z.coerce.number().int().min(0, { message: "XP must be a non-negative integer." }), // Added metadataXp
-  energyCost: z.coerce.number().int().min(0, { message: "Energy cost must be a non-negative integer." }), // Added energyCost
+const formSchema = z.object({
+  title: z.string().min(1, { message: "Title is required." }),
+  description: z.string().optional(),
+  priority: z.enum(["low", "medium", "high"]).default("medium"),
+  dueDate: z.date().optional(),
 });
 
-type TaskEditFormValues = z.infer<typeof TaskEditSchema>;
+interface TaskEditDialogProps {
+  task?: Task; // Optional for creating new tasks
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmitSuccess: () => void;
+}
 
-const TaskEditDialog: React.FC<TaskEditDialogProps> = ({ task, open, onOpenChange }) => {
-  const { updateTask } = useTasks();
-
-  // 2. Initialize useForm
-  const form = useForm<TaskEditFormValues>({
-    resolver: zodResolver(TaskEditSchema),
+const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
+  task,
+  open,
+  onOpenChange,
+  onSubmitSuccess,
+}) => {
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      title: task.title,
-      priority: task.priority,
-      dueDate: new Date(task.due_date),
-      isCompleted: task.is_completed, // Initialize isCompleted
-      metadataXp: task.metadata_xp, // Initialize metadataXp
-      energyCost: task.energy_cost, // Initialize energyCost
+      title: task?.title || "",
+      description: task?.description || "",
+      priority: task?.priority || "medium",
+      dueDate: task?.due_date ? new Date(task.due_date) : undefined,
     },
-    mode: 'onChange',
   });
 
-  // 3. Sync form state when task prop changes or dialog opens
-  useEffect(() => {
-    if (open) {
+  React.useEffect(() => {
+    if (task) {
       form.reset({
         title: task.title,
+        description: task.description || "",
         priority: task.priority,
-        dueDate: new Date(task.due_date),
-        isCompleted: task.is_completed,
-        metadataXp: task.metadata_xp,
-        energyCost: task.energy_cost,
+        dueDate: task.due_date ? new Date(task.due_date) : undefined,
+      });
+    } else {
+      form.reset({
+        title: "",
+        description: "",
+        priority: "medium",
+        dueDate: undefined,
       });
     }
-  }, [open, task, form]);
+  }, [task, form]);
 
-  // 4. Handle Submission
-  const onSubmit = (values: TaskEditFormValues) => {
-    const { title, priority, dueDate, isCompleted, metadataXp, energyCost } = values;
-
-    updateTask({
-      id: task.id,
-      title: title.trim(),
-      priority: priority,
-      due_date: dueDate.toISOString(),
-      is_completed: isCompleted, // Include is_completed
-      metadata_xp: metadataXp, // Include metadata_xp
-      energy_cost: energyCost, // Include energy_cost
-    });
-    onOpenChange(false);
+  const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      // Simulate API call
+      console.log("Submitting task:", values);
+      // In a real app, you'd call an API here to save/update the task
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
+      onSubmitSuccess();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to save task:", error);
+      // Handle error (e.g., show a toast)
+    }
   };
-
-  const isSubmitting = form.formState.isSubmitting;
-  const isValid = form.formState.isValid;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Task</DialogTitle>
+          <DialogTitle>{task ? "Edit Task" : "Create Task"}</DialogTitle>
           <DialogDescription>
-            Make changes to your task here. Click save when you're done.
+            {task ? "Make changes to your task here." : "Create a new task."}
           </DialogDescription>
         </DialogHeader>
-        
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-            
-            {/* Title Input */}
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="title"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="title" className="text-right">Title</Label>
-                  <div className="col-span-3">
-                    <FormControl>
-                      <Input id="title" {...field} className="h-10" /> {/* Consistent height */}
-                    </FormControl>
-                    <FormMessage />
-                  </div>
+                <FormItem>
+                  <FormLabel>Title</FormLabel>
+                  <FormControl>
+                    <React.Fragment>
+                      <Input placeholder="Task title" {...field} />
+                    </React.Fragment>
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-
-            {/* Priority Select */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <React.Fragment>
+                      <Textarea placeholder="Task description" {...field} />
+                    </React.Fragment>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="priority"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="priority" className="text-right">Priority</Label>
-                  <div className="col-span-3">
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-10"> {/* Consistent height */}
-                          <SelectValue placeholder="Priority" />
+                <FormItem>
+                  <FormLabel>Priority</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <React.Fragment>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a priority" />
                         </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="HIGH">High</SelectItem>
-                        <SelectItem value="MEDIUM">Medium</SelectItem>
-                        <SelectItem value="LOW">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </div>
+                      </React.Fragment>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-
-            {/* Due Date Picker */}
             <FormField
               control={form.control}
               name="dueDate"
               render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="due-date" className="text-right">Due Date</Label>
-                  <div className="col-span-3">
-                    <FormControl>
-                      <DatePicker date={field.value} setDate={field.onChange} placeholder="Select Date" />
-                    </FormControl>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            {/* Is Completed Checkbox */}
-            <FormField
-              control={form.control}
-              name="isCompleted"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="is-completed" className="text-right">Completed</Label>
-                  <div className="col-span-3 flex items-center">
-                    <FormControl>
-                      <Checkbox
-                        id="is-completed"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
+                <FormItem className="flex flex-col">
+                  <FormLabel>Due Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <React.Fragment>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-[240px] pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </React.Fragment>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </div>
+                    </PopoverContent>
+                  </Popover>
+                  <FormDescription>
+                    Your task's due date.
+                  </FormDescription>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-
-            {/* Metadata XP Input */}
-            <FormField
-              control={form.control}
-              name="metadataXp"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="metadata-xp" className="text-right">XP Reward</Label>
-                  <div className="col-span-3">
-                    <FormControl>
-                      <Input id="metadata-xp" type="number" {...field} className="h-10" /> {/* Consistent height */}
-                    </FormControl>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            {/* Energy Cost Input */}
-            <FormField
-              control={form.control}
-              name="energyCost"
-              render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="energy-cost" className="text-right">Energy Cost</Label>
-                  <div className="col-span-3">
-                    <FormControl>
-                      <Input id="energy-cost" type="number" {...field} className="h-10" /> {/* Consistent height */}
-                    </FormControl>
-                    <FormMessage />
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter className="pt-4">
-              <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit" disabled={isSubmitting || !isValid}>
-                Save changes
-              </Button>
+            <DialogFooter>
+              <Button type="submit">Save changes</Button>
             </DialogFooter>
           </form>
         </Form>

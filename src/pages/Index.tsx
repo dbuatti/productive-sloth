@@ -13,8 +13,9 @@ import { Separator } from '@/components/ui/separator';
 import UserXPCard from '@/components/UserXPCard';
 import DailyStreakCard from '@/components/DailyStreakCard';
 import UserEnergyCard from '@/components/UserEnergyCard';
-import LevelUpCelebration from '@/components/LevelUpCelebration'; // Import LevelUpCelebration
-import DailyRewardCard from '@/components/DailyRewardCard'; // Import DailyRewardCard
+import LevelUpCelebration from '@/components/LevelUpCelebration';
+import DailyRewardCard from '@/components/DailyRewardCard';
+import DailySummaryCard from '@/components/DailySummaryCard'; // Import DailySummaryCard
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -51,18 +52,19 @@ const Index = () => {
   return (
     <>
       <AppHeader />
-      <main className="container mx-auto p-4 max-w-3xl space-y-6"> {/* Adjusted max-w to 3xl and padding to p-4 */}
+      <main className="container mx-auto p-4 max-w-3xl space-y-6">
         
         {/* User Stats Cards - More balanced grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted grid for 4 cards */}
           <UserXPCard />
           <DailyStreakCard />
           <UserEnergyCard />
-          <DailyRewardCard /> {/* Added DailyRewardCard */}
+          <DailyRewardCard />
+          <DailySummaryCard /> {/* Added DailySummaryCard */}
         </div>
 
         {/* Input & Controls Layer - Slightly more prominent card */}
-        <Card className="p-5 space-y-5 shadow-lg"> {/* Increased padding, added shadow */}
+        <Card className="p-5 space-y-5 shadow-lg">
           {/* 1. Temporal Filter Tabs */}
           <TemporalFilterTabs 
             currentFilter={temporalFilter} 
@@ -98,7 +100,7 @@ const Index = () => {
         
         <MadeWithDyad />
       </main>
-      <LevelUpCelebration /> {/* Render the LevelUpCelebration component */}
+      <LevelUpCelebration />
     </>
   );
 };

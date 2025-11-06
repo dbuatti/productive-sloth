@@ -147,56 +147,56 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-grow overflow-y-auto space-y-6">
-          {/* Metadata Overview - Now editable fields */}
-          <div className="grid grid-cols-2 gap-4 text-sm font-medium">
-            <FormField
-              control={form.control}
-              name="metadata_xp"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2 text-logo-yellow">
-                    <Sparkles className="h-4 w-4" /> XP Reward
-                  </FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="number" 
-                      placeholder="XP" 
-                      {...field} 
-                      onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
-                      className="font-mono text-foreground"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="energy_cost"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2 text-primary">
-                    <Zap className="h-4 w-4" /> Energy Cost
-                  </FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="number" 
-                      placeholder="Energy" 
-                      {...field} 
-                      onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
-                      className="font-mono text-foreground"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
+            
+            <div className="flex-grow overflow-y-auto space-y-6 pb-8">
+              {/* Metadata Overview - Now editable fields */}
+              <div className="grid grid-cols-2 gap-4 text-sm font-medium">
+                <FormField
+                  control={form.control}
+                  name="metadata_xp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2 text-logo-yellow">
+                        <Sparkles className="h-4 w-4" /> XP Reward
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="XP" 
+                          {...field} 
+                          onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
+                          className="font-mono text-foreground"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="energy_cost"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2 text-primary">
+                        <Zap className="h-4 w-4" /> Energy Cost
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="Energy" 
+                          {...field} 
+                          onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
+                          className="font-mono text-foreground"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-              
               {/* Title */}
               <FormField
                 control={form.control}
@@ -274,25 +274,25 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                   )}
                 />
               </div>
+            </div>
               
-              {/* Save Button in Footer */}
-              <div className="sticky bottom-0 bg-card pt-4 border-t">
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting || !isValid} 
-                  className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </div>
+            {/* Save Button in Footer */}
+            <div className="sticky bottom-0 bg-card pt-4 border-t shrink-0">
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || !isValid} 
+                className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Form>
       </SheetContent>
     </Sheet>
   );

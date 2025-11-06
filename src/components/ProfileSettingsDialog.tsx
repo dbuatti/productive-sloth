@@ -30,6 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from './ThemeToggle'; // Import ThemeToggle
+import { LogOut } from 'lucide-react'; // Import LogOut icon
 
 interface ProfileSettingsDialogProps {
   open: boolean;
@@ -156,6 +157,11 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
     console.warn("Attempted client-side account deletion for user:", user.id);
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    onOpenChange(false); // Close dialog after signing out
+  };
+
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
 
@@ -243,6 +249,10 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                 <Label>Daily Streak</Label>
                 <Input value={profile.daily_streak} readOnly />
               </div>
+              <div className="space-y-2 col-span-2"> {/* Make this span two columns */}
+                <Label>Tasks Completed Today</Label>
+                <Input value={profile.tasks_completed_today} readOnly />
+              </div>
             </div>
             <div className="flex justify-end mt-4 space-x-2">
               <Button 
@@ -325,6 +335,15 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            <Button 
+              variant="outline" 
+              className="w-full mt-2 flex items-center gap-2" 
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
           </>
         )}
       </DialogContent>

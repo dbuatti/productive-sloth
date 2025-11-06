@@ -1,10 +1,20 @@
 import React, { useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 
+// Define a type for the user profile
+export interface UserProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+}
+
 interface SessionContextType {
   session: Session | null;
   user: User | null;
+  profile: UserProfile | null; // Add profile to context
   isLoading: boolean;
+  refreshProfile: () => Promise<void>; // Add a function to refresh profile
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

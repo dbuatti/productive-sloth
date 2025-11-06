@@ -1,5 +1,5 @@
-import React from 'react';
-import { LogOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { LogOut, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/hooks/use-session';
@@ -13,9 +13,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
+import ProfileSettingsDialog from './ProfileSettingsDialog'; // Import the new dialog
 
 const AppHeader: React.FC = () => {
-  const { user } = useSession();
+  const { user, profile } = useSession();
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -23,8 +25,14 @@ const AppHeader: React.FC = () => {
 
   const userEmail = user?.email || 'User';
   const userId = user?.id;
-  const userInitials = userEmail.slice(0, 2).toUpperCase();
-  const displayName = getDisplayNameFromEmail(userEmail);
+  
+  // Use profile first/last name if available, otherwise fallback to email-derived name
+  const displayName = profile?.first_name && profile?.last_name 
+    ? `${profile.first_name} ${profile.last_name}` 
+    : getDisplayNameFromEmail(userEmail);
+
+  const userInitials = (profile?.first_name?.charAt(0) || userEmail.charAt(0) || 'U').toUpperCase() +
+                       (profile?.last_name?.charAt(0) || userEmail.charAt(1) || 'N').toUpperCase();
   
   const secondaryIdentifier = userId ? `#${userId.substring(0, 8)}` : userEmail;
 
@@ -36,33 +44,47 @@ const AppHeader: React.FC = () => {
         </h1>
         
         {user && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{displayName}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {secondaryIdentifier}
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive cursor-pointer">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{displayName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {secondaryIdentifier}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem onClick={() => setIsSettingsDialogOpen(true)} className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <ProfileSettingsDialog 
+              open={isSettingsDialogOpen} 
+              onOpenChange={setIsSettingsDialogOpen} 
+            />
+          </>
         )}
       </div>
     </header>

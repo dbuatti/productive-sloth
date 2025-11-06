@@ -14,6 +14,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import ProfileSettingsDialog from './ProfileSettingsDialog'; // Import the new dialog
+import { AvatarImage } from './ui/avatar'; // Import AvatarImage
 
 const AppHeader: React.FC = () => {
   const { user, profile } = useSession();
@@ -49,9 +50,13 @@ const AppHeader: React.FC = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                      {userInitials}
-                    </AvatarFallback>
+                    {profile?.avatar_url ? (
+                      <AvatarImage src={profile.avatar_url} alt={`${displayName}'s avatar`} />
+                    ) : (
+                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                        {userInitials}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>

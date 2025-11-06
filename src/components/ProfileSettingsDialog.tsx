@@ -27,6 +27,7 @@ interface ProfileSettingsDialogProps {
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters.").nullable(),
+  avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')), // Added avatar_url
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -41,6 +42,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
     defaultValues: {
       first_name: '',
       last_name: '',
+      avatar_url: '', // Default to empty string
     },
     mode: 'onChange',
   });
@@ -50,6 +52,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
       form.reset({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
+        avatar_url: profile.avatar_url || '', // Initialize avatar_url
       });
     }
   }, [open, profile, form]);
@@ -67,6 +70,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
           id: user.id,
           first_name: values.first_name,
           last_name: values.last_name,
+          avatar_url: values.avatar_url === '' ? null : values.avatar_url, // Store null if empty string
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' }); // Use upsert to insert if not exists, update if exists
 
@@ -118,6 +122,19 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                   <FormLabel>Last Name</FormLabel>
                   <FormControl>
                     <Input placeholder="Doe" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="avatar_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Avatar URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://example.com/avatar.jpg" {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

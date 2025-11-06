@@ -12,27 +12,8 @@ import {
   RECHARGE_BUTTON_AMOUNT, 
   LOW_ENERGY_THRESHOLD, 
   LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
-  // DAILY_CHALLENGE_TASKS_REQUIRED // Removed static constant
+  DAILY_CHALLENGE_TASKS_REQUIRED
 } from '@/lib/constants'; // Import constants
-
-// Retry constants
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500; // Increased retry delay
-
-// Helper to call the Edge Function using invoke
-const generateDailyChallenge = async () => {
-  // Note: supabase.functions.invoke automatically handles the Authorization header
-  const { data, error } = await supabase.functions.invoke('generate-daily-challenge', {
-    method: 'POST',
-    body: {}, // Empty body as the function doesn't require input data
-  });
-  
-  if (error) {
-    throw new Error(error.message || 'Failed to send a request to the Edge Function');
-  }
-  return data;
-};
-
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -44,32 +25,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const navigate = useNavigate();
 
   const fetchProfile = useCallback(async (userId: string) => {
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, daily_challenge_target, enable_daily_challenge_notifications, enable_low_energy_notifications') // Select new dynamic target column
-          .eq('id', userId);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications') // Select new notification columns and tasks_completed_today
+      .eq('id', userId); // Removed .single()
 
-        if (error) {
-          throw new Error(error.message);
-        } else if (data && data.length > 0) {
-          setProfile(data[0] as UserProfile);
-          return; // Success
-        } else {
-          setProfile(null);
-          return; // No profile found, but no error
-        }
-      } catch (error) {
-        console.error(`Error fetching profile (Attempt ${attempt}/${MAX_RETRIES}):`, error);
-        if (attempt === MAX_RETRIES) {
-          setProfile(null);
-          // Do not re-throw here, let the outer loadSessionAndProfile handle the final failure state
-          return; 
-        }
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-      }
+    if (error) {
+      console.error('Error fetching profile:', error);
+      setProfile(null);
+    } else if (data && data.length > 0) {
+      setProfile(data[0] as UserProfile); // Take the first profile if found
+    } else {
+      setProfile(null);
     }
   }, []);
 
@@ -155,9 +122,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
 
-    // Use dynamic target
-    if (profile.tasks_completed_today < profile.daily_challenge_target) {
-      showError(`Complete ${profile.daily_challenge_target} tasks to claim your daily challenge reward!`);
+    if (profile.tasks_completed_today < DAILY_CHALLENGE_TASKS_REQUIRED) {
+      showError(`Complete ${DAILY_CHALLENGE_TASKS_REQUIRED} tasks to claim your daily challenge reward!`);
       return;
     }
 
@@ -211,26 +177,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, refreshProfile]);
 
-  // Effect to handle authentication state changes and initial load
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
-      
-      // Skip heavy lifting (profile fetch, challenge generation) on INITIAL_SESSION
-      // as loadSessionAndProfile handles it immediately after.
-      if (currentSession?.user && event !== 'INITIAL_SESSION') { 
+      if (currentSession?.user) {
         await fetchProfile(currentSession.user.id);
-        
-        // Call Edge Function to ensure daily challenge target is set/reset
-        try {
-          await generateDailyChallenge();
-          await refreshProfile(); // Refresh again to get the potentially new target/tasks_completed_today=0
-        } catch (e) {
-          console.error(`Failed to generate daily challenge (${event}):`, e);
-        }
-
-      } else if (!currentSession?.user) {
+      } else {
         setProfile(null);
       }
 
@@ -239,6 +192,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (event === 'SIGNED_OUT' && window.location.pathname !== '/login') {
         navigate('/login');
       }
+      // For USER_UPDATED, profile is already refreshed above.
+      // For INITIAL_SESSION, the initial load logic below handles navigation.
     };
 
     // Set up auth listener
@@ -255,22 +210,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(initialSession?.user ?? null);
 
         if (initialSession?.user) {
-          // 1. Perform initial profile fetch (now with retry logic)
           await fetchProfile(initialSession.user.id);
-          
-          // 2. Introduce a delay before calling the Edge Function
-          await new Promise(resolve => setTimeout(resolve, 500)); 
-
-          // 3. Call Edge Function on initial load
-          if (initialSession.access_token) {
-            try {
-              await generateDailyChallenge();
-              // No immediate profile refresh here
-            } catch (e) {
-              console.error("Failed to generate initial daily challenge:", e);
-            }
-          }
-
         } else {
           setProfile(null);
         }
@@ -284,6 +224,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       } catch (error) {
         console.error("Error during initial session load:", error);
+        // Even on error, we should stop loading to prevent infinite spinner
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -300,9 +241,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, fetchProfile, refreshProfile]);
-
-// ... (Energy Regeneration Effect and Daily Reset Effect remain the same)
+  }, [navigate, fetchProfile]); // Removed isLoading and user?.id from dependencies to prevent re-runs
 
   // Energy Regeneration Effect
   useEffect(() => {
@@ -351,8 +290,22 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const now = new Date();
     const today = startOfDay(now);
 
-    // Daily Reward Notification (now Dynamic Daily Challenge Notification)
+    // Check if last_daily_reward_claim was not today, if so, reset tasks_completed_today
     const lastRewardClaim = profile.last_daily_reward_claim ? parseISO(profile.last_daily_reward_claim) : null;
+    const lastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
+
+    const shouldResetTasksCompletedToday = 
+      (!lastRewardClaim || !isToday(lastRewardClaim)) && 
+      (!lastStreakUpdate || !isToday(lastStreakUpdate)); // Also reset if streak wasn't updated today
+
+    if (shouldResetTasksCompletedToday && profile.tasks_completed_today > 0) {
+      supabase.from('profiles').update({ tasks_completed_today: 0 }).eq('id', user.id).then(({ error }) => {
+        if (error) console.error("Failed to reset tasks_completed_today:", error.message);
+        else refreshProfile();
+      });
+    }
+
+    // Daily Reward Notification (now Daily Challenge Notification)
     const lastRewardNotification = profile.last_daily_reward_notification ? parseISO(profile.last_daily_reward_notification) : null;
 
     const canNotifyDailyChallenge = 
@@ -361,7 +314,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       (!lastRewardNotification || !isToday(lastRewardNotification)); // Not notified today
 
     if (canNotifyDailyChallenge) {
-      showSuccess(`Your daily challenge is ready! Complete ${profile.daily_challenge_target} tasks to claim your reward! 🎉`);
+      showSuccess(`Your daily challenge is ready! Complete ${DAILY_CHALLENGE_TASKS_REQUIRED} tasks to claim your reward! 🎉`);
       supabase.from('profiles').update({ last_daily_reward_notification: now.toISOString() }).eq('id', user.id).then(({ error }) => {
         if (error) console.error("Failed to update last_daily_reward_notification:", error.message);
         else refreshProfile(); // Refresh to update local profile state

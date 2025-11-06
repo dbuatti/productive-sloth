@@ -16,7 +16,6 @@ export interface UserProfile {
   last_daily_reward_notification: string | null; // Added last_daily_reward_notification
   last_low_energy_notification: string | null; // Added last_low_energy_notification
   tasks_completed_today: number; // Added tasks_completed_today
-  daily_challenge_target: number; // Added dynamic daily challenge target
   enable_daily_challenge_notifications: boolean; // Added notification preference
   enable_low_energy_notifications: boolean; // Added notification preference
 }

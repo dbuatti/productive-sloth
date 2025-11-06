@@ -4,9 +4,9 @@
 
 @layer base {
   :root {
-    /* Quantum Flow - Light Theme */
-    --background: 220 25% 98%; /* Very light cool grey */
-    --foreground: 220 15% 10%; /* Deep charcoal */
+    /* AetherFlow - Light Theme */
+    --background: 220 30% 97%; /* Very light, cool grey-blue */
+    --foreground: 220 15% 10%; /* Deep, rich charcoal */
 
     --card: 0 0% 100%; /* Crisp white cards */
     --card-foreground: 220 15% 10%;
@@ -14,16 +14,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 10%;
 
-    --primary: 200 90% 50%; /* Electric Cyan/Blue */
+    --primary: 190 80% 40%; /* Luminous Teal */
     --primary-foreground: 0 0% 100%; /* White text on primary */
 
-    --secondary: 220 20% 92%; /* Soft light grey */
+    --secondary: 220 20% 92%; /* Soft light grey-blue */
     --secondary-foreground: 220 10% 30%; /* Medium dark grey */
 
     --muted: 220 18% 88%; /* Muted light grey */
     --muted-foreground: 220 10% 50%; /* Medium grey */
 
-    --accent: 280 80% 60%; /* Glowing Purple */
+    --accent: 340 80% 60%; /* Vibrant Magenta/Coral */
     --accent-foreground: 0 0% 100%; /* White text on accent */
 
     --destructive: 0 80% 55%; /* Bold Red */
@@ -31,11 +31,11 @@
 
     --border: 220 10% 80%; /* Light grey border */
     --input: 220 10% 80%; /* Light grey input border */
-    --ring: 200 90% 50%; /* Primary electric cyan ring */
+    --ring: 190 80% 40%; /* Primary luminous teal ring */
 
-    --radius: 0.75rem; /* Slightly larger radius for a softer, modern feel */
+    --radius: 0.6rem; /* Slightly more refined radius */
 
-    /* Custom colors for specific elements, adjusted for new theme */
+    /* Custom colors for specific elements, adjusted for AetherFlow */
     --logo-yellow: 45 100% 65%; /* Bright, energetic yellow */
     --logo-orange: 25 100% 60%; /* Fiery orange */
     --logo-green: 140 80% 45%; /* Vibrant green for LOW priority */
@@ -43,70 +43,82 @@
     /* Sidebar variables (consistent with new palette) */
     --sidebar-background: 220 20% 95%;
     --sidebar-foreground: 220 15% 10%;
-    --sidebar-primary: 200 90% 40%;
+    --sidebar-primary: 190 80% 35%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 18% 88%;
     --sidebar-accent-foreground: 220 10% 30%;
     --sidebar-border: 220 10% 75%;
-    --sidebar-ring: 200 90% 50%;
+    --sidebar-ring: 190 80% 40%;
   }
 
-  /* Quantum Flow - Dark Theme */
+  /* AetherFlow - Dark Theme */
   .dark {
-    --background: 220 20% 8%; /* Deep, rich dark blue-grey */
+    --background: 240 15% 8%; /* Deep, sophisticated dark purple-blue */
     --foreground: 220 20% 95%; /* Luminous off-white */
 
-    --card: 220 15% 12%; /* Darker card background */
+    --card: 240 15% 12%; /* Darker card background */
     --card-foreground: 220 20% 95%;
 
-    --popover: 220 15% 12%;
+    --popover: 240 15% 12%;
     --popover-foreground: 220 20% 95%;
 
-    --primary: 200 80% 60%; /* Brighter electric cyan for dark mode */
-    --primary-foreground: 220 15% 10%; /* Dark text on primary */
+    --primary: 190 70% 55%; /* Brighter, glowing Teal for dark mode */
+    --primary-foreground: 240 15% 10%; /* Dark text on primary */
 
-    --secondary: 220 15% 18%;
+    --secondary: 240 15% 18%;
     --secondary-foreground: 220 10% 80%;
 
-    --muted: 220 15% 15%;
+    --muted: 240 15% 15%;
     --muted-foreground: 220 10% 60%;
 
-    --accent: 280 70% 70%; /* Lighter, glowing purple for dark mode */
-    --accent-foreground: 220 15% 10%;
+    --accent: 340 70% 70%; /* Lighter, glowing Magenta/Coral for dark mode */
+    --accent-foreground: 240 15% 10%;
 
     --destructive: 0 70% 50%; /* Slightly softer red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 25%;
-    --input: 220 15% 25%;
-    --ring: 200 80% 60%; /* Primary electric cyan ring */
+    --border: 240 15% 25%;
+    --input: 240 15% 25%;
+    --ring: 190 70% 55%; /* Primary luminous teal ring */
 
-    /* Custom colors for specific elements, adjusted for new theme */
+    /* Custom colors for specific elements, adjusted for AetherFlow */
     --logo-yellow: 45 90% 55%; /* Muted bright yellow */
     --logo-orange: 25 90% 50%; /* Muted fiery orange */
     --logo-green: 140 70% 35%; /* Muted vibrant green */
 
     /* Sidebar variables (consistent with new palette) */
-    --sidebar-background: 220 15% 10%;
+    --sidebar-background: 240 15% 10%;
     --sidebar-foreground: 220 20% 95%;
-    --sidebar-primary: 200 80% 50%;
-    --sidebar-primary-foreground: 220 15% 10%;
-    --sidebar-accent: 220 15% 15%;
+    --sidebar-primary: 190 70% 45%;
+    --sidebar-primary-foreground: 240 15% 10%;
+    --sidebar-accent: 240 15% 15%;
     --sidebar-accent-foreground: 220 10% 80%;
-    --sidebar-border: 220 15% 22%;
-    --sidebar-ring: 200 80% 60%;
+    --sidebar-border: 240 15% 28%;
+    --sidebar-ring: 190 70% 55%;
   }
 }
 
 @layer base {
   body {
     @apply bg-background text-foreground;
-    /* Dynamic geometric pattern for an energetic feel */
-    background-image: 
-      linear-gradient(45deg, hsl(var(--muted) / 0.1) 25%, transparent 25%, transparent 75%, hsl(var(--muted) / 0.1) 75%, hsl(var(--muted) / 0.1)),
-      linear-gradient(-45deg, hsl(var(--muted) / 0.1) 25%, transparent 25%, transparent 75%, hsl(var(--muted) / 0.1) 75%, hsl(var(--muted) / 0.1));
-    background-size: 40px 40px; /* Larger pattern for more impact */
-    background-attachment: fixed; /* Keep pattern fixed during scroll */
+    /* Subtle, animated background gradient for energy flow */
+    background: radial-gradient(
+        circle at top left,
+        hsl(var(--primary) / 0.05) 0%,
+        transparent 30%
+      ),
+      radial-gradient(
+        circle at bottom right,
+        hsl(var(--accent) / 0.05) 0%,
+        transparent 30%
+      ),
+      linear-gradient(
+        135deg,
+        hsl(var(--background)) 0%,
+        hsl(var(--background)) 100%
+      );
+    background-size: 200% 200%; /* Larger than viewport for animation */
+    animation: background-pan 20s ease-in-out infinite alternate; /* Slow, subtle pan */
   }
 
   * {
@@ -147,6 +159,15 @@
     }
   }
 
+  @keyframes background-pan {
+    0% {
+      background-position: 0% 0%;
+    }
+    100% {
+      background-position: 100% 100%;
+    }
+  }
+
   .animate-pulse-glow {
     animation: pulse-glow 2s infinite ease-in-out;
   }
@@ -157,5 +178,9 @@
 
   .animate-pop-in {
     animation: pop-in 0.3s ease-out forwards;
+  }
+
+  .animate-background-pan {
+    animation: background-pan 20s ease-in-out infinite alternate;
   }
 }

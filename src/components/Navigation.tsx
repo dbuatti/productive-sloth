@@ -38,7 +38,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
     { to: "/", icon: Home, label: "Dashboard" },
     { to: "/tasks", icon: ListTodo, label: "My Tasks" },
     { to: "/achievements", icon: Trophy, label: "Achievements" },
-    // { to: "/settings", icon: Settings, label: "Settings" }, // Settings will be in header dropdown
+    { to: "/settings", icon: Settings, label: "Settings" }, // Added Settings page link
   ];
 
   return (

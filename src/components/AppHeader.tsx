@@ -13,10 +13,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
-import ProfileSettingsDialog from './ProfileSettingsDialog';
 import { AvatarImage } from './ui/avatar';
 import DailyChallengeClaimButton from './DailyChallengeClaimButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface AppHeaderProps {
   mobileNav?: React.ReactNode; // Add mobileNav prop
@@ -24,10 +24,14 @@ interface AppHeaderProps {
 
 const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobileNav prop
   const { user, profile } = useSession();
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const navigate = useNavigate(); // Initialize navigate
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleGoToSettings = () => {
+    navigate('/settings');
   };
 
   const userEmail = user?.email || 'User';
@@ -76,14 +80,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
               {visibleFirstName}
             </span>
 
-            {/* Always visible Settings button */}
+            {/* Always visible Settings button - now navigates */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   className="h-8 w-8 transition-transform duration-200 hover:scale-110" /* Added hover effect */
-                  onClick={() => setIsSettingsDialogOpen(true)}
+                  onClick={handleGoToSettings} // Navigate to settings page
                 >
                   <Settings className="h-4 w-4" />
                 </Button>
@@ -118,8 +122,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 
-                {/* Settings option in dropdown (can be removed if direct button is preferred as sole entry) */}
-                <DropdownMenuItem onClick={() => setIsSettingsDialogOpen(true)} className="cursor-pointer">
+                {/* Settings option in dropdown - now navigates */}
+                <DropdownMenuItem onClick={handleGoToSettings} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
@@ -132,11 +136,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            
-            <ProfileSettingsDialog 
-              open={isSettingsDialogOpen} 
-              onOpenChange={setIsSettingsDialogOpen} 
-            />
           </div>
         )}
       </div>

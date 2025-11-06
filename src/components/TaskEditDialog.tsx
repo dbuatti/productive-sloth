@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -37,7 +37,8 @@ const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
   description: z.string().optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
-  dueDate: z.date().optional(),
+  // Make dueDate required to match the database NOT NULL constraint
+  dueDate: z.date({ required_error: "Due date is required." }), 
 });
 
 interface TaskEditDialogProps {
@@ -61,7 +62,8 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
       title: task?.title || "",
       description: task?.description || "",
       priority: task?.priority || "MEDIUM",
-      dueDate: task?.due_date ? new Date(task.due_date) : undefined,
+      // Initialize dueDate to a Date object if task exists, otherwise default to today
+      dueDate: task?.due_date ? new Date(task.due_date) : new Date(),
     },
   });
 
@@ -71,14 +73,15 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
         title: task.title,
         description: task.description || "",
         priority: task.priority,
-        dueDate: task.due_date ? new Date(task.due_date) : undefined,
+        // Ensure we always pass a Date object for reset
+        dueDate: task.due_date ? new Date(task.due_date) : new Date(), 
       });
     } else {
       form.reset({
         title: "",
         description: "",
         priority: "MEDIUM",
-        dueDate: undefined,
+        dueDate: new Date(),
       });
     }
   }, [task, form]);
@@ -92,8 +95,8 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
         title: values.title,
         description: values.description,
         priority: values.priority,
-        // Ensure due_date is always a valid ISO string, defaulting to now if undefined
-        due_date: values.dueDate ? values.dueDate.toISOString() : new Date().toISOString(), 
+        // Ensure due_date is always a valid ISO string from the required Date object
+        due_date: values.dueDate.toISOString(), 
       });
       onSubmitSuccess();
       onOpenChange(false);

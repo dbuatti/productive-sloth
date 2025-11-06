@@ -12,6 +12,7 @@ import MainLayout from "./components/MainLayout"; // Import MainLayout
 import Dashboard from "./pages/Dashboard"; // Pre-emptively import Dashboard
 import TasksPage from "./pages/TasksPage"; // Pre-emptively import TasksPage
 import AchievementsPage from "./pages/AchievementsPage"; // Pre-emptively import AchievementsPage
+import SettingsPage from "./pages/SettingsPage"; // Import SettingsPage
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
                   <Route path="/" element={<Dashboard />} /> {/* Changed default to Dashboard */}
                   <Route path="/tasks" element={<TasksPage />} /> {/* New route for tasks */}
                   <Route path="/achievements" element={<AchievementsPage />} /> {/* New route for achievements */}
+                  <Route path="/settings" element={<SettingsPage />} /> {/* New route for settings */}
                   <Route path="/login" element={<Login />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />

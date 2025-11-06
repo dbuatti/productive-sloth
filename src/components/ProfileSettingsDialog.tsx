@@ -17,6 +17,7 @@ import { useSession } from '@/hooks/use-session';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label'; // Import Label component
 
 interface ProfileSettingsDialogProps {
   open: boolean;

@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { getDisplayNameFromEmail } from '@/lib/user-utils';
 
 const AppHeader: React.FC = () => {
   const { user } = useSession();
@@ -22,6 +23,7 @@ const AppHeader: React.FC = () => {
 
   const userEmail = user?.email || 'User';
   const userInitials = userEmail.slice(0, 2).toUpperCase();
+  const displayName = getDisplayNameFromEmail(userEmail);
 
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -44,9 +46,9 @@ const AppHeader: React.FC = () => {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{userEmail}</p>
+                  <p className="text-sm font-medium leading-none">{displayName}</p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {user?.id.substring(0, 8)}...
+                    {userEmail}
                   </p>
                 </div>
               </DropdownMenuLabel>

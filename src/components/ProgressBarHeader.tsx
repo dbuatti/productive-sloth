@@ -76,17 +76,20 @@ const ProgressBarHeader: React.FC = () => {
               />
             </TooltipTrigger>
             <TooltipContent>
-              <p>Energy: {profile.energy} / {MAX_ENERGY}</p>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={() => rechargeEnergy(RECHARGE_BUTTON_AMOUNT)} 
-                disabled={isEnergyFull}
-                className="flex items-center gap-1 text-xs font-semibold mt-2 w-full"
-              >
-                <BatteryCharging className="h-3 w-3" />
-                Recharge (+{RECHARGE_BUTTON_AMOUNT})
-              </Button>
+              {/* Wrapped multiple children in a div */}
+              <div>
+                <p>Energy: {profile.energy} / {MAX_ENERGY}</p>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={() => rechargeEnergy(RECHARGE_BUTTON_AMOUNT)} 
+                  disabled={isEnergyFull}
+                  className="flex items-center gap-1 text-xs font-semibold mt-2 w-full"
+                >
+                  <BatteryCharging className="h-3 w-3" />
+                  Recharge (+{RECHARGE_BUTTON_AMOUNT})
+                </Button>
+              </div>
             </TooltipContent>
           </Tooltip>
         </div>

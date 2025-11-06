@@ -37,7 +37,7 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
   };
 };
 
-// Helper function to sort tasks (client-side sorting remains for priority/due date)
+// Helper function for client-side sorting (only used for PRIORITY sorting)
 const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
   const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
@@ -46,8 +46,9 @@ const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
       const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
       if (priorityDiff !== 0) return priorityDiff;
     }
-    // Default or secondary sort by Due Date (descending)
-    return compareDesc(parseISO(a.due_date), parseISO(b.due_date));
+    // If not sorting by priority, maintain the order returned by the server (or use a secondary sort if needed)
+    // Since we rely on the server for DUE_DATE sort, we only need to handle PRIORITY here.
+    return 0; 
   });
 };
 
@@ -60,7 +61,7 @@ export const useTasks = () => {
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ALL');
   const [sortBy, setSortBy] = useState<SortBy>('PRIORITY');
 
-  const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter): Promise<Task[]> => {
+  const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter, currentSortBy: SortBy): Promise<Task[]> => {
     if (!userId) return [];
     
     let query = supabase
@@ -76,8 +77,14 @@ export const useTasks = () => {
         .lte('due_date', dateRange.end);
     }
     
-    // Always order by created_at descending for stable results before client-side sort
-    query = query.order('created_at', { ascending: false });
+    // Server-side sorting optimization
+    if (currentSortBy === 'DUE_DATE') {
+      // Sort by due date ascending (earliest first)
+      query = query.order('due_date', { ascending: true });
+    } else {
+      // Default stable sort for PRIORITY client-side sort
+      query = query.order('created_at', { ascending: false });
+    }
 
     const { data, error } = await query;
 
@@ -86,12 +93,12 @@ export const useTasks = () => {
   }, [userId]);
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
-    queryKey: ['tasks', userId, temporalFilter], // Refetch when temporal filter changes
-    queryFn: () => fetchTasks(temporalFilter),
+    queryKey: ['tasks', userId, temporalFilter, sortBy], // Refetch when temporal filter or sort changes
+    queryFn: () => fetchTasks(temporalFilter, sortBy),
     enabled: !!userId,
   });
 
-  // --- Filtering and Sorting Logic (Only status filtering and sorting remain client-side) ---
+  // --- Filtering and Sorting Logic (Status filtering and PRIORITY sorting remain client-side) ---
   const filteredTasks = useMemo(() => {
     let result = tasks;
 
@@ -101,11 +108,15 @@ export const useTasks = () => {
       result = result.filter(task => task.is_completed);
     }
 
-    return sortTasks(result, sortBy);
+    // Only apply client-side sort if sorting by PRIORITY (due date is handled by the server)
+    if (sortBy === 'PRIORITY') {
+      return sortTasks(result, sortBy);
+    }
+    
+    return result;
   }, [tasks, statusFilter, sortBy]);
 
-  // --- CRUD Mutations ---
-  // (Mutations remain unchanged)
+  // --- CRUD Mutations (unchanged) ---
 
   const addTaskMutation = useMutation({
     mutationFn: async (newTask: NewTask) => {

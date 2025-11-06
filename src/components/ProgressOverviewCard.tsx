@@ -2,11 +2,10 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Sparkles, CheckCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useSession }
-from '@/hooks/use-session';
+import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { isToday, parseISO } from 'date-fns';
-import { CustomProgress } from './CustomProgress'; // Import CustomProgress
+import { Progress } from '@/components/ui/progress'; // Use standard Progress
 
 // XP and Leveling Constants
 const XP_PER_LEVEL = 100; // XP needed to gain one level
@@ -42,53 +41,49 @@ const ProgressOverviewCard: React.FC = () => {
   const { level, xpTowardsNextLevel, xpNeededForNextLevel, progressPercentage } = calculateLevelInfo(profile.xp);
 
   return (
-    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
-      <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-yellow))]">
-          <Trophy className="h-5 w-5" />
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-muted-foreground" />
           Your Progress
         </CardTitle>
-        <div className="text-6xl font-extrabold font-mono flex items-center gap-2 text-primary"> {/* Increased size, added font-mono */}
-          <Sparkles className="h-8 w-8 animate-pulse" />
+        <div className="text-2xl font-bold flex items-center gap-1 text-primary">
+          <Sparkles className="h-5 w-5" />
           Level {level}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* XP Progress Section */}
-          <div className="p-5 rounded-md bg-background border border-dashed border-border/50"> {/* Increased padding, added dashed border */}
-            <div className="text-base text-muted-foreground mb-2">
-              <span className="font-bold text-foreground text-xl font-mono">{xpTowardsNextLevel}</span> / <span className="font-mono">{xpNeededForNextLevel}</span> XP {/* Added font-mono */}
+          <div className="p-4 border rounded-md">
+            <div className="text-lg font-semibold mb-2">
+              {xpTowardsNextLevel} / {xpNeededForNextLevel} XP
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
-                <CustomProgress 
-                  value={progressPercentage} 
-                  className="h-3 bg-primary/20" 
-                  indicatorClassName="bg-primary" 
-                />
+                <Progress value={progressPercentage} className="h-2" />
               </TooltipTrigger>
               <TooltipContent>
                 <p>{xpTowardsNextLevel} XP towards Level {level + 1}</p>
               </TooltipContent>
             </Tooltip>
-            <p className="text-sm text-muted-foreground mt-2">
-              <span className="font-semibold text-foreground font-mono">{xpNeededForNextLevel - xpTowardsNextLevel}</span> XP to next level! {/* Added font-mono */}
+            <p className="text-xs text-muted-foreground mt-2">
+              {xpNeededForNextLevel - xpTowardsNextLevel} XP to next level!
             </p>
           </div>
 
           {/* Today's Summary Section */}
-          <div className="border-t sm:border-t-0 sm:border-l border-border pt-6 sm:pt-4 sm:pl-6 p-5 rounded-md bg-background border border-dashed border-border/50"> {/* Increased padding, added dashed border */}
-            <div className="text-lg font-bold flex items-center gap-2 mb-2 text-primary">
-              <CheckCircle className="h-5 w-5" />
+          <div className="p-4 border rounded-md">
+            <div className="text-lg font-semibold flex items-center gap-2 mb-2">
+              <CheckCircle className="h-4 w-4 text-primary" />
               Today's Summary
             </div>
-            <p className="text-5xl font-extrabold font-mono text-primary mb-2"> {/* Increased size, added font-mono */}
+            <p className="text-3xl font-bold text-primary mb-1">
               {completedTasksToday} Tasks
             </p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Sparkles className="h-4 w-4 text-[hsl(var(--logo-yellow))]" />
-              Earned <span className="font-bold text-foreground font-mono">+{xpGainedToday} XP</span> today! {/* Added font-mono */}
+              <Sparkles className="h-3 w-3 text-muted-foreground" />
+              Earned <span className="font-semibold text-foreground">+{xpGainedToday} XP</span> today!
             </p>
           </div>
         </div>

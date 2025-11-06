@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Zap, BatteryCharging } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { CustomProgress } from './CustomProgress'; // Import CustomProgress
+import { Progress } from '@/components/ui/progress'; // Use standard Progress
 
 const MAX_ENERGY = 100;
 const ENERGY_REGEN_AMOUNT = 5;
@@ -21,24 +21,20 @@ const UserEnergyCard: React.FC = () => {
   const isEnergyFull = profile.energy >= MAX_ENERGY;
 
   return (
-    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
+    <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-yellow))]">
-          <Zap className="h-5 w-5" />
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Zap className="h-4 w-4 text-muted-foreground" />
           Your Energy
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0 p-5 border border-dashed border-border/50 rounded-b-lg"> {/* Added padding and dashed border */}
-        <div className="text-7xl font-extrabold font-mono text-[hsl(var(--logo-yellow))] mb-2 leading-none"> {/* Increased size, added font-mono */}
+      <CardContent className="pt-0 p-4 border rounded-md">
+        <div className="text-5xl font-extrabold text-primary mb-2 leading-none">
           {profile.energy} / {MAX_ENERGY}
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <CustomProgress 
-              value={energyPercentage} 
-              className="h-3 bg-[hsl(var(--logo-yellow))]/20" 
-              indicatorClassName="bg-[hsl(var(--logo-yellow))]" 
-            />
+            <Progress value={energyPercentage} className="h-2" />
           </TooltipTrigger>
           <TooltipContent>
             <p>{profile.energy} out of {MAX_ENERGY} Energy</p>

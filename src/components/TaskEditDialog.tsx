@@ -89,11 +89,14 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!task) return; // Cannot update if no task is provided
 
+    // Ensure empty strings for optional fields are converted to null for Supabase
+    const descriptionValue = values.description?.trim() === '' ? null : values.description;
+
     try {
       await updateTask({
         id: task.id,
         title: values.title,
-        description: values.description,
+        description: descriptionValue, // Use the cleaned value
         priority: values.priority,
         // Ensure due_date is always a valid ISO string from the required Date object
         due_date: values.dueDate.toISOString(), 

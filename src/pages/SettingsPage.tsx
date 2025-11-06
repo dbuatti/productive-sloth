@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -39,8 +39,7 @@ const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters.").nullable(),
   avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')),
-  enable_daily_challenge_notifications: z.boolean(),
-  enable_low_energy_notifications: z.boolean(),
+  // Removed notification fields from RHF schema
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -49,27 +48,32 @@ const SettingsPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, refreshProfile, rechargeEnergy, resetDailyStreak, updateNotificationPreferences } = useSession();
   const { setTheme } = useTheme();
 
+  // Local state for notification switches
+  const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
+  const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
+
+
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       first_name: '',
       last_name: '',
       avatar_url: '',
-      enable_daily_challenge_notifications: true,
-      enable_low_energy_notifications: true,
     },
     mode: 'onChange',
   });
 
+  // Sync RHF form with profile data
   useEffect(() => {
     if (profile) {
       form.reset({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
         avatar_url: profile.avatar_url || '',
-        enable_daily_challenge_notifications: profile.enable_daily_challenge_notifications,
-        enable_low_energy_notifications: profile.enable_low_energy_notifications,
       });
+      // Sync local state for switches
+      setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
+      setLowEnergyNotifications(profile.enable_low_energy_notifications);
     }
   }, [profile, form]);
 
@@ -163,14 +167,25 @@ const SettingsPage: React.FC = () => {
 
       setTheme("system");
       
-      form.setValue('enable_daily_challenge_notifications', true);
-      form.setValue('enable_low_energy_notifications', true);
+      // Update local state
+      setDailyChallengeNotifications(true);
+      setLowEnergyNotifications(true);
 
       showSuccess("App settings reset to default!");
       await refreshProfile();
     } catch (error: any) {
       showError(`Failed to reset app settings: ${error.message}`);
       console.error("Reset app settings error:", error);
+    }
+  };
+
+  const handleNotificationChange = async (key: 'enable_daily_challenge_notifications' | 'enable_low_energy_notifications', checked: boolean) => {
+    if (key === 'enable_daily_challenge_notifications') {
+      setDailyChallengeNotifications(checked);
+      await updateNotificationPreferences({ enable_daily_challenge_notifications: checked });
+    } else {
+      setLowEnergyNotifications(checked);
+      await updateNotificationPreferences({ enable_low_energy_notifications: checked });
     }
   };
 
@@ -208,6 +223,7 @@ const SettingsPage: React.FC = () => {
         <Settings className="h-7 w-7 text-primary" /> Settings
       </h1>
       
+      {/* Profile Form */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information Card */}
@@ -329,7 +345,7 @@ const SettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* App Preferences Card */}
+      {/* App Preferences Card (No longer uses RHF FormField) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
@@ -341,52 +357,35 @@ const SettingsPage: React.FC = () => {
             <Label>Theme</Label>
             <ThemeToggle />
           </div>
-          <FormField
-            control={form.control}
-            name="enable_daily_challenge_notifications"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                <div className="space-y-0.5">
-                  <FormLabel>Daily Challenge Notifications</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Receive notifications for your daily challenge status.
-                  </p>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={(checked) => {
-                      field.onChange(checked);
-                      updateNotificationPreferences({ enable_daily_challenge_notifications: checked });
-                    }}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="enable_low_energy_notifications"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                <div className="space-y-0.5">
-                  <FormLabel>Low Energy Notifications</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Receive alerts when your energy is low.
-                  </p>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={(checked) => {
-                      field.onChange(checked);
-                      updateNotificationPreferences({ enable_low_energy_notifications: checked });
-                    }}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
+          
+          {/* Daily Challenge Notifications (Manual State/Update) */}
+          <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>Daily Challenge Notifications</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive notifications for your daily challenge status.
+              </p>
+            </div>
+            <Switch
+              checked={dailyChallengeNotifications}
+              onCheckedChange={(checked) => handleNotificationChange('enable_daily_challenge_notifications', checked)}
+            />
+          </div>
+
+          {/* Low Energy Notifications (Manual State/Update) */}
+          <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>Low Energy Notifications</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive alerts when your energy is low.
+              </p>
+            </div>
+            <Switch
+              checked={lowEnergyNotifications}
+              onCheckedChange={(checked) => handleNotificationChange('enable_low_energy_notifications', checked)}
+            />
+          </div>
+
           <div className="flex justify-end mt-4">
             <AlertDialog>
               <AlertDialogTrigger asChild>

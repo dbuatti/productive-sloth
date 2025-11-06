@@ -31,6 +31,11 @@ const ThemeSelector: React.FC = () => {
     
     // Save preference
     localStorage.setItem('theme', selectedTheme);
+
+    // DEBUG: Log the applied theme and current classes
+    console.log(`ThemeSelector: Applied theme: ${selectedTheme}`);
+    console.log(`ThemeSelector: document.documentElement classes: ${root.className}`);
+
   }, [selectedTheme]);
 
   return (

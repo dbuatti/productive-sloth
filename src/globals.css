@@ -114,25 +114,29 @@
     --accent-foreground: 210 40% 98%;
   }
 
-  /* Forest Green Theme */
+  /* Forest Green Theme - EXTREMELY OBVIOUS FOR DEBUGGING */
   .theme-forest {
-    --primary: 142.1 70% 30%; /* Darker green for better contrast */
-    --primary-foreground: 210 40% 98%; /* Light text on primary */
-    --secondary: 142.1 76.2% 90%; /* Lighter green secondary */
-    --secondary-foreground: 222.2 47.4% 11.2%; /* Dark text on secondary */
-    --ring: 142.1 70% 30%; /* Primary green ring */
-    --accent: 142.1 76.2% 90%; /* Lighter green accent */
-    --accent-foreground: 222.2 47.4% 11.2%; /* Dark text on accent */
+    --primary: 120 100% 50%; /* Bright Green */
+    --primary-foreground: 0 0% 100%; /* White text */
+    --secondary: 120 50% 80%; /* Lighter Green */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* Dark text */
+    --ring: 120 100% 50%; /* Bright Green ring */
+    --accent: 120 50% 80%; /* Lighter Green accent */
+    --accent-foreground: 222.2 47.4% 11.2%; /* Dark text */
+    --background: 120 100% 95%; /* Very light green background */
+    --foreground: 120 100% 10%; /* Very dark green text */
   }
   
   .dark .theme-forest {
-    --primary: 142.1 70% 30%; /* Keep darker green primary */
-    --primary-foreground: 222.2 47.4% 11.2%; /* Dark text on primary */
-    --secondary: 142.1 20% 15%; /* Darker, muted green secondary */
-    --secondary-foreground: 210 40% 98%; /* Light text on secondary */
-    --ring: 142.1 70% 30%; /* Primary green ring */
-    --accent: 142.1 20% 15%; /* Darker, muted green accent */
-    --accent-foreground: 210 40% 98%; /* Light text on accent */
+    --primary: 120 100% 50%; /* Bright Green */
+    --primary-foreground: 0 0% 100%; /* White text */
+    --secondary: 120 50% 20%; /* Darker Green */
+    --secondary-foreground: 0 0% 100%; /* White text */
+    --ring: 120 100% 50%; /* Bright Green ring */
+    --accent: 120 50% 20%; /* Darker Green accent */
+    --accent-foreground: 0 0% 100%; /* White text */
+    --background: 120 100% 5%; /* Very dark green background */
+    --foreground: 120 100% 90%; /* Very light green text */
   }
 
   /* Sunset Orange Theme */

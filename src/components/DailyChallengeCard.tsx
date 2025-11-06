@@ -3,9 +3,8 @@ import { useSession } from '@/hooks/use-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, CheckCircle2, Loader2 } from 'lucide-react';
-import { formatDistanceToNowStrict, isToday, isPast, parseISO } from 'date-fns';
+import { isToday, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { CustomProgress } from './CustomProgress'; // Import CustomProgress
 
 const DAILY_CHALLENGE_XP = 50; // Increased XP for challenge
 const DAILY_CHALLENGE_ENERGY = 20; // Increased Energy for challenge
@@ -79,18 +78,15 @@ const DailyChallengeCard: React.FC = () => {
           Daily Challenge
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0 p-5 border border-dashed border-border/50 rounded-b-lg"> {/* Added padding and dashed border */}
-        <div className="text-6xl font-extrabold font-mono text-[hsl(var(--accent))] mb-2 leading-none"> {/* Increased size, added font-mono */}
+      <CardContent className="pt-0 p-5 border border-dashed border-border/50 rounded-b-lg">
+        <div className="text-6xl font-extrabold font-mono text-[hsl(var(--accent))] mb-2 leading-none">
           {hasClaimedToday ? 'Claimed!' : (isChallengeComplete ? 'Ready!' : 'In Progress')}
         </div>
         <p className="text-sm text-muted-foreground mb-3">
-          Complete <span className="font-bold text-foreground font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED} tasks</span> to earn <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_XP} XP</span> and <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_ENERGY} Energy</span>! {/* Added font-mono */}
+          Complete <span className="font-bold text-foreground font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED} tasks</span> to earn <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_XP} XP</span> and <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_ENERGY} Energy</span>!
         </p>
         
-        {/* Progress bar removed from here, now in ProgressBarHeader */}
-        <p className="text-xs text-muted-foreground mt-2 mb-3">
-          <span className="font-mono">{profile.tasks_completed_today}</span> / <span className="font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED}</span> tasks completed today. {/* Added font-mono */}
-        </p>
+        {/* Removed the redundant progress display here */}
 
         <Tooltip>
           <TooltipTrigger asChild>

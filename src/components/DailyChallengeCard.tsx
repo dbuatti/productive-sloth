@@ -73,7 +73,7 @@ const DailyChallengeCard: React.FC = () => {
   const hasClaimedToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
   return (
-    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005] hover:shadow-md">
+    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]"> {/* Removed hover:shadow-md */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--accent))]">
           <Trophy className="h-5 w-5" />

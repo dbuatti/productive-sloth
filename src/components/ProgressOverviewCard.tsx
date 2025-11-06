@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Sparkles, CheckCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useSession } from '@/hooks/use-session';
+import { useSession }
+from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { isToday, parseISO } from 'date-fns';
 import { CustomProgress } from './CustomProgress'; // Import CustomProgress
@@ -41,7 +42,7 @@ const ProgressOverviewCard: React.FC = () => {
   const { level, xpTowardsNextLevel, xpNeededForNextLevel, progressPercentage } = calculateLevelInfo(profile.xp);
 
   return (
-    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005] hover:shadow-md"> {/* Added hover effect */}
+    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]"> {/* Removed hover:shadow-md */}
       <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
         <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-yellow))]"> {/* Using logo-yellow */}
           <Trophy className="h-5 w-5" />
@@ -55,7 +56,7 @@ const ProgressOverviewCard: React.FC = () => {
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* XP Progress Section */}
-          <div className="p-4 rounded-md bg-muted/20">
+          <div className="p-4 rounded-md bg-background"> {/* Changed to bg-background */}
             <div className="text-base text-muted-foreground mb-2">
               <span className="font-bold text-foreground text-xl">{xpTowardsNextLevel}</span> / {xpNeededForNextLevel} XP
             </div>
@@ -77,7 +78,7 @@ const ProgressOverviewCard: React.FC = () => {
           </div>
 
           {/* Today's Summary Section */}
-          <div className="border-t sm:border-t-0 sm:border-l border-border pt-6 sm:pt-4 sm:pl-6 p-4 rounded-md bg-muted/20">
+          <div className="border-t sm:border-t-0 sm:border-l border-border pt-6 sm:pt-4 sm:pl-6 p-4 rounded-md bg-background"> {/* Changed to bg-background */}
             <div className="text-lg font-bold flex items-center gap-2 mb-2 text-primary"> {/* Using primary blue */}
               <CheckCircle className="h-5 w-5" />
               Today's Summary

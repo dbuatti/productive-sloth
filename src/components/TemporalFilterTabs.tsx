@@ -15,7 +15,7 @@ const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, 
         <TabsTrigger 
           value="TODAY" 
           className={cn(
-            "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+            "data-[state=active]:bg-background data-[state=active]:text-foreground", // Removed data-[state=active]:shadow-sm
             "text-sm font-medium" // Added font-medium for emphasis
           )}
         >
@@ -24,7 +24,7 @@ const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, 
         <TabsTrigger 
           value="YESTERDAY"
           className={cn(
-            "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+            "data-[state=active]:bg-background data-[state=active]:text-foreground", // Removed data-[state=active]:shadow-sm
             "text-sm font-medium" // Added font-medium for emphasis
           )}
         >
@@ -33,7 +33,7 @@ const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, 
         <TabsTrigger 
           value="LAST_7_DAYS"
           className={cn(
-            "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+            "data-[state=active]:bg-background data-[state=active]:text-foreground", // Removed data-[state=active]:shadow-sm
             "text-sm font-medium" // Added font-medium for emphasis
           )}
         >

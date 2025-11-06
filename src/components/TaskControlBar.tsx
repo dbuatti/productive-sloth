@@ -30,7 +30,7 @@ const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatus
               value={option.value}
               className={cn(
                 "text-sm px-3 py-1 h-auto font-medium", // Added font-medium for emphasis
-                "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                "data-[state=active]:bg-background data-[state=active]:text-foreground" // Removed data-[state=active]:shadow-sm
               )}
             >
               {option.label}

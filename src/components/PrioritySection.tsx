@@ -24,7 +24,7 @@ const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) =>
         className="rounded-lg overflow-hidden mb-4" // Removed bg-card, border, shadow-sm
       >
         <AccordionTrigger className={cn(
-          "px-4 py-3 font-semibold hover:no-underline bg-muted/30 hover:bg-muted/50 rounded-t-lg",
+          "px-4 py-3 font-semibold hover:no-underline bg-background hover:bg-muted/20 rounded-t-lg border-b border-border/50", // Changed background and hover, added subtle border
           priorityClasses[priority]
         )}>
           {headerText}

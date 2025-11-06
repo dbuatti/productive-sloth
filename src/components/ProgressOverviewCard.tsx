@@ -42,12 +42,12 @@ const ProgressOverviewCard: React.FC = () => {
     <Card className="relative w-full transition-all duration-200 ease-in-out hover:scale-[1.005]"> {/* Removed pt-16 from here */}
       {/* Level text positioned absolutely */}
       <div className={cn(
-        "absolute top-[-3rem] right-4 z-10", // Adjusted top to a negative value, removed -translate-y-1/2
-        "bg-background px-4 py-2 rounded-lg", // Background to create the 'cut out' effect, padding, rounded
-        "text-4xl font-extrabold font-mono flex items-center gap-2 text-primary" // Smaller font size
+        "absolute top-4 right-4 z-10", // Position at top-right, z-index to be above card, top-4 to be just inside
+        "bg-background px-3 py-1 rounded-md", // Background to create the 'cut out' effect, smaller padding, rounded
+        "text-base font-extrabold font-mono flex items-center gap-1 text-primary" // Smaller font size
       )}>
-        <Sparkles className="h-6 w-6 animate-pulse" /> {/* Icon size matching text */}
-        Level {level}
+        <Sparkles className="h-4 w-4 animate-pulse" /> {/* Icon size matching text */}
+        Lvl {level}
       </div>
 
       <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pt-8 pb-2 pr-24"> {/* Added pt-8 here to push content down */}

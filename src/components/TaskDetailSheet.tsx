@@ -37,6 +37,9 @@ const formSchema = z.object({
   description: z.string().optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
   dueDate: z.date({ required_error: "Due date is required." }), 
+  // New fields for gamification metadata
+  metadata_xp: z.coerce.number().int().min(0, "XP must be a positive number."),
+  energy_cost: z.coerce.number().int().min(0, "Energy cost must be a positive number."),
 });
 
 type TaskDetailFormValues = z.infer<typeof formSchema>;
@@ -61,6 +64,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       description: "",
       priority: "MEDIUM",
       dueDate: new Date(),
+      metadata_xp: 0,
+      energy_cost: 0,
     },
   });
 
@@ -72,6 +77,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         description: task.description || "",
         priority: task.priority,
         dueDate: task.due_date ? new Date(task.due_date) : new Date(), 
+        metadata_xp: task.metadata_xp,
+        energy_cost: task.energy_cost,
       });
     }
   }, [task, form]);
@@ -88,6 +95,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         description: descriptionValue,
         priority: values.priority,
         due_date: values.dueDate.toISOString(),
+        metadata_xp: values.metadata_xp, // Include XP
+        energy_cost: values.energy_cost, // Include Energy Cost
       });
       showSuccess("Task updated successfully!");
       onOpenChange(false);
@@ -139,16 +148,50 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         </SheetHeader>
 
         <div className="flex-grow overflow-y-auto space-y-6">
-          {/* Metadata Overview */}
+          {/* Metadata Overview - Now editable fields */}
           <div className="grid grid-cols-2 gap-4 text-sm font-medium">
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50">
-              <Sparkles className="h-4 w-4 text-logo-yellow" />
-              <span>XP Reward: <span className="font-mono text-foreground">{task.metadata_xp}</span></span>
-            </div>
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50">
-              <Zap className="h-4 w-4 text-primary" />
-              <span>Energy Cost: <span className="font-mono text-foreground">{task.energy_cost}</span></span>
-            </div>
+            <FormField
+              control={form.control}
+              name="metadata_xp"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2 text-logo-yellow">
+                    <Sparkles className="h-4 w-4" /> XP Reward
+                  </FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      placeholder="XP" 
+                      {...field} 
+                      onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
+                      className="font-mono text-foreground"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="energy_cost"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2 text-primary">
+                    <Zap className="h-4 w-4" /> Energy Cost
+                  </FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      placeholder="Energy" 
+                      {...field} 
+                      onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
+                      className="font-mono text-foreground"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           <Form {...form}>

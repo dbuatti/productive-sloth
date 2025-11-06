@@ -11,6 +11,7 @@ export interface UserProfile {
   level: number; // Added Level
   daily_streak: number; // Added daily streak
   last_streak_update: string | null; // Added last streak update timestamp
+  energy: number; // Added energy
 }
 
 interface SessionContextType {

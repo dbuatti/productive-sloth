@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import * as z from 'zod'; // Corrected import statement
 import {
   Dialog,
   DialogContent,
@@ -132,6 +132,10 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({ open, onO
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label className="text-right">Level</Label>
                   <Input className="col-span-3" value={profile.level} readOnly />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Energy</Label>
+                  <Input className="col-span-3" value={profile.energy} readOnly />
                 </div>
               </>
             )}

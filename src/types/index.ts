@@ -10,6 +10,7 @@ export interface Task {
   is_completed: boolean;
   priority: TaskPriority;
   metadata_xp: number;
+  energy_cost: number; // Added energy_cost
   due_date: string; // ISO date string
   created_at: string;
 }
@@ -18,5 +19,6 @@ export interface NewTask {
   title: string;
   priority: TaskPriority;
   metadata_xp: number;
+  energy_cost: number; // Added energy_cost
   due_date: string;
 }

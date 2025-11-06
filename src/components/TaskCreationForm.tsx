@@ -42,6 +42,7 @@ const TaskCreationForm: React.FC = () => {
       title: title.trim(),
       priority: priority,
       metadata_xp: priority === 'HIGH' ? 20 : priority === 'MEDIUM' ? 10 : 5, // Assign XP based on priority
+      energy_cost: priority === 'HIGH' ? 15 : priority === 'MEDIUM' ? 10 : 5, // Assign Energy Cost based on priority
       due_date: dueDate.toISOString(),
     };
 

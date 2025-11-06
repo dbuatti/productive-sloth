@@ -54,6 +54,7 @@ const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
 
 // XP and Leveling Constants
 const XP_PER_LEVEL = 100; // XP needed to gain one level
+const MAX_ENERGY = 100; // Max energy for the user
 
 const calculateLevelAndRemainingXp = (totalXp: number) => {
   const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
@@ -164,13 +165,25 @@ export const useTasks = () => {
         return oldTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
       });
 
-      // Handle XP gain and Streak update on task completion
+      // Handle XP gain, Streak update, and Energy deduction on task completion
       if (updatedTask.is_completed && profile && user) {
         const taskBeforeUpdate = tasks.find(t => t.id === updatedTask.id);
-        // Only award XP if the task was NOT completed before this update
+        // Only process if the task was NOT completed before this update
         if (taskBeforeUpdate && !taskBeforeUpdate.is_completed) {
+          // Energy Check
+          if (profile.energy < updatedTask.energy_cost) {
+            showError(`Not enough energy to complete "${updatedTask.title}". You need ${updatedTask.energy_cost} energy, but have ${profile.energy}.`);
+            // Revert task completion in UI if energy is insufficient
+            queryClient.setQueryData(['tasks', userId], (oldTasks: Task[] | undefined) => {
+              if (!oldTasks) return [];
+              return oldTasks.map(t => t.id === updatedTask.id ? { ...updatedTask, is_completed: false } : t);
+            });
+            return; // Stop further processing
+          }
+
           const newXp = profile.xp + updatedTask.metadata_xp;
           const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
+          const newEnergy = Math.max(0, profile.energy - updatedTask.energy_cost); // Deduct energy, ensure not negative
 
           let newDailyStreak = profile.daily_streak;
           let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
@@ -193,30 +206,31 @@ export const useTasks = () => {
               level: newLevel, 
               daily_streak: newDailyStreak,
               last_streak_update: today.toISOString(), // Update streak date to today
+              energy: newEnergy, // Update energy
               updated_at: new Date().toISOString() 
             })
             .eq('id', user.id);
 
           if (profileError) {
-            console.error("Failed to update user XP or streak:", profileError.message);
-            showError("Failed to update XP or streak.");
+            console.error("Failed to update user profile (XP, streak, energy):", profileError.message);
+            showError("Failed to update profile stats.");
           } else {
             await refreshProfile(); // Refresh profile data in session context
-            showSuccess(`Task completed! +${updatedTask.metadata_xp} XP`);
+            showSuccess(`Task completed! +${updatedTask.metadata_xp} XP, -${updatedTask.energy_cost} Energy`);
             if (newLevel > profile.level) {
               showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
             }
           }
         } else if (!updatedTask.is_completed && profile && user) {
           // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
-          // No XP deduction or streak change for uncompletion for now.
+          // No XP/energy deduction or streak change for uncompletion for now.
           await refreshProfile();
         }
       } else if (!updatedTask.is_completed) {
         // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
         await refreshProfile();
       } else if (updatedTask.is_completed) {
-        // If task was already completed, just show success (no XP/streak change)
+        // If task was already completed, just show success (no XP/streak/energy change)
         showSuccess('Task completed!');
       }
     },

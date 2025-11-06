@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,22 +10,24 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import CreateTaskDialog from './CreateTaskDialog'; // Import the new dialog component
 
-// 1. Define Schema
-const TaskCreationSchema = z.object({
+// 1. Define Schema for Quick Add
+const QuickTaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
 });
 
-type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
+type QuickTaskCreationFormValues = z.infer<typeof QuickTaskCreationSchema>;
 
 const TaskCreationForm: React.FC = () => {
   const { addTask } = useTasks();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
-  // 2. Initialize useForm
-  const form = useForm<TaskCreationFormValues>({
-    resolver: zodResolver(TaskCreationSchema),
+  // 2. Initialize useForm for Quick Add
+  const form = useForm<QuickTaskCreationFormValues>({
+    resolver: zodResolver(QuickTaskCreationSchema),
     defaultValues: {
       title: '',
       priority: 'MEDIUM',
@@ -34,12 +36,13 @@ const TaskCreationForm: React.FC = () => {
     mode: 'onChange', // Enable validation on change
   });
 
-  // 3. Handle Submission
-  const onSubmit = (values: TaskCreationFormValues) => {
+  // 3. Handle Quick Submission
+  const onQuickSubmit = (values: QuickTaskCreationFormValues) => {
     const { title, priority, dueDate } = values;
 
     const newTask: NewTask = {
       title: title.trim(),
+      description: undefined, // No description in quick add
       priority: priority,
       metadata_xp: priority === 'HIGH' ? 20 : priority === 'MEDIUM' ? 10 : 5, // Assign XP based on priority
       energy_cost: priority === 'HIGH' ? 15 : priority === 'MEDIUM' ? 10 : 5, // Assign Energy Cost based on priority
@@ -59,9 +62,16 @@ const TaskCreationForm: React.FC = () => {
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
 
+  // Function to sync form state to dialog if user opens it
+  const handleOpenDialog = () => {
+    // We don't need to sync values here, as the dialog form manages its own state
+    // but we pass the current quick-add defaults.
+    setIsDialogOpen(true);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col sm:flex-row gap-2 animate-slide-in-up"> {/* Added animate-slide-in-up */}
+      <form onSubmit={form.handleSubmit(onQuickSubmit)} className="flex flex-col sm:flex-row gap-2 animate-slide-in-up">
         
         {/* Title Input */}
         <FormField
@@ -73,7 +83,7 @@ const TaskCreationForm: React.FC = () => {
                 <Input
                   placeholder="Add a new task..."
                   {...field}
-                  className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200" /* Added focus styles */
+                  className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
                 />
               </FormControl>
               <FormMessage />
@@ -89,7 +99,7 @@ const TaskCreationForm: React.FC = () => {
             <FormItem className="w-full sm:w-[120px] shrink-0">
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
-                  <SelectTrigger className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"> {/* Added focus styles */}
+                  <SelectTrigger className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200">
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                 </FormControl>
@@ -120,14 +130,21 @@ const TaskCreationForm: React.FC = () => {
             </FormItem>
           )}
         />
+        
+        {/* Detailed Task Dialog Button */}
+        <CreateTaskDialog 
+          defaultPriority={form.getValues('priority')}
+          defaultDueDate={form.getValues('dueDate')}
+          onTaskCreated={() => form.reset({ title: '', priority: form.getValues('priority'), dueDate: form.getValues('dueDate') })}
+        />
 
-        {/* Submit Button */}
+        {/* Quick Add Submit Button */}
         <Button 
           type="submit" 
           disabled={isSubmitting || !isValid} 
-          className="shrink-0 w-full sm:w-auto h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200" /* Ensured primary button styling */
+          className="shrink-0 w-full sm:w-auto h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
         >
-          <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Add</span>
+          <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Quick Add</span>
         </Button>
       </form>
     </Form>

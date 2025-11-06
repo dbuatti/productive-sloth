@@ -8,11 +8,12 @@ import NotFound from "./pages/NotFound";
 import { SessionProvider } from "./components/SessionProvider";
 import { ThemeProvider } from "next-themes";
 import React from "react";
-import MainLayout from "./components/MainLayout"; // Import MainLayout
-import Dashboard from "./pages/Dashboard"; // Pre-emptively import Dashboard
-import TasksPage from "./pages/TasksPage"; // Pre-emptively import TasksPage
-import AchievementsPage from "./pages/AchievementsPage"; // Pre-emptively import AchievementsPage
-import SettingsPage from "./pages/SettingsPage"; // Import SettingsPage
+import MainLayout from "./components/MainLayout";
+import Dashboard from "./pages/Dashboard";
+import TasksPage from "./pages/TasksPage";
+import AchievementsPage from "./pages/AchievementsPage";
+import SettingsPage from "./pages/SettingsPage";
+import AnalyticsPage from "./pages/AnalyticsPage"; // Import AnalyticsPage
 
 const queryClient = new QueryClient();
 
@@ -24,12 +25,13 @@ const App = () => (
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <SessionProvider>
-              <MainLayout> {/* Wrap routes with MainLayout */}
+              <MainLayout>
                 <Routes>
-                  <Route path="/" element={<Dashboard />} /> {/* Changed default to Dashboard */}
-                  <Route path="/tasks" element={<TasksPage />} /> {/* New route for tasks */}
-                  <Route path="/achievements" element={<AchievementsPage />} /> {/* New route for achievements */}
-                  <Route path="/settings" element={<SettingsPage />} /> {/* New route for settings */}
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/tasks" element={<TasksPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} /> {/* New route for analytics */}
+                  <Route path="/achievements" element={<AchievementsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/login" element={<Login />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />

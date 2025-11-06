@@ -5,7 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
 import { Plus } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import DatePicker from './DatePicker';
 
 const TaskCreationForm: React.FC = () => {
@@ -32,34 +31,33 @@ const TaskCreationForm: React.FC = () => {
   };
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        {/* Use flex-col on mobile, then switch to flex-row on sm: */}
-        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
-          <Input
-            type="text"
-            placeholder="Add a new task..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="flex-grow min-w-[150px]"
-          />
-          <Select value={priority} onValueChange={(value: TaskPriority) => setPriority(value)}>
-            <SelectTrigger className="w-full sm:w-[120px] shrink-0">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="HIGH">High</SelectItem>
-              <SelectItem value="MEDIUM">Medium</SelectItem>
-              <SelectItem value="LOW">Low</SelectItem>
-            </SelectContent>
-          </Select>
-          <DatePicker date={dueDate} setDate={setDueDate} />
-          <Button type="submit" disabled={!title.trim() || !dueDate} className="shrink-0 w-full sm:w-auto">
-            <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Add</span>
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    // Removed Card wrapper, now handled by parent Index.tsx
+    <div className="p-0">
+      {/* Use flex-col on mobile, then switch to flex-row on sm: */}
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
+        <Input
+          type="text"
+          placeholder="Add a new task..."
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="flex-grow min-w-[150px]"
+        />
+        <Select value={priority} onValueChange={(value: TaskPriority) => setPriority(value)}>
+          <SelectTrigger className="w-full sm:w-[120px] shrink-0">
+            <SelectValue placeholder="Priority" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="HIGH">High</SelectItem>
+            <SelectItem value="MEDIUM">Medium</SelectItem>
+            <SelectItem value="LOW">Low</SelectItem>
+          </SelectContent>
+        </Select>
+        <DatePicker date={dueDate} setDate={setDueDate} />
+        <Button type="submit" disabled={!title.trim() || !dueDate} className="shrink-0 w-full sm:w-auto">
+          <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Add</span>
+        </Button>
+      </form>
+    </div>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, Settings, Flame } from 'lucide-react'; // Import Flame icon
+import { LogOut, Settings, Flame, Zap, BatteryCharging } from 'lucide-react'; // Import Zap and BatteryCharging icons
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/hooks/use-session';
@@ -15,11 +15,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import ProfileSettingsDialog from './ProfileSettingsDialog';
 import { AvatarImage } from './ui/avatar';
-import DailyChallengeClaimButton from './DailyChallengeClaimButton'; // Import the new component
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
+import DailyChallengeClaimButton from './DailyChallengeClaimButton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { CustomProgress } from './CustomProgress'; // Import CustomProgress
+
+const MAX_ENERGY = 100; // Max energy for the user (should match useSession)
 
 const AppHeader: React.FC = () => {
-  const { user, profile } = useSession();
+  const { user, profile, rechargeEnergy } = useSession();
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -42,12 +45,14 @@ const AppHeader: React.FC = () => {
   // Determine the name to display next to the avatar
   const visibleFirstName = profile?.first_name || getDisplayNameFromEmail(userEmail).split(' ')[0];
 
+  const energyPercentage = profile ? (profile.energy / MAX_ENERGY) * 100 : 0;
+  const isEnergyFull = profile ? profile.energy >= MAX_ENERGY : true;
+
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto" />
-          {/* Removed h1 text to let the logo be the primary identifier */}
         </div>
         
         {user && (
@@ -68,6 +73,38 @@ const AppHeader: React.FC = () => {
                   <p>Daily Streak: {profile.daily_streak} Day{profile.daily_streak !== 1 ? 's' : ''}</p>
                 </TooltipContent>
               </Tooltip>
+            )}
+
+            {/* User Energy Display */}
+            {profile && (
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-sm font-semibold text-[hsl(var(--logo-yellow))]">
+                      <Zap className="h-4 w-4" />
+                      <span>{profile.energy}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Energy: {profile.energy} / {MAX_ENERGY}</p>
+                    <CustomProgress 
+                      value={energyPercentage} 
+                      className="h-2 w-32 mt-2 bg-[hsl(var(--logo-yellow))]/20" 
+                      indicatorClassName="bg-[hsl(var(--logo-yellow))]" 
+                    />
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={() => rechargeEnergy()} 
+                      disabled={isEnergyFull}
+                      className="flex items-center gap-1 text-xs font-semibold mt-2 w-full"
+                    >
+                      <BatteryCharging className="h-3 w-3" />
+                      Recharge
+                    </Button>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             )}
 
             <span className="text-sm font-medium hidden sm:inline-block">

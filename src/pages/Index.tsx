@@ -55,12 +55,6 @@ const Index = () => {
       <ProgressBarHeader />
       <main className="container mx-auto p-4 max-w-3xl space-y-6">
         
-        {/* TEMPORARY DIAGNOSTIC: This div should be bright yellow if custom colors are working */}
-        <div className="p-4 bg-logo-yellow text-white text-center font-bold rounded-lg">
-          If this is bright yellow, custom colors are working!
-        </div>
-        {/* END TEMPORARY DIAGNOSTIC */}
-
         {/* User Stats Dashboard */}
         <div className="grid grid-cols-1 gap-4">
           <ProgressOverviewCard />

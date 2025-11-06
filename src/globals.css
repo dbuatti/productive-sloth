@@ -4,111 +4,121 @@
 
 @layer base {
   :root {
-    /* Cosmic Adventure - Light Theme */
-    --background: 240 30% 98%; /* Very light lavender */
-    --foreground: 240 15% 20%; /* Deep purple-grey for text */
+    /* Neo-Minimalist Dawn - Light Theme */
+    --background: 210 30% 98%; /* Very light, almost white blue-grey */
+    --foreground: 210 15% 15%; /* Deep charcoal for text */
 
     --card: 0 0% 100%; /* Pure white cards */
-    --card-foreground: 240 15% 20%;
+    --card-foreground: 210 15% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 15% 20%;
+    --popover-foreground: 210 15% 15%;
 
-    --primary: 200 80% 45%; /* Vibrant Teal */
+    --primary: 170 70% 40%; /* Vibrant Blue-Green (Teal) */
     --primary-foreground: 0 0% 100%; /* White text on primary */
 
-    --secondary: 240 20% 90%; /* Soft lavender-grey secondary */
-    --secondary-foreground: 240 10% 30%; /* Darker text on secondary */
+    --secondary: 210 25% 92%; /* Soft light blue-grey secondary */
+    --secondary-foreground: 210 10% 30%; /* Darker text on secondary */
 
-    --muted: 240 18% 88%; /* Muted light grey-lavender */
-    --muted-foreground: 240 10% 50%; /* Medium grey for muted text */
+    --muted: 210 18% 88%; /* Muted light grey */
+    --muted-foreground: 210 10% 50%; /* Medium grey for muted text */
 
-    --accent: 35 90% 60%; /* Bright Orange-Gold */
+    --accent: 10 80% 60%; /* Warm Coral/Peach */
     --accent-foreground: 0 0% 100%; /* White text on accent */
 
     --destructive: 0 80% 55%; /* Clear red for destructive actions */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 85%; /* Light grey-lavender border */
-    --input: 240 10% 85%; /* Light grey-lavender input border */
-    --ring: 200 80% 45%; /* Primary teal ring */
+    --border: 210 10% 80%; /* Light grey border */
+    --input: 210 10% 80%; /* Light grey input border */
+    --ring: 170 70% 40%; /* Primary blue-green ring */
 
     --radius: 0.5rem;
 
-    /* Custom colors for specific elements, derived from logo (adjusted for theme) */
-    --logo-yellow: 45 100% 60%; /* Brighter Sunny Yellow */
-    --logo-orange: 25 100% 60%; /* Fiery Orange */
-    --logo-green: 140 70% 40%; /* Fresh Green for LOW priority */
+    /* Custom colors for specific elements, adjusted for new theme */
+    --logo-yellow: 45 95% 55%; /* Sunny Yellow */
+    --logo-orange: 25 90% 55%; /* Vibrant orange */
+    --logo-green: 120 70% 40%; /* Green for LOW priority */
 
     /* Sidebar variables (consistent with new palette) */
-    --sidebar-background: 240 20% 95%;
-    --sidebar-foreground: 240 15% 20%;
-    --sidebar-primary: 200 80% 35%;
+    --sidebar-background: 210 20% 95%;
+    --sidebar-foreground: 210 15% 15%;
+    --sidebar-primary: 170 70% 35%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 18% 88%;
-    --sidebar-accent-foreground: 240 10% 30%;
-    --sidebar-border: 240 10% 75%;
-    --sidebar-ring: 200 80% 45%;
+    --sidebar-accent: 210 18% 88%;
+    --sidebar-accent-foreground: 210 10% 30%;
+    --sidebar-border: 210 10% 75%;
+    --sidebar-ring: 170 70% 40%;
   }
 
-  /* Cosmic Adventure - Dark Theme */
+  /* Neo-Minimalist Dawn - Dark Theme */
   .dark {
-    --background: 240 20% 10%; /* Deep Space Purple */
-    --foreground: 240 20% 90%; /* Soft off-white for text */
+    --background: 210 15% 12%; /* Deep charcoal/navy */
+    --foreground: 210 10% 90%; /* Soft light grey for text */
 
-    --card: 240 15% 15%; /* Slightly lighter dark purple cards */
-    --card-foreground: 240 20% 90%;
+    --card: 210 15% 18%; /* Slightly lighter dark grey cards */
+    --card-foreground: 210 10% 90%;
 
-    --popover: 240 15% 15%;
-    --popover-foreground: 240 20% 90%;
+    --popover: 210 15% 18%;
+    --popover-foreground: 210 10% 90%;
 
-    --primary: 200 70% 55%; /* Lighter, glowing Teal for dark mode primary */
-    --primary-foreground: 240 15% 15%; /* Dark text on primary */
+    --primary: 170 60% 50%; /* Muted but vibrant blue-green for dark mode primary */
+    --primary-foreground: 210 15% 15%; /* Dark text on primary */
 
-    --secondary: 240 15% 20%;
-    --secondary-foreground: 240 10% 80%;
+    --secondary: 210 15% 25%;
+    --secondary-foreground: 210 10% 80%;
 
-    --muted: 240 15% 20%;
-    --muted-foreground: 240 10% 60%;
+    --muted: 210 15% 20%;
+    --muted-foreground: 210 10% 60%;
 
-    --accent: 35 70% 50%; /* Muted Orange-Gold for dark mode accent */
-    --accent-foreground: 240 15% 15%;
+    --accent: 10 60% 50%; /* Muted warm coral/peach for dark mode accent */
+    --accent-foreground: 210 15% 15%;
 
     --destructive: 0 70% 50%; /* Slightly less saturated red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 15% 25%;
-    --input: 240 15% 25%;
-    --ring: 200 70% 55%; /* Primary teal ring */
+    --border: 210 15% 30%;
+    --input: 210 15% 30%;
+    --ring: 170 60% 50%; /* Primary blue-green ring */
 
-    /* Custom colors for specific elements, derived from logo (adjusted for theme) */
-    --logo-yellow: 45 80% 50%; /* Muted Bright Yellow for dark mode */
-    --logo-orange: 25 80% 50%; /* Muted Fiery Orange */
-    --logo-green: 140 60% 35%; /* Muted Fresh Green for LOW priority */
+    /* Custom colors for specific elements, adjusted for new theme */
+    --logo-yellow: 45 70% 45%; /* Muted Sunny Yellow for dark mode */
+    --logo-orange: 25 65% 45%; /* Muted vibrant orange */
+    --logo-green: 120 60% 35%; /* Green for LOW priority */
 
     /* Sidebar variables (consistent with new palette) */
-    --sidebar-background: 240 15% 15%;
-    --sidebar-foreground: 240 20% 90%;
-    --sidebar-primary: 200 70% 45%;
-    --sidebar-primary-foreground: 240 15% 15%;
-    --sidebar-accent: 240 15% 20%;
-    --sidebar-accent-foreground: 240 10% 80%;
-    --sidebar-border: 240 15% 28%;
-    --sidebar-ring: 200 70% 55%;
+    --sidebar-background: 210 15% 15%;
+    --sidebar-foreground: 210 10% 90%;
+    --sidebar-primary: 170 60% 45%;
+    --sidebar-primary-foreground: 210 15% 15%;
+    --sidebar-accent: 210 15% 20%;
+    --sidebar-accent-foreground: 210 10% 80%;
+    --sidebar-border: 210 15% 28%;
+    --sidebar-ring: 170 60% 50%;
   }
 }
 
 @layer base {
   body {
     @apply bg-background text-foreground;
-    /* Subtle radial gradient for depth, giving a 'cosmic' feel */
-    background-image: radial-gradient(
-      at 50% 0%,
-      hsl(var(--muted) / 0.1) 0%,
-      transparent 70%
-    );
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
+    /* Subtle diagonal lines pattern for depth */
+    background-image: linear-gradient(
+        45deg,
+        hsl(var(--muted) / 0.1) 25%,
+        transparent 25%,
+        transparent 75%,
+        hsl(var(--muted) / 0.1) 75%,
+        hsl(var(--muted) / 0.1)
+      ),
+      linear-gradient(
+        -45deg,
+        hsl(var(--muted) / 0.1) 25%,
+        transparent 25%,
+        transparent 75%,
+        hsl(var(--muted) / 0.1) 75%,
+        hsl(var(--muted) / 0.1)
+      );
+    background-size: 20px 20px; /* Adjust size for subtlety */
   }
 
   * {

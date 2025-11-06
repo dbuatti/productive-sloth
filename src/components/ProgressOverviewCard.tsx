@@ -40,8 +40,8 @@ const ProgressOverviewCard: React.FC = () => {
   return (
     <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
       <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-yellow))]">
-          <Trophy className="h-5 w-5" />
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground"> {/* Changed text color to foreground */}
+          <Trophy className="h-5 w-5 text-[hsl(var(--logo-yellow))]" /> {/* Kept icon yellow */}
           Your Progress
         </CardTitle>
         <div className="text-6xl font-extrabold font-mono flex items-center gap-2 text-primary">
@@ -53,17 +53,17 @@ const ProgressOverviewCard: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* XP Summary Section */}
           <div className="p-5 rounded-md bg-background border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
-            <p className="text-base text-muted-foreground mb-1">Total XP</p>
+            <p className="text-base text-foreground mb-1">Total XP</p> {/* Changed text color to foreground */}
             <p className="text-5xl font-extrabold font-mono text-primary mb-2 leading-none">{profile.xp}</p>
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground font-mono">{xpNeededForNextLevel - xpTowardsNextLevel}</span> XP to next level!
+              <span className="font-semibold text-foreground font-mono">{xpNeededForNextLevel - xpTowardsNextLevel}</span> XP to next level! {/* Made number bold and foreground */}
             </p>
           </div>
 
           {/* Today's Summary Section */}
           <div className="border-t sm:border-t-0 sm:border-l border-border pt-6 sm:pt-4 sm:pl-6 p-5 rounded-md bg-background border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
-            <div className="text-lg font-bold flex items-center gap-2 mb-2 text-primary">
-              <CheckCircle className="h-5 w-5" />
+            <div className="text-lg font-bold flex items-center gap-2 mb-2 text-foreground"> {/* Changed text color to foreground */}
+              <CheckCircle className="h-5 w-5 text-primary" /> {/* Kept icon primary blue */}
               Today's Summary
             </div>
             <p className="text-5xl font-extrabold font-mono text-primary mb-2 leading-none">
@@ -71,7 +71,7 @@ const ProgressOverviewCard: React.FC = () => {
             </p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Sparkles className="h-4 w-4 text-[hsl(var(--logo-yellow))]" />
-              Earned <span className="font-bold text-foreground font-mono">+{xpGainedToday} XP</span> today!
+              Earned <span className="font-bold text-foreground font-mono">+{xpGainedToday} XP</span> today! {/* Made XP bold and foreground */}
             </p>
           </div>
         </div>

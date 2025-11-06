@@ -69,6 +69,7 @@ export const useTasks = () => {
   const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ALL');
   const [sortBy, setSortBy] = useState<SortBy>('PRIORITY');
+  const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null); // New state for XP animation
 
   const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter, currentSortBy: SortBy): Promise<Task[]> => {
     if (!userId) return [];
@@ -211,7 +212,12 @@ export const useTasks = () => {
             showError("Failed to update profile stats.");
           } else {
             await refreshProfile(); // Refresh profile data in session context
-            showSuccess(`Task completed! +${updatedTask.metadata_xp} XP, -${updatedTask.energy_cost} Energy`);
+            
+            // --- Trigger XP Animation ---
+            setXpGainAnimation({ taskId: updatedTask.id, xpAmount: updatedTask.metadata_xp });
+            // ---------------------------
+
+            showSuccess(`Task completed! -${updatedTask.energy_cost} Energy`);
             if (newLevel > profile.level) {
               showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
               triggerLevelUp(newLevel); // Trigger the level up celebration
@@ -219,7 +225,6 @@ export const useTasks = () => {
           }
         } else if (!updatedTask.is_completed && profile && user) {
           // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
-          // No XP/energy deduction or streak change for uncompletion for now.
           await refreshProfile();
         }
       } else if (updatedTask.is_completed) {
@@ -246,6 +251,10 @@ export const useTasks = () => {
     }
   });
 
+  const clearXpGainAnimation = useCallback(() => {
+    setXpGainAnimation(null);
+  }, []);
+
   return {
     tasks: filteredTasks,
     allTasks: tasks,
@@ -259,5 +268,7 @@ export const useTasks = () => {
     addTask: addTaskMutation.mutate,
     updateTask: updateTaskMutation.mutate,
     deleteTask: deleteTaskMutation.mutate,
+    xpGainAnimation, // Expose XP animation state
+    clearXpGainAnimation, // Expose clear function
   };
 };

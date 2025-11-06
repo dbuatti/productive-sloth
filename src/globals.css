@@ -167,6 +167,22 @@
       background-position: 100% 100%;
     }
   }
+  
+  /* New animation for XP gain */
+  @keyframes fade-out-up {
+    0% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-10px);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-30px);
+    }
+  }
 
   .animate-pulse-glow {
     animation: pulse-glow 2s infinite ease-in-out;
@@ -182,5 +198,9 @@
 
   .animate-background-pan {
     animation: background-pan 20s ease-in-out infinite alternate;
+  }
+  
+  .animate-fade-out-up {
+    animation: fade-out-up 1.5s ease-out forwards;
   }
 }

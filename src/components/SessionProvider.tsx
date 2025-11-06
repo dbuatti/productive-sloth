@@ -8,8 +8,8 @@ import { dismissToast } from '@/utils/toast';
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null); // State for user profile
-  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // Keep true initially
   const navigate = useNavigate();
 
   const fetchProfile = useCallback(async (userId: string) => {
@@ -36,59 +36,70 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [user, fetchProfile]);
 
   useEffect(() => {
-    let loadingToastId: string | undefined;
+    const handleAuthChange = async (event: string, currentSession: Session | null) => {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      if (currentSession?.user) {
+        await fetchProfile(currentSession.user.id);
+      } else {
+        setProfile(null);
+      }
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        if (currentSession?.user) {
-          await fetchProfile(currentSession.user.id); // Fetch profile on sign-in/initial session
+      if (event === 'SIGNED_IN' && window.location.pathname === '/login') {
+        navigate('/');
+      } else if (event === 'SIGNED_OUT' && window.location.pathname !== '/login') {
+        navigate('/login');
+      }
+      // For USER_UPDATED, profile is already refreshed above.
+      // For INITIAL_SESSION, the initial load logic below handles navigation.
+    };
+
+    // Set up auth listener
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      handleAuthChange(event, currentSession);
+    });
+
+    // Initial session check and loading state management
+    const loadSessionAndProfile = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+
+        if (initialSession?.user) {
+          await fetchProfile(initialSession.user.id);
+        } else {
+          setProfile(null);
         }
-        if (currentSession && window.location.pathname === '/login') {
+
+        // Handle initial navigation after session and profile are loaded
+        if (!initialSession && window.location.pathname !== '/login') {
+          navigate('/login');
+        } else if (initialSession && window.location.pathname === '/login') {
           navigate('/');
         }
-      } else if (event === 'SIGNED_OUT') {
+
+      } catch (error) {
+        console.error("Error during initial session load:", error);
+        // Even on error, we should stop loading to prevent infinite spinner
         setSession(null);
         setUser(null);
-        setProfile(null); // Clear profile on sign-out
+        setProfile(null);
         if (window.location.pathname !== '/login') {
           navigate('/login');
         }
-      } else if (event === 'USER_UPDATED') {
-        setUser(currentSession?.user ?? null);
-        if (currentSession?.user) {
-          await fetchProfile(currentSession.user.id); // Refresh profile if user metadata updates
-        }
+      } finally {
+        setIsLoading(false); // Always set to false after initial load attempt
       }
-      
-      if (isLoading) {
-        setIsLoading(false);
-      }
-      
-      if (loadingToastId) {
-        dismissToast(loadingToastId);
-      }
-    });
+    };
 
-    // Initial load check
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      if (initialSession?.user) {
-        await fetchProfile(initialSession.user.id); // Fetch profile on initial session load
-      }
-      setIsLoading(false);
-      
-      if (!initialSession && window.location.pathname !== '/login') {
-        navigate('/login');
-      }
-    });
+    loadSessionAndProfile();
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, isLoading, fetchProfile, user?.id]); // Added user.id to dependencies
+  }, [navigate, fetchProfile]); // Removed isLoading and user?.id from dependencies to prevent re-runs
 
   return (
     <SessionContext.Provider value={{ session, user, profile, isLoading, refreshProfile }}>

@@ -243,9 +243,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(initialSession?.user ?? null);
 
         if (initialSession?.user) {
-          // Perform initial profile fetch and challenge generation here
+          // Perform initial profile fetch
           await fetchProfile(initialSession.user.id);
           
+          // Introduce a small delay before calling the Edge Function
+          await new Promise(resolve => setTimeout(resolve, 50)); 
+
           // Call Edge Function on initial load
           try {
             await generateDailyChallenge(initialSession.access_token);
@@ -283,7 +286,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, fetchProfile, refreshProfile]); // Added refreshProfile dependency
+  }, [navigate, fetchProfile, refreshProfile]);
 
 // ... (Energy Regeneration Effect and Daily Reset Effect remain the same)
 

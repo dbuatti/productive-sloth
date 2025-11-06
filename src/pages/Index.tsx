@@ -10,12 +10,11 @@ import { useSession } from '@/hooks/use-session';
 import AppHeader from '@/components/AppHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import UserXPCard from '@/components/UserXPCard';
 import DailyStreakCard from '@/components/DailyStreakCard';
 import UserEnergyCard from '@/components/UserEnergyCard';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
 import DailyRewardCard from '@/components/DailyRewardCard';
-import DailySummaryCard from '@/components/DailySummaryCard'; // Import DailySummaryCard
+import ProgressOverviewCard from '@/components/ProgressOverviewCard'; // Import the new combined card
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -54,13 +53,12 @@ const Index = () => {
       <AppHeader />
       <main className="container mx-auto p-4 max-w-3xl space-y-6">
         
-        {/* User Stats Cards - More balanced grid */}
+        {/* User Stats Cards - Consolidated and streamlined grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted grid for 4 cards */}
-          <UserXPCard />
+          <ProgressOverviewCard /> {/* New combined card */}
           <DailyStreakCard />
           <UserEnergyCard />
           <DailyRewardCard />
-          <DailySummaryCard /> {/* Added DailySummaryCard */}
         </div>
 
         {/* Input & Controls Layer - Slightly more prominent card */}

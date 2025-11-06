@@ -73,19 +73,19 @@ const DailyChallengeCard: React.FC = () => {
   const hasClaimedToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
   return (
-    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]"> {/* Removed hover:shadow-md */}
+    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--accent))]">
           <Trophy className="h-5 w-5" />
           Daily Challenge
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-5xl font-extrabold text-[hsl(var(--accent))] mb-2 leading-none">
+      <CardContent className="pt-0 p-5 border border-dashed border-border/50 rounded-b-lg"> {/* Added padding and dashed border */}
+        <div className="text-6xl font-extrabold font-mono text-[hsl(var(--accent))] mb-2 leading-none"> {/* Increased size, added font-mono */}
           {hasClaimedToday ? 'Claimed!' : (isChallengeComplete ? 'Ready!' : 'In Progress')}
         </div>
         <p className="text-sm text-muted-foreground mb-3">
-          Complete <span className="font-bold text-foreground">{DAILY_CHALLENGE_TASKS_REQUIRED} tasks</span> to earn <span className="font-bold text-foreground">+{DAILY_CHALLENGE_XP} XP</span> and <span className="font-bold text-foreground">+{DAILY_CHALLENGE_ENERGY} Energy</span>!
+          Complete <span className="font-bold text-foreground font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED} tasks</span> to earn <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_XP} XP</span> and <span className="font-bold text-foreground font-mono">+{DAILY_CHALLENGE_ENERGY} Energy</span>! {/* Added font-mono */}
         </p>
         
         <div className="mb-3">
@@ -102,7 +102,7 @@ const DailyChallengeCard: React.FC = () => {
             </TooltipContent>
           </Tooltip>
           <p className="text-xs text-muted-foreground mt-2">
-            {profile.tasks_completed_today} / {DAILY_CHALLENGE_TASKS_REQUIRED} tasks completed today.
+            <span className="font-mono">{profile.tasks_completed_today}</span> / <span className="font-mono">{DAILY_CHALLENGE_TASKS_REQUIRED}</span> tasks completed today. {/* Added font-mono */}
           </p>
         </div>
 

@@ -21,15 +21,15 @@ const UserEnergyCard: React.FC = () => {
   const isEnergyFull = profile.energy >= MAX_ENERGY;
 
   return (
-    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]"> {/* Removed hover:shadow-md */}
+    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-yellow))]"> {/* Using logo-yellow */}
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-yellow))]">
           <Zap className="h-5 w-5" />
           Your Energy
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-5xl font-extrabold text-[hsl(var(--logo-yellow))] mb-2 leading-none"> {/* Using logo-yellow */}
+      <CardContent className="pt-0 p-5 border border-dashed border-border/50 rounded-b-lg"> {/* Added padding and dashed border */}
+        <div className="text-7xl font-extrabold font-mono text-[hsl(var(--logo-yellow))] mb-2 leading-none"> {/* Increased size, added font-mono */}
           {profile.energy} / {MAX_ENERGY}
         </div>
         <Tooltip>

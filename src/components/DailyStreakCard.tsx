@@ -12,15 +12,15 @@ const DailyStreakCard: React.FC = () => {
   }
 
   return (
-    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]"> {/* Removed hover:shadow-md */}
+    <Card className="w-full transition-all duration-200 ease-in-out hover:scale-[1.005]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-orange))]"> {/* Using logo-orange */}
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-[hsl(var(--logo-orange))]">
           <Flame className="h-5 w-5" />
           Daily Streak
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center pt-0">
-        <div className="text-6xl font-extrabold text-[hsl(var(--logo-orange))] leading-none"> {/* Using logo-orange */}
+      <CardContent className="flex flex-col items-center justify-center pt-0 p-5 border border-dashed border-border/50 rounded-b-lg"> {/* Added padding and dashed border */}
+        <div className="text-7xl font-extrabold font-mono text-[hsl(var(--logo-orange))] leading-none"> {/* Increased size, added font-mono */}
           {profile.daily_streak}
         </div>
         <p className="text-lg font-semibold text-muted-foreground mt-1">

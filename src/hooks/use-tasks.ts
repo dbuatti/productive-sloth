@@ -191,8 +191,10 @@ export const useTasks = () => {
           // For now, just refresh profile to ensure consistency if other updates happened.
           await refreshProfile();
         }
-      } else if (updatedTask.is_completed) {
-        showSuccess('Task completed!');
+      } else if (!updatedTask.is_completed) {
+        // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
+        // No XP deduction for now.
+        await refreshProfile();
       }
     },
     onError: (e) => {

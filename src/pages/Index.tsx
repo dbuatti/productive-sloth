@@ -12,7 +12,6 @@ import ProgressBarHeader from '@/components/ProgressBarHeader'; // Import new co
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
-import DailyChallengeCard from '@/components/DailyChallengeCard';
 import ProgressOverviewCard from '@/components/ProgressOverviewCard';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
@@ -53,15 +52,9 @@ const Index = () => {
       <ProgressBarHeader /> {/* Render the new progress bar header */}
       <main className="container mx-auto p-4 max-w-3xl space-y-6">
         
-        {/* User Stats Dashboard - More balanced and less dense grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left Column: Progress Overview (larger, more detailed) */}
+        {/* User Stats Dashboard - Now only ProgressOverviewCard */}
+        <div className="grid grid-cols-1 gap-4"> {/* Simplified grid as only one card remains */}
           <ProgressOverviewCard />
-
-          {/* Right Column: Daily Challenge (prominent) */}
-          <div className="grid grid-cols-1 gap-4">
-            <DailyChallengeCard />
-          </div>
         </div>
 
         {/* Input & Controls Layer - No outer card, rely on main container spacing */}

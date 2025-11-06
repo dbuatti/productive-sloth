@@ -24,12 +24,12 @@ const DatePicker: React.FC<DatePickerProps> = ({ date, setDate, placeholder = "D
         <Button
           variant={"outline"}
           className={cn(
-            "w-full sm:w-[150px] justify-start text-left font-normal shrink-0",
+            "w-full sm:w-[180px] justify-start text-left font-normal shrink-0",
             !date && "text-muted-foreground"
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "MMM dd") : <span>{placeholder}</span>}
+          {date ? format(date, "MMM dd, yyyy") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">

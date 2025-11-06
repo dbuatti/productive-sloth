@@ -29,18 +29,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { Task, TaskPriority } from "@/types"; // Updated import to use consolidated Task and TaskPriority
-import DatePicker from "./DatePicker"; // Import the DatePicker component
+import { Task, TaskPriority } from "@/types";
+import DatePicker from "./DatePicker";
+import { useTasks } from '@/hooks/use-tasks'; // Import useTasks
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
   description: z.string().optional(),
-  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'), // Updated to use TaskPriority enum values
+  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
   dueDate: z.date().optional(),
 });
 
 interface TaskEditDialogProps {
-  task?: Task; // Optional for creating new tasks
+  task?: Task;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmitSuccess: () => void;
@@ -52,12 +53,14 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
   onOpenChange,
   onSubmitSuccess,
 }) => {
+  const { updateTask } = useTasks(); // Get the updateTask mutation
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: task?.title || "",
       description: task?.description || "",
-      priority: task?.priority || "MEDIUM", // Updated default value
+      priority: task?.priority || "MEDIUM",
       dueDate: task?.due_date ? new Date(task.due_date) : undefined,
     },
   });
@@ -74,18 +77,23 @@ const TaskEditDialog: React.FC<TaskEditDialogProps> = ({
       form.reset({
         title: "",
         description: "",
-        priority: "MEDIUM", // Updated default value
+        priority: "MEDIUM",
         dueDate: undefined,
       });
     }
   }, [task, form]);
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!task) return; // Cannot update if no task is provided
+
     try {
-      // Simulate API call
-      console.log("Submitting task:", values);
-      // In a real app, you'd call an API here to save/update the task
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
+      await updateTask({
+        id: task.id,
+        title: values.title,
+        description: values.description,
+        priority: values.priority,
+        due_date: values.dueDate ? values.dueDate.toISOString() : null, // Convert Date to ISO string or null
+      });
       onSubmitSuccess();
       onOpenChange(false);
     } catch (error) {

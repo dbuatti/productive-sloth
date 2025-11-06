@@ -92,7 +92,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         
         {/* Edit Button */}
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditDialogOpen(true)}>
-          <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+          <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary/80" />
         </Button>
 
         <AlertDialog>

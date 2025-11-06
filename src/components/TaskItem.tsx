@@ -6,6 +6,17 @@ import { Trash2, Calendar } from 'lucide-react';
 import { useTasks } from '@/hooks/use-tasks';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface TaskItemProps {
   task: Task;
@@ -21,9 +32,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   };
 
   const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete "${task.title}"?`)) {
-      deleteTask(task.id);
-    }
+    deleteTask(task.id);
   };
 
   const priorityClasses = {
@@ -78,9 +87,27 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           +{task.metadata_xp} XP
         </Badge>
         
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDelete}>
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the task: "{task.title}".
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                Delete Task
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

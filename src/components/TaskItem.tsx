@@ -56,29 +56,30 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const getPriorityColor = (priority: Task['priority']) => {
     switch (priority) {
-      case 'HIGH': // Updated to match TaskPriority enum
-        return 'text-red-500';
-      case 'MEDIUM': // Updated to match TaskPriority enum
-        return 'text-yellow-500';
-      case 'LOW': // Updated to match TaskPriority enum
-        return 'text-green-500';
+      case 'HIGH':
+        return 'text-destructive font-bold'; /* Bolder red */
+      case 'MEDIUM':
+        return 'text-logo-orange font-semibold'; /* Orange for medium */
+      case 'LOW':
+        return 'text-logo-green'; /* Green for low */
       default:
-        return 'text-gray-500';
+        return 'text-muted-foreground';
     }
   };
 
   return (
-    <div className="flex items-center justify-between p-4 border-b last:border-b-0">
+    <div className="flex items-center justify-between p-4 border-b last:border-b-0 bg-card hover:bg-secondary/50 transition-all duration-200 rounded-md hover:shadow-md"> {/* Added hover effects and rounded corners */}
       <div className="flex items-center space-x-3">
         <Checkbox
           checked={task.is_completed}
           onCheckedChange={handleToggleComplete}
           id={`task-${task.id}`}
+          className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground" /* Primary color for checked state */
         />
         <label
           htmlFor={`task-${task.id}`}
           className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${
-            task.is_completed ? "line-through text-muted-foreground" : ""
+            task.is_completed ? "line-through text-muted-foreground italic" : "" /* Italic for completed */
           }`}
         >
           {task.title}
@@ -94,7 +95,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
+          <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-secondary transition-colors duration-200"> {/* Added hover effect */}
             <span className="sr-only">Open menu</span>
             <MoreHorizontal className="h-4 w-4" />
           </Button>
@@ -103,7 +104,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           <DropdownMenuItem onClick={handleEditClick}>
             <Pencil className="mr-2 h-4 w-4" /> Edit
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleDeleteClick}>
+          <DropdownMenuItem onClick={handleDeleteClick} className="text-destructive"> {/* Destructive color for delete */}
             <Trash className="mr-2 h-4 w-4" /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>

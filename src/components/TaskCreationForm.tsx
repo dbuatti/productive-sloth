@@ -61,7 +61,7 @@ const TaskCreationForm: React.FC = () => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col sm:flex-row gap-2">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col sm:flex-row gap-2 animate-slide-in-up"> {/* Added animate-slide-in-up */}
         
         {/* Title Input */}
         <FormField
@@ -73,7 +73,7 @@ const TaskCreationForm: React.FC = () => {
                 <Input
                   placeholder="Add a new task..."
                   {...field}
-                  className="h-10" // Ensure consistent height
+                  className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200" /* Added focus styles */
                 />
               </FormControl>
               <FormMessage />
@@ -89,7 +89,7 @@ const TaskCreationForm: React.FC = () => {
             <FormItem className="w-full sm:w-[120px] shrink-0">
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
-                  <SelectTrigger className="h-10"> {/* Ensure consistent height */}
+                  <SelectTrigger className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"> {/* Added focus styles */}
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                 </FormControl>
@@ -125,7 +125,7 @@ const TaskCreationForm: React.FC = () => {
         <Button 
           type="submit" 
           disabled={isSubmitting || !isValid} 
-          className="shrink-0 w-full sm:w-auto h-10" // Ensure consistent height
+          className="shrink-0 w-full sm:w-auto h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200" /* Ensured primary button styling */
         >
           <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Add</span>
         </Button>

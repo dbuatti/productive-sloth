@@ -46,18 +46,16 @@ const ProgressBarHeader: React.FC = () => {
       <div className="container mx-auto max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-3 px-4">
         {/* XP Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Sparkles className="h-4 w-4 text-logo-yellow" /> {/* Changed to text-logo-yellow */}
+          <Sparkles className="h-4 w-4 text-logo-yellow animate-pulse-glow" /> {/* Added animate-pulse-glow */}
           <Tooltip>
             <TooltipTrigger asChild>
-              {/* Directly wrapping CustomProgress with TooltipTrigger */}
               <CustomProgress 
                 value={xpProgress} 
-                className="h-2 flex-grow bg-logo-yellow/20" // Changed to bg-logo-yellow/20
-                indicatorClassName="bg-logo-yellow" // Changed to bg-logo-yellow
+                className="h-2 flex-grow bg-primary/20" /* Changed to primary/20 */
+                indicatorClassName="bg-primary" /* Changed to primary */
               />
             </TooltipTrigger>
             <TooltipContent>
-              {/* Wrapped multiple children in a div */}
               <div>
                 <p>Level {level}: {xpTowardsNextLevel} / {xpNeededForNextLevel} XP</p>
                 <p>{xpNeededForNextLevel - xpTowardsNextLevel} XP to next level!</p>
@@ -68,18 +66,16 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Energy Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Zap className="h-4 w-4 text-logo-yellow" /> {/* Changed to text-logo-yellow */}
+          <Zap className="h-4 w-4 text-logo-yellow animate-pulse-glow" /> {/* Added animate-pulse-glow */}
           <Tooltip>
             <TooltipTrigger asChild>
-              {/* Directly wrapping CustomProgress with TooltipTrigger */}
               <CustomProgress 
                 value={energyPercentage} 
-                className="h-2 flex-grow bg-logo-yellow/20" // Changed to bg-logo-yellow/20
-                indicatorClassName="bg-logo-yellow" // Changed to bg-logo-yellow
+                className="h-2 flex-grow bg-primary/20" /* Changed to primary/20 */
+                indicatorClassName="bg-primary" /* Changed to primary */
               />
             </TooltipTrigger>
             <TooltipContent>
-              {/* Wrapped multiple children in a div */}
               <div>
                 <p>Energy: {profile.energy} / {MAX_ENERGY}</p>
                 <Button 
@@ -99,14 +95,13 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Daily Challenge Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Trophy className="h-4 w-4 text-accent" /> {/* Changed to text-accent */}
+          <Trophy className="h-4 w-4 text-accent animate-pulse-glow" /> {/* Added animate-pulse-glow */}
           <Tooltip>
             <TooltipTrigger asChild>
-              {/* Directly wrapping CustomProgress with TooltipTrigger */}
               <CustomProgress 
                 value={dailyChallengeProgress} 
-                className="h-2 flex-grow bg-accent/20" // Changed to bg-accent/20
-                indicatorClassName="bg-accent" // Changed to bg-accent
+                className="h-2 flex-grow bg-accent/20" /* Changed to accent/20 */
+                indicatorClassName="bg-accent" /* Changed to accent */
               />
             </TooltipTrigger>
             <TooltipContent>

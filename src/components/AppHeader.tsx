@@ -44,7 +44,7 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto max-w-3xl flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto" />
+          <img src="/logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
         </div>
         
         {user && (
@@ -56,7 +56,7 @@ const AppHeader: React.FC = () => {
             {profile && profile.daily_streak > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 text-sm font-semibold text-logo-orange"> {/* Changed to text-logo-orange */}
+                  <div className="flex items-center gap-1 text-sm font-semibold text-logo-orange animate-pulse-glow"> {/* Added animate-pulse-glow */}
                     <Flame className="h-4 w-4" />
                     <span>{profile.daily_streak}</span>
                   </div>
@@ -77,7 +77,7 @@ const AppHeader: React.FC = () => {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8"
+                  className="h-8 w-8 transition-transform duration-200 hover:scale-110" /* Added hover effect */
                   onClick={() => setIsSettingsDialogOpen(true)}
                 >
                   <Settings className="h-4 w-4" />
@@ -90,7 +90,7 @@ const AppHeader: React.FC = () => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full transition-transform duration-200 hover:scale-110"> {/* Added hover effect */}
                   <Avatar className="h-8 w-8">
                     {profile?.avatar_url ? (
                       <AvatarImage src={profile.avatar_url} alt={`${displayName}'s avatar`} />

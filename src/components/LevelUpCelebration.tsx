@@ -17,21 +17,21 @@ const LevelUpCelebration: React.FC = () => {
   return (
     <>
       <Dialog open={showLevelUp} onOpenChange={resetLevelUp}>
-        <DialogContent className="sm:max-w-md text-center">
+        <DialogContent className="sm:max-w-md text-center animate-pop-in"> {/* Added animate-pop-in */}
           <DialogHeader>
-            <DialogTitle className="text-4xl font-bold text-primary flex items-center justify-center gap-2">
-              <Sparkles className="h-10 w-10 animate-bounce" />
+            <DialogTitle className="text-5xl font-extrabold text-primary flex items-center justify-center gap-2 animate-pulse-glow"> {/* Larger font, added animate-pulse-glow */}
+              <Sparkles className="h-12 w-12 animate-bounce text-logo-yellow" /> {/* Larger icon, added text-logo-yellow */}
               LEVEL UP!
-              <Sparkles className="h-10 w-10 animate-bounce" />
+              <Sparkles className="h-12 w-12 animate-bounce text-logo-yellow" /> {/* Larger icon, added text-logo-yellow */}
             </DialogTitle>
-            <DialogDescription className="text-xl mt-4">
+            <DialogDescription className="text-xl mt-4 text-foreground"> {/* Ensured text-foreground */}
               Congratulations! You've reached Level {levelUpLevel}!
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p className="text-muted-foreground">Keep up the great work and complete more tasks to advance further!</p>
           </div>
-          <Button onClick={resetLevelUp} className="w-full">Awesome!</Button>
+          <Button onClick={resetLevelUp} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">Awesome!</Button> {/* Ensured primary button styling */}
         </DialogContent>
       </Dialog>
       {showLevelUp && <ConfettiEffect show={showLevelUp} onComplete={resetLevelUp} />}

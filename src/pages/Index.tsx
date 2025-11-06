@@ -56,12 +56,12 @@ const Index = () => {
       <main className="container mx-auto p-4 max-w-3xl space-y-6">
         
         {/* User Stats Dashboard */}
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-4 animate-slide-in-up"> {/* Added animate-slide-in-up */}
           <ProgressOverviewCard />
         </div>
 
         {/* Input & Controls Layer - Now wrapped in a Card */}
-        <Card className="p-4 space-y-4"> {/* Added Card wrapper */}
+        <Card className="p-4 space-y-4 animate-slide-in-up"> {/* Added animate-slide-in-up */}
           {/* 1. Temporal Filter Tabs */}
           <TemporalFilterTabs 
             currentFilter={temporalFilter} 
@@ -82,7 +82,7 @@ const Index = () => {
 
         {/* Task List Layer (Priority Sections) or Empty State */}
         {hasTasks ? (
-          <Accordion type="multiple" className="w-full space-y-4"> {/* Wrapped with Accordion */}
+          <Accordion type="multiple" className="w-full space-y-4 animate-slide-in-up"> {/* Added animate-slide-in-up */}
             {PRIORITY_ORDER.map(priority => (
               <PrioritySection 
                 key={priority}
@@ -92,7 +92,7 @@ const Index = () => {
             ))}
           </Accordion>
         ) : (
-          <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4">
+          <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up"> {/* Added animate-slide-in-up */}
             <ClipboardList className="h-12 w-12 text-muted-foreground" />
             <p className="text-lg font-semibold">No tasks found!</p>
             <p>Start by adding a new task above to get organized.</p>

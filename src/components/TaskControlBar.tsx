@@ -18,19 +18,19 @@ const statusOptions: { label: string, value: TaskStatusFilter }[] = [
 
 const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatusFilter, sortBy, setSortBy }) => {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4">
+    <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4 animate-slide-in-up"> {/* Added animate-slide-in-up */}
       
       {/* Status Filters (Refactored to Tabs) */}
       <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatusFilter)} className="w-full sm:w-auto">
-        <TabsList className="grid w-full grid-cols-3 h-9 p-1 bg-muted">
+        <TabsList className="grid w-full grid-cols-3 h-9 p-1 bg-muted rounded-md">
           {statusOptions.map(option => (
             <TabsTrigger 
               key={option.value}
               value={option.value}
               className={cn(
-                "h-8 px-4 py-2 text-sm font-medium rounded-sm", // Consistent height, padding, and rounded corners
-                "text-muted-foreground hover:bg-muted/50", // Improved hover for inactive tabs
-                "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" // Distinct active state with primary color and shadow
+                "h-8 px-4 py-2 text-sm font-medium rounded-md", /* Changed rounded-sm to rounded-md for consistency */
+                "text-muted-foreground hover:bg-muted/50 transition-colors duration-200", /* Added transition */
+                "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md" /* Stronger shadow */
               )}
             >
               {option.label}
@@ -43,7 +43,7 @@ const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatus
       <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
         <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
         <Select value={sortBy} onValueChange={(value: SortBy) => setSortBy(value)}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-[150px] focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"> {/* Added focus styles */}
             <SelectValue placeholder="Sort Option" />
           </SelectTrigger>
           <SelectContent>

@@ -10,9 +10,9 @@ interface PrioritySectionProps {
 
 const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) => {
   const priorityClasses = {
-    HIGH: 'text-red-600 dark:text-red-400',
-    MEDIUM: 'text-yellow-600 dark:text-yellow-400',
-    LOW: 'text-green-600 dark:text-green-400',
+    HIGH: 'text-destructive', // Use destructive for HIGH priority
+    MEDIUM: 'text-[hsl(var(--logo-yellow))]', // Use logo-yellow for MEDIUM priority
+    LOW: 'text-[hsl(var(--logo-green))]', // Use logo-green for LOW priority
   };
 
   const headerText = `${priority} (${tasks.length})`;

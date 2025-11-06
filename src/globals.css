@@ -38,6 +38,7 @@
     /* Custom colors for specific elements, derived from logo */
     --logo-yellow: 45 95% 55%; /* Sunny Yellow from logo */
     --logo-orange: 25 90% 55%; /* A vibrant orange to complement yellow/pink */
+    --logo-green: 120 70% 40%; /* Added for LOW priority */
 
     /* Sidebar variables (keeping consistent with new palette) */
     --sidebar-background: 210 10% 93%; /* Slightly deeper sidebar background */
@@ -61,38 +62,39 @@
     --popover: 220 10% 12%;
     --popover-foreground: 210 10% 92%;
 
-    --primary: 195 90% 65%; /* Brighter Blue/Cyan for dark mode primary */
+    --primary: 195 70% 50%; /* Toned down Blue/Cyan for dark mode primary */
     --primary-foreground: 220 10% 15%; /* Dark text on primary */
 
-    --secondary: 220 10% 20%; /* Muted dark blue-grey secondary, slightly deeper */
-    --secondary-foreground: 210 10% 85%; /* Lighter text on secondary */
+    --secondary: 220 10% 20%;
+    --secondary-foreground: 210 10% 85%;
 
-    --muted: 220 10% 18%; /* Muted dark grey, slightly deeper */
-    --muted-foreground: 210 10% 65%; /* Medium grey for muted text */
+    --muted: 220 10% 18%;
+    --muted-foreground: 210 10% 65%;
 
-    --accent: 330 80% 70%; /* Brighter Pink/Magenta for dark mode accent */
+    --accent: 330 60% 55%; /* Toned down Pink/Magenta for dark mode accent */
     --accent-foreground: 220 10% 15%;
 
-    --destructive: 0 75% 50%; /* Clearer red for destructive actions */
+    --destructive: 0 75% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 10% 22%; /* Dark grey border, slightly deeper */
-    --input: 220 10% 22%; /* Dark grey input border, slightly deeper */
-    --ring: 195 90% 65%; /* Primary blue ring */
+    --border: 220 10% 22%;
+    --input: 220 10% 22%;
+    --ring: 195 70% 50%; /* Primary blue ring */
 
     /* Custom colors for specific elements, derived from logo */
-    --logo-yellow: 45 95% 65%; /* Brighter Sunny Yellow for dark mode */
-    --logo-orange: 25 90% 65%; /* Brighter vibrant orange */
+    --logo-yellow: 45 80% 50%; /* Toned down Sunny Yellow for dark mode */
+    --logo-orange: 25 75% 50%; /* Toned down vibrant orange */
+    --logo-green: 120 60% 35%; /* Added for LOW priority */
 
     /* Sidebar variables (keeping consistent with new palette) */
-    --sidebar-background: 220 10% 15%; /* Deeper sidebar background */
+    --sidebar-background: 220 10% 15%;
     --sidebar-foreground: 210 10% 92%;
-    --sidebar-primary: 195 90% 55%; /* Brighter primary for sidebar */
+    --sidebar-primary: 195 70% 40%; /* Deeper primary for sidebar */
     --sidebar-primary-foreground: 220 10% 15%;
     --sidebar-accent: 220 10% 18%;
     --sidebar-accent-foreground: 210 10% 85%;
     --sidebar-border: 220 10% 20%;
-    --sidebar-ring: 195 90% 65%;
+    --sidebar-ring: 195 70% 50%;
   }
 }
 

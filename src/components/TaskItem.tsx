@@ -55,9 +55,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   };
 
   const priorityClasses = {
-    HIGH: 'border-red-500',
-    MEDIUM: 'border-yellow-500',
-    LOW: 'border-green-500',
+    HIGH: 'border-destructive', // Use destructive for HIGH priority
+    MEDIUM: 'border-[hsl(var(--logo-yellow))]', // Use logo-yellow for MEDIUM priority
+    LOW: 'border-[hsl(var(--logo-green))]', // Use logo-green for LOW priority
   };
   
   const dueDate = parseISO(task.due_date);

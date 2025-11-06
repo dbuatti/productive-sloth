@@ -75,7 +75,11 @@ const Dashboard = () => {
 
       {/* Task List Layer (Priority Sections) or Empty State */}
       {hasTasks ? (
-        <Accordion type="multiple" className="w-full space-y-4 animate-slide-in-up">
+        <Accordion 
+          type="multiple" 
+          className="w-full space-y-4 animate-slide-in-up"
+          defaultValue={PRIORITY_ORDER} // Expanded by default
+        >
           {PRIORITY_ORDER.map(priority => (
             <PrioritySection 
               key={priority}

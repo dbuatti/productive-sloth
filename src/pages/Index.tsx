@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import AppHeader from '@/components/AppHeader';
 import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -55,6 +56,8 @@ const Index = () => {
             currentFilter={temporalFilter} 
             setFilter={setTemporalFilter} 
           />
+
+          <Separator />
 
           {/* 2. Task Creation Component */}
           <TaskCreationForm />

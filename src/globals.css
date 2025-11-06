@@ -118,7 +118,7 @@
   .theme-forest {
     --primary: 142.1 70% 30%; /* Slightly darker green for better contrast */
     --primary-foreground: 210 40% 98%;
-    --secondary: 142.1 76.2% 90%;
+    --secondary: 142.1 76.2% 80%; /* Adjusted lightness from 90% to 80% */
     --secondary-foreground: 222.2 47.4% 11.2%;
     --ring: 142.1 70% 30%;
     --accent: 210 40% 96.1%;

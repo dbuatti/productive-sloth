@@ -19,6 +19,7 @@ function Login() {
               variables: {
                 default: {
                   colors: {
+                    // Map Supabase brand colors to our primary HSL values
                     brand: 'hsl(var(--primary))',
                     brandAccent: 'hsl(var(--primary-foreground))',
                   },

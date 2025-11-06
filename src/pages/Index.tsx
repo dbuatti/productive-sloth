@@ -10,6 +10,7 @@ import { useSession } from '@/hooks/use-session';
 import AppHeader from '@/components/AppHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import UserXPCard from '@/components/UserXPCard'; // Import the new XP card
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -49,6 +50,9 @@ const Index = () => {
       <AppHeader />
       <main className="container mx-auto p-4 max-w-3xl space-y-4">
         
+        {/* User XP Card */}
+        <UserXPCard />
+
         {/* Input & Controls Layer */}
         <Card className="p-4 space-y-4">
           {/* 1. Temporal Filter Tabs */}

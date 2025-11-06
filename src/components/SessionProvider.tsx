@@ -15,7 +15,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url')
+      .select('id, first_name, last_name, avatar_url, xp, level') // Select new xp and level columns
       .eq('id', userId); // Removed .single()
 
     if (error) {

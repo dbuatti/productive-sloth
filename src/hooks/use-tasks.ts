@@ -52,9 +52,20 @@ const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
   });
 };
 
+// XP and Leveling Constants
+const XP_PER_LEVEL = 100; // XP needed to gain one level
+
+const calculateLevelAndRemainingXp = (totalXp: number) => {
+  const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
+  const xpForCurrentLevel = (level - 1) * XP_PER_LEVEL;
+  const xpTowardsNextLevel = totalXp - xpForCurrentLevel;
+  const xpRemainingForNextLevel = XP_PER_LEVEL - xpTowardsNextLevel;
+  return { level, xpTowardsNextLevel, xpRemainingForNextLevel };
+};
+
 export const useTasks = () => {
   const queryClient = useQueryClient();
-  const { user } = useSession();
+  const { user, profile, refreshProfile } = useSession(); // Get profile and refreshProfile
   const userId = user?.id;
 
   const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
@@ -116,7 +127,7 @@ export const useTasks = () => {
     return result;
   }, [tasks, statusFilter, sortBy]);
 
-  // --- CRUD Mutations (unchanged) ---
+  // --- CRUD Mutations ---
 
   const addTaskMutation = useMutation({
     mutationFn: async (newTask: NewTask) => {
@@ -147,15 +158,41 @@ export const useTasks = () => {
       if (error) throw new Error(error.message);
       return data as Task;
     },
-    onSuccess: (updatedTask) => {
+    onSuccess: async (updatedTask) => {
       queryClient.setQueryData(['tasks', userId], (oldTasks: Task[] | undefined) => {
         if (!oldTasks) return [];
         return oldTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
       });
-      if (updatedTask.is_completed) {
+
+      // Handle XP gain on task completion
+      if (updatedTask.is_completed && profile && user) {
+        const taskBeforeUpdate = tasks.find(t => t.id === updatedTask.id);
+        // Only award XP if the task was NOT completed before this update
+        if (taskBeforeUpdate && !taskBeforeUpdate.is_completed) {
+          const newXp = profile.xp + updatedTask.metadata_xp;
+          const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
+
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ xp: newXp, level: newLevel, updated_at: new Date().toISOString() })
+            .eq('id', user.id);
+
+          if (profileError) {
+            console.error("Failed to update user XP:", profileError.message);
+            showError("Failed to update XP.");
+          } else {
+            await refreshProfile(); // Refresh profile data in session context
+            showSuccess(`Task completed! +${updatedTask.metadata_xp} XP`);
+          }
+        } else if (!updatedTask.is_completed && profile && user) {
+          // If task is uncompleted, potentially deduct XP (optional, for now just refresh)
+          // For simplicity, we won't deduct XP on uncompletion for now.
+          // If you want to deduct, you'd need to store original XP or calculate.
+          // For now, just refresh profile to ensure consistency if other updates happened.
+          await refreshProfile();
+        }
+      } else if (updatedTask.is_completed) {
         showSuccess('Task completed!');
-      } else {
-        // Only show success for completion/uncompletion, not general updates
       }
     },
     onError: (e) => {

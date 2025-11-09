@@ -1,5 +1,5 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addDays } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask } from '@/types/scheduler';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays } from 'date-fns';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem } from '@/types/scheduler';
 
 // --- Constants ---
 const EMOJI_MAP: { [key: string]: string } = {
@@ -53,10 +53,30 @@ export const getBreakDescription = (duration: number): string => {
 
 export const getMidnightRolloverMessage = (endDate: Date, T_current: Date): string | null => {
   if (!isToday(endDate) && endDate.getTime() > T_current.getTime()) {
-    return `⚠️ Schedule extends into ${formatDayMonth(endDate)}`;
+    return `⚠️ Schedule extends past midnight into ${formatDayMonth(endDate)}`;
   }
   return null;
 };
+
+/**
+ * Generates fixed time markers for the 12 AM to 12 PM (noon) template.
+ */
+export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
+  const markers: TimeMarker[] = [];
+  const startOfToday = startOfDay(T_current); // 12:00 AM today
+
+  // Add 12 AM marker
+  markers.push({ id: 'marker-0', type: 'marker', time: startOfToday, label: formatTime(startOfToday) });
+
+  // Add markers every 3 hours until 12 PM
+  for (let i = 3; i <= 12; i += 3) {
+    const markerTime = addHours(startOfToday, i);
+    markers.push({ id: `marker-${i}`, type: 'marker', time: markerTime, label: formatTime(markerTime) });
+  }
+  
+  return markers;
+};
+
 
 // --- Core Scheduling Logic ---
 
@@ -123,8 +143,6 @@ export const calculateSchedule = (
   return {
     items: scheduledItems,
     summary: summary,
-    progressLineIndex: -1, // No longer used, but kept for type compatibility
-    progressLineMessage: '', // No longer used
   };
 };
 

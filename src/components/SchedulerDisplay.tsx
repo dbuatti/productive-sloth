@@ -1,11 +1,12 @@
-import React from 'react';
-import { ScheduledItem, FormattedSchedule } from '@/types/scheduler';
+import React, { useMemo } from 'react';
+import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { formatTime } from '@/lib/scheduler-utils'; // Import formatTime
+import { formatTime, generateFixedTimeMarkers } from '@/lib/scheduler-utils'; // Import formatTime and generateFixedTimeMarkers
 import { Button } from '@/components/ui/button'; // Import Button
 import { Trash } from 'lucide-react'; // Import Trash icon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
 import { Sparkles, BarChart, ListTodo } from 'lucide-react'; // Import Sparkles, BarChart, and ListTodo icons
+import { startOfDay, addHours } from 'date-fns';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -24,96 +25,179 @@ const getBubbleHeightStyle = (duration: number) => {
 };
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
-  if (!schedule || schedule.items.length === 0) {
-    return (
-      <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-pop-in">
-        <ListTodo className="h-12 w-12 text-muted-foreground" /> {/* Added icon */}
-        <p className="text-lg font-semibold">No schedule generated yet.</p>
-        <p>Enter tasks to see your time-blocked day!</p>
-      </div>
-    );
-  }
+  const displayItems: DisplayItem[] = useMemo(() => {
+    const fixedMarkers = generateFixedTimeMarkers(T_current);
+    const allItems: DisplayItem[] = [...fixedMarkers];
 
-  const renderScheduleItem = (item: ScheduledItem, index: number) => {
-    const isActive = item.startTime <= T_current && item.endTime > T_current;
-    const isPast = item.endTime <= T_current;
-    const pillEmoji = isActive ? '🟢' : '⚪';
+    if (schedule) {
+      // Add scheduled tasks, ensuring they don't duplicate fixed markers if they start at the exact same time
+      schedule.items.forEach(task => {
+        // Check if a fixed marker exists at the exact start time of the task
+        const isDuplicateMarker = fixedMarkers.some(marker => 
+          marker.time.getTime() === task.startTime.getTime()
+        );
+        if (!isDuplicateMarker) {
+          allItems.push(task);
+        } else {
+          // If there's a marker, we'll render the task, but the marker might still be useful as a boundary.
+          // For now, we'll just add the task and let sorting handle it.
+          allItems.push(task);
+        }
+      });
+    }
 
-    return (
-      <React.Fragment key={item.id}>
-        {/* Time Track Item (Pill Design) */}
-        <div className="flex items-center">
-          <span className={cn(
-            "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
-            isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-            "hover:scale-105" // Added hover scale
-          )}>
-            {pillEmoji} {formatTime(item.startTime)}
-          </span>
-        </div>
+    // Sort all items by their time
+    allItems.sort((a, b) => {
+      const timeA = 'time' in a ? a.time : a.startTime;
+      const timeB = 'time' in b ? b.time : b.startTime;
+      return timeA.getTime() - timeB.getTime();
+    });
 
-        {/* Task Bubble (Dynamic Height) */}
-        <div
-          className={cn(
-            "flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
-            isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground", // Removed border/shadow/animation for active state
-            "relative hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary" // More pronounced hover effects
-          )}
-          style={getBubbleHeightStyle(item.duration)}
-        >
-          <span className={cn(
-            "text-sm flex-grow", // flex-grow to push button to right
-            isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
-          )}>
-            {item.emoji} <span className="font-bold">{item.name}</span> ({item.duration} min)
-            {item.type === 'break' && item.description && (
-              <span className="text-muted-foreground ml-1"> - {item.description}</span>
-            )}
-          </span>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => onRemoveTask(item.id)} 
-            className={cn(
-              "h-6 w-6 p-0 shrink-0",
-              isActive ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-secondary/80"
-            )}
-          >
-            <Trash className="h-4 w-4" />
-            <span className="sr-only">Remove task</span>
-          </Button>
-        </div>
-      </React.Fragment>
-    );
-  };
+    // Filter out redundant markers if a task starts very close to it
+    const filteredItems: DisplayItem[] = [];
+    let lastItemTime: Date | null = null;
 
-  const totalScheduledMinutes = schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime;
+    allItems.forEach(item => {
+      const currentTime = 'time' in item ? item.time : item.startTime;
+      
+      // If it's a marker and the previous item was a task that started at the same time, skip this marker
+      if (item.type === 'marker' && lastItemTime && currentTime.getTime() === lastItemTime.getTime()) {
+        return;
+      }
+      filteredItems.push(item);
+      lastItemTime = currentTime;
+    });
+
+    return filteredItems;
+  }, [schedule, T_current]);
 
   // Calculate global progress line position and message
-  const scheduleStartTime = schedule.items.length > 0 ? schedule.items[0].startTime : null;
-  const scheduleEndTime = schedule.summary.sessionEnd;
+  const startOfTemplate = startOfDay(T_current); // 12:00 AM
+  const endOfTemplate = addHours(startOfTemplate, 12); // 12:00 PM (Noon)
 
-  let globalProgressLineTop = 0;
-  let showGlobalProgressLine = false;
-  let globalProgressMessage = '';
+  const totalTemplateDurationMs = endOfTemplate.getTime() - startOfTemplate.getTime();
+  const elapsedFromTemplateStartMs = T_current.getTime() - startOfTemplate.getTime();
+  let globalProgressLineTop = (elapsedFromTemplateStartMs / totalTemplateDurationMs) * 100;
+  
+  // Clamp to 0-100%
+  globalProgressLineTop = Math.max(0, Math.min(100, globalProgressLineTop));
 
-  if (scheduleStartTime && scheduleEndTime) {
-    const totalScheduleDurationMs = scheduleEndTime.getTime() - scheduleStartTime.getTime();
-    const elapsedDurationMs = T_current.getTime() - scheduleStartTime.getTime();
+  const showGlobalProgressLine = T_current >= startOfTemplate && T_current < endOfTemplate;
+  const globalProgressMessage = `➡️ CURRENT PROGRESS - Time is ${formatTime(T_current)}`;
 
-    if (T_current < scheduleStartTime) {
-      const timeUntilStart = Math.round((scheduleStartTime.getTime() - T_current.getTime()) / (1000 * 60));
-      globalProgressMessage = `⏳ Schedule starts in ${timeUntilStart} minutes`;
-      globalProgressLineTop = 0; // Position at the very top
-    } else if (T_current >= scheduleEndTime) {
-      globalProgressMessage = `✅ All tasks completed!`;
-      globalProgressLineTop = 100; // Position at the very bottom
-    } else {
-      globalProgressLineTop = (elapsedDurationMs / totalScheduleDurationMs) * 100;
-      globalProgressMessage = `➡️ CURRENT PROGRESS - ${formatTime(T_current)}`;
-      showGlobalProgressLine = true;
+  const renderDisplayItem = (item: DisplayItem, index: number) => {
+    if (item.type === 'marker') {
+      // Check if there's an actual task that starts at or very close to this marker's time
+      const hasOverlappingTask = schedule?.items.some(task => 
+        task.startTime.getTime() === item.time.getTime()
+      );
+
+      if (hasOverlappingTask) {
+        // If a task starts at this marker, we'll let the task render its own time.
+        // We can still render the marker as a subtle boundary if needed, or skip it.
+        // For now, let's just render the marker's time as a boundary.
+        return (
+          <React.Fragment key={item.id}>
+            <div className="flex items-center">
+              <span className="px-2 py-1 rounded-md text-xs font-mono bg-secondary text-secondary-foreground">
+                {item.label}
+              </span>
+            </div>
+            <div className="text-sm text-muted-foreground italic py-2">
+              {/* This space will be filled by the actual task item */}
+            </div>
+          </React.Fragment>
+        );
+      } else if (item.time < T_current && item.time < endOfTemplate) {
+        // If marker is in the past but before T_current and within template, show empty
+        return (
+          <React.Fragment key={item.id}>
+            <div className="flex items-center">
+              <span className="px-2 py-1 rounded-md text-xs font-mono bg-muted text-muted-foreground">
+                {item.label}
+              </span>
+            </div>
+            <div className="text-sm text-muted-foreground italic py-2">
+              (Empty template space)
+            </div>
+          </React.Fragment>
+        );
+      } else if (item.time >= T_current && item.time <= endOfTemplate) {
+        // If marker is in the future but within template, show empty
+        return (
+          <React.Fragment key={item.id}>
+            <div className="flex items-center">
+              <span className="px-2 py-1 rounded-md text-xs font-mono bg-secondary text-secondary-foreground">
+                {item.label}
+              </span>
+            </div>
+            <div className="text-sm text-muted-foreground italic py-2">
+              (Empty template space)
+            </div>
+          </React.Fragment>
+        );
+      }
+      return null; // Don't render markers outside the 12 AM - 12 PM range or if they are past 12 PM
+    } else { // It's a ScheduledItem (task or break)
+      const scheduledItem = item as ScheduledItem;
+      const isActive = scheduledItem.startTime <= T_current && scheduledItem.endTime > T_current;
+      const isPast = scheduledItem.endTime <= T_current;
+      const pillEmoji = isActive ? '🟢' : '⚪';
+
+      // Only render scheduled items if they are within or after the 12 AM - 12 PM template
+      // Or if they are the first item and start before 12 PM
+      if (scheduledItem.endTime < startOfTemplate) return null; // Don't show tasks that ended before 12 AM
+
+      return (
+        <React.Fragment key={scheduledItem.id}>
+          {/* Time Track Item (Pill Design) */}
+          <div className="flex items-center">
+            <span className={cn(
+              "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
+              isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+              "hover:scale-105" // Added hover scale
+            )}>
+              {pillEmoji} {formatTime(scheduledItem.startTime)}
+            </span>
+          </div>
+
+          {/* Task Bubble (Dynamic Height) */}
+          <div
+            className={cn(
+              "flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
+              isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground", // Removed border/shadow/animation for active state
+              "relative hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary" // More pronounced hover effects
+            )}
+            style={getBubbleHeightStyle(scheduledItem.duration)}
+          >
+            <span className={cn(
+              "text-sm flex-grow", // flex-grow to push button to right
+              isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
+            )}>
+              {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
+              {scheduledItem.type === 'break' && scheduledItem.description && (
+                <span className="text-muted-foreground ml-1"> - {scheduledItem.description}</span>
+              )}
+            </span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => onRemoveTask(scheduledItem.id)} 
+              className={cn(
+                "h-6 w-6 p-0 shrink-0",
+                isActive ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-secondary/80"
+              )}
+            >
+              <Trash className="h-4 w-4" />
+              <span className="sr-only">Remove task</span>
+            </Button>
+          </div>
+        </React.Fragment>
+      );
     }
-  }
+  };
+
+  const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
 
   return (
     <div className="space-y-4 animate-slide-in-up">
@@ -134,38 +218,46 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div className="relative p-4 overflow-y-auto"> {/* Removed maxHeight */}
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2"> {/* Inner grid for items */}
               {/* Global Progress Line */}
-              {schedule.items.length > 0 && (
-                <>
-                  {showGlobalProgressLine && (
-                    <div
-                      className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 animate-pulse-glow flex items-center justify-center"
-                      style={{ top: `${globalProgressLineTop}%`, transition: 'top 60s linear' }}
-                    >
-                      <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
-                        {globalProgressMessage}
-                      </span>
-                    </div>
-                  )}
-                  {/* Render top/bottom messages when outside the active schedule */}
-                  {!showGlobalProgressLine && globalProgressMessage && (
-                    <div className={cn(
-                      "absolute left-0 right-0 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                      T_current < scheduleStartTime ? "top-0" : "bottom-0"
-                    )}>
-                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                      <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                        {globalProgressMessage}
-                      </p>
-                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                    </div>
-                  )}
-                </>
+              {showGlobalProgressLine && (
+                <div
+                  className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 animate-pulse-glow flex items-center justify-center"
+                  style={{ top: `${globalProgressLineTop}%`, transition: 'top 60s linear' }}
+                >
+                  <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
+                    {globalProgressMessage}
+                  </span>
+                </div>
+              )}
+              {/* Render top/bottom messages when outside the active schedule */}
+              {!showGlobalProgressLine && T_current < startOfTemplate && (
+                <div className={cn(
+                  "absolute left-0 right-0 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                  "top-0"
+                )}>
+                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                  <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                    ⏳ Schedule starts later today
+                  </p>
+                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                </div>
+              )}
+              {!showGlobalProgressLine && T_current >= endOfTemplate && (
+                <div className={cn(
+                  "absolute left-0 right-0 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                  "bottom-0"
+                )}>
+                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                  <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                    ✅ All tasks completed!
+                  </p>
+                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                </div>
               )}
 
               {/* Scheduled Items */}
-              {schedule.items.map((item, index) => (
+              {displayItems.map((item, index) => (
                 <React.Fragment key={item.id}>
-                  {renderScheduleItem(item, index)}
+                  {renderDisplayItem(item, index)}
                 </React.Fragment>
               ))}
             </div>
@@ -174,7 +266,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       </Card>
 
       {/* Smart Suggestions */}
-      {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
+      {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
         <Card className="animate-pop-in">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
@@ -196,7 +288,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       )}
 
       {/* Session Summary Footer */}
-      {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
+      {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
         <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm border-t border-dashed border-border">
           <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
             <BarChart className="h-5 w-5 text-primary" /> 📊 SESSION SUMMARY

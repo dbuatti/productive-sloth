@@ -72,9 +72,17 @@ export interface ScheduleSummary {
   midnightRolloverMessage: string | null;
 }
 
+// New type for fixed time markers
+export interface TimeMarker {
+  id: string;
+  type: 'marker';
+  time: Date;
+  label: string;
+}
+
+export type DisplayItem = ScheduledItem | TimeMarker;
+
 export interface FormattedSchedule {
   items: ScheduledItem[];
   summary: ScheduleSummary;
-  progressLineIndex: number; // Index after which to insert the progress line
-  progressLineMessage: string;
 }

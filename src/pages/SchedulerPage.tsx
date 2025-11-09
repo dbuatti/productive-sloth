@@ -65,23 +65,11 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     
-    const hasAdHocTasks = dbScheduledTasks.some(task => !task.start_time && !task.end_time);
-
-    let anchorForCalculation: Date | null = T_AnchorRef.current;
-
-    // If there are ad-hoc tasks AND T_Anchor has not been set yet, set it NOW.
-    // This ensures T_Anchor is captured at the moment the first ad-hoc task is present.
-    if (hasAdHocTasks && !T_AnchorRef.current) {
-      anchorForCalculation = new Date(); // Capture current time
-      T_AnchorRef.current = anchorForCalculation; // Set ref value
-      setT_AnchorEstablished(true); // Trigger re-render
-      console.log("T_AnchorRef set for the first time to:", anchorForCalculation.toISOString());
-    }
-
-    console.log("Calling calculateSchedule with T_Anchor:", anchorForCalculation?.toISOString());
-    const schedule = calculateSchedule(dbScheduledTasks, anchorForCalculation);
+    // generateSchedule now simply uses T_AnchorRef.current if it exists, or null.
+    // The setting of T_AnchorRef.current is handled in handleCommand/handleInjectionSubmit.
+    const schedule = calculateSchedule(dbScheduledTasks, T_AnchorRef.current);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks]); // Dependencies: only dbScheduledTasks. T_AnchorRef is stable. setT_AnchorEstablished triggers re-render.
+  }, [dbScheduledTasks, setT_AnchorEstablished]); // Dependencies: dbScheduledTasks and setT_AnchorEstablished (for its setter stability)
 
   useEffect(() => {
     generateSchedule();
@@ -99,8 +87,17 @@ const SchedulerPage: React.FC = () => {
     const command = parseCommand(input);
 
     if (parsedInput) {
+      const isAdHocTask = 'duration' in parsedInput;
+
+      // If T_Anchor is not set and this is the first ad-hoc task, set it NOW
+      if (!T_AnchorRef.current && isAdHocTask) {
+        T_AnchorRef.current = new Date(); // Capture current time
+        setT_AnchorEstablished(true); // Trigger re-render
+        console.log("T_AnchorRef set for the first time in handleCommand to:", T_AnchorRef.current.toISOString());
+      }
+
       // Check if it's a duration-based task or a timed event
-      if ('duration' in parsedInput) {
+      if (isAdHocTask) {
         // Duration-based task
         await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration });
       } else {
@@ -108,6 +105,15 @@ const SchedulerPage: React.FC = () => {
         await addScheduledTask({ name: parsedInput.name, start_time: parsedInput.startTime.toISOString(), end_time: parsedInput.endTime.toISOString() });
       }
     } else if (injectCommand) {
+      const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
+
+      // If T_Anchor is not set and this is the first ad-hoc injection, set it NOW
+      if (!T_AnchorRef.current && isAdHocInjection) {
+        T_AnchorRef.current = new Date(); // Capture current time
+        setT_AnchorEstablished(true); // Trigger re-render
+        console.log("T_AnchorRef set for the first time in handleCommand (injection) to:", T_AnchorRef.current.toISOString());
+      }
+
       if (injectCommand.duration) {
         await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration });
       } else if (injectCommand.startTime && injectCommand.endTime) {
@@ -175,6 +181,15 @@ const SchedulerPage: React.FC = () => {
     if (!user || !injectionPrompt) {
       showError("You must be logged in to use the scheduler.");
       return;
+    }
+
+    const isAdHocInjection = !injectionPrompt.isTimed;
+
+    // If T_Anchor is not set and this is the first ad-hoc injection, set it NOW
+    if (!T_AnchorRef.current && isAdHocInjection) {
+      T_AnchorRef.current = new Date(); // Capture current time
+      setT_AnchorEstablished(true); // Trigger re-render
+      console.log("T_AnchorRef set for the first time in handleInjectionSubmit to:", T_AnchorRef.current.toISOString());
     }
 
     if (injectionPrompt.isTimed) {

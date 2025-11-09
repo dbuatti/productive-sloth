@@ -91,7 +91,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         if (item.type === 'marker') {
             const isCovered = processedItems.some(pItem => 
                 (pItem.type === 'free-time' && item.time >= pItem.startTime && item.time < pItem.endTime) ||
-                ((pItem.type === 'task' || pItem.type === 'break') && item.time >= pItem.startTime && item.time < pItem.endTime)
+                ((pPItem.type === 'task' || pItem.type === 'break') && item.time >= pItem.startTime && item.time < pItem.endTime)
             );
             if (!isCovered) {
                 filteredItems.push(item);
@@ -238,8 +238,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             style={getBubbleHeightStyle(scheduledItem.duration)}
           >
             {/* Background emoji */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-8xl opacity-5 select-none">
+            <div className="absolute inset-0 flex items-center justify-end pointer-events-none"> {/* Changed justify-center to justify-end */}
+              <span className="text-[10rem] opacity-5 select-none"> {/* Changed text-8xl to text-[10rem] */}
                 {scheduledItem.emoji}
               </span>
             </div>

@@ -147,7 +147,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       if (item.type === 'marker') {
         itemEstimatedHeightPx = 20; // Estimate for small text marker
       } else if (item.type === 'free-time') {
-        itemEstimatedHeightPx = parseFloat(getBubbleHeightStyle((item as FreeTimeItem).duration).minHeight || '0');
+        // Free time has a fixed minimal height regardless of duration for visual override
+        itemEstimatedHeightPx = 40; // Fixed height for free time
       } else { // ScheduledItem (task or break)
         itemEstimatedHeightPx = parseFloat(getBubbleHeightStyle((item as ScheduledItem).duration).minHeight || '0');
       }
@@ -212,8 +213,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <React.Fragment key={freeTimeItem.id}>
           <div></div> {/* Empty left column */}
           <div 
-            className="flex items-center justify-center text-muted-foreground italic text-sm"
-            style={getBubbleHeightStyle(freeTimeItem.duration)} // Apply dynamic height
+            className="flex items-center justify-center text-muted-foreground italic text-sm min-h-[40px]" // Fixed minimal height
           >
             {freeTimeItem.message}
           </div>
@@ -295,7 +295,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 flex items-center justify-center"
                   style={{ top: `${progressLinePosition.topPercentage}%`, transition: 'top 60s linear' }}
                 >
-                  {/* Removed the span for the message */}
+                  <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
+                    ➡️ CURRENT PROGRESS - Time is {formatTime(T_current)}
+                  </span>
                 </div>
               )}
               {/* Render top/bottom messages when outside the active schedule */}
@@ -352,7 +354,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             )}
             {totalScheduledMinutes > 12 * 60 && (
               <p className="text-red-500">⚠️ Intense schedule. Remember to include meals and rest.</p>
-            )}
+            </p>
           </CardContent>
         </Card>
       )}

@@ -13,7 +13,8 @@ import Dashboard from "./pages/Dashboard";
 import TasksPage from "./pages/TasksPage";
 import AchievementsPage from "./pages/AchievementsPage";
 import SettingsPage from "./pages/SettingsPage";
-import AnalyticsPage from "./pages/AnalyticsPage"; // Import AnalyticsPage
+import AnalyticsPage from "./pages/AnalyticsPage";
+import SchedulerPage from "./pages/SchedulerPage"; // Import SchedulerPage
 
 const queryClient = new QueryClient();
 
@@ -29,9 +30,10 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/tasks" element={<TasksPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} /> {/* New route for analytics */}
+                  <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/achievements" element={<AchievementsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/scheduler" element={<SchedulerPage />} /> {/* New route for scheduler */}
                   <Route path="/login" element={<Login />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />

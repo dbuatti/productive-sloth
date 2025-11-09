@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, ListTodo, Settings, Trophy, TrendingUp } from 'lucide-react';
+import { Home, ListTodo, Settings, Trophy, TrendingUp, Clock } from 'lucide-react'; // Import Clock icon
 import { cn } from '@/lib/utils';
 
 interface NavLinkItemProps {
@@ -37,7 +37,8 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
   const navItems = [
     { to: "/", icon: Home, label: "Dashboard" },
     { to: "/tasks", icon: ListTodo, label: "My Tasks" },
-    { to: "/analytics", icon: TrendingUp, label: "Analytics" }, // Added Analytics page link
+    { to: "/scheduler", icon: Clock, label: "Scheduler" }, // Added Scheduler page link
+    { to: "/analytics", icon: TrendingUp, label: "Analytics" },
     { to: "/achievements", icon: Trophy, label: "Achievements" },
     { to: "/settings", icon: Settings, label: "Settings" },
   ];

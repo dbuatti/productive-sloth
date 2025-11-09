@@ -2,10 +2,13 @@ import React from 'react';
 import { ScheduledItem, FormattedSchedule } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils'; // Import formatTime
+import { Button } from '@/components/ui/button'; // Import Button
+import { Trash } from 'lucide-react'; // Import Trash icon
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
+  onRemoveTask: (taskId: string) => void; // New prop for removing tasks
 }
 
 // Helper to determine dynamic bubble height based on duration
@@ -18,7 +21,7 @@ const getBubbleHeightStyle = (duration: number) => {
   return { minHeight: `${Math.min(calculatedHeight, maxHeight)}px` };
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
   if (!schedule || schedule.items.length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up">
@@ -46,7 +49,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         {/* Time Track Item (Pill Design) */}
         <div className="flex items-center">
           <span className={cn(
-            "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200", // Added transition
+            "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
             isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground"
           )}>
             {pillEmoji} {formatTime(item.startTime)}
@@ -56,15 +59,15 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         {/* Task Bubble (Dynamic Height) */}
         <div
           className={cn(
-            "flex items-center gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in", // Added ease-in-out and animate-pop-in
+            "flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
             isActive ? "bg-primary text-primary-foreground shadow-md relative" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-            "relative hover:scale-[1.01] hover:shadow-lg" // Added hover effects
+            "relative hover:scale-[1.01] hover:shadow-lg hover:border-primary" // Added hover:border-primary
           )}
-          style={getBubbleHeightStyle(item.duration)} // Dynamic height
+          style={getBubbleHeightStyle(item.duration)}
         >
           <span className={cn(
-            "text-sm",
-            isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground" // Dynamic text color/style
+            "text-sm flex-grow", // flex-grow to push button to right
+            isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
           )}>
             {item.emoji} <span className="font-bold">{item.name}</span> ({item.duration} min)
             {item.type === 'break' && item.description && (
@@ -73,10 +76,22 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           </span>
           {isActive && (
             <div
-              className="absolute left-0 right-0 h-[2px] bg-red-500 z-10 transition-all duration-1000 ease-linear" // Red line with smooth animation
+              className="absolute left-0 right-0 h-[3px] bg-red-500 z-10 transition-all duration-1000 ease-linear" // Thicker red line
               style={redLineStyle}
             />
           )}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => onRemoveTask(item.id)} 
+            className={cn(
+              "h-6 w-6 p-0 shrink-0",
+              isActive ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-secondary/80"
+            )}
+          >
+            <Trash className="h-4 w-4" />
+            <span className="sr-only">Remove task</span>
+          </Button>
         </div>
       </React.Fragment>
     );
@@ -94,7 +109,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         </div>
 
         {schedule.progressLineIndex === -1 && (
-          <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow"> {/* Enhanced separator */}
+          <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
             <p className="font-semibold">{schedule.progressLineMessage}</p>
           </div>
         )}
@@ -103,7 +118,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <React.Fragment key={item.id}>
             {renderScheduleItem(item, index)}
             {index === schedule.progressLineIndex && (
-              <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow"> {/* Enhanced separator */}
+              <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
                 <p className="font-semibold">{schedule.progressLineMessage}</p>
               </div>
             )}
@@ -128,7 +143,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
       {/* Session Summary Footer */}
       {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
-        <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm"> {/* Added bg-secondary/20 */}
+        <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm">
           <h3 className="font-bold text-foreground mb-2">📊 SESSION SUMMARY</h3>
           <div className="border-b border-dashed border-border mb-2" />
           <p>Total Tasks: <span className="font-semibold">{schedule.summary.totalTasks}</span></p>

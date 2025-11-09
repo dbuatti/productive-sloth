@@ -193,7 +193,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute right-full mr-2 z-40" style={{ top: `${progressLineTopPercentage}%` }}> {/* Increased z-index to 40 */}
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-gray-900 text-xs font-semibold whitespace-nowrap animate-pulse-glow">
                     {formatTime(T_current)} {/* Simplified text */}
                   </span>
                 </div>
@@ -291,7 +291,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute right-full mr-2 z-40" style={{ top: `${progressLineTopPercentage}%` }}> {/* Increased z-index to 40 */}
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-gray-900 text-xs font-semibold whitespace-nowrap animate-pulse-glow">
                     {formatTime(T_current)} {/* Simplified text */}
                   </span>
                 </div>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo } from 'lucide-react';
-import { startOfDay, addHours } from 'date-fns';
+import { startOfDay, addHours, addMinutes } from 'date-fns';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -18,10 +18,10 @@ interface SchedulerDisplayProps {
 const getBubbleHeightStyle = (duration: number) => {
   const baseHeight = 40; // px for a very short task
   const multiplier = 1.5; // px per minute
-  const maxHeight = 150; // px to prevent overly tall bubbles
+  const minCalculatedHeight = 40; // Minimum height for any item to ensure visibility
 
   let calculatedHeight = baseHeight + (duration * multiplier);
-  return { minHeight: `${Math.min(calculatedHeight, maxHeight)}px` };
+  return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
@@ -129,14 +129,66 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         firstItemStartTime: actualStartTime,
         lastItemEndTime: actualEndTime,
     };
-  }, [schedule, T_current, startOfTemplate, endOfTemplate]); // Add startOfTemplate and endOfTemplate to dependencies
+  }, [schedule, T_current, startOfTemplate, endOfTemplate]);
 
-  // Calculate global progress line top based on the *actual displayed time range*
-  const totalDisplayedDurationMs = lastItemEndTime.getTime() - firstItemStartTime.getTime();
-  const elapsedFromDisplayedStartMs = T_current.getTime() - firstItemStartTime.getTime();
+  // Calculate global progress line top based on estimated visual heights
+  const progressLinePosition = useMemo(() => {
+    let cumulativeHeightPx = 0;
+    let targetTopPx = 0;
+    let foundTarget = false;
 
-  let globalProgressLineTop = (elapsedFromDisplayedStartMs / totalDisplayedDurationMs) * 100;
-  globalProgressLineTop = Math.max(0, Math.min(100, globalProgressLineTop)); // Clamp
+    const gridGapHeightPx = 8; // From gap-y-2
+
+    for (const item of finalDisplayItems) {
+      const itemStartTime = 'time' in item ? item.time : item.startTime;
+      const itemEndTime = 'time' in item ? item.time : item.endTime;
+      let itemEstimatedHeightPx = 0;
+
+      if (item.type === 'marker') {
+        itemEstimatedHeightPx = 20; // Estimate for small text marker
+      } else if (item.type === 'free-time') {
+        itemEstimatedHeightPx = parseFloat(getBubbleHeightStyle((item as FreeTimeItem).duration).minHeight || '0');
+      } else { // ScheduledItem (task or break)
+        itemEstimatedHeightPx = parseFloat(getBubbleHeightStyle((item as ScheduledItem).duration).minHeight || '0');
+      }
+
+      // Check if T_current is within this item's time range
+      if (T_current >= itemStartTime && T_current < itemEndTime && !foundTarget) {
+        const durationIntoItemMs = T_current.getTime() - itemStartTime.getTime();
+        const itemTotalDurationMs = itemEndTime.getTime() - itemStartTime.getTime();
+        
+        if (itemTotalDurationMs > 0) {
+          const percentageIntoItem = durationIntoItemMs / itemTotalDurationMs;
+          targetTopPx = cumulativeHeightPx + (itemEstimatedHeightPx * percentageIntoItem);
+          foundTarget = true;
+        } else { // Instantaneous item (e.g., marker at T_current)
+          targetTopPx = cumulativeHeightPx;
+          foundTarget = true;
+        }
+      }
+
+      cumulativeHeightPx += itemEstimatedHeightPx + gridGapHeightPx; // Add item height and gap
+    }
+
+    // If T_current is before the first item or after the last item
+    if (!foundTarget) {
+      if (T_current < firstItemStartTime) {
+        targetTopPx = 0; // Before the first item
+      } else if (T_current >= lastItemEndTime) {
+        targetTopPx = cumulativeHeightPx; // After the last item
+      }
+    }
+
+    // Convert targetTopPx to a percentage of the total cumulativeHeightPx
+    const totalRenderedHeight = cumulativeHeightPx; // This is the total estimated height of the content
+    let topPercentage = 0;
+    if (totalRenderedHeight > 0) {
+      topPercentage = (targetTopPx / totalRenderedHeight) * 100;
+    }
+
+    return { topPercentage, totalRenderedHeight };
+  }, [finalDisplayItems, T_current, firstItemStartTime, lastItemEndTime]);
+
 
   const showGlobalProgressLine = T_current >= firstItemStartTime && T_current < lastItemEndTime;
 
@@ -159,7 +211,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       return (
         <React.Fragment key={freeTimeItem.id}>
           <div></div> {/* Empty left column */}
-          <div className="flex items-center justify-center p-3 text-muted-foreground italic text-sm">
+          <div 
+            className="flex items-center justify-center text-muted-foreground italic text-sm"
+            style={getBubbleHeightStyle(freeTimeItem.duration)} // Apply dynamic height
+          >
             {freeTimeItem.message}
           </div>
         </React.Fragment>
@@ -190,6 +245,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div
             className={cn(
               "flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
+              scheduledItem.isTimedEvent ? "bg-blue-600 text-white" : // Different color for timed events
               isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "relative hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
             )}
@@ -197,6 +253,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           >
             <span className={cn(
               "text-sm flex-grow",
+              scheduledItem.isTimedEvent ? "text-white" : // Text color for timed events
               isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
             )}>
               {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
@@ -210,6 +267,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               onClick={() => onRemoveTask(scheduledItem.id)} 
               className={cn(
                 "h-6 w-6 p-0 shrink-0",
+                scheduledItem.isTimedEvent ? "text-white hover:bg-blue-700" : // Button color for timed events
                 isActive ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-secondary/80"
               )}
             >
@@ -235,7 +293,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               {showGlobalProgressLine && (
                 <div
                   className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 flex items-center justify-center"
-                  style={{ top: `${globalProgressLineTop}%`, transition: 'top 60s linear' }}
+                  style={{ top: `${progressLinePosition.topPercentage}%`, transition: 'top 60s linear' }}
                 >
                   {/* Removed the span for the message */}
                 </div>

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { formatTime } from '@/lib/scheduler-utils';
+import { formatTime, getEmojiHue } from '@/lib/scheduler-utils'; // Import getEmojiHue
 import { Button } from '@/components/ui/button';
 import { Trash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -214,6 +214,15 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       // Only render scheduled items if they are within or after the start of the 24-hour template
       if (scheduledItem.endTime < startOfTemplate) return null;
 
+      // --- Ambient Color Theming Logic ---
+      const hue = getEmojiHue(scheduledItem.name);
+      const saturation = 20; // 15-25%
+      const lightness = 25;  // 20-30%
+      const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
+
+      // Text color for foreground elements
+      const foregroundTextColor = "text-gray-100"; // High contrast light grey
+
       return (
         <React.Fragment key={scheduledItem.id}>
           <div className="flex items-center justify-end pr-2">
@@ -231,14 +240,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in overflow-hidden", // Added overflow-hidden here
-              scheduledItem.isTimedEvent ? "bg-blue-600 text-white" :
-              scheduledItem.type === 'break' ? "bg-muted text-muted-foreground border-muted-foreground/50" : // Specific style for breaks
-              isHighlightedByNowCard ? "bg-primary/10 border border-primary animate-pulse-active-row" : // Subtle background for current task
-              isActive ? "bg-primary/10 border border-primary" : // Subtle background if active but not in Now Card
-              isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+              // Remove existing background/border classes that would conflict
+              // Apply dynamic background color
+              isHighlightedByNowCard ? "border border-primary animate-pulse-active-row" : // Keep border for active/highlighted
+              isActive ? "border border-primary" : // Keep border for active
+              isPast ? "border-muted-foreground/50" : "border-border", // Default border for past/inactive
               "hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
             )}
-            style={getBubbleHeightStyle(scheduledItem.duration)}
+            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }} // Apply dynamic background
           >
             {/* Background emoji */}
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none"> {/* Changed justify-center to justify-end */}
@@ -250,20 +259,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             <div className="relative z-10 flex items-center justify-between w-full"> {/* Wrapper for main content and button */}
               <span className={cn(
                 "text-sm flex-grow",
-                scheduledItem.isTimedEvent ? "text-white" :
-                scheduledItem.type === 'break' ? "text-foreground" : // Ensure text is readable on break background
-                isHighlightedByNowCard ? "text-foreground" : // Ensure text is readable on subtle background
-                isActive ? "text-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
+                foregroundTextColor // Apply consistent foreground text color
               )}>
                 <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
               </span>
               {/* Time range moved here, right-aligned */}
               <span className={cn(
                 "text-xs font-mono ml-auto", // ml-auto pushes it to the right
-                scheduledItem.isTimedEvent ? "text-blue-200" :
-                scheduledItem.type === 'break' ? "text-muted-foreground/80" : // Time range color for breaks
-                isHighlightedByNowCard ? "text-primary" :
-                isActive ? "text-primary" : isPast ? "text-muted-foreground/80" : "text-secondary-foreground/80"
+                foregroundTextColor // Apply consistent foreground text color
               )}>
                 {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
               </span>
@@ -273,10 +276,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 onClick={() => onRemoveTask(scheduledItem.id)} 
                 className={cn(
                   "h-6 w-6 p-0 shrink-0 ml-2", // Added ml-2 for spacing from time range
-                  scheduledItem.isTimedEvent ? "text-white hover:bg-blue-700" :
-                  scheduledItem.type === 'break' ? "text-muted-foreground hover:bg-muted/80" : // Button color for breaks
-                  isHighlightedByNowCard ? "text-primary hover:bg-primary/20" : // Button color for current task
-                  isActive ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-secondary/80"
+                  foregroundTextColor, // Apply consistent foreground text color
+                  "hover:bg-white/10" // Generic hover for ghost button on dark background
                 )}
               >
                 <Trash className="h-4 w-4" />
@@ -284,7 +285,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               </Button>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
-              <p className="relative z-10 text-sm text-muted-foreground mt-1">{scheduledItem.description}</p>
+              <p className={cn("relative z-10 text-sm mt-1", foregroundTextColor)}>{scheduledItem.description}</p>
             )}
 
             {isActive && (

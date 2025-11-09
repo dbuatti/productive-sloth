@@ -18,6 +18,23 @@ const EMOJI_MAP: { [key: string]: string } = {
   'piano': '🎹', 'music': '🎹', 'practice': '🎹', // Added 'piano', 'music', 'practice'
 };
 
+// New: Map keywords to HSL hue values (0-360)
+const EMOJI_HUE_MAP: { [key: string]: number } = {
+  'gym': 200, 'workout': 200, 'run': 200, 'exercise': 200, // Blue
+  'email': 240, 'messages': 240, 'calls': 240, 'communication': 240, // Indigo
+  'meeting': 280, 'work': 280, 'report': 280, 'professional': 280, 'project': 280, // Purple
+  'design': 320, 'writing': 320, 'art': 320, 'creative': 320, // Pink
+  'study': 260, 'reading': 260, 'course': 260, 'learn': 260, // Violet
+  'clean': 120, 'laundry': 120, 'organize': 120, 'household': 120, 'setup': 120, 'room': 120, // Green
+  'cook': 30, 'meal prep': 30, 'groceries': 30, 'food': 30, 'lunch': 30, // Orange
+  'brainstorm': 60, 'strategy': 60, 'review': 60, 'plan': 60, // Yellow
+  'gaming': 0, 'tv': 0, 'hobbies': 0, 'leisure': 0, // Red
+  'meditation': 160, 'yoga': 160, 'self-care': 160, 'wellness': 160, 'mindfulness': 160, // Teal
+  'break': 40, // Warm orange/brown for breaks
+  'coffee': 30, // Orange/brown
+  'piano': 270, 'music': 270, 'practice': 270, // Purple
+};
+
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {
   5: "Quick stretch",
   10: "Stand and hydrate",
@@ -27,6 +44,7 @@ const BREAK_DESCRIPTIONS: { [key: number]: string } = {
 };
 
 const DEFAULT_EMOJI = '📋'; // Default for generic/ambiguous tasks
+const DEFAULT_HUE = 220; // Default cool blue/grey hue
 
 // --- Helper Functions ---
 
@@ -42,6 +60,17 @@ export const assignEmoji = (taskName: string): string => {
     }
   }
   return DEFAULT_EMOJI;
+};
+
+// New: Function to get hue based on task name
+export const getEmojiHue = (taskName: string): number => {
+  const lowerCaseName = taskName.toLowerCase();
+  for (const keyword in EMOJI_HUE_MAP) {
+    if (lowerCaseName.includes(keyword)) {
+      return EMOJI_HUE_MAP[keyword];
+    }
+  }
+  return DEFAULT_HUE;
 };
 
 export const getBreakDescription = (duration: number): string => {

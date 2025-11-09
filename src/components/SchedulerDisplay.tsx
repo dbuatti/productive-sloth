@@ -193,6 +193,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
   const showGlobalProgressLine = T_current >= firstItemStartTime && T_current < lastItemEndTime;
 
+  // Define totalScheduledMinutes here, before it's used in JSX
+  const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
+
   const renderDisplayItem = (item: DisplayItem) => {
     if (item.type === 'marker') {
       // Markers are rendered as small text in the left column, with an empty right column
@@ -280,8 +283,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     }
   };
 
-  const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
-
   return (
     <div className="space-y-4 animate-slide-in-up">
       <Card className="animate-pop-in">
@@ -338,7 +339,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       </Card>
 
       {/* Smart Suggestions */}
-      {schedule && totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
+      {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
         <Card className="animate-pop-in">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
@@ -360,16 +361,16 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       )}
 
       {/* Session Summary Footer */}
-      {schedule && totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
+      {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
         <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm border-t border-dashed border-border">
           <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
             <BarChart className="h-5 w-5 text-primary" /> 📊 SESSION SUMMARY
           </h3>
           <div className="border-b border-dashed border-border mb-2" />
-          <p>Total Tasks: <span className="font-semibold">{schedule.summary.totalTasks}</span></p>
-          <p>Active Time: <span className="font-semibold">{schedule.summary.activeTime.hours} hours {schedule.summary.activeTime.minutes} min</span></p>
-          <p>Break Time: <span className="font-semibold">{schedule.summary.breakTime} min</span></p>
-          <p>Session End: <span className="font-semibold">{formatTime(schedule.summary.sessionEnd)}</span></p>
+          <p>Total Tasks: <span className="font-semibold">{schedule?.summary.totalTasks}</span></p>
+          <p>Active Time: <span className="font-semibold">{schedule?.summary.activeTime.hours} hours {schedule?.summary.activeTime.minutes} min</span></p>
+          <p>Break Time: <span className="font-semibold">{schedule?.summary.breakTime} min</span></p>
+          <p>Session End: <span className="font-semibold">{formatTime(schedule?.summary.sessionEnd)}</span></p>
         </div>
       )}
     </div>

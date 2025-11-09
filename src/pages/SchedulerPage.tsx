@@ -44,6 +44,16 @@ const SchedulerPage: React.FC = () => {
   const [injectionStartTime, setInjectionStartTime] = useState('');
   const [injectionEndTime, setInjectionEndTime] = useState('');
 
+  // Load T_Anchor from localStorage on initial mount
+  useEffect(() => {
+    const savedAnchor = localStorage.getItem('scheduler_T_Anchor');
+    if (savedAnchor) {
+      T_AnchorRef.current = new Date(savedAnchor);
+      setT_AnchorEstablished(true); // Trigger initial render with loaded anchor
+      console.log("T_AnchorRef loaded from localStorage:", T_AnchorRef.current.toISOString());
+    }
+  }, []); // Run only once on mount
+
   // Update T_current every minute
   useEffect(() => {
     const interval = setInterval(() => {
@@ -59,21 +69,25 @@ const SchedulerPage: React.FC = () => {
       setCurrentSchedule(null);
       if (T_AnchorRef.current !== null) { // Only reset if it's not already null
         T_AnchorRef.current = null; // Reset ref
+        localStorage.removeItem('scheduler_T_Anchor'); // Clear from localStorage
         setT_AnchorEstablished(false); // Reset dummy state
         console.log("T_AnchorRef reset to null (no tasks).");
       }
       return;
     }
     
-    // generateSchedule now simply uses T_AnchorRef.current if it exists, or null.
-    // The setting of T_AnchorRef.current is handled in handleCommand/handleInjectionSubmit.
+    // The T_AnchorRef.current should already be loaded from localStorage or set by handleCommand.
+    // We don't want to set it here based on dbScheduledTasks presence, as that would re-anchor on refresh.
+    // It should only be set by user action (first ad-hoc task input).
+
+    console.log("Calling calculateSchedule with T_Anchor:", T_AnchorRef.current?.toISOString());
     const schedule = calculateSchedule(dbScheduledTasks, T_AnchorRef.current);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, setT_AnchorEstablished]); // Dependencies: dbScheduledTasks and setT_AnchorEstablished (for its setter stability)
+  }, [dbScheduledTasks, setT_AnchorEstablished]); // Dependencies: only dbScheduledTasks. T_AnchorRef is stable. setT_AnchorEstablished triggers re-render.
 
   useEffect(() => {
     generateSchedule();
-  }, [dbScheduledTasks, generateSchedule]); // Added generateSchedule to dependencies
+  }, [dbScheduledTasks, generateSchedule, setT_AnchorEstablished]); // Added setT_AnchorEstablished
 
   const handleCommand = async (input: string) => {
     if (!user) {
@@ -91,7 +105,9 @@ const SchedulerPage: React.FC = () => {
 
       // If T_Anchor is not set and this is the first ad-hoc task, set it NOW
       if (!T_AnchorRef.current && isAdHocTask) {
-        T_AnchorRef.current = new Date(); // Capture current time
+        const newAnchor = new Date();
+        T_AnchorRef.current = newAnchor; // Capture current time
+        localStorage.setItem('scheduler_T_Anchor', newAnchor.toISOString()); // Save to localStorage
         setT_AnchorEstablished(true); // Trigger re-render
         console.log("T_AnchorRef set for the first time in handleCommand to:", T_AnchorRef.current.toISOString());
       }
@@ -109,7 +125,9 @@ const SchedulerPage: React.FC = () => {
 
       // If T_Anchor is not set and this is the first ad-hoc injection, set it NOW
       if (!T_AnchorRef.current && isAdHocInjection) {
-        T_AnchorRef.current = new Date(); // Capture current time
+        const newAnchor = new Date();
+        T_AnchorRef.current = newAnchor; // Capture current time
+        localStorage.setItem('scheduler_T_Anchor', newAnchor.toISOString()); // Save to localStorage
         setT_AnchorEstablished(true); // Trigger re-render
         console.log("T_AnchorRef set for the first time in handleCommand (injection) to:", T_AnchorRef.current.toISOString());
       }
@@ -137,6 +155,7 @@ const SchedulerPage: React.FC = () => {
         case 'clear':
           await clearScheduledTasks();
           T_AnchorRef.current = null; // Reset T_AnchorRef
+          localStorage.removeItem('scheduler_T_Anchor'); // Clear from localStorage
           setT_AnchorEstablished(false); // Reset dummy state
           console.log("T_AnchorRef reset to null via clear command.");
           break;
@@ -187,7 +206,9 @@ const SchedulerPage: React.FC = () => {
 
     // If T_Anchor is not set and this is the first ad-hoc injection, set it NOW
     if (!T_AnchorRef.current && isAdHocInjection) {
-      T_AnchorRef.current = new Date(); // Capture current time
+      const newAnchor = new Date();
+      T_AnchorRef.current = newAnchor; // Capture current time
+      localStorage.setItem('scheduler_T_Anchor', newAnchor.toISOString()); // Save to localStorage
       setT_AnchorEstablished(true); // Trigger re-render
       console.log("T_AnchorRef set for the first time in handleInjectionSubmit to:", T_AnchorRef.current.toISOString());
     }
@@ -296,7 +317,7 @@ const SchedulerPage: React.FC = () => {
             <DialogDescription>
               Please provide the details for this task.
             </DialogDescription>
-          </DialogHeader>
+          </DialogDescription>
           <div className="grid gap-4 py-4">
             {injectionPrompt?.isTimed ? (
               <>

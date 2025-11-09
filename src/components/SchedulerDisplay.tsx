@@ -131,7 +131,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           </div>
 
           {/* Main Schedule Body - This is the scrollable area with items and the global progress line */}
-          <div className="relative p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}> {/* Adjust max-height as needed */}
+          <div className="relative p-4 overflow-y-auto"> {/* Removed maxHeight */}
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2"> {/* Inner grid for items */}
               {/* Global Progress Line */}
               {schedule.items.length > 0 && (

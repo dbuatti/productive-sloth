@@ -230,7 +230,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
           <div
             className={cn(
-              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in", // Changed to flex-col
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in overflow-hidden", // Added overflow-hidden here
               scheduledItem.isTimedEvent ? "bg-blue-600 text-white" :
               scheduledItem.type === 'break' ? "bg-muted text-muted-foreground border-muted-foreground/50" : // Specific style for breaks
               isHighlightedByNowCard ? "bg-primary/10 border border-primary animate-pulse-active-row" : // Subtle background for current task

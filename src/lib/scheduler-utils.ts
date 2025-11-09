@@ -168,7 +168,13 @@ export const calculateSchedule = (
       description: isStandaloneBreak ? getBreakDescription(task.duration!) : undefined, // Add description for standalone breaks
       isTimedEvent: false,
     });
-    totalActiveTime += task.duration!;
+    
+    // Correctly categorize duration for summary
+    if (isStandaloneBreak) {
+      totalBreakTime += task.duration!;
+    } else {
+      totalActiveTime += task.duration!;
+    }
 
     // Update adHocCursor to the end of the *just-placed ad-hoc task*
     adHocCursor = proposedEndTime;

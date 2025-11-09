@@ -89,10 +89,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     const filteredItems: DisplayItem[] = [];
     processedItems.forEach(item => {
         if (item.type === 'marker') {
-            const isCovered = processedItems.some(pItem => 
-                (pItem.type === 'free-time' && item.time >= pItem.startTime && item.time < pItem.endTime) ||
-                ((pPItem.type === 'task' || pItem.type === 'break') && item.time >= pItem.startTime && item.time < pItem.endTime)
-            );
+            const isCovered = processedItems.some(pItem => {
+                // Narrow pItem to types that have startTime and endTime
+                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break') {
+                    return item.time >= pItem.startTime && item.time < pItem.endTime;
+                }
+                return false; // TimeMarkers or CurrentTimeMarkers cannot cover other items in this context
+            });
             if (!isCovered) {
                 filteredItems.push(item);
             }

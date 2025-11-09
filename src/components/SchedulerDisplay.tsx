@@ -296,9 +296,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 flex items-center justify-center"
                   style={{ top: `${progressLinePosition.topPercentage}%`, transition: 'top 60s linear' }}
                 >
-                  <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
-                    ➡️ CURRENT PROGRESS - Time is {formatTime(T_current)}
-                  </span>
+                  {/* Removed the text "➡️ CURRENT PROGRESS - Time is {formatTime(T_current)}" */}
                 </div>
               )}
               {/* Render top/bottom messages when outside the active schedule */}
@@ -347,7 +345,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            {schedule.summary.extendsPastMidnight && (
+            {schedule?.summary.extendsPastMidnight && (
               <p className="text-orange-500 font-semibold">⚠️ {schedule.summary.midnightRolloverMessage}</p>
             )}
             {totalScheduledMinutes < 6 * 60 && (

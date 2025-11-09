@@ -213,6 +213,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const isCurrent = activeItem?.id === scheduledItem.id;
       const pillEmoji = isActive ? '🟢' : '⚪';
 
+      // Only render scheduled items if they are within or after the start of the 24-hour template
       if (scheduledItem.endTime < startOfTemplate) return null;
 
       return (
@@ -303,7 +304,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
                 </div>
               )}
-              {!activeItem && T_current >= lastItemEndTime && (
+              {!activeItem && T_current >= endOfTemplate && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "bottom-0"

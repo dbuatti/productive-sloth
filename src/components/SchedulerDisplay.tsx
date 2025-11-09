@@ -8,6 +8,16 @@ interface SchedulerDisplayProps {
   T_current: Date;
 }
 
+// Helper to determine dynamic bubble height based on duration
+const getBubbleHeightStyle = (duration: number) => {
+  const baseHeight = 40; // px for a very short task
+  const multiplier = 1.5; // px per minute
+  const maxHeight = 150; // px to prevent overly tall bubbles
+
+  let calculatedHeight = baseHeight + (duration * multiplier);
+  return { minHeight: `${Math.min(calculatedHeight, maxHeight)}px` };
+};
+
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current }) => {
   if (!schedule || schedule.items.length === 0) {
     return (
@@ -25,22 +35,31 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
     return (
       <React.Fragment key={item.id}>
-        <div className="flex items-center gap-2 text-sm">
+        {/* Time Track Item (Pill Design) */}
+        <div className="flex items-center">
           <span className={cn(
-            "font-mono",
-            isActive ? "text-primary font-bold" : isPast ? "text-muted-foreground" : "text-foreground"
+            "px-2 py-1 rounded-md text-xs font-mono", // Pill styling for time
+            isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground"
           )}>
             {pillEmoji} {formatTime(item.startTime)}
           </span>
         </div>
-        <div className={cn(
-          "text-sm",
-          isActive ? "text-primary font-bold" : isPast ? "text-muted-foreground italic" : "text-foreground"
-        )}>
-          {item.emoji} <span className="font-bold">{item.name}</span> ({item.duration} min)
-          {item.type === 'break' && item.description && (
-            <span className="text-muted-foreground ml-1"> - {item.description}</span>
+
+        {/* Task Bubble (Dynamic Height) */}
+        <div
+          className={cn(
+            "flex items-center gap-2 p-3 rounded-lg shadow-sm transition-all duration-200",
+            isActive ? "bg-primary text-primary-foreground shadow-md" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+            "relative" // For potential future absolute positioning of XP/Energy
           )}
+          style={getBubbleHeightStyle(item.duration)} // Dynamic height
+        >
+          <span className="text-sm">
+            {item.emoji} <span className="font-bold">{item.name}</span> ({item.duration} min)
+            {item.type === 'break' && item.description && (
+              <span className="text-muted-foreground ml-1"> - {item.description}</span>
+            )}
+          </span>
         </div>
       </React.Fragment>
     );

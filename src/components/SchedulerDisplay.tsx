@@ -56,13 +56,16 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         {/* Task Bubble (Dynamic Height) */}
         <div
           className={cn(
-            "flex items-center gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out", // Added ease-in-out
+            "flex items-center gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in", // Added ease-in-out and animate-pop-in
             isActive ? "bg-primary text-primary-foreground shadow-md relative" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
             "relative hover:scale-[1.01] hover:shadow-lg" // Added hover effects
           )}
           style={getBubbleHeightStyle(item.duration)} // Dynamic height
         >
-          <span className="text-sm">
+          <span className={cn(
+            "text-sm",
+            isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground" // Dynamic text color/style
+          )}>
             {item.emoji} <span className="font-bold">{item.name}</span> ({item.duration} min)
             {item.type === 'break' && item.description && (
               <span className="text-muted-foreground ml-1"> - {item.description}</span>
@@ -125,7 +128,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
       {/* Session Summary Footer */}
       {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
-        <div className="p-4 border rounded-lg bg-card shadow-sm text-sm">
+        <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm"> {/* Added bg-secondary/20 */}
           <h3 className="font-bold text-foreground mb-2">📊 SESSION SUMMARY</h3>
           <div className="border-b border-dashed border-border mb-2" />
           <p>Total Tasks: <span className="font-semibold">{schedule.summary.totalTasks}</span></p>

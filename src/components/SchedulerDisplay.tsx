@@ -338,7 +338,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       </Card>
 
       {/* Smart Suggestions */}
-      {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
+      {schedule && totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
         <Card className="animate-pop-in">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
@@ -354,13 +354,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             )}
             {totalScheduledMinutes > 12 * 60 && (
               <p className="text-red-500">⚠️ Intense schedule. Remember to include meals and rest.</p>
-            </p>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Session Summary Footer */}
-      {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
+      {schedule && totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
         <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm border-t border-dashed border-border">
           <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
             <BarChart className="h-5 w-5 text-primary" /> 📊 SESSION SUMMARY

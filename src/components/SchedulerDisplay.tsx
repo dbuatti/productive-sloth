@@ -109,7 +109,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
   globalProgressLineTop = Math.max(0, Math.min(100, globalProgressLineTop));
 
   const showGlobalProgressLine = T_current >= startOfTemplate && T_current < endOfTemplate;
-  const globalProgressMessage = `➡️ CURRENT PROGRESS - Time is ${formatTime(T_current)}`;
+  // const globalProgressMessage = `➡️ CURRENT PROGRESS - Time is ${formatTime(T_current)}`; // Removed
 
   const renderDisplayItem = (item: DisplayItem, index: number) => {
     if (item.type === 'marker') {
@@ -218,12 +218,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               {/* Global Progress Line */}
               {showGlobalProgressLine && (
                 <div
-                  className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 animate-pulse-glow flex items-center justify-center"
+                  className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 flex items-center justify-center" // Removed animate-pulse-glow
                   style={{ top: `${globalProgressLineTop}%`, transition: 'top 60s linear' }}
                 >
-                  <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
-                    {globalProgressMessage}
-                  </span>
+                  {/* Removed the span for the message */}
                 </div>
               )}
               {/* Render top/bottom messages when outside the active schedule */}

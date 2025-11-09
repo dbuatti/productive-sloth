@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
-import { DBScheduledTask, NewDBScheduledTask } from '@/types/scheduler'; // Import scheduler types
+import { DBScheduledTask, NewDBScheduledTask, RawTaskInput } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday, format } from 'date-fns'; // Import format

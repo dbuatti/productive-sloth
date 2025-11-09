@@ -238,14 +238,16 @@ export const parseTaskInput = (input: string): RawTaskInput | { name: string, st
     const startTimeStr = timedMatch[2].trim();
     const endTimeStr = timedMatch[3].trim();
 
+    console.log('DEBUG: Timed match found:', { name, startTimeStr, endTimeStr }); // Added debug log
     try {
-      const formatStrings = ['h:mm a', 'h a']; 
+      const formatStrings = ['h a', 'h:mm a']; // Prioritize simpler format
       let parsedStartTime: Date | null = null;
       let parsedEndTime: Date | null = null;
       const now = new Date(); // Use a consistent reference date for parsing
 
       for (const fmt of formatStrings) {
         const tempStart = parse(startTimeStr, fmt, now);
+        console.log(`DEBUG: Trying start: "${startTimeStr}" with format "${fmt}" -> ${tempStart} (isValid: ${!isNaN(tempStart.getTime())})`); // Added debug log
         if (!isNaN(tempStart.getTime())) {
           parsedStartTime = tempStart;
           break;
@@ -253,13 +255,17 @@ export const parseTaskInput = (input: string): RawTaskInput | { name: string, st
       }
       for (const fmt of formatStrings) {
         const tempEnd = parse(endTimeStr, fmt, now);
+        console.log(`DEBUG: Trying end: "${endTimeStr}" with format "${fmt}" -> ${tempEnd} (isValid: ${!isNaN(tempEnd.getTime())})`); // Added debug log
         if (!isNaN(tempEnd.getTime())) {
           parsedEndTime = tempEnd;
           break;
         }
       }
 
+      console.log('DEBUG: Final parsed times:', { parsedStartTime, parsedEndTime }); // Added debug log
+
       if (!parsedStartTime || !parsedEndTime || isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) {
+        console.error('DEBUG: Failed to parse one or both times, throwing error.'); // Added debug log
         throw new Error("Invalid time format");
       }
       
@@ -270,7 +276,7 @@ export const parseTaskInput = (input: string): RawTaskInput | { name: string, st
 
       return { name, startTime: parsedStartTime, endTime: parsedEndTime };
     } catch (e) {
-      console.error("Error parsing timed event:", e);
+      console.error("DEBUG: Error caught during timed event parsing:", e); // Added debug log
       return null;
     }
   }

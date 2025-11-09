@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { parse, startOfDay, setHours, setMinutes } from 'date-fns'; // Import startOfDay, setHours, setMinutes
+import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel'; // Import the new dashboard panel
 
 const SchedulerPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
@@ -301,9 +302,12 @@ const SchedulerPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
-      <h1 className="text-3xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up">
+      <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
+
+      {/* New: Scheduler Dashboard Panel */}
+      <SchedulerDashboardPanel scheduleSummary={currentSchedule?.summary || null} />
 
       <Card className="animate-pop-in">
         <CardHeader>

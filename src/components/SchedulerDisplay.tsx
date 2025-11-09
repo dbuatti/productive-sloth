@@ -12,6 +12,7 @@ interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
   onRemoveTask: (taskId: string) => void;
+  activeItemId: string | null; // New prop to highlight the active item
 }
 
 // Helper to determine dynamic bubble height based on duration
@@ -24,21 +25,21 @@ const getBubbleHeightStyle = (duration: number) => {
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask, activeItemId }) => {
   // Declare startOfTemplate and endOfTemplate here so they are accessible throughout the component
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]); // 12:00 AM
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]); // 12:00 AM next day (24 hours)
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
-    const allEvents: (ScheduledItem | TimeMarker)[] = []; // Removed CurrentTimeMarker from here
+    const allEvents: (ScheduledItem | TimeMarker)[] = []; 
 
     // Add all scheduled tasks/breaks
     scheduledTasks.forEach(task => allEvents.push(task));
 
     // Add 12 AM and 12 AM (next day) markers as fixed boundaries
     allEvents.push({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
-    allEvents.push({ id: 'marker-24hr', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); // Changed to 24hr marker
+    allEvents.push({ id: 'marker-24hr', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); 
 
     // Sort all events by their time
     allEvents.sort((a, b) => {
@@ -132,35 +133,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
   }, [schedule, T_current, startOfTemplate, endOfTemplate]);
 
 
-  // Find the currently active item for the progress line overlay
-  const activeItem = useMemo(() => {
-    for (const item of finalDisplayItems) {
-      if (item.type === 'task' || item.type === 'break' || item.type === 'free-time') {
-        if (T_current >= item.startTime && T_current < item.endTime) {
-          return item;
-        }
-      }
-    }
-    return null;
-  }, [finalDisplayItems, T_current]);
-
-  // Calculate the top position for the progress line within the active item
-  const progressLineTopPercentage = useMemo(() => {
-    if (!activeItem) return 0;
-
-    const itemStartTime = activeItem.startTime.getTime();
-    const itemEndTime = activeItem.endTime.getTime();
-    const itemDurationMs = itemEndTime - itemStartTime;
-
-    if (itemDurationMs === 0) return 0; // Avoid division by zero for instantaneous items
-
-    const timeIntoItemMs = T_current.getTime() - itemStartTime;
-    return (timeIntoItemMs / itemDurationMs) * 100;
-  }, [activeItem, T_current]);
-
-
-  const showGlobalProgressLine = T_current >= firstItemStartTime && T_current < lastItemEndTime;
-
   // Define totalScheduledMinutes here, before it's used in JSX
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
 
@@ -178,7 +150,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       );
     } else if (item.type === 'free-time') {
       const freeTimeItem = item as FreeTimeItem;
-      const isCurrent = activeItem?.id === freeTimeItem.id;
+      const isActive = T_current >= freeTimeItem.startTime && T_current < freeTimeItem.endTime;
 
       return (
         <React.Fragment key={freeTimeItem.id}>
@@ -186,32 +158,18 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div 
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
-              isCurrent ? "bg-live-progress/10 border border-live-progress" : "bg-secondary/50 hover:bg-secondary/70"
+              isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70"
             )}
           >
             {freeTimeItem.message}
-            {isCurrent && (
-              <>
-                <div 
-                  className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
-                  style={{ top: `${progressLineTopPercentage}%` }}
-                ></div>
-                <div className="absolute right-full mr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
-                    ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
-                  </span>
-                </div>
-              </>
-            )}
           </div>
         </React.Fragment>
       );
     } else { // It's a ScheduledItem (task or break)
       const scheduledItem = item as ScheduledItem;
-      const isActive = scheduledItem.startTime <= T_current && scheduledItem.endTime > T_current;
+      const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
       const isPast = scheduledItem.endTime <= T_current;
-      const isCurrent = activeItem?.id === scheduledItem.id;
-      const pillEmoji = isActive ? '🟢' : '⚪';
+      const isCurrentlyActiveInNowCard = activeItemId === scheduledItem.id; // Check if this is the item in the Now Card
 
       // Only render scheduled items if they are within or after the start of the 24-hour template
       if (scheduledItem.endTime < startOfTemplate) return null;
@@ -221,8 +179,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div className="flex items-center justify-end pr-2">
             <span className={cn(
               "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
-              isCurrent ? "bg-live-progress text-white" :
-              isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+              isCurrentlyActiveInNowCard ? "bg-primary text-primary-foreground" : // Highlight if it's the active item
+              isActive ? "bg-primary/20 text-primary" : // Subtle highlight if active but not in Now Card (shouldn't happen if Now Card is always present)
+              isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
             )}>
               {formatTime(scheduledItem.startTime)} {/* Only start time in the left column */}
@@ -233,8 +192,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in", // Changed to flex-col
               scheduledItem.isTimedEvent ? "bg-blue-600 text-white" :
-              isCurrent ? "bg-primary/10 border border-live-progress" : // Subtle background for current task
-              isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+              isCurrentlyActiveInNowCard ? "bg-primary/10 border border-primary animate-pulse-active-row" : // Subtle background for current task
+              isActive ? "bg-primary/10 border border-primary" : // Subtle background if active but not in Now Card
+              isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
             )}
             style={getBubbleHeightStyle(scheduledItem.duration)}
@@ -243,8 +203,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               <span className={cn(
                 "text-sm flex-grow",
                 scheduledItem.isTimedEvent ? "text-white" :
-                isCurrent ? "text-foreground" : // Ensure text is readable on subtle background
-                isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
+                isCurrentlyActiveInNowCard ? "text-foreground" : // Ensure text is readable on subtle background
+                isActive ? "text-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
               )}>
                 {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
                 {scheduledItem.type === 'break' && scheduledItem.description && (
@@ -258,8 +218,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 className={cn(
                   "h-6 w-6 p-0 shrink-0",
                   scheduledItem.isTimedEvent ? "text-white hover:bg-blue-700" :
-                  isCurrent ? "text-live-progress hover:bg-live-progress/20" : // Button color for current task
-                  isActive ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-secondary/80"
+                  isCurrentlyActiveInNowCard ? "text-primary hover:bg-primary/20" : // Button color for current task
+                  isActive ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-secondary/80"
                 )}
               >
                 <Trash className="h-4 w-4" />
@@ -270,25 +230,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             <span className={cn(
               "text-xs font-mono",
               scheduledItem.isTimedEvent ? "text-blue-200" :
-              isCurrent ? "text-live-progress" :
-              isActive ? "text-primary-foreground/80" : isPast ? "text-muted-foreground/80" : "text-secondary-foreground/80"
+              isCurrentlyActiveInNowCard ? "text-primary" :
+              isActive ? "text-primary" : isPast ? "text-muted-foreground/80" : "text-secondary-foreground/80"
             )}>
               {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
             </span>
-
-            {isCurrent && (
-              <>
-                <div 
-                  className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
-                  style={{ top: `${progressLineTopPercentage}%` }}
-                ></div>
-                <div className="absolute right-full mr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
-                    ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
-                  </span>
-                </div>
-              </>
-            )}
           </div>
         </React.Fragment>
       );
@@ -303,7 +249,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div className="relative p-4 overflow-y-auto">
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               {/* Render top/bottom messages when outside the active schedule */}
-              {!activeItem && T_current < firstItemStartTime && (
+              {activeItemId === null && T_current < firstItemStartTime && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "top-0"
@@ -315,7 +261,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
                 </div>
               )}
-              {!activeItem && T_current >= endOfTemplate && (
+              {activeItemId === null && T_current >= lastItemEndTime && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "bottom-0"

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask } from '@/types/scheduler';
+import { FormattedSchedule, DBScheduledTask, ScheduledItem } from '@/types/scheduler'; // Import ScheduledItem
 import {
   calculateSchedule,
   parseTaskInput,
@@ -20,6 +20,7 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { parse, startOfDay, setHours, setMinutes } from 'date-fns'; // Import startOfDay, setHours, setMinutes
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel'; // Import the new dashboard panel
+import NowFocusCard from '@/components/NowFocusCard'; // Import the new NowFocusCard
 
 const SchedulerPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
@@ -279,6 +280,33 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(false);
   };
 
+  // Determine the currently active task and the next task
+  const activeItem: ScheduledItem | null = useMemo(() => {
+    if (!currentSchedule) return null;
+    for (const item of currentSchedule.items) {
+      if ((item.type === 'task' || item.type === 'break') && T_current >= item.startTime && T_current < item.endTime) {
+        return item;
+      }
+    }
+    return null;
+  }, [currentSchedule, T_current]);
+
+  const nextItem: ScheduledItem | null = useMemo(() => {
+    if (!currentSchedule || !activeItem) return null;
+    const activeItemIndex = currentSchedule.items.findIndex(item => item.id === activeItem.id);
+    if (activeItemIndex !== -1 && activeItemIndex < currentSchedule.items.length - 1) {
+      // Find the next actual task or break, skipping free-time or markers
+      for (let i = activeItemIndex + 1; i < currentSchedule.items.length; i++) {
+        const item = currentSchedule.items[i];
+        if (item.type === 'task' || item.type === 'break') {
+          return item;
+        }
+      }
+    }
+    return null;
+  }, [currentSchedule, activeItem]);
+
+
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;
 
   if (isSessionLoading) {
@@ -331,6 +359,9 @@ const SchedulerPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* NOW FOCUS Card */}
+      <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
+
       <Card className="animate-pop-in" style={{ animationDelay: '0.1s' }}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
@@ -343,7 +374,7 @@ const SchedulerPage: React.FC = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <SchedulerDisplay schedule={currentSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} />
+            <SchedulerDisplay schedule={currentSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} activeItemId={activeItem?.id || null} />
           )}
         </CardContent>
       </Card>

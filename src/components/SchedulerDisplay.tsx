@@ -225,13 +225,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
             )}>
-              {pillEmoji} {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
+              {formatTime(scheduledItem.startTime)} {/* Only start time in the left column */}
             </span>
           </div>
 
           <div
             className={cn(
-              "relative flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in", // Changed to flex-col
               scheduledItem.isTimedEvent ? "bg-blue-600 text-white" :
               isCurrent ? "bg-primary/10 border border-live-progress" : // Subtle background for current task
               isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
@@ -239,31 +239,42 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             )}
             style={getBubbleHeightStyle(scheduledItem.duration)}
           >
+            <div className="flex items-center justify-between w-full"> {/* Wrapper for main content and button */}
+              <span className={cn(
+                "text-sm flex-grow",
+                scheduledItem.isTimedEvent ? "text-white" :
+                isCurrent ? "text-foreground" : // Ensure text is readable on subtle background
+                isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
+              )}>
+                {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
+                {scheduledItem.type === 'break' && scheduledItem.description && (
+                  <span className="text-muted-foreground ml-1"> - {scheduledItem.description}</span>
+                )}
+              </span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => onRemoveTask(scheduledItem.id)} 
+                className={cn(
+                  "h-6 w-6 p-0 shrink-0",
+                  scheduledItem.isTimedEvent ? "text-white hover:bg-blue-700" :
+                  isCurrent ? "text-live-progress hover:bg-live-progress/20" : // Button color for current task
+                  isActive ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-secondary/80"
+                )}
+              >
+                <Trash className="h-4 w-4" />
+                <span className="sr-only">Remove task</span>
+              </Button>
+            </div>
+            {/* New: Time range inside the pill */}
             <span className={cn(
-              "text-sm flex-grow",
-              scheduledItem.isTimedEvent ? "text-white" :
-              isCurrent ? "text-foreground" : // Ensure text is readable on subtle background
-              isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
+              "text-xs font-mono",
+              scheduledItem.isTimedEvent ? "text-blue-200" :
+              isCurrent ? "text-live-progress" :
+              isActive ? "text-primary-foreground/80" : isPast ? "text-muted-foreground/80" : "text-secondary-foreground/80"
             )}>
-              {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
-              {scheduledItem.type === 'break' && scheduledItem.description && (
-                <span className="text-muted-foreground ml-1"> - {scheduledItem.description}</span>
-              )}
+              {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
             </span>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => onRemoveTask(scheduledItem.id)} 
-              className={cn(
-                "h-6 w-6 p-0 shrink-0",
-                scheduledItem.isTimedEvent ? "text-white hover:bg-blue-700" :
-                isCurrent ? "text-live-progress hover:bg-live-progress/20" : // Button color for current task
-                isActive ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-secondary/80"
-              )}
-            >
-              <Trash className="h-4 w-4" />
-              <span className="sr-only">Remove task</span>
-            </Button>
 
             {isCurrent && (
               <>

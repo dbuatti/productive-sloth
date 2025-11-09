@@ -242,7 +242,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           >
             {/* Background emoji */}
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none"> {/* Changed justify-center to justify-end */}
-              <span className="text-[10rem] opacity-5 select-none"> {/* Changed text-8xl to text-[10rem] */}
+              <span className="text-[10rem] opacity-10 select-none"> {/* Changed opacity-5 to opacity-10 */}
                 {scheduledItem.emoji}
               </span>
             </div>

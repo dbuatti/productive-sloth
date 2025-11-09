@@ -239,7 +239,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           >
             <div className="flex items-center justify-between w-full"> {/* Wrapper for main content and button */}
               <span className={cn(
-                "text-sm flex-grow",
+                "text-sm flex-grow flex items-center gap-1", // Added flex items-center gap-1 for emoji and text
                 scheduledItem.isTimedEvent ? "text-white" :
                 scheduledItem.type === 'break' ? "text-foreground" : // Ensure text is readable on break background
                 isHighlightedByNowCard ? "text-foreground" : // Ensure text is readable on subtle background
@@ -247,12 +247,22 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               )}>
                 {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
               </span>
+              {/* Time range moved here, right-aligned */}
+              <span className={cn(
+                "text-xs font-mono ml-auto", // ml-auto pushes it to the right
+                scheduledItem.isTimedEvent ? "text-blue-200" :
+                scheduledItem.type === 'break' ? "text-muted-foreground/80" : // Time range color for breaks
+                isHighlightedByNowCard ? "text-primary" :
+                isActive ? "text-primary" : isPast ? "text-muted-foreground/80" : "text-secondary-foreground/80"
+              )}>
+                {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
+              </span>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={() => onRemoveTask(scheduledItem.id)} 
                 className={cn(
-                  "h-6 w-6 p-0 shrink-0",
+                  "h-6 w-6 p-0 shrink-0 ml-2", // Added ml-2 for spacing from time range
                   scheduledItem.isTimedEvent ? "text-white hover:bg-blue-700" :
                   scheduledItem.type === 'break' ? "text-muted-foreground hover:bg-muted/80" : // Button color for breaks
                   isHighlightedByNowCard ? "text-primary hover:bg-primary/20" : // Button color for current task
@@ -263,16 +273,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 <span className="sr-only">Remove task</span>
               </Button>
             </div>
-            {/* New: Time range inside the pill */}
-            <span className={cn(
-              "text-xs font-mono",
-              scheduledItem.isTimedEvent ? "text-blue-200" :
-              scheduledItem.type === 'break' ? "text-muted-foreground/80" : // Time range color for breaks
-              isHighlightedByNowCard ? "text-primary" :
-              isActive ? "text-primary" : isPast ? "text-muted-foreground/80" : "text-secondary-foreground/80"
-            )}>
-              {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
-            </span>
             {scheduledItem.type === 'break' && scheduledItem.description && (
               <p className="text-sm text-muted-foreground mt-1">{scheduledItem.description}</p>
             )}

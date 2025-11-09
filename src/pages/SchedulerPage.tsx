@@ -46,18 +46,18 @@ const SchedulerPage: React.FC = () => {
   }, []);
 
   const generateSchedule = useCallback(() => {
-    if (rawTasks.length === 0) {
+    if (dbScheduledTasks.length === 0) { // Use dbScheduledTasks here
       setCurrentSchedule(null);
       return;
     }
     // No need for local loading state here, use isSchedulerTasksLoading
-    const schedule = calculateSchedule(rawTasks, new Date()); // Always use fresh T_current for calculation
+    const schedule = calculateSchedule(dbScheduledTasks, new Date()); // Pass dbScheduledTasks
     setCurrentSchedule(schedule);
-  }, [rawTasks]);
+  }, [dbScheduledTasks]); // Depend on dbScheduledTasks
 
   useEffect(() => {
     generateSchedule();
-  }, [rawTasks, generateSchedule]);
+  }, [dbScheduledTasks, generateSchedule]); // Depend on dbScheduledTasks
 
   const handleCommand = async (input: string) => {
     if (!user) {

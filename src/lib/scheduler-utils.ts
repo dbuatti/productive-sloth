@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addDays } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask } from '@/types/scheduler';
 
 // --- Constants ---
 const EMOJI_MAP: { [key: string]: string } = {
@@ -61,7 +61,7 @@ export const getMidnightRolloverMessage = (endDate: Date, T_current: Date): stri
 // --- Core Scheduling Logic ---
 
 export const calculateSchedule = (
-  rawTasks: RawTaskInput[],
+  dbTasks: DBScheduledTask[], // Now accepts DBScheduledTask[]
   T_current: Date
 ): FormattedSchedule => {
   const scheduledItems: ScheduledItem[] = [];
@@ -71,12 +71,12 @@ export const calculateSchedule = (
   let progressLineIndex = -1; // -1 means before the first item
   let progressLineMessage = `➡️ CURRENT PROGRESS - Time is ${formatTime(T_current)}`;
 
-  rawTasks.forEach((task, index) => {
+  dbTasks.forEach((task, index) => {
     // Add Task
     const taskStartTime = currentTime;
     const taskEndTime = addMinutes(taskStartTime, task.duration);
     scheduledItems.push({
-      id: `task-${index}-${task.name.replace(/\s/g, '-')}`,
+      id: task.id, // Use Supabase ID
       type: 'task',
       name: task.name,
       duration: task.duration,
@@ -95,21 +95,21 @@ export const calculateSchedule = (
     }
 
     // Add Break if specified
-    if (task.breakDuration && task.breakDuration > 0) {
+    if (task.break_duration && task.break_duration > 0) {
       const breakStartTime = currentTime;
-      const breakEndTime = addMinutes(breakStartTime, task.breakDuration);
+      const breakEndTime = addMinutes(breakStartTime, task.break_duration);
       scheduledItems.push({
-        id: `break-${index}-${task.name.replace(/\s/g, '-')}`,
+        id: `${task.id}-break`, // Derive unique ID for break
         type: 'break',
         name: 'BREAK',
-        duration: task.breakDuration,
+        duration: task.break_duration,
         startTime: breakStartTime,
         endTime: breakEndTime,
         emoji: EMOJI_MAP['break'],
-        description: getBreakDescription(task.breakDuration),
+        description: getBreakDescription(task.break_duration),
       });
       currentTime = breakEndTime;
-      totalBreakTime += task.breakDuration;
+      totalBreakTime += task.break_duration;
 
       // If T_current is within this break or after it, update progressLineIndex
       if (T_current >= breakStartTime && T_current < breakEndTime) {
@@ -139,7 +139,7 @@ export const calculateSchedule = (
   const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, T_current) : null;
 
   const summary: ScheduleSummary = {
-    totalTasks: rawTasks.length,
+    totalTasks: dbTasks.length, // Use dbTasks.length for total tasks
     activeTime: {
       hours: Math.floor(totalActiveTime / 60),
       minutes: totalActiveTime % 60,

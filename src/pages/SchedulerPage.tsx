@@ -75,7 +75,14 @@ const SchedulerPage: React.FC = () => {
           showSuccess("Schedule cleared.");
           break;
         case 'remove':
-          if (command.target) {
+          if (command.index !== undefined) {
+            if (command.index >= 0 && command.index < rawTasks.length) {
+              setRawTasks((prev) => prev.filter((_, i) => i !== command.index));
+              showSuccess(`Removed task at index ${command.index + 1}.`);
+            } else {
+              showError(`Invalid index. Please provide a number between 1 and ${rawTasks.length}.`);
+            }
+          } else if (command.target) {
             const initialLength = rawTasks.length;
             setRawTasks((prev) => prev.filter(task => !task.name.toLowerCase().includes(command.target!.toLowerCase())));
             if (rawTasks.length < initialLength) {
@@ -84,7 +91,7 @@ const SchedulerPage: React.FC = () => {
               showError(`No tasks found matching "${command.target}".`);
             }
           } else {
-            showError("Please specify a task name to remove.");
+            showError("Please specify a task name or index to remove (e.g., 'remove Task Name' or 'remove index 1').");
           }
           break;
         case 'show':

@@ -68,7 +68,7 @@ export const calculateSchedule = (
   let currentTime = T_current;
   let totalActiveTime = 0;
   let totalBreakTime = 0;
-  let progressLineIndex = -1;
+  let progressLineIndex = -1; // -1 means before the first item
   let progressLineMessage = `➡️ CURRENT PROGRESS - Time is ${formatTime(T_current)}`;
 
   rawTasks.forEach((task, index) => {
@@ -87,9 +87,11 @@ export const calculateSchedule = (
     currentTime = taskEndTime;
     totalActiveTime += task.duration;
 
-    // Check if this task's end time is past T_current for progress line
-    if (isPast(taskEndTime) && progressLineIndex === -1) {
-      progressLineIndex = scheduledItems.length - 1;
+    // If T_current is within this task or after it, update progressLineIndex
+    if (T_current >= taskStartTime && T_current < taskEndTime) {
+      progressLineIndex = scheduledItems.length - 1; // Line after this task
+    } else if (T_current >= taskEndTime) {
+      progressLineIndex = scheduledItems.length - 1; // Line after this task
     }
 
     // Add Break if specified
@@ -109,24 +111,28 @@ export const calculateSchedule = (
       currentTime = breakEndTime;
       totalBreakTime += task.breakDuration;
 
-      // Check if this break's end time is past T_current for progress line
-      if (isPast(breakEndTime) && progressLineIndex === -1) {
-        progressLineIndex = scheduledItems.length - 1;
+      // If T_current is within this break or after it, update progressLineIndex
+      if (T_current >= breakStartTime && T_current < breakEndTime) {
+        progressLineIndex = scheduledItems.length - 1; // Line after this break
+      } else if (T_current >= breakEndTime) {
+        progressLineIndex = scheduledItems.length - 1; // Line after this break
       }
     }
   });
 
-  // Handle progress line if no tasks are past T_current
-  if (progressLineIndex === -1) {
-    if (scheduledItems.length > 0) {
-      progressLineIndex = -1; // Before the first item
-      const timeUntilFirstTask = Math.round((scheduledItems[0].startTime.getTime() - T_current.getTime()) / (1000 * 60));
-      progressLineMessage = `⏳ Schedule starts in ${timeUntilFirstTask} minutes`;
-    } else {
-      progressLineIndex = 0; // At the very beginning if no tasks
-      progressLineMessage = `✅ No tasks scheduled.`;
-    }
+  // Final adjustments for progressLineIndex and message
+  if (scheduledItems.length === 0) {
+    progressLineIndex = 0; // Before any items (or no items)
+    progressLineMessage = `✅ No tasks scheduled.`;
+  } else if (progressLineIndex === -1) {
+    // T_current is before the very first item
+    const timeUntilFirstTask = Math.round((scheduledItems[0].startTime.getTime() - T_current.getTime()) / (1000 * 60));
+    progressLineMessage = `⏳ Schedule starts in ${timeUntilFirstTask} minutes`;
+  } else if (progressLineIndex === scheduledItems.length - 1 && T_current >= scheduledItems[scheduledItems.length - 1].endTime) {
+    // T_current is after the very last item
+    progressLineMessage = `✅ All tasks completed!`;
   }
+  // Otherwise, progressLineIndex and message are already set correctly by the loop
 
   const sessionEnd = currentTime;
   const extendsPastMidnight = !isToday(sessionEnd) && scheduledItems.length > 0;
@@ -195,11 +201,17 @@ export const parseInjectionCommand = (input: string): { type: 'inject', taskName
   return null;
 };
 
-export const parseCommand = (input: string): { type: 'clear' | 'remove' | 'show' | 'reorder', target?: string } | null => {
+export const parseCommand = (input: string): { type: 'clear' | 'remove' | 'show' | 'reorder', target?: string, index?: number } | null => {
   const lowerInput = input.toLowerCase();
   if (lowerInput === 'clear queue') {
     return { type: 'clear' };
   }
+  // New: remove by index
+  const removeIndexMatch = lowerInput.match(/^remove\s+index\s+(\d+)$/);
+  if (removeIndexMatch) {
+    return { type: 'remove', index: parseInt(removeIndexMatch[1], 10) - 1 }; // Convert to 0-based index
+  }
+  // Existing: remove by name (can be made more precise later if needed, for now keep includes)
   if (lowerInput.startsWith('remove ')) {
     const target = input.substring('remove '.length).trim();
     return { type: 'remove', target };

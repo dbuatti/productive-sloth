@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'; // Import useRef
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem } from '@/types/scheduler'; // Import ScheduledItem
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask } from '@/types/scheduler'; // Import NewDBScheduledTask
 import {
   calculateSchedule,
   parseTaskInput,
@@ -16,27 +16,31 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Updated import
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes } from 'date-fns'; // Import startOfDay, setHours, setMinutes
-import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel'; // Import the new dashboard panel
-import NowFocusCard from '@/components/NowFocusCard'; // Import the new NowFocusCard
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay } from 'date-fns'; // Import format and isSameDay
+import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
+import NowFocusCard from '@/components/NowFocusCard';
+import CalendarStrip from '@/components/CalendarStrip'; // Import CalendarStrip
 
 const SchedulerPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
+  const [selectedDay, setSelectedDay] = useState<Date>(new Date()); // New state for selected day
   const { 
     dbScheduledTasks,
     isLoading: isSchedulerTasksLoading, 
     addScheduledTask, 
     removeScheduledTask, 
-    clearScheduledTasks 
-  } = useSchedulerTasks();
+    clearScheduledTasks,
+    datesWithTasks, // New: Dates that have scheduled tasks
+  } = useSchedulerTasks(selectedDay); // Pass selectedDay to the hook
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
   
   // Use useRef to hold the T_Anchor value, and useState to trigger re-renders when it's first established
-  const T_AnchorRef = useRef<Date | null>(null);
+  // T_Anchor is now stored per day
+  const T_AnchorRef = useRef<Map<string, Date>>(new Map()); // Map<formattedDate, Date>
   const [, setT_AnchorEstablished] = useState<boolean>(false); // Dummy state to force re-render when T_Anchor is first set
 
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
@@ -47,6 +51,9 @@ const SchedulerPage: React.FC = () => {
   const [injectionEndTime, setInjectionEndTime] = useState('');
   const [inputValue, setInputValue] = useState(''); // State for the input field
 
+  // Format selectedDay for localStorage key and task insertion
+  const formattedSelectedDay = format(selectedDay, 'yyyy-MM-dd');
+
   // Update T_current every minute
   useEffect(() => {
     const interval = setInterval(() => {
@@ -55,44 +62,40 @@ const SchedulerPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // This useEffect should load T_Anchor from localStorage on initial mount
+  // Load T_Anchor for the selected day from localStorage on initial mount and when selectedDay changes
   useEffect(() => {
-    const savedAnchor = localStorage.getItem('scheduler_T_Anchor');
+    const savedAnchor = localStorage.getItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
     if (savedAnchor) {
-      T_AnchorRef.current = new Date(savedAnchor);
-      setT_AnchorEstablished(true); // Trigger re-render if an anchor is found
-      console.log("Loaded T_AnchorRef from localStorage:", T_AnchorRef.current.toISOString());
+      T_AnchorRef.current.set(formattedSelectedDay, new Date(savedAnchor));
+      setT_AnchorEstablished(true); // Trigger re-render
+      console.log(`Loaded T_AnchorRef for ${formattedSelectedDay} from localStorage:`, T_AnchorRef.current.get(formattedSelectedDay)?.toISOString());
     } else {
-      console.log("No T_AnchorRef found in localStorage on mount.");
+      T_AnchorRef.current.delete(formattedSelectedDay); // Ensure no old anchor if none saved
+      setT_AnchorEstablished(false); // Reset dummy state
+      console.log(`No T_AnchorRef found for ${formattedSelectedDay} in localStorage on mount/day change.`);
     }
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, [formattedSelectedDay]); // Dependency on formattedSelectedDay
 
   const generateSchedule = useCallback(() => {
-    console.log("generateSchedule called. T_AnchorRef.current:", T_AnchorRef.current?.toISOString());
+    const currentDayAnchor = T_AnchorRef.current.get(formattedSelectedDay) || null;
+    console.log("generateSchedule called. T_AnchorRef.current for selected day:", currentDayAnchor?.toISOString());
 
-    // If there are no scheduled tasks from the DB, and T_AnchorRef is also null,
+    // If there are no scheduled tasks from the DB for the selected day, and T_AnchorRef is also null for this day,
     // then there's no schedule to display.
-    // This condition should only be true if no ad-hoc tasks were ever added,
-    // or if the queue was explicitly cleared.
-    if (dbScheduledTasks.length === 0 && T_AnchorRef.current === null) {
+    if (dbScheduledTasks.length === 0 && currentDayAnchor === null) {
       setCurrentSchedule(null);
-      console.log("No scheduled tasks and no T_AnchorRef, schedule is null.");
+      console.log("No scheduled tasks and no T_AnchorRef for selected day, schedule is null.");
       return;
     }
     
-    // Otherwise, calculate the schedule.
-    // T_AnchorRef.current will be null for fixed appointments if no ad-hoc tasks have set it.
-    // calculateSchedule handles null T_Anchor gracefully for fixed appointments.
-    console.log("Calling calculateSchedule with T_Anchor:", T_AnchorRef.current?.toISOString());
-    const schedule = calculateSchedule(dbScheduledTasks, T_AnchorRef.current);
+    console.log("Calling calculateSchedule with T_Anchor for selected day:", currentDayAnchor?.toISOString());
+    const schedule = calculateSchedule(dbScheduledTasks, currentDayAnchor);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, T_AnchorRef.current]); // Add T_AnchorRef.current as a dependency
+  }, [dbScheduledTasks, formattedSelectedDay]); // Dependency on formattedSelectedDay
 
   useEffect(() => {
-    // This useEffect should run when dbScheduledTasks changes, or when generateSchedule changes (which happens if T_AnchorRef.current changes)
-    // or when T_AnchorEstablished changes (which happens when T_AnchorRef.current is first set from localStorage)
     generateSchedule();
-  }, [dbScheduledTasks, generateSchedule]); // Removed T_AnchorEstablished from dependencies
+  }, [dbScheduledTasks, generateSchedule]);
 
   const handleCommand = async (input: string) => {
     if (!user) {
@@ -111,45 +114,64 @@ const SchedulerPage: React.FC = () => {
     if (parsedInput) {
       const isAdHocTask = 'duration' in parsedInput;
 
-      // If T_Anchor is not set and this is the first ad-hoc task, set it NOW
-      if (!T_AnchorRef.current && isAdHocTask) {
+      // If T_Anchor is not set for the selected day and this is the first ad-hoc task, set it NOW
+      if (!T_AnchorRef.current.has(formattedSelectedDay) && isAdHocTask && isSameDay(selectedDay, new Date())) {
         const newAnchor = new Date();
-        T_AnchorRef.current = newAnchor; // Capture current time
-        localStorage.setItem('scheduler_T_Anchor', newAnchor.toISOString()); // Save to localStorage
+        T_AnchorRef.current.set(formattedSelectedDay, newAnchor); // Capture current time for selected day
+        localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Save to localStorage
         setT_AnchorEstablished(true); // Trigger re-render
-        console.log("T_AnchorRef set for the first time in handleCommand to:", T_AnchorRef.current.toISOString());
+        console.log(`T_AnchorRef set for ${formattedSelectedDay} for the first time in handleCommand to:`, newAnchor.toISOString());
       }
+
+      const taskScheduledDate = formattedSelectedDay;
 
       // Check if it's a duration-based task or a timed event
       if (isAdHocTask) {
         // Duration-based task
-        await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration });
+        await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration, scheduled_date: taskScheduledDate });
         success = true;
       } else {
         // Timed event (Fixed Appointment)
-        await addScheduledTask({ name: parsedInput.name, start_time: parsedInput.startTime.toISOString(), end_time: parsedInput.endTime.toISOString() });
+        // Ensure parsed times are set for the selected day, not just 'now'
+        const startTime = parse(format(parsedInput.startTime, 'hh:mm a'), 'hh:mm a', selectedDay);
+        const endTime = parse(format(parsedInput.endTime, 'hh:mm a'), 'hh:mm a', selectedDay);
+        
+        // Handle potential rollover to next day if end time is before start time on the same day
+        if (endTime.getTime() < startTime.getTime()) {
+          endTime.setDate(endTime.getDate() + 1);
+        }
+
+        await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
         success = true;
       }
     } else if (injectCommand) {
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
 
-      // If T_Anchor is not set and this is the first ad-hoc injection, set it NOW
-      if (!T_AnchorRef.current && isAdHocInjection) {
+      // If T_Anchor is not set for the selected day and this is the first ad-hoc injection, set it NOW
+      if (!T_AnchorRef.current.has(formattedSelectedDay) && isAdHocInjection && isSameDay(selectedDay, new Date())) {
         const newAnchor = new Date();
-        T_AnchorRef.current = newAnchor; // Capture current time
-        localStorage.setItem('scheduler_T_Anchor', newAnchor.toISOString()); // Save to localStorage
+        T_AnchorRef.current.set(formattedSelectedDay, newAnchor); // Capture current time for selected day
+        localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Save to localStorage
         setT_AnchorEstablished(true); // Trigger re-render
-        console.log("T_AnchorRef set for the first time in handleCommand (injection) to:", T_AnchorRef.current.toISOString());
+        console.log(`T_AnchorRef set for ${formattedSelectedDay} for the first time in handleCommand (injection) to:`, newAnchor.toISOString());
       }
 
+      const taskScheduledDate = formattedSelectedDay;
+
       if (injectCommand.duration) {
-        await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration });
+        await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration, scheduled_date: taskScheduledDate });
         success = true;
       } else if (injectCommand.startTime && injectCommand.endTime) {
-        const now = new Date();
-        const startTime = parse(injectCommand.startTime, 'h:mm a', now);
-        const endTime = parse(injectCommand.endTime, 'h:mm a', now);
-        await addScheduledTask({ name: injectCommand.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString() });
+        // Ensure parsed times are set for the selected day, not just 'now'
+        const startTime = parse(injectCommand.startTime, 'h:mm a', selectedDay);
+        const endTime = parse(injectCommand.endTime, 'h:mm a', selectedDay);
+
+        // Handle potential rollover to next day if end time is before start time on the same day
+        if (endTime.getTime() < startTime.getTime()) {
+          endTime.setDate(endTime.getDate() + 1);
+        }
+
+        await addScheduledTask({ name: injectCommand.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
         success = true;
       }
       else {
@@ -166,11 +188,11 @@ const SchedulerPage: React.FC = () => {
     } else if (command) {
       switch (command.type) {
         case 'clear':
-          await clearScheduledTasks();
-          T_AnchorRef.current = null; // Reset T_AnchorRef
-          localStorage.removeItem('scheduler_T_Anchor'); // Clear from localStorage
+          await clearScheduledTasks(); // This now clears for the selected day
+          T_AnchorRef.current.delete(formattedSelectedDay); // Reset T_AnchorRef for selected day
+          localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`); // Clear from localStorage
           setT_AnchorEstablished(false); // Reset dummy state
-          console.log("T_AnchorRef reset to null via clear command.");
+          console.log(`T_AnchorRef reset to null for ${formattedSelectedDay} via clear command.`);
           success = true;
           break;
         case 'remove':
@@ -226,14 +248,16 @@ const SchedulerPage: React.FC = () => {
     let success = false;
     const isAdHocInjection = !injectionPrompt.isTimed;
 
-    // If T_Anchor is not set and this is the first ad-hoc injection, set it NOW
-    if (!T_AnchorRef.current && isAdHocInjection) {
+    // If T_Anchor is not set for the selected day and this is the first ad-hoc injection, set it NOW
+    if (!T_AnchorRef.current.has(formattedSelectedDay) && isAdHocInjection && isSameDay(selectedDay, new Date())) {
       const newAnchor = new Date();
-      T_AnchorRef.current = newAnchor; // Capture current time
-      localStorage.setItem('scheduler_T_Anchor', newAnchor.toISOString()); // Save to localStorage
+      T_AnchorRef.current.set(formattedSelectedDay, newAnchor); // Capture current time for selected day
+      localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Save to localStorage
       setT_AnchorEstablished(true); // Trigger re-render
-      console.log("T_AnchorRef set for the first time in handleInjectionSubmit to:", T_AnchorRef.current.toISOString());
+      console.log(`T_AnchorRef set for ${formattedSelectedDay} for the first time in handleInjectionSubmit to:`, newAnchor.toISOString());
     }
+
+    const taskScheduledDate = formattedSelectedDay;
 
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
@@ -241,15 +265,19 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      const now = new Date();
-      const startTime = parse(injectionStartTime, 'h:mm a', now);
-      const endTime = parse(injectionEndTime, 'h:mm a', now);
+      // Ensure parsed times are set for the selected day, not just 'now'
+      const startTime = parse(injectionStartTime, 'h:mm a', selectedDay);
+      const endTime = parse(injectionEndTime, 'h:mm a', selectedDay);
       if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
         showError("Invalid time format for start/end times.");
         setIsProcessingCommand(false);
         return;
       }
-      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString() });
+      // Handle potential rollover to next day if end time is before start time on the same day
+      if (endTime.getTime() < startTime.getTime()) {
+        endTime.setDate(endTime.getDate() + 1);
+      }
+      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
       success = true;
     } else {
       if (!injectionDuration) {
@@ -265,7 +293,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      await addScheduledTask({ name: injectionPrompt.taskName, duration, break_duration: breakDuration });
+      await addScheduledTask({ name: injectionPrompt.taskName, duration, break_duration: breakDuration, scheduled_date: taskScheduledDate });
       success = true;
     }
     
@@ -282,17 +310,17 @@ const SchedulerPage: React.FC = () => {
 
   // Determine the currently active task and the next task
   const activeItem: ScheduledItem | null = useMemo(() => {
-    if (!currentSchedule) return null;
+    if (!currentSchedule || !isSameDay(selectedDay, new Date())) return null; // Only show active item for today
     for (const item of currentSchedule.items) {
       if ((item.type === 'task' || item.type === 'break') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
     return null;
-  }, [currentSchedule, T_current]);
+  }, [currentSchedule, T_current, selectedDay]);
 
   const nextItem: ScheduledItem | null = useMemo(() => {
-    if (!currentSchedule || !activeItem) return null;
+    if (!currentSchedule || !activeItem || !isSameDay(selectedDay, new Date())) return null; // Only show next item for today
     const activeItemIndex = currentSchedule.items.findIndex(item => item.id === activeItem.id);
     if (activeItemIndex !== -1 && activeItemIndex < currentSchedule.items.length - 1) {
       // Find the next actual task or break, skipping free-time or markers
@@ -304,7 +332,7 @@ const SchedulerPage: React.FC = () => {
       }
     }
     return null;
-  }, [currentSchedule, activeItem]);
+  }, [currentSchedule, activeItem, selectedDay]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;
@@ -337,6 +365,13 @@ const SchedulerPage: React.FC = () => {
       {/* New: Scheduler Dashboard Panel */}
       <SchedulerDashboardPanel scheduleSummary={currentSchedule?.summary || null} />
 
+      {/* New: Calendar Strip */}
+      <CalendarStrip 
+        selectedDay={selectedDay} 
+        setSelectedDay={setSelectedDay} 
+        datesWithTasks={datesWithTasks} 
+      />
+
       <Card className="animate-pop-in">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
@@ -359,13 +394,15 @@ const SchedulerPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* NOW FOCUS Card */}
-      <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
+      {/* NOW FOCUS Card (only for today's schedule) */}
+      {isSameDay(selectedDay, new Date()) && (
+        <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
+      )}
 
       <Card className="animate-pop-in" style={{ animationDelay: '0.1s' }}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule
+            <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(selectedDay, 'EEEE, MMMM d')}
           </CardTitle>
         </CardHeader>
         <CardContent>

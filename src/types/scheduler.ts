@@ -43,6 +43,7 @@ export interface DBScheduledTask {
   break_duration: number | null;
   start_time: string | null; // New: ISO date string for timed events
   end_time: string | null;   // New: ISO date string for timed events
+  scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
   created_at: string;
 }
 
@@ -52,6 +53,7 @@ export interface NewDBScheduledTask {
   break_duration?: number;
   start_time?: string; // Optional for duration-based tasks
   end_time?: string;   // Optional for duration-based tasks
+  scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
 }
 
 export type ScheduledItemType = 'task' | 'break';

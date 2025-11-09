@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { RawTaskInput, FormattedSchedule, DBScheduledTask } from '@/types/scheduler'; // Removed RawTaskInput from here as it's now part of scheduler-utils return type
+import { FormattedSchedule, DBScheduledTask } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -32,6 +32,7 @@ const SchedulerPage: React.FC = () => {
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
+  const [T_Anchor, setT_Anchor] = useState<Date | null>(null); // New state for the fixed schedule anchor
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
   const [injectionDuration, setInjectionDuration] = useState('');
@@ -50,11 +51,17 @@ const SchedulerPage: React.FC = () => {
   const generateSchedule = useCallback(() => {
     if (dbScheduledTasks.length === 0) {
       setCurrentSchedule(null);
+      setT_Anchor(null); // Reset T_Anchor if no tasks
       return;
     }
-    const schedule = calculateSchedule(dbScheduledTasks, new Date());
+    // If T_Anchor is not set, set it to the current time when the first task is loaded/scheduled
+    const effectiveTAnchor = T_Anchor || new Date();
+    if (!T_Anchor) {
+      setT_Anchor(effectiveTAnchor);
+    }
+    const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor); // Pass T_Anchor to calculation
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks]);
+  }, [dbScheduledTasks, T_Anchor]);
 
   useEffect(() => {
     generateSchedule();
@@ -67,6 +74,11 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     
+    // If T_Anchor is not set, set it now for the first task
+    if (!T_Anchor && dbScheduledTasks.length === 0) {
+      setT_Anchor(new Date());
+    }
+
     const parsedInput = parseTaskInput(input);
     const injectCommand = parseInjectionCommand(input);
     const command = parseCommand(input);
@@ -103,6 +115,7 @@ const SchedulerPage: React.FC = () => {
       switch (command.type) {
         case 'clear':
           await clearScheduledTasks();
+          setT_Anchor(null); // Reset T_Anchor when clearing all tasks
           break;
         case 'remove':
           if (command.index !== undefined) {
@@ -145,6 +158,11 @@ const SchedulerPage: React.FC = () => {
     if (!user || !injectionPrompt) {
       showError("You must be logged in to use the scheduler.");
       return;
+    }
+
+    // If T_Anchor is not set, set it now for the first task
+    if (!T_Anchor && dbScheduledTasks.length === 0) {
+      setT_Anchor(new Date());
     }
 
     if (injectionPrompt.isTimed) {

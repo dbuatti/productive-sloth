@@ -81,11 +81,10 @@ export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
 // --- Core Scheduling Logic ---
 
 export const calculateSchedule = (
-  dbTasks: DBScheduledTask[], // Now accepts DBScheduledTask[]
-  T_current: Date
+  dbTasks: DBScheduledTask[],
+  T_Anchor: Date // Now accepts T_Anchor as the fixed starting point
 ): FormattedSchedule => {
   const scheduledItems: ScheduledItem[] = [];
-  let currentTime = T_current;
   let totalActiveTime = 0;
   let totalBreakTime = 0;
 
@@ -124,18 +123,20 @@ export const calculateSchedule = (
     totalActiveTime += duration;
   });
 
-  // Now, schedule duration-based tasks sequentially after the current time,
-  // avoiding overlaps with already scheduled timed events.
-  // For simplicity, we'll append them after the last timed event or T_current.
+  // Now, schedule duration-based tasks sequentially.
+  // The starting point for the first duration task is T_Anchor,
+  // or the end of the last timed event if it's later than T_Anchor.
   
-  // Find the latest end time among all currently scheduled items (timed events + T_current)
-  let sequentialCursor = T_current;
+  let sequentialCursor = T_Anchor;
   if (scheduledItems.length > 0) {
     const lastScheduledItem = scheduledItems[scheduledItems.length - 1];
     if (lastScheduledItem.endTime.getTime() > sequentialCursor.getTime()) {
       sequentialCursor = lastScheduledItem.endTime;
     }
   }
+
+  // Sort duration tasks by their creation time to maintain the order they were added
+  durationTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   durationTasks.forEach(task => {
     const taskStartTime = sequentialCursor;
@@ -177,9 +178,9 @@ export const calculateSchedule = (
   // Re-sort all items by start time to ensure correct display order
   scheduledItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : T_current;
+  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : T_Anchor;
   const extendsPastMidnight = !isToday(sessionEnd) && scheduledItems.length > 0;
-  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, T_current) : null;
+  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, T_Anchor) : null;
 
   const summary: ScheduleSummary = {
     totalTasks: dbTasks.length,

@@ -158,7 +158,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         firstItemStartTime: actualStartTime,
         lastItemEndTime: actualEndTime,
     };
-  }, [schedule, T_current, startOfTemplate, endOfTemplate]); // Removed scheduledTasks from dependencies
+  }, [schedule, T_current, startOfTemplate, endOfTemplate]);
 
   // Calculate global progress line top based on estimated visual heights
   const progressLinePosition = useMemo(() => {
@@ -176,7 +176,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       if (item.type === 'marker' || item.type === 'current-time') { // Markers and current-time are small
         itemEstimatedHeightPx = 20; 
       } else if (item.type === 'free-time') {
-        itemEstimatedHeightPx = 40; 
+        itemEstimatedHeightPx = 20; // Fixed minimal height for free time
       } else { // ScheduledItem (task or break)
         itemEstimatedHeightPx = parseFloat(getBubbleHeightStyle((item as ScheduledItem).duration).minHeight || '0');
       }
@@ -244,7 +244,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <React.Fragment key={freeTimeItem.id}>
           <div></div> {/* Empty left column */}
           <div 
-            className="flex items-center justify-center text-muted-foreground italic text-sm min-h-[40px]" // Fixed minimal height
+            className="flex items-center justify-center text-muted-foreground italic text-sm h-[20px]" // Fixed minimal height for free time
           >
             {freeTimeItem.message}
           </div>
@@ -332,6 +332,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           {/* Main Schedule Body - This is the scrollable area with items and the global progress line */}
           <div className="relative p-4 overflow-y-auto">
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+              {/* Global Progress Line */}
+              {showGlobalProgressLine && (
+                <div
+                  className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 flex items-center justify-center"
+                  style={{ top: `${progressLinePosition.topPercentage}%`, transition: 'top 60s linear' }}
+                >
+                  <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
+                    ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
+                  </span>
+                </div>
+              )}
               {/* Render top/bottom messages when outside the active schedule */}
               {!showGlobalProgressLine && T_current < startOfTemplate && (
                 <div className={cn(

@@ -142,10 +142,12 @@
     0%, 100% {
       box-shadow: 0 0 0px hsl(var(--primary) / 0.2);
       border-color: hsl(var(--primary) / 0.5);
+      transform: translateY(0px);
     }
     50% {
       box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
       border-color: hsl(var(--primary));
+      transform: translateY(-2px); /* Subtle lift */
     }
   }
 

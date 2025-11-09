@@ -56,7 +56,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <div
           className={cn(
             "flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
-            isActive ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 relative border-2 border-primary animate-pulse-active-row" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+            isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground", // Removed border/shadow/animation for active state
             "relative hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary" // More pronounced hover effects
           )}
           style={getBubbleHeightStyle(item.duration)}
@@ -89,52 +89,80 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
   const totalScheduledMinutes = schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime;
 
-  // Determine icon for progress message
-  const getProgressMessageIcon = (message: string) => {
-    if (message.includes('CURRENT PROGRESS')) return '➡️';
-    if (message.includes('Schedule starts in')) return '⏳';
-    if (message.includes('All tasks completed!')) return '✅';
-    return '';
-  };
+  // Calculate global progress line position and message
+  const scheduleStartTime = schedule.items.length > 0 ? schedule.items[0].startTime : null;
+  const scheduleEndTime = schedule.summary.sessionEnd;
+
+  let globalProgressLineTop = 0;
+  let showGlobalProgressLine = false;
+  let globalProgressMessage = '';
+
+  if (scheduleStartTime && scheduleEndTime) {
+    const totalScheduleDurationMs = scheduleEndTime.getTime() - scheduleStartTime.getTime();
+    const elapsedDurationMs = T_current.getTime() - scheduleStartTime.getTime();
+
+    if (T_current < scheduleStartTime) {
+      const timeUntilStart = Math.round((scheduleStartTime.getTime() - T_current.getTime()) / (1000 * 60));
+      globalProgressMessage = `⏳ Schedule starts in ${timeUntilStart} minutes`;
+      globalProgressLineTop = 0; // Position at the very top
+    } else if (T_current >= scheduleEndTime) {
+      globalProgressMessage = `✅ All tasks completed!`;
+      globalProgressLineTop = 100; // Position at the very bottom
+    } else {
+      globalProgressLineTop = (elapsedDurationMs / totalScheduleDurationMs) * 100;
+      globalProgressMessage = `➡️ CURRENT PROGRESS - ${formatTime(T_current)}`;
+      showGlobalProgressLine = true;
+    }
+  }
 
   return (
     <div className="space-y-4 animate-slide-in-up">
-      <Card className="animate-pop-in"> {/* Wrapped main schedule grid in Card */}
+      <Card className="animate-pop-in">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-xl">
             <ListTodo className="h-5 w-5 text-primary" /> Your Vibe Schedule
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0"> {/* Removed default padding */}
-          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4"> {/* Inner padding */}
+        <CardContent className="p-0">
+          <div className="relative grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4"> {/* Made relative for global line */}
             {/* Column Headers */}
             <div className="col-span-2 grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border bg-secondary/10 rounded-t-lg">
               <div className="text-lg font-bold text-primary">TIME TRACK</div>
               <div className="text-lg font-bold text-primary">TASK BUBBLES</div>
             </div>
 
-            {schedule.progressLineIndex === -1 && (
-              <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
-                <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                  {getProgressMessageIcon(schedule.progressLineMessage)} {schedule.progressLineMessage}
-                </p>
-                <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-              </div>
+            {/* Global Progress Line */}
+            {schedule.items.length > 0 && (
+              <>
+                {showGlobalProgressLine && (
+                  <div
+                    className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 animate-pulse-glow flex items-center justify-center"
+                    style={{ top: `${globalProgressLineTop}%`, transition: 'top 60s linear' }}
+                  >
+                    <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
+                      {globalProgressMessage}
+                    </span>
+                  </div>
+                )}
+                {/* Render top/bottom messages when outside the active schedule */}
+                {!showGlobalProgressLine && globalProgressMessage && (
+                  <div className={cn(
+                    "absolute left-0 right-0 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                    T_current < scheduleStartTime ? "top-0" : "bottom-0"
+                  )}>
+                    <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                      {globalProgressMessage}
+                    </p>
+                    <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                  </div>
+                )}
+              </>
             )}
 
             {schedule.items.map((item, index) => (
               <React.Fragment key={item.id}>
                 {renderScheduleItem(item, index)}
-                {index === schedule.progressLineIndex && (
-                  <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
-                    <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                    <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                      {getProgressMessageIcon(schedule.progressLineMessage)} {schedule.progressLineMessage}
-                    </p>
-                    <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                  </div>
-                )}
               </React.Fragment>
             ))}
           </div>
@@ -143,7 +171,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
       {/* Smart Suggestions */}
       {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
-        <Card className="animate-pop-in"> {/* Wrapped in Card */}
+        <Card className="animate-pop-in">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions

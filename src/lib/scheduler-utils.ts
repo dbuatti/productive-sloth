@@ -68,8 +68,6 @@ export const calculateSchedule = (
   let currentTime = T_current;
   let totalActiveTime = 0;
   let totalBreakTime = 0;
-  let progressLineIndex = -1; // -1 means before the first item
-  let progressLineMessage = `➡️ CURRENT PROGRESS - Time is ${formatTime(T_current)}`;
 
   dbTasks.forEach((task, index) => {
     // Add Task
@@ -87,13 +85,6 @@ export const calculateSchedule = (
     currentTime = taskEndTime;
     totalActiveTime += task.duration;
 
-    // If T_current is within this task or after it, update progressLineIndex
-    if (T_current >= taskStartTime && T_current < taskEndTime) {
-      progressLineIndex = scheduledItems.length - 1; // Line after this task
-    } else if (T_current >= taskEndTime) {
-      progressLineIndex = scheduledItems.length - 1; // Line after this task
-    }
-
     // Add Break if specified
     if (task.break_duration && task.break_duration > 0) {
       const breakStartTime = currentTime;
@@ -110,29 +101,8 @@ export const calculateSchedule = (
       });
       currentTime = breakEndTime;
       totalBreakTime += task.break_duration;
-
-      // If T_current is within this break or after it, update progressLineIndex
-      if (T_current >= breakStartTime && T_current < breakEndTime) {
-        progressLineIndex = scheduledItems.length - 1; // Line after this break
-      } else if (T_current >= breakEndTime) {
-        progressLineIndex = scheduledItems.length - 1; // Line after this break
-      }
     }
   });
-
-  // Final adjustments for progressLineIndex and message
-  if (scheduledItems.length === 0) {
-    progressLineIndex = 0; // Before any items (or no items)
-    progressLineMessage = `✅ No tasks scheduled.`;
-  } else if (progressLineIndex === -1) {
-    // T_current is before the very first item
-    const timeUntilFirstTask = Math.round((scheduledItems[0].startTime.getTime() - T_current.getTime()) / (1000 * 60));
-    progressLineMessage = `⏳ Schedule starts in ${timeUntilFirstTask} minutes`;
-  } else if (progressLineIndex === scheduledItems.length - 1 && T_current >= scheduledItems[scheduledItems.length - 1].endTime) {
-    // T_current is after the very last item
-    progressLineMessage = `✅ All tasks completed!`;
-  }
-  // Otherwise, progressLineIndex and message are already set correctly by the loop
 
   const sessionEnd = currentTime;
   const extendsPastMidnight = !isToday(sessionEnd) && scheduledItems.length > 0;
@@ -153,8 +123,8 @@ export const calculateSchedule = (
   return {
     items: scheduledItems,
     summary: summary,
-    progressLineIndex: progressLineIndex,
-    progressLineMessage: progressLineMessage,
+    progressLineIndex: -1, // No longer used, but kept for type compatibility
+    progressLineMessage: '', // No longer used
   };
 };
 

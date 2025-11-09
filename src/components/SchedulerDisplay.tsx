@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { formatTime } from '@/lib/scheduler-utils'; // Removed generateFixedTimeMarkers as it's no longer directly used for displayItems
+import { formatTime } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
 import { Trash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,111 +26,80 @@ const getBubbleHeightStyle = (duration: number) => {
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
   const displayItems: DisplayItem[] = useMemo(() => {
-    const startOfToday = startOfDay(T_current); // 12:00 AM
-    const templateNoon = addHours(startOfToday, 12); // 12:00 PM (Noon)
+    const startOfTemplate = startOfDay(T_current); // 12:00 AM
+    const templateNoon = addHours(startOfTemplate, 12); // 12:00 PM (Noon)
 
     const scheduledTasks = schedule ? schedule.items : [];
-
-    // Collect all unique time points relevant to the display (start/end of template, task start/end)
-    const timePoints = new Set<number>();
-    timePoints.add(startOfToday.getTime());
-    timePoints.add(templateNoon.getTime());
-    scheduledTasks.forEach(task => {
-      timePoints.add(task.startTime.getTime());
-      timePoints.add(task.endTime.getTime());
-    });
-
-    // Sort unique time points chronologically
-    const sortedTimePoints = Array.from(timePoints).sort((a, b) => a - b);
+    const sortedTasks = [...scheduledTasks].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
     const finalDisplayItems: DisplayItem[] = [];
-    let currentCursor = startOfToday; // Tracks the end time of the last processed item
+    let currentCursor = startOfTemplate;
 
-    for (let i = 0; i < sortedTimePoints.length; i++) {
-      const pointTime = new Date(sortedTimePoints[i]);
-
-      // If this point is beyond the template noon, stop processing
-      if (pointTime.getTime() > templateNoon.getTime()) {
-        break;
-      }
-
-      // 1. Add Free Time if there's a gap between currentCursor and pointTime
-      if (pointTime.getTime() > currentCursor.getTime()) {
-        const freeDurationMs = pointTime.getTime() - currentCursor.getTime();
-        const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
-        if (freeDurationMinutes > 0) {
-          finalDisplayItems.push({
-            id: `free-${currentCursor.toISOString()}-${pointTime.toISOString()}`,
-            type: 'free-time',
-            startTime: currentCursor,
-            endTime: pointTime,
-            duration: freeDurationMinutes,
-            message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
-          });
+    // Process tasks and free time between them
+    sortedTasks.forEach(task => {
+      // Only consider tasks that start within or after the template start and before template ends
+      if (task.startTime.getTime() < templateNoon.getTime()) {
+        // Add free time if there's a gap
+        if (task.startTime.getTime() > currentCursor.getTime()) {
+          const freeDurationMs = task.startTime.getTime() - currentCursor.getTime();
+          const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
+          if (freeDurationMinutes > 0) {
+            finalDisplayItems.push({
+              id: `free-${currentCursor.toISOString()}-${task.startTime.toISOString()}`,
+              type: 'free-time',
+              startTime: currentCursor,
+              endTime: task.startTime,
+              duration: freeDurationMinutes,
+              message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
+            });
+          }
         }
-      }
-
-      // 2. Add Scheduled Tasks that start exactly at this pointTime
-      const tasksStartingAtPoint = scheduledTasks.filter(task => task.startTime.getTime() === pointTime.getTime());
-      tasksStartingAtPoint.sort((a, b) => a.endTime.getTime() - b.endTime.getTime()); // Ensure stable order for tasks starting at same time
-
-      tasksStartingAtPoint.forEach(task => {
+        // Add the task itself
         finalDisplayItems.push(task);
-      });
-
-      // 3. Add 12 AM or 12 PM markers if no task starts at that exact time
-      if ((pointTime.getTime() === startOfToday.getTime() || pointTime.getTime() === templateNoon.getTime()) && !tasksStartingAtPoint.length) {
-        finalDisplayItems.push({
-          id: `marker-${pointTime.toISOString()}`,
-          type: 'marker',
-          time: pointTime,
-          label: formatTime(pointTime),
-        });
-      }
-      
-      // Update currentCursor to the latest end time of any event that started at or before pointTime
-      let maxEndTimeAtOrBeforePoint = pointTime; // Default to the current point in time
-
-      // Consider tasks that started at pointTime
-      tasksStartingAtPoint.forEach(task => {
-        if (task.endTime.getTime() > maxEndTimeAtOrBeforePoint.getTime()) {
-          maxEndTimeAtOrBeforePoint = task.endTime;
-        }
-      });
-      
-      // Also consider the currentCursor itself, in case a previous task ended after pointTime
-      if (currentCursor.getTime() > maxEndTimeAtOrBeforePoint.getTime()) {
-          maxEndTimeAtOrBeforePoint = currentCursor;
-      }
-
-      currentCursor = maxEndTimeAtOrBeforePoint;
-    }
-
-    // Final pass to ensure items are within the 12 AM - 12 PM template and remove any duplicates
-    const uniqueAndBoundedItems: DisplayItem[] = [];
-    const seenIds = new Set<string>();
-
-    finalDisplayItems.forEach(item => {
-      const itemStartTime = 'time' in item ? item.time : item.startTime;
-      const itemEndTime = 'time' in item ? item.time : item.endTime;
-
-      // Only include items that start before or at templateNoon and end after or at startOfToday
-      if (itemStartTime.getTime() < templateNoon.getTime() && itemEndTime.getTime() > startOfToday.getTime()) {
-        if (!seenIds.has(item.id)) {
-          uniqueAndBoundedItems.push(item);
-          seenIds.add(item.id);
-        }
+        currentCursor = task.endTime;
       }
     });
 
-    // Sort one last time to ensure correct order after filtering
-    uniqueAndBoundedItems.sort((a, b) => {
+    // Add any remaining free time until template noon
+    if (currentCursor.getTime() < templateNoon.getTime()) {
+      const freeDurationMs = templateNoon.getTime() - currentCursor.getTime();
+      const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
+      if (freeDurationMinutes > 0) {
+        finalDisplayItems.push({
+          id: `free-end-${currentCursor.toISOString()}-${templateNoon.toISOString()}`,
+          type: 'free-time',
+          startTime: currentCursor,
+          endTime: templateNoon,
+          duration: freeDurationMinutes,
+          message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
+        });
+      }
+    }
+
+    // Add 12 AM marker if no event starts at 12 AM
+    const hasEventAt12AM = finalDisplayItems.some(item => 
+      ('startTime' in item && item.startTime.getTime() === startOfTemplate.getTime())
+    );
+    if (!hasEventAt12AM) {
+      finalDisplayItems.unshift({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
+    }
+
+    // Add 12 PM marker if no event ends at 12 PM and it's not the last item
+    const hasEventAt12PM = finalDisplayItems.some(item => 
+      ('endTime' in item && item.endTime.getTime() === templateNoon.getTime())
+    );
+    if (!hasEventAt12PM) {
+      finalDisplayItems.push({ id: 'marker-12pm', type: 'marker', time: templateNoon, label: formatTime(templateNoon) });
+    }
+
+    // Sort one last time to ensure correct order
+    finalDisplayItems.sort((a, b) => {
       const timeA = 'time' in a ? a.time : a.startTime;
       const timeB = 'time' in b ? b.time : b.startTime;
       return timeA.getTime() - timeB.getTime();
     });
 
-    return uniqueAndBoundedItems;
+    return finalDisplayItems;
   }, [schedule, T_current]);
 
   // Calculate global progress line position
@@ -148,24 +117,24 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
   const renderDisplayItem = (item: DisplayItem) => {
     if (item.type === 'marker') {
-      // Markers are rendered as time labels in the left column, with an empty right column
+      // Markers are rendered as small text in the left column, with an empty right column
       return (
         <React.Fragment key={item.id}>
-          <div className="flex items-center">
-            <span className="px-2 py-1 rounded-md text-xs font-mono bg-secondary text-secondary-foreground">
+          <div className="flex items-center justify-end pr-2"> {/* Align right for time */}
+            <span className="text-xs font-mono text-muted-foreground">
               {item.label}
             </span>
           </div>
-          <div></div> {/* Empty right column for markers */}
+          <div></div> {/* Empty right column */}
         </React.Fragment>
       );
     } else if (item.type === 'free-time') {
       const freeTimeItem = item as FreeTimeItem;
-      // Free time items only render in the right column, with an empty left column
+      // Free time items only render as simple text in the right column, with an empty left column
       return (
         <React.Fragment key={freeTimeItem.id}>
-          <div></div> {/* Empty left column for free time */}
-          <div className="flex items-center justify-center p-3 rounded-lg shadow-sm bg-muted/30 text-muted-foreground italic text-sm">
+          <div></div> {/* Empty left column */}
+          <div className="flex items-center justify-center p-3 text-muted-foreground italic text-sm">
             {freeTimeItem.message}
           </div>
         </React.Fragment>
@@ -174,21 +143,20 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const scheduledItem = item as ScheduledItem;
       const isActive = scheduledItem.startTime <= T_current && scheduledItem.endTime > T_current;
       const isPast = scheduledItem.endTime <= T_current;
-      const pillEmoji = isActive ? '🟢' : '⚪';
+      // const pillEmoji = isActive ? '🟢' : '⚪'; // Removed pill emoji from time track
 
       // Only render scheduled items if they are within or after the 12 AM - 12 PM template
       if (scheduledItem.endTime < startOfTemplate) return null;
 
       return (
         <React.Fragment key={scheduledItem.id}>
-          {/* Time Track Item (Pill Design) */}
-          <div className="flex items-center">
+          {/* Time Track Item (Small Text) */}
+          <div className="flex items-center justify-end pr-2"> {/* Align right for time */}
             <span className={cn(
-              "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
-              isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-              "hover:scale-105"
+              "text-xs font-mono transition-colors duration-200",
+              isActive ? "text-primary font-semibold" : isPast ? "text-muted-foreground" : "text-foreground"
             )}>
-              {pillEmoji} {formatTime(scheduledItem.startTime)}
+              {formatTime(scheduledItem.startTime)}
             </span>
           </div>
 
@@ -233,10 +201,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
   return (
     <div className="space-y-4 animate-slide-in-up">
       <Card className="animate-pop-in">
-        {/* Removed CardHeader with "Your Vibe Schedule" */}
         <CardContent className="p-0">
-          {/* Removed Column Headers */}
-
           {/* Main Schedule Body - This is the scrollable area with items and the global progress line */}
           <div className="relative p-4 overflow-y-auto">
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">

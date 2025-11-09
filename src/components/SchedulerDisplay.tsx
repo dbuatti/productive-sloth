@@ -221,7 +221,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
             )}>
-              {scheduledItem.emoji} {formatTime(scheduledItem.startTime)} {/* Only start time in the left column */}
+              {formatTime(scheduledItem.startTime)} {/* Only start time in the left column */}
             </span>
           </div>
 
@@ -245,7 +245,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 isHighlightedByNowCard ? "text-foreground" : // Ensure text is readable on subtle background
                 isActive ? "text-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
               )}>
-                <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
+                {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
               </span>
               <Button 
                 variant="ghost" 

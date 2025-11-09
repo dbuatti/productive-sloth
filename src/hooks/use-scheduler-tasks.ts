@@ -13,14 +13,22 @@ export const useSchedulerTasks = () => {
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasks', userId],
     queryFn: async () => {
-      if (!userId) return [];
+      if (!userId) {
+        console.log("useSchedulerTasks: No user ID, returning empty array.");
+        return [];
+      }
+      console.log("useSchedulerTasks: Fetching scheduled tasks for user:", userId);
       const { data, error } = await supabase
         .from('scheduled_tasks')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: true }); // Order by creation to maintain queue order
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data);
       return data as DBScheduledTask[];
     },
     enabled: !!userId,
@@ -38,8 +46,13 @@ export const useSchedulerTasks = () => {
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
       const taskToInsert = { ...newTask, user_id: userId };
+      console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("useSchedulerTasks: Error inserting task:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully inserted task:", data);
       return data as DBScheduledTask;
     },
     onSuccess: () => {
@@ -55,8 +68,13 @@ export const useSchedulerTasks = () => {
   const removeScheduledTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("useSchedulerTasks: Attempting to remove task ID:", taskId);
       const { error } = await supabase.from('scheduled_tasks').delete().eq('id', taskId).eq('user_id', userId);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("useSchedulerTasks: Error removing task:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully removed task ID:", taskId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });
@@ -71,8 +89,13 @@ export const useSchedulerTasks = () => {
   const clearScheduledTasksMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("useSchedulerTasks: Attempting to clear all scheduled tasks for user:", userId);
       const { error } = await supabase.from('scheduled_tasks').delete().eq('user_id', userId);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("useSchedulerTasks: Error clearing scheduled tasks:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully cleared all scheduled tasks for user:", userId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });

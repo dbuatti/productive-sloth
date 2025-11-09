@@ -41,7 +41,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const totalDurationMs = item.endTime.getTime() - item.startTime.getTime();
       const elapsedDurationMs = T_current.getTime() - item.startTime.getTime();
       const progressPercentage = (elapsedDurationMs / totalDurationMs) * 100;
-      redLineStyle = { top: `${progressPercentage}%` };
+      redLineStyle = { top: `${progressPercentage}%`, boxShadow: '0 0 8px rgba(239, 68, 68, 0.7)' }; // Added red glow
     }
 
     return (
@@ -49,8 +49,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         {/* Time Track Item (Pill Design) */}
         <div className="flex items-center">
           <span className={cn(
-            "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
-            isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground"
+            "px-2 py-1 rounded-md text-xs font-mono transition-all duration-200",
+            isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+            "hover:scale-105" // Added hover scale
           )}>
             {pillEmoji} {formatTime(item.startTime)}
           </span>
@@ -61,7 +62,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           className={cn(
             "flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
             isActive ? "bg-primary text-primary-foreground shadow-md relative" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-            "relative hover:scale-[1.01] hover:shadow-lg hover:border-primary" // Added hover:border-primary
+            "relative hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20 hover:border-primary" // More pronounced hover effects
           )}
           style={getBubbleHeightStyle(item.duration)}
         >
@@ -76,7 +77,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           </span>
           {isActive && (
             <div
-              className="absolute left-0 right-0 h-[3px] bg-red-500 z-10 transition-all duration-1000 ease-linear" // Thicker red line
+              className="absolute left-0 right-0 h-[4px] bg-red-500 z-10 transition-all duration-1000 ease-linear" // Thicker red line
               style={redLineStyle}
             />
           )}
@@ -110,7 +111,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
         {schedule.progressLineIndex === -1 && (
           <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
+            <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
             <p className="font-semibold">{schedule.progressLineMessage}</p>
+            <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
           </div>
         )}
 
@@ -119,7 +122,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {renderScheduleItem(item, index)}
             {index === schedule.progressLineIndex && (
               <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
+                <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
                 <p className="font-semibold">{schedule.progressLineMessage}</p>
+                <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
               </div>
             )}
           </React.Fragment>
@@ -143,7 +148,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
       {/* Session Summary Footer */}
       {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
-        <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm">
+        <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm border-t border-dashed border-border"> {/* Added border-t border-dashed border-border */}
           <h3 className="font-bold text-foreground mb-2">📊 SESSION SUMMARY</h3>
           <div className="border-b border-dashed border-border mb-2" />
           <p>Total Tasks: <span className="font-semibold">{schedule.summary.totalTasks}</span></p>

@@ -196,7 +196,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
-                <div className="absolute left-0 -translate-x-full pr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
+                <div className="absolute right-full mr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
                   <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
                     ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
                   </span>
@@ -270,7 +270,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
-                <div className="absolute left-0 -translate-x-full pr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
+                <div className="absolute right-full mr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
                   <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
                     ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
                   </span>
@@ -291,7 +291,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div className="relative p-4 overflow-y-auto">
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               {/* Render top/bottom messages when outside the active schedule */}
-              {!activeItem && T_current < startOfTemplate && (
+              {!activeItem && T_current < firstItemStartTime && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "top-0"
@@ -303,7 +303,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
                 </div>
               )}
-              {!activeItem && T_current >= endOfTemplate && (
+              {!activeItem && T_current >= lastItemEndTime && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "bottom-0"

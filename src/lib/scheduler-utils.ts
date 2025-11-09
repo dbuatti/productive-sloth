@@ -59,7 +59,7 @@ export const getMidnightRolloverMessage = (endDate: Date, T_current: Date): stri
 };
 
 /**
- * Generates fixed time markers for the 12 AM to 12 PM (noon) template.
+ * Generates fixed time markers for a full 24-hour template.
  */
 export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
   const markers: TimeMarker[] = [];
@@ -68,8 +68,8 @@ export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
   // Add 12 AM marker
   markers.push({ id: 'marker-0', type: 'marker', time: startOfToday, label: formatTime(startOfToday) });
 
-  // Add markers every 3 hours until 12 PM
-  for (let i = 3; i <= 12; i += 3) {
+  // Add markers every 3 hours for a full 24-hour cycle
+  for (let i = 3; i <= 24; i += 3) { // Changed loop to go up to 24 hours
     const markerTime = addHours(startOfToday, i);
     markers.push({ id: `marker-${i}`, type: 'marker', time: markerTime, label: formatTime(markerTime) });
   }

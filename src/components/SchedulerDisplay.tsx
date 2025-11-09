@@ -27,7 +27,7 @@ const getBubbleHeightStyle = (duration: number) => {
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
   // Declare startOfTemplate and endOfTemplate here so they are accessible throughout the component
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]); // 12:00 AM
-  const endOfTemplate = useMemo(() => addHours(startOfTemplate, 12), [startOfTemplate]); // 12:00 PM (Noon)
+  const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]); // 12:00 AM next day (24 hours)
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
@@ -36,9 +36,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     // Add all scheduled tasks/breaks
     scheduledTasks.forEach(task => allEvents.push(task));
 
-    // Add 12 AM and 12 PM markers as fixed boundaries
+    // Add 12 AM and 12 AM (next day) markers as fixed boundaries
     allEvents.push({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
-    allEvents.push({ id: 'marker-12pm', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) });
+    allEvents.push({ id: 'marker-24hr', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); // Changed to 24hr marker
 
     // Sort all events by their time
     allEvents.sort((a, b) => {
@@ -100,14 +100,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         }
     });
 
-    // Ensure 12 AM and 12 PM markers are always present if no other item starts/ends there
-    const has12AMItem = filteredItems.some(item => ('startTime' in item ? item.startTime : item.time).getTime() === startOfTemplate.getTime());
-    if (!has12AMItem) {
+    // Ensure 12 AM and 12 AM (next day) markers are always present if no other item starts/ends there
+    const hasStartMarker = filteredItems.some(item => ('startTime' in item ? item.startTime : item.time).getTime() === startOfTemplate.getTime());
+    if (!hasStartMarker) {
         filteredItems.unshift({ id: 'marker-0-final', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
     }
-    const has12PMItem = filteredItems.some(item => ('endTime' in item ? item.endTime : item.time).getTime() === endOfTemplate.getTime());
-    if (!has12PMItem) {
-        filteredItems.push({ id: 'marker-12pm-final', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) });
+    const hasEndMarker = filteredItems.some(item => ('endTime' in item ? item.endTime : item.time).getTime() === endOfTemplate.getTime());
+    if (!hasEndMarker) {
+        filteredItems.push({ id: 'marker-24hr-final', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) });
     }
 
     // Final sort
@@ -291,7 +291,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div className="relative p-4 overflow-y-auto">
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               {/* Render top/bottom messages when outside the active schedule */}
-              {!activeItem && T_current < firstItemStartTime && (
+              {!activeItem && T_current < startOfTemplate && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "top-0"
@@ -303,7 +303,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
                 </div>
               )}
-              {!activeItem && T_current >= lastItemEndTime && (
+              {!activeItem && T_current >= endOfTemplate && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "bottom-0"

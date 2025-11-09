@@ -78,10 +78,7 @@ const SchedulerPage: React.FC = () => {
         await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration });
       } else {
         // Timed event
-        const now = new Date();
-        const startTime = parse(parsedInput.startTime, 'h:mm a', now);
-        const endTime = parse(parsedInput.endTime, 'h:mm a', now);
-        await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString() });
+        await addScheduledTask({ name: parsedInput.name, start_time: parsedInput.startTime.toISOString(), end_time: parsedInput.endTime.toISOString() });
       }
     } else if (injectCommand) {
       if (injectCommand.duration) {

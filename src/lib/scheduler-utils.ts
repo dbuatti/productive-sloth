@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse } from 'date-fns'; // Added parse
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem } from '@/types/scheduler';
 
 // --- Constants ---
@@ -214,7 +214,7 @@ export const getSmartSuggestions = (totalScheduledMinutes: number): string[] => 
 
 // --- Input Parsing ---
 // Updated to handle timed events like "mindfulness 11am - 12pm"
-export const parseTaskInput = (input: string): RawTaskInput | { name: string, startTime: string, endTime: string } | null => {
+export const parseTaskInput = (input: string): RawTaskInput | { name: string, startTime: Date, endTime: Date } | null => {
   // Regex for "Task Name Duration" or "Task Name Duration Break"
   const durationRegex = /^(.*?)\s+(\d+)(?:\s+(\d+))?$/;
   const durationMatch = input.match(durationRegex);
@@ -235,17 +235,40 @@ export const parseTaskInput = (input: string): RawTaskInput | { name: string, st
 
   if (timedMatch) {
     const name = timedMatch[1].trim();
-    const startTime = timedMatch[2].trim();
-    const endTime = timedMatch[3].trim();
+    const startTimeStr = timedMatch[2].trim();
+    const endTimeStr = timedMatch[3].trim();
 
-    // Basic validation for time format (can be enhanced)
     try {
-      const parsedStartTime = parse(startTime, 'h:mm a', new Date());
-      const parsedEndTime = parse(endTime, 'h:mm a', new Date());
-      if (isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) {
+      const formatStrings = ['h:mm a', 'h a']; 
+      let parsedStartTime: Date | null = null;
+      let parsedEndTime: Date | null = null;
+      const now = new Date(); // Use a consistent reference date for parsing
+
+      for (const fmt of formatStrings) {
+        const tempStart = parse(startTimeStr, fmt, now);
+        if (!isNaN(tempStart.getTime())) {
+          parsedStartTime = tempStart;
+          break;
+        }
+      }
+      for (const fmt of formatStrings) {
+        const tempEnd = parse(endTimeStr, fmt, now);
+        if (!isNaN(tempEnd.getTime())) {
+          parsedEndTime = tempEnd;
+          break;
+        }
+      }
+
+      if (!parsedStartTime || !parsedEndTime || isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) {
         throw new Error("Invalid time format");
       }
-      return { name, startTime, endTime };
+      
+      // Ensure end time is after start time, potentially rolling over to next day if needed
+      if (parsedEndTime.getTime() < parsedStartTime.getTime()) {
+        parsedEndTime = addDays(parsedEndTime, 1);
+      }
+
+      return { name, startTime: parsedStartTime, endTime: parsedEndTime };
     } catch (e) {
       console.error("Error parsing timed event:", e);
       return null;

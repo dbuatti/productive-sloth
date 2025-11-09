@@ -178,6 +178,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     } else if (item.type === 'free-time') {
       const freeTimeItem = item as FreeTimeItem;
       const isActive = T_current >= freeTimeItem.startTime && T_current < freeTimeItem.endTime;
+      const isHighlightedByNowCard = activeItemId === freeTimeItem.id; // Check if this is the item in the Now Card
 
       return (
         <React.Fragment key={freeTimeItem.id}>
@@ -185,6 +186,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div 
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
+              isHighlightedByNowCard ? "opacity-50 border-border" : // Subdued if in Now Card
               isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70"
             )}
           >
@@ -192,12 +194,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
+                  className="absolute left-0 right-0 h-[3px] bg-live-progress z-20 animate-pulse-glow" // Thicker line
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
-                <div className="absolute right-full mr-2 z-40" style={{ top: `${progressLineTopPercentage}%` }}> {/* Increased z-index to 40 */}
+                <div className="absolute right-full mr-2 z-40" style={{ top: `${progressLineTopPercentage}%` }}>
                   <span className="px-2 py-1 rounded-md bg-live-progress text-gray-900 text-xs font-semibold whitespace-nowrap animate-pulse-glow">
-                    {formatTime(T_current)} {/* Simplified text */}
+                    {formatTime(T_current)}
                   </span>
                 </div>
               </>
@@ -240,9 +242,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in overflow-hidden", // Added overflow-hidden here
-              // Remove existing background/border classes that would conflict
               // Apply dynamic background color
-              isHighlightedByNowCard ? "border border-primary animate-pulse-active-row" : // Keep border for active/highlighted
+              isHighlightedByNowCard ? "opacity-50 border-border" : // Subdued if in Now Card
               isActive ? "border border-primary" : // Keep border for active
               isPast ? "border-muted-foreground/50" : "border-border", // Default border for past/inactive
               "hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
@@ -250,8 +251,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }} // Apply dynamic background
           >
             {/* Background emoji */}
-            <div className="absolute inset-0 flex items-center justify-end pointer-events-none"> {/* Changed justify-center to justify-end */}
-              <span className="text-[10rem] opacity-10 select-none"> {/* Changed opacity-5 to opacity-10 */}
+            <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
+              <span className="text-[10rem] opacity-10 select-none">
                 {scheduledItem.emoji}
               </span>
             </div>
@@ -291,12 +292,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
+                  className="absolute left-0 right-0 h-[3px] bg-live-progress z-20 animate-pulse-glow" // Thicker line
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
-                <div className="absolute right-full mr-2 z-40" style={{ top: `${progressLineTopPercentage}%` }}> {/* Increased z-index to 40 */}
+                <div className="absolute right-full mr-2 z-40" style={{ top: `${progressLineTopPercentage}%` }}>
                   <span className="px-2 py-1 rounded-md bg-live-progress text-gray-900 text-xs font-semibold whitespace-nowrap animate-pulse-glow">
-                    {formatTime(T_current)} {/* Simplified text */}
+                    {formatTime(T_current)}
                   </span>
                 </div>
               </>
@@ -312,7 +313,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       <Card className="animate-pop-in">
         <CardContent className="p-0">
           {/* Main Schedule Body - This is the scrollable area with items and the global progress line */}
-          <div className="relative p-4 overflow-y-auto">
+          <div className="relative p-4 overflow-y-auto border-l border-dashed border-border/50"> {/* Added border-l for connector line */}
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               {/* Render top/bottom messages when outside the active schedule */}
               {!activeItemInDisplay && T_current < firstItemStartTime && (

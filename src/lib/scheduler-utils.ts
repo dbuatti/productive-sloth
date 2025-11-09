@@ -154,10 +154,18 @@ export const calculateSchedule = (
       }
     }
 
+    const isStandaloneBreak = task.name.toLowerCase() === 'break';
+
     // Add the ad-hoc task
     scheduledItems.push({
-      id: task.id, type: 'task', name: task.name, duration: task.duration!,
-      startTime: proposedStartTime, endTime: proposedEndTime, emoji: assignEmoji(task.name),
+      id: task.id, 
+      type: isStandaloneBreak ? 'break' : 'task', // Categorize as 'break' if name is 'Break'
+      name: task.name, 
+      duration: task.duration!,
+      startTime: proposedStartTime, 
+      endTime: proposedEndTime, 
+      emoji: isStandaloneBreak ? EMOJI_MAP['break'] : assignEmoji(task.name), // Use break emoji for standalone breaks
+      description: isStandaloneBreak ? getBreakDescription(task.duration!) : undefined, // Add description for standalone breaks
       isTimedEvent: false,
     });
     totalActiveTime += task.duration!;

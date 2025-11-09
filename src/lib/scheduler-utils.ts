@@ -82,108 +82,112 @@ export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
 
 export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
-  T_Anchor: Date // Now accepts T_Anchor as the fixed starting point
+  T_Anchor: Date | null // T_Anchor can now be null
 ): FormattedSchedule => {
   const scheduledItems: ScheduledItem[] = [];
   let totalActiveTime = 0;
   let totalBreakTime = 0;
 
-  // Separate timed events from duration-based tasks
-  const timedEvents: DBScheduledTask[] = [];
-  const durationTasks: DBScheduledTask[] = [];
+  const fixedAppointments: DBScheduledTask[] = [];
+  const adHocTasks: DBScheduledTask[] = [];
 
   dbTasks.forEach(task => {
     if (task.start_time && task.end_time) {
-      timedEvents.push(task);
+      fixedAppointments.push(task);
     } else {
-      durationTasks.push(task);
+      adHocTasks.push(task);
     }
   });
 
-  // Sort timed events by their start time
-  timedEvents.sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
-
-  // Add timed events first
-  timedEvents.forEach(task => {
+  // 1. Add Fixed Appointments first, sorted by start time
+  fixedAppointments.sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
+  fixedAppointments.forEach(task => {
     const startTime = new Date(task.start_time!);
     const endTime = new Date(task.end_time!);
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-
     scheduledItems.push({
-      id: task.id,
-      type: 'task',
-      name: task.name,
-      duration: duration,
-      startTime: startTime,
-      endTime: endTime,
-      emoji: assignEmoji(task.name),
-      isTimedEvent: true, // Mark as timed event
-      color: 'bg-blue-500', // Default color for timed events
+      id: task.id, type: 'task', name: task.name, duration: duration,
+      startTime: startTime, endTime: endTime, emoji: assignEmoji(task.name),
+      isTimedEvent: true, color: 'bg-blue-500',
     });
     totalActiveTime += duration;
   });
 
-  // Now, schedule duration-based tasks sequentially.
-  // The starting point for the first duration task is T_Anchor,
-  // or the end of the last timed event if it's later than T_Anchor.
-  
-  let sequentialCursor = T_Anchor;
-  if (scheduledItems.length > 0) {
-    const lastScheduledItem = scheduledItems[scheduledItems.length - 1];
-    if (lastScheduledItem.endTime.getTime() > sequentialCursor.getTime()) {
-      sequentialCursor = lastScheduledItem.endTime;
+  // 2. Schedule Ad-Hoc Tasks sequentially from T_Anchor, avoiding fixed appointments
+  // adHocCursor only advances based on ad-hoc tasks and their breaks.
+  // If T_Anchor is null (no ad-hoc tasks added yet), adHocCursor won't be used for placement.
+  let adHocCursor = T_Anchor; 
+
+  // Sort ad-hoc tasks by their creation time to maintain the order they were added
+  adHocTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  adHocTasks.forEach(task => {
+    if (!adHocCursor) { // If T_Anchor is still null, this ad-hoc task shouldn't be placed yet by this logic.
+      // This scenario should ideally be prevented by SchedulerPage's T_Anchor setting logic.
+      // For robustness, we'll skip if T_Anchor isn't set, or use a fallback (e.g., current time)
+      // but the prompt implies T_Anchor will be set by the time ad-hoc tasks are processed here.
+      return; 
     }
-  }
 
-  // Sort duration tasks by their creation time to maintain the order they were added
-  durationTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    let proposedStartTime = adHocCursor;
+    let proposedEndTime = addMinutes(proposedStartTime, task.duration!);
 
-  durationTasks.forEach(task => {
-    const taskStartTime = sequentialCursor;
-    const taskEndTime = addMinutes(taskStartTime, task.duration!); // duration is not null for duration tasks
+    // Check for overlaps with fixed appointments and shift if necessary
+    let overlapFound = true;
+    while (overlapFound) {
+      overlapFound = false;
+      for (const fixedAppt of fixedAppointments) {
+        const fixedApptStart = new Date(fixedAppt.start_time!).getTime();
+        const fixedApptEnd = new Date(fixedAppt.end_time!).getTime();
 
+        // Check if proposed ad-hoc task overlaps with fixed appointment
+        if (
+          (proposedStartTime.getTime() < fixedApptEnd && proposedEndTime.getTime() > fixedApptStart)
+        ) {
+          // Overlap detected. Shift ad-hoc task to end immediately after the fixed appointment.
+          proposedStartTime = new Date(fixedApptEnd);
+          proposedEndTime = addMinutes(proposedStartTime, task.duration!);
+          overlapFound = true; // Re-check for overlaps with other fixed appointments from this new position
+          // console.log(`DEBUG: Ad-hoc task "${task.name}" shifted due to overlap with fixed appointment.`);
+          break; // Break from inner loop to re-evaluate with new proposedStartTime
+        }
+      }
+    }
+
+    // Add the ad-hoc task
     scheduledItems.push({
-      id: task.id,
-      type: 'task',
-      name: task.name,
-      duration: task.duration!,
-      startTime: taskStartTime,
-      endTime: taskEndTime,
-      emoji: assignEmoji(task.name),
-      isTimedEvent: false, // Mark as not a timed event
+      id: task.id, type: 'task', name: task.name, duration: task.duration!,
+      startTime: proposedStartTime, endTime: proposedEndTime, emoji: assignEmoji(task.name),
+      isTimedEvent: false,
     });
-    sequentialCursor = taskEndTime;
     totalActiveTime += task.duration!;
 
-    // Add Break if specified
+    // Update adHocCursor to the end of the *just-placed ad-hoc task*
+    adHocCursor = proposedEndTime;
+
+    // Add Break if specified (also advances adHocCursor)
     if (task.break_duration && task.break_duration > 0) {
-      const breakStartTime = sequentialCursor;
+      const breakStartTime = adHocCursor;
       const breakEndTime = addMinutes(breakStartTime, task.break_duration);
       scheduledItems.push({
-        id: `${task.id}-break`,
-        type: 'break',
-        name: 'BREAK',
-        duration: task.break_duration,
-        startTime: breakStartTime,
-        endTime: breakEndTime,
-        emoji: EMOJI_MAP['break'],
-        description: getBreakDescription(task.break_duration),
-        isTimedEvent: false, // Mark as not a timed event
+        id: `${task.id}-break`, type: 'break', name: 'BREAK', duration: task.break_duration,
+        startTime: breakStartTime, endTime: breakEndTime, emoji: EMOJI_MAP['break'],
+        description: getBreakDescription(task.break_duration), isTimedEvent: false,
       });
-      sequentialCursor = breakEndTime;
+      adHocCursor = breakEndTime;
       totalBreakTime += task.break_duration;
     }
   });
 
-  // Re-sort all items by start time to ensure correct display order
+  // Final sort of all items (fixed and ad-hoc) for display
   scheduledItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : T_Anchor;
+  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : (T_Anchor || new Date()); // Fallback for sessionEnd if no tasks
   const extendsPastMidnight = !isToday(sessionEnd) && scheduledItems.length > 0;
-  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, T_Anchor) : null;
+  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, T_Anchor || new Date()) : null;
 
   const summary: ScheduleSummary = {
-    totalTasks: dbTasks.length,
+    totalTasks: dbTasks.length, 
     activeTime: {
       hours: Math.floor(totalActiveTime / 60),
       minutes: totalActiveTime % 60,

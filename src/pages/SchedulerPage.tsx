@@ -55,13 +55,17 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     
-    // Capture T_Anchor dynamically only if it hasn't been set yet
-    const effectiveTAnchor = T_Anchor || new Date();
-    if (!T_Anchor) {
-      setT_Anchor(effectiveTAnchor);
+    // Determine if there are any ad-hoc tasks in the current dbScheduledTasks
+    const hasAdHocTasks = dbScheduledTasks.some(task => !task.start_time && !task.end_time);
+
+    // Capture T_Anchor dynamically only if it hasn't been set yet AND there are ad-hoc tasks
+    if (!T_Anchor && hasAdHocTasks) {
+      setT_Anchor(new Date());
     }
 
-    const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor); // Pass T_Anchor to calculation
+    // Always use the established T_Anchor for calculation. If T_Anchor is still null (only fixed appointments),
+    // use T_current as a temporary base for fixed appointments, but ad-hoc tasks won't queue from it.
+    const schedule = calculateSchedule(dbScheduledTasks, T_Anchor); // Pass T_Anchor (can be null) to calculation
     setCurrentSchedule(schedule);
   }, [dbScheduledTasks, T_Anchor]); // T_Anchor is now a dependency
 
@@ -81,15 +85,29 @@ const SchedulerPage: React.FC = () => {
     const command = parseCommand(input);
 
     if (parsedInput) {
+      const isAdHocTask = 'duration' in parsedInput;
+
+      // If T_Anchor is not set and this is the first ad-hoc task, set it now
+      if (!T_Anchor && isAdHocTask) {
+        setT_Anchor(new Date());
+      }
+
       // Check if it's a duration-based task or a timed event
-      if ('duration' in parsedInput) {
+      if (isAdHocTask) {
         // Duration-based task
         await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration });
       } else {
-        // Timed event
+        // Timed event (Fixed Appointment)
         await addScheduledTask({ name: parsedInput.name, start_time: parsedInput.startTime.toISOString(), end_time: parsedInput.endTime.toISOString() });
       }
     } else if (injectCommand) {
+      const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
+
+      // If T_Anchor is not set and this is the first ad-hoc injection, set it now
+      if (!T_Anchor && isAdHocInjection) {
+        setT_Anchor(new Date());
+      }
+
       if (injectCommand.duration) {
         await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration });
       } else if (injectCommand.startTime && injectCommand.endTime) {
@@ -155,6 +173,13 @@ const SchedulerPage: React.FC = () => {
     if (!user || !injectionPrompt) {
       showError("You must be logged in to use the scheduler.");
       return;
+    }
+
+    const isAdHocInjection = !injectionPrompt.isTimed;
+
+    // If T_Anchor is not set and this is the first ad-hoc injection, set it now
+    if (!T_Anchor && isAdHocInjection) {
+      setT_Anchor(new Date());
     }
 
     if (injectionPrompt.isTimed) {

@@ -192,9 +192,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
-                <div className="absolute right-full mr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
+                <div className="absolute right-full mr-2 z-40" style={{ top: `${progressLineTopPercentage}%` }}> {/* Increased z-index to 40 */}
                   <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
-                    ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
+                    {formatTime(T_current)} {/* Simplified text */}
                   </span>
                 </div>
               </>
@@ -283,9 +283,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
-                <div className="absolute right-full mr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
+                <div className="absolute right-full mr-2 z-40" style={{ top: `${progressLineTopPercentage}%` }}> {/* Increased z-index to 40 */}
                   <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
-                    ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
+                    {formatTime(T_current)} {/* Simplified text */}
                   </span>
                 </div>
               </>

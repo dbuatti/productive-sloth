@@ -225,7 +225,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
             )}>
-              {pillEmoji} {formatTime(scheduledItem.startTime)}
+              {pillEmoji} {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
             </span>
           </div>
 

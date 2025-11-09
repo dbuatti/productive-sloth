@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem } from '@/types/scheduler';
+import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
-    const allEvents: (ScheduledItem | TimeMarker)[] = [];
+    const allEvents: (ScheduledItem | TimeMarker | CurrentTimeMarker)[] = [];
 
     // Add all scheduled tasks/breaks
     scheduledTasks.forEach(task => allEvents.push(task));
@@ -39,6 +39,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     // Add 12 AM and 12 PM markers as fixed boundaries
     allEvents.push({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
     allEvents.push({ id: 'marker-12pm', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) });
+
+    // Add current time marker if within the template range
+    if (T_current >= startOfTemplate && T_current < endOfTemplate) {
+      allEvents.push({ id: 'current-time-marker', type: 'current-time', time: T_current });
+    }
 
     // Sort all events by their time
     allEvents.sort((a, b) => {
@@ -70,32 +75,56 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             }
         }
 
-        // Add the current event, but only if it's not a redundant marker
-        const isRedundantMarker = event.type === 'marker' && processedItems.some(pItem => 
-            ('startTime' in pItem && pItem.startTime.getTime() === event.time.getTime()) ||
-            ('endTime' in pItem && pItem.endTime.getTime() === event.time.getTime())
-        );
-
-        if (!isRedundantMarker) {
+        // Add the current event
+        // For current-time markers, they are points, not durations, so currentCursor doesn't advance based on their "end time"
+        if (event.type === 'current-time') {
+          // Only add if it's not exactly at the start/end of an existing task/break
+          const isAtTaskBoundary = scheduledTasks.some(task => 
+            task.startTime.getTime() === event.time.getTime() || task.endTime.getTime() === event.time.getTime()
+          );
+          if (!isAtTaskBoundary) {
             processedItems.push(event);
+          }
+        } else {
+          processedItems.push(event);
         }
         
-        // Update currentCursor to the end time of the event, or the start time if it's a marker
-        currentCursor = event.type === 'marker' ? event.time : eventEndTime;
+        // Update currentCursor. If the event has an 'endTime' property (ScheduledItem or FreeTimeItem), use it. Otherwise (TimeMarker or CurrentTimeMarker), use 'time'.
+        currentCursor = ('endTime' in event) ? event.endTime : event.time;
     });
 
-    // Filter out markers that are completely covered by free time or tasks
+    // Filter out redundant markers (e.g., if a task starts exactly at 12 AM)
     const filteredItems: DisplayItem[] = [];
+    const addedMarkerTimes = new Set<number>();
+
     processedItems.forEach(item => {
         if (item.type === 'marker') {
-            const isCovered = processedItems.some(pItem => 
-                (pItem.type === 'free-time' && item.time >= pItem.startTime && item.time < pItem.endTime) ||
-                ((pItem.type === 'task' || pItem.type === 'break') && item.time >= pItem.startTime && item.time < pItem.endTime)
+            const markerTime = item.time.getTime();
+            const isCoveredByTask = processedItems.some(otherItem => 
+                (otherItem.type === 'task' || otherItem.type === 'break') && 
+                markerTime >= otherItem.startTime.getTime() && markerTime < otherItem.endTime.getTime()
             );
-            if (!isCovered) {
+            const isAtTaskBoundary = processedItems.some(otherItem => 
+              (otherItem.type === 'task' || otherItem.type === 'break') && 
+              (markerTime === otherItem.startTime.getTime() || markerTime === otherItem.endTime.getTime())
+            );
+
+            // Only add marker if it's not covered by a task/free-time, and not exactly at the start/end of a task
+            // and not already added (to prevent duplicates from initial markers and free time generation)
+            if (!isCoveredByTask && !isAtTaskBoundary && !addedMarkerTimes.has(markerTime)) {
                 filteredItems.push(item);
+                addedMarkerTimes.add(markerTime);
             }
-        } else {
+        } else if (item.type === 'current-time') {
+          // Always add current-time marker if it's within the template range and not exactly at a task boundary
+          const isAtTaskBoundary = scheduledTasks.some(task => 
+            task.startTime.getTime() === item.time.getTime() || task.endTime.getTime() === item.time.getTime()
+          );
+          if (!isAtTaskBoundary) {
+            filteredItems.push(item);
+          }
+        }
+        else {
             filteredItems.push(item);
         }
     });
@@ -129,7 +158,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         firstItemStartTime: actualStartTime,
         lastItemEndTime: actualEndTime,
     };
-  }, [schedule, T_current, startOfTemplate, endOfTemplate]);
+  }, [schedule, T_current, startOfTemplate, endOfTemplate]); // Removed scheduledTasks from dependencies
 
   // Calculate global progress line top based on estimated visual heights
   const progressLinePosition = useMemo(() => {
@@ -144,11 +173,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const itemEndTime = 'time' in item ? item.time : item.endTime;
       let itemEstimatedHeightPx = 0;
 
-      if (item.type === 'marker') {
-        itemEstimatedHeightPx = 20; // Estimate for small text marker
+      if (item.type === 'marker' || item.type === 'current-time') { // Markers and current-time are small
+        itemEstimatedHeightPx = 20; 
       } else if (item.type === 'free-time') {
-        // Free time has a fixed minimal height regardless of duration for visual override
-        itemEstimatedHeightPx = 40; // Fixed height for free time
+        itemEstimatedHeightPx = 40; 
       } else { // ScheduledItem (task or break)
         itemEstimatedHeightPx = parseFloat(getBubbleHeightStyle((item as ScheduledItem).duration).minHeight || '0');
       }
@@ -222,6 +250,20 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           </div>
         </React.Fragment>
       );
+    } else if (item.type === 'current-time') {
+      // Current time marker: text on left, line on right
+      return (
+        <React.Fragment key={item.id}>
+          <div className="flex items-center justify-end pr-2 relative z-20">
+            <span className="px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap animate-pulse-glow">
+              {formatTime(item.time)}
+            </span>
+          </div>
+          <div className="relative flex items-center z-10">
+            <div className="absolute left-0 right-0 h-[2px] bg-primary/50 animate-pulse-glow"></div>
+          </div>
+        </React.Fragment>
+      );
     } else { // It's a ScheduledItem (task or break)
       const scheduledItem = item as ScheduledItem;
       const isActive = scheduledItem.startTime <= T_current && scheduledItem.endTime > T_current;
@@ -290,19 +332,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           {/* Main Schedule Body - This is the scrollable area with items and the global progress line */}
           <div className="relative p-4 overflow-y-auto">
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-              {/* Global Progress Line */}
-              {showGlobalProgressLine && (
-                <div
-                  className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 flex items-center justify-center"
-                  style={{ top: `${progressLinePosition.topPercentage}%`, transition: 'top 60s linear' }}
-                >
-                  {/* Removed the text "➡️ CURRENT PROGRESS - Time is {formatTime(T_current)}" */}
-                </div>
-              )}
               {/* Render top/bottom messages when outside the active schedule */}
               {!showGlobalProgressLine && T_current < startOfTemplate && (
                 <div className={cn(
-                  "absolute left-0 right-0 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                  "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "top-0"
                 )}>
                   <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
@@ -314,7 +347,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               )}
               {!showGlobalProgressLine && T_current >= endOfTemplate && (
                 <div className={cn(
-                  "absolute left-0 right-0 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                  "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "bottom-0"
                 )}>
                   <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>

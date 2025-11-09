@@ -96,9 +96,17 @@ export interface FreeTimeItem {
   message: string;
 }
 
-export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem;
+// New type for current time marker
+export interface CurrentTimeMarker {
+  id: string;
+  type: 'current-time';
+  time: Date;
+}
 
+// Define FormattedSchedule here
 export interface FormattedSchedule {
   items: ScheduledItem[];
   summary: ScheduleSummary;
 }
+
+export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker; // Added CurrentTimeMarker

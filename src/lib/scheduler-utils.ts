@@ -126,7 +126,6 @@ export const calculateSchedule = (
 
   // Now, schedule duration-based tasks sequentially after the current time,
   // avoiding overlaps with already scheduled timed events.
-  // This logic needs to be more sophisticated to truly "queue around" timed events.
   // For simplicity, we'll append them after the last timed event or T_current.
   
   // Find the latest end time among all currently scheduled items (timed events + T_current)

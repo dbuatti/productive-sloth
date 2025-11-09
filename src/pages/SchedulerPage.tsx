@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { RawTaskInput, FormattedSchedule } from '@/types/scheduler';
+import { RawTaskInput, FormattedSchedule, DBScheduledTask } from '@/types/scheduler'; // Removed RawTaskInput from here as it's now part of scheduler-utils return type
 import {
   calculateSchedule,
   parseTaskInput,
@@ -16,14 +16,14 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Import the new hook
-import { useSession } from '@/hooks/use-session'; // Import useSession to check user
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { useSession } from '@/hooks/use-session';
+import { parse } from 'date-fns'; // Import parse for timed events
 
 const SchedulerPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
   const { 
-    dbScheduledTasks, // Supabase data with IDs
-    rawTasks, // Converted for scheduler logic
+    dbScheduledTasks,
     isLoading: isSchedulerTasksLoading, 
     addScheduledTask, 
     removeScheduledTask, 
@@ -32,10 +32,12 @@ const SchedulerPage: React.FC = () => {
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
-  const [isProcessingCommand, setIsProcessingCommand] = useState(false); // Separate loading for commands
-  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean } | null>(null);
+  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
+  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
   const [injectionDuration, setInjectionDuration] = useState('');
   const [injectionBreak, setInjectionBreak] = useState('');
+  const [injectionStartTime, setInjectionStartTime] = useState('');
+  const [injectionEndTime, setInjectionEndTime] = useState('');
 
   // Update T_current every minute
   useEffect(() => {
@@ -46,18 +48,17 @@ const SchedulerPage: React.FC = () => {
   }, []);
 
   const generateSchedule = useCallback(() => {
-    if (dbScheduledTasks.length === 0) { // Use dbScheduledTasks here
+    if (dbScheduledTasks.length === 0) {
       setCurrentSchedule(null);
       return;
     }
-    // No need for local loading state here, use isSchedulerTasksLoading
-    const schedule = calculateSchedule(dbScheduledTasks, new Date()); // Pass dbScheduledTasks
+    const schedule = calculateSchedule(dbScheduledTasks, new Date());
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks]); // Depend on dbScheduledTasks
+  }, [dbScheduledTasks]);
 
   useEffect(() => {
     generateSchedule();
-  }, [dbScheduledTasks, generateSchedule]); // Depend on dbScheduledTasks
+  }, [dbScheduledTasks, generateSchedule]);
 
   const handleCommand = async (input: string) => {
     if (!user) {
@@ -66,17 +67,40 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     
-    const taskInput = parseTaskInput(input);
+    const parsedInput = parseTaskInput(input);
     const injectCommand = parseInjectionCommand(input);
     const command = parseCommand(input);
 
-    if (taskInput) {
-      await addScheduledTask({ name: taskInput.name, duration: taskInput.duration, break_duration: taskInput.breakDuration });
+    if (parsedInput) {
+      // Check if it's a duration-based task or a timed event
+      if ('duration' in parsedInput) {
+        // Duration-based task
+        await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration });
+      } else {
+        // Timed event
+        const now = new Date();
+        const startTime = parse(parsedInput.startTime, 'h:mm a', now);
+        const endTime = parse(parsedInput.endTime, 'h:mm a', now);
+        await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString() });
+      }
     } else if (injectCommand) {
       if (injectCommand.duration) {
         await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration });
-      } else {
-        setInjectionPrompt({ taskName: injectCommand.taskName, isOpen: true });
+      } else if (injectCommand.startTime && injectCommand.endTime) {
+        const now = new Date();
+        const startTime = parse(injectCommand.startTime, 'h:mm a', now);
+        const endTime = parse(injectCommand.endTime, 'h:mm a', now);
+        await addScheduledTask({ name: injectCommand.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString() });
+      }
+      else {
+        // Prompt for duration/break or start/end time
+        setInjectionPrompt({ 
+          taskName: injectCommand.taskName, 
+          isOpen: true, 
+          isTimed: !!(injectCommand.startTime || injectCommand.endTime), // Indicate if it's a timed injection
+          startTime: injectCommand.startTime,
+          endTime: injectCommand.endTime
+        });
       }
     } else if (command) {
       switch (command.type) {
@@ -94,7 +118,6 @@ const SchedulerPage: React.FC = () => {
           } else if (command.target) {
             const tasksToRemove = dbScheduledTasks.filter(task => task.name.toLowerCase().includes(command.target!.toLowerCase()));
             if (tasksToRemove.length > 0) {
-              // Remove tasks one by one, or implement a batch delete if available
               for (const task of tasksToRemove) {
                 await removeScheduledTask(task.id);
               }
@@ -116,17 +139,35 @@ const SchedulerPage: React.FC = () => {
           showError("Unknown command.");
       }
     } else {
-      showError("Invalid input. Please use 'Task Name Duration [Break]' or a command.");
+      showError("Invalid input. Please use 'Task Name Duration [Break]', 'Task Name HH:MM AM/PM - HH:MM AM/PM', or a command.");
     }
     setIsProcessingCommand(false);
   };
 
   const handleInjectionSubmit = async () => {
-    if (!user) {
-      showError("Please log in to use the scheduler.");
+    if (!user || !injectionPrompt) {
+      showError("You must be logged in to use the scheduler.");
       return;
     }
-    if (injectionPrompt && injectionDuration) {
+
+    if (injectionPrompt.isTimed) {
+      if (!injectionStartTime || !injectionEndTime) {
+        showError("Start time and end time are required for timed injection.");
+        return;
+      }
+      const now = new Date();
+      const startTime = parse(injectionStartTime, 'h:mm a', now);
+      const endTime = parse(injectionEndTime, 'h:mm a', now);
+      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        showError("Invalid time format for start/end times.");
+        return;
+      }
+      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString() });
+    } else {
+      if (!injectionDuration) {
+        showError("Duration is required for duration-based injection.");
+        return;
+      }
       const duration = parseInt(injectionDuration, 10);
       const breakDuration = injectionBreak ? parseInt(injectionBreak, 10) : undefined;
 
@@ -134,12 +175,14 @@ const SchedulerPage: React.FC = () => {
         showError("Duration must be a positive number.");
         return;
       }
-
       await addScheduledTask({ name: injectionPrompt.taskName, duration, break_duration: breakDuration });
-      setInjectionPrompt(null);
-      setInjectionDuration('');
-      setInjectionBreak('');
     }
+    
+    setInjectionPrompt(null);
+    setInjectionDuration('');
+    setInjectionBreak('');
+    setInjectionStartTime('');
+    setInjectionEndTime('');
   };
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;
@@ -181,7 +224,7 @@ const SchedulerPage: React.FC = () => {
         <CardContent className="space-y-4">
           <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} />
           <p className="text-xs text-muted-foreground">
-            Examples: "Piano Practice 30", "Meeting 60 10", "Inject Gym", "Clear queue"
+            Examples: "Piano Practice 30", "Meeting 60 10", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clear queue"
           </p>
         </CardContent>
       </Card>
@@ -209,36 +252,69 @@ const SchedulerPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>✨ Injection received: "{injectionPrompt?.taskName}"</DialogTitle>
             <DialogDescription>
-              Please provide the duration and an optional break for this task.
+              Please provide the details for this task.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="duration" className="text-right">
-                Duration (min)
-              </Label>
-              <Input
-                id="duration"
-                type="number"
-                value={injectionDuration}
-                onChange={(e) => setInjectionDuration(e.target.value)}
-                className="col-span-3"
-                min="1"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="break" className="text-right">
-                Break (min, optional)
-              </Label>
-              <Input
-                id="break"
-                type="number"
-                value={injectionBreak}
-                onChange={(e) => setInjectionBreak(e.target.value)}
-                className="col-span-3"
-                min="0"
-              />
-            </div>
+            {injectionPrompt?.isTimed ? (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="startTime" className="text-right">
+                    Start Time
+                  </Label>
+                  <Input
+                    id="startTime"
+                    type="text"
+                    placeholder="e.g., 11am"
+                    value={injectionStartTime}
+                    onChange={(e) => setInjectionStartTime(e.target.value)}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="endTime" className="text-right">
+                    End Time
+                  </Label>
+                  <Input
+                    id="endTime"
+                    type="text"
+                    placeholder="e.g., 12pm"
+                    value={injectionEndTime}
+                    onChange={(e) => setInjectionEndTime(e.target.value)}
+                    className="col-span-3"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="duration" className="text-right">
+                    Duration (min)
+                  </Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    value={injectionDuration}
+                    onChange={(e) => setInjectionDuration(e.target.value)}
+                    className="col-span-3"
+                    min="1"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="break" className="text-right">
+                    Break (min, optional)
+                  </Label>
+                  <Input
+                    id="break"
+                    type="number"
+                    value={injectionBreak}
+                    onChange={(e) => setInjectionBreak(e.target.value)}
+                    className="col-span-3"
+                    min="0"
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" onClick={handleInjectionSubmit}>

@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse } from 'date-fns'; // Added parse
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem } from '@/types/scheduler';
 
 // --- Constants ---
@@ -89,28 +89,78 @@ export const calculateSchedule = (
   let totalActiveTime = 0;
   let totalBreakTime = 0;
 
-  dbTasks.forEach((task, index) => {
-    // Add Task
-    const taskStartTime = currentTime;
-    const taskEndTime = addMinutes(taskStartTime, task.duration);
+  // Separate timed events from duration-based tasks
+  const timedEvents: DBScheduledTask[] = [];
+  const durationTasks: DBScheduledTask[] = [];
+
+  dbTasks.forEach(task => {
+    if (task.start_time && task.end_time) {
+      timedEvents.push(task);
+    } else {
+      durationTasks.push(task);
+    }
+  });
+
+  // Sort timed events by their start time
+  timedEvents.sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
+
+  // Add timed events first
+  timedEvents.forEach(task => {
+    const startTime = new Date(task.start_time!);
+    const endTime = new Date(task.end_time!);
+    const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+
     scheduledItems.push({
-      id: task.id, // Use Supabase ID
+      id: task.id,
       type: 'task',
       name: task.name,
-      duration: task.duration,
+      duration: duration,
+      startTime: startTime,
+      endTime: endTime,
+      emoji: assignEmoji(task.name),
+      isTimedEvent: true, // Mark as timed event
+      color: 'bg-blue-500', // Default color for timed events
+    });
+    totalActiveTime += duration;
+  });
+
+  // Now, schedule duration-based tasks sequentially after the current time,
+  // avoiding overlaps with already scheduled timed events.
+  // This logic needs to be more sophisticated to truly "queue around" timed events.
+  // For simplicity, we'll append them after the last timed event or T_current.
+  
+  // Find the latest end time among all currently scheduled items (timed events + T_current)
+  let sequentialCursor = T_current;
+  if (scheduledItems.length > 0) {
+    const lastScheduledItem = scheduledItems[scheduledItems.length - 1];
+    if (lastScheduledItem.endTime.getTime() > sequentialCursor.getTime()) {
+      sequentialCursor = lastScheduledItem.endTime;
+    }
+  }
+
+  durationTasks.forEach(task => {
+    const taskStartTime = sequentialCursor;
+    const taskEndTime = addMinutes(taskStartTime, task.duration!); // duration is not null for duration tasks
+
+    scheduledItems.push({
+      id: task.id,
+      type: 'task',
+      name: task.name,
+      duration: task.duration!,
       startTime: taskStartTime,
       endTime: taskEndTime,
       emoji: assignEmoji(task.name),
+      isTimedEvent: false, // Mark as not a timed event
     });
-    currentTime = taskEndTime;
-    totalActiveTime += task.duration;
+    sequentialCursor = taskEndTime;
+    totalActiveTime += task.duration!;
 
     // Add Break if specified
     if (task.break_duration && task.break_duration > 0) {
-      const breakStartTime = currentTime;
+      const breakStartTime = sequentialCursor;
       const breakEndTime = addMinutes(breakStartTime, task.break_duration);
       scheduledItems.push({
-        id: `${task.id}-break`, // Derive unique ID for break
+        id: `${task.id}-break`,
         type: 'break',
         name: 'BREAK',
         duration: task.break_duration,
@@ -118,18 +168,22 @@ export const calculateSchedule = (
         endTime: breakEndTime,
         emoji: EMOJI_MAP['break'],
         description: getBreakDescription(task.break_duration),
+        isTimedEvent: false, // Mark as not a timed event
       });
-      currentTime = breakEndTime;
+      sequentialCursor = breakEndTime;
       totalBreakTime += task.break_duration;
     }
   });
 
-  const sessionEnd = currentTime;
+  // Re-sort all items by start time to ensure correct display order
+  scheduledItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : T_current;
   const extendsPastMidnight = !isToday(sessionEnd) && scheduledItems.length > 0;
   const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, T_current) : null;
 
   const summary: ScheduleSummary = {
-    totalTasks: dbTasks.length, // Use dbTasks.length for total tasks
+    totalTasks: dbTasks.length,
     activeTime: {
       hours: Math.floor(totalActiveTime / 60),
       minutes: totalActiveTime % 60,
@@ -159,33 +213,71 @@ export const getSmartSuggestions = (totalScheduledMinutes: number): string[] => 
 };
 
 // --- Input Parsing ---
-export const parseTaskInput = (input: string): RawTaskInput | null => {
+// Updated to handle timed events like "mindfulness 11am - 12pm"
+export const parseTaskInput = (input: string): RawTaskInput | { name: string, startTime: string, endTime: string } | null => {
   // Regex for "Task Name Duration" or "Task Name Duration Break"
-  const regex = /^(.*?)\s+(\d+)(?:\s+(\d+))?$/;
-  const match = input.match(regex);
+  const durationRegex = /^(.*?)\s+(\d+)(?:\s+(\d+))?$/;
+  const durationMatch = input.match(durationRegex);
 
-  if (match) {
-    const name = match[1].trim();
-    const duration = parseInt(match[2], 10);
-    const breakDuration = match[3] ? parseInt(match[3], 10) : undefined;
+  if (durationMatch) {
+    const name = durationMatch[1].trim();
+    const duration = parseInt(durationMatch[2], 10);
+    const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
 
     if (name && duration > 0) {
       return { name, duration, breakDuration };
     }
   }
+
+  // Regex for "Task Name HH:MM AM/PM - HH:MM AM/PM"
+  const timedRegex = /^(.*?)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*-\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm))$/i;
+  const timedMatch = input.match(timedRegex);
+
+  if (timedMatch) {
+    const name = timedMatch[1].trim();
+    const startTime = timedMatch[2].trim();
+    const endTime = timedMatch[3].trim();
+
+    // Basic validation for time format (can be enhanced)
+    try {
+      const parsedStartTime = parse(startTime, 'h:mm a', new Date());
+      const parsedEndTime = parse(endTime, 'h:mm a', new Date());
+      if (isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) {
+        throw new Error("Invalid time format");
+      }
+      return { name, startTime, endTime };
+    } catch (e) {
+      console.error("Error parsing timed event:", e);
+      return null;
+    }
+  }
+
   return null;
 };
 
-export const parseInjectionCommand = (input: string): { type: 'inject', taskName: string, duration?: number, breakDuration?: number } | null => {
-  const injectRegex = /^inject\s+(.*?)(?:\s+duration\s+(\d+))?(?:\s+break\s+(\d+))?$/i;
-  const match = input.match(injectRegex);
+export const parseInjectionCommand = (input: string): { type: 'inject', taskName: string, duration?: number, breakDuration?: number, startTime?: string, endTime?: string } | null => {
+  // Regex for duration-based injection: "inject Task Name duration X break Y"
+  const injectDurationRegex = /^inject\s+(.*?)(?:\s+duration\s+(\d+))?(?:\s+break\s+(\d+))?$/i;
+  const injectDurationMatch = input.match(injectDurationRegex);
 
-  if (match) {
-    const taskName = match[1].trim();
-    const duration = match[2] ? parseInt(match[2], 10) : undefined;
-    const breakDuration = match[3] ? parseInt(match[3], 10) : undefined;
+  if (injectDurationMatch) {
+    const taskName = injectDurationMatch[1].trim();
+    const duration = injectDurationMatch[2] ? parseInt(injectDurationMatch[2], 10) : undefined;
+    const breakDuration = injectDurationMatch[3] ? parseInt(injectDurationMatch[3], 10) : undefined;
     return { type: 'inject', taskName, duration, breakDuration };
   }
+
+  // Regex for timed event injection: "inject Task Name from HH:MM AM/PM to HH:MM AM/PM"
+  const injectTimedRegex = /^inject\s+(.*?)\s+from\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s+to\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))$/i;
+  const injectTimedMatch = input.match(injectTimedRegex);
+
+  if (injectTimedMatch) {
+    const taskName = injectTimedMatch[1].trim();
+    const startTime = injectTimedMatch[2].trim();
+    const endTime = injectTimedMatch[3].trim();
+    return { type: 'inject', taskName, startTime, endTime };
+  }
+
   return null;
 };
 

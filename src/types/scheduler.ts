@@ -39,15 +39,19 @@ export interface DBScheduledTask {
   id: string;
   user_id: string;
   name: string;
-  duration: number;
-  break_duration: number | null; // Supabase will store null for undefined
+  duration: number | null; // Can be null if start_time/end_time are present
+  break_duration: number | null;
+  start_time: string | null; // New: ISO date string for timed events
+  end_time: string | null;   // New: ISO date string for timed events
   created_at: string;
 }
 
 export interface NewDBScheduledTask {
   name: string;
-  duration: number;
+  duration?: number; // Optional for timed events
   break_duration?: number;
+  start_time?: string; // Optional for duration-based tasks
+  end_time?: string;   // Optional for duration-based tasks
 }
 
 export type ScheduledItemType = 'task' | 'break';
@@ -56,11 +60,13 @@ export interface ScheduledItem {
   id: string; // Unique ID for React keys
   type: ScheduledItemType;
   name: string; // Task name or "BREAK"
-  duration: number; // in minutes
+  duration: number; // in minutes (calculated for timed events)
   startTime: Date;
   endTime: Date;
   emoji: string;
   description?: string; // For breaks
+  isTimedEvent: boolean; // New: Flag to differentiate
+  color?: string; // New: For custom colors (e.g., Tailwind class like 'bg-blue-500')
 }
 
 export interface ScheduleSummary {
@@ -92,7 +98,6 @@ export interface FreeTimeItem {
 
 export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem;
 
-// Re-added FormattedSchedule interface
 export interface FormattedSchedule {
   items: ScheduledItem[];
   summary: ScheduleSummary;

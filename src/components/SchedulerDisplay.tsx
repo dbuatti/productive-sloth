@@ -237,15 +237,22 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             )}
             style={getBubbleHeightStyle(scheduledItem.duration)}
           >
-            <div className="flex items-center justify-between w-full"> {/* Wrapper for main content and button */}
+            {/* Background emoji */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-8xl opacity-5 select-none">
+                {scheduledItem.emoji}
+              </span>
+            </div>
+
+            <div className="relative z-10 flex items-center justify-between w-full"> {/* Wrapper for main content and button */}
               <span className={cn(
-                "text-sm flex-grow flex items-center gap-1", // Added flex items-center gap-1 for emoji and text
+                "text-sm flex-grow",
                 scheduledItem.isTimedEvent ? "text-white" :
                 scheduledItem.type === 'break' ? "text-foreground" : // Ensure text is readable on break background
                 isHighlightedByNowCard ? "text-foreground" : // Ensure text is readable on subtle background
                 isActive ? "text-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
               )}>
-                {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
+                <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
               </span>
               {/* Time range moved here, right-aligned */}
               <span className={cn(
@@ -274,7 +281,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               </Button>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
-              <p className="text-sm text-muted-foreground mt-1">{scheduledItem.description}</p>
+              <p className="relative z-10 text-sm text-muted-foreground mt-1">{scheduledItem.description}</p>
             )}
 
             {isActive && (

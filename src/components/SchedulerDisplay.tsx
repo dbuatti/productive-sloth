@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker } from '@/types/scheduler';
+import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime, generateFixedTimeMarkers } from '@/lib/scheduler-utils'; // Import formatTime and generateFixedTimeMarkers
 import { Button } from '@/components/ui/button'; // Import Button
@@ -26,49 +26,75 @@ const getBubbleHeightStyle = (duration: number) => {
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
   const displayItems: DisplayItem[] = useMemo(() => {
-    const fixedMarkers = generateFixedTimeMarkers(T_current);
-    const allItems: DisplayItem[] = [...fixedMarkers];
+    const fixedMarkers = generateFixedTimeMarkers(T_current); // 12 AM, 3 AM, 6 AM, 9 AM, 12 PM
+    const scheduledTasks = schedule ? schedule.items : []; // These are the actual tasks/breaks
 
-    if (schedule) {
-      // Add scheduled tasks, ensuring they don't duplicate fixed markers if they start at the exact same time
-      schedule.items.forEach(task => {
-        // Check if a fixed marker exists at the exact start time of the task
-        const isDuplicateMarker = fixedMarkers.some(marker => 
-          marker.time.getTime() === task.startTime.getTime()
-        );
-        if (!isDuplicateMarker) {
-          allItems.push(task);
-        } else {
-          // If there's a marker, we'll render the task, but the marker might still be useful as a boundary.
-          // For now, we'll just add the task and let sorting handle it.
-          allItems.push(task);
+    const allTimelineEvents: DisplayItem[] = [];
+
+    // 1. Add all scheduled tasks/breaks
+    scheduledTasks.forEach(task => allTimelineEvents.push(task));
+
+    // 2. Calculate and add free time blocks
+    let currentCursor = startOfDay(T_current); // Start at 12 AM for the template
+    const templateNoon = addHours(startOfDay(T_current), 12);
+
+    // Sort scheduled tasks to process them in order
+    const sortedTasks = [...scheduledTasks].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+    sortedTasks.forEach(task => {
+      // Free time before this task
+      if (task.startTime.getTime() > currentCursor.getTime()) {
+        const freeDurationMs = task.startTime.getTime() - currentCursor.getTime();
+        const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
+        if (freeDurationMinutes > 0) {
+          allTimelineEvents.push({
+            id: `free-${currentCursor.toISOString()}`,
+            type: 'free-time',
+            startTime: currentCursor,
+            endTime: task.startTime,
+            duration: freeDurationMinutes,
+            message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
+          });
         }
-      });
+      }
+      currentCursor = task.endTime; // Move cursor past this task
+    });
+
+    // Free time after the last task until 12 PM
+    if (currentCursor.getTime() < templateNoon.getTime()) {
+      const freeDurationMs = templateNoon.getTime() - currentCursor.getTime();
+      const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
+      if (freeDurationMinutes > 0) {
+        allTimelineEvents.push({
+          id: `free-end-${currentCursor.toISOString()}`,
+          type: 'free-time',
+          startTime: currentCursor,
+          endTime: templateNoon,
+          duration: freeDurationMinutes,
+          message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
+        });
+      }
     }
 
-    // Sort all items by their time
-    allItems.sort((a, b) => {
+    // 3. Add fixed markers, but only if they don't overlap with an existing task/free-time block's start time
+    fixedMarkers.forEach(marker => {
+      const isOverlapping = allTimelineEvents.some(event => {
+        const eventStartTime = 'time' in event ? event.time : event.startTime;
+        return eventStartTime.getTime() === marker.time.getTime();
+      });
+      if (!isOverlapping) {
+        allTimelineEvents.push(marker);
+      }
+    });
+
+    // 4. Sort all events by their start time
+    allTimelineEvents.sort((a, b) => {
       const timeA = 'time' in a ? a.time : a.startTime;
       const timeB = 'time' in b ? b.time : b.startTime;
       return timeA.getTime() - timeB.getTime();
     });
 
-    // Filter out redundant markers if a task starts very close to it
-    const filteredItems: DisplayItem[] = [];
-    let lastItemTime: Date | null = null;
-
-    allItems.forEach(item => {
-      const currentTime = 'time' in item ? item.time : item.startTime;
-      
-      // If it's a marker and the previous item was a task that started at the same time, skip this marker
-      if (item.type === 'marker' && lastItemTime && currentTime.getTime() === lastItemTime.getTime()) {
-        return;
-      }
-      filteredItems.push(item);
-      lastItemTime = currentTime;
-    });
-
-    return filteredItems;
+    return allTimelineEvents;
   }, [schedule, T_current]);
 
   // Calculate global progress line position and message
@@ -87,57 +113,30 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
   const renderDisplayItem = (item: DisplayItem, index: number) => {
     if (item.type === 'marker') {
-      // Check if there's an actual task that starts at or very close to this marker's time
-      const hasOverlappingTask = schedule?.items.some(task => 
-        task.startTime.getTime() === item.time.getTime()
+      // Markers are rendered as time labels in the left column, with empty space in the right
+      return (
+        <React.Fragment key={item.id}>
+          <div className="flex items-center">
+            <span className="px-2 py-1 rounded-md text-xs font-mono bg-secondary text-secondary-foreground">
+              {item.label}
+            </span>
+          </div>
+          <div className="text-sm text-muted-foreground italic py-2">
+            (Empty template space)
+          </div>
+        </React.Fragment>
       );
-
-      if (hasOverlappingTask) {
-        // If a task starts at this marker, we'll let the task render its own time.
-        // We can still render the marker as a subtle boundary if needed, or skip it.
-        // For now, let's just render the marker's time as a boundary.
-        return (
-          <React.Fragment key={item.id}>
-            <div className="flex items-center">
-              <span className="px-2 py-1 rounded-md text-xs font-mono bg-secondary text-secondary-foreground">
-                {item.label}
-              </span>
-            </div>
-            <div className="text-sm text-muted-foreground italic py-2">
-              {/* This space will be filled by the actual task item */}
-            </div>
-          </React.Fragment>
-        );
-      } else if (item.time < T_current && item.time < endOfTemplate) {
-        // If marker is in the past but before T_current and within template, show empty
-        return (
-          <React.Fragment key={item.id}>
-            <div className="flex items-center">
-              <span className="px-2 py-1 rounded-md text-xs font-mono bg-muted text-muted-foreground">
-                {item.label}
-              </span>
-            </div>
-            <div className="text-sm text-muted-foreground italic py-2">
-              (Empty template space)
-            </div>
-          </React.Fragment>
-        );
-      } else if (item.time >= T_current && item.time <= endOfTemplate) {
-        // If marker is in the future but within template, show empty
-        return (
-          <React.Fragment key={item.id}>
-            <div className="flex items-center">
-              <span className="px-2 py-1 rounded-md text-xs font-mono bg-secondary text-secondary-foreground">
-                {item.label}
-              </span>
-            </div>
-            <div className="text-sm text-muted-foreground italic py-2">
-              (Empty template space)
-            </div>
-          </React.Fragment>
-        );
-      }
-      return null; // Don't render markers outside the 12 AM - 12 PM range or if they are past 12 PM
+    } else if (item.type === 'free-time') {
+      const freeTimeItem = item as FreeTimeItem;
+      // Free time items only render in the right column, with an empty left column
+      return (
+        <React.Fragment key={freeTimeItem.id}>
+          <div></div> {/* Empty left column for free time */}
+          <div className="flex items-center justify-center p-3 rounded-lg shadow-sm bg-muted/30 text-muted-foreground italic text-sm">
+            {freeTimeItem.message}
+          </div>
+        </React.Fragment>
+      );
     } else { // It's a ScheduledItem (task or break)
       const scheduledItem = item as ScheduledItem;
       const isActive = scheduledItem.startTime <= T_current && scheduledItem.endTime > T_current;
@@ -145,7 +144,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const pillEmoji = isActive ? '🟢' : '⚪';
 
       // Only render scheduled items if they are within or after the 12 AM - 12 PM template
-      // Or if they are the first item and start before 12 PM
       if (scheduledItem.endTime < startOfTemplate) return null; // Don't show tasks that ended before 12 AM
 
       return (

@@ -80,8 +80,19 @@ export interface TimeMarker {
   label: string;
 }
 
-export type DisplayItem = ScheduledItem | TimeMarker;
+// New type for free time blocks
+export interface FreeTimeItem {
+  id: string;
+  type: 'free-time';
+  startTime: Date;
+  endTime: Date;
+  duration: number; // in minutes
+  message: string;
+}
 
+export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem;
+
+// Re-added FormattedSchedule interface
 export interface FormattedSchedule {
   items: ScheduledItem[];
   summary: ScheduleSummary;

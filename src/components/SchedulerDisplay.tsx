@@ -133,7 +133,31 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
   }, [schedule, T_current, startOfTemplate, endOfTemplate]);
 
 
-  // Define totalScheduledMinutes here, before it's used in JSX
+  // Find the currently active item for the progress line overlay
+  const activeItemInDisplay = useMemo(() => {
+    for (const item of finalDisplayItems) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'free-time') && T_current >= item.startTime && T_current < item.endTime) {
+        return item;
+      }
+    }
+    return null;
+  }, [finalDisplayItems, T_current]);
+
+  // Calculate the top position for the progress line within the active item
+  const progressLineTopPercentage = useMemo(() => {
+    if (!activeItemInDisplay) return 0;
+
+    const itemStartTime = activeItemInDisplay.startTime.getTime();
+    const itemEndTime = activeItemInDisplay.endTime.getTime();
+    const itemDurationMs = itemEndTime - itemStartTime;
+
+    if (itemDurationMs === 0) return 0; // Avoid division by zero for instantaneous items
+
+    const timeIntoItemMs = T_current.getTime() - itemStartTime;
+    return (timeIntoItemMs / itemDurationMs) * 100;
+  }, [activeItemInDisplay, T_current]);
+
+
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
 
   const renderDisplayItem = (item: DisplayItem) => {
@@ -162,6 +186,19 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             )}
           >
             {freeTimeItem.message}
+            {isActive && (
+              <>
+                <div 
+                  className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
+                  style={{ top: `${progressLineTopPercentage}%` }}
+                ></div>
+                <div className="absolute right-full mr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
+                    ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </React.Fragment>
       );
@@ -169,7 +206,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const scheduledItem = item as ScheduledItem;
       const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
       const isPast = scheduledItem.endTime <= T_current;
-      const isCurrentlyActiveInNowCard = activeItemId === scheduledItem.id; // Check if this is the item in the Now Card
+      const isHighlightedByNowCard = activeItemId === scheduledItem.id; // Check if this is the item in the Now Card
 
       // Only render scheduled items if they are within or after the start of the 24-hour template
       if (scheduledItem.endTime < startOfTemplate) return null;
@@ -179,7 +216,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div className="flex items-center justify-end pr-2">
             <span className={cn(
               "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
-              isCurrentlyActiveInNowCard ? "bg-primary text-primary-foreground" : // Highlight if it's the active item
+              isHighlightedByNowCard ? "bg-primary text-primary-foreground" : // Highlight if it's the active item
               isActive ? "bg-primary/20 text-primary" : // Subtle highlight if active but not in Now Card (shouldn't happen if Now Card is always present)
               isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
@@ -193,7 +230,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in", // Changed to flex-col
               scheduledItem.isTimedEvent ? "bg-blue-600 text-white" :
               scheduledItem.type === 'break' ? "bg-muted text-muted-foreground border-muted-foreground/50" : // Specific style for breaks
-              isCurrentlyActiveInNowCard ? "bg-primary/10 border border-primary animate-pulse-active-row" : // Subtle background for current task
+              isHighlightedByNowCard ? "bg-primary/10 border border-primary animate-pulse-active-row" : // Subtle background for current task
               isActive ? "bg-primary/10 border border-primary" : // Subtle background if active but not in Now Card
               isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
@@ -205,7 +242,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 "text-sm flex-grow",
                 scheduledItem.isTimedEvent ? "text-white" :
                 scheduledItem.type === 'break' ? "text-foreground" : // Ensure text is readable on break background
-                isCurrentlyActiveInNowCard ? "text-foreground" : // Ensure text is readable on subtle background
+                isHighlightedByNowCard ? "text-foreground" : // Ensure text is readable on subtle background
                 isActive ? "text-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
               )}>
                 <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
@@ -218,7 +255,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   "h-6 w-6 p-0 shrink-0",
                   scheduledItem.isTimedEvent ? "text-white hover:bg-blue-700" :
                   scheduledItem.type === 'break' ? "text-muted-foreground hover:bg-muted/80" : // Button color for breaks
-                  isCurrentlyActiveInNowCard ? "text-primary hover:bg-primary/20" : // Button color for current task
+                  isHighlightedByNowCard ? "text-primary hover:bg-primary/20" : // Button color for current task
                   isActive ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-secondary/80"
                 )}
               >
@@ -231,13 +268,27 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               "text-xs font-mono",
               scheduledItem.isTimedEvent ? "text-blue-200" :
               scheduledItem.type === 'break' ? "text-muted-foreground/80" : // Time range color for breaks
-              isCurrentlyActiveInNowCard ? "text-primary" :
+              isHighlightedByNowCard ? "text-primary" :
               isActive ? "text-primary" : isPast ? "text-muted-foreground/80" : "text-secondary-foreground/80"
             )}>
               {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
             </span>
             {scheduledItem.type === 'break' && scheduledItem.description && (
               <p className="text-sm text-muted-foreground mt-1">{scheduledItem.description}</p>
+            )}
+
+            {isActive && (
+              <>
+                <div 
+                  className="absolute left-0 right-0 h-[2px] bg-live-progress z-20 animate-pulse-glow" 
+                  style={{ top: `${progressLineTopPercentage}%` }}
+                ></div>
+                <div className="absolute right-full mr-2 z-30" style={{ top: `${progressLineTopPercentage}%` }}>
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-white text-xs font-semibold whitespace-nowrap animate-pulse-glow">
+                    ➡️ LIVE PROGRESS - Time is {formatTime(T_current)}
+                  </span>
+                </div>
+              </>
             )}
           </div>
         </React.Fragment>
@@ -253,7 +304,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div className="relative p-4 overflow-y-auto">
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               {/* Render top/bottom messages when outside the active schedule */}
-              {activeItemId === null && T_current < firstItemStartTime && (
+              {!activeItemInDisplay && T_current < firstItemStartTime && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "top-0"
@@ -265,7 +316,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
                 </div>
               )}
-              {activeItemId === null && T_current >= lastItemEndTime && (
+              {!activeItemInDisplay && T_current >= lastItemEndTime && (
                 <div className={cn(
                   "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                   "bottom-0"

@@ -184,7 +184,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
             )}>
-              {formatTime(scheduledItem.startTime)} {/* Only start time in the left column */}
+              {scheduledItem.emoji} {formatTime(scheduledItem.startTime)} {/* Only start time in the left column */}
             </span>
           </div>
 
@@ -192,6 +192,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in", // Changed to flex-col
               scheduledItem.isTimedEvent ? "bg-blue-600 text-white" :
+              scheduledItem.type === 'break' ? "bg-muted text-muted-foreground border-muted-foreground/50" : // Specific style for breaks
               isCurrentlyActiveInNowCard ? "bg-primary/10 border border-primary animate-pulse-active-row" : // Subtle background for current task
               isActive ? "bg-primary/10 border border-primary" : // Subtle background if active but not in Now Card
               isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
@@ -203,13 +204,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               <span className={cn(
                 "text-sm flex-grow",
                 scheduledItem.isTimedEvent ? "text-white" :
+                scheduledItem.type === 'break' ? "text-foreground" : // Ensure text is readable on break background
                 isCurrentlyActiveInNowCard ? "text-foreground" : // Ensure text is readable on subtle background
                 isActive ? "text-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
               )}>
-                {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
-                {scheduledItem.type === 'break' && scheduledItem.description && (
-                  <span className="text-muted-foreground ml-1"> - {scheduledItem.description}</span>
-                )}
+                <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
               </span>
               <Button 
                 variant="ghost" 
@@ -218,6 +217,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 className={cn(
                   "h-6 w-6 p-0 shrink-0",
                   scheduledItem.isTimedEvent ? "text-white hover:bg-blue-700" :
+                  scheduledItem.type === 'break' ? "text-muted-foreground hover:bg-muted/80" : // Button color for breaks
                   isCurrentlyActiveInNowCard ? "text-primary hover:bg-primary/20" : // Button color for current task
                   isActive ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-secondary/80"
                 )}
@@ -230,11 +230,15 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             <span className={cn(
               "text-xs font-mono",
               scheduledItem.isTimedEvent ? "text-blue-200" :
+              scheduledItem.type === 'break' ? "text-muted-foreground/80" : // Time range color for breaks
               isCurrentlyActiveInNowCard ? "text-primary" :
               isActive ? "text-primary" : isPast ? "text-muted-foreground/80" : "text-secondary-foreground/80"
             )}>
               {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
             </span>
+            {scheduledItem.type === 'break' && scheduledItem.description && (
+              <p className="text-sm text-muted-foreground mt-1">{scheduledItem.description}</p>
+            )}
           </div>
         </React.Fragment>
       );

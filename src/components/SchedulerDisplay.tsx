@@ -120,51 +120,55 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       <Card className="animate-pop-in">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-xl">
-            <ListTodo className="h-5 w-5 text-primary" /> Your Vibe Schedule
+            <ListTodo className="h-5 w-5 text-primary" /> Your Vibe Schedule {/* Added ListTodo icon */}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="relative grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4"> {/* Made relative for global line */}
-            {/* Column Headers */}
-            <div className="col-span-2 grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border bg-secondary/10 rounded-t-lg">
-              <div className="text-lg font-bold text-primary">TIME TRACK</div>
-              <div className="text-lg font-bold text-primary">TASK BUBBLES</div>
+          {/* Column Headers - Fixed at the top of CardContent */}
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border bg-secondary/10 rounded-t-lg px-4 pt-4">
+            <div className="text-lg font-bold text-primary">TIME TRACK</div>
+            <div className="text-lg font-bold text-primary">TASK BUBBLES</div>
+          </div>
+
+          {/* Main Schedule Body - This is the scrollable area with items and the global progress line */}
+          <div className="relative p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}> {/* Adjust max-height as needed */}
+            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2"> {/* Inner grid for items */}
+              {/* Global Progress Line */}
+              {schedule.items.length > 0 && (
+                <>
+                  {showGlobalProgressLine && (
+                    <div
+                      className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 animate-pulse-glow flex items-center justify-center"
+                      style={{ top: `${globalProgressLineTop}%`, transition: 'top 60s linear' }}
+                    >
+                      <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
+                        {globalProgressMessage}
+                      </span>
+                    </div>
+                  )}
+                  {/* Render top/bottom messages when outside the active schedule */}
+                  {!showGlobalProgressLine && globalProgressMessage && (
+                    <div className={cn(
+                      "absolute left-0 right-0 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                      T_current < scheduleStartTime ? "top-0" : "bottom-0"
+                    )}>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                      <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                        {globalProgressMessage}
+                      </p>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Scheduled Items */}
+              {schedule.items.map((item, index) => (
+                <React.Fragment key={item.id}>
+                  {renderScheduleItem(item, index)}
+                </React.Fragment>
+              ))}
             </div>
-
-            {/* Global Progress Line */}
-            {schedule.items.length > 0 && (
-              <>
-                {showGlobalProgressLine && (
-                  <div
-                    className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 animate-pulse-glow flex items-center justify-center"
-                    style={{ top: `${globalProgressLineTop}%`, transition: 'top 60s linear' }}
-                  >
-                    <span className="absolute -top-6 px-2 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold whitespace-nowrap">
-                      {globalProgressMessage}
-                    </span>
-                  </div>
-                )}
-                {/* Render top/bottom messages when outside the active schedule */}
-                {!showGlobalProgressLine && globalProgressMessage && (
-                  <div className={cn(
-                    "absolute left-0 right-0 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                    T_current < scheduleStartTime ? "top-0" : "bottom-0"
-                  )}>
-                    <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                    <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                      {globalProgressMessage}
-                    </p>
-                    <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                  </div>
-                )}
-              </>
-            )}
-
-            {schedule.items.map((item, index) => (
-              <React.Fragment key={item.id}>
-                {renderScheduleItem(item, index)}
-              </React.Fragment>
-            ))}
           </div>
         </CardContent>
       </Card>

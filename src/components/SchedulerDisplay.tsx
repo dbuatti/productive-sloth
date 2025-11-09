@@ -36,20 +36,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     const isPast = item.endTime <= T_current;
     const pillEmoji = isActive ? '🟢' : '⚪';
 
-    let redLineStyle = {};
-    if (isActive) {
-      const totalDurationMs = item.endTime.getTime() - item.startTime.getTime();
-      const elapsedDurationMs = T_current.getTime() - item.startTime.getTime();
-      const progressPercentage = (elapsedDurationMs / totalDurationMs) * 100;
-      redLineStyle = { top: `${progressPercentage}%`, boxShadow: '0 0 8px rgba(239, 68, 68, 0.7)' }; // Added red glow
-    }
-
     return (
       <React.Fragment key={item.id}>
         {/* Time Track Item (Pill Design) */}
         <div className="flex items-center">
           <span className={cn(
-            "px-2 py-1 rounded-md text-xs font-mono transition-all duration-200",
+            "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
             isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
             "hover:scale-105" // Added hover scale
           )}>
@@ -61,7 +53,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <div
           className={cn(
             "flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
-            isActive ? "bg-primary text-primary-foreground shadow-md relative" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+            isActive ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 relative border-2 border-primary animate-pulse-active-row" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
             "relative hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20 hover:border-primary" // More pronounced hover effects
           )}
           style={getBubbleHeightStyle(item.duration)}
@@ -75,12 +67,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               <span className="text-muted-foreground ml-1"> - {item.description}</span>
             )}
           </span>
-          {isActive && (
-            <div
-              className="absolute left-0 right-0 h-[4px] bg-red-500 z-10 transition-all duration-1000 ease-linear" // Thicker red line
-              style={redLineStyle}
-            />
-          )}
           <Button 
             variant="ghost" 
             size="icon" 
@@ -148,7 +134,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
       {/* Session Summary Footer */}
       {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
-        <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm border-t border-dashed border-border"> {/* Added border-t border-dashed border-border */}
+        <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm border-t border-dashed border-border">
           <h3 className="font-bold text-foreground mb-2">📊 SESSION SUMMARY</h3>
           <div className="border-b border-dashed border-border mb-2" />
           <p>Total Tasks: <span className="font-semibold">{schedule.summary.totalTasks}</span></p>

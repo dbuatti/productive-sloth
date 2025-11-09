@@ -137,6 +137,18 @@
     }
   }
 
+  /* New subtle pulse for active scheduler row */
+  @keyframes pulse-active-row {
+    0%, 100% {
+      box-shadow: 0 0 0px hsl(var(--primary) / 0.2);
+      border-color: hsl(var(--primary) / 0.5);
+    }
+    50% {
+      box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+      border-color: hsl(var(--primary));
+    }
+  }
+
   @keyframes slide-in-up {
     from {
       opacity: 0;
@@ -186,6 +198,10 @@
 
   .animate-pulse-glow {
     animation: pulse-glow 2s infinite ease-in-out;
+  }
+
+  .animate-pulse-active-row {
+    animation: pulse-active-row 2s infinite ease-in-out;
   }
 
   .animate-slide-in-up {

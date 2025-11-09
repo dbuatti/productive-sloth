@@ -44,16 +44,6 @@ const SchedulerPage: React.FC = () => {
   const [injectionStartTime, setInjectionStartTime] = useState('');
   const [injectionEndTime, setInjectionEndTime] = useState('');
 
-  // Load T_Anchor from localStorage on initial mount
-  useEffect(() => {
-    const savedAnchor = localStorage.getItem('scheduler_T_Anchor');
-    if (savedAnchor) {
-      T_AnchorRef.current = new Date(savedAnchor);
-      setT_AnchorEstablished(true); // Trigger initial render with loaded anchor
-      console.log("T_AnchorRef loaded from localStorage:", T_AnchorRef.current.toISOString());
-    }
-  }, []); // Run only once on mount
-
   // Update T_current every minute
   useEffect(() => {
     const interval = setInterval(() => {
@@ -317,7 +307,7 @@ const SchedulerPage: React.FC = () => {
             <DialogDescription>
               Please provide the details for this task.
             </DialogDescription>
-          </DialogDescription>
+          </DialogHeader>
           <div className="grid gap-4 py-4">
             {injectionPrompt?.isTimed ? (
               <>

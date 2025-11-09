@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse } from 'date-fns'; // Import parse for timed events
+import { parse, startOfDay, setHours, setMinutes } from 'date-fns'; // Import startOfDay, setHours, setMinutes
 
 const SchedulerPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
@@ -32,13 +32,18 @@ const SchedulerPage: React.FC = () => {
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
-  const [T_Anchor, setT_Anchor] = useState<Date | null>(null); // New state for the fixed schedule anchor
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
   const [injectionDuration, setInjectionDuration] = useState('');
   const [injectionBreak, setInjectionBreak] = useState('');
   const [injectionStartTime, setInjectionStartTime] = useState('');
   const [injectionEndTime, setInjectionEndTime] = useState('');
+
+  // Hard-coded Permanent Start Time Anchor (T_Anchor)
+  const T_Anchor = useMemo(() => {
+    const today = startOfDay(new Date()); // Get today's date at 00:00:00
+    return setMinutes(setHours(today, 9), 32); // Set to 09:32 AM today
+  }, []); // Empty dependency array ensures this is only calculated once
 
   // Update T_current every minute
   useEffect(() => {
@@ -51,17 +56,12 @@ const SchedulerPage: React.FC = () => {
   const generateSchedule = useCallback(() => {
     if (dbScheduledTasks.length === 0) {
       setCurrentSchedule(null);
-      setT_Anchor(null); // Reset T_Anchor if no tasks
       return;
     }
-    // If T_Anchor is not set, set it to the current time when the first task is loaded/scheduled
-    const effectiveTAnchor = T_Anchor || new Date();
-    if (!T_Anchor) {
-      setT_Anchor(effectiveTAnchor);
-    }
-    const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor); // Pass T_Anchor to calculation
+    // Always use the fixed T_Anchor for schedule calculation
+    const schedule = calculateSchedule(dbScheduledTasks, T_Anchor);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, T_Anchor]);
+  }, [dbScheduledTasks, T_Anchor]); // T_Anchor is now a dependency as it's a constant from useMemo
 
   useEffect(() => {
     generateSchedule();
@@ -74,11 +74,6 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     
-    // If T_Anchor is not set, set it now for the first task
-    if (!T_Anchor && dbScheduledTasks.length === 0) {
-      setT_Anchor(new Date());
-    }
-
     const parsedInput = parseTaskInput(input);
     const injectCommand = parseInjectionCommand(input);
     const command = parseCommand(input);
@@ -115,7 +110,7 @@ const SchedulerPage: React.FC = () => {
       switch (command.type) {
         case 'clear':
           await clearScheduledTasks();
-          setT_Anchor(null); // Reset T_Anchor when clearing all tasks
+          // T_Anchor is fixed, so no need to reset it here
           break;
         case 'remove':
           if (command.index !== undefined) {
@@ -160,11 +155,8 @@ const SchedulerPage: React.FC = () => {
       return;
     }
 
-    // If T_Anchor is not set, set it now for the first task
-    if (!T_Anchor && dbScheduledTasks.length === 0) {
-      setT_Anchor(new Date());
-    }
-
+    // T_Anchor is fixed, so no need to set it here
+    
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
         showError("Start time and end time are required for timed injection.");

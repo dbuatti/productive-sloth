@@ -5,7 +5,7 @@ import { formatTime } from '@/lib/scheduler-utils'; // Import formatTime
 import { Button } from '@/components/ui/button'; // Import Button
 import { Trash } from 'lucide-react'; // Import Trash icon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
-import { Sparkles } from 'lucide-react'; // Import Sparkles icon
+import { Sparkles, BarChart } from 'lucide-react'; // Import Sparkles and BarChart icons
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -26,7 +26,7 @@ const getBubbleHeightStyle = (duration: number) => {
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
   if (!schedule || schedule.items.length === 0) {
     return (
-      <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up">
+      <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-pop-in"> {/* Added animate-pop-in */}
         <p className="text-lg font-semibold">No schedule generated yet.</p>
         <p>Enter tasks to see your time-blocked day!</p>
       </div>
@@ -100,7 +100,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         {schedule.progressLineIndex === -1 && (
           <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
             <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
-            <p className="font-semibold">{schedule.progressLineMessage}</p>
+            <p className="font-semibold text-primary">{schedule.progressLineMessage}</p> {/* Made message primary color */}
             <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
           </div>
         )}
@@ -111,7 +111,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {index === schedule.progressLineIndex && (
               <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
                 <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
-                <p className="font-semibold">{schedule.progressLineMessage}</p>
+                <p className="font-semibold text-primary">{schedule.progressLineMessage}</p> {/* Made message primary color */}
                 <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
               </div>
             )}
@@ -144,7 +144,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       {/* Session Summary Footer */}
       {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
         <div className="p-4 border rounded-lg bg-secondary/20 shadow-sm text-sm border-t border-dashed border-border">
-          <h3 className="font-bold text-foreground mb-2">📊 SESSION SUMMARY</h3>
+          <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
+            <BarChart className="h-5 w-5 text-primary" /> 📊 SESSION SUMMARY
+          </h3>
           <div className="border-b border-dashed border-border mb-2" />
           <p>Total Tasks: <span className="font-semibold">{schedule.summary.totalTasks}</span></p>
           <p>Active Time: <span className="font-semibold">{schedule.summary.activeTime.hours} hours {schedule.summary.activeTime.minutes} min</span></p>

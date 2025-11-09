@@ -99,27 +99,21 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
   return (
     <div className="space-y-4 animate-slide-in-up">
-      <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4 border rounded-lg bg-card shadow-sm">
-        {/* Column Headers */}
-        <div className="col-span-2 grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border bg-secondary/10 rounded-t-lg">
-          <div className="text-lg font-bold text-primary">TIME TRACK</div>
-          <div className="text-lg font-bold text-primary">TASK BUBBLES</div>
-        </div>
+      <Card className="animate-pop-in"> {/* Wrapped main schedule grid in Card */}
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <ListTodo className="h-5 w-5 text-primary" /> Your Vibe Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0"> {/* Removed default padding */}
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4"> {/* Inner padding */}
+            {/* Column Headers */}
+            <div className="col-span-2 grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border bg-secondary/10 rounded-t-lg">
+              <div className="text-lg font-bold text-primary">TIME TRACK</div>
+              <div className="text-lg font-bold text-primary">TASK BUBBLES</div>
+            </div>
 
-        {schedule.progressLineIndex === -1 && (
-          <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
-            <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-            <p className="font-semibold text-primary flex items-center justify-center gap-2">
-              {getProgressMessageIcon(schedule.progressLineMessage)} {schedule.progressLineMessage}
-            </p>
-            <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-          </div>
-        )}
-
-        {schedule.items.map((item, index) => (
-          <React.Fragment key={item.id}>
-            {renderScheduleItem(item, index)}
-            {index === schedule.progressLineIndex && (
+            {schedule.progressLineIndex === -1 && (
               <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
                 <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
                 <p className="font-semibold text-primary flex items-center justify-center gap-2">
@@ -128,13 +122,28 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
               </div>
             )}
-          </React.Fragment>
-        ))}
-      </div>
+
+            {schedule.items.map((item, index) => (
+              <React.Fragment key={item.id}>
+                {renderScheduleItem(item, index)}
+                {index === schedule.progressLineIndex && (
+                  <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
+                    <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                      {getProgressMessageIcon(schedule.progressLineMessage)} {schedule.progressLineMessage}
+                    </p>
+                    <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Smart Suggestions */}
       {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
-        <Card className="animate-pop-in">
+        <Card className="animate-pop-in"> {/* Wrapped in Card */}
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions
@@ -142,7 +151,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {schedule.summary.extendsPastMidnight && (
-              <p className="text-orange-500 font-semibold">{schedule.summary.midnightRolloverMessage}</p>
+              <p className="text-orange-500 font-semibold">⚠️ {schedule.summary.midnightRolloverMessage}</p>
             )}
             {totalScheduledMinutes < 6 * 60 && (
               <p>💡 Light day! Consider adding buffer time for flexibility.</p>

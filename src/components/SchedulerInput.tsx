@@ -8,16 +8,16 @@ interface SchedulerInputProps {
   onCommand: (command: string) => void;
   isLoading?: boolean;
   placeholder?: string;
+  inputValue: string; // Added to make it a controlled component
+  setInputValue: (value: string) => void; // Added setter for controlled component
 }
 
-const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command..." }) => {
-  const [inputValue, setInputValue] = useState('');
-
+const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim() && !isLoading) {
       onCommand(inputValue.trim());
-      setInputValue('');
+      // Input clearing is now handled by the parent component based on success
     }
   };
 

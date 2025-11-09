@@ -43,6 +43,7 @@ const SchedulerPage: React.FC = () => {
   const [injectionBreak, setInjectionBreak] = useState('');
   const [injectionStartTime, setInjectionStartTime] = useState('');
   const [injectionEndTime, setInjectionEndTime] = useState('');
+  const [inputValue, setInputValue] = useState(''); // State for the input field
 
   // Update T_current every minute
   useEffect(() => {
@@ -94,6 +95,7 @@ const SchedulerPage: React.FC = () => {
   const handleCommand = async (input: string) => {
     if (!user) {
       showError("Please log in to use the scheduler.");
+      setIsProcessingCommand(false);
       return;
     }
     setIsProcessingCommand(true);
@@ -101,6 +103,8 @@ const SchedulerPage: React.FC = () => {
     const parsedInput = parseTaskInput(input);
     const injectCommand = parseInjectionCommand(input);
     const command = parseCommand(input);
+
+    let success = false;
 
     if (parsedInput) {
       const isAdHocTask = 'duration' in parsedInput;
@@ -118,9 +122,11 @@ const SchedulerPage: React.FC = () => {
       if (isAdHocTask) {
         // Duration-based task
         await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration });
+        success = true;
       } else {
         // Timed event (Fixed Appointment)
         await addScheduledTask({ name: parsedInput.name, start_time: parsedInput.startTime.toISOString(), end_time: parsedInput.endTime.toISOString() });
+        success = true;
       }
     } else if (injectCommand) {
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
@@ -136,11 +142,13 @@ const SchedulerPage: React.FC = () => {
 
       if (injectCommand.duration) {
         await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration });
+        success = true;
       } else if (injectCommand.startTime && injectCommand.endTime) {
         const now = new Date();
         const startTime = parse(injectCommand.startTime, 'h:mm a', now);
         const endTime = parse(injectCommand.endTime, 'h:mm a', now);
         await addScheduledTask({ name: injectCommand.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString() });
+        success = true;
       }
       else {
         // Prompt for duration/break or start/end time
@@ -151,6 +159,7 @@ const SchedulerPage: React.FC = () => {
           startTime: injectCommand.startTime,
           endTime: injectCommand.endTime
         });
+        success = true; // Dialog opening is considered a success for clearing input
       }
     } else if (command) {
       switch (command.type) {
@@ -160,12 +169,14 @@ const SchedulerPage: React.FC = () => {
           localStorage.removeItem('scheduler_T_Anchor'); // Clear from localStorage
           setT_AnchorEstablished(false); // Reset dummy state
           console.log("T_AnchorRef reset to null via clear command.");
+          success = true;
           break;
         case 'remove':
           if (command.index !== undefined) {
             if (command.index >= 0 && command.index < dbScheduledTasks.length) {
               const taskToRemove = dbScheduledTasks[command.index];
               await removeScheduledTask(taskToRemove.id);
+              success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
             }
@@ -176,6 +187,7 @@ const SchedulerPage: React.FC = () => {
                 await removeScheduledTask(task.id);
               }
               showSuccess(`Removed tasks matching "${command.target}".`);
+              success = true;
             } else {
               showError(`No tasks found matching "${command.target}".`);
             }
@@ -185,6 +197,7 @@ const SchedulerPage: React.FC = () => {
           break;
         case 'show':
           showSuccess("Displaying current queue.");
+          success = true;
           break;
         case 'reorder':
           showError("Reordering is not yet implemented.");
@@ -195,7 +208,11 @@ const SchedulerPage: React.FC = () => {
     } else {
       showError("Invalid input. Please use 'Task Name Duration [Break]', 'Task Name HH:MM AM/PM - HH:MM AM/PM', or a command.");
     }
+    
     setIsProcessingCommand(false);
+    if (success) {
+      setInputValue(''); // Clear input only on success
+    }
   };
 
   const handleInjectionSubmit = async () => {
@@ -204,6 +221,7 @@ const SchedulerPage: React.FC = () => {
       return;
     }
 
+    let success = false;
     const isAdHocInjection = !injectionPrompt.isTimed;
 
     // If T_Anchor is not set and this is the first ad-hoc injection, set it NOW
@@ -218,6 +236,7 @@ const SchedulerPage: React.FC = () => {
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
         showError("Start time and end time are required for timed injection.");
+        setIsProcessingCommand(false);
         return;
       }
       const now = new Date();
@@ -225,12 +244,15 @@ const SchedulerPage: React.FC = () => {
       const endTime = parse(injectionEndTime, 'h:mm a', now);
       if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
         showError("Invalid time format for start/end times.");
+        setIsProcessingCommand(false);
         return;
       }
       await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString() });
+      success = true;
     } else {
       if (!injectionDuration) {
         showError("Duration is required for duration-based injection.");
+        setIsProcessingCommand(false);
         return;
       }
       const duration = parseInt(injectionDuration, 10);
@@ -238,16 +260,22 @@ const SchedulerPage: React.FC = () => {
 
       if (isNaN(duration) || duration <= 0) {
         showError("Duration must be a positive number.");
+        setIsProcessingCommand(false);
         return;
       }
       await addScheduledTask({ name: injectionPrompt.taskName, duration, break_duration: breakDuration });
+      success = true;
     }
     
-    setInjectionPrompt(null);
-    setInjectionDuration('');
-    setInjectionBreak('');
-    setInjectionStartTime('');
-    setInjectionEndTime('');
+    if (success) {
+      setInjectionPrompt(null);
+      setInjectionDuration('');
+      setInjectionBreak('');
+      setInjectionStartTime('');
+      setInjectionEndTime('');
+      setInputValue(''); // Clear main input on successful injection
+    }
+    setIsProcessingCommand(false);
   };
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;
@@ -273,7 +301,7 @@ const SchedulerPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
-      <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
+      <h1 className="text-3xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up">
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
 
@@ -287,7 +315,12 @@ const SchedulerPage: React.FC = () => {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} />
+          <SchedulerInput 
+            onCommand={handleCommand} 
+            isLoading={overallLoading} 
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+          />
           <p className="text-xs text-muted-foreground">
             Examples: "Piano Practice 30", "Meeting 60 10", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clear queue"
           </p>

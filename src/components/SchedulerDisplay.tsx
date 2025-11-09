@@ -33,6 +33,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     const isPast = item.endTime <= T_current;
     const pillEmoji = isActive ? '🟢' : '⚪';
 
+    let redLineStyle = {};
+    if (isActive) {
+      const totalDurationMs = item.endTime.getTime() - item.startTime.getTime();
+      const elapsedDurationMs = T_current.getTime() - item.startTime.getTime();
+      const progressPercentage = (elapsedDurationMs / totalDurationMs) * 100;
+      redLineStyle = { top: `${progressPercentage}%` };
+    }
+
     return (
       <React.Fragment key={item.id}>
         {/* Time Track Item (Pill Design) */}
@@ -49,8 +57,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <div
           className={cn(
             "flex items-center gap-2 p-3 rounded-lg shadow-sm transition-all duration-200",
-            isActive ? "bg-primary text-primary-foreground shadow-md" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-            "relative" // For potential future absolute positioning of XP/Energy
+            isActive ? "bg-primary text-primary-foreground shadow-md relative" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+            "relative" // Ensure relative positioning for the red line
           )}
           style={getBubbleHeightStyle(item.duration)} // Dynamic height
         >
@@ -60,6 +68,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               <span className="text-muted-foreground ml-1"> - {item.description}</span>
             )}
           </span>
+          {isActive && (
+            <div
+              className="absolute left-0 right-0 h-[2px] bg-red-500 z-10" // Red line
+              style={redLineStyle}
+            />
+          )}
         </div>
       </React.Fragment>
     );

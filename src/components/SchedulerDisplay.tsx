@@ -46,8 +46,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         {/* Time Track Item (Pill Design) */}
         <div className="flex items-center">
           <span className={cn(
-            "px-2 py-1 rounded-md text-xs font-mono", // Pill styling for time
-            isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground"
+            "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200", // Added transition
+            isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground"
           )}>
             {pillEmoji} {formatTime(item.startTime)}
           </span>
@@ -56,9 +56,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         {/* Task Bubble (Dynamic Height) */}
         <div
           className={cn(
-            "flex items-center gap-2 p-3 rounded-lg shadow-sm transition-all duration-200",
+            "flex items-center gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out", // Added ease-in-out
             isActive ? "bg-primary text-primary-foreground shadow-md relative" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-            "relative" // Ensure relative positioning for the red line
+            "relative hover:scale-[1.01] hover:shadow-lg" // Added hover effects
           )}
           style={getBubbleHeightStyle(item.duration)} // Dynamic height
         >
@@ -70,7 +70,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           </span>
           {isActive && (
             <div
-              className="absolute left-0 right-0 h-[2px] bg-red-500 z-10" // Red line
+              className="absolute left-0 right-0 h-[2px] bg-red-500 z-10 transition-all duration-1000 ease-linear" // Red line with smooth animation
               style={redLineStyle}
             />
           )}
@@ -84,17 +84,15 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
   return (
     <div className="space-y-4 animate-slide-in-up">
       <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4 border rounded-lg bg-card shadow-sm">
-        <div className="col-span-2 text-lg font-bold text-foreground mb-2">
-          <span className="text-primary">TIME TRACK</span>
-          <span className="ml-8 text-primary">TASK BUBBLES</span>
+        {/* Column Headers */}
+        <div className="col-span-2 grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border">
+          <div className="text-lg font-bold text-primary">TIME TRACK</div>
+          <div className="text-lg font-bold text-primary">TASK BUBBLES</div>
         </div>
-        <div className="col-span-2 border-b border-dashed border-border mb-2" />
 
         {schedule.progressLineIndex === -1 && (
-          <div className="col-span-2 text-center text-muted-foreground text-sm py-2">
-            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow"> {/* Enhanced separator */}
             <p className="font-semibold">{schedule.progressLineMessage}</p>
-            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           </div>
         )}
 
@@ -102,10 +100,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <React.Fragment key={item.id}>
             {renderScheduleItem(item, index)}
             {index === schedule.progressLineIndex && (
-              <div className="col-span-2 text-center text-muted-foreground text-sm py-2">
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow"> {/* Enhanced separator */}
                 <p className="font-semibold">{schedule.progressLineMessage}</p>
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
               </div>
             )}
           </React.Fragment>

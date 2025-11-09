@@ -34,6 +34,22 @@ export interface RawTaskInput {
   breakDuration?: number; // in minutes
 }
 
+// Supabase-specific types for scheduled tasks
+export interface DBScheduledTask {
+  id: string;
+  user_id: string;
+  name: string;
+  duration: number;
+  break_duration: number | null; // Supabase will store null for undefined
+  created_at: string;
+}
+
+export interface NewDBScheduledTask {
+  name: string;
+  duration: number;
+  break_duration?: number;
+}
+
 export type ScheduledItemType = 'task' | 'break';
 
 export interface ScheduledItem {

@@ -5,7 +5,7 @@ import { formatTime } from '@/lib/scheduler-utils'; // Import formatTime
 import { Button } from '@/components/ui/button'; // Import Button
 import { Trash } from 'lucide-react'; // Import Trash icon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
-import { Sparkles, BarChart } from 'lucide-react'; // Import Sparkles and BarChart icons
+import { Sparkles, BarChart, ListTodo } from 'lucide-react'; // Import Sparkles, BarChart, and ListTodo icons
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -26,7 +26,8 @@ const getBubbleHeightStyle = (duration: number) => {
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
   if (!schedule || schedule.items.length === 0) {
     return (
-      <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-pop-in"> {/* Added animate-pop-in */}
+      <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-pop-in">
+        <ListTodo className="h-12 w-12 text-muted-foreground" /> {/* Added icon */}
         <p className="text-lg font-semibold">No schedule generated yet.</p>
         <p>Enter tasks to see your time-blocked day!</p>
       </div>
@@ -88,20 +89,30 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
   const totalScheduledMinutes = schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime;
 
+  // Determine icon for progress message
+  const getProgressMessageIcon = (message: string) => {
+    if (message.includes('CURRENT PROGRESS')) return '➡️';
+    if (message.includes('Schedule starts in')) return '⏳';
+    if (message.includes('All tasks completed!')) return '✅';
+    return '';
+  };
+
   return (
     <div className="space-y-4 animate-slide-in-up">
       <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4 border rounded-lg bg-card shadow-sm">
         {/* Column Headers */}
-        <div className="col-span-2 grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border bg-secondary/10 rounded-t-lg"> {/* Added bg-secondary/10 and rounded-t-lg */}
+        <div className="col-span-2 grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border bg-secondary/10 rounded-t-lg">
           <div className="text-lg font-bold text-primary">TIME TRACK</div>
           <div className="text-lg font-bold text-primary">TASK BUBBLES</div>
         </div>
 
         {schedule.progressLineIndex === -1 && (
           <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
-            <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
-            <p className="font-semibold text-primary">{schedule.progressLineMessage}</p> {/* Made message primary color */}
-            <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
+            <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+            <p className="font-semibold text-primary flex items-center justify-center gap-2">
+              {getProgressMessageIcon(schedule.progressLineMessage)} {schedule.progressLineMessage}
+            </p>
+            <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
           </div>
         )}
 
@@ -110,9 +121,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {renderScheduleItem(item, index)}
             {index === schedule.progressLineIndex && (
               <div className="col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
-                <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
-                <p className="font-semibold text-primary">{schedule.progressLineMessage}</p> {/* Made message primary color */}
-                <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p> {/* Unicode separator */}
+                <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                  {getProgressMessageIcon(schedule.progressLineMessage)} {schedule.progressLineMessage}
+                </p>
+                <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
               </div>
             )}
           </React.Fragment>
@@ -121,7 +134,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
       {/* Smart Suggestions */}
       {totalScheduledMinutes > 0 && schedule.summary.totalTasks > 0 && (
-        <Card className="animate-pop-in"> {/* Wrapped in Card */}
+        <Card className="animate-pop-in">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions

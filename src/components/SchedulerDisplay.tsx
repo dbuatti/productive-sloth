@@ -1,17 +1,17 @@
 import React, { useMemo } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { formatTime, generateFixedTimeMarkers } from '@/lib/scheduler-utils'; // Import formatTime and generateFixedTimeMarkers
-import { Button } from '@/components/ui/button'; // Import Button
-import { Trash } from 'lucide-react'; // Import Trash icon
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
-import { Sparkles, BarChart, ListTodo } from 'lucide-react'; // Import Sparkles, BarChart, and ListTodo icons
+import { formatTime } from '@/lib/scheduler-utils'; // Removed generateFixedTimeMarkers as it's no longer directly used for displayItems
+import { Button } from '@/components/ui/button';
+import { Trash } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Sparkles, BarChart, ListTodo } from 'lucide-react';
 import { startOfDay, addHours } from 'date-fns';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
-  onRemoveTask: (taskId: string) => void; // New prop for removing tasks
+  onRemoveTask: (taskId: string) => void;
 }
 
 // Helper to determine dynamic bubble height based on duration
@@ -26,78 +26,114 @@ const getBubbleHeightStyle = (duration: number) => {
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask }) => {
   const displayItems: DisplayItem[] = useMemo(() => {
-    const fixedMarkers = generateFixedTimeMarkers(T_current); // 12 AM, 3 AM, 6 AM, 9 AM, 12 PM
-    const scheduledTasks = schedule ? schedule.items : []; // These are the actual tasks/breaks
+    const startOfToday = startOfDay(T_current); // 12:00 AM
+    const templateNoon = addHours(startOfToday, 12); // 12:00 PM (Noon)
 
-    const allTimelineEvents: DisplayItem[] = [];
+    const scheduledTasks = schedule ? schedule.items : [];
 
-    // 1. Add all scheduled tasks/breaks
-    scheduledTasks.forEach(task => allTimelineEvents.push(task));
+    // Collect all unique time points relevant to the display (start/end of template, task start/end)
+    const timePoints = new Set<number>();
+    timePoints.add(startOfToday.getTime());
+    timePoints.add(templateNoon.getTime());
+    scheduledTasks.forEach(task => {
+      timePoints.add(task.startTime.getTime());
+      timePoints.add(task.endTime.getTime());
+    });
 
-    // 2. Calculate and add free time blocks
-    let currentCursor = startOfDay(T_current); // Start at 12 AM for the template
-    const templateNoon = addHours(startOfDay(T_current), 12);
+    // Sort unique time points chronologically
+    const sortedTimePoints = Array.from(timePoints).sort((a, b) => a - b);
 
-    // Sort scheduled tasks to process them in order
-    const sortedTasks = [...scheduledTasks].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+    const finalDisplayItems: DisplayItem[] = [];
+    let currentCursor = startOfToday; // Tracks the end time of the last processed item
 
-    sortedTasks.forEach(task => {
-      // Free time before this task
-      if (task.startTime.getTime() > currentCursor.getTime()) {
-        const freeDurationMs = task.startTime.getTime() - currentCursor.getTime();
+    for (let i = 0; i < sortedTimePoints.length; i++) {
+      const pointTime = new Date(sortedTimePoints[i]);
+
+      // If this point is beyond the template noon, stop processing
+      if (pointTime.getTime() > templateNoon.getTime()) {
+        break;
+      }
+
+      // 1. Add Free Time if there's a gap between currentCursor and pointTime
+      if (pointTime.getTime() > currentCursor.getTime()) {
+        const freeDurationMs = pointTime.getTime() - currentCursor.getTime();
         const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
         if (freeDurationMinutes > 0) {
-          allTimelineEvents.push({
-            id: `free-${currentCursor.toISOString()}`,
+          finalDisplayItems.push({
+            id: `free-${currentCursor.toISOString()}-${pointTime.toISOString()}`,
             type: 'free-time',
             startTime: currentCursor,
-            endTime: task.startTime,
+            endTime: pointTime,
             duration: freeDurationMinutes,
             message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
           });
         }
       }
-      currentCursor = task.endTime; // Move cursor past this task
-    });
 
-    // Free time after the last task until 12 PM
-    if (currentCursor.getTime() < templateNoon.getTime()) {
-      const freeDurationMs = templateNoon.getTime() - currentCursor.getTime();
-      const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
-      if (freeDurationMinutes > 0) {
-        allTimelineEvents.push({
-          id: `free-end-${currentCursor.toISOString()}`,
-          type: 'free-time',
-          startTime: currentCursor,
-          endTime: templateNoon,
-          duration: freeDurationMinutes,
-          message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
+      // 2. Add Scheduled Tasks that start exactly at this pointTime
+      const tasksStartingAtPoint = scheduledTasks.filter(task => task.startTime.getTime() === pointTime.getTime());
+      tasksStartingAtPoint.sort((a, b) => a.endTime.getTime() - b.endTime.getTime()); // Ensure stable order for tasks starting at same time
+
+      tasksStartingAtPoint.forEach(task => {
+        finalDisplayItems.push(task);
+      });
+
+      // 3. Add 12 AM or 12 PM markers if no task starts at that exact time
+      if ((pointTime.getTime() === startOfToday.getTime() || pointTime.getTime() === templateNoon.getTime()) && !tasksStartingAtPoint.length) {
+        finalDisplayItems.push({
+          id: `marker-${pointTime.toISOString()}`,
+          type: 'marker',
+          time: pointTime,
+          label: formatTime(pointTime),
         });
       }
+      
+      // Update currentCursor to the latest end time of any event that started at or before pointTime
+      let maxEndTimeAtOrBeforePoint = pointTime; // Default to the current point in time
+
+      // Consider tasks that started at pointTime
+      tasksStartingAtPoint.forEach(task => {
+        if (task.endTime.getTime() > maxEndTimeAtOrBeforePoint.getTime()) {
+          maxEndTimeAtOrBeforePoint = task.endTime;
+        }
+      });
+      
+      // Also consider the currentCursor itself, in case a previous task ended after pointTime
+      if (currentCursor.getTime() > maxEndTimeAtOrBeforePoint.getTime()) {
+          maxEndTimeAtOrBeforePoint = currentCursor;
+      }
+
+      currentCursor = maxEndTimeAtOrBeforePoint;
     }
 
-    // 3. Add fixed markers, but only if they don't overlap with an existing task/free-time block's start time
-    fixedMarkers.forEach(marker => {
-      const isOverlapping = allTimelineEvents.some(event => {
-        const eventStartTime = 'time' in event ? event.time : event.startTime;
-        return eventStartTime.getTime() === marker.time.getTime();
-      });
-      if (!isOverlapping) {
-        allTimelineEvents.push(marker);
+    // Final pass to ensure items are within the 12 AM - 12 PM template and remove any duplicates
+    const uniqueAndBoundedItems: DisplayItem[] = [];
+    const seenIds = new Set<string>();
+
+    finalDisplayItems.forEach(item => {
+      const itemStartTime = 'time' in item ? item.time : item.startTime;
+      const itemEndTime = 'time' in item ? item.time : item.endTime;
+
+      // Only include items that start before or at templateNoon and end after or at startOfToday
+      if (itemStartTime.getTime() < templateNoon.getTime() && itemEndTime.getTime() > startOfToday.getTime()) {
+        if (!seenIds.has(item.id)) {
+          uniqueAndBoundedItems.push(item);
+          seenIds.add(item.id);
+        }
       }
     });
 
-    // 4. Sort all events by their start time
-    allTimelineEvents.sort((a, b) => {
+    // Sort one last time to ensure correct order after filtering
+    uniqueAndBoundedItems.sort((a, b) => {
       const timeA = 'time' in a ? a.time : a.startTime;
       const timeB = 'time' in b ? b.time : b.startTime;
       return timeA.getTime() - timeB.getTime();
     });
 
-    return allTimelineEvents;
+    return uniqueAndBoundedItems;
   }, [schedule, T_current]);
 
-  // Calculate global progress line position and message
+  // Calculate global progress line position
   const startOfTemplate = startOfDay(T_current); // 12:00 AM
   const endOfTemplate = addHours(startOfTemplate, 12); // 12:00 PM (Noon)
 
@@ -109,11 +145,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
   globalProgressLineTop = Math.max(0, Math.min(100, globalProgressLineTop));
 
   const showGlobalProgressLine = T_current >= startOfTemplate && T_current < endOfTemplate;
-  // const globalProgressMessage = `➡️ CURRENT PROGRESS - Time is ${formatTime(T_current)}`; // Removed
 
-  const renderDisplayItem = (item: DisplayItem, index: number) => {
+  const renderDisplayItem = (item: DisplayItem) => {
     if (item.type === 'marker') {
-      // Markers are rendered as time labels in the left column, with empty space in the right
+      // Markers are rendered as time labels in the left column, with an empty right column
       return (
         <React.Fragment key={item.id}>
           <div className="flex items-center">
@@ -121,9 +156,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               {item.label}
             </span>
           </div>
-          <div className="text-sm text-muted-foreground italic py-2">
-            (Empty template space)
-          </div>
+          <div></div> {/* Empty right column for markers */}
         </React.Fragment>
       );
     } else if (item.type === 'free-time') {
@@ -144,7 +177,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const pillEmoji = isActive ? '🟢' : '⚪';
 
       // Only render scheduled items if they are within or after the 12 AM - 12 PM template
-      if (scheduledItem.endTime < startOfTemplate) return null; // Don't show tasks that ended before 12 AM
+      if (scheduledItem.endTime < startOfTemplate) return null;
 
       return (
         <React.Fragment key={scheduledItem.id}>
@@ -153,7 +186,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             <span className={cn(
               "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
               isActive ? "bg-primary text-primary-foreground hover:bg-primary/70" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-              "hover:scale-105" // Added hover scale
+              "hover:scale-105"
             )}>
               {pillEmoji} {formatTime(scheduledItem.startTime)}
             </span>
@@ -163,13 +196,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div
             className={cn(
               "flex items-center justify-between gap-2 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in",
-              isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground", // Removed border/shadow/animation for active state
-              "relative hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary" // More pronounced hover effects
+              isActive ? "bg-primary text-primary-foreground" : isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+              "relative hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
             )}
             style={getBubbleHeightStyle(scheduledItem.duration)}
           >
             <span className={cn(
-              "text-sm flex-grow", // flex-grow to push button to right
+              "text-sm flex-grow",
               isActive ? "text-primary-foreground" : isPast ? "text-muted-foreground italic" : "text-foreground"
             )}>
               {scheduledItem.emoji} <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
@@ -200,25 +233,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
   return (
     <div className="space-y-4 animate-slide-in-up">
       <Card className="animate-pop-in">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <ListTodo className="h-5 w-5 text-primary" /> Your Vibe Schedule {/* Added ListTodo icon */}
-          </CardTitle>
-        </CardHeader>
+        {/* Removed CardHeader with "Your Vibe Schedule" */}
         <CardContent className="p-0">
-          {/* Column Headers - Fixed at the top of CardContent */}
-          <div className="grid grid-cols-[auto_1fr] gap-x-4 pb-2 mb-2 border-b border-dashed border-border bg-secondary/10 rounded-t-lg px-4 pt-4">
-            <div className="text-lg font-bold text-primary">TIME TRACK</div>
-            <div className="text-lg font-bold text-primary">TASK BUBBLES</div>
-          </div>
+          {/* Removed Column Headers */}
 
           {/* Main Schedule Body - This is the scrollable area with items and the global progress line */}
-          <div className="relative p-4 overflow-y-auto"> {/* Removed maxHeight */}
-            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2"> {/* Inner grid for items */}
+          <div className="relative p-4 overflow-y-auto">
+            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               {/* Global Progress Line */}
               {showGlobalProgressLine && (
                 <div
-                  className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 flex items-center justify-center" // Removed animate-pulse-glow
+                  className="absolute left-0 right-0 h-[4px] bg-primary/20 z-20 flex items-center justify-center"
                   style={{ top: `${globalProgressLineTop}%`, transition: 'top 60s linear' }}
                 >
                   {/* Removed the span for the message */}
@@ -251,9 +276,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               )}
 
               {/* Scheduled Items */}
-              {displayItems.map((item, index) => (
+              {displayItems.map((item) => (
                 <React.Fragment key={item.id}>
-                  {renderDisplayItem(item, index)}
+                  {renderDisplayItem(item)}
                 </React.Fragment>
               ))}
             </div>

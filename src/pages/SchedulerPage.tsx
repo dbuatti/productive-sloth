@@ -32,18 +32,13 @@ const SchedulerPage: React.FC = () => {
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
+  const [T_Anchor, setT_Anchor] = useState<Date | null>(null); // T_Anchor is now dynamic, set once
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
   const [injectionDuration, setInjectionDuration] = useState('');
   const [injectionBreak, setInjectionBreak] = useState('');
   const [injectionStartTime, setInjectionStartTime] = useState('');
   const [injectionEndTime, setInjectionEndTime] = useState('');
-
-  // Hard-coded Permanent Start Time Anchor (T_Anchor)
-  const T_Anchor = useMemo(() => {
-    const today = startOfDay(new Date()); // Get today's date at 00:00:00
-    return setMinutes(setHours(today, 9), 32); // Set to 09:32 AM today
-  }, []); // Empty dependency array ensures this is only calculated once
 
   // Update T_current every minute
   useEffect(() => {
@@ -56,12 +51,19 @@ const SchedulerPage: React.FC = () => {
   const generateSchedule = useCallback(() => {
     if (dbScheduledTasks.length === 0) {
       setCurrentSchedule(null);
+      setT_Anchor(null); // Reset T_Anchor if no tasks
       return;
     }
-    // Always use the fixed T_Anchor for schedule calculation
-    const schedule = calculateSchedule(dbScheduledTasks, T_Anchor);
+    
+    // Capture T_Anchor dynamically only if it hasn't been set yet
+    const effectiveTAnchor = T_Anchor || new Date();
+    if (!T_Anchor) {
+      setT_Anchor(effectiveTAnchor);
+    }
+
+    const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor); // Pass T_Anchor to calculation
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, T_Anchor]); // T_Anchor is now a dependency as it's a constant from useMemo
+  }, [dbScheduledTasks, T_Anchor]); // T_Anchor is now a dependency
 
   useEffect(() => {
     generateSchedule();
@@ -110,7 +112,7 @@ const SchedulerPage: React.FC = () => {
       switch (command.type) {
         case 'clear':
           await clearScheduledTasks();
-          // T_Anchor is fixed, so no need to reset it here
+          setT_Anchor(null); // Reset T_Anchor when clearing all tasks
           break;
         case 'remove':
           if (command.index !== undefined) {
@@ -155,8 +157,6 @@ const SchedulerPage: React.FC = () => {
       return;
     }
 
-    // T_Anchor is fixed, so no need to set it here
-    
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
         showError("Start time and end time are required for timed injection.");

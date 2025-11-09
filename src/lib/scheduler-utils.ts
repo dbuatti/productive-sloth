@@ -8,12 +8,14 @@ const EMOJI_MAP: { [key: string]: string } = {
   'meeting': '💼', 'work': '💼', 'report': '💼', 'professional': '💼', 'project': '💼',
   'design': '🎨', 'writing': '🎨', 'art': '🎨', 'creative': '🎨',
   'study': '📚', 'reading': '📚', 'course': '📚', 'learn': '📚',
-  'clean': '🧹', 'laundry': '🧹', 'organize': '🧹', 'household': '🧹',
-  'cook': '🍳', 'meal prep': '🍳', 'groceries': '🍳', 'food': '🍳',
-  'brainstorm': '💡', 'strategy': '💡', '💡review': '💡', 'plan': '💡',
+  'clean': '🧹', 'laundry': '🧹', 'organize': '🧹', 'household': '🧹', 'setup': '🧹', 'room': '🧹', // Added 'setup', 'room'
+  'cook': '🍳', 'meal prep': '🍳', 'groceries': '🍳', 'food': '🍳', 'lunch': '🍳', // Added 'lunch'
+  'brainstorm': '💡', 'strategy': '💡', 'review': '💡', 'plan': '💡',
   'gaming': '🎮', 'tv': '🎮', 'hobbies': '🎮', 'leisure': '🎮',
-  'meditation': '🧘', 'yoga': '🧘', 'self-care': '🧘', 'wellness': '🧘',
+  'meditation': '🧘', 'yoga': '🧘', 'self-care': '🧘', 'wellness': '🧘', 'mindfulness': '🧘', // Added 'mindfulness'
   'break': '☕️', // Special emoji for breaks
+  'coffee': '☕️', // Added 'coffee'
+  'piano': '🎹', 'music': '🎹', 'practice': '🎹', // Added 'piano', 'music', 'practice'
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {

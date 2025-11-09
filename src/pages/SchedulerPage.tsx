@@ -52,32 +52,44 @@ const SchedulerPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // This useEffect should load T_Anchor from localStorage on initial mount
+  useEffect(() => {
+    const savedAnchor = localStorage.getItem('scheduler_T_Anchor');
+    if (savedAnchor) {
+      T_AnchorRef.current = new Date(savedAnchor);
+      setT_AnchorEstablished(true); // Trigger re-render if an anchor is found
+      console.log("Loaded T_AnchorRef from localStorage:", T_AnchorRef.current.toISOString());
+    } else {
+      console.log("No T_AnchorRef found in localStorage on mount.");
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
   const generateSchedule = useCallback(() => {
     console.log("generateSchedule called. T_AnchorRef.current:", T_AnchorRef.current?.toISOString());
 
-    if (dbScheduledTasks.length === 0) {
+    // If there are no scheduled tasks from the DB, and T_AnchorRef is also null,
+    // then there's no schedule to display.
+    // This condition should only be true if no ad-hoc tasks were ever added,
+    // or if the queue was explicitly cleared.
+    if (dbScheduledTasks.length === 0 && T_AnchorRef.current === null) {
       setCurrentSchedule(null);
-      if (T_AnchorRef.current !== null) { // Only reset if it's not already null
-        T_AnchorRef.current = null; // Reset ref
-        localStorage.removeItem('scheduler_T_Anchor'); // Clear from localStorage
-        setT_AnchorEstablished(false); // Reset dummy state
-        console.log("T_AnchorRef reset to null (no tasks).");
-      }
+      console.log("No scheduled tasks and no T_AnchorRef, schedule is null.");
       return;
     }
     
-    // The T_AnchorRef.current should already be loaded from localStorage or set by handleCommand.
-    // We don't want to set it here based on dbScheduledTasks presence, as that would re-anchor on refresh.
-    // It should only be set by user action (first ad-hoc task input).
-
+    // Otherwise, calculate the schedule.
+    // T_AnchorRef.current will be null for fixed appointments if no ad-hoc tasks have set it.
+    // calculateSchedule handles null T_Anchor gracefully for fixed appointments.
     console.log("Calling calculateSchedule with T_Anchor:", T_AnchorRef.current?.toISOString());
     const schedule = calculateSchedule(dbScheduledTasks, T_AnchorRef.current);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, setT_AnchorEstablished]); // Dependencies: only dbScheduledTasks. T_AnchorRef is stable. setT_AnchorEstablished triggers re-render.
+  }, [dbScheduledTasks, T_AnchorRef.current]); // Add T_AnchorRef.current as a dependency
 
   useEffect(() => {
+    // This useEffect should run when dbScheduledTasks changes, or when generateSchedule changes (which happens if T_AnchorRef.current changes)
+    // or when T_AnchorEstablished changes (which happens when T_AnchorRef.current is first set from localStorage)
     generateSchedule();
-  }, [dbScheduledTasks, generateSchedule, setT_AnchorEstablished]); // Added setT_AnchorEstablished
+  }, [dbScheduledTasks, generateSchedule]); // Removed T_AnchorEstablished from dependencies
 
   const handleCommand = async (input: string) => {
     if (!user) {

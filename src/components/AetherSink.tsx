@@ -6,6 +6,7 @@ import { RetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils'; // Import getEmojiHue and assignEmoji
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -57,24 +58,38 @@ const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onR
                     </span>
                   </div>
                   <div className="flex items-center gap-1 ml-auto shrink-0">
-                    <Button 
-                      variant="secondary" // Changed from ghost
-                      size="icon" 
-                      onClick={() => onRezoneTask(task)}
-                      className="h-7 w-7 text-primary hover:bg-primary/10" // Changed text-foreground to text-primary, added hover
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      <span className="sr-only">Rezone</span>
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => onRemoveRetiredTask(task.id)}
-                      className="h-7 w-7 text-destructive hover:bg-destructive/20"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="secondary" // Changed from ghost
+                          size="icon" 
+                          onClick={() => onRezoneTask(task)}
+                          className="h-7 w-7 text-primary hover:bg-primary/10" // Changed text-foreground to text-primary, added hover
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                          <span className="sr-only">Rezone</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Re-zone to schedule</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => onRemoveRetiredTask(task.id)}
+                          className="h-7 w-7 text-destructive hover:bg-destructive/20"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Permanently delete</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               );

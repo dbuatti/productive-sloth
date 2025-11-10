@@ -7,6 +7,7 @@ import { Trash, Archive } from 'lucide-react'; // Import Archive icon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -288,31 +289,45 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               </span>
               <div className="flex items-center gap-1 ml-2"> {/* Group buttons */}
                 {dbTask && ( // Only show retire button if it's a real DB task
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => onRetireTask(dbTask)} 
-                    className={cn(
-                      "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]",
-                      "hover:bg-white/10"
-                    )}
-                  >
-                    <Archive className="h-4 w-4" />
-                    <span className="sr-only">Retire task</span>
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => onRetireTask(dbTask)} 
+                        className={cn(
+                          "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]",
+                          "hover:bg-white/10"
+                        )}
+                      >
+                        <Archive className="h-4 w-4" />
+                        <span className="sr-only">Retire task</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Move to Aether Sink</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => onRemoveTask(scheduledItem.id)} 
-                  className={cn(
-                    "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]", // Using always-light-text
-                    "hover:bg-white/10"
-                  )}
-                >
-                  <Trash className="h-4 w-4" />
-                  <span className="sr-only">Remove task</span>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => onRemoveTask(scheduledItem.id)} 
+                      className={cn(
+                        "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]", // Using always-light-text
+                        "hover:bg-white/10"
+                      )}
+                    >
+                      <Trash className="h-4 w-4" />
+                      <span className="sr-only">Remove task</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Remove from schedule</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (

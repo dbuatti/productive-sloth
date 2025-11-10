@@ -131,7 +131,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            // Removed onMouseDown={(e) => e.preventDefault()} to allow natural focus behavior
+            onMouseDown={(e) => e.preventDefault()} // Re-added to prevent external focus interference
             placeholder={placeholder}
             disabled={isLoading}
             className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"

@@ -139,7 +139,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 {task.title}
               </span>
             </div>
-            <div className="flex items-center space-x-3 text-xs mt-1 text-muted-foreground">
+            <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground"> {/* Changed text-xs to text-sm */}
               {task.due_date && (
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3 w-3" />

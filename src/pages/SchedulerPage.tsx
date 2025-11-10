@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, addHours } from 'date-fns'; // Added addHours
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, addHours } from 'date-fns';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
@@ -89,26 +89,37 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    if (!newAnchorDate) {
-      if (isSelectedDayToday) {
-        newAnchorDate = T_current;
-      } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
-        newAnchorDate = startOfDay(selectedDayAsDate);
-      } else {
-        newAnchorDate = startOfDay(selectedDayAsDate);
-      }
+    // Determine the ideal anchor based on current state and selected day
+    let idealAnchor: Date;
+    if (isSelectedDayToday) {
+      idealAnchor = T_current;
+    } else {
+      idealAnchor = startOfDay(selectedDayAsDate);
     }
 
-    const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
-    const newAnchorISO = newAnchorDate?.toISOString() || null;
+    // If there's a saved anchor, use it unless it's today and the ideal anchor is later
+    if (newAnchorDate && isSameDay(newAnchorDate, selectedDayAsDate)) { // Corrected typo here
+        if (isSelectedDayToday && isBefore(newAnchorDate, T_current)) {
+            // If it's today and saved anchor is in the past, update to current time
+            newAnchorDate = T_current;
+        }
+        // Otherwise, stick with the saved anchor
+    } else {
+        // No saved anchor for this day, or saved anchor is for a different day
+        newAnchorDate = idealAnchor;
+    }
 
-    if (currentAnchorISO !== newAnchorISO) {
+    // Only update state if the *value* of the anchor has truly changed
+    const currentAnchorTime = tAnchorForSelectedDay?.getTime() || null;
+    const newAnchorTime = newAnchorDate?.getTime() || null;
+
+    if (currentAnchorTime !== newAnchorTime) {
       setTAnchorForSelectedDay(newAnchorDate);
-      if (newAnchorDate && !savedAnchorString) {
+      if (newAnchorDate) {
          localStorage.setItem(localStorageKey, newAnchorDate.toISOString());
       }
     }
-  }, [formattedSelectedDay, T_current, tAnchorForSelectedDay]);
+  }, [formattedSelectedDay, T_current]); // Removed tAnchorForSelectedDay from dependencies
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
@@ -147,14 +158,14 @@ const SchedulerPage: React.FC = () => {
     const command = parseCommand(input);
 
     let success = false;
-    const taskScheduledDate = formattedSelectedDay; // Declared taskScheduledDate
+    const taskScheduledDate = formattedSelectedDay;
 
     // Get workday boundaries from profile
     const selectedDayDate = parseISO(selectedDay);
     const workdayStartTime = profile.default_auto_schedule_start_time 
       ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_start_time) 
       : startOfDay(selectedDayDate);
-    let workdayEndTime = profile.default_auto_schedule_end_time // Changed to let
+    let workdayEndTime = profile.default_auto_schedule_end_time 
       ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_end_time) 
       : addHours(startOfDay(selectedDayDate), 17); // Default to 5 PM
 
@@ -367,14 +378,14 @@ const SchedulerPage: React.FC = () => {
     }
 
     let success = false;
-    const taskScheduledDate = formattedSelectedDay; // Declared taskScheduledDate
+    const taskScheduledDate = formattedSelectedDay;
     const selectedDayDate = parseISO(selectedDay);
 
     // Get workday boundaries from profile
     const workdayStartTime = profile.default_auto_schedule_start_time 
       ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_start_time) 
       : startOfDay(selectedDayDate);
-    let workdayEndTime = profile.default_auto_schedule_end_time // Changed to let
+    let workdayEndTime = profile.default_auto_schedule_end_time 
       ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_end_time) 
       : addHours(startOfDay(selectedDayDate), 17); // Default to 5 PM
 

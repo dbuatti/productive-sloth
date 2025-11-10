@@ -80,18 +80,18 @@ const SchedulerPage: React.FC = () => {
     const currentDayAnchor = T_AnchorRef.current.get(formattedSelectedDay) || null;
     console.log("generateSchedule called. T_AnchorRef.current for selected day:", currentDayAnchor?.toISOString());
 
-    // If there are no scheduled tasks from the DB for the selected day, and T_AnchorRef is also null for this day,
-    // then there's no schedule to display.
-    if (dbScheduledTasks.length === 0 && currentDayAnchor === null) {
-      setCurrentSchedule(null);
-      console.log("No scheduled tasks and no T_AnchorRef for selected day, schedule is null.");
-      return;
-    }
-    
-    console.log("Calling calculateSchedule with T_Anchor for selected day:", currentDayAnchor?.toISOString());
-    const schedule = calculateSchedule(dbScheduledTasks, currentDayAnchor);
+    // Determine the effective T_Anchor for scheduling.
+    // If currentDayAnchor is null, and there are ad-hoc tasks,
+    // we should provide a default starting point for them, e.g., the start of the selected day.
+    // If there are only fixed appointments and no ad-hoc tasks, T_Anchor can remain null,
+    // as fixed appointments don't need an anchor to be placed.
+    const hasAdHocTasks = dbScheduledTasks.some(task => !task.start_time && !task.end_time);
+    const effectiveTAnchor = currentDayAnchor || (hasAdHocTasks ? startOfDay(selectedDay) : null);
+
+    console.log("Calling calculateSchedule with T_Anchor for selected day:", effectiveTAnchor?.toISOString());
+    const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, formattedSelectedDay]); // Dependency on formattedSelectedDay
+  }, [dbScheduledTasks, formattedSelectedDay, selectedDay]);
 
   useEffect(() => {
     generateSchedule();

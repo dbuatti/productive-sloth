@@ -108,6 +108,115 @@ export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
   return markers;
 };
 
+// --- Command Parsing Functions ---
+
+interface ParsedTaskInput {
+  name: string;
+  duration?: number;
+  breakDuration?: number;
+  startTime?: Date;
+  endTime?: Date;
+}
+
+export const parseTaskInput = (input: string): ParsedTaskInput | null => {
+  // Regex for "Task Name Duration [BreakDuration]"
+  const durationRegex = /^(.*?)\s+(\d+)(?:\s+(\d+))?$/;
+  const durationMatch = input.match(durationRegex);
+
+  if (durationMatch) {
+    const name = durationMatch[1].trim();
+    const duration = parseInt(durationMatch[2], 10);
+    const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
+    if (name && duration > 0) {
+      return { name, duration, breakDuration };
+    }
+  }
+
+  // Regex for "Task Name HH:MM AM/PM - HH:MM AM/PM"
+  const timeRegex = /^(.*?)\s+(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))$/i;
+  const timeMatch = input.match(timeRegex);
+
+  if (timeMatch) {
+    const name = timeMatch[1].trim();
+    const startTimeStr = timeMatch[2].trim();
+    const endTimeStr = timeMatch[4].trim();
+
+    const now = new Date();
+    const startTime = parse(startTimeStr, 'h:mm a', now);
+    const endTime = parse(endTimeStr, 'h:mm a', now);
+
+    if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+      return { name, startTime, endTime };
+    }
+  }
+
+  return null;
+};
+
+interface ParsedInjectionCommand {
+  taskName: string;
+  duration?: number;
+  breakDuration?: number;
+  startTime?: string;
+  endTime?: string;
+}
+
+export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
+  const injectRegex = /^inject\s+(.*?)(?:\s+(\d+)(?:\s+(\d+))?)?(?:\s+from\s+(\d{1,2}(:\d{2})?\s*(?:am|pm))\s+to\s+(\d{1,2}(:\d{2})?\s*(?:am|pm)))?$/i;
+  const match = input.match(injectRegex);
+
+  if (match) {
+    const taskName = match[1].trim();
+    const duration = match[2] ? parseInt(match[2], 10) : undefined;
+    const breakDuration = match[3] ? parseInt(match[3], 10) : undefined;
+    const startTime = match[4] ? match[4].trim() : undefined;
+    const endTime = match[6] ? match[6].trim() : undefined;
+
+    if (taskName) {
+      return { taskName, duration, breakDuration, startTime, endTime };
+    }
+  }
+  return null;
+};
+
+interface ParsedCommand {
+  type: 'clear' | 'remove' | 'show' | 'reorder';
+  index?: number;
+  target?: string;
+}
+
+export const parseCommand = (input: string): ParsedCommand | null => {
+  const lowerInput = input.toLowerCase();
+
+  if (lowerInput === 'clear queue' || lowerInput === 'clear') {
+    return { type: 'clear' };
+  }
+
+  const removeByIndexRegex = /^remove\s+index\s+(\d+)$/;
+  const removeByTargetRegex = /^remove\s+(.+)$/;
+
+  const removeByIndexMatch = lowerInput.match(removeByIndexRegex);
+  if (removeByIndexMatch) {
+    const index = parseInt(removeByIndexMatch[1], 10) - 1; // Convert to 0-based index
+    return { type: 'remove', index };
+  }
+
+  const removeByTargetMatch = lowerInput.match(removeByTargetRegex);
+  if (removeByTargetMatch) {
+    const target = removeByTargetMatch[1].trim();
+    return { type: 'remove', target };
+  }
+
+  if (lowerInput === 'show queue' || lowerInput === 'show') {
+    return { type: 'show' };
+  }
+
+  if (lowerInput.startsWith('reorder')) {
+    return { type: 'reorder' }; // Placeholder for future reorder logic
+  }
+
+  return null;
+};
 
 // --- Core Scheduling Logic ---
 
@@ -146,17 +255,22 @@ export const calculateSchedule = (
 
   // 2. Schedule Ad-Hoc Tasks sequentially from T_Anchor, avoiding fixed appointments
   // adHocCursor only advances based on ad-hoc tasks and their breaks.
-  // If T_Anchor is null (no ad-hoc tasks added yet), adHocCursor won't be used for placement.
-  let adHocCursor = T_Anchor; 
+  // If T_Anchor is null, but there are fixed appointments, start ad-hoc tasks after the last fixed appointment.
+  let adHocCursor: Date | null = T_Anchor; 
+
+  if (!adHocCursor && fixedAppointments.length > 0) {
+    adHocCursor = new Date(fixedAppointments[fixedAppointments.length - 1].end_time!);
+  }
+  // If still no adHocCursor and there are ad-hoc tasks, this means T_Anchor was null and no fixed appointments.
+  // This case should ideally be handled by SchedulerPage passing `startOfDay(selectedDay)` as `T_Anchor`.
+  // If it still happens, ad-hoc tasks won't be placed.
 
   // Sort ad-hoc tasks by their creation time to maintain the order they were added
   adHocTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   adHocTasks.forEach(task => {
-    if (!adHocCursor) { // If T_Anchor is still null, this ad-hoc task shouldn't be placed yet by this logic.
-      // This scenario should ideally be prevented by SchedulerPage's T_Anchor setting logic.
-      // For robustness, we'll skip if T_Anchor isn't set, or use a fallback (e.g., current time)
-      // but the prompt implies T_Anchor will be set by the time ad-hoc tasks are processed here.
+    if (!adHocCursor) { // If adHocCursor is still null, we cannot place this ad-hoc task.
+      console.warn(`Skipping ad-hoc task "${task.name}" because adHocCursor is null. Ensure T_Anchor is set or fixed appointments exist.`);
       return; 
     }
 
@@ -179,7 +293,6 @@ export const calculateSchedule = (
           proposedStartTime = new Date(fixedApptEnd);
           proposedEndTime = addMinutes(proposedStartTime, task.duration!);
           overlapFound = true; // Re-check for overlaps with other fixed appointments from this new position
-          // console.log(`DEBUG: Ad-hoc task "${task.name}" shifted due to overlap with fixed appointment.`);
           break; // Break from inner loop to re-evaluate with new proposedStartTime
         }
       }
@@ -247,139 +360,4 @@ export const calculateSchedule = (
     items: scheduledItems,
     summary: summary,
   };
-};
-
-// --- Smart Suggestions ---
-export const getSmartSuggestions = (totalScheduledMinutes: number): string[] => {
-  const suggestions: string[] = [];
-  if (totalScheduledMinutes < 6 * 60) { // Less than 6 hours
-    suggestions.push("💡 Light day! Consider adding buffer time for flexibility.");
-  }
-  if (totalScheduledMinutes > 12 * 60) { // More than 12 hours
-    suggestions.push("⚠️ Intense schedule. Remember to include meals and rest.");
-  }
-  return suggestions;
-};
-
-// --- Input Parsing ---
-// Updated to handle timed events like "mindfulness 11am - 12pm"
-export const parseTaskInput = (input: string): RawTaskInput | { name: string, startTime: Date, endTime: Date } | null => {
-  // Regex for "Task Name Duration" or "Task Name Duration Break"
-  const durationRegex = /^(.*?)\s+(\d+)(?:\s+(\d+))?$/;
-  const durationMatch = input.match(durationRegex);
-
-  if (durationMatch) {
-    const name = durationMatch[1].trim();
-    const duration = parseInt(durationMatch[2], 10);
-    const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
-
-    if (name && duration > 0) {
-      return { name, duration, breakDuration };
-    }
-  }
-
-  // Regex for "Task Name HH:MM AM/PM - HH:MM AM/PM"
-  const timedRegex = /^(.*?)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*-\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm))$/i;
-  const timedMatch = input.match(timedRegex);
-
-  if (timedMatch) {
-    const name = timedMatch[1].trim();
-    const startTimeStr = timedMatch[2].trim();
-    const endTimeStr = timedMatch[3].trim();
-
-    console.log('DEBUG: Timed match found:', { name, startTimeStr, endTimeStr });
-    try {
-      // Added 'ha' and 'h:mma' for better parsing of "11am" and "11:00am"
-      const formatStrings = ['h a', 'h:mm a', 'ha', 'h:mma']; 
-      let parsedStartTime: Date | null = null;
-      let parsedEndTime: Date | null = null;
-      const now = new Date(); // Use a consistent reference date for parsing
-
-      for (const fmt of formatStrings) {
-        const tempStart = parse(startTimeStr, fmt, now);
-        console.log(`DEBUG: Trying start: "${startTimeStr}" with format "${fmt}" -> ${tempStart} (isValid: ${!isNaN(tempStart.getTime())})`);
-        if (!isNaN(tempStart.getTime())) {
-          parsedStartTime = tempStart;
-          break;
-        }
-      }
-      for (const fmt of formatStrings) {
-        const tempEnd = parse(endTimeStr, fmt, now);
-        console.log(`DEBUG: Trying end: "${endTimeStr}" with format "${fmt}" -> ${tempEnd} (isValid: ${!isNaN(tempEnd.getTime())})`);
-        if (!isNaN(tempEnd.getTime())) {
-          parsedEndTime = tempEnd;
-          break;
-        }
-      }
-
-      console.log('DEBUG: Final parsed times:', { parsedStartTime, parsedEndTime });
-
-      if (!parsedStartTime || !parsedEndTime || isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) {
-        console.error('DEBUG: Failed to parse one or both times, throwing error.');
-        throw new Error("Invalid time format");
-      }
-      
-      // Ensure end time is after start time, potentially rolling over to next day if needed
-      if (parsedEndTime.getTime() < parsedStartTime.getTime()) {
-        parsedEndTime = addDays(parsedEndTime, 1);
-      }
-
-      return { name, startTime: parsedStartTime, endTime: parsedEndTime };
-    } catch (e) {
-      console.error("DEBUG: Error caught during timed event parsing:", e);
-      return null;
-    }
-  }
-
-  return null;
-};
-
-export const parseInjectionCommand = (input: string): { type: 'inject', taskName: string, duration?: number, breakDuration?: number, startTime?: string, endTime?: string } | null => {
-  // Regex for duration-based injection: "inject Task Name duration X break Y"
-  const injectDurationRegex = /^inject\s+(.*?)(?:\s+duration\s+(\d+))?(?:\s+break\s+(\d+))?$/i;
-  const injectDurationMatch = input.match(injectDurationRegex);
-
-  if (injectDurationMatch) {
-    const taskName = injectDurationMatch[1].trim();
-    const duration = injectDurationMatch[2] ? parseInt(injectDurationMatch[2], 10) : undefined;
-    const breakDuration = injectDurationMatch[3] ? parseInt(injectDurationMatch[3], 10) : undefined;
-    return { type: 'inject', taskName, duration, breakDuration };
-  }
-
-  // Regex for timed event injection: "inject Task Name from HH:MM AM/PM to HH:MM AM/PM"
-  const injectTimedRegex = /^inject\s+(.*?)\s+from\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s+to\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))$/i;
-  const injectTimedMatch = input.match(injectTimedRegex);
-
-  if (injectTimedMatch) {
-    const taskName = injectTimedMatch[1].trim();
-    const startTime = injectTimedMatch[2].trim();
-    const endTime = injectTimedMatch[3].trim();
-    return { type: 'inject', taskName, startTime, endTime };
-  }
-
-  return null;
-};
-
-export const parseCommand = (input: string): { type: 'clear' | 'remove' | 'show' | 'reorder', target?: string, index?: number } | null => {
-  const lowerInput = input.toLowerCase();
-  if (lowerInput === 'clear queue') {
-    return { type: 'clear' };
-  }
-  // New: remove by index
-  const removeIndexMatch = lowerInput.match(/^remove\s+index\s+(\d+)$/);
-  if (removeIndexMatch) {
-    return { type: 'remove', index: parseInt(removeIndexMatch[1], 10) - 1 }; // Convert to 0-based index
-  }
-  // Existing: remove by name (can be made more precise later if needed, for now keep includes)
-  if (lowerInput.startsWith('remove ')) {
-    const target = input.substring('remove '.length).trim();
-    return { type: 'remove', target };
-  }
-  if (lowerInput === 'show queue') {
-    return { type: 'show' };
-  }
-  if (lowerInput === 'reorder') {
-    return { type: 'reorder' }; // Not implemented yet, but recognized
-  }
-  return null;
 };

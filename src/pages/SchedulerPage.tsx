@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask } from '@/types/scheduler'; // Import NewDBScheduledTask
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -16,9 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Updated import
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, parseISO } from 'date-fns'; // Import format, isSameDay, parseISO
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, parseISO } from 'date-fns';
+import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel'; // Import SchedulerDashboardPanel
+import NowFocusCard from '@/components/NowFocusCard'; // Import NowFocusCard
+import CalendarStrip from '@/components/CalendarStrip'; // Import CalendarStrip
 
 const SchedulerPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();

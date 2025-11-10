@@ -3,36 +3,40 @@ import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, Sche
 
 // --- Constants ---
 const EMOJI_MAP: { [key: string]: string } = {
-  'gym': '🏋️', 'workout': '🏋️', 'run': '🏋️', 'exercise': '🏋️',
-  'email': '📧', 'messages': '📧', 'calls': '📧', 'communication': '📧',
-  'meeting': '💼', 'work': '💼', 'report': '💼', 'professional': '💼', 'project': '💼',
-  'design': '🎨', 'writing': '🎨', 'art': '🎨', 'creative': '🎨',
-  'study': '📚', 'reading': '📚', 'course': '📚', 'learn': '📚',
-  'clean': '🧹', 'laundry': '🧹', 'organize': '🧹', 'household': '🧹', 'setup': '🧹', 'room': '🧹', // Added 'setup', 'room'
-  'cook': '🍳', 'meal prep': '🍳', 'groceries': '🍳', 'food': '🍳', 'lunch': '🍳', // Added 'lunch'
-  'brainstorm': '💡', 'strategy': '💡', 'review': '💡', 'plan': '💡',
-  'gaming': '🎮', 'tv': '🎮', 'hobbies': '🎮', 'leisure': '🎮',
-  'meditation': '🧘', 'yoga': '🧘', 'self-care': '🧘', 'wellness': '🧘', 'mindfulness': '🧘', // Added 'mindfulness'
-  'break': '☕️', // Special emoji for breaks
-  'coffee': '☕️', // Added 'coffee'
-  'piano': '🎹', 'music': '🎹', 'practice': '🎹', // Added 'piano', 'music', 'practice'
+  'gym': '🏋️', 'workout': '🏋️', 'run': '🏃', 'exercise': '🏋️', 'fitness': '💪',
+  'email': '📧', 'messages': '💬', 'calls': '📞', 'communication': '🗣️', 'admin': '⚙️', 'paperwork': '📄',
+  'meeting': '💼', 'work':💻: '💻', 'report': '📝', 'professional': '👔', 'project': '📊', 'coding': '💻', 'develop': '💻', 'code': '💻', 'bug': '🐛', 'fix': '🛠️', 'sync': '🤝', 'standup': '🤝',
+  'design': '🎨', 'writing': '✍️', 'art': '🖼️', 'creative': '✨', 'draw': '✏️',
+  'study': '📚', 'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫', 'tutorial': '💡',
+  'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️', 'room': '🛋️',
+  'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎',
+  'brainstorm': '💡', 'strategy': '📈', 'review': '🔍', 'plan': '🗓️',
+  'gaming': '🎮', 'tv': '📺', 'hobbies': '🎲', 'leisure': '😌', 'movie': '🎬', 'relax': '🧘', 'chill': '🛋️',
+  'meditation': '🧘', 'yoga': '🧘', 'self-care': '🛀', 'wellness': '🌸', 'mindfulness': '🧠', 'nap': '😴', 'rest': '🛌',
+  'break': '☕️', 'coffee': '☕️', 'walk': '🚶', 'stretch': '🤸',
+  'piano': '🎹', 'music': '🎶', 'practice': '🎼',
+  'commute': '🚗', 'drive': '🚗', 'bus': '🚌', 'train': '🚆', 'travel': '✈️',
+  'shop': '🛍️', 'bank': '🏦', 'post': '✉️', 'errands': '🏃‍♀️',
+  'friends': '🧑‍🤝‍🧑', 'family': '👨‍👩‍👧‍👦', 'social': '🎉',
 };
 
 // New: Map keywords to HSL hue values (0-360)
 const EMOJI_HUE_MAP: { [key: string]: number } = {
-  'gym': 200, 'workout': 200, 'run': 200, 'exercise': 200, // Blue
-  'email': 240, 'messages': 240, 'calls': 240, 'communication': 240, // Indigo
-  'meeting': 280, 'work': 280, 'report': 280, 'professional': 280, 'project': 280, // Purple
-  'design': 320, 'writing': 320, 'art': 320, 'creative': 320, // Pink
-  'study': 260, 'reading': 260, 'course': 260, 'learn': 260, // Violet
-  'clean': 120, 'laundry': 120, 'organize': 120, 'household': 120, 'setup': 120, 'room': 120, // Green
-  'cook': 30, 'meal prep': 30, 'groceries': 30, 'food': 30, 'lunch': 30, // Orange
-  'brainstorm': 60, 'strategy': 60, 'review': 60, 'plan': 60, // Yellow
-  'gaming': 0, 'tv': 0, 'hobbies': 0, 'leisure': 0, // Red
-  'meditation': 160, 'yoga': 160, 'self-care': 160, 'wellness': 160, 'mindfulness': 160, // Teal
-  'break': 40, // Warm orange/brown for breaks
-  'coffee': 30, // Orange/brown
-  'piano': 270, 'music': 270, 'practice': 270, // Purple
+  'gym': 200, 'workout': 200, 'run': 210, 'exercise': 200, 'fitness': 200, // Blue/Cyan
+  'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230, // Indigo/Purple/Blue
+  'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40, 'sync': 290, 'standup': 290, // Various blues/purples, lime for bug, gold for fix
+  'design': 320, 'writing': 320, 'art': 330, 'creative': 340, 'draw': 320, // Pinks/Magenta
+  'study': 260, 'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260, 'tutorial': 60, // Violets/Yellow
+  'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40, 'room': 150, // Greens/Teals/Gold
+  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, // Oranges/Reds/Yellows/Cyan
+  'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220, // Yellows/Greens/Blue
+  'gaming': 0, 'tv': 10, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150, // Reds/Oranges/Teals
+  'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150, // Teals/Rose/Orange
+  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, // Warm oranges/Greens
+  'piano': 270, 'music': 270, 'practice': 270, // Purples
+  'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200, // Reds/Blues
+  'shop': 180, 'bank': 220, 'post': 240, 'errands': 210, // Cyan/Blues/Indigo
+  'friends': 300, 'family': 300, 'social': 310, // Rose/Pink
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {

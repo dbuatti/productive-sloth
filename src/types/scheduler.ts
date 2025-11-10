@@ -39,7 +39,7 @@ export interface DBScheduledTask {
   id: string;
   user_id: string;
   name: string;
-  duration: number | null; // Can be null if start_time/end_time are present
+  // duration: number | null; // Removed: duration is derived from start_time/end_time
   break_duration: number | null;
   start_time: string | null; // New: ISO date string for timed events
   end_time: string | null;   // New: ISO date string for timed events
@@ -49,7 +49,7 @@ export interface DBScheduledTask {
 
 export interface NewDBScheduledTask {
   name: string;
-  duration?: number; // Optional for duration-based tasks
+  // duration?: number; // Removed: duration is derived from start_time/end_time
   break_duration?: number;
   start_time?: string; // Optional for duration-based tasks
   end_time?: string;   // Optional for duration-based tasks
@@ -61,8 +61,8 @@ export interface RetiredTask {
   id: string;
   user_id: string;
   name: string;
-  duration: number | null; // Duration in minutes
-  break_duration: number | null; // Break duration in minutes
+  duration: number | null; // Duration in minutes (retained for re-zoning)
+  break_duration: number | null; // Break duration in minutes (retained for re-zoning)
   original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
   retired_at: string; // Timestamp when it was moved to the sink
 }

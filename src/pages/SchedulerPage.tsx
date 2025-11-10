@@ -615,7 +615,7 @@ const SchedulerPage: React.FC = () => {
           name: taskDetails.name,
           start_time: proposedStartTime.toISOString(),
           end_time: proposedEndTime.toISOString(),
-          break_duration: taskDetails.break_duration,
+          break_duration: taskDetails.break_duration, // Pass break_duration from retired task
           scheduled_date: formattedSelectedDay,
         });
         showSuccess(`Re-zoned "${taskDetails.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);

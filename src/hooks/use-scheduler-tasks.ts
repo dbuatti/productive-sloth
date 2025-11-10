@@ -358,7 +358,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
   // Convert DBScheduledTask to RawTaskInput for the scheduler logic
   const rawTasks: RawTaskInput[] = dbScheduledTasks.map(dbTask => ({
     name: dbTask.name,
-    duration: dbTask.duration,
+    duration: Math.floor((parseISO(dbTask.end_time!).getTime() - parseISO(dbTask.start_time!).getTime()) / (1000 * 60)), // Derive duration
     breakDuration: dbTask.break_duration ?? undefined,
   }));
 
@@ -366,7 +366,8 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId };
+      // Remove duration from insert payload as it's no longer in the table
+      const { duration, ...taskToInsert } = { ...newTask, user_id: userId }; 
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -439,7 +440,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const newRetiredTask: NewRetiredTask = {
         user_id: userId,
         name: taskToRetire.name,
-        duration: taskToRetire.duration,
+        duration: Math.floor((parseISO(taskToRetire.end_time!).getTime() - parseISO(taskToRetire.start_time!).getTime()) / (1000 * 60)), // Derive duration for retired task
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
       };
@@ -475,14 +476,14 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       // We need to pass it as a NewDBScheduledTask, but without start/end times initially.
       const taskToRezone: NewDBScheduledTask = {
         name: retiredTask.name,
-        duration: retiredTask.duration ?? undefined,
+        // duration: retiredTask.duration ?? undefined, // Duration is used for slot finding, not stored in DBScheduledTask
         break_duration: retiredTask.break_duration ?? undefined,
         scheduled_date: formattedSelectedDate, // Rezone for the currently selected date
       };
       
       // The actual placement logic will be handled by the caller (SchedulerPage)
       // This mutation only handles moving it out of retired_tasks.
-      return taskToRezone; // Return the task details to be handled by SchedulerPage
+      return { ...taskToRezone, duration: retiredTask.duration }; // Return the task details including original duration
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });

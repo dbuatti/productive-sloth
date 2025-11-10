@@ -332,7 +332,7 @@ export const calculateSchedule = (
       id: task.id, 
       type: isStandaloneBreak ? 'break' : 'task',
       name: task.name, 
-      duration: duration,
+      duration: duration, // Duration is derived from start_time and end_time
       startTime: startTime, 
       endTime: endTime, 
       emoji: isStandaloneBreak ? EMOJI_MAP['break'] : assignEmoji(task.name),

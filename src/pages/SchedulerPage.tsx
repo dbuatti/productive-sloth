@@ -76,8 +76,9 @@ const SchedulerPage: React.FC = () => {
   useEffect(() => {
     const selectedDayAsDate = parseISO(formattedSelectedDay);
     const isSelectedDayToday = isSameDay(selectedDayAsDate, T_current);
+    const localStorageKey = `scheduler_T_Anchor_${formattedSelectedDay}`;
 
-    const savedAnchorString = localStorage.getItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
+    const savedAnchorString = localStorage.getItem(localStorageKey);
     let newAnchorDate: Date | null = null;
 
     if (savedAnchorString) {
@@ -87,33 +88,36 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    // Only set a default anchor if NO saved anchor exists AND there are NO scheduled tasks yet for this day.
-    // This ensures the anchor is only set once for a fresh day.
-    if (!newAnchorDate && dbScheduledTasks.length === 0) {
+    // If no anchor is found in localStorage, determine a new one.
+    if (!newAnchorDate) {
       if (isSelectedDayToday) {
-        newAnchorDate = T_current;
+        newAnchorDate = T_current; // Anchor for today starts at current time
       } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
-        newAnchorDate = startOfDay(selectedDayAsDate);
+        newAnchorDate = startOfDay(selectedDayAsDate); // Anchor for future days starts at midnight
       }
-      // If selected day is in the past and no tasks, newAnchorDate remains null.
+      // If selected day is in the past, newAnchorDate remains null.
     }
 
-    // Update state if the value has changed
+    // Update state if the value has changed AND save to localStorage if a new anchor was determined.
     const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
     const newAnchorISO = newAnchorDate?.toISOString() || null;
 
     if (currentAnchorISO !== newAnchorISO) {
       setTAnchorForSelectedDay(newAnchorDate);
-      // If we just set a new anchor (because it was null and no tasks existed), save it to localStorage.
-      // This ensures persistence for the *first* time an anchor is determined for a day.
-      if (newAnchorDate && !savedAnchorString && dbScheduledTasks.length === 0) { 
-         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchorDate.toISOString());
+      // If a new anchor was determined (not loaded from savedAnchorString), save it.
+      // This ensures it's saved once it's first calculated for a day.
+      if (newAnchorDate && !savedAnchorString) {
+         localStorage.setItem(localStorageKey, newAnchorDate.toISOString());
+         console.log(`SchedulerPage: NEW tAnchorForSelectedDay determined and saved for ${formattedSelectedDay} to:`, newAnchorDate.toISOString());
+      } else if (newAnchorDate) { // If it was loaded from savedAnchorString, just log
+         console.log(`SchedulerPage: tAnchorForSelectedDay loaded from storage for ${formattedSelectedDay}:`, newAnchorDate.toISOString());
+      } else { // newAnchorDate is null
+         console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is null (past day or no anchor set).`);
       }
-      console.log(`SchedulerPage: Initialized/Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
     } else {
       console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
     }
-  }, [formattedSelectedDay, T_current, dbScheduledTasks.length]); // dbScheduledTasks.length is crucial here
+  }, [formattedSelectedDay, T_current]); // Removed dbScheduledTasks.length from dependencies
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {

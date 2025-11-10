@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem } from '@/types/scheduler';
 
 // --- Constants ---
@@ -120,16 +120,6 @@ export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
   return markers;
 };
 
-// --- Command Parsing Functions ---
-
-interface ParsedTaskInput {
-  name: string;
-  duration?: number;
-  breakDuration?: number;
-  startTime?: Date;
-  endTime?: Date;
-}
-
 // Helper to parse time flexibly
 export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date => {
   const formatsToTry = [
@@ -142,15 +132,28 @@ export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date
   for (const formatStr of formatsToTry) {
     const parsedDate = parse(timeString, formatStr, referenceDate);
     if (!isNaN(parsedDate.getTime())) {
-      console.log(`parseFlexibleTime: Successfully parsed '${timeString}' with format '${formatStr}'. Result: ${parsedDate.toISOString()}`);
       return parsedDate;
     }
-    console.log(`parseFlexibleTime: Failed to parse '${timeString}' with format '${formatStr}'.`);
   }
 
-  console.log(`parseFlexibleTime: All formats failed for '${timeString}'. Returning invalid Date.`);
   return new Date('Invalid Date'); // Explicitly return an invalid date
 };
+
+/**
+ * Parses a time string (e.g., "09:00") and sets it on a reference date.
+ */
+export const setTimeOnDate = (date: Date, timeString: string): Date => {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return setMinutes(setHours(date, hours), minutes);
+};
+
+interface ParsedTaskInput {
+  name: string;
+  duration?: number;
+  breakDuration?: number;
+  startTime?: Date;
+  endTime?: Date;
+}
 
 export const parseTaskInput = (input: string): ParsedTaskInput | null => {
   const now = new Date();

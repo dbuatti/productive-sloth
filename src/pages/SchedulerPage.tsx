@@ -11,7 +11,8 @@ import {
   parseCommand,
   formatDateTime,
   parseFlexibleTime,
-  formatTime, // Import formatTime for success message
+  formatTime,
+  setTimeOnDate,
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO } from 'date-fns';
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, addHours } from 'date-fns'; // Added addHours
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
@@ -34,10 +35,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // Import AlertDialog components
+} from "@/components/ui/alert-dialog";
 
 const SchedulerPage: React.FC = () => {
-  const { user, isLoading: isSessionLoading } = useSession();
+  const { user, profile, isLoading: isSessionLoading } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const { 
     dbScheduledTasks,
@@ -60,7 +61,7 @@ const SchedulerPage: React.FC = () => {
   const [injectionStartTime, setInjectionStartTime] = useState('');
   const [injectionEndTime, setInjectionEndTime] = useState('');
   const [inputValue, setInputValue] = useState('');
-  const [showClearConfirmation, setShowClearConfirmation] = useState(false); // New state for clear confirmation
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false);
 
   const formattedSelectedDay = selectedDay;
 
@@ -88,46 +89,31 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    // If no anchor is found in localStorage, determine a new one.
     if (!newAnchorDate) {
       if (isSelectedDayToday) {
-        newAnchorDate = T_current; // Anchor for today starts at current time
+        newAnchorDate = T_current;
       } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
-        newAnchorDate = startOfDay(selectedDayAsDate); // Anchor for future days starts at midnight
-      } else { // selectedDayAsDate is in the past
-        newAnchorDate = startOfDay(selectedDayAsDate); // Anchor for past days starts at midnight of that day
+        newAnchorDate = startOfDay(selectedDayAsDate);
+      } else {
+        newAnchorDate = startOfDay(selectedDayAsDate);
       }
     }
 
-    // Update state if the value has changed AND save to localStorage if a new anchor was determined.
     const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
     const newAnchorISO = newAnchorDate?.toISOString() || null;
 
     if (currentAnchorISO !== newAnchorISO) {
       setTAnchorForSelectedDay(newAnchorDate);
-      // If a new anchor was determined (not loaded from savedAnchorString), save it.
-      // This ensures it's saved once it's first calculated for a day.
       if (newAnchorDate && !savedAnchorString) {
          localStorage.setItem(localStorageKey, newAnchorDate.toISOString());
-         console.log(`SchedulerPage: NEW tAnchorForSelectedDay determined and saved for ${formattedSelectedDay} to:`, newAnchorDate.toISOString());
-      } else if (newAnchorDate) { // If it was loaded from savedAnchorString, just log
-         console.log(`SchedulerPage: tAnchorForSelectedDay loaded from storage for ${formattedSelectedDay}:`, newAnchorDate.toISOString());
-      } else { // newAnchorDate is null
-         console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is null (past day or no anchor set).`);
       }
-    } else {
-      console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
     }
-  }, [formattedSelectedDay, T_current]); // Removed dbScheduledTasks.length from dependencies
+  }, [formattedSelectedDay, T_current, tAnchorForSelectedDay]);
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
-    console.log("SchedulerPage: calculatedSchedule useMemo triggered.");
-    console.log("SchedulerPage: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time })));
-    console.log("SchedulerPage: Current tAnchorForSelectedDay for calculation:", tAnchorForSelectedDay?.toISOString());
-    // Pass T_current and selectedDay to calculateSchedule for internal logic
     return calculateSchedule(dbScheduledTasks, tAnchorForSelectedDay, T_current, selectedDay);
-  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current]); // Added T_current to dependencies
+  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current]);
 
   // Set currentSchedule state from the memoized calculation
   useEffect(() => {
@@ -141,67 +127,105 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await clearScheduledTasks();
-    setTAnchorForSelectedDay(null); // Reset state
+    setTAnchorForSelectedDay(null);
     localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
-    console.log(`SchedulerPage: tAnchorForSelectedDay reset to null for ${formattedSelectedDay} via clear command.`);
     setIsProcessingCommand(false);
-    setShowClearConfirmation(false); // Close dialog
-    setInputValue(''); // Clear input after successful command
+    setShowClearConfirmation(false);
+    setInputValue('');
   };
 
   const handleCommand = async (input: string) => {
-    if (!user) {
-      showError("Please log in to use the scheduler.");
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to use the scheduler.");
       setIsProcessingCommand(false);
       return;
     }
     setIsProcessingCommand(true);
     
-    console.log("SchedulerPage: handleCommand - Raw input:", input);
     const parsedInput = parseTaskInput(input);
-    console.log("SchedulerPage: handleCommand - parseTaskInput result:", parsedInput);
     const injectCommand = parseInjectionCommand(input);
-    console.log("SchedulerPage: handleCommand - parseInjectionCommand result:", injectCommand);
     const command = parseCommand(input);
-    console.log("SchedulerPage: handleCommand - parseCommand result:", command);
 
     let success = false;
+    const taskScheduledDate = formattedSelectedDay; // Declared taskScheduledDate
+
+    // Get workday boundaries from profile
+    const selectedDayDate = parseISO(selectedDay);
+    const workdayStartTime = profile.default_auto_schedule_start_time 
+      ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_start_time) 
+      : startOfDay(selectedDayDate);
+    let workdayEndTime = profile.default_auto_schedule_end_time // Changed to let
+      ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_end_time) 
+      : addHours(startOfDay(selectedDayDate), 17); // Default to 5 PM
+
+    // Ensure workdayEndTime is after workdayStartTime, potentially rolling over to next day
+    if (isBefore(workdayEndTime, workdayStartTime)) {
+      workdayEndTime = addDays(workdayEndTime, 1);
+    }
+
+    // Determine the effective start for placing new tasks (cannot be in the past for today)
+    let effectiveWorkdayStart = workdayStartTime;
+    if (isSameDay(selectedDayDate, T_current) && isBefore(workdayStartTime, T_current)) {
+      effectiveWorkdayStart = T_current;
+    }
+
+    // Get existing scheduled tasks for the day, sorted by start time
+    const existingAppointments = dbScheduledTasks
+      .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayDate))
+      .map(task => ({
+        start: setTimeOnDate(selectedDayDate, format(parseISO(task.start_time!), 'HH:mm')),
+        end: setTimeOnDate(selectedDayDate, format(parseISO(task.end_time!), 'HH:mm')),
+      }))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
 
     if (parsedInput) {
-      console.log("SchedulerPage: handleCommand - Processing as parsedInput.");
-      const isAdHocTask = 'duration' in parsedInput; // This will now be true for duration-only inputs
-
-      const taskScheduledDate = formattedSelectedDay;
-      const selectedDayDate = parseISO(selectedDay);
+      const isAdHocTask = 'duration' in parsedInput;
 
       if (isAdHocTask) {
-        // For duration-only tasks, automatically calculate start and end times
-        let proposedStartTime: Date;
-        // If there's an existing schedule, start after the last item, otherwise use current time or start of day
-        if (currentSchedule && currentSchedule.items.length > 0) {
-          proposedStartTime = currentSchedule.summary.sessionEnd;
+        const newTaskDuration = parsedInput.duration!;
+        let proposedStartTime: Date | null = null;
+
+        // Find the first available slot
+        let currentSearchTime = effectiveWorkdayStart;
+
+        for (const appt of existingAppointments) {
+          // If there's a gap before this appointment
+          if (isBefore(currentSearchTime, appt.start)) {
+            const potentialEndTime = addMinutes(currentSearchTime, newTaskDuration);
+            if (isBefore(potentialEndTime, appt.start) || isSameDay(potentialEndTime, appt.start)) {
+              // Task fits in this gap
+              proposedStartTime = currentSearchTime;
+              break;
+            }
+          }
+          // Move past the current appointment
+          currentSearchTime = isAfter(appt.end, currentSearchTime) ? appt.end : currentSearchTime;
+        }
+
+        // Check if it fits after the last appointment or if there are no appointments
+        if (!proposedStartTime && (isBefore(currentSearchTime, workdayEndTime) || isSameDay(currentSearchTime, workdayEndTime))) {
+          const potentialEndTime = addMinutes(currentSearchTime, newTaskDuration);
+          if (isBefore(potentialEndTime, workdayEndTime) || isSameDay(potentialEndTime, workdayEndTime)) {
+            proposedStartTime = currentSearchTime;
+          }
+        }
+
+        if (proposedStartTime) {
+          const proposedEndTime = addMinutes(proposedStartTime, newTaskDuration);
+          await addScheduledTask({ 
+            name: parsedInput.name, 
+            start_time: proposedStartTime.toISOString(), 
+            end_time: proposedEndTime.toISOString(), 
+            scheduled_date: taskScheduledDate,
+            break_duration: parsedInput.breakDuration,
+          });
+          showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+          success = true;
         } else {
-          proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
-        }
-        
-        // Ensure proposedStartTime is not in the past if it's today
-        if (isSameDay(selectedDayDate, T_current) && proposedStartTime.getTime() < T_current.getTime()) {
-          proposedStartTime = T_current;
+          showError(`No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${parsedInput.name}" (${newTaskDuration} min).`);
         }
 
-        const proposedEndTime = addMinutes(proposedStartTime, parsedInput.duration!);
-
-        console.log(`SchedulerPage: handleCommand - Adding duration-based task as fixed appointment.`);
-        await addScheduledTask({ 
-          name: parsedInput.name, 
-          start_time: proposedStartTime.toISOString(), 
-          end_time: proposedEndTime.toISOString(), 
-          scheduled_date: taskScheduledDate 
-        });
-        showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
-        success = true;
-      } else {
-        // This is a timed event (e.g., "Meeting 11am - 12pm")
+      } else { // This is a timed event (e.g., "Meeting 11am - 12pm")
         let startTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
         let endTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
         
@@ -211,58 +235,61 @@ const SchedulerPage: React.FC = () => {
           return;
         }
 
-        // If the selected day is today, and the proposed start time is in the past,
-        // shift the task to the next day.
-        if (isSameDay(selectedDayDate, T_current) && startTime.getTime() < T_current.getTime()) {
+        if (isSameDay(selectedDayDate, T_current) && isBefore(startTime, T_current)) {
           startTime = addDays(startTime, 1);
           endTime = addDays(endTime, 1);
           showSuccess(`Scheduled "${parsedInput.name}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
-        } else if (endTime.getTime() < startTime.getTime()) {
-          // Handle rollover within the same day (e.g., 11 PM - 1 AM)
+        } else if (isBefore(endTime, startTime)) {
           endTime = addDays(endTime, 1);
         }
 
-        console.log(`SchedulerPage: handleCommand - Storing timed task. Input Start: ${format(parsedInput.startTime!, 'hh:mm a')}, Input End: ${format(parsedInput.endTime!, 'hh:mm a')}`);
-        console.log(`SchedulerPage: handleCommand - Parsed Start (local): ${startTime.toLocaleString()}, Parsed End (local): ${endTime.toLocaleString()}`);
-        console.log(`SchedulerPage: handleCommand - Storing Start (ISO): ${startTime.toISOString()}, Storing End (ISO): ${endTime.toISOString()}`);
-
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
+        showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
       }
     } else if (injectCommand) {
-      console.log("SchedulerPage: handleCommand - Processing as injectCommand.");
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
 
-      const taskScheduledDate = formattedSelectedDay;
-      const selectedDayDate = parseISO(selectedDay);
-
       if (isAdHocInjection) {
-        // For duration-only injections, automatically calculate start and end times
-        let proposedStartTime: Date;
-        if (currentSchedule && currentSchedule.items.length > 0) {
-          proposedStartTime = currentSchedule.summary.sessionEnd;
+        const injectedTaskDuration = injectCommand.duration || 30; // Default duration for inject if not specified
+        let proposedStartTime: Date | null = null;
+
+        let currentSearchTime = effectiveWorkdayStart;
+
+        for (const appt of existingAppointments) {
+          if (isBefore(currentSearchTime, appt.start)) {
+            const potentialEndTime = addMinutes(currentSearchTime, injectedTaskDuration);
+            if (isBefore(potentialEndTime, appt.start) || isSameDay(potentialEndTime, appt.start)) {
+              proposedStartTime = currentSearchTime;
+              break;
+            }
+          }
+          currentSearchTime = isAfter(appt.end, currentSearchTime) ? appt.end : currentSearchTime;
+        }
+
+        if (!proposedStartTime && (isBefore(currentSearchTime, workdayEndTime) || isSameDay(currentSearchTime, workdayEndTime))) {
+          const potentialEndTime = addMinutes(currentSearchTime, injectedTaskDuration);
+          if (isBefore(potentialEndTime, workdayEndTime) || isSameDay(potentialEndTime, workdayEndTime)) {
+            proposedStartTime = currentSearchTime;
+          }
+        }
+
+        if (proposedStartTime) {
+          const proposedEndTime = addMinutes(proposedStartTime, injectedTaskDuration);
+          await addScheduledTask({ 
+            name: injectCommand.taskName, 
+            start_time: proposedStartTime.toISOString(), 
+            end_time: proposedEndTime.toISOString(), 
+            break_duration: injectCommand.breakDuration, 
+            scheduled_date: taskScheduledDate 
+          });
+          showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+          success = true;
         } else {
-          proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
+          showError(`No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${injectCommand.taskName}" (${injectedTaskDuration} min).`);
         }
 
-        if (isSameDay(selectedDayDate, T_current) && proposedStartTime.getTime() < T_current.getTime()) {
-          proposedStartTime = T_current;
-        }
-
-        const duration = injectCommand.duration || 30; // Default duration for inject if not specified
-        const proposedEndTime = addMinutes(proposedStartTime, duration);
-
-        await addScheduledTask({ 
-          name: injectCommand.taskName, 
-          start_time: proposedStartTime.toISOString(), 
-          end_time: proposedEndTime.toISOString(), 
-          break_duration: injectCommand.breakDuration, 
-          scheduled_date: taskScheduledDate 
-        });
-        showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
-        success = true;
       } else if (injectCommand.startTime && injectCommand.endTime) {
-        console.log("SchedulerPage: handleCommand - Opening injection dialog for timed event.");
         setInjectionPrompt({ 
           taskName: injectCommand.taskName, 
           isOpen: true, 
@@ -273,9 +300,7 @@ const SchedulerPage: React.FC = () => {
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
         success = true;
-      }
-      else {
-        console.log("SchedulerPage: handleCommand - Opening injection dialog for duration-based task.");
+      } else {
         setInjectionPrompt({ 
           taskName: injectCommand.taskName, 
           isOpen: true, 
@@ -286,11 +311,10 @@ const SchedulerPage: React.FC = () => {
         success = true;
       }
     } else if (command) {
-      console.log("SchedulerPage: handleCommand - Processing as command.");
       switch (command.type) {
         case 'clear':
-          setShowClearConfirmation(true); // Open confirmation dialog
-          success = true; // Mark as success to clear input, but actual clear happens after confirmation
+          setShowClearConfirmation(true);
+          success = true;
           break;
         case 'remove':
           if (command.index !== undefined) {
@@ -327,7 +351,6 @@ const SchedulerPage: React.FC = () => {
           showError("Unknown command.");
       }
     } else {
-      console.log("SchedulerPage: handleCommand - No valid parse result found.");
       showError("Invalid input. Please use 'Task Name Duration [Break]', 'Task Name HH:MM AM/PM - HH:MM AM/PM', or a command.");
     }
     
@@ -338,16 +361,42 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleInjectionSubmit = async () => {
-    if (!user || !injectionPrompt) {
-      showError("You must be logged in to use the scheduler.");
+    if (!user || !profile || !injectionPrompt) {
+      showError("You must be logged in and your profile loaded to use the scheduler.");
       return;
     }
 
     let success = false;
-    const isAdHocInjection = !injectionPrompt.isTimed;
-
-    const taskScheduledDate = formattedSelectedDay;
+    const taskScheduledDate = formattedSelectedDay; // Declared taskScheduledDate
     const selectedDayDate = parseISO(selectedDay);
+
+    // Get workday boundaries from profile
+    const workdayStartTime = profile.default_auto_schedule_start_time 
+      ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_start_time) 
+      : startOfDay(selectedDayDate);
+    let workdayEndTime = profile.default_auto_schedule_end_time // Changed to let
+      ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_end_time) 
+      : addHours(startOfDay(selectedDayDate), 17); // Default to 5 PM
+
+    // Ensure workdayEndTime is after workdayStartTime, potentially rolling over to next day
+    if (isBefore(workdayEndTime, workdayStartTime)) {
+      workdayEndTime = addDays(workdayEndTime, 1);
+    }
+
+    // Determine the effective start for placing new tasks (cannot be in the past for today)
+    let effectiveWorkdayStart = workdayStartTime;
+    if (isSameDay(selectedDayDate, T_current) && isBefore(workdayStartTime, T_current)) {
+      effectiveWorkdayStart = T_current;
+    }
+
+    // Get existing scheduled tasks for the day, sorted by start time
+    const existingAppointments = dbScheduledTasks
+      .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayDate))
+      .map(task => ({
+        start: setTimeOnDate(selectedDayDate, format(parseISO(task.start_time!), 'HH:mm')),
+        end: setTimeOnDate(selectedDayDate, format(parseISO(task.end_time!), 'HH:mm')),
+      }))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
 
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
@@ -367,57 +416,67 @@ const SchedulerPage: React.FC = () => {
         return;
       }
 
-      // If the selected day is today, and the proposed start time is in the past,
-      // shift the task to the next day.
-      if (isSameDay(selectedDayDate, T_current) && startTime.getTime() < T_current.getTime()) {
+      if (isSameDay(selectedDayDate, T_current) && isBefore(startTime, T_current)) {
         startTime = addDays(startTime, 1);
         endTime = addDays(endTime, 1);
         showSuccess(`Scheduled "${injectionPrompt.taskName}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
-      } else if (endTime.getTime() < startTime.getTime()) {
-        endTime.setDate(endTime.getDate() + 1);
+      } else if (isBefore(endTime, startTime)) {
+        endTime = addDays(endTime, 1);
       }
-      console.log(`SchedulerPage: handleInjectionSubmit - Storing timed injection. Local Start Date: ${startTime.toLocaleString()}, Local End Date: ${endTime.toLocaleString()}`);
-      console.log(`SchedulerPage: handleInjectionSubmit - Storing Start (ISO): ${startTime.toISOString()}, Storing End (ISO): ${endTime.toISOString()}`);
+
       await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
+      showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
       success = true;
-    } else {
+    } else { // Duration-based injection
       if (!injectionDuration) {
         showError("Duration is required for duration-based injection.");
         setIsProcessingCommand(false);
         return;
       }
-      const duration = parseInt(injectionDuration, 10);
+      const injectedTaskDuration = parseInt(injectionDuration, 10);
       const breakDuration = injectionBreak ? parseInt(injectionBreak, 10) : undefined;
 
-      if (isNaN(duration) || duration <= 0) {
+      if (isNaN(injectedTaskDuration) || injectedTaskDuration <= 0) {
         showError("Duration must be a positive number.");
         setIsProcessingCommand(false);
         return;
       }
       
-      // For duration-only injections, automatically calculate start and end times
-      let proposedStartTime: Date;
-      if (currentSchedule && currentSchedule.items.length > 0) {
-        proposedStartTime = currentSchedule.summary.sessionEnd;
+      let proposedStartTime: Date | null = null;
+      let currentSearchTime = effectiveWorkdayStart;
+
+      for (const appt of existingAppointments) {
+        if (isBefore(currentSearchTime, appt.start)) {
+          const potentialEndTime = addMinutes(currentSearchTime, injectedTaskDuration);
+          if (isBefore(potentialEndTime, appt.start) || isSameDay(potentialEndTime, appt.start)) {
+            proposedStartTime = currentSearchTime;
+            break;
+          }
+        }
+        currentSearchTime = isAfter(appt.end, currentSearchTime) ? appt.end : currentSearchTime;
+      }
+
+      if (!proposedStartTime && (isBefore(currentSearchTime, workdayEndTime) || isSameDay(currentSearchTime, workdayEndTime))) {
+        const potentialEndTime = addMinutes(currentSearchTime, injectedTaskDuration);
+        if (isBefore(potentialEndTime, workdayEndTime) || isSameDay(potentialEndTime, workdayEndTime)) {
+          proposedStartTime = currentSearchTime;
+        }
+      }
+
+      if (proposedStartTime) {
+        const proposedEndTime = addMinutes(proposedStartTime, injectedTaskDuration);
+        await addScheduledTask({ 
+          name: injectionPrompt.taskName, 
+          start_time: proposedStartTime.toISOString(), 
+          end_time: proposedEndTime.toISOString(), 
+          break_duration: breakDuration, 
+          scheduled_date: taskScheduledDate 
+        });
+        showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+        success = true;
       } else {
-        proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
+        showError(`No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${injectionPrompt.taskName}" (${injectedTaskDuration} min).`);
       }
-
-      if (isSameDay(selectedDayDate, T_current) && proposedStartTime.getTime() < T_current.getTime()) {
-        proposedStartTime = T_current;
-      }
-
-      const proposedEndTime = addMinutes(proposedStartTime, duration);
-
-      await addScheduledTask({ 
-        name: injectionPrompt.taskName, 
-        start_time: proposedStartTime.toISOString(), 
-        end_time: proposedEndTime.toISOString(), 
-        break_duration: breakDuration, 
-        scheduled_date: taskScheduledDate 
-      });
-      showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
-      success = true;
     }
     
     if (success) {

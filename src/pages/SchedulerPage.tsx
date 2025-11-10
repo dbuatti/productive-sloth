@@ -605,7 +605,7 @@ const SchedulerPage: React.FC = () => {
             setInputValue={setInputValue}
           />
           <p className="text-xs text-muted-foreground">
-            Examples: "Piano Practice 30", "Meeting 60 10", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clear queue"
+            Examples: "Gym 60", "Meeting 60 10", "Mindfulness 11am - 12pm", 'inject "Project X"', 'inject "Coffee Break" 15', 'remove "Gym"', 'clear'
           </p>
         </CardContent>
       </Card>

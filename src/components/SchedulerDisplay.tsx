@@ -325,9 +325,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <CardContent className="p-0">
           <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
             {/* Global "Now" Indicator */}
-            {isTodaySelected && !activeItemInDisplay && schedule?.items.length > 0 && T_current >= firstItemStartTime && T_current < lastItemEndTime && (
+            {isTodaySelected && !activeItemInDisplay && firstItemStartTime && lastItemEndTime && (
               <div 
-                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress animate-pulse-active-row" // Added pulse-active-row
+                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress" // Removed pulse-active-row
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> {/* Adjust top for label positioning */}

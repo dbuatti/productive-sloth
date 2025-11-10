@@ -71,12 +71,11 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    // Compare the *value* of the new anchor with the *current state value*
-    // to prevent unnecessary updates and break the re-render loop.
-    const currentAnchorTime = tAnchorForSelectedDay ? tAnchorForSelectedDay.getTime() : null;
-    const newAnchorTime = newAnchorDate ? newAnchorDate.getTime() : null;
+    // Compare the ISO string representation to ensure we only update if the value has changed
+    const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
+    const newAnchorISO = newAnchorDate?.toISOString() || null;
 
-    if (currentAnchorTime !== newAnchorTime) {
+    if (currentAnchorISO !== newAnchorISO) {
       setTAnchorForSelectedDay(newAnchorDate);
       console.log(`SchedulerPage: Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
     } else {
@@ -88,15 +87,25 @@ const SchedulerPage: React.FC = () => {
   useEffect(() => {
     console.log("SchedulerPage: calculateSchedule useEffect triggered.");
     console.log("SchedulerPage: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time })));
-    console.log("SchedulerPage: Current tAnchorForSelectedDay before calculating schedule:", tAnchorForSelectedDay?.toISOString()); // Added log here
+    console.log("SchedulerPage: Current tAnchorForSelectedDay before calculating schedule:", tAnchorForSelectedDay?.toISOString());
 
     const selectedDayDate = parseISO(selectedDay);
-    const effectiveTAnchor = tAnchorForSelectedDay || (dbScheduledTasks.length > 0 ? startOfDay(selectedDayDate) : null);
+    let effectiveTAnchorForCalculation: Date | null = tAnchorForSelectedDay;
 
-    console.log("SchedulerPage: Calling calculateSchedule with T_Anchor for selected day:", effectiveTAnchor?.toISOString());
-    const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor);
+    if (effectiveTAnchorForCalculation === null) {
+      if (isSameDay(selectedDayDate, T_current)) {
+        // If no anchor is set and it's today, use the current time as the starting point for ad-hoc tasks
+        effectiveTAnchorForCalculation = T_current;
+      } else {
+        // If no anchor is set and it's not today, use the start of the selected day
+        effectiveTAnchorForCalculation = startOfDay(selectedDayDate);
+      }
+    }
+    
+    console.log("SchedulerPage: Calling calculateSchedule with T_Anchor for selected day:", effectiveTAnchorForCalculation?.toISOString());
+    const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchorForCalculation);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay]); // Keep tAnchorForSelectedDay as a dependency here
+  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current]); // T_current is a dependency here
 
   const handleCommand = async (input: string) => {
     if (!user) {

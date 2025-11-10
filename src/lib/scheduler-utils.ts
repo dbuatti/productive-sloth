@@ -118,6 +118,15 @@ interface ParsedTaskInput {
   endTime?: Date;
 }
 
+// Helper to parse time flexibly
+export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date => {
+  let parsedDate = parse(timeString, 'h:mm a', referenceDate);
+  if (isNaN(parsedDate.getTime())) {
+    parsedDate = parse(timeString, 'h a', referenceDate);
+  }
+  return parsedDate;
+};
+
 export const parseTaskInput = (input: string): ParsedTaskInput | null => {
   // Regex for "Task Name Duration [BreakDuration]"
   const durationRegex = /^(.*?)\s+(\d+)(?:\s+(\d+))?$/;
@@ -132,6 +141,8 @@ export const parseTaskInput = (input: string): ParsedTaskInput | null => {
     }
   }
 
+  const now = new Date();
+
   // Regex for "Task Name HH:MM AM/PM - HH:MM AM/PM"
   const timeRegexNameFirst = /^(.*?)\s+(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))$/i;
   const timeMatchNameFirst = input.match(timeRegexNameFirst);
@@ -141,9 +152,8 @@ export const parseTaskInput = (input: string): ParsedTaskInput | null => {
     const startTimeStr = timeMatchNameFirst[2].trim();
     const endTimeStr = timeMatchNameFirst[4].trim();
 
-    const now = new Date();
-    const startTime = parse(startTimeStr, 'h:mm a', now);
-    const endTime = parse(endTimeStr, 'h:mm a', now);
+    const startTime = parseFlexibleTime(startTimeStr, now);
+    const endTime = parseFlexibleTime(endTimeStr, now);
 
     if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
       return { name, startTime, endTime };
@@ -157,11 +167,10 @@ export const parseTaskInput = (input: string): ParsedTaskInput | null => {
   if (timeMatchTimeFirst) {
     const startTimeStr = timeMatchTimeFirst[1].trim();
     const endTimeStr = timeMatchTimeFirst[3].trim();
-    const name = timeMatchTimeFirst[5].trim(); // This should be index 5 for the last capturing group
+    const name = timeMatchTimeFirst[5].trim();
 
-    const now = new Date();
-    const startTime = parse(startTimeStr, 'h:mm a', now);
-    const endTime = parse(endTimeStr, 'h:mm a', now);
+    const startTime = parseFlexibleTime(startTimeStr, now);
+    const endTime = parseFlexibleTime(endTimeStr, now);
 
     if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
       return { name, startTime, endTime };

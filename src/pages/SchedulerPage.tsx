@@ -10,6 +10,7 @@ import {
   parseInjectionCommand,
   parseCommand,
   formatDateTime,
+  parseFlexibleTime, // Import the new helper
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -151,8 +152,8 @@ const SchedulerPage: React.FC = () => {
         success = true;
       } else if (injectCommand.startTime && injectCommand.endTime) {
         const selectedDayDate = parseISO(selectedDay);
-        const tempStartTime = parse(injectCommand.startTime, 'h:mm a', selectedDayDate);
-        const tempEndTime = parse(injectCommand.endTime, 'h:mm a', selectedDayDate);
+        const tempStartTime = parseFlexibleTime(injectCommand.startTime, selectedDayDate);
+        const tempEndTime = parseFlexibleTime(injectCommand.endTime, selectedDayDate);
 
         let startTime = setHours(setMinutes(startOfDay(selectedDayDate), tempStartTime.getMinutes()), tempStartTime.getHours());
         let endTime = setHours(setMinutes(startOfDay(selectedDayDate), tempEndTime.getMinutes()), tempEndTime.getHours());
@@ -260,8 +261,8 @@ const SchedulerPage: React.FC = () => {
         return;
       }
       const selectedDayDate = parseISO(selectedDay);
-      const tempStartTime = parse(injectionStartTime, 'h:mm a', selectedDayDate);
-      const tempEndTime = parse(injectionEndTime, 'h:mm a', selectedDayDate);
+      const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayDate);
+      const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayDate);
 
       let startTime = setHours(setMinutes(startOfDay(selectedDayDate), tempStartTime.getMinutes()), tempStartTime.getHours());
       let endTime = setHours(setMinutes(startOfDay(selectedDayDate), tempEndTime.getMinutes()), tempEndTime.getHours());

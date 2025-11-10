@@ -325,48 +325,43 @@ export const calculateSchedule = (
   const selectedDayDate = startOfDay(parseISO(selectedDateString));
   const isSelectedDayToday = isSameDay(selectedDayDate, currentMoment);
 
-  // Determine the initial placement cursor for ad-hoc tasks
+  // Sort ad-hoc tasks by their creation time to maintain the order they were added
+  adHocTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  // Determine the initial adHocPlacementCursor
   if (explicitTAnchor) { // If an explicit anchor is provided (from localStorage or set on first task)
     adHocPlacementCursor = explicitTAnchor;
-  } else {
-    // If no explicit anchor, determine a default starting point
-    if (fixedAppointments.length > 0) {
-      // Start after the latest fixed appointment
-      const latestFixedEndTime = fixedAppointments.reduce((latest, appt) => {
-          const scheduledDateLocal = startOfDay(parseISO(appt.scheduled_date));
-          const utcEnd = parseISO(appt.end_time!);
-          let currentEndTime = setHours(setMinutes(scheduledDateLocal, utcEnd.getUTCMinutes()), utcEnd.getUTCHours());
-          
-          const utcStart = parseISO(appt.start_time!);
-          let currentStartTime = setHours(setMinutes(scheduledDateLocal, utcStart.getUTCMinutes()), utcStart.getUTCHours());
-          if (currentEndTime.getTime() < currentStartTime.getTime()) { // Check for rollover
-              currentEndTime = addDays(currentEndTime, 1);
-          }
-          return currentEndTime.getTime() > latest.getTime() ? currentEndTime : latest;
-      }, selectedDayDate); // Initialize with start of selected day
-      adHocPlacementCursor = latestFixedEndTime;
-    } else if (isSelectedDayToday) {
-      // If today and no fixed appointments, start from the current moment
-      adHocPlacementCursor = currentMoment;
-    } else {
-      // If future day and no fixed appointments, start from the beginning of the day
-      adHocPlacementCursor = selectedDayDate;
-    }
+  } else if (fixedAppointments.length > 0) { // If no explicit anchor, but there are fixed appointments
+    const latestFixedEndTime = fixedAppointments.reduce((latest, appt) => {
+        const scheduledDateLocal = startOfDay(parseISO(appt.scheduled_date));
+        const utcEnd = parseISO(appt.end_time!);
+        let currentEndTime = setHours(setMinutes(scheduledDateLocal, utcEnd.getUTCMinutes()), utcEnd.getUTCHours());
+        
+        const utcStart = parseISO(appt.start_time!);
+        let currentStartTime = setHours(setMinutes(scheduledDateLocal, utcStart.getUTCMinutes()), utcStart.getUTCHours());
+        if (currentEndTime.getTime() < currentStartTime.getTime()) { // Check for rollover
+            currentEndTime = addDays(currentEndTime, 1);
+        }
+        return currentEndTime.getTime() > latest.getTime() ? currentEndTime : latest;
+    }, selectedDayDate); // Initialize with start of selected day
+    
+    adHocPlacementCursor = latestFixedEndTime;
+
+  } else { // No explicit anchor, no fixed appointments
+    // Default to current moment if today, otherwise start of day
+    adHocPlacementCursor = isSelectedDayToday ? currentMoment : selectedDayDate;
   }
 
-  // Ensure adHocPlacementCursor is not before the start of the selected day
+  // Safeguard: Ensure adHocPlacementCursor is not before the start of the selected day
   if (adHocPlacementCursor.getTime() < selectedDayDate.getTime()) {
     adHocPlacementCursor = selectedDayDate;
   }
   
-  // Safeguard: If the adHocPlacementCursor is still in the past relative to the currentMoment (and it's today),
-  // then advance it to the currentMoment. This is the core "real-time" adjustment.
+  // CRITICAL: If it's today, and the determined adHocPlacementCursor is in the past,
+  // advance it to the currentMoment. This ensures new ad-hoc tasks don't start in the past.
   if (isSelectedDayToday && adHocPlacementCursor.getTime() < currentMoment.getTime()) {
       adHocPlacementCursor = currentMoment;
   }
-
-  // Sort ad-hoc tasks by their creation time to maintain the order they were added
-  adHocTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   adHocTasks.forEach(task => {
     let proposedStartTime = adHocPlacementCursor;

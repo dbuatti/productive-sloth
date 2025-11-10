@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo } from 'lucide-react';
-import { startOfDay, addHours, addMinutes } from 'date-fns';
+import { startOfDay, addHours, addMinutes, intervalToDuration, formatDuration } from 'date-fns';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -165,17 +165,36 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const isActive = T_current >= freeTimeItem.startTime && T_current < freeTimeItem.endTime;
       const isHighlightedByNowCard = activeItemId === freeTimeItem.id;
 
+      let displayMessage = freeTimeItem.message; // Default to total duration
+      if (isActive) {
+        const remainingDurationObj = intervalToDuration({ start: T_current, end: freeTimeItem.endTime });
+        const formattedRemaining = formatDuration(remainingDurationObj, {
+          format: ['hours', 'minutes'],
+          delimiter: ' ',
+          zero: false,
+          locale: {
+            formatDistance: (token, count) => {
+              if (token === 'xMinutes') return `${count}m`;
+              if (token === 'xHours') return `${count}h`;
+              return `${count}${token.charAt(0)}`;
+            },
+          },
+        });
+        displayMessage = `Remaining: ${formattedRemaining || '0m'}`;
+      }
+
       return (
         <React.Fragment key={freeTimeItem.id}>
           <div></div>
           <div 
             className={cn(
-              "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
+              "relative flex items-center justify-center text-muted-foreground italic text-sm rounded-lg shadow-sm transition-all duration-200 ease-in-out",
               isHighlightedByNowCard ? "opacity-50 border-border" :
               isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70"
             )}
+            style={getBubbleHeightStyle(freeTimeItem.duration)} // Apply dynamic height
           >
-            {freeTimeItem.message}
+            {displayMessage}
             {isActive && (
               <>
                 <div 

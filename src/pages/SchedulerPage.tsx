@@ -123,8 +123,7 @@ const SchedulerPage: React.FC = () => {
       // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc task, set it NOW
       if (!tAnchorForSelectedDay && isAdHocTask && isSameDay(parseISO(selectedDay), new Date())) {
         const newAnchor = new Date();
-        setTAnchorForSelectedDay(newAnchor); // Update state
-        localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
+        localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Only update localStorage
         console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleCommand to:`, newAnchor.toISOString());
       }
 
@@ -169,8 +168,7 @@ const SchedulerPage: React.FC = () => {
       // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
       if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), new Date())) {
         const newAnchor = new Date();
-        setTAnchorForSelectedDay(newAnchor); // Update state
-        localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
+        localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Only update localStorage
         console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleCommand (injection) to:`, newAnchor.toISOString());
       }
 
@@ -209,8 +207,8 @@ const SchedulerPage: React.FC = () => {
       switch (command.type) {
         case 'clear':
           await clearScheduledTasks();
-          setTAnchorForSelectedDay(null); // Reset state
-          localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
+          localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`); // Only update localStorage
+          setTAnchorForSelectedDay(null); // Reset state directly here as it's a clear action
           console.log(`SchedulerPage: tAnchorForSelectedDay reset to null for ${formattedSelectedDay} via clear command.`);
           success = true;
           break;
@@ -271,8 +269,7 @@ const SchedulerPage: React.FC = () => {
     // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
     if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), new Date())) {
       const newAnchor = new Date();
-      setTAnchorForSelectedDay(newAnchor); // Update state
-      localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
+      localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Only update localStorage
       console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleInjectionSubmit to:`, newAnchor.toISOString());
     }
 

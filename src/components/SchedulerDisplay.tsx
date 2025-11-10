@@ -260,12 +260,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div
             ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
             className={cn(
-              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in overflow-hidden",
-              "border-2 border-white", // Added 2px white border for fixed appointments
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden", // Changed shadow-sm to shadow-md
+              "border-2 border-foreground/20", // Changed border-white to border-foreground/20
               isHighlightedByNowCard ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" : // Use live-progress for active border
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Faded for past items
-              "hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
+              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary" // Stronger hover shadow and border
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }}
           >

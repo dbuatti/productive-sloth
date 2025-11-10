@@ -120,27 +120,30 @@ interface ParsedTaskInput {
 
 // Helper to parse time flexibly
 export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date => {
-  let parsedDate = parse(timeString, 'h:mm a', referenceDate);
-  if (!isNaN(parsedDate.getTime())) {
-    console.log(`parseFlexibleTime: Attempting 'h:mm a' for '${timeString}'. Result: ${parsedDate.toISOString()}`);
-    return parsedDate;
+  const formatsToTry = [
+    'h:mm a', // e.g., "3:45 PM"
+    'h a',    // e.g., "3 PM"
+    'h:mma',  // e.g., "3:45pm"
+    'ha',     // e.g., "3pm"
+  ];
+
+  for (const formatStr of formatsToTry) {
+    const parsedDate = parse(timeString, formatStr, referenceDate);
+    if (!isNaN(parsedDate.getTime())) {
+      console.log(`parseFlexibleTime: Successfully parsed '${timeString}' with format '${formatStr}'. Result: ${parsedDate.toISOString()}`);
+      return parsedDate;
+    }
+    console.log(`parseFlexibleTime: Failed to parse '${timeString}' with format '${formatStr}'.`);
   }
 
-  console.log(`parseFlexibleTime: 'h:mm a' failed for '${timeString}'. Trying 'h a'.`);
-  parsedDate = parse(timeString, 'h a', referenceDate);
-  if (!isNaN(parsedDate.getTime())) {
-    console.log(`parseFlexibleTime: Attempting 'h a' for '${timeString}'. Result: ${parsedDate.toISOString()}`);
-    return parsedDate;
-  }
-
-  console.log(`parseFlexibleTime: Both 'h:mm a' and 'h a' failed for '${timeString}'. Returning invalid Date.`);
+  console.log(`parseFlexibleTime: All formats failed for '${timeString}'. Returning invalid Date.`);
   return new Date('Invalid Date'); // Explicitly return an invalid date
 };
 
 export const parseTaskInput = (input: string): ParsedTaskInput | null => {
   const now = new Date();
   // Regex to find a time range pattern anywhere in the string
-  const timeRangePattern = /(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))/i;
+  const timeRangePattern = /(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))/i;
   const timeRangeMatch = input.match(timeRangePattern);
 
   if (timeRangeMatch) {

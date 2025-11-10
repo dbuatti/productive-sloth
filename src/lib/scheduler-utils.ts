@@ -22,6 +22,10 @@ const EMOJI_MAP: { [key: string]: string } = {
   'coles': '🛒',
   'woolworths': '🛒',
   'lesson': '🧑‍🏫', // Added 'lesson'
+  'call': '📞', // New: Call emoji
+  'phone': '📱', // New: Phone emoji
+  'text': '💬', // New: Text message emoji
+  'contact': '🤝', // New: Contact/handshake emoji
 };
 
 // New: Map keywords to HSL hue values (0-360)
@@ -45,6 +49,10 @@ const EMOJI_HUE_MAP: { [key: string]: number } = {
   'coles': 180, // Added 'coles' with grocery hue
   'woolworths': 180, // Added 'woolworths' with grocery hue
   'lesson': 260, // Added 'lesson' hue (violet/purple for learning)
+  'call': 250, // New: Hue for calls (blue/purple)
+  'phone': 255, // New: Hue for phone (blue/purple)
+  'text': 245, // New: Hue for text (blue/purple)
+  'contact': 290, // New: Hue for contact (purple/magenta)
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {

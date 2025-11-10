@@ -75,31 +75,32 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    // Only set a default anchor to T_current if:
-    // 1. There's no saved anchor for this day.
-    // 2. There are no existing scheduled tasks for this day (meaning it's a fresh schedule).
-    // 3. The selected day is today.
-    if (!newAnchorDate && dbScheduledTasks.length === 0 && isSelectedDayToday) {
-      newAnchorDate = T_current;
-    } else if (!newAnchorDate && !isSelectedDayToday && selectedDayAsDate.getTime() > T_current.getTime()) {
-      // If no saved anchor, not today, but in the future, default to start of that day
-      newAnchorDate = startOfDay(selectedDayAsDate);
+    // If no saved anchor, determine a default based on the selected day
+    if (!newAnchorDate) {
+      if (isSelectedDayToday) {
+        newAnchorDate = T_current;
+      } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
+        newAnchorDate = startOfDay(selectedDayAsDate);
+      }
+      // If selected day is in the past, newAnchorDate remains null (no default anchor for past days)
     }
-    // If there are existing tasks, and no saved anchor, newAnchorDate remains null.
-    // calculateSchedule will then determine the adHocCursor based on existing fixed appointments
-    // or default to start of day/current moment if no fixed appointments.
 
-    // Only update state if the value has actually changed
+    // Update state if the value has changed
     const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
     const newAnchorISO = newAnchorDate?.toISOString() || null;
 
     if (currentAnchorISO !== newAnchorISO) {
       setTAnchorForSelectedDay(newAnchorDate);
+      // If we just set a new anchor based on T_current or startOfDay, save it to localStorage
+      // This ensures persistence for the *first* time an anchor is determined for a day.
+      if (newAnchorDate && !savedAnchorString) { // Only save if it's a newly determined anchor, not one loaded from storage
+         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchorDate.toISOString());
+      }
       console.log(`SchedulerPage: Initialized/Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
     } else {
       console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
     }
-  }, [formattedSelectedDay, T_current, dbScheduledTasks.length]); // Add dbScheduledTasks.length to dependencies
+  }, [formattedSelectedDay, T_current]); // Removed dbScheduledTasks.length from dependencies
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {

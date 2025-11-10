@@ -54,18 +54,14 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   }, [inputValue, allTasks, commonCommands]);
 
   useEffect(() => {
-    if (suggestions.length > 0 && inputValue) {
-      setShowSuggestions(true);
-      setSelectedIndex(-1);
-      // Explicitly re-focus the input when suggestions appear
-      // This is a common workaround for focus issues with popovers/dropdowns
-      if (inputRef.current && document.activeElement !== inputRef.current) {
-        inputRef.current.focus();
-      }
-    } else {
-      setShowSuggestions(false);
+    if (showSuggestions && inputRef.current && document.activeElement !== inputRef.current) {
+      // Use a small timeout to ensure it runs after any potential blur events from the popover opening
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0); // A timeout of 0ms defers it to the end of the current event loop
+      return () => clearTimeout(timer);
     }
-  }, [suggestions, inputValue]); // Depend on suggestions and inputValue
+  }, [showSuggestions, inputValue]); // Depend on showSuggestions and inputValue
 
   const handleSelectSuggestion = (suggestion: Suggestion) => {
     if (suggestion.type === 'command' && suggestion.name === 'clear') {
@@ -121,6 +117,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             placeholder={placeholder}
             disabled={isLoading}
             className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
+            onPointerDown={(e) => e.preventDefault()} // Prevent pointer down from stealing focus
           />
         </PopoverTrigger>
         {showSuggestions && (

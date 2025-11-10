@@ -79,47 +79,50 @@ const SchedulerPage: React.FC = () => {
     const isSelectedDayToday = isSameDay(selectedDayAsDate, T_current);
     const localStorageKey = `scheduler_T_Anchor_${formattedSelectedDay}`;
 
+    let calculatedAnchorDateFromStorage: Date | null = null;
     const savedAnchorString = localStorage.getItem(localStorageKey);
-    let newAnchorDate: Date | null = null;
 
     if (savedAnchorString) {
       const parsedDate = new Date(savedAnchorString);
       if (!isNaN(parsedDate.getTime())) {
-        newAnchorDate = parsedDate;
+        calculatedAnchorDateFromStorage = parsedDate;
       }
     }
 
-    // Determine the ideal anchor based on current state and selected day
-    let idealAnchor: Date;
+    let newAnchorCandidate: Date;
     if (isSelectedDayToday) {
-      idealAnchor = T_current;
+      newAnchorCandidate = T_current;
     } else {
-      idealAnchor = startOfDay(selectedDayAsDate);
+      newAnchorCandidate = startOfDay(selectedDayAsDate);
     }
 
-    // If there's a saved anchor, use it unless it's today and the ideal anchor is later
-    if (newAnchorDate && isSameDay(newAnchorDate, selectedDayAsDate)) { // Corrected typo here
-        if (isSelectedDayToday && isBefore(newAnchorDate, T_current)) {
+    let finalAnchorToSet: Date | null = null;
+
+    if (calculatedAnchorDateFromStorage && isSameDay(calculatedAnchorDateFromStorage, selectedDayAsDate)) {
+        // If there's a saved anchor for the current selected day
+        if (isSelectedDayToday && isBefore(calculatedAnchorDateFromStorage, T_current)) {
             // If it's today and saved anchor is in the past, update to current time
-            newAnchorDate = T_current;
+            finalAnchorToSet = T_current;
+        } else {
+            // Otherwise, stick with the saved anchor
+            finalAnchorToSet = calculatedAnchorDateFromStorage;
         }
-        // Otherwise, stick with the saved anchor
     } else {
         // No saved anchor for this day, or saved anchor is for a different day
-        newAnchorDate = idealAnchor;
+        finalAnchorToSet = newAnchorCandidate;
     }
 
-    // Only update state if the *value* of the anchor has truly changed
+    // Compare by timestamp to avoid re-rendering if only object reference changes
     const currentAnchorTime = tAnchorForSelectedDay?.getTime() || null;
-    const newAnchorTime = newAnchorDate?.getTime() || null;
+    const finalAnchorToSetTime = finalAnchorToSet?.getTime() || null;
 
-    if (currentAnchorTime !== newAnchorTime) {
-      setTAnchorForSelectedDay(newAnchorDate);
-      if (newAnchorDate) {
-         localStorage.setItem(localStorageKey, newAnchorDate.toISOString());
+    if (currentAnchorTime !== finalAnchorToSetTime) {
+      setTAnchorForSelectedDay(finalAnchorToSet);
+      if (finalAnchorToSet) {
+         localStorage.setItem(localStorageKey, finalAnchorToSet.toISOString());
       }
     }
-  }, [formattedSelectedDay, T_current]); // Removed tAnchorForSelectedDay from dependencies
+  }, [formattedSelectedDay, T_current]); // tAnchorForSelectedDay is NOT in dependencies.
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
@@ -161,13 +164,13 @@ const SchedulerPage: React.FC = () => {
     const taskScheduledDate = formattedSelectedDay;
 
     // Get workday boundaries from profile
-    const selectedDayDate = parseISO(selectedDay);
+    const selectedDayAsDate = parseISO(selectedDay);
     const workdayStartTime = profile.default_auto_schedule_start_time 
-      ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_start_time) 
-      : startOfDay(selectedDayDate);
+      ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
+      : startOfDay(selectedDayAsDate);
     let workdayEndTime = profile.default_auto_schedule_end_time 
-      ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_end_time) 
-      : addHours(startOfDay(selectedDayDate), 17); // Default to 5 PM
+      ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_end_time) 
+      : addHours(startOfDay(selectedDayAsDate), 17); // Default to 5 PM
 
     // Ensure workdayEndTime is after workdayStartTime, potentially rolling over to next day
     if (isBefore(workdayEndTime, workdayStartTime)) {
@@ -176,16 +179,16 @@ const SchedulerPage: React.FC = () => {
 
     // Determine the effective start for placing new tasks (cannot be in the past for today)
     let effectiveWorkdayStart = workdayStartTime;
-    if (isSameDay(selectedDayDate, T_current) && isBefore(workdayStartTime, T_current)) {
+    if (isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTime, T_current)) {
       effectiveWorkdayStart = T_current;
     }
 
     // Get existing scheduled tasks for the day, sorted by start time
     const existingAppointments = dbScheduledTasks
-      .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayDate))
+      .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayAsDate))
       .map(task => ({
-        start: setTimeOnDate(selectedDayDate, format(parseISO(task.start_time!), 'HH:mm')),
-        end: setTimeOnDate(selectedDayDate, format(parseISO(task.end_time!), 'HH:mm')),
+        start: setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm')),
+        end: setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm')),
       }))
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
@@ -237,8 +240,8 @@ const SchedulerPage: React.FC = () => {
         }
 
       } else { // This is a timed event (e.g., "Meeting 11am - 12pm")
-        let startTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
-        let endTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
+        let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
+        let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
         
         if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
           showError("Invalid time format for start/end times.");
@@ -246,7 +249,7 @@ const SchedulerPage: React.FC = () => {
           return;
         }
 
-        if (isSameDay(selectedDayDate, T_current) && isBefore(startTime, T_current)) {
+        if (isSameDay(selectedDayAsDate, T_current) && isBefore(startTime, T_current)) {
           startTime = addDays(startTime, 1);
           endTime = addDays(endTime, 1);
           showSuccess(`Scheduled "${parsedInput.name}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
@@ -379,15 +382,15 @@ const SchedulerPage: React.FC = () => {
 
     let success = false;
     const taskScheduledDate = formattedSelectedDay;
-    const selectedDayDate = parseISO(selectedDay);
+    const selectedDayAsDate = parseISO(selectedDay);
 
     // Get workday boundaries from profile
     const workdayStartTime = profile.default_auto_schedule_start_time 
-      ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_start_time) 
-      : startOfDay(selectedDayDate);
+      ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
+      : startOfDay(selectedDayAsDate);
     let workdayEndTime = profile.default_auto_schedule_end_time 
-      ? setTimeOnDate(selectedDayDate, profile.default_auto_schedule_end_time) 
-      : addHours(startOfDay(selectedDayDate), 17); // Default to 5 PM
+      ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_end_time) 
+      : addHours(startOfDay(selectedDayAsDate), 17); // Default to 5 PM
 
     // Ensure workdayEndTime is after workdayStartTime, potentially rolling over to next day
     if (isBefore(workdayEndTime, workdayStartTime)) {
@@ -396,16 +399,16 @@ const SchedulerPage: React.FC = () => {
 
     // Determine the effective start for placing new tasks (cannot be in the past for today)
     let effectiveWorkdayStart = workdayStartTime;
-    if (isSameDay(selectedDayDate, T_current) && isBefore(workdayStartTime, T_current)) {
+    if (isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTime, T_current)) {
       effectiveWorkdayStart = T_current;
     }
 
     // Get existing scheduled tasks for the day, sorted by start time
     const existingAppointments = dbScheduledTasks
-      .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayDate))
+      .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayAsDate))
       .map(task => ({
-        start: setTimeOnDate(selectedDayDate, format(parseISO(task.start_time!), 'HH:mm')),
-        end: setTimeOnDate(selectedDayDate, format(parseISO(task.end_time!), 'HH:mm')),
+        start: setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm')),
+        end: setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm')),
       }))
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
@@ -415,11 +418,11 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayDate);
-      const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayDate);
+      const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayAsDate);
+      const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayAsDate);
 
-      let startTime = setHours(setMinutes(startOfDay(selectedDayDate), tempStartTime.getMinutes()), tempStartTime.getHours());
-      let endTime = setHours(setMinutes(startOfDay(selectedDayDate), tempEndTime.getMinutes()), tempEndTime.getHours());
+      let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempStartTime.getMinutes()), tempStartTime.getHours());
+      let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempEndTime.getMinutes()), tempEndTime.getHours());
 
       if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
         showError("Invalid time format for start/end times.");
@@ -427,7 +430,7 @@ const SchedulerPage: React.FC = () => {
         return;
       }
 
-      if (isSameDay(selectedDayDate, T_current) && isBefore(startTime, T_current)) {
+      if (isSameDay(selectedDayAsDate, T_current) && isBefore(startTime, T_current)) {
         startTime = addDays(startTime, 1);
         endTime = addDays(endTime, 1);
         showSuccess(`Scheduled "${injectionPrompt.taskName}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
@@ -695,7 +698,7 @@ const SchedulerPage: React.FC = () => {
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule
             </AlertDialogAction>
-          </AlertDialogFooter>
+          </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

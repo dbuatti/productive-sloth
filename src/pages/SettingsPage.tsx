@@ -229,8 +229,8 @@ const SettingsPage: React.FC = () => {
       </h1>
       
       {/* Profile Form */}
-      <Form {...form} key={user.id}> {/* Added key prop here */}
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" key={user.id}> {/* Moved key prop here */}
           {/* Personal Information Card */}
           <Card className="animate-hover-lift">
             <CardHeader>

@@ -22,7 +22,6 @@ interface SchedulerInputProps {
 
 const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue }) => {
   const { allTasks } = useTasks();
-  // Removed showSuggestions state, now controlled by inputValue
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -75,7 +74,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     } else {
       setInputValue(suggestion.name);
     }
-    // No need to explicitly setShowSuggestions(false) as it's now controlled by inputValue
+    setSelectedIndex(-1); // Reset selected index
     inputRef.current?.focus();
   };
 
@@ -92,7 +91,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isPopoverOpen) { // Check isPopoverOpen instead of showSuggestions
+    if (isPopoverOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
@@ -100,7 +99,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
         e.preventDefault();
         setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
       } else if (e.key === 'Enter' && selectedIndex !== -1) {
-        e.preventDefault();
+        e.preventDefault(); // Prevent form submission
         handleSelectSuggestion(suggestions[selectedIndex]);
       }
     }

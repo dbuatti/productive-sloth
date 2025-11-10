@@ -76,6 +76,11 @@ const SchedulerPage: React.FC = () => {
   // Keyboard navigation for days
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Prevent navigation if an input or textarea is focused
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
       const currentSelectedDate = parseISO(selectedDay);
       let newDate: Date;
 

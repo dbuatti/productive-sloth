@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem } from '@/types/scheduler';
 
 // --- Constants ---
@@ -240,10 +240,37 @@ export const calculateSchedule = (
   });
 
   // 1. Add Fixed Appointments first, sorted by start time
-  fixedAppointments.sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
+  fixedAppointments.sort((a, b) => {
+    // Ensure sorting is based on the local time for the scheduled date
+    const scheduledDateA = startOfDay(parseISO(a.scheduled_date));
+    const utcStartA = parseISO(a.start_time!);
+    const localTimeA = setHours(setMinutes(scheduledDateA, utcStartA.getUTCMinutes()), utcStartA.getUTCHours());
+
+    const scheduledDateB = startOfDay(parseISO(b.scheduled_date));
+    const utcStartB = parseISO(b.start_time!);
+    const localTimeB = setHours(setMinutes(scheduledDateB, utcStartB.getUTCMinutes()), utcStartB.getUTCHours());
+
+    return localTimeA.getTime() - localTimeB.getTime();
+  });
+
   fixedAppointments.forEach(task => {
-    const startTime = new Date(task.start_time!);
-    const endTime = new Date(task.end_time!);
+    // Get the scheduled_date as a local Date object (e.g., 2025-11-10 00:00:00 local)
+    const scheduledDateLocal = startOfDay(parseISO(task.scheduled_date));
+
+    // Parse the ISO strings as UTC to get the UTC components
+    const utcStart = parseISO(task.start_time!);
+    const utcEnd = parseISO(task.end_time!);
+
+    // Construct new local Date objects for the scheduledDateLocal, using the time components from the UTC times
+    // This ensures the time is correct for the scheduled day in the local timezone.
+    let startTime = setHours(setMinutes(scheduledDateLocal, utcStart.getUTCMinutes()), utcStart.getUTCHours());
+    let endTime = setHours(setMinutes(scheduledDateLocal, utcEnd.getUTCMinutes()), utcEnd.getUTCHours());
+
+    // Handle potential rollover to next day if end time is before start time on the same scheduled_date
+    if (endTime.getTime() < startTime.getTime()) {
+        endTime = addDays(endTime, 1);
+    }
+
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
     scheduledItems.push({
       id: task.id, type: 'task', name: task.name, duration: duration,
@@ -254,16 +281,25 @@ export const calculateSchedule = (
   });
 
   // 2. Schedule Ad-Hoc Tasks sequentially from T_Anchor, avoiding fixed appointments
-  // adHocCursor only advances based on ad-hoc tasks and their breaks.
-  // If T_Anchor is null, but there are fixed appointments, start ad-hoc tasks after the last fixed appointment.
   let adHocCursor: Date | null = T_Anchor; 
 
   if (!adHocCursor && fixedAppointments.length > 0) {
-    adHocCursor = new Date(fixedAppointments[fixedAppointments.length - 1].end_time!);
+    // Find the latest end time among the fixed appointments (which are now correctly local)
+    const latestFixedEndTime = fixedAppointments.reduce((latest, appt) => {
+        const scheduledDateLocal = startOfDay(parseISO(appt.scheduled_date));
+        const utcEnd = parseISO(appt.end_time!);
+        let currentEndTime = setHours(setMinutes(scheduledDateLocal, utcEnd.getUTCMinutes()), utcEnd.getUTCHours());
+        
+        const utcStart = parseISO(appt.start_time!);
+        let currentStartTime = setHours(setMinutes(scheduledDateLocal, utcStart.getUTCMinutes()), utcStart.getUTCHours());
+        if (currentEndTime.getTime() < currentStartTime.getTime()) { // Check for rollover
+            currentEndTime = addDays(currentEndTime, 1);
+        }
+
+        return currentEndTime.getTime() > latest.getTime() ? currentEndTime : latest;
+    }, startOfDay(parseISO(dbTasks[0].scheduled_date))); // Initialize with start of day of first task's scheduled date
+    adHocCursor = latestFixedEndTime;
   }
-  // If still no adHocCursor and there are ad-hoc tasks, this means T_Anchor was null and no fixed appointments.
-  // This case should ideally be handled by SchedulerPage passing `startOfDay(selectedDay)` as `T_Anchor`.
-  // If it still happens, ad-hoc tasks won't be placed.
 
   // Sort ad-hoc tasks by their creation time to maintain the order they were added
   adHocTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -282,12 +318,20 @@ export const calculateSchedule = (
     while (overlapFound) {
       overlapFound = false;
       for (const fixedAppt of fixedAppointments) {
-        const fixedApptStart = new Date(fixedAppt.start_time!).getTime();
-        const fixedApptEnd = new Date(fixedAppt.end_time!).getTime();
+        // Use the correctly constructed local times for fixed appointments
+        const scheduledDateLocal = startOfDay(parseISO(fixedAppt.scheduled_date));
+        const utcFixedStart = parseISO(fixedAppt.start_time!);
+        const utcFixedEnd = parseISO(fixedAppt.end_time!);
+        
+        let fixedApptStart = setHours(setMinutes(scheduledDateLocal, utcFixedStart.getUTCMinutes()), utcFixedStart.getUTCHours());
+        let fixedApptEnd = setHours(setMinutes(scheduledDateLocal, utcFixedEnd.getUTCMinutes()), utcFixedEnd.getUTCHours());
+        if (fixedApptEnd.getTime() < fixedApptStart.getTime()) {
+            fixedApptEnd = addDays(fixedApptEnd, 1);
+        }
 
         // Check if proposed ad-hoc task overlaps with fixed appointment
         if (
-          (proposedStartTime.getTime() < fixedApptEnd && proposedEndTime.getTime() > fixedApptStart)
+          (proposedStartTime.getTime() < fixedApptEnd.getTime() && proposedEndTime.getTime() > fixedApptStart.getTime())
         ) {
           // Overlap detected. Shift ad-hoc task to end immediately after the fixed appointment.
           proposedStartTime = new Date(fixedApptEnd);

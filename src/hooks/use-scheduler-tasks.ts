@@ -367,7 +367,9 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
       // Remove duration from insert payload as it's no longer in the table
-      const { duration, ...taskToInsert } = { ...newTask, user_id: userId }; 
+      // The `newTask` already conforms to `NewDBScheduledTask` which doesn't have `duration`.
+      // So, we can directly spread `newTask` and add `user_id`.
+      const taskToInsert = { ...newTask, user_id: userId }; 
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {

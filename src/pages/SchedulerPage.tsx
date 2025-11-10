@@ -114,6 +114,7 @@ const SchedulerPage: React.FC = () => {
     removeScheduledTask, 
     clearScheduledTasks,
     datesWithTasks,
+    isLoadingDatesWithTasks, // Use this loading state
     retiredTasks, // NEW: Get retired tasks
     isLoadingRetiredTasks, // NEW: Get loading state for retired tasks
     retireTask, // NEW: Retire task mutation
@@ -729,6 +730,7 @@ const SchedulerPage: React.FC = () => {
         selectedDay={selectedDay} 
         setSelectedDay={setSelectedDay} 
         datesWithTasks={datesWithTasks} 
+        isLoadingDatesWithTasks={isLoadingDatesWithTasks} // Pass loading state
       />
 
       <Card className="animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}

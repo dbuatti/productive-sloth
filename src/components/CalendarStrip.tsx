@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { format, addDays, isSameDay, isToday, parseISO, subWeeks, addWeeks, subDays } from 'date-fns'; // Added subDays
+import { format, addDays, isSameDay, isToday, parseISO, subWeeks, addWeeks, subDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { CalendarDays, CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react'; // Import Chevron icons
+import { CalendarDays, CalendarCheck, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'; // Import Chevron icons, added Loader2
 
 interface CalendarStripProps {
   selectedDay: string; // Changed to string
   setSelectedDay: (dateString: string) => void; // Changed to accept string
   datesWithTasks: string[]; // Array of 'YYYY-MM-DD' strings for days with tasks
+  isLoadingDatesWithTasks: boolean; // New prop for loading state
 }
 
-const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedDay, datesWithTasks }) => {
+const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedDay, datesWithTasks, isLoadingDatesWithTasks }) => {
   const daysToDisplay = 7; // Show 7 days
   const [weekOffset, setWeekOffset] = useState(0); // 0 for current week, -1 for previous, 1 for next
 
@@ -84,7 +85,11 @@ const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedD
         <CalendarCheck className="h-5 w-5" />
         <span className="text-xs font-semibold mt-1">Today</span>
       </Button>
-      {days.length > 0 ? days : (
+      {isLoadingDatesWithTasks ? (
+        <div className="flex items-center justify-center h-16 w-full">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : days.length > 0 ? days : (
         <div className="text-center text-muted-foreground flex flex-col items-center justify-center py-4">
           <CalendarDays className="h-8 w-8 mb-2" />
           <p className="text-sm">No scheduled tasks for these days.</p>

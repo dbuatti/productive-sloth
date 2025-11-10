@@ -487,7 +487,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     rawTasks, // Converted to RawTaskInput for scheduler logic
     isLoading,
     datesWithTasks, // New: Dates that have scheduled tasks
-    isLoadingDatesWithTasks,
+    isLoadingDatesWithTasks, // NEW: Loading state for dates with tasks
     retiredTasks, // NEW: Retired tasks
     isLoadingRetiredTasks, // NEW: Loading state for retired tasks
     addScheduledTask: addScheduledTaskMutation.mutate,

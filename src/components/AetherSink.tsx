@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo } from 'lucide-react'; // Import RotateCcw icon
+import { Trash2, RotateCcw, ListTodo, Ghost } from 'lucide-react'; // Import RotateCcw icon, added Ghost
 import { RetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -16,17 +16,13 @@ interface AetherSinkProps {
 }
 
 const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onRemoveRetiredTask, isLoading }) => {
-  if (retiredTasks.length === 0 && !isLoading) {
-    return null; // Don't render if no retired tasks
-  }
-
   return (
-    <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift"> {/* Added animate-hover-lift */}
+    <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
       <CardHeader className="pb-2">
         <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
           <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
         </CardTitle>
-        <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" /> {/* Full-width horizontal line divider */}
+        <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />
       </CardHeader>
       <CardContent className="space-y-3">
         {isLoading ? (
@@ -34,12 +30,18 @@ const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onR
             <ListTodo className="h-6 w-6 animate-pulse text-muted-foreground" />
             <span className="ml-2 text-muted-foreground">Loading Aether Sink...</span>
           </div>
+        ) : retiredTasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-sm space-y-2">
+            <Ghost className="h-8 w-8" />
+            <p className="text-base font-semibold">Aether Sink is empty!</p>
+            <p>No tasks have been retired yet.</p>
+          </div>
         ) : (
           <div className="space-y-2">
             {retiredTasks.map((task) => {
               const hue = getEmojiHue(task.name);
               const emoji = assignEmoji(task.name);
-              const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`; // 30% opacity
+              const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
 
               return (
                 <div 
@@ -61,10 +63,10 @@ const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onR
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
-                          variant="secondary" // Changed from ghost
+                          variant="secondary"
                           size="icon" 
                           onClick={() => onRezoneTask(task)}
-                          className="h-7 w-7 text-primary hover:bg-primary/10" // Changed text-foreground to text-primary, added hover
+                          className="h-7 w-7 text-primary hover:bg-primary/10"
                         >
                           <RotateCcw className="h-4 w-4" />
                           <span className="sr-only">Rezone</span>

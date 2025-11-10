@@ -23,7 +23,6 @@ interface SchedulerInputProps {
 const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue }) => {
   const { allTasks } = useTasks();
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [popoverOpen, setPopoverOpen] = useState(false); // New state for popover visibility
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commonCommands = useMemo<Suggestion[]>(() => [
@@ -53,25 +52,23 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     return filteredSuggestions.slice(0, 5);
   }, [inputValue, allTasks, commonCommands]);
 
-  // Effect to control popoverOpen state based on inputValue and suggestions
-  useEffect(() => {
-    if (inputValue.length > 0 && suggestions.length > 0) {
-      setPopoverOpen(true);
-    } else {
-      setPopoverOpen(false);
-    }
-    setSelectedIndex(-1); // Reset selected index when suggestions change
-  }, [inputValue, suggestions]);
+  // Computed value for popover open state
+  const shouldPopoverOpen = inputValue.length > 0 && suggestions.length > 0;
 
-  // Ensure input remains focused when popover opens
+  // Effect to ensure input remains focused when popover opens
   useEffect(() => {
-    if (popoverOpen && inputRef.current && document.activeElement !== inputRef.current) {
+    if (shouldPopoverOpen && inputRef.current && document.activeElement !== inputRef.current) {
+      // Use a small timeout to ensure it runs after any potential blur caused by rendering the popover
       const timer = setTimeout(() => {
         inputRef.current?.focus();
-      }, 0);
+      }, 0); 
       return () => clearTimeout(timer);
     }
-  }, [popoverOpen]);
+    // Reset selected index when suggestions change or popover closes
+    if (!shouldPopoverOpen) {
+      setSelectedIndex(-1);
+    }
+  }, [shouldPopoverOpen]); // Depend on the computed value
 
   const handleSelectSuggestion = (suggestion: Suggestion) => {
     if (suggestion.type === 'command' && suggestion.name === 'clear') {
@@ -83,9 +80,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     } else {
       setInputValue(suggestion.name);
     }
-    setPopoverOpen(false); // Close popover after selection
     setSelectedIndex(-1);
-    inputRef.current?.focus();
+    inputRef.current?.focus(); // Explicitly focus after selection
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -101,7 +97,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (popoverOpen) {
+    if (shouldPopoverOpen) { // Use shouldPopoverOpen here
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
@@ -117,7 +113,11 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full animate-slide-in-up relative">
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen} modal={false}>
+      <Popover open={shouldPopoverOpen} onOpenChange={(open) => {
+        // This onOpenChange handler is primarily for reacting to external close events (like escape key or click outside).
+        // The `open={shouldPopoverOpen}` prop already controls the popover's visibility based on input and suggestions.
+        // If `shouldPopoverOpen` is true, the popover will remain open regardless of this callback trying to close it.
+      }} modal={false}>
         <PopoverTrigger asChild>
           <Input
             ref={inputRef}
@@ -125,13 +125,13 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            onMouseDown={(e) => e.preventDefault()} // Prevent focus loss on input click
+            onMouseDown={(e) => e.preventDefault()} // Keep this to prevent blur on input click
             placeholder={placeholder}
             disabled={isLoading}
             className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
           />
         </PopoverTrigger>
-        {popoverOpen && ( // Render content only if popover is open
+        {shouldPopoverOpen && ( // Render content only if popover is open
           <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-50">
             <ul className="max-h-60 overflow-y-auto">
               {suggestions.map((suggestion, index) => (

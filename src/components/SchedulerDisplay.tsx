@@ -3,7 +3,7 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash } from 'lucide-react'; // Removed Lock icon import
+import { Trash } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO } from 'date-fns';
@@ -213,11 +213,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[6px] bg-live-progress z-20 animate-pulse-glow drop-shadow-md"
+                  className="absolute left-0 right-0 h-[8px] bg-live-progress z-20 drop-shadow-md" // Increased height, removed pulse-glow
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap animate-pulse-glow border border-live-progress/50">
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap drop-shadow-md"> {/* Removed pulse-glow and border */}
                     {formatTime(T_current)}
                   </span>
                 </div>
@@ -264,11 +264,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }}
           >
-            {/* Removed Padlock Icon */}
-            {/* <div className="absolute top-2 left-2 z-20 text-white">
-              <Lock className="h-4 w-4" />
-            </div> */}
-
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">
                 {scheduledItem.emoji}
@@ -306,11 +301,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[6px] bg-live-progress z-20 animate-pulse-glow drop-shadow-md"
+                  className="absolute left-0 right-0 h-[8px] bg-live-progress z-20 drop-shadow-md" // Increased height, removed pulse-glow
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap animate-pulse-glow border border-live-progress/50">
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap drop-shadow-md"> {/* Removed pulse-glow and border */}
                     {formatTime(T_current)}
                   </span>
                 </div>
@@ -332,11 +327,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {/* Global "Now" Indicator */}
             {isTodaySelected && !activeItemInDisplay && firstItemStartTime && lastItemEndTime && (
               <div 
-                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 animate-pulse-glow drop-shadow-md"
+                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 drop-shadow-md" // Removed pulse-glow
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> {/* Adjust top for label positioning */}
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap animate-pulse-glow border border-live-progress/50">
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap drop-shadow-md"> {/* Removed pulse-glow and border */}
                     {formatTime(T_current)}
                   </span>
                 </div>

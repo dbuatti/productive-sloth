@@ -325,9 +325,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <CardContent className="p-0">
           <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
             {/* Global "Now" Indicator */}
-            {isTodaySelected && !activeItemInDisplay && firstItemStartTime && lastItemEndTime && (
+            {isTodaySelected && !activeItemInDisplay && schedule?.items.length > 0 && T_current >= firstItemStartTime && T_current < lastItemEndTime && (
               <div 
-                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress" // Removed pulse-glow
+                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress animate-pulse-active-row" // Added pulse-active-row
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> {/* Adjust top for label positioning */}
@@ -344,7 +344,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   <ListTodo className="h-12 w-12 text-muted-foreground" />
                   <p className="text-lg font-semibold">Your schedule is clear!</p>
                   <p className="text-sm">Start by adding a task in the input above.</p>
-                  <p className="text-sm">Try: "Gym 60", "Meeting 2pm-3pm", "Clear queue"</p>
+                  <p className="text-sm">Try: "Gym 60", "Meeting 2pm-3pm", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clear queue"</p>
                 </div>
               ) : (
                 <>

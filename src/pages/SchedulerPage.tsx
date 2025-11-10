@@ -39,7 +39,6 @@ const SchedulerPage: React.FC = () => {
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
   
-  // Changed T_AnchorRef to a state variable for reactivity
   const [tAnchorForSelectedDay, setTAnchorForSelectedDay] = useState<Date | null>(null);
 
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
@@ -62,15 +61,27 @@ const SchedulerPage: React.FC = () => {
 
   // Load tAnchorForSelectedDay for the selected day from localStorage
   useEffect(() => {
-    const savedAnchor = localStorage.getItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
-    if (savedAnchor) {
-      setTAnchorForSelectedDay(new Date(savedAnchor));
-      console.log(`SchedulerPage: Loaded tAnchorForSelectedDay for ${formattedSelectedDay} from localStorage:`, new Date(savedAnchor).toISOString());
-    } else {
-      setTAnchorForSelectedDay(null);
-      console.log(`SchedulerPage: No tAnchorForSelectedDay found for ${formattedSelectedDay} in localStorage on mount/day change.`);
+    const savedAnchorString = localStorage.getItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
+    let newAnchorDate: Date | null = null;
+
+    if (savedAnchorString) {
+      const parsedDate = new Date(savedAnchorString);
+      if (!isNaN(parsedDate.getTime())) {
+        newAnchorDate = parsedDate;
+      }
     }
-  }, [formattedSelectedDay]);
+
+    // Only update state if the new value is referentially different OR the date value is different
+    if (
+      tAnchorForSelectedDay !== newAnchorDate && // Check for direct reference change (e.g., null to Date, or Date to different Date object)
+      !(tAnchorForSelectedDay instanceof Date && newAnchorDate instanceof Date && tAnchorForSelectedDay.getTime() === newAnchorDate.getTime()) // Check if two Date objects represent the same time
+    ) {
+      setTAnchorForSelectedDay(newAnchorDate);
+      console.log(`SchedulerPage: Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
+    } else {
+      console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
+    }
+  }, [formattedSelectedDay, tAnchorForSelectedDay]);
 
   // Refactored schedule generation logic directly into useEffect
   useEffect(() => {
@@ -120,8 +131,11 @@ const SchedulerPage: React.FC = () => {
       } else {
         // Timed event (Fixed Appointment)
         const selectedDayDate = parseISO(selectedDay);
-        let startTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
-        let endTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
+        const tempStartTime = parseFlexibleTime(parsedInput.startTime!, selectedDayDate); // Use parseFlexibleTime
+        const tempEndTime = parseFlexibleTime(parsedInput.endTime!, selectedDayDate); // Use parseFlexibleTime
+
+        let startTime = setHours(setMinutes(startOfDay(selectedDayDate), tempStartTime.getMinutes()), tempStartTime.getHours());
+        let endTime = setHours(setMinutes(startOfDay(selectedDayDate), tempEndTime.getMinutes()), tempEndTime.getHours());
         
         if (endTime.getTime() < startTime.getTime()) {
           endTime = addDays(endTime, 1);
@@ -418,7 +432,7 @@ const SchedulerPage: React.FC = () => {
             <DialogDescription>
               Please provide the details for this task.
             </DialogDescription>
-          </DialogHeader>
+          </DialogDescription>
           <div className="grid gap-4 py-4">
             {injectionPrompt?.isTimed ? (
               <>

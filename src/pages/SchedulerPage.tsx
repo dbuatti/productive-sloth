@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isPast } from 'date-fns';
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO } from 'date-fns';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog"; // Import AlertDialog components
 
 const SchedulerPage: React.FC = () => {
-  const { user, profile, isLoading: isSessionLoading } = useSession();
+  const { user, isLoading: isSessionLoading } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const { 
     dbScheduledTasks,
@@ -51,6 +51,8 @@ const SchedulerPage: React.FC = () => {
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
   
+  const [tAnchorForSelectedDay, setTAnchorForSelectedDay] = useState<Date | null>(null);
+
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
   const [injectionDuration, setInjectionDuration] = useState('');
@@ -70,32 +72,62 @@ const SchedulerPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Memoized effective start time for scheduling new duration-based tasks
-  const effectiveAutoScheduleStartTime = useMemo(() => {
-    const selectedDayDate = parseISO(formattedSelectedDay);
-    const defaultTimeParts = profile?.default_auto_schedule_start_time?.split(':').map(Number) || [9, 0]; // Default to 9:00 if not set
-    
-    let baseTime = setHours(setMinutes(startOfDay(selectedDayDate), defaultTimeParts[1]), defaultTimeParts[0]);
+  // Manage tAnchorForSelectedDay based on selectedDay and current time
+  useEffect(() => {
+    const selectedDayAsDate = parseISO(formattedSelectedDay);
+    const isSelectedDayToday = isSameDay(selectedDayAsDate, T_current);
+    const localStorageKey = `scheduler_T_Anchor_${formattedSelectedDay}`;
 
-    // If the selected day is today, and the base time is in the past, use current time.
-    // Otherwise, if the selected day is in the past, the anchor should be the start of that day.
-    // Otherwise, use the baseTime.
-    if (isSameDay(selectedDayDate, T_current)) {
-      return isPast(baseTime) ? T_current : baseTime;
-    } else if (isPast(selectedDayDate)) {
-      return startOfDay(selectedDayDate);
+    const savedAnchorString = localStorage.getItem(localStorageKey);
+    let newAnchorDate: Date | null = null;
+
+    if (savedAnchorString) {
+      const parsedDate = new Date(savedAnchorString);
+      if (!isNaN(parsedDate.getTime())) {
+        newAnchorDate = parsedDate;
+      }
     }
-    return baseTime;
-  }, [formattedSelectedDay, T_current.getTime(), profile?.default_auto_schedule_start_time]); // Use T_current.getTime() for stable dependency
 
-  // Calculate the schedule based on tasks, selected day, and effective anchor
+    // If no anchor is found in localStorage, determine a new one.
+    if (!newAnchorDate) {
+      if (isSelectedDayToday) {
+        newAnchorDate = T_current; // Anchor for today starts at current time
+      } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
+        newAnchorDate = startOfDay(selectedDayAsDate); // Anchor for future days starts at midnight
+      } else { // selectedDayAsDate is in the past
+        newAnchorDate = startOfDay(selectedDayAsDate); // Anchor for past days starts at midnight of that day
+      }
+    }
+
+    // Update state if the value has changed AND save to localStorage if a new anchor was determined.
+    const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
+    const newAnchorISO = newAnchorDate?.toISOString() || null;
+
+    if (currentAnchorISO !== newAnchorISO) {
+      setTAnchorForSelectedDay(newAnchorDate);
+      // If a new anchor was determined (not loaded from savedAnchorString), save it.
+      // This ensures it's saved once it's first calculated for a day.
+      if (newAnchorDate && !savedAnchorString) {
+         localStorage.setItem(localStorageKey, newAnchorDate.toISOString());
+         console.log(`SchedulerPage: NEW tAnchorForSelectedDay determined and saved for ${formattedSelectedDay} to:`, newAnchorDate.toISOString());
+      } else if (newAnchorDate) { // If it was loaded from savedAnchorString, just log
+         console.log(`SchedulerPage: tAnchorForSelectedDay loaded from storage for ${formattedSelectedDay}:`, newAnchorDate.toISOString());
+      } else { // newAnchorDate is null
+         console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is null (past day or no anchor set).`);
+      }
+    } else {
+      console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
+    }
+  }, [formattedSelectedDay, T_current]); // Removed dbScheduledTasks.length from dependencies
+
+  // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
     console.log("SchedulerPage: calculatedSchedule useMemo triggered.");
     console.log("SchedulerPage: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time })));
-    console.log("SchedulerPage: Effective Auto-Schedule Start Time for calculation:", effectiveAutoScheduleStartTime?.toISOString()); // Corrected log message
-    // Pass effectiveAutoScheduleStartTime to calculateSchedule for internal logic
-    return calculateSchedule(dbScheduledTasks, effectiveAutoScheduleStartTime, T_current, selectedDay);
-  }, [dbScheduledTasks, selectedDay, effectiveAutoScheduleStartTime, T_current.getTime()]); // Use T_current.getTime() for stable dependency
+    console.log("SchedulerPage: Current tAnchorForSelectedDay for calculation:", tAnchorForSelectedDay?.toISOString());
+    // Pass T_current and selectedDay to calculateSchedule for internal logic
+    return calculateSchedule(dbScheduledTasks, tAnchorForSelectedDay, T_current, selectedDay);
+  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current]); // Added T_current to dependencies
 
   // Set currentSchedule state from the memoized calculation
   useEffect(() => {
@@ -109,6 +141,9 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await clearScheduledTasks();
+    setTAnchorForSelectedDay(null); // Reset state
+    localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
+    console.log(`SchedulerPage: tAnchorForSelectedDay reset to null for ${formattedSelectedDay} via clear command.`);
     setIsProcessingCommand(false);
     setShowClearConfirmation(false); // Close dialog
     setInputValue(''); // Clear input after successful command
@@ -142,11 +177,11 @@ const SchedulerPage: React.FC = () => {
       if (isAdHocTask) {
         // For duration-only tasks, automatically calculate start and end times
         let proposedStartTime: Date;
-        // If there's an existing schedule, start after the last item, otherwise use effectiveAutoScheduleStartTime
+        // If there's an existing schedule, start after the last item, otherwise use current time or start of day
         if (currentSchedule && currentSchedule.items.length > 0) {
           proposedStartTime = currentSchedule.summary.sessionEnd;
         } else {
-          proposedStartTime = effectiveAutoScheduleStartTime;
+          proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
         }
         
         // Ensure proposedStartTime is not in the past if it's today
@@ -207,7 +242,7 @@ const SchedulerPage: React.FC = () => {
         if (currentSchedule && currentSchedule.items.length > 0) {
           proposedStartTime = currentSchedule.summary.sessionEnd;
         } else {
-          proposedStartTime = effectiveAutoScheduleStartTime;
+          proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
         }
 
         if (isSameDay(selectedDayDate, T_current) && proposedStartTime.getTime() < T_current.getTime()) {
@@ -365,7 +400,7 @@ const SchedulerPage: React.FC = () => {
       if (currentSchedule && currentSchedule.items.length > 0) {
         proposedStartTime = currentSchedule.summary.sessionEnd;
       } else {
-        proposedStartTime = effectiveAutoScheduleStartTime;
+        proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
       }
 
       if (isSameDay(selectedDayDate, T_current) && proposedStartTime.getTime() < T_current.getTime()) {
@@ -404,7 +439,7 @@ const SchedulerPage: React.FC = () => {
       }
     }
     return null;
-  }, [calculatedSchedule, T_current.getTime(), selectedDay]); // Use T_current.getTime() for stable dependency
+  }, [calculatedSchedule, T_current, selectedDay]);
 
   const nextItem: ScheduledItem | null = useMemo(() => {
     if (!calculatedSchedule || !activeItem || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -418,7 +453,7 @@ const SchedulerPage: React.FC = () => {
       }
     }
     return null;
-  }, [calculatedSchedule, activeItem, T_current.getTime(), selectedDay]); // Use T_current.getTime() for stable dependency
+  }, [calculatedSchedule, activeItem, T_current, selectedDay]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;

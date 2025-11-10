@@ -28,17 +28,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Loader2 } from 'lucide-react'; // Corrected import for Loader2
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'; // Added CardHeader, CardTitle, CardContent
 import { MAX_ENERGY } from '@/lib/constants';
+import { Loader2 } from 'lucide-react';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters.").nullable(),
   avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')),
-  default_auto_schedule_start_time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)").nullable(), // New field
+  // Removed notification fields from RHF schema
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -51,13 +52,13 @@ const SettingsPage: React.FC = () => {
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
 
+
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       first_name: '',
       last_name: '',
       avatar_url: '',
-      default_auto_schedule_start_time: '09:00', // Default value for the new field
     },
     mode: 'onChange',
   });
@@ -69,7 +70,6 @@ const SettingsPage: React.FC = () => {
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
         avatar_url: profile.avatar_url || '',
-        default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '09:00',
       });
       // Sync local state for switches
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
@@ -91,7 +91,6 @@ const SettingsPage: React.FC = () => {
           first_name: values.first_name,
           last_name: values.last_name,
           avatar_url: values.avatar_url === '' ? null : values.avatar_url,
-          default_auto_schedule_start_time: values.default_auto_schedule_start_time, // Save new field
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' });
 
@@ -128,7 +127,6 @@ const SettingsPage: React.FC = () => {
           last_low_energy_notification: null,
           enable_daily_challenge_notifications: true,
           enable_low_energy_notifications: true,
-          default_auto_schedule_start_time: '09:00', // Reset new field
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -165,7 +163,6 @@ const SettingsPage: React.FC = () => {
       await updateNotificationPreferences({
         enable_daily_challenge_notifications: true,
         enable_low_energy_notifications: true,
-        default_auto_schedule_start_time: '09:00', // Reset new preference
       });
 
       setTheme("system");
@@ -173,7 +170,6 @@ const SettingsPage: React.FC = () => {
       // Update local state
       setDailyChallengeNotifications(true);
       setLowEnergyNotifications(true);
-      form.setValue('default_auto_schedule_start_time', '09:00'); // Update form state
 
       showSuccess("App settings reset to default!");
       await refreshProfile();
@@ -228,7 +224,7 @@ const SettingsPage: React.FC = () => {
       </h1>
       
       {/* Profile Form */}
-      <Form {...form} key={user.id}>
+      <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information Card */}
           <Card className="animate-hover-lift">
@@ -240,7 +236,6 @@ const SettingsPage: React.FC = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
-                  key="first_name_field"
                   control={form.control}
                   name="first_name"
                   render={({ field }) => (
@@ -254,12 +249,11 @@ const SettingsPage: React.FC = () => {
                   )}
                 />
                 <FormField
-                  key="last_name_field"
                   control={form.control}
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Last Name</FormLabel> {/* Corrected closing tag */}
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -269,14 +263,13 @@ const SettingsPage: React.FC = () => {
                 />
               </div>
               <FormField
-                key="avatar_url_field"
                 control={form.control}
                 name="avatar_url"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Avatar URL</FormLabel>
                     <FormControl>
-                        <Input placeholder="https://example.com/avatar.jpg" {...field} value={field.value || ''} />
+                      <Input placeholder="https://example.com/avatar.jpg" {...field} value={field.value || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -352,7 +345,7 @@ const SettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* App Preferences Card */}
+      {/* App Preferences Card (No longer uses RHF FormField) */}
       <Card className="animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
@@ -365,32 +358,6 @@ const SettingsPage: React.FC = () => {
             <ThemeToggle />
           </div>
           
-          {/* Default Auto-Schedule Start Time */}
-          <FormField
-            key="default_auto_schedule_start_time_field"
-            control={form.control}
-            name="default_auto_schedule_start_time"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                <div className="space-y-0.5">
-                  <FormLabel>Default Auto-Schedule Start Time</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    The time the scheduler will start looking for free slots for new tasks.
-                  </p>
-                </div>
-                <FormControl>
-                  <Input 
-                    type="time" 
-                    className="w-auto" 
-                    {...field} 
-                    value={field.value || ''} // Ensure controlled component
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
           {/* Daily Challenge Notifications (Manual State/Update) */}
           <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
@@ -471,7 +438,7 @@ const SettingsPage: React.FC = () => {
                 <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
                   Confirm Reset
                 </AlertDialogAction>
-                </AlertDialogFooter>
+              </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
 
@@ -488,12 +455,12 @@ const SettingsPage: React.FC = () => {
                   This action cannot be undone. This will permanently delete your account and all associated data.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
-                    Confirm Deletion
-                  </AlertDialogAction>
-                </AlertDialogFooter>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
+                  Confirm Deletion
+                </AlertDialogAction>
+              </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
 

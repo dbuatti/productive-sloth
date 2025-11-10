@@ -19,7 +19,6 @@ export interface UserProfile {
   enable_daily_challenge_notifications: boolean; // Added notification preference
   enable_low_energy_notifications: boolean; // Added notification preference
   daily_challenge_target: number; // Added daily challenge target
-  default_auto_schedule_start_time: string | null; // New: Default start time for auto-scheduling
 }
 
 interface SessionContextType {
@@ -35,7 +34,7 @@ interface SessionContextType {
   resetLevelUp: () => void; // Added function to reset level up state
   resetDailyStreak: () => Promise<void>; // Added resetDailyStreak function
   claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>; // Added claimDailyReward function
-  updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean; default_auto_schedule_start_time?: string | null }) => Promise<void>; // Added updateNotificationPreferences
+  updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>; // Added updateNotificationPreferences
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

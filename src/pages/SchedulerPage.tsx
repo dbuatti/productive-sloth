@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Updated import
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay } from 'date-fns'; // Import format and isSameDay
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays } from 'date-fns'; // Import format and isSameDay
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip'; // Import CalendarStrip
@@ -125,14 +125,22 @@ const SchedulerPage: React.FC = () => {
         success = true;
       } else {
         // Timed event (Fixed Appointment)
-        // Ensure parsed times are set for the selected day, not just 'now'
-        const startTime = parse(format(parsedInput.startTime, 'hh:mm a'), 'hh:mm a', selectedDay);
-        const endTime = parse(format(parsedInput.endTime, 'hh:mm a'), 'hh:mm a', selectedDay);
+        // Parse the time string relative to *any* local date to get local hours/minutes
+        const tempStartTime = parse(format(parsedInput.startTime!, 'hh:mm a'), 'hh:mm a', new Date());
+        const tempEndTime = parse(format(parsedInput.endTime!, 'hh:mm a'), 'hh:mm a', new Date());
+        
+        // Construct the final Date objects using selectedDay's date and the parsed local time components
+        let startTime = setHours(setMinutes(startOfDay(selectedDay), tempStartTime.getMinutes()), tempStartTime.getHours());
+        let endTime = setHours(setMinutes(startOfDay(selectedDay), tempEndTime.getMinutes()), tempEndTime.getHours());
         
         // Handle potential rollover to next day if end time is before start time on the same day
         if (endTime.getTime() < startTime.getTime()) {
-          endTime.setDate(endTime.getDate() + 1);
+          endTime = addDays(endTime, 1);
         }
+
+        console.log(`SchedulerPage: Adding timed task. Input Start: ${format(parsedInput.startTime!, 'hh:mm a')}, Input End: ${format(parsedInput.endTime!, 'hh:mm a')}`);
+        console.log(`SchedulerPage: Parsed Start (local): ${startTime.toLocaleString()}, Parsed End (local): ${endTime.toLocaleString()}`);
+        console.log(`SchedulerPage: Storing Start (ISO): ${startTime.toISOString()}, Storing End (ISO): ${endTime.toISOString()}`);
 
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
         success = true;
@@ -155,16 +163,27 @@ const SchedulerPage: React.FC = () => {
         await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration, scheduled_date: taskScheduledDate });
         success = true;
       } else if (injectCommand.startTime && injectCommand.endTime) {
-        // Ensure parsed times are set for the selected day, not just 'now'
-        const startTime = parse(injectCommand.startTime, 'h:mm a', selectedDay);
-        const endTime = parse(injectCommand.endTime, 'h:mm a', selectedDay);
+        // Parse the time string relative to *any* local date to get local hours/minutes
+        const tempStartTime = parse(injectCommand.startTime, 'h:mm a', new Date());
+        const tempEndTime = parse(injectCommand.endTime, 'h:mm a', new Date());
 
+        // Construct the final Date objects using selectedDay's date and the parsed local time components
+        let startTime = setHours(setMinutes(startOfDay(selectedDay), tempStartTime.getMinutes()), tempStartTime.getHours());
+        let endTime = setHours(setMinutes(startOfDay(selectedDay), tempEndTime.getMinutes()), tempEndTime.getHours());
+
+        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+          showError("Invalid time format for start/end times.");
+          setIsProcessingCommand(false);
+          return;
+        }
         // Handle potential rollover to next day if end time is before start time on the same day
         if (endTime.getTime() < startTime.getTime()) {
           endTime.setDate(endTime.getDate() + 1);
         }
-
-        await addScheduledTask({ name: injectCommand.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
+        console.log(`SchedulerPage: Adding timed injection. Input Start: ${injectCommand.startTime}, Input End: ${injectCommand.endTime}`);
+        console.log(`SchedulerPage: Parsed Start (local): ${startTime.toLocaleString()}, Parsed End (local): ${endTime.toLocaleString()}`);
+        console.log(`SchedulerPage: Storing Start (ISO): ${startTime.toISOString()}, Storing End (ISO): ${endTime.toISOString()}`);
+        await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
         success = true;
       }
       else {
@@ -258,9 +277,14 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      // Ensure parsed times are set for the selected day, not just 'now'
-      const startTime = parse(injectionStartTime, 'h:mm a', selectedDay);
-      const endTime = parse(injectionEndTime, 'h:mm a', selectedDay);
+      // Parse the time string relative to *any* local date to get local hours/minutes
+      const tempStartTime = parse(injectionStartTime, 'h:mm a', new Date());
+      const tempEndTime = parse(injectionEndTime, 'h:mm a', new Date());
+
+      // Construct the final Date objects using selectedDay's date and the parsed local time components
+      let startTime = setHours(setMinutes(startOfDay(selectedDay), tempStartTime.getMinutes()), tempStartTime.getHours());
+      let endTime = setHours(setMinutes(startOfDay(selectedDay), tempEndTime.getMinutes()), tempEndTime.getHours());
+
       if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
         showError("Invalid time format for start/end times.");
         setIsProcessingCommand(false);
@@ -270,6 +294,9 @@ const SchedulerPage: React.FC = () => {
       if (endTime.getTime() < startTime.getTime()) {
         endTime.setDate(endTime.getDate() + 1);
       }
+      console.log(`SchedulerPage: Adding timed injection. Input Start: ${injectionStartTime}, Input End: ${injectionEndTime}`);
+      console.log(`SchedulerPage: Parsed Start (local): ${startTime.toLocaleString()}, Parsed End (local): ${endTime.toLocaleString()}`);
+      console.log(`SchedulerPage: Storing Start (ISO): ${startTime.toISOString()}, Storing End (ISO): ${endTime.toISOString()}`);
       await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
       success = true;
     } else {

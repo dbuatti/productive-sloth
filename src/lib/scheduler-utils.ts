@@ -266,20 +266,11 @@ export const calculateSchedule = (
   let totalActiveTime = 0;
   let totalBreakTime = 0;
 
-  const fixedAppointments: DBScheduledTask[] = [];
-  const adHocTasks: DBScheduledTask[] = [];
+  // All tasks from DB are now treated as fixed appointments since they will have start/end times
+  const allTasksWithTimes: DBScheduledTask[] = dbTasks.filter(task => task.start_time && task.end_time);
 
-  dbTasks.forEach(task => {
-    if (task.start_time && task.end_time) {
-      fixedAppointments.push(task);
-    } else {
-      adHocTasks.push(task);
-    }
-  });
-
-  // 1. Add Fixed Appointments first, sorted by start time
-  fixedAppointments.sort((a, b) => {
-    // Ensure sorting is based on the local time for the scheduled date
+  // Sort all tasks by their start time
+  allTasksWithTimes.sort((a, b) => {
     const scheduledDateA = startOfDay(parseISO(a.scheduled_date));
     const utcStartA = parseISO(a.start_time!);
     const localTimeA = setHours(setMinutes(scheduledDateA, utcStartA.getUTCMinutes()), utcStartA.getUTCHours());
@@ -291,151 +282,45 @@ export const calculateSchedule = (
     return localTimeA.getTime() - localTimeB.getTime();
   });
 
-  fixedAppointments.forEach(task => {
-    // Create a reference date for the scheduled day (local midnight)
+  allTasksWithTimes.forEach(task => {
     const referenceDay = startOfDay(parseISO(task.scheduled_date)); 
-
-    // Parse the ISO strings directly. These Date objects will represent the UTC time,
-    // but when accessed (e.g., .getHours(), .getMinutes(), or formatted),
-    // they will automatically convert to the local timezone.
     let startTime = parseISO(task.start_time!);
     let endTime = parseISO(task.end_time!);
 
-    // Set the year, month, and day of startTime and endTime to match the referenceDay
-    // while preserving their time components as interpreted in the local timezone.
     startTime = setHours(setMinutes(referenceDay, startTime.getMinutes()), startTime.getHours());
     endTime = setHours(setMinutes(referenceDay, endTime.getMinutes()), endTime.getHours());
 
-    // Handle potential rollover to next day if end time is before start time on the same scheduled_date
     if (endTime.getTime() < startTime.getTime()) {
         endTime = addDays(endTime, 1);
     }
 
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-    scheduledItems.push({
-      id: task.id, type: 'task', name: task.name, duration: duration,
-      startTime: startTime, endTime: endTime, emoji: assignEmoji(task.name),
-      isTimedEvent: true, color: 'bg-blue-500',
-    });
-    totalActiveTime += duration;
-  });
-
-  // 2. Schedule Ad-Hoc Tasks sequentially from a determined cursor, avoiding fixed appointments
-  let adHocPlacementCursor: Date; 
-  const selectedDayDate = startOfDay(parseISO(selectedDateString));
-  const isSelectedDayToday = isSameDay(selectedDayDate, currentMoment);
-
-  // Sort ad-hoc tasks by their creation time to maintain the order they were added
-  adHocTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-  // Determine the initial adHocPlacementCursor
-  if (explicitTAnchor) { // If an explicit anchor is provided (from localStorage or set on first task)
-    adHocPlacementCursor = explicitTAnchor;
-  } else if (fixedAppointments.length > 0) { // If no explicit anchor, but there are fixed appointments
-    const latestFixedEndTime = fixedAppointments.reduce((latest, appt) => {
-        const scheduledDateLocal = startOfDay(parseISO(appt.scheduled_date));
-        const utcEnd = parseISO(appt.end_time!);
-        let currentEndTime = setHours(setMinutes(scheduledDateLocal, utcEnd.getUTCMinutes()), utcEnd.getUTCHours());
-        
-        const utcStart = parseISO(appt.start_time!);
-        let currentStartTime = setHours(setMinutes(scheduledDateLocal, utcStart.getUTCMinutes()), utcStart.getUTCHours());
-        if (currentEndTime.getTime() < currentStartTime.getTime()) { // Check for rollover
-            currentEndTime = addDays(currentEndTime, 1);
-        }
-        return currentEndTime.getTime() > latest.getTime() ? currentEndTime : latest;
-    }, selectedDayDate); // Initialize with start of selected day
-    
-    adHocPlacementCursor = latestFixedEndTime;
-
-  } else { // No explicit anchor, no fixed appointments
-    // Default to current moment if today, otherwise start of day
-    adHocPlacementCursor = isSelectedDayToday ? currentMoment : selectedDayDate;
-  }
-
-  // Safeguard: Ensure adHocPlacementCursor is not before the start of the selected day
-  if (adHocPlacementCursor.getTime() < selectedDayDate.getTime()) {
-    adHocPlacementCursor = selectedDayDate;
-  }
-  
-  // CRITICAL: If it's today, and the determined adHocPlacementCursor is in the past,
-  // advance it to the currentMoment. This ensures new ad-hoc tasks don't start in the past.
-  if (isSelectedDayToday && adHocPlacementCursor.getTime() < currentMoment.getTime()) {
-      adHocPlacementCursor = currentMoment;
-  }
-
-  adHocTasks.forEach(task => {
-    let proposedStartTime = adHocPlacementCursor;
-    let proposedEndTime = addMinutes(proposedStartTime, task.duration!);
-
-    // Check for overlaps with fixed appointments and shift if necessary
-    let overlapFound = true;
-    while (overlapFound) {
-      overlapFound = false;
-      for (const fixedAppt of fixedAppointments) {
-        const scheduledDateLocal = startOfDay(parseISO(fixedAppt.scheduled_date));
-        const utcFixedStart = parseISO(fixedAppt.start_time!);
-        const utcFixedEnd = parseISO(fixedAppt.end_time!);
-        
-        let fixedApptStart = setHours(setMinutes(scheduledDateLocal, utcFixedStart.getUTCMinutes()), utcFixedStart.getUTCHours());
-        let fixedApptEnd = setHours(setMinutes(scheduledDateLocal, utcFixedEnd.getUTCMinutes()), utcFixedEnd.getUTCHours());
-        if (fixedApptEnd.getTime() < fixedApptStart.getTime()) {
-            fixedApptEnd = addDays(fixedApptEnd, 1);
-        }
-
-        if (
-          (proposedStartTime.getTime() < fixedApptEnd.getTime() && proposedEndTime.getTime() > fixedApptStart.getTime())
-        ) {
-          // Overlap detected. Shift ad-hoc task to end immediately after the fixed appointment.
-          proposedStartTime = new Date(fixedApptEnd);
-          proposedEndTime = addMinutes(proposedStartTime, task.duration!);
-          overlapFound = true; // Re-check for overlaps with other fixed appointments from this new position
-          break; // Break from inner loop to re-evaluate with new proposedStartTime
-        }
-      }
-    }
-
     const isStandaloneBreak = task.name.toLowerCase() === 'break';
 
     scheduledItems.push({
       id: task.id, 
-      type: isStandaloneBreak ? 'break' : 'task', // Categorize as 'break' if name is 'Break'
+      type: isStandaloneBreak ? 'break' : 'task',
       name: task.name, 
-      duration: task.duration!,
-      startTime: proposedStartTime, 
-      endTime: proposedEndTime, 
-      emoji: isStandaloneBreak ? EMOJI_MAP['break'] : assignEmoji(task.name), // Use break emoji for standalone breaks
-      description: isStandaloneBreak ? getBreakDescription(task.duration!) : undefined, // Add description for standalone breaks
-      isTimedEvent: false,
+      duration: duration,
+      startTime: startTime, 
+      endTime: endTime, 
+      emoji: isStandaloneBreak ? EMOJI_MAP['break'] : assignEmoji(task.name),
+      description: isStandaloneBreak ? getBreakDescription(duration) : undefined,
+      isTimedEvent: true, // All tasks from DB are now treated as timed events
     });
     
-    // Correctly categorize duration for summary
-    if (isStandaloneBreak) {
-      totalBreakTime += task.duration!;
+    if (isStandaloneBreak || task.break_duration) { // If it's a break or has a break_duration, count it as break time
+      totalBreakTime += duration;
+      if (task.break_duration) totalBreakTime += task.break_duration; // Add explicit break duration if present
     } else {
-      totalActiveTime += task.duration!;
-    }
-
-    // Update adHocPlacementCursor to the end of the *just-placed ad-hoc task*
-    adHocPlacementCursor = proposedEndTime;
-
-    // Add Break if specified (also advances adHocPlacementCursor)
-    if (task.break_duration && task.break_duration > 0) {
-      const breakStartTime = adHocPlacementCursor;
-      const breakEndTime = addMinutes(breakStartTime, task.break_duration);
-      scheduledItems.push({
-        id: `${task.id}-break`, type: 'break', name: 'BREAK', duration: task.break_duration,
-        startTime: breakStartTime, endTime: breakEndTime, emoji: EMOJI_MAP['break'],
-        description: getBreakDescription(task.break_duration), isTimedEvent: false,
-      });
-      adHocPlacementCursor = breakEndTime;
-      totalBreakTime += task.break_duration;
+      totalActiveTime += duration;
     }
   });
 
-  // Final sort of all items (fixed and ad-hoc) for display
+  // Final sort of all items (should already be sorted, but good to ensure)
   scheduledItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : (explicitTAnchor || currentMoment); // Fallback for sessionEnd if no tasks
+  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : (explicitTAnchor || currentMoment);
   const extendsPastMidnight = !isToday(sessionEnd) && scheduledItems.length > 0;
   const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, currentMoment) : null;
 

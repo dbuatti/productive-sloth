@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, parseISO } from 'date-fns';
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO } from 'date-fns';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
@@ -168,34 +168,42 @@ const SchedulerPage: React.FC = () => {
 
     if (parsedInput) {
       console.log("SchedulerPage: handleCommand - Processing as parsedInput.");
-      const isAdHocTask = 'duration' in parsedInput;
-
-      // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc task, set it NOW
-      // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
-      if (!tAnchorForSelectedDay && isAdHocTask && isSameDay(parseISO(selectedDay), T_current)) {
-        const newAnchor = T_current; // Use T_current for the anchor
-        setTAnchorForSelectedDay(newAnchor); // Update state
-        localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
-        console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleCommand to:`, newAnchor.toISOString());
-      }
+      const isAdHocTask = 'duration' in parsedInput; // This will now be true for duration-only inputs
 
       const taskScheduledDate = formattedSelectedDay;
+      const selectedDayDate = parseISO(selectedDay);
 
-      // Check if it's a duration-based task or a timed event
       if (isAdHocTask) {
-        console.log("SchedulerPage: handleCommand - Adding duration-based task.");
-        await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration, scheduled_date: taskScheduledDate });
+        // For duration-only tasks, automatically calculate start and end times
+        let proposedStartTime: Date;
+        // If there's an existing schedule, start after the last item, otherwise use current time or start of day
+        if (currentSchedule && currentSchedule.items.length > 0) {
+          proposedStartTime = currentSchedule.summary.sessionEnd;
+        } else {
+          proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
+        }
+        
+        // Ensure proposedStartTime is not in the past if it's today
+        if (isSameDay(selectedDayDate, T_current) && proposedStartTime.getTime() < T_current.getTime()) {
+          proposedStartTime = T_current;
+        }
+
+        const proposedEndTime = addMinutes(proposedStartTime, parsedInput.duration!);
+
+        console.log(`SchedulerPage: handleCommand - Adding duration-based task as fixed appointment.`);
+        await addScheduledTask({ 
+          name: parsedInput.name, 
+          start_time: proposedStartTime.toISOString(), 
+          end_time: proposedEndTime.toISOString(), 
+          scheduled_date: taskScheduledDate 
+        });
+        showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
       } else {
-        console.log("SchedulerPage: handleCommand - Adding timed event.");
-        const selectedDayDate = parseISO(selectedDay);
-        // Use parsedInput.startTime and parsedInput.endTime directly as they are already Date objects
+        // This is a timed event (e.g., "Meeting 11am - 12pm")
         let startTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
         let endTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
         
-        console.log(`SchedulerPage: handleCommand - Parsed startTime (Date object): ${parsedInput.startTime?.toISOString()}, isNaN: ${isNaN(parsedInput.startTime!.getTime())}`);
-        console.log(`SchedulerPage: handleCommand - Parsed endTime (Date object): ${parsedInput.endTime?.toISOString()}, isNaN: ${isNaN(parsedInput.endTime!.getTime())}`);
-
         if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
           showError("Invalid time format for start/end times.");
           setIsProcessingCommand(false);
@@ -224,20 +232,33 @@ const SchedulerPage: React.FC = () => {
       console.log("SchedulerPage: handleCommand - Processing as injectCommand.");
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
 
-      // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
-      // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
-      if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), T_current)) {
-        const newAnchor = T_current; // Use T_current for the anchor
-        setTAnchorForSelectedDay(newAnchor); // Update state
-        localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
-        console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleCommand (injection) to:`, newAnchor.toISOString());
-      }
-
       const taskScheduledDate = formattedSelectedDay;
+      const selectedDayDate = parseISO(selectedDay);
 
-      if (injectCommand.duration) {
-        console.log("SchedulerPage: handleCommand - Adding injected duration-based task.");
-        await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration, scheduled_date: taskScheduledDate });
+      if (isAdHocInjection) {
+        // For duration-only injections, automatically calculate start and end times
+        let proposedStartTime: Date;
+        if (currentSchedule && currentSchedule.items.length > 0) {
+          proposedStartTime = currentSchedule.summary.sessionEnd;
+        } else {
+          proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
+        }
+
+        if (isSameDay(selectedDayDate, T_current) && proposedStartTime.getTime() < T_current.getTime()) {
+          proposedStartTime = T_current;
+        }
+
+        const duration = injectCommand.duration || 30; // Default duration for inject if not specified
+        const proposedEndTime = addMinutes(proposedStartTime, duration);
+
+        await addScheduledTask({ 
+          name: injectCommand.taskName, 
+          start_time: proposedStartTime.toISOString(), 
+          end_time: proposedEndTime.toISOString(), 
+          break_duration: injectCommand.breakDuration, 
+          scheduled_date: taskScheduledDate 
+        });
+        showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
       } else if (injectCommand.startTime && injectCommand.endTime) {
         console.log("SchedulerPage: handleCommand - Opening injection dialog for timed event.");
@@ -324,16 +345,8 @@ const SchedulerPage: React.FC = () => {
     let success = false;
     const isAdHocInjection = !injectionPrompt.isTimed;
 
-    // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
-    // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
-    if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), T_current)) {
-      const newAnchor = T_current; // Use T_current for the anchor
-      setTAnchorForSelectedDay(newAnchor); // Update state
-      localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
-      console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleInjectionSubmit to:`, newAnchor.toISOString());
-    }
-
     const taskScheduledDate = formattedSelectedDay;
+    const selectedDayDate = parseISO(selectedDay);
 
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
@@ -341,7 +354,6 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      const selectedDayDate = parseISO(selectedDay);
       const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayDate);
       const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayDate);
 
@@ -381,7 +393,29 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      await addScheduledTask({ name: injectionPrompt.taskName, duration, break_duration: breakDuration, scheduled_date: taskScheduledDate });
+      
+      // For duration-only injections, automatically calculate start and end times
+      let proposedStartTime: Date;
+      if (currentSchedule && currentSchedule.items.length > 0) {
+        proposedStartTime = currentSchedule.summary.sessionEnd;
+      } else {
+        proposedStartTime = isSameDay(selectedDayDate, T_current) ? T_current : startOfDay(selectedDayDate);
+      }
+
+      if (isSameDay(selectedDayDate, T_current) && proposedStartTime.getTime() < T_current.getTime()) {
+        proposedStartTime = T_current;
+      }
+
+      const proposedEndTime = addMinutes(proposedStartTime, duration);
+
+      await addScheduledTask({ 
+        name: injectionPrompt.taskName, 
+        start_time: proposedStartTime.toISOString(), 
+        end_time: proposedEndTime.toISOString(), 
+        break_duration: breakDuration, 
+        scheduled_date: taskScheduledDate 
+      });
+      showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       success = true;
     }
     

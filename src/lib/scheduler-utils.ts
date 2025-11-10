@@ -254,17 +254,19 @@ export const calculateSchedule = (
   });
 
   fixedAppointments.forEach(task => {
-    // Get the scheduled_date as a local Date object (e.g., 2025-11-10 00:00:00 local)
-    const scheduledDateLocal = startOfDay(parseISO(task.scheduled_date));
+    // Create a reference date for the scheduled day (local midnight)
+    const referenceDay = startOfDay(parseISO(task.scheduled_date)); 
 
-    // Parse the ISO strings as UTC to get the UTC components
-    const utcStart = parseISO(task.start_time!);
-    const utcEnd = parseISO(task.end_time!);
+    // Parse the ISO strings directly. These Date objects will represent the UTC time,
+    // but when accessed (e.g., .getHours(), .getMinutes(), or formatted),
+    // they will automatically convert to the local timezone.
+    let startTime = parseISO(task.start_time!);
+    let endTime = parseISO(task.end_time!);
 
-    // Construct new local Date objects for the scheduledDateLocal, using the time components from the UTC times
-    // This ensures the time is correct for the scheduled day in the local timezone.
-    let startTime = setHours(setMinutes(scheduledDateLocal, utcStart.getUTCMinutes()), utcStart.getUTCHours());
-    let endTime = setHours(setMinutes(scheduledDateLocal, utcEnd.getUTCMinutes()), utcEnd.getUTCHours());
+    // Set the year, month, and day of startTime and endTime to match the referenceDay
+    // while preserving their time components as interpreted in the local timezone.
+    startTime = setHours(setMinutes(referenceDay, startTime.getMinutes()), startTime.getHours());
+    endTime = setHours(setMinutes(referenceDay, endTime.getMinutes()), endTime.getHours());
 
     // Handle potential rollover to next day if end time is before start time on the same scheduled_date
     if (endTime.getTime() < startTime.getTime()) {

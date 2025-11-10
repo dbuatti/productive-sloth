@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react'; // Added PlusCircle
-import { startOfDay, addHours, addMinutes } from 'date-fns';
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO } from 'date-fns';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -27,6 +27,7 @@ const getBubbleHeightStyle = (duration: number) => {
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask, activeItemId }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
+  const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
 
   const activeItemRef = useRef<HTMLDivElement>(null); // Ref for the active item
 
@@ -146,10 +147,28 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     return (timeIntoItemMs / itemDurationMs) * 100;
   }, [activeItemInDisplay, T_current]);
 
+  // Calculate global progress line position
+  const globalProgressLineTopPercentage = useMemo(() => {
+    if (!containerRef.current || !firstItemStartTime || !lastItemEndTime) return 0;
+
+    const totalScheduleDurationMs = lastItemEndTime.getTime() - firstItemStartTime.getTime();
+    if (totalScheduleDurationMs <= 0) return 0;
+
+    const timeIntoScheduleMs = T_current.getTime() - firstItemStartTime.getTime();
+    return (timeIntoScheduleMs / totalScheduleDurationMs) * 100;
+  }, [T_current, firstItemStartTime, lastItemEndTime]);
+
+
   // Auto-scroll to active item
   useEffect(() => {
-    if (activeItemRef.current) {
-      activeItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (activeItemRef.current && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const activeItemRect = activeItemRef.current.getBoundingClientRect();
+
+      // Only scroll if the active item is not fully in view
+      if (activeItemRect.top < containerRect.top || activeItemRect.bottom > containerRect.bottom) {
+        activeItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   }, [activeItemInDisplay]);
 
@@ -158,6 +177,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
   const renderDisplayItem = (item: DisplayItem) => {
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
+    // Safely check for isPastItem only on types that have an 'endTime'
+    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time') && item.endTime <= T_current;
 
     if (item.type === 'marker') {
       return (
@@ -183,7 +204,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
               isHighlightedByNowCard ? "opacity-50 border-border" :
-              isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70"
+              isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70",
+              isPastItem && "opacity-50 border-muted-foreground/30" // Faded for past items
             )}
           >
             {freeTimeItem.message}
@@ -206,7 +228,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     } else {
       const scheduledItem = item as ScheduledItem;
       const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
-      const isPast = scheduledItem.endTime <= T_current;
       const isHighlightedByNowCard = activeItemId === scheduledItem.id;
 
       if (scheduledItem.endTime < startOfTemplate) return null;
@@ -223,7 +244,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
               isHighlightedByNowCard ? "bg-primary text-primary-foreground" :
               isActive ? "bg-primary/20 text-primary" :
-              isPast ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+              isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground", // Use isPastItem here
               "hover:scale-105"
             )}>
               {formatTime(scheduledItem.startTime)}
@@ -237,7 +258,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               "border border-solid border-white/20", // Added subtle light border
               isHighlightedByNowCard ? "opacity-50" :
               isActive ? "border-primary" :
-              isPast ? "border-muted-foreground/50" : "border-border",
+              isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Faded for past items
               "hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }}
@@ -295,11 +316,27 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     }
   };
 
+  const isTodaySelected = isSameDay(parseISO(schedule?.summary.sessionEnd.toISOString() || T_current.toISOString()), T_current);
+
   return (
     <div className="space-y-4 animate-slide-in-up">
       <Card className="animate-pop-in">
         <CardContent className="p-0">
-          <div className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
+          <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
+            {/* Global "Now" Indicator */}
+            {isTodaySelected && !activeItemInDisplay && firstItemStartTime && lastItemEndTime && (
+              <div 
+                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 animate-pulse-glow drop-shadow-md"
+                style={{ top: `${globalProgressLineTopPercentage}%` }}
+              >
+                <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> {/* Adjust top for label positioning */}
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap animate-pulse-glow border border-live-progress/50">
+                    {formatTime(T_current)}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               {schedule?.items.length === 0 ? (
                 <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">

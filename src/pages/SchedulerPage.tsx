@@ -62,6 +62,9 @@ const SchedulerPage: React.FC = () => {
 
   // Manage tAnchorForSelectedDay based on selectedDay and current time
   useEffect(() => {
+    const selectedDayAsDate = parseISO(formattedSelectedDay);
+    const isSelectedDayToday = isSameDay(selectedDayAsDate, T_current);
+
     const savedAnchorString = localStorage.getItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
     let newAnchorDate: Date | null = null;
 
@@ -72,19 +75,19 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    // If no saved anchor, determine a default based on the selected day
-    if (!newAnchorDate) {
-      const selectedDayAsDate = parseISO(formattedSelectedDay);
-      if (isSameDay(selectedDayAsDate, T_current)) {
-        // If selected day is today, default to current time
-        newAnchorDate = T_current;
-      } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
-        // If selected day is in the future, default to start of that day
-        newAnchorDate = startOfDay(selectedDayAsDate);
-      }
-      // If selected day is in the past, newAnchorDate remains null (or could default to start of day)
-      // For now, let's keep it null if it's a past day and no anchor was saved.
+    // Only set a default anchor to T_current if:
+    // 1. There's no saved anchor for this day.
+    // 2. There are no existing scheduled tasks for this day (meaning it's a fresh schedule).
+    // 3. The selected day is today.
+    if (!newAnchorDate && dbScheduledTasks.length === 0 && isSelectedDayToday) {
+      newAnchorDate = T_current;
+    } else if (!newAnchorDate && !isSelectedDayToday && selectedDayAsDate.getTime() > T_current.getTime()) {
+      // If no saved anchor, not today, but in the future, default to start of that day
+      newAnchorDate = startOfDay(selectedDayAsDate);
     }
+    // If there are existing tasks, and no saved anchor, newAnchorDate remains null.
+    // calculateSchedule will then determine the adHocCursor based on existing fixed appointments
+    // or default to start of day/current moment if no fixed appointments.
 
     // Only update state if the value has actually changed
     const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
@@ -96,7 +99,7 @@ const SchedulerPage: React.FC = () => {
     } else {
       console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
     }
-  }, [formattedSelectedDay, T_current]); // Add T_current to dependencies so it re-evaluates if current time changes
+  }, [formattedSelectedDay, T_current, dbScheduledTasks.length]); // Add dbScheduledTasks.length to dependencies
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {

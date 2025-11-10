@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Plus, Loader2, ListTodo, Command as CommandIcon } from 'lucide-react';
+import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle } from 'lucide-react'; // Added XCircle icon
 import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks';
-// import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Temporarily removed
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Re-imported Popover components
 
 interface Suggestion {
   type: 'command' | 'task';
@@ -24,6 +24,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   const { allTasks } = useTasks();
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false); // State to control popover visibility
 
   const commonCommands = useMemo<Suggestion[]>(() => [
     { type: 'command', name: 'clear', description: 'Clear all scheduled tasks' },
@@ -55,6 +56,14 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   // Computed value for showing suggestions
   const shouldShowSuggestions = inputValue.length > 0 && suggestions.length > 0;
 
+  // Update popover state based on shouldShowSuggestions
+  useEffect(() => {
+    setIsPopoverOpen(shouldShowSuggestions);
+    if (!shouldShowSuggestions) {
+      setSelectedIndex(-1); // Reset selected index when suggestions are hidden
+    }
+  }, [shouldShowSuggestions]);
+
   const handleSelectSuggestion = (suggestion: Suggestion) => {
     if (suggestion.type === 'command' && suggestion.name === 'clear') {
       onCommand(suggestion.name);
@@ -66,6 +75,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
       setInputValue(suggestion.name);
     }
     setSelectedIndex(-1);
+    setIsPopoverOpen(false); // Close popover after selection
     inputRef.current?.focus(); // Explicitly focus after selection
   };
 
@@ -96,27 +106,55 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     }
   };
 
+  const handleClearInput = () => {
+    setInputValue('');
+    inputRef.current?.focus();
+  };
+
   return (
     <div className="flex flex-col gap-2 w-full animate-slide-in-up relative">
       <form onSubmit={handleSubmit} className="flex gap-2 w-full">
-        <Input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={isLoading}
-          className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
-        />
+        <div className="relative flex-grow">
+          <Input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={isLoading}
+            className="flex-grow h-10 pr-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200" // Added pr-10 for clear button
+          />
+          {inputValue && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleClearInput}
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
+            >
+              <XCircle className="h-4 w-4" />
+              <span className="sr-only">Clear input</span>
+            </Button>
+          )}
+        </div>
         <Button type="submit" disabled={isLoading} className="shrink-0 h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           <span className="sr-only">Send</span>
         </Button>
       </form>
 
-      {shouldShowSuggestions && (
-        <div className="absolute top-full left-0 right-0 bg-popover border border-border rounded-md shadow-lg z-50 mt-1">
+      <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+        <PopoverTrigger asChild>
+          {/* Invisible trigger to anchor the popover to the input */}
+          <div className="absolute top-0 left-0 w-full h-10 pointer-events-none" />
+        </PopoverTrigger>
+        <PopoverContent 
+          className="p-0 w-[var(--radix-popover-trigger-width)] mt-1" 
+          align="start" 
+          sideOffset={5}
+          onOpenAutoFocus={(e) => e.preventDefault()} // Prevent focus stealing from input
+        >
           <ul className="max-h-60 overflow-y-auto">
             {suggestions.map((suggestion, index) => (
               <li
@@ -134,8 +172,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };

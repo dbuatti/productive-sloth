@@ -129,6 +129,7 @@ const SchedulerPage: React.FC = () => {
   const [injectionEndTime, setInjectionEndTime] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+  const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false); // New state for morning fix
 
   const formattedSelectedDay = selectedDay;
   const location = useLocation();
@@ -243,24 +244,45 @@ const SchedulerPage: React.FC = () => {
 
   // NEW: Automatic Retirement Logic (Morning Fix)
   useEffect(() => {
-    if (!user || !dbScheduledTasks || isSchedulerTasksLoading || !isSameDay(parseISO(selectedDay), T_current)) {
-      return; // Only run for today's schedule when tasks are loaded
+    if (!user || !dbScheduledTasks || isSchedulerTasksLoading || !profile) {
+      return;
     }
 
-    const tasksToRetire = dbScheduledTasks.filter(task => {
-      if (!task.start_time || !task.end_time) return false; // Only timed tasks can be past due
+    const currentDay = parseISO(selectedDay);
+    const now = new Date();
+    const isViewingToday = isSameDay(currentDay, now);
 
-      const taskEndTime = setTimeOnDate(parseISO(task.scheduled_date), format(parseISO(task.end_time), 'HH:mm'));
-      return isBefore(taskEndTime, T_current);
-    });
+    // Only run the morning fix if viewing today and it hasn't run yet for today
+    if (isViewingToday && !hasMorningFixRunToday) {
+      const tasksToRetire = dbScheduledTasks.filter(task => {
+        if (!task.start_time || !task.end_time) return false;
 
-    if (tasksToRetire.length > 0) {
-      console.log(`Automatically retiring ${tasksToRetire.length} past-due tasks.`);
-      tasksToRetire.forEach(task => {
-        retireTask(task);
+        const taskEndTime = setTimeOnDate(currentDay, format(parseISO(task.end_time), 'HH:mm'));
+        
+        // Retire tasks that ended before the user's defined workday start time,
+        // AND the current time is past that workday start time.
+        // This ensures tasks that were *missed before the day even properly began* are retired.
+        const workdayStart = profile.default_auto_schedule_start_time
+          ? setTimeOnDate(currentDay, profile.default_auto_schedule_start_time)
+          : startOfDay(currentDay);
+
+        return isBefore(taskEndTime, workdayStart) && isAfter(now, workdayStart);
       });
+
+      if (tasksToRetire.length > 0) {
+        console.log(`Automatically retiring ${tasksToRetire.length} past-due tasks from before workday start.`);
+        tasksToRetire.forEach(task => {
+          retireTask(task);
+        });
+        setHasMorningFixRunToday(true); // Mark as run for today
+      } else {
+        setHasMorningFixRunToday(true); // If no tasks to retire, still mark as run to prevent re-check
+      }
+    } else if (!isViewingToday) {
+      // Reset the flag if the selected day is no longer today
+      setHasMorningFixRunToday(false);
     }
-  }, [user, dbScheduledTasks, isSchedulerTasksLoading, selectedDay, T_current, retireTask]);
+  }, [user, dbScheduledTasks, isSchedulerTasksLoading, selectedDay, profile, hasMorningFixRunToday, retireTask]);
 
 
   const handleClearSchedule = async () => {

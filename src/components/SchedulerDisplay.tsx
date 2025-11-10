@@ -3,7 +3,7 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Lock } from 'lucide-react'; // Import Lock icon
+import { Trash } from 'lucide-react'; // Removed Lock icon import
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO } from 'date-fns';
@@ -264,10 +264,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }}
           >
-            {/* Padlock Icon */}
-            <div className="absolute top-2 left-2 z-20 text-white">
+            {/* Removed Padlock Icon */}
+            {/* <div className="absolute top-2 left-2 z-20 text-white">
               <Lock className="h-4 w-4" />
-            </div>
+            </div> */}
 
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">

@@ -83,29 +83,19 @@ const SchedulerPage: React.FC = () => {
     }
   }, [formattedSelectedDay]); // Only depend on formattedSelectedDay
 
-  // Refactored schedule generation logic directly into useEffect
-  useEffect(() => {
-    console.log("SchedulerPage: calculateSchedule useEffect triggered.");
+  // Calculate the schedule based on tasks, selected day, and explicit anchor
+  const calculatedSchedule = useMemo(() => {
+    console.log("SchedulerPage: calculatedSchedule useMemo triggered.");
     console.log("SchedulerPage: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time })));
-    console.log("SchedulerPage: Current tAnchorForSelectedDay before calculating schedule:", tAnchorForSelectedDay?.toISOString());
+    console.log("SchedulerPage: Current tAnchorForSelectedDay for calculation:", tAnchorForSelectedDay?.toISOString());
+    // Pass T_current and selectedDay to calculateSchedule for internal logic
+    return calculateSchedule(dbScheduledTasks, tAnchorForSelectedDay, T_current, selectedDay);
+  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay]); // Removed T_current from dependencies here
 
-    const selectedDayDate = parseISO(selectedDay);
-    let effectiveTAnchorForCalculation: Date | null = tAnchorForSelectedDay;
-
-    if (effectiveTAnchorForCalculation === null) {
-      if (isSameDay(selectedDayDate, T_current)) {
-        // If no anchor is set and it's today, use the current time as the starting point for ad-hoc tasks
-        effectiveTAnchorForCalculation = T_current;
-      } else {
-        // If no anchor is set and it's not today, use the start of the selected day
-        effectiveTAnchorForCalculation = startOfDay(selectedDayDate);
-      }
-    }
-    
-    console.log("SchedulerPage: Calling calculateSchedule with T_Anchor for selected day:", effectiveTAnchorForCalculation?.toISOString());
-    const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchorForCalculation);
-    setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current]); // T_current is a dependency here
+  // Set currentSchedule state from the memoized calculation
+  useEffect(() => {
+    setCurrentSchedule(calculatedSchedule);
+  }, [calculatedSchedule]);
 
   const handleCommand = async (input: string) => {
     if (!user) {
@@ -342,28 +332,28 @@ const SchedulerPage: React.FC = () => {
   };
 
   const activeItem: ScheduledItem | null = useMemo(() => {
-    if (!currentSchedule || !isSameDay(parseISO(selectedDay), new Date())) return null;
-    for (const item of currentSchedule.items) {
+    if (!calculatedSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
+    for (const item of calculatedSchedule.items) {
       if ((item.type === 'task' || item.type === 'break') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
     return null;
-  }, [currentSchedule, T_current, selectedDay]);
+  }, [calculatedSchedule, T_current, selectedDay]);
 
   const nextItem: ScheduledItem | null = useMemo(() => {
-    if (!currentSchedule || !activeItem || !isSameDay(parseISO(selectedDay), new Date())) return null;
-    const activeItemIndex = currentSchedule.items.findIndex(item => item.id === activeItem.id);
-    if (activeItemIndex !== -1 && activeItemIndex < currentSchedule.items.length - 1) {
-      for (let i = activeItemIndex + 1; i < currentSchedule.items.length; i++) {
-        const item = currentSchedule.items[i];
+    if (!calculatedSchedule || !activeItem || !isSameDay(parseISO(selectedDay), T_current)) return null;
+    const activeItemIndex = calculatedSchedule.items.findIndex(item => item.id === activeItem.id);
+    if (activeItemIndex !== -1 && activeItemIndex < calculatedSchedule.items.length - 1) {
+      for (let i = activeItemIndex + 1; i < calculatedSchedule.items.length; i++) {
+        const item = calculatedSchedule.items[i];
         if (item.type === 'task' || item.type === 'break') {
           return item;
         }
       }
     }
     return null;
-  }, [currentSchedule, activeItem, selectedDay]);
+  }, [calculatedSchedule, activeItem, T_current, selectedDay]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;
@@ -393,7 +383,7 @@ const SchedulerPage: React.FC = () => {
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
 
-      <SchedulerDashboardPanel scheduleSummary={currentSchedule?.summary || null} />
+      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} />
 
       <CalendarStrip 
         selectedDay={selectedDay} 
@@ -439,7 +429,7 @@ const SchedulerPage: React.FC = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <SchedulerDisplay schedule={currentSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} activeItemId={activeItem?.id || null} />
+            <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} activeItemId={activeItem?.id || null} />
           )}
         </CardContent>
       </Card>

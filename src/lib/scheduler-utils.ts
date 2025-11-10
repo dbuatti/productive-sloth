@@ -258,7 +258,9 @@ export const parseCommand = (input: string): ParsedCommand | null => {
 
 export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
-  T_Anchor: Date | null // T_Anchor can now be null
+  explicitTAnchor: Date | null, // This is tAnchorForSelectedDay from state
+  currentMoment: Date, // This is T_current from state
+  selectedDateString: string // This is selectedDay from state
 ): FormattedSchedule => {
   const scheduledItems: ScheduledItem[] = [];
   let totalActiveTime = 0;
@@ -318,11 +320,14 @@ export const calculateSchedule = (
     totalActiveTime += duration;
   });
 
-  // 2. Schedule Ad-Hoc Tasks sequentially from T_Anchor, avoiding fixed appointments
-  let adHocCursor: Date | null = T_Anchor; 
+  // 2. Schedule Ad-Hoc Tasks sequentially from a determined cursor, avoiding fixed appointments
+  let adHocCursor: Date; 
+  const selectedDayDate = startOfDay(parseISO(selectedDateString));
 
-  if (!adHocCursor && fixedAppointments.length > 0) {
-    // Find the latest end time among the fixed appointments (which are now correctly local)
+  if (explicitTAnchor) {
+    adHocCursor = explicitTAnchor;
+  } else if (fixedAppointments.length > 0) {
+    // If no explicit anchor, but there are fixed appointments, start after the latest one
     const latestFixedEndTime = fixedAppointments.reduce((latest, appt) => {
         const scheduledDateLocal = startOfDay(parseISO(appt.scheduled_date));
         const utcEnd = parseISO(appt.end_time!);
@@ -333,19 +338,26 @@ export const calculateSchedule = (
         if (currentEndTime.getTime() < currentStartTime.getTime()) { // Check for rollover
             currentEndTime = addDays(currentEndTime, 1);
         }
-
         return currentEndTime.getTime() > latest.getTime() ? currentEndTime : latest;
-    }, startOfDay(parseISO(dbTasks[0].scheduled_date))); // Initialize with start of day of first task's scheduled date
+    }, selectedDayDate); // Initialize with start of selected day
     adHocCursor = latestFixedEndTime;
+  } else if (isSameDay(selectedDayDate, currentMoment)) {
+    // If no explicit anchor, no fixed appointments, and it's today, start from current moment
+    adHocCursor = currentMoment;
+  } else {
+    // If no explicit anchor, no fixed appointments, and not today, start from the beginning of the selected day
+    adHocCursor = selectedDayDate;
   }
 
   // Sort ad-hoc tasks by their creation time to maintain the order they were added
   adHocTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   adHocTasks.forEach(task => {
-    if (!adHocCursor) { // If adHocCursor is still null, we cannot place this ad-hoc task.
-      console.warn(`Skipping ad-hoc task "${task.name}" because adHocCursor is null. Ensure T_Anchor is set or fixed appointments exist.`);
-      return; 
+    // Ensure adHocCursor is not in the past relative to the selected day's start
+    // This handles cases where currentMoment might be earlier than a fixed appointment,
+    // but adHocCursor was set to currentMoment.
+    if (adHocCursor.getTime() < selectedDayDate.getTime()) {
+      adHocCursor = selectedDayDate;
     }
 
     let proposedStartTime = adHocCursor;
@@ -422,9 +434,9 @@ export const calculateSchedule = (
   // Final sort of all items (fixed and ad-hoc) for display
   scheduledItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : (T_Anchor || new Date()); // Fallback for sessionEnd if no tasks
+  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : (explicitTAnchor || currentMoment); // Fallback for sessionEnd if no tasks
   const extendsPastMidnight = !isToday(sessionEnd) && scheduledItems.length > 0;
-  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, T_Anchor || new Date()) : null;
+  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, currentMoment) : null;
 
   const summary: ScheduleSummary = {
     totalTasks: dbTasks.length, 

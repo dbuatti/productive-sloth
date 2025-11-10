@@ -104,13 +104,18 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     
+    console.log("SchedulerPage: handleCommand - Raw input:", input);
     const parsedInput = parseTaskInput(input);
+    console.log("SchedulerPage: handleCommand - parseTaskInput result:", parsedInput);
     const injectCommand = parseInjectionCommand(input);
+    console.log("SchedulerPage: handleCommand - parseInjectionCommand result:", injectCommand);
     const command = parseCommand(input);
+    console.log("SchedulerPage: handleCommand - parseCommand result:", command);
 
     let success = false;
 
     if (parsedInput) {
+      console.log("SchedulerPage: handleCommand - Processing as parsedInput.");
       const isAdHocTask = 'duration' in parsedInput;
 
       // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc task, set it NOW
@@ -125,16 +130,25 @@ const SchedulerPage: React.FC = () => {
 
       // Check if it's a duration-based task or a timed event
       if (isAdHocTask) {
-        // Duration-based task
+        console.log("SchedulerPage: handleCommand - Adding duration-based task.");
         await addScheduledTask({ name: parsedInput.name, duration: parsedInput.duration, break_duration: parsedInput.breakDuration, scheduled_date: taskScheduledDate });
         success = true;
       } else {
-        // Timed event (Fixed Appointment)
+        console.log("SchedulerPage: handleCommand - Adding timed event.");
         const selectedDayDate = parseISO(selectedDay);
         // Use parsedInput.startTime and parsedInput.endTime directly as they are already Date objects
         let startTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
         let endTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
         
+        console.log(`SchedulerPage: handleCommand - Parsed startTime (Date object): ${parsedInput.startTime?.toISOString()}, isNaN: ${isNaN(parsedInput.startTime!.getTime())}`);
+        console.log(`SchedulerPage: handleCommand - Parsed endTime (Date object): ${parsedInput.endTime?.toISOString()}, isNaN: ${isNaN(parsedInput.endTime!.getTime())}`);
+
+        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+          showError("Invalid time format for start/end times.");
+          setIsProcessingCommand(false);
+          return;
+        }
+
         if (endTime.getTime() < startTime.getTime()) {
           endTime = addDays(endTime, 1);
         }
@@ -147,6 +161,7 @@ const SchedulerPage: React.FC = () => {
         success = true;
       }
     } else if (injectCommand) {
+      console.log("SchedulerPage: handleCommand - Processing as injectCommand.");
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
 
       // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
@@ -160,41 +175,35 @@ const SchedulerPage: React.FC = () => {
       const taskScheduledDate = formattedSelectedDay;
 
       if (injectCommand.duration) {
+        console.log("SchedulerPage: handleCommand - Adding injected duration-based task.");
         await addScheduledTask({ name: injectCommand.taskName, duration: injectCommand.duration, break_duration: injectCommand.breakDuration, scheduled_date: taskScheduledDate });
         success = true;
       } else if (injectCommand.startTime && injectCommand.endTime) {
-        const selectedDayDate = parseISO(selectedDay);
-        const tempStartTime = parseFlexibleTime(injectCommand.startTime, selectedDayDate);
-        const tempEndTime = parseFlexibleTime(injectCommand.endTime, selectedDayDate);
-
-        let startTime = setHours(setMinutes(startOfDay(selectedDayDate), tempStartTime.getMinutes()), tempStartTime.getHours());
-        let endTime = setHours(setMinutes(startOfDay(selectedDayDate), tempEndTime.getMinutes()), tempEndTime.getHours());
-
-        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-          showError("Invalid time format for start/end times.");
-          setIsProcessingCommand(false);
-          return;
-        }
-        if (endTime.getTime() < startTime.getTime()) {
-          endTime.setDate(endTime.getDate() + 1);
-        }
-        console.log(`SchedulerPage: handleCommand (injection) - Storing timed injection. Input Start: ${injectCommand.startTime}, Input End: ${injectCommand.endTime}`);
-        console.log(`SchedulerPage: handleCommand (injection) - Parsed Start (local): ${startTime.toLocaleString()}, Parsed End (local): ${endTime.toLocaleString()}`);
-        console.log(`SchedulerPage: handleCommand (injection) - Storing Start (ISO): ${startTime.toISOString()}, Storing End (ISO): ${endTime.toISOString()}`);
-        await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
-        success = true;
-      }
-      else {
+        console.log("SchedulerPage: handleCommand - Opening injection dialog for timed event.");
         setInjectionPrompt({ 
           taskName: injectCommand.taskName, 
           isOpen: true, 
-          isTimed: !!(injectCommand.startTime || injectCommand.endTime),
+          isTimed: true,
           startTime: injectCommand.startTime,
           endTime: injectCommand.endTime
+        });
+        setInjectionStartTime(injectCommand.startTime);
+        setInjectionEndTime(injectCommand.endTime);
+        success = true;
+      }
+      else {
+        console.log("SchedulerPage: handleCommand - Opening injection dialog for duration-based task.");
+        setInjectionPrompt({ 
+          taskName: injectCommand.taskName, 
+          isOpen: true, 
+          isTimed: false,
+          startTime: undefined,
+          endTime: undefined
         });
         success = true;
       }
     } else if (command) {
+      console.log("SchedulerPage: handleCommand - Processing as command.");
       switch (command.type) {
         case 'clear':
           await clearScheduledTasks();
@@ -238,6 +247,7 @@ const SchedulerPage: React.FC = () => {
           showError("Unknown command.");
       }
     } else {
+      console.log("SchedulerPage: handleCommand - No valid parse result found.");
       showError("Invalid input. Please use 'Task Name Duration [Break]', 'Task Name HH:MM AM/PM - HH:MM AM/PM', or a command.");
     }
     

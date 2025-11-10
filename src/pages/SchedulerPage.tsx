@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask } from '@/types/scheduler';
@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, addHours } from 'date-fns';
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, addHours, subDays } from 'date-fns';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
@@ -72,6 +72,39 @@ const SchedulerPage: React.FC = () => {
     }, 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Keyboard navigation for days
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const currentSelectedDate = parseISO(selectedDay);
+      let newDate: Date;
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault(); // Prevent browser scroll
+          newDate = subDays(currentSelectedDate, 1);
+          setSelectedDay(format(newDate, 'yyyy-MM-dd'));
+          break;
+        case 'ArrowRight':
+          event.preventDefault(); // Prevent browser scroll
+          newDate = addDays(currentSelectedDate, 1);
+          setSelectedDay(format(newDate, 'yyyy-MM-dd'));
+          break;
+        case ' ': // Space bar
+          event.preventDefault(); // Prevent browser scroll
+          setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedDay]); // Re-run effect if selectedDay changes to get the latest date
+
 
   // Manage tAnchorForSelectedDay based on selectedDay and current time
   useEffect(() => {

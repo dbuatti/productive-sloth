@@ -72,21 +72,24 @@ const SchedulerPage: React.FC = () => {
     }
 
     // Only update state if the new value is referentially different OR the date value is different
+    // This comparison prevents unnecessary state updates and thus re-renders.
     if (
-      tAnchorForSelectedDay !== newAnchorDate && // Check for direct reference change (e.g., null to Date, or Date to different Date object)
-      !(tAnchorForSelectedDay instanceof Date && newAnchorDate instanceof Date && tAnchorForSelectedDay.getTime() === newAnchorDate.getTime()) // Check if two Date objects represent the same time
+      (tAnchorForSelectedDay === null && newAnchorDate !== null) || // If current is null and new is not
+      (tAnchorForSelectedDay !== null && newAnchorDate === null) || // If current is not null and new is null
+      (tAnchorForSelectedDay !== null && newAnchorDate !== null && tAnchorForSelectedDay.getTime() !== newAnchorDate.getTime()) // If both are dates, compare their time values
     ) {
       setTAnchorForSelectedDay(newAnchorDate);
       console.log(`SchedulerPage: Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
     } else {
       console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
     }
-  }, [formattedSelectedDay, tAnchorForSelectedDay]);
+  }, [formattedSelectedDay, tAnchorForSelectedDay]); // Keep tAnchorForSelectedDay in dependencies for comparison
 
   // Refactored schedule generation logic directly into useEffect
   useEffect(() => {
     console.log("SchedulerPage: calculateSchedule useEffect triggered.");
     console.log("SchedulerPage: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time })));
+    console.log("SchedulerPage: Current tAnchorForSelectedDay before calculating schedule:", tAnchorForSelectedDay?.toISOString()); // Added log here
 
     const selectedDayDate = parseISO(selectedDay);
     const effectiveTAnchor = tAnchorForSelectedDay || (dbScheduledTasks.length > 0 ? startOfDay(selectedDayDate) : null);

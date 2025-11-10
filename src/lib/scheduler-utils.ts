@@ -121,8 +121,10 @@ interface ParsedTaskInput {
 // Helper to parse time flexibly
 export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date => {
   let parsedDate = parse(timeString, 'h:mm a', referenceDate);
+  console.log(`parseFlexibleTime: Attempting 'h:mm a' for '${timeString}'. Result: ${parsedDate.toISOString()}, isNaN: ${isNaN(parsedDate.getTime())}`);
   if (isNaN(parsedDate.getTime())) {
     parsedDate = parse(timeString, 'h a', referenceDate);
+    console.log(`parseFlexibleTime: Attempting 'h a' for '${timeString}'. Result: ${parsedDate.toISOString()}, isNaN: ${isNaN(parsedDate.getTime())}`);
   }
   return parsedDate;
 };

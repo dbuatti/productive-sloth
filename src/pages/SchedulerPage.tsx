@@ -71,19 +71,18 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    // Only update state if the new value is referentially different OR the date value is different
-    // This comparison prevents unnecessary state updates and thus re-renders.
-    if (
-      (tAnchorForSelectedDay === null && newAnchorDate !== null) || // If current is null and new is not
-      (tAnchorForSelectedDay !== null && newAnchorDate === null) || // If current is not null and new is null
-      (tAnchorForSelectedDay !== null && newAnchorDate !== null && tAnchorForSelectedDay.getTime() !== newAnchorDate.getTime()) // If both are dates, compare their time values
-    ) {
+    // Compare the *value* of the new anchor with the *current state value*
+    // to prevent unnecessary updates and break the re-render loop.
+    const currentAnchorTime = tAnchorForSelectedDay ? tAnchorForSelectedDay.getTime() : null;
+    const newAnchorTime = newAnchorDate ? newAnchorDate.getTime() : null;
+
+    if (currentAnchorTime !== newAnchorTime) {
       setTAnchorForSelectedDay(newAnchorDate);
       console.log(`SchedulerPage: Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
     } else {
       console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
     }
-  }, [formattedSelectedDay, tAnchorForSelectedDay]); // Keep tAnchorForSelectedDay in dependencies for comparison
+  }, [formattedSelectedDay]); // Only depend on formattedSelectedDay
 
   // Refactored schedule generation logic directly into useEffect
   useEffect(() => {
@@ -97,7 +96,7 @@ const SchedulerPage: React.FC = () => {
     console.log("SchedulerPage: Calling calculateSchedule with T_Anchor for selected day:", effectiveTAnchor?.toISOString());
     const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay]); // Added tAnchorForSelectedDay as a dependency
+  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay]); // Keep tAnchorForSelectedDay as a dependency here
 
   const handleCommand = async (input: string) => {
     if (!user) {

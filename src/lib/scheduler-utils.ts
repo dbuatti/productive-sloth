@@ -121,12 +121,20 @@ interface ParsedTaskInput {
 // Helper to parse time flexibly
 export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date => {
   let parsedDate = parse(timeString, 'h:mm a', referenceDate);
-  console.log(`parseFlexibleTime: Attempting 'h:mm a' for '${timeString}'. Result: ${parsedDate.toISOString()}, isNaN: ${isNaN(parsedDate.getTime())}`);
-  if (isNaN(parsedDate.getTime())) {
-    parsedDate = parse(timeString, 'h a', referenceDate);
-    console.log(`parseFlexibleTime: Attempting 'h a' for '${timeString}'. Result: ${parsedDate.toISOString()}, isNaN: ${isNaN(parsedDate.getTime())}`);
+  if (!isNaN(parsedDate.getTime())) {
+    console.log(`parseFlexibleTime: Attempting 'h:mm a' for '${timeString}'. Result: ${parsedDate.toISOString()}`);
+    return parsedDate;
   }
-  return parsedDate;
+
+  console.log(`parseFlexibleTime: 'h:mm a' failed for '${timeString}'. Trying 'h a'.`);
+  parsedDate = parse(timeString, 'h a', referenceDate);
+  if (!isNaN(parsedDate.getTime())) {
+    console.log(`parseFlexibleTime: Attempting 'h a' for '${timeString}'. Result: ${parsedDate.toISOString()}`);
+    return parsedDate;
+  }
+
+  console.log(`parseFlexibleTime: Both 'h:mm a' and 'h a' failed for '${timeString}'. Returning invalid Date.`);
+  return new Date('Invalid Date'); // Explicitly return an invalid date
 };
 
 export const parseTaskInput = (input: string): ParsedTaskInput | null => {

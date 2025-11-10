@@ -9,7 +9,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription, // Imported FormDescription
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -244,6 +244,7 @@ const SettingsPage: React.FC = () => {
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Personal Information Card */}
           <Card className="animate-hover-lift">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
@@ -299,242 +300,248 @@ const SettingsPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Game Stats & Actions Card */}
+          <Card className="animate-hover-lift">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Gamepad2 className="h-5 w-5 text-logo-yellow" /> Game & Energy
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Level</Label>
+                  <Input value={profile.level} readOnly className="font-mono" />
+                </div>
+                <div className="space-y-2">
+                  <Label>XP</Label>
+                  <Input value={profile.xp} readOnly className="font-mono" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Energy</Label>
+                  <Input value={`${profile.energy}/${MAX_ENERGY}`} readOnly className="font-mono" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Daily Streak</Label>
+                  <Input value={profile.daily_streak} readOnly className="font-mono" />
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+                <Button
+                  type="button"
+                  onClick={() => rechargeEnergy()}
+                  disabled={profile.energy >= MAX_ENERGY}
+                  className="flex items-center gap-2 bg-primary hover:bg-primary/90"
+                >
+                  <Zap className="h-4 w-4" /> Recharge Energy
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" type="button" className="flex items-center gap-2">
+                      <Flame className="h-4 w-4" /> Reset Daily Streak
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action will reset your daily streak to 0. This cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => resetDailyStreak()} className="bg-destructive hover:bg-destructive/90">
+                        Reset Streak
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* App Preferences Card */}
+          <Card className="animate-hover-lift">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Settings className="h-5 w-5 text-primary" /> Preferences
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                <Label>Theme</Label>
+                <ThemeToggle />
+              </div>
+              
+              {/* Daily Challenge Notifications (Manual State/Update) */}
+              <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label>Daily Challenge Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Receive notifications for your daily challenge status.
+                  </p>
+                </div>
+                <Switch
+                  checked={dailyChallengeNotifications}
+                  onCheckedChange={(checked) => handleNotificationChange('enable_daily_challenge_notifications', checked)}
+                />
+              </div>
+
+              {/* Low Energy Notifications (Manual State/Update) */}
+              <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label>Low Energy Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Receive alerts when your energy is low.
+                  </p>
+                </div>
+                <Switch
+                  checked={lowEnergyNotifications}
+                  onCheckedChange={(checked) => handleNotificationChange('enable_low_energy_notifications', checked)}
+                />
+              </div>
+
+              {/* Default Auto-Schedule Times - MOVED INSIDE FORM */}
+              <div className="rounded-lg border p-3 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+                  <Clock className="h-4 w-4" /> Auto-Schedule Window
+                </div>
+                <FormField
+                  control={form.control}
+                  name="default_auto_schedule_start_time"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between">
+                      <div className="space-y-0.5">
+                        <FormLabel>Default Workday Start Time</FormLabel>
+                        <FormDescription className="text-sm text-muted-foreground">
+                          The time the auto-scheduler should start filling your flexible tasks.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Input type="time" className="w-auto" {...field} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="default_auto_schedule_end_time"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between">
+                      <div className="space-y-0.5">
+                        <FormLabel>Default Workday End Time</FormLabel>
+                        <FormDescription className="text-sm text-muted-foreground">
+                          The latest time the auto-scheduler should place flexible tasks.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Input type="time" className="w-auto" {...field} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" disabled={isSubmitting || !isValid}>
+                    Save Preferences
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-4">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" type="button" className="flex items-center gap-2">
+                      <RefreshCcw className="h-4 w-4" /> Reset Preferences
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action will reset your theme and notification preferences to their default settings.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleResetAppSettings}>
+                        Confirm Reset
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Danger Zone Card */}
+          <Card className="border-destructive/50 animate-hover-lift">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl text-destructive">
+                <Trash2 className="h-5 w-5" /> Danger Zone
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full flex items-center gap-2">
+                    <Gamepad2 className="h-4 w-4" /> Reset All Game Progress & Tasks
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action will reset your XP, Level, Daily Streak, Energy, and delete ALL your tasks. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
+                      Confirm Reset
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full flex items-center gap-2">
+                    <Trash2 className="h-4 w-4" /> Delete Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your account and all associated data.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
+                      Confirm Deletion
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <Button
+                variant="outline"
+                className="w-full flex items-center gap-2"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            </CardContent>
+          </Card>
         </form>
       </Form>
-
-      <Card className="animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Gamepad2 className="h-5 w-5 text-logo-yellow" /> Game & Energy
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label>Level</Label>
-              <Input value={profile.level} readOnly className="font-mono" />
-            </div>
-            <div className="space-y-2">
-              <Label>XP</Label>
-              <Input value={profile.xp} readOnly className="font-mono" />
-            </div>
-            <div className="space-y-2">
-              <Label>Energy</Label>
-              <Input value={`${profile.energy}/${MAX_ENERGY}`} readOnly className="font-mono" />
-            </div>
-            <div className="space-y-2">
-              <Label>Daily Streak</Label>
-              <Input value={profile.daily_streak} readOnly className="font-mono" />
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
-            <Button
-              type="button"
-              onClick={() => rechargeEnergy()}
-              disabled={profile.energy >= MAX_ENERGY}
-              className="flex items-center gap-2 bg-primary hover:bg-primary/90"
-            >
-              <Zap className="h-4 w-4" /> Recharge Energy
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" type="button" className="flex items-center gap-2">
-                  <Flame className="h-4 w-4" /> Reset Daily Streak
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action will reset your daily streak to 0. This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => resetDailyStreak()} className="bg-destructive hover:bg-destructive/90">
-                    Reset Streak
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Settings className="h-5 w-5 text-primary" /> Preferences
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <Label>Theme</Label>
-            <ThemeToggle />
-          </div>
-          
-          <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>Daily Challenge Notifications</Label>
-              <p className="text-sm text-muted-foreground">
-                Receive notifications for your daily challenge status.
-              </p>
-            </div>
-            <Switch
-              checked={dailyChallengeNotifications}
-              onCheckedChange={(checked) => handleNotificationChange('enable_daily_challenge_notifications', checked)}
-            />
-          </div>
-
-          <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>Low Energy Notifications</Label>
-              <p className="text-sm text-muted-foreground">
-                Receive alerts when your energy is low.
-              </p>
-            </div>
-            <Switch
-              checked={lowEnergyNotifications}
-              onCheckedChange={(checked) => handleNotificationChange('enable_low_energy_notifications', checked)}
-            />
-          </div>
-
-          <div className="rounded-lg border p-3 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-              <Clock className="h-4 w-4" /> Auto-Schedule Window
-            </div>
-            <FormField
-              control={form.control}
-              name="default_auto_schedule_start_time"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between">
-                  <div className="space-y-0.5">
-                    <FormLabel>Default Workday Start Time</FormLabel>
-                    <FormDescription className="text-sm text-muted-foreground">
-                      The time the auto-scheduler should start filling your flexible tasks.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Input type="time" className="w-auto" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="default_auto_schedule_end_time"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between">
-                  <div className="space-y-0.5">
-                    <FormLabel>Default Workday End Time</FormLabel>
-                    <FormDescription className="text-sm text-muted-foreground">
-                      The latest time the auto-scheduler should place flexible tasks.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Input type="time" className="w-auto" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end pt-2">
-              <Button type="submit" disabled={isSubmitting || !isValid}>
-                Save Preferences
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex justify-end mt-4">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" type="button" className="flex items-center gap-2">
-                  <RefreshCcw className="h-4 w-4" /> Reset Preferences
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action will reset your theme and notification preferences to their default settings.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleResetAppSettings}>
-                    Confirm Reset
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-destructive/50 animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl text-destructive">
-            <Trash2 className="h-5 w-5" /> Danger Zone
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full flex items-center gap-2">
-                <Gamepad2 className="h-4 w-4" /> Reset All Game Progress & Tasks
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action will reset your XP, Level, Daily Streak, Energy, and delete ALL your tasks. This cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
-                  Confirm Reset
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full flex items-center gap-2">
-                <Trash2 className="h-4 w-4" /> Delete Account
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete your account and all associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
-                    Confirm Deletion
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
-            <Button
-              variant="outline"
-              className="w-full flex items-center gap-2"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
+    </div>
+  );
+};
 
 export default SettingsPage;

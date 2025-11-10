@@ -63,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ defaultLayout = [20, 80], children })
         </div>
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={defaultLayout[1]} minSize={30}>
+      <ResizablePanel defaultSize={defaultLayout[1]} minSize={30} className="overflow-auto"> {/* Added overflow-auto here */}
         {children}
       </ResizablePanel>
     </ResizablePanelGroup>

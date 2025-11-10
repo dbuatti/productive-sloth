@@ -114,9 +114,10 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full animate-slide-in-up relative">
       <Popover open={shouldPopoverOpen} onOpenChange={(open) => {
-        // This onOpenChange handler is primarily for reacting to external close events (like escape key or click outside).
-        // The `open={shouldPopoverOpen}` prop already controls the popover's visibility based on input and suggestions.
-        // If `shouldPopoverOpen` is true, the popover will remain open regardless of this callback trying to close it.
+        // If the popover is closing and the input is not already focused, focus it.
+        if (!open && inputRef.current && document.activeElement !== inputRef.current) {
+          inputRef.current?.focus();
+        }
       }} modal={false}>
         <PopoverTrigger asChild>
           <Input
@@ -125,7 +126,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            onMouseDown={(e) => e.preventDefault()} // Keep this to prevent blur on input click
+            // Removed onMouseDown={(e) => e.preventDefault()} to allow natural focus behavior
             placeholder={placeholder}
             disabled={isLoading}
             className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"

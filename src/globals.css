@@ -39,7 +39,7 @@
     --logo-yellow: 45 100% 65%; /* Bright, energetic yellow */
     --logo-orange: 25 100% 60%; /* Fiery orange */
     --logo-green: 140 80% 45%; /* Vibrant green for LOW priority */
-    --live-progress-color: 180 100% 50%; /* Vibrant Cyan for live progress */
+    --live-progress: 180 100% 50%; /* Vibrant Cyan for live progress */
     --always-light-text: 0 0% 95%; /* Consistently light text for dark backgrounds */
 
     /* Sidebar variables (consistent with new palette) */
@@ -87,7 +87,7 @@
     --logo-yellow: 45 90% 55%; /* Muted bright yellow */
     --logo-orange: 25 90% 50%; /* Muted fiery orange */
     --logo-green: 140 70% 35%; /* Muted vibrant green */
-    --live-progress-color: 180 100% 65%; /* Brighter Cyan for dark mode */
+    --live-progress: 180 100% 65%; /* Brighter Cyan for dark mode */
     --always-light-text: 0 0% 95%; /* Consistently light text for dark backgrounds */
 
     /* Sidebar variables (consistent with new palette) */
@@ -144,13 +144,13 @@
   /* New subtle pulse for active scheduler row */
   @keyframes pulse-active-row {
     0%, 100% {
-      box-shadow: 0 0 0px hsl(var(--primary) / 0.1); /* Softer pulse */
-      border-color: hsl(var(--primary) / 0.3); /* Softer border */
+      box-shadow: 0 0 0px hsl(var(--live-progress) / 0.1); /* Softer pulse */
+      border-color: hsl(var(--live-progress) / 0.3); /* Softer border */
       transform: translateY(0px);
     }
     50% {
-      box-shadow: 0 0 8px hsl(var(--primary) / 0.3); /* Softer pulse */
-      border-color: hsl(var(--primary) / 0.8); /* Softer border */
+      box-shadow: 0 0 8px hsl(var(--live-progress) / 0.3); /* Softer pulse */
+      border-color: hsl(var(--live-progress) / 0.8); /* Softer border */
       transform: translateY(-1px); /* More subtle lift */
     }
   }

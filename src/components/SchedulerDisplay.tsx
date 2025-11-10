@@ -257,7 +257,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in overflow-hidden",
               "border border-solid border-white/20", // Added subtle light border
               isHighlightedByNowCard ? "opacity-50" :
-              isActive ? "border-primary" :
+              isActive ? "border-live-progress animate-pulse-active-row" : // Use live-progress for active border
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Faded for past items
               "hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
             )}
@@ -343,7 +343,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   <ListTodo className="h-12 w-12 text-muted-foreground" />
                   <p className="text-lg font-semibold">Your schedule is clear!</p>
                   <p>Start by adding a task in the input above.</p>
-                  <p className="text-sm">Try: "Meeting 60" or "Coffee 10am - 10:15am"</p>
+                  <p className="text-sm">Try: "Piano Practice 30", "Meeting 60 10", "Mindfulness 11am - 12pm"</p>
                 </div>
               ) : (
                 <>

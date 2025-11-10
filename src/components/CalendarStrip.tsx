@@ -1,8 +1,8 @@
-import React from 'react';
-import { format, addDays, isSameDay, isToday, parseISO } from 'date-fns';
+import React, { useState, useMemo } from 'react';
+import { format, addDays, isSameDay, isToday, parseISO, subWeeks, addWeeks, subDays } from 'date-fns'; // Added subDays
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { CalendarDays, CalendarCheck } from 'lucide-react'; // Import CalendarCheck icon
+import { CalendarDays, CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react'; // Import Chevron icons
 
 interface CalendarStripProps {
   selectedDay: string; // Changed to string
@@ -11,16 +11,30 @@ interface CalendarStripProps {
 }
 
 const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedDay, datesWithTasks }) => {
-  const daysToDisplay = 7; // Show 7 days: 3 before, current, 3 after
-  const today = new Date();
-  const startDay = addDays(parseISO(selectedDay), -Math.floor(daysToDisplay / 2)); // Parse selectedDay string
+  const daysToDisplay = 7; // Show 7 days
+  const [weekOffset, setWeekOffset] = useState(0); // 0 for current week, -1 for previous, 1 for next
+
+  const currentWeekStart = useMemo(() => {
+    const today = new Date();
+    const startOfWeek = subDays(today, today.getDay()); // Start of the current week (Sunday)
+    return addWeeks(startOfWeek, weekOffset);
+  }, [weekOffset]);
 
   const handleGoToToday = () => {
     setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
+    setWeekOffset(0); // Reset week offset to current week
+  };
+
+  const handlePreviousWeek = () => {
+    setWeekOffset(prev => prev - 1);
+  };
+
+  const handleNextWeek = () => {
+    setWeekOffset(prev => prev + 1);
   };
 
   const days = Array.from({ length: daysToDisplay }).map((_, i) => {
-    const day = addDays(startDay, i);
+    const day = addDays(currentWeekStart, i);
     const formattedDay = format(day, 'yyyy-MM-dd');
     const hasTasks = datesWithTasks.includes(formattedDay);
 
@@ -45,6 +59,17 @@ const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedD
 
   return (
     <div className="flex justify-center items-center space-x-2 overflow-x-auto py-2 animate-slide-in-up">
+      {/* Previous Week Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handlePreviousWeek}
+        className="h-16 w-10 shrink-0 text-muted-foreground hover:bg-secondary/50 hover:scale-105 hover:shadow-md"
+      >
+        <ChevronLeft className="h-5 w-5" />
+        <span className="sr-only">Previous Week</span>
+      </Button>
+
       {/* "Today" button */}
       <Button
         variant="outline"
@@ -65,6 +90,17 @@ const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedD
           <p className="text-sm">No scheduled tasks for these days.</p>
         </div>
       )}
+
+      {/* Next Week Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleNextWeek}
+        className="h-16 w-10 shrink-0 text-muted-foreground hover:bg-secondary/50 hover:scale-105 hover:shadow-md"
+      >
+        <ChevronRight className="h-5 w-5" />
+        <span className="sr-only">Next Week</span>
+      </Button>
     </div>
   );
 };

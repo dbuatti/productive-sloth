@@ -281,8 +281,6 @@ export const parseCommand = (input: string): ParsedCommand | null => {
 
 export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
-  explicitTAnchor: Date | null, // This is tAnchorForSelectedDay from state
-  currentMoment: Date, // This is T_current from state
   selectedDateString: string, // This is selectedDay from state
   workdayStartTime: Date, // New parameter
   workdayEndTime: Date   // New parameter
@@ -307,6 +305,8 @@ export const calculateSchedule = (
 
     return localTimeA.getTime() - localTimeB.getTime();
   });
+
+  const selectedDayAsDate = parseISO(selectedDateString); // Parse selectedDateString once
 
   allTasksWithTimes.forEach(task => {
     const referenceDay = startOfDay(parseISO(task.scheduled_date)); 
@@ -351,9 +351,10 @@ export const calculateSchedule = (
   // Final sort of all items (should already be sorted, but good to ensure)
   scheduledItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : (explicitTAnchor || currentMoment);
-  const extendsPastMidnight = !isToday(sessionEnd) && scheduledItems.length > 0;
-  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, currentMoment) : null;
+  // Determine session end based on the last scheduled item or start of the workday
+  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : workdayStartTime;
+  const extendsPastMidnight = !isSameDay(sessionEnd, selectedDayAsDate) && scheduledItems.length > 0;
+  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, new Date()) : null; // Use new Date() for current moment check
 
   const summary: ScheduleSummary = {
     totalTasks: dbTasks.length, 

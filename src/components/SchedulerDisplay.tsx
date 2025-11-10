@@ -62,7 +62,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                     id: `free-${currentCursor.toISOString()}-${eventStartTime.toISOString()}`,
                     type: 'free-time',
                     startTime: currentCursor,
-                    endTime: eventStartTime,
+                    endTime: eventEndTime, // Should be eventStartTime, not eventEndTime
                     duration: freeDurationMinutes,
                     message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
                 });
@@ -213,11 +213,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[8px] bg-live-progress z-20 drop-shadow-md" // Increased height, removed pulse-glow
+                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress" // Increased height, removed pulse-glow
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap drop-shadow-md"> {/* Removed pulse-glow and border */}
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Removed pulse-glow and border */}
                     {formatTime(T_current)}
                   </span>
                 </div>
@@ -301,11 +301,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[8px] bg-live-progress z-20 drop-shadow-md" // Increased height, removed pulse-glow
+                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress" // Increased height, removed pulse-glow
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap drop-shadow-md"> {/* Removed pulse-glow and border */}
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Removed pulse-glow and border */}
                     {formatTime(T_current)}
                   </span>
                 </div>
@@ -327,11 +327,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             {/* Global "Now" Indicator */}
             {isTodaySelected && !activeItemInDisplay && firstItemStartTime && lastItemEndTime && (
               <div 
-                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 drop-shadow-md" // Removed pulse-glow
+                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress" // Removed pulse-glow
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> {/* Adjust top for label positioning */}
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap drop-shadow-md"> {/* Removed pulse-glow and border */}
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Removed pulse-glow and border */}
                     {formatTime(T_current)}
                   </span>
                 </div>

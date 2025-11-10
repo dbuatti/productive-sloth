@@ -52,7 +52,7 @@ const SchedulerPage: React.FC = () => {
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
   
-  const [tAnchorForSelectedDay, setTAnchorForSelectedDay] = useState<Date | null>(null);
+  // Removed tAnchorForSelectedDay state and its useEffect
 
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
@@ -111,57 +111,6 @@ const SchedulerPage: React.FC = () => {
   }, [selectedDay]); // Re-run effect if selectedDay changes to get the latest date
 
 
-  // Manage tAnchorForSelectedDay based on selectedDay and current time
-  useEffect(() => {
-    const selectedDayAsDate = parseISO(formattedSelectedDay);
-    const isSelectedDayToday = isSameDay(selectedDayAsDate, T_current);
-    const localStorageKey = `scheduler_T_Anchor_${formattedSelectedDay}`;
-
-    let calculatedAnchorDateFromStorage: Date | null = null;
-    const savedAnchorString = localStorage.getItem(localStorageKey);
-
-    if (savedAnchorString) {
-      const parsedDate = new Date(savedAnchorString);
-      if (!isNaN(parsedDate.getTime())) {
-        calculatedAnchorDateFromStorage = parsedDate;
-      }
-    }
-
-    let newAnchorCandidate: Date;
-    if (isSelectedDayToday) {
-      newAnchorCandidate = T_current;
-    } else {
-      newAnchorCandidate = startOfDay(selectedDayAsDate);
-    }
-
-    let finalAnchorToSet: Date | null = null;
-
-    if (calculatedAnchorDateFromStorage && isSameDay(calculatedAnchorDateFromStorage, selectedDayAsDate)) {
-        // If there's a saved anchor for the current selected day
-        if (isSelectedDayToday && isBefore(calculatedAnchorDateFromStorage, T_current)) {
-            // If it's today and saved anchor is in the past, update to current time
-            finalAnchorToSet = T_current;
-        } else {
-            // Otherwise, stick with the saved anchor
-            finalAnchorToSet = calculatedAnchorDateFromStorage;
-        }
-    } else {
-        // No saved anchor for this day, or saved anchor is for a different day
-        finalAnchorToSet = newAnchorCandidate;
-    }
-
-    // Compare by timestamp to avoid re-rendering if only object reference changes
-    const currentAnchorTime = tAnchorForSelectedDay?.getTime() || null;
-    const finalAnchorToSetTime = finalAnchorToSet?.getTime() || null;
-
-    if (currentAnchorTime !== finalAnchorToSetTime) {
-      setTAnchorForSelectedDay(finalAnchorToSet);
-      if (finalAnchorToSet) {
-         localStorage.setItem(localStorageKey, finalAnchorToSet.toISOString());
-      }
-    }
-  }, [formattedSelectedDay, T_current]); // tAnchorForSelectedDay is NOT in dependencies.
-
   // Calculate workday boundaries from profile
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
   const workdayStartTime = useMemo(() => profile?.default_auto_schedule_start_time 
@@ -192,8 +141,9 @@ const SchedulerPage: React.FC = () => {
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null; // Ensure profile is loaded before calculating schedule
-    return calculateSchedule(dbScheduledTasks, tAnchorForSelectedDay, T_current, selectedDay, workdayStartTime, workdayEndTime);
-  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current, workdayStartTime, workdayEndTime, profile]); // Add profile to dependencies
+    // Updated call to calculateSchedule
+    return calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime);
+  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]); // Removed tAnchorForSelectedDay and T_current from dependencies
 
   // Set currentSchedule state from the memoized calculation
   useEffect(() => {
@@ -207,8 +157,7 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await clearScheduledTasks();
-    setTAnchorForSelectedDay(null);
-    localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
+    // Removed localStorage.removeItem for tAnchorForSelectedDay
     setIsProcessingCommand(false);
     setShowClearConfirmation(false);
     setInputValue('');

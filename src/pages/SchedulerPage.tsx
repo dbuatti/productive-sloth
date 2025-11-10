@@ -68,27 +68,23 @@ const SchedulerPage: React.FC = () => {
     if (savedAnchor) {
       T_AnchorRef.current.set(formattedSelectedDay, new Date(savedAnchor));
       setT_AnchorEstablished(true); // Trigger re-render
-      console.log(`Loaded T_AnchorRef for ${formattedSelectedDay} from localStorage:`, T_AnchorRef.current.get(formattedSelectedDay)?.toISOString());
+      console.log(`SchedulerPage: Loaded T_AnchorRef for ${formattedSelectedDay} from localStorage:`, T_AnchorRef.current.get(formattedSelectedDay)?.toISOString());
     } else {
       T_AnchorRef.current.delete(formattedSelectedDay); // Ensure no old anchor if none saved
       setT_AnchorEstablished(false); // Reset dummy state
-      console.log(`No T_AnchorRef found for ${formattedSelectedDay} in localStorage on mount/day change.`);
+      console.log(`SchedulerPage: No T_AnchorRef found for ${formattedSelectedDay} in localStorage on mount/day change.`);
     }
   }, [formattedSelectedDay]); // Dependency on formattedSelectedDay
 
   const generateSchedule = useCallback(() => {
     const currentDayAnchor = T_AnchorRef.current.get(formattedSelectedDay) || null;
-    console.log("generateSchedule called. T_AnchorRef.current for selected day:", currentDayAnchor?.toISOString());
+    console.log("SchedulerPage: generateSchedule called. T_AnchorRef.current for selected day:", currentDayAnchor?.toISOString());
+    console.log("SchedulerPage: generateSchedule: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time }))); // New log
 
-    // Determine the effective T_Anchor for scheduling.
-    // If currentDayAnchor is null, and there are ad-hoc tasks,
-    // we should provide a default starting point for them, e.g., the start of the selected day.
-    // If there are only fixed appointments and no ad-hoc tasks, T_Anchor can remain null,
-    // as fixed appointments don't need an anchor to be placed.
-    const hasAdHocTasks = dbScheduledTasks.some(task => !task.start_time && !task.end_time);
-    const effectiveTAnchor = currentDayAnchor || (hasAdHocTasks ? startOfDay(selectedDay) : null);
+    // Always provide a T_Anchor if there are any tasks for the day, defaulting to start of day
+    const effectiveTAnchor = currentDayAnchor || (dbScheduledTasks.length > 0 ? startOfDay(selectedDay) : null);
 
-    console.log("Calling calculateSchedule with T_Anchor for selected day:", effectiveTAnchor?.toISOString());
+    console.log("SchedulerPage: Calling calculateSchedule with T_Anchor for selected day:", effectiveTAnchor?.toISOString());
     const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor);
     setCurrentSchedule(schedule);
   }, [dbScheduledTasks, formattedSelectedDay, selectedDay]);
@@ -120,7 +116,7 @@ const SchedulerPage: React.FC = () => {
         T_AnchorRef.current.set(formattedSelectedDay, newAnchor); // Capture current time for selected day
         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Save to localStorage
         setT_AnchorEstablished(true); // Trigger re-render
-        console.log(`T_AnchorRef set for ${formattedSelectedDay} for the first time in handleCommand to:`, newAnchor.toISOString());
+        console.log(`SchedulerPage: T_AnchorRef set for ${formattedSelectedDay} for the first time in handleCommand to:`, newAnchor.toISOString());
       }
 
       const taskScheduledDate = formattedSelectedDay;
@@ -153,7 +149,7 @@ const SchedulerPage: React.FC = () => {
         T_AnchorRef.current.set(formattedSelectedDay, newAnchor); // Capture current time for selected day
         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Save to localStorage
         setT_AnchorEstablished(true); // Trigger re-render
-        console.log(`T_AnchorRef set for ${formattedSelectedDay} for the first time in handleCommand (injection) to:`, newAnchor.toISOString());
+        console.log(`SchedulerPage: T_AnchorRef set for ${formattedSelectedDay} for the first time in handleCommand (injection) to:`, newAnchor.toISOString());
       }
 
       const taskScheduledDate = formattedSelectedDay;
@@ -192,7 +188,7 @@ const SchedulerPage: React.FC = () => {
           T_AnchorRef.current.delete(formattedSelectedDay); // Reset T_AnchorRef for selected day
           localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`); // Clear from localStorage
           setT_AnchorEstablished(false); // Reset dummy state
-          console.log(`T_AnchorRef reset to null for ${formattedSelectedDay} via clear command.`);
+          console.log(`SchedulerPage: T_AnchorRef reset to null for ${formattedSelectedDay} via clear command.`);
           success = true;
           break;
         case 'remove':
@@ -254,7 +250,7 @@ const SchedulerPage: React.FC = () => {
       T_AnchorRef.current.set(formattedSelectedDay, newAnchor); // Capture current time for selected day
       localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString()); // Save to localStorage
       setT_AnchorEstablished(true); // Trigger re-render
-      console.log(`T_AnchorRef set for ${formattedSelectedDay} for the first time in handleInjectionSubmit to:`, newAnchor.toISOString());
+      console.log(`SchedulerPage: T_AnchorRef set for ${formattedSelectedDay} for the first time in handleInjectionSubmit to:`, newAnchor.toISOString());
     }
 
     const taskScheduledDate = formattedSelectedDay;

@@ -305,7 +305,7 @@ export const useSchedulerTasks = (selectedDate: Date) => {
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data);
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time }))); // Detailed log
       return data as DBScheduledTask[];
     },
     enabled: !!userId,

@@ -76,10 +76,11 @@ const SchedulerPage: React.FC = () => {
     }
   }, [formattedSelectedDay]); // Dependency on formattedSelectedDay
 
-  const generateSchedule = useCallback(() => {
+  // Refactored schedule generation logic directly into useEffect
+  useEffect(() => {
     const currentDayAnchor = T_AnchorRef.current.get(formattedSelectedDay) || null;
-    console.log("SchedulerPage: generateSchedule called. T_AnchorRef.current for selected day:", currentDayAnchor?.toISOString());
-    console.log("SchedulerPage: generateSchedule: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time }))); // New log
+    console.log("SchedulerPage: useEffect triggered. T_AnchorRef.current for selected day:", currentDayAnchor?.toISOString());
+    console.log("SchedulerPage: useEffect: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time })));
 
     // Always provide a T_Anchor if there are any tasks for the day, defaulting to start of day
     const effectiveTAnchor = currentDayAnchor || (dbScheduledTasks.length > 0 ? startOfDay(selectedDay) : null);
@@ -87,11 +88,7 @@ const SchedulerPage: React.FC = () => {
     console.log("SchedulerPage: Calling calculateSchedule with T_Anchor for selected day:", effectiveTAnchor?.toISOString());
     const schedule = calculateSchedule(dbScheduledTasks, effectiveTAnchor);
     setCurrentSchedule(schedule);
-  }, [dbScheduledTasks, formattedSelectedDay, selectedDay]);
-
-  useEffect(() => {
-    generateSchedule();
-  }, [dbScheduledTasks, generateSchedule]);
+  }, [dbScheduledTasks, formattedSelectedDay, selectedDay]); // Dependencies are now direct
 
   const handleCommand = async (input: string) => {
     if (!user) {

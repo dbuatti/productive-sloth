@@ -51,6 +51,7 @@ const NowFocusCard: React.FC<NowFocusCardProps> = ({ activeItem, nextItem, T_cur
         <Clock className="h-8 w-8 text-muted-foreground animate-pulse" />
         <CardTitle className="text-xl font-bold text-muted-foreground">No Active Task</CardTitle>
         <p className="text-sm text-muted-foreground">Your schedule is clear, or tasks start later.</p>
+        <p className="text-xs text-muted-foreground">Try adding a task using the input below!</p> {/* Added suggestion */}
       </Card>
     );
   }

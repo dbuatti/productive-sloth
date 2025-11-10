@@ -153,7 +153,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       return (
         <React.Fragment key={item.id}>
           <div className="flex items-center justify-end pr-2">
-            <span className="text-xs font-mono text-muted-foreground">
+            <span className="text-sm font-bold text-foreground"> {/* Made bolder and brighter */}
               {item.label}
             </span>
           </div>
@@ -201,8 +201,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       if (scheduledItem.endTime < startOfTemplate) return null;
 
       const hue = getEmojiHue(scheduledItem.name);
-      const saturation = 20;
-      const lightness = 25;
+      const saturation = 50; // Increased saturation
+      const lightness = 35; // Increased lightness
       const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
 
       return (
@@ -222,8 +222,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <div
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in overflow-hidden",
-              isHighlightedByNowCard ? "opacity-50 border-border" :
-              isActive ? "border border-primary" :
+              "border border-solid border-white/20", // Added subtle light border
+              isHighlightedByNowCard ? "opacity-50" :
+              isActive ? "border-primary" :
               isPast ? "border-muted-foreground/50" : "border-border",
               "hover:scale-[1.03] hover:shadow-lg hover:shadow-primary/20 hover:border-primary"
             )}
@@ -237,12 +238,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
 
             <div className="relative z-10 flex items-center justify-between w-full">
               <span className={cn(
-                "text-sm flex-grow text-foreground" // Using text-foreground
+                "text-sm flex-grow text-[hsl(var(--always-light-text))]" // Using always-light-text
               )}>
-                <span className="font-bold">{scheduledItem.name}</span> ({scheduledItem.duration} min)
+                <span className="font-bold">{scheduledItem.name}</span> <span className="opacity-80">({scheduledItem.duration} min)</span>
               </span>
               <span className={cn(
-                "text-xs font-mono ml-auto text-foreground" // Using text-foreground
+                "text-xs font-mono ml-auto text-[hsl(var(--always-light-text))] opacity-80" // Using always-light-text with opacity
               )}>
                 {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
               </span>
@@ -251,7 +252,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 size="icon" 
                 onClick={() => onRemoveTask(scheduledItem.id)} 
                 className={cn(
-                  "h-6 w-6 p-0 shrink-0 ml-2 text-foreground", // Using text-foreground
+                  "h-6 w-6 p-0 shrink-0 ml-2 text-[hsl(var(--always-light-text))]", // Using always-light-text
                   "hover:bg-white/10"
                 )}
               >
@@ -260,7 +261,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               </Button>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
-              <p className={cn("relative z-10 text-sm mt-1 text-foreground")}>{scheduledItem.description}</p> // Using text-foreground
+              <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Using always-light-text with opacity
             )}
 
             {isActive && (

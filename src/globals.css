@@ -40,6 +40,7 @@
     --logo-orange: 25 100% 60%; /* Fiery orange */
     --logo-green: 140 80% 45%; /* Vibrant green for LOW priority */
     --live-progress-color: 180 100% 50%; /* Vibrant Cyan for live progress */
+    --always-light-text: 0 0% 95%; /* Consistently light text for dark backgrounds */
 
     /* Sidebar variables (consistent with new palette) */
     --sidebar-background: 220 20% 95%;
@@ -87,6 +88,7 @@
     --logo-orange: 25 90% 50%; /* Muted fiery orange */
     --logo-green: 140 70% 35%; /* Muted vibrant green */
     --live-progress-color: 180 100% 65%; /* Brighter Cyan for dark mode */
+    --always-light-text: 0 0% 95%; /* Consistently light text for dark backgrounds */
 
     /* Sidebar variables (consistent with new palette) */
     --sidebar-background: 240 15% 10%;

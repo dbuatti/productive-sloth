@@ -39,6 +39,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink'; // Import AetherSink component
 import { supabase } from '@/integrations/supabase/client'; // Import supabase
+import { useQueryClient } from '@tanstack/react-query'; // Import useQueryClient
 
 // Helper for deep comparison (simple for JSON-serializable objects)
 const deepCompare = (a: any, b: any) => {
@@ -118,6 +119,8 @@ const SchedulerPage: React.FC = () => {
     retireTask, // NEW: Retire task mutation
     rezoneTask, // NEW: Rezone task mutation
   } = useSchedulerTasks(selectedDay);
+
+  const queryClient = useQueryClient(); // Initialize useQueryClient
 
   const [T_current, setT_current] = useState(new Date());
   
@@ -660,9 +663,8 @@ const SchedulerPage: React.FC = () => {
       const { error } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', user.id);
       if (error) throw new Error(error.message);
       showSuccess('Task permanently removed from Aether Sink.');
-      // Manually invalidate to reflect the change
-      // This is a workaround to trigger a refetch for retiredTasks query
-      await supabase.from('retired_tasks').select('*').eq('user_id', user.id); 
+      // Invalidate the retiredTasks query to trigger a refetch and update the UI
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });
     } catch (error: any) {
       showError(`Failed to remove retired task: ${error.message}`);
       console.error("Remove retired task error:", error);

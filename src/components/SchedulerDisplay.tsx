@@ -1,9 +1,9 @@
 import React, { useMemo, useRef, useEffect } from 'react';
-import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker } from '@/types/scheduler';
+import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker, DBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash } from 'lucide-react'; 
+import { Trash, Archive } from 'lucide-react'; // Import Archive icon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO } from 'date-fns';
@@ -12,6 +12,7 @@ interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
   onRemoveTask: (taskId: string) => void;
+  onRetireTask: (task: DBScheduledTask) => void; // NEW: Handler for retiring a task
   activeItemId: string | null;
   selectedDayString: string; // New prop to pass selectedDay from parent
 }
@@ -25,7 +26,7 @@ const getBubbleHeightStyle = (duration: number) => {
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask, activeItemId, selectedDayString }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask, onRetireTask, activeItemId, selectedDayString }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
@@ -238,6 +239,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       const lightness = 35; // Increased lightness
       const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
 
+      // Find the corresponding DBScheduledTask to pass to onRetireTask
+      // Use schedule.dbTasks which is the raw array from Supabase
+      const dbTask = schedule?.dbTasks.find(t => t.id === scheduledItem.id);
+
       return (
         <React.Fragment key={scheduledItem.id}>
           <div className="flex items-center justify-end pr-2">
@@ -281,18 +286,34 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               )}>
                 {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
               </span>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => onRemoveTask(scheduledItem.id)} 
-                className={cn(
-                  "h-6 w-6 p-0 shrink-0 ml-2 text-[hsl(var(--always-light-text))]", // Using always-light-text
-                  "hover:bg-white/10"
+              <div className="flex items-center gap-1 ml-2"> {/* Group buttons */}
+                {dbTask && ( // Only show retire button if it's a real DB task
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => onRetireTask(dbTask)} 
+                    className={cn(
+                      "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]",
+                      "hover:bg-white/10"
+                    )}
+                  >
+                    <Archive className="h-4 w-4" />
+                    <span className="sr-only">Retire task</span>
+                  </Button>
                 )}
-              >
-                <Trash className="h-4 w-4" />
-                <span className="sr-only">Remove task</span>
-              </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => onRemoveTask(scheduledItem.id)} 
+                  className={cn(
+                    "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]", // Using always-light-text
+                    "hover:bg-white/10"
+                  )}
+                >
+                  <Trash className="h-4 w-4" />
+                  <span className="sr-only">Remove task</span>
+                </Button>
+              </div>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
               <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Using always-light-text with opacity

@@ -372,5 +372,6 @@ export const calculateSchedule = (
   return {
     items: scheduledItems,
     summary: summary,
+    dbTasks: dbTasks, // Include the original dbTasks array
   };
 };

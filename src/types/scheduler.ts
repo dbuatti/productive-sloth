@@ -56,6 +56,25 @@ export interface NewDBScheduledTask {
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
 }
 
+// New types for retired tasks (Aether Sink)
+export interface RetiredTask {
+  id: string;
+  user_id: string;
+  name: string;
+  duration: number | null; // Duration in minutes
+  break_duration: number | null; // Break duration in minutes
+  original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
+  retired_at: string; // Timestamp when it was moved to the sink
+}
+
+export interface NewRetiredTask {
+  user_id: string;
+  name: string;
+  duration: number | null;
+  break_duration: number | null;
+  original_scheduled_date: string;
+}
+
 export type ScheduledItemType = 'task' | 'break';
 
 export interface ScheduledItem {
@@ -110,6 +129,7 @@ export interface CurrentTimeMarker {
 export interface FormattedSchedule {
   items: ScheduledItem[];
   summary: ScheduleSummary;
+  dbTasks: DBScheduledTask[]; // Added for type safety in SchedulerDisplay
 }
 
 export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker; // Added CurrentTimeMarker

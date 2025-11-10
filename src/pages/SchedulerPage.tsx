@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle } from 'lucide-react';
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask } from '@/types/scheduler';
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -36,7 +36,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useLocation, useNavigate } from 'react-router-dom'; // Import useLocation and useNavigate
+import { useLocation, useNavigate } from 'react-router-dom';
+import AetherSink from '@/components/AetherSink'; // Import AetherSink component
+import { supabase } from '@/integrations/supabase/client'; // Import supabase
 
 // Helper for deep comparison (simple for JSON-serializable objects)
 const deepCompare = (a: any, b: any) => {
@@ -111,6 +113,10 @@ const SchedulerPage: React.FC = () => {
     removeScheduledTask, 
     clearScheduledTasks,
     datesWithTasks,
+    retiredTasks, // NEW: Get retired tasks
+    isLoadingRetiredTasks, // NEW: Get loading state for retired tasks
+    retireTask, // NEW: Retire task mutation
+    rezoneTask, // NEW: Rezone task mutation
   } = useSchedulerTasks(selectedDay);
 
   const [T_current, setT_current] = useState(new Date());
@@ -125,8 +131,8 @@ const SchedulerPage: React.FC = () => {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
 
   const formattedSelectedDay = selectedDay;
-  const location = useLocation(); // Initialize useLocation
-  const navigate = useNavigate(); // Initialize useNavigate
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // Update T_current every minute
   useEffect(() => {
@@ -234,6 +240,27 @@ const SchedulerPage: React.FC = () => {
   useEffect(() => {
     setCurrentSchedule(calculatedSchedule);
   }, [calculatedSchedule]); // This useEffect will now only run if calculatedSchedule's reference changes (i.e., content changed)
+
+  // NEW: Automatic Retirement Logic (Morning Fix)
+  useEffect(() => {
+    if (!user || !dbScheduledTasks || isSchedulerTasksLoading || !isSameDay(parseISO(selectedDay), T_current)) {
+      return; // Only run for today's schedule when tasks are loaded
+    }
+
+    const tasksToRetire = dbScheduledTasks.filter(task => {
+      if (!task.start_time || !task.end_time) return false; // Only timed tasks can be past due
+
+      const taskEndTime = setTimeOnDate(parseISO(task.scheduled_date), format(parseISO(task.end_time), 'HH:mm'));
+      return isBefore(taskEndTime, T_current);
+    });
+
+    if (tasksToRetire.length > 0) {
+      console.log(`Automatically retiring ${tasksToRetire.length} past-due tasks.`);
+      tasksToRetire.forEach(task => {
+        retireTask(task);
+      });
+    }
+  }, [user, dbScheduledTasks, isSchedulerTasksLoading, selectedDay, T_current, retireTask]);
 
 
   const handleClearSchedule = async () => {
@@ -528,6 +555,101 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(false);
   };
 
+  // NEW: Handle rezone from Aether Sink
+  const handleRezoneFromSink = async (retiredTask: RetiredTask) => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to rezone tasks.");
+      return;
+    }
+    setIsProcessingCommand(true);
+
+    try {
+      // First, remove from retired_tasks
+      const taskDetails = await rezoneTask(retiredTask); // rezoneTask returns the task details for re-adding
+
+      // Then, add back to scheduled_tasks using auto-scheduling logic
+      const existingAppointments = dbScheduledTasks
+        .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayAsDate))
+        .map(task => ({
+          start: setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm')),
+          end: setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm')),
+        }))
+        .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+      const taskDuration = taskDetails.duration || 30; // Default duration if not specified
+      let proposedStartTime: Date | null = null;
+      const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
+
+      for (const block of freeBlocks) {
+        if (taskDuration <= block.duration) {
+          proposedStartTime = block.start;
+          break;
+        }
+      }
+
+      if (proposedStartTime) {
+        const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
+        await addScheduledTask({
+          name: taskDetails.name,
+          start_time: proposedStartTime.toISOString(),
+          end_time: proposedEndTime.toISOString(),
+          break_duration: taskDetails.break_duration,
+          scheduled_date: formattedSelectedDay,
+        });
+        showSuccess(`Re-zoned "${taskDetails.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+      } else {
+        showError(`Could not find an available slot for "${taskDetails.name}" (${taskDuration} min) in your workday. It remains in the Aether Sink.`);
+        // If it couldn't be placed, re-add it to retired_tasks
+        await supabase.from('retired_tasks').insert({
+          user_id: user.id, // Corrected to user.id
+          name: taskDetails.name,
+          duration: taskDetails.duration,
+          break_duration: taskDetails.break_duration,
+          original_scheduled_date: retiredTask.original_scheduled_date,
+        });
+      }
+    } catch (error: any) {
+      showError(`Failed to rezone task: ${error.message}`);
+      console.error("Rezone error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
+  // NEW: Handle manual retirement from SchedulerDisplay
+  const handleManualRetire = async (taskToRetire: DBScheduledTask) => {
+    if (!user) {
+      showError("You must be logged in to retire tasks.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    await retireTask(taskToRetire);
+    setIsProcessingCommand(false);
+  };
+
+  // NEW: Handle permanent removal from Aether Sink
+  const handleRemoveRetiredTask = async (retiredTaskId: string) => {
+    if (!user) {
+      showError("You must be logged in to remove retired tasks.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      const { error } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', user.id);
+      if (error) throw new Error(error.message);
+      showSuccess('Task permanently removed from Aether Sink.');
+      // Manually invalidate to reflect the change
+      // This is a workaround to trigger a refetch for retiredTasks query
+      await supabase.from('retired_tasks').select('*').eq('user_id', user.id); 
+    } catch (error: any) {
+      showError(`Failed to remove retired task: ${error.message}`);
+      console.error("Remove retired task error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
+
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
     for (const item of currentSchedule.items) {
@@ -553,7 +675,7 @@ const SchedulerPage: React.FC = () => {
   }, [currentSchedule, activeItem, T_current, selectedDay]);
 
 
-  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;
+  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;
 
   if (isSessionLoading) {
     return (
@@ -614,6 +736,14 @@ const SchedulerPage: React.FC = () => {
         <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
       )}
 
+      {/* NEW: Aether Sink */}
+      <AetherSink 
+        retiredTasks={retiredTasks} 
+        onRezoneTask={handleRezoneFromSink} 
+        onRemoveRetiredTask={handleRemoveRetiredTask}
+        isLoading={isLoadingRetiredTasks}
+      />
+
       {currentSchedule?.summary.unscheduledCount > 0 && (
         <Card className="animate-pop-in animate-hover-lift">
           <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
@@ -635,7 +765,14 @@ const SchedulerPage: React.FC = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <SchedulerDisplay schedule={currentSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} activeItemId={activeItem?.id || null} selectedDayString={selectedDay} />
+            <SchedulerDisplay 
+              schedule={currentSchedule} 
+              T_current={T_current} 
+              onRemoveTask={removeScheduledTask} 
+              onRetireTask={handleManualRetire} // NEW: Pass retire handler
+              activeItemId={activeItem?.id || null} 
+              selectedDayString={selectedDay} 
+            />
           )}
         </CardContent>
       </Card>

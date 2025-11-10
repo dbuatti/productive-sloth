@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
-import { DBScheduledTask, NewDBScheduledTask, RawTaskInput } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput
+import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput and new retired task types
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday, format } from 'date-fns'; // Import format
@@ -71,7 +71,7 @@ export const useTasks = () => {
   const userId = user?.id;
 
   const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
-  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ALL');
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ACTIVE'); // Changed default to 'ACTIVE'
   const [sortBy, setSortBy] = useState<SortBy>('PRIORITY');
   const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null); // New state for XP animation
 
@@ -332,6 +332,28 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     enabled: !!userId,
   });
 
+  // NEW: Fetch all retired tasks for the current user
+  const { data: retiredTasks = [], isLoading: isLoadingRetiredTasks } = useQuery<RetiredTask[]>({
+    queryKey: ['retiredTasks', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      console.log("useSchedulerTasks: Fetching retired tasks for user:", userId);
+      const { data, error } = await supabase
+        .from('retired_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .order('retired_at', { ascending: false }); // Order by most recently retired
+
+      if (error) {
+        console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name })));
+      return data as RetiredTask[];
+    },
+    enabled: !!userId,
+  });
+
 
   // Convert DBScheduledTask to RawTaskInput for the scheduler logic
   const rawTasks: RawTaskInput[] = dbScheduledTasks.map(dbTask => ({
@@ -408,14 +430,83 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
+  // NEW: Retire a task (move from scheduled_tasks to retired_tasks)
+  const retireTaskMutation = useMutation({
+    mutationFn: async (taskToRetire: DBScheduledTask) => {
+      if (!userId) throw new Error("User not authenticated.");
+
+      // 1. Insert into retired_tasks
+      const newRetiredTask: NewRetiredTask = {
+        user_id: userId,
+        name: taskToRetire.name,
+        duration: taskToRetire.duration,
+        break_duration: taskToRetire.break_duration,
+        original_scheduled_date: taskToRetire.scheduled_date,
+      };
+      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
+      if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
+
+      // 2. Delete from scheduled_tasks
+      const { error: deleteError } = await supabase.from('scheduled_tasks').delete().eq('id', taskToRetire.id).eq('user_id', userId);
+      if (deleteError) throw new Error(`Failed to remove task from schedule: ${deleteError.message}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      showSuccess('Task moved to Aether Sink.');
+    },
+    onError: (e) => {
+      showError(`Failed to retire task: ${e.message}`);
+    }
+  });
+
+  // NEW: Rezone a task (move from retired_tasks back to scheduled_tasks using auto-scheduling logic)
+  const rezoneTaskMutation = useMutation({
+    mutationFn: async (retiredTask: RetiredTask) => {
+      if (!userId) throw new Error("User not authenticated.");
+
+      // 1. Delete from retired_tasks
+      const { error: deleteError } = await supabase.from('retired_tasks').delete().eq('id', retiredTask.id).eq('user_id', userId);
+      if (deleteError) throw new Error(`Failed to remove task from Aether Sink: ${deleteError.message}`);
+
+      // 2. Prepare for auto-scheduling (using addScheduledTask logic)
+      // For rezone, we'll use the existing addScheduledTask which finds the next available slot.
+      // We need to pass it as a NewDBScheduledTask, but without start/end times initially.
+      const taskToRezone: NewDBScheduledTask = {
+        name: retiredTask.name,
+        duration: retiredTask.duration ?? undefined,
+        break_duration: retiredTask.break_duration ?? undefined,
+        scheduled_date: formattedSelectedDate, // Rezone for the currently selected date
+      };
+      
+      // The actual placement logic will be handled by the caller (SchedulerPage)
+      // This mutation only handles moving it out of retired_tasks.
+      return taskToRezone; // Return the task details to be handled by SchedulerPage
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      // scheduledTasks will be invalidated by the subsequent addScheduledTask call in SchedulerPage
+      showSuccess('Task re-zoned from Aether Sink.');
+    },
+    onError: (e) => {
+      showError(`Failed to re-zone task: ${e.message}`);
+    }
+  });
+
+
   return {
     dbScheduledTasks, // The raw data from Supabase
     rawTasks, // Converted to RawTaskInput for scheduler logic
     isLoading,
     datesWithTasks, // New: Dates that have scheduled tasks
     isLoadingDatesWithTasks,
+    retiredTasks, // NEW: Retired tasks
+    isLoadingRetiredTasks, // NEW: Loading state for retired tasks
     addScheduledTask: addScheduledTaskMutation.mutate,
     removeScheduledTask: removeScheduledTaskMutation.mutate,
     clearScheduledTasks: clearScheduledTasksMutation.mutate,
+    retireTask: retireTaskMutation.mutate, // NEW: Retire task mutation
+    rezoneTask: rezoneTaskMutation.mutateAsync, // NEW: Rezone task mutation (use mutateAsync for chaining)
   };
 };

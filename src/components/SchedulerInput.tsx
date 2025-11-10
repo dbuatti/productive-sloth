@@ -61,7 +61,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
       }, 0); // A timeout of 0ms defers it to the end of the current event loop
       return () => clearTimeout(timer);
     }
-  }, [showSuggestions, inputValue]); // Depend on showSuggestions and inputValue
+  }, [showSuggestions]); // Only depend on showSuggestions, not inputValue
 
   const handleSelectSuggestion = (suggestion: Suggestion) => {
     if (suggestion.type === 'command' && suggestion.name === 'clear') {
@@ -117,7 +117,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             placeholder={placeholder}
             disabled={isLoading}
             className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
-            onPointerDown={(e) => e.preventDefault()} // Prevent pointer down from stealing focus
+            // Removed onPointerDown={(e) => e.preventDefault()}
           />
         </PopoverTrigger>
         {showSuggestions && (

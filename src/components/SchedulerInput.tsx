@@ -64,7 +64,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
       }, 0); 
       return () => clearTimeout(timer);
     }
-    // Reset selected index when suggestions change or popover closes
+    // When popover closes, ensure selectedIndex is reset
     if (!shouldPopoverOpen) {
       setSelectedIndex(-1);
     }
@@ -114,9 +114,14 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full animate-slide-in-up relative">
       <Popover open={shouldPopoverOpen} onOpenChange={(open) => {
-        // If the popover is closing and the input is not already focused, focus it.
+        // When the popover closes, ensure the input is focused if it's not already.
+        // This handles cases where focus might have moved to a suggestion or outside.
         if (!open && inputRef.current && document.activeElement !== inputRef.current) {
           inputRef.current?.focus();
+        }
+        // Also reset selected index when popover closes
+        if (!open) {
+          setSelectedIndex(-1);
         }
       }} modal={false}>
         <PopoverTrigger asChild>
@@ -130,6 +135,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             placeholder={placeholder}
             disabled={isLoading}
             className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
+            onFocus={() => console.log('Input focused:', new Date().toLocaleTimeString())}
+            onBlur={() => console.log('Input blurred:', new Date().toLocaleTimeString())}
           />
         </PopoverTrigger>
         {shouldPopoverOpen && ( // Render content only if popover is open

@@ -229,7 +229,7 @@ const SettingsPage: React.FC = () => {
       </h1>
       
       {/* Profile Form */}
-      <Form {...form}>
+      <Form {...form} key={user.id}> {/* Added key prop here */}
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information Card */}
           <Card className="animate-hover-lift">
@@ -274,7 +274,7 @@ const SettingsPage: React.FC = () => {
                   <FormItem>
                     <FormLabel>Avatar URL</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://example.com/avatar.jpg" {...field} value={field.value || ''} />
+                        <Input placeholder="https://example.com/avatar.jpg" {...field} value={field.value || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -468,7 +468,7 @@ const SettingsPage: React.FC = () => {
                 <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
                   Confirm Reset
                 </AlertDialogAction>
-              </AlertDialogFooter>
+                </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
 

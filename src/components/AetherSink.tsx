@@ -58,10 +58,10 @@ const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onR
                   </div>
                   <div className="flex items-center gap-1 ml-auto shrink-0">
                     <Button 
-                      variant="ghost" 
+                      variant="secondary" // Changed from ghost
                       size="icon" 
                       onClick={() => onRezoneTask(task)}
-                      className="h-7 w-7 text-foreground hover:bg-white/20"
+                      className="h-7 w-7 text-primary hover:bg-primary/10" // Changed text-foreground to text-primary, added hover
                     >
                       <RotateCcw className="h-4 w-4" />
                       <span className="sr-only">Rezone</span>

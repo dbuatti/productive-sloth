@@ -57,10 +57,15 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   };
 
   const handleScheduleNow = () => {
-    // Navigate to scheduler page, potentially pre-filling with task data
-    // For now, just navigate to the scheduler page.
-    // In a real app, you might pass task.id or task.title as state/query params
-    navigate('/scheduler', { state: { taskToSchedule: task } });
+    // Navigate to scheduler page, pre-filling with task data for injection
+    navigate('/scheduler', { 
+      state: { 
+        taskToSchedule: {
+          name: task.title,
+          duration: task.energy_cost, // Use energy_cost as duration proxy
+        }
+      } 
+    });
   };
 
   const getPriorityColor = (priority: Task['priority']) => {

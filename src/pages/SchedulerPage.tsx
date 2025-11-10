@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useLocation, useNavigate } from 'react-router-dom'; // Import useLocation and useNavigate
 
 // Helper for deep comparison (simple for JSON-serializable objects)
 const deepCompare = (a: any, b: any) => {
@@ -124,6 +125,8 @@ const SchedulerPage: React.FC = () => {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
 
   const formattedSelectedDay = selectedDay;
+  const location = useLocation(); // Initialize useLocation
+  const navigate = useNavigate(); // Initialize useNavigate
 
   // Update T_current every minute
   useEffect(() => {
@@ -132,6 +135,17 @@ const SchedulerPage: React.FC = () => {
     }, 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Handle pre-filling input from navigation state
+  useEffect(() => {
+    if (location.state && (location.state as any).taskToSchedule) {
+      const { name, duration } = (location.state as any).taskToSchedule;
+      const command = `inject "${name}" ${duration}`;
+      setInputValue(command);
+      // Clear the state so it doesn't re-trigger on subsequent visits
+      navigate(location.pathname, { replace: true, state: {} }); 
+    }
+  }, [location.state, setInputValue, navigate, location.pathname]);
 
   // Keyboard navigation for days
   useEffect(() => {

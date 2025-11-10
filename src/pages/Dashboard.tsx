@@ -54,7 +54,7 @@ const Dashboard = () => {
       </div>
 
       {/* Input & Controls Layer - Now wrapped in a Card */}
-      <Card className="p-4 space-y-4 animate-slide-in-up">
+      <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
         {/* 1. Temporal Filter Tabs */}
         <TemporalFilterTabs 
           currentFilter={temporalFilter} 
@@ -89,7 +89,7 @@ const Dashboard = () => {
           ))}
         </Accordion>
       ) : (
-        <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up">
+        <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
           <ClipboardList className="h-12 w-12 text-muted-foreground" />
           <p className="text-lg font-semibold">No tasks found!</p>
           <p>Start by adding a new task above to get organized.</p>

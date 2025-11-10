@@ -490,7 +490,7 @@ const SchedulerPage: React.FC = () => {
         datesWithTasks={datesWithTasks} 
       />
 
-      <Card className="animate-pop-in">
+      <Card className="animate-pop-in animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
@@ -516,7 +516,7 @@ const SchedulerPage: React.FC = () => {
         <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
       )}
 
-      <Card className="animate-pop-in" style={{ animationDelay: '0.1s' }}>
+      <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}

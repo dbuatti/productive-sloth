@@ -31,7 +31,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'; // Added CardHeader, CardTitle, CardContent
 import { MAX_ENERGY } from '@/lib/constants';
 import { Loader2 } from 'lucide-react';
 
@@ -227,7 +227,7 @@ const SettingsPage: React.FC = () => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information Card */}
-          <Card>
+          <Card className="animate-hover-lift">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <User className="h-5 w-5 text-primary" /> Profile
@@ -253,7 +253,7 @@ const SettingsPage: React.FC = () => {
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Last Name</FormLabel> {/* Corrected closing tag */}
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -286,14 +286,14 @@ const SettingsPage: React.FC = () => {
       </Form>
 
       {/* Game Stats & Actions Card */}
-      <Card>
+      <Card className="animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <Gamepad2 className="h-5 w-5 text-logo-yellow" /> Game & Energy
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Level</Label>
               <Input value={profile.level} readOnly className="font-mono" />
@@ -346,7 +346,7 @@ const SettingsPage: React.FC = () => {
       </Card>
 
       {/* App Preferences Card (No longer uses RHF FormField) */}
-      <Card>
+      <Card className="animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <Settings className="h-5 w-5 text-primary" /> Preferences
@@ -413,7 +413,7 @@ const SettingsPage: React.FC = () => {
       </Card>
 
       {/* Danger Zone Card */}
-      <Card className="border-destructive/50">
+      <Card className="border-destructive/50 animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl text-destructive">
             <Trash2 className="h-5 w-5" /> Danger Zone

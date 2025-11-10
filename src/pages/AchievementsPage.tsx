@@ -22,7 +22,7 @@ const AchievementsPage: React.FC = () => {
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
       <h1 className="text-3xl font-bold text-foreground animate-slide-in-up">Achievements</h1>
-      <Card className="animate-pop-in">
+      <Card className="animate-pop-in animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <Trophy className="h-6 w-6 text-logo-yellow" />

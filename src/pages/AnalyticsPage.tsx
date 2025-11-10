@@ -77,7 +77,7 @@ const AnalyticsPage: React.FC = () => {
 
       {/* Key Metrics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="animate-pop-in">
+        <Card className="animate-pop-in animate-hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Current Level</CardTitle>
             <Sparkles className="h-4 w-4 text-logo-yellow" />
@@ -89,7 +89,7 @@ const AnalyticsPage: React.FC = () => {
             </p>
           </CardContent>
         </Card>
-        <Card className="animate-pop-in" style={{ animationDelay: '0.1s' }}>
+        <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total XP</CardTitle>
             <Sparkles className="h-4 w-4 text-primary" />
@@ -101,7 +101,7 @@ const AnalyticsPage: React.FC = () => {
             </p>
           </CardContent>
         </Card>
-        <Card className="animate-pop-in" style={{ animationDelay: '0.2s' }}>
+        <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.2s' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Daily Streak</CardTitle>
             <CheckCircle className="h-4 w-4 text-logo-green" />
@@ -116,7 +116,7 @@ const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* XP Gain Trend Chart */}
-      <Card className="animate-slide-in-up" style={{ animationDelay: '0.3s' }}>
+      <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.3s' }}>
         <CardHeader>
           <CardTitle className="text-xl">XP Gain Trend (Last 7 Days)</CardTitle>
         </CardHeader>
@@ -155,7 +155,7 @@ const AnalyticsPage: React.FC = () => {
       </Card>
 
       {/* Tasks Completed Chart */}
-      <Card className="animate-slide-in-up" style={{ animationDelay: '0.4s' }}>
+      <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.4s' }}>
         <CardHeader>
           <CardTitle className="text-xl">Tasks Completed (Last 7 Days)</CardTitle>
         </CardHeader>

@@ -134,24 +134,24 @@
   /* Custom animations for dynamic elements */
   @keyframes pulse-glow {
     0%, 100% {
-      box-shadow: 0 0 0px hsl(var(--primary) / 0.5);
+      box-shadow: 0 0 0px hsl(var(--primary) / 0.3); /* Softer glow */
     }
     50% {
-      box-shadow: 0 0 10px hsl(var(--primary) / 0.8);
+      box-shadow: 0 0 8px hsl(var(--primary) / 0.6); /* Softer glow */
     }
   }
 
   /* New subtle pulse for active scheduler row */
   @keyframes pulse-active-row {
     0%, 100% {
-      box-shadow: 0 0 0px hsl(var(--primary) / 0.2);
-      border-color: hsl(var(--primary) / 0.5);
+      box-shadow: 0 0 0px hsl(var(--primary) / 0.1); /* Softer pulse */
+      border-color: hsl(var(--primary) / 0.3); /* Softer border */
       transform: translateY(0px);
     }
     50% {
-      box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
-      border-color: hsl(var(--primary));
-      transform: translateY(-2px); /* Subtle lift */
+      box-shadow: 0 0 8px hsl(var(--primary) / 0.3); /* Softer pulse */
+      border-color: hsl(var(--primary) / 0.8); /* Softer border */
+      transform: translateY(-1px); /* More subtle lift */
     }
   }
 
@@ -202,6 +202,18 @@
     }
   }
 
+  /* New animation for subtle lift on hover */
+  @keyframes hover-lift {
+    from {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    }
+    to {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+  }
+
   .animate-pulse-glow {
     animation: pulse-glow 2s infinite ease-in-out;
   }
@@ -224,5 +236,12 @@
   
   .animate-fade-out-up {
     animation: fade-out-up 1.5s ease-out forwards;
+  }
+
+  .animate-hover-lift {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+  .animate-hover-lift:hover {
+    animation: hover-lift 0.2s forwards;
   }
 }

@@ -48,7 +48,7 @@ const TasksPage: React.FC = () => {
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
       <h1 className="text-3xl font-bold text-foreground animate-slide-in-up">My Tasks</h1>
 
-      <Card className="p-4 space-y-4 animate-slide-in-up">
+      <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
         <TemporalFilterTabs 
           currentFilter={temporalFilter} 
           setFilter={setTemporalFilter} 
@@ -77,7 +77,7 @@ const TasksPage: React.FC = () => {
           ))}
         </Accordion>
       ) : (
-        <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up">
+        <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
           <ClipboardList className="h-12 w-12 text-muted-foreground" />
           <p className="text-lg font-semibold">No tasks found!</p>
           <p>Start by adding a new task above to get organized.</p>

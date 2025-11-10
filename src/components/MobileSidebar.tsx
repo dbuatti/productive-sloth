@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import Navigation from './Navigation';
-import { cn } from '@/lib/utils';
+import { cn }1 from '@/lib/utils';
 
 const MobileSidebar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,7 +19,7 @@ const MobileSidebar: React.FC = () => {
       <SheetContent side="left" className="flex flex-col p-0 w-64">
         <div className="flex h-16 items-center px-4 border-b">
           <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
-          <span className="ml-2 text-lg font-bold text-primary animate-pulse-glow">AetherFlow</span> {/* Added animate-pulse-glow */}
+          <span className="ml-2 text-lg font-bold text-primary">AetherFlow</span> {/* Removed animate-pulse-glow */}
         </div>
         <div className="flex-1 overflow-y-auto py-4">
           <Navigation isCollapsed={false} onLinkClick={() => setIsOpen(false)} />

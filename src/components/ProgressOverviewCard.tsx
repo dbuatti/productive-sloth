@@ -33,7 +33,7 @@ const ProgressOverviewCard: React.FC = () => {
       <div className={cn(
         "absolute top-4 right-4 z-10", // Position at top-right, z-index to be above card, top-4 to be just inside
         "bg-background px-3 py-1 rounded-md", // Background to create the 'cut out' effect, smaller padding, rounded
-        "text-lg font-extrabold font-mono flex items-center gap-1 text-primary animate-pulse-glow" /* Larger font, added animate-pulse-glow */
+        "text-lg font-extrabold font-mono flex items-center gap-1 text-primary" /* Removed animate-pulse-glow */
       )}>
         <Sparkles className="h-5 w-5 animate-bounce" /> {/* Icon size matching text, added animate-bounce */}
         Lvl {level}

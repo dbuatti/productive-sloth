@@ -278,12 +278,12 @@ export const useTasks = () => {
   };
 };
 
-export const useSchedulerTasks = (selectedDate: Date) => {
+export const useSchedulerTasks = (selectedDate: string) => { // Changed to string
   const queryClient = useQueryClient();
   const { user } = useSession();
   const userId = user?.id;
 
-  const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
+  const formattedSelectedDate = selectedDate; // Now directly use selectedDate
 
   // Fetch all scheduled tasks for the current user and selected date
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({

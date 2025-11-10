@@ -4,15 +4,15 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface CalendarStripProps {
-  selectedDay: Date;
-  setSelectedDay: (date: Date) => void;
+  selectedDay: string; // Changed to string
+  setSelectedDay: (dateString: string) => void; // Changed to accept string
   datesWithTasks: string[]; // Array of 'YYYY-MM-DD' strings for days with tasks
 }
 
 const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedDay, datesWithTasks }) => {
   const daysToDisplay = 7; // Show 7 days: 3 before, current, 3 after
   const today = new Date();
-  const startDay = addDays(selectedDay, -Math.floor(daysToDisplay / 2));
+  const startDay = addDays(parseISO(selectedDay), -Math.floor(daysToDisplay / 2)); // Parse selectedDay string
 
   const days = Array.from({ length: daysToDisplay }).map((_, i) => {
     const day = addDays(startDay, i);
@@ -23,12 +23,12 @@ const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedD
       <Button
         key={formattedDay}
         variant="ghost"
-        onClick={() => setSelectedDay(day)}
+        onClick={() => setSelectedDay(formattedDay)} // Pass formattedDay string
         className={cn(
           "flex flex-col items-center justify-center h-16 w-14 p-1 rounded-lg transition-all duration-200 relative",
           "text-muted-foreground hover:bg-secondary/50",
-          isSameDay(day, selectedDay) && "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md", // Highlight selected day
-          isToday(day) && !isSameDay(day, selectedDay) && "border border-primary/50", // Subtle border for today if not selected
+          formattedDay === selectedDay && "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md", // Compare strings
+          isToday(day) && formattedDay !== selectedDay && "border border-primary/50", // Subtle border for today if not selected
           hasTasks && "after:content-[''] after:absolute after:bottom-1 after:w-1.5 after:h-1.5 after:rounded-full after:bg-logo-yellow" // Indicator for days with tasks
         )}
       >

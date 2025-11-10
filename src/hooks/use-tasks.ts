@@ -70,7 +70,7 @@ export const useTasks = () => {
   const userId = user?.id;
 
   const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
-  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ALL');
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ACTIVE'); // Changed default to 'ACTIVE'
   const [sortBy, setSortBy] = useState<SortBy>('PRIORITY');
   const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null); // New state for XP animation
 

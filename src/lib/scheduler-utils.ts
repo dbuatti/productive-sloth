@@ -18,7 +18,9 @@ const EMOJI_MAP: { [key: string]: string } = {
   'commute': '🚗', 'drive': '🚗', 'bus': '🚌', 'train': '🚆', 'travel': '✈️',
   'shop': '🛍️', 'bank': '🏦', 'post': '✉️', 'errands': '🏃‍♀️',
   'friends': '🧑‍🤝‍🧑', 'family': '👨‍👩‍👧‍👦', 'social': '🎉',
-  'wake up': '⏰', // Added 'wake up'
+  'wake up': '⏰',
+  'coles': '🛒', // Added 'coles'
+  'woolworths': '🛒', // Added 'woolworths'
 };
 
 // New: Map keywords to HSL hue values (0-360)
@@ -39,6 +41,8 @@ const EMOJI_HUE_MAP: { [key: string]: number } = {
   'shop': 180, 'bank': 220, 'post': 240, 'errands': 210, // Cyan/Blues/Indigo
   'friends': 300, 'family': 300, 'social': 310, // Rose/Pink
   'wake up': 60, // Added 'wake up' hue (yellow/orange for morning)
+  'coles': 180, // Added 'coles' with grocery hue
+  'woolworths': 180, // Added 'woolworths' with grocery hue
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {

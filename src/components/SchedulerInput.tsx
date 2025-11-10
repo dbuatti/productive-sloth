@@ -6,6 +6,12 @@ import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks'; // Import useTasks
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Import Popover
 
+interface Suggestion {
+  type: 'command' | 'task';
+  name: string;
+  description?: string;
+}
+
 interface SchedulerInputProps {
   onCommand: (command: string) => void;
   isLoading?: boolean;
@@ -20,7 +26,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const commonCommands = useMemo(() => [
+  const commonCommands: Suggestion[] = useMemo(() => [
     { type: 'command', name: 'clear', description: 'Clear all scheduled tasks' },
     { type: 'command', name: 'remove', description: 'Remove a task by name or index' },
     { type: 'command', name: 'inject', description: 'Inject a task with specific details' },
@@ -30,7 +36,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     if (!inputValue) return [];
 
     const lowerInput = inputValue.toLowerCase();
-    const filteredSuggestions: { type: 'task' | 'command', name: string, description?: string }[] = [];
+    const filteredSuggestions: Suggestion[] = [];
 
     // Add command suggestions
     commonCommands.forEach(cmd => {
@@ -58,7 +64,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     }
   }, [suggestions, inputValue]);
 
-  const handleSelectSuggestion = (suggestion: { type: 'task' | 'command', name: string }) => {
+  const handleSelectSuggestion = (suggestion: Suggestion) => {
     if (suggestion.type === 'command' && suggestion.name === 'clear') {
       onCommand(suggestion.name); // Execute clear command directly
     } else if (suggestion.type === 'command' && suggestion.name === 'remove') {

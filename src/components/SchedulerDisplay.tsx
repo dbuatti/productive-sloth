@@ -3,9 +3,9 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash } from 'lucide-react';
+import { Trash, Lock } from 'lucide-react'; // Import Lock icon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react'; // Added PlusCircle
+import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO } from 'date-fns';
 
 interface SchedulerDisplayProps {
@@ -256,7 +256,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in overflow-hidden",
-              "border border-solid border-white/20", // Added subtle light border
+              "border-2 border-white", // Added 2px white border for fixed appointments
               isHighlightedByNowCard ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" : // Use live-progress for active border
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Faded for past items
@@ -264,6 +264,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }}
           >
+            {/* Padlock Icon */}
+            <div className="absolute top-2 left-2 z-20 text-white">
+              <Lock className="h-4 w-4" />
+            </div>
+
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">
                 {scheduledItem.emoji}
@@ -274,10 +279,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               <span className={cn(
                 "text-sm flex-grow text-[hsl(var(--always-light-text))]" // Using always-light-text
               )}>
-                <span className="font-bold">{scheduledItem.name}</span> <span className="opacity-80">({scheduledItem.duration} min)</span>
+                <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span> {/* Made duration font-semibold */}
               </span>
               <span className={cn(
-                "text-xs font-mono ml-auto text-[hsl(var(--always-light-text))] opacity-80" // Using always-light-text with opacity
+                "text-xs font-semibold font-mono ml-auto text-[hsl(var(--always-light-text))] opacity-80" // Made time range font-semibold
               )}>
                 {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
               </span>

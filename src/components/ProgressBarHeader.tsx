@@ -41,7 +41,7 @@ const ProgressBarHeader: React.FC = () => {
             <TooltipTrigger asChild>
               <CustomProgress 
                 value={xpProgress} 
-                className="h-2 flex-grow bg-primary/20" /* Changed to primary/20 */
+                className="h-2 flex-grow bg-secondary" /* Changed to bg-secondary */
                 indicatorClassName="bg-primary" /* Changed to primary */
               />
             </TooltipTrigger>
@@ -61,7 +61,7 @@ const ProgressBarHeader: React.FC = () => {
             <TooltipTrigger asChild>
               <CustomProgress 
                 value={energyPercentage} 
-                className="h-2 flex-grow bg-primary/20" /* Changed to primary/20 */
+                className="h-2 flex-grow bg-secondary" /* Changed to bg-secondary */
                 indicatorClassName="bg-primary" /* Changed to primary */
               />
             </TooltipTrigger>
@@ -90,7 +90,7 @@ const ProgressBarHeader: React.FC = () => {
             <TooltipTrigger asChild>
               <CustomProgress 
                 value={dailyChallengeProgress} 
-                className="h-2 flex-grow bg-accent/20" /* Changed to accent/20 */
+                className="h-2 flex-grow bg-secondary" /* Changed to bg-secondary */
                 indicatorClassName="bg-accent" /* Changed to accent */
               />
             </TooltipTrigger>

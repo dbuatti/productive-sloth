@@ -24,6 +24,17 @@ import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, pa
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 
 const SchedulerPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
@@ -49,6 +60,7 @@ const SchedulerPage: React.FC = () => {
   const [injectionStartTime, setInjectionStartTime] = useState('');
   const [injectionEndTime, setInjectionEndTime] = useState('');
   const [inputValue, setInputValue] = useState('');
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false); // New state for clear confirmation
 
   const formattedSelectedDay = selectedDay;
 
@@ -115,6 +127,21 @@ const SchedulerPage: React.FC = () => {
   useEffect(() => {
     setCurrentSchedule(calculatedSchedule);
   }, [calculatedSchedule]);
+
+  const handleClearSchedule = async () => {
+    if (!user) {
+      showError("You must be logged in to clear your schedule.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    await clearScheduledTasks();
+    setTAnchorForSelectedDay(null); // Reset state
+    localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
+    console.log(`SchedulerPage: tAnchorForSelectedDay reset to null for ${formattedSelectedDay} via clear command.`);
+    setIsProcessingCommand(false);
+    setShowClearConfirmation(false); // Close dialog
+    setInputValue(''); // Clear input after successful command
+  };
 
   const handleCommand = async (input: string) => {
     if (!user) {
@@ -235,11 +262,8 @@ const SchedulerPage: React.FC = () => {
       console.log("SchedulerPage: handleCommand - Processing as command.");
       switch (command.type) {
         case 'clear':
-          await clearScheduledTasks();
-          setTAnchorForSelectedDay(null); // Reset state
-          localStorage.removeItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
-          console.log(`SchedulerPage: tAnchorForSelectedDay reset to null for ${formattedSelectedDay} via clear command.`);
-          success = true;
+          setShowClearConfirmation(true); // Open confirmation dialog
+          success = true; // Mark as success to clear input, but actual clear happens after confirmation
           break;
         case 'remove':
           if (command.index !== undefined) {
@@ -546,6 +570,24 @@ const SchedulerPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Clear Schedule Confirmation Dialog */}
+      <AlertDialog open={showClearConfirmation} onOpenChange={setShowClearConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete all scheduled tasks for {format(parseISO(selectedDay), 'EEEE, MMMM d')}. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
+              Clear Schedule
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

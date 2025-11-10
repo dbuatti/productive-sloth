@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
 import { Trash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, BarChart, ListTodo } from 'lucide-react';
+import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react'; // Added PlusCircle
 import { startOfDay, addHours, addMinutes } from 'date-fns';
 
 interface SchedulerDisplayProps {
@@ -27,6 +27,8 @@ const getBubbleHeightStyle = (duration: number) => {
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask, activeItemId }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
+
+  const activeItemRef = useRef<HTMLDivElement>(null); // Ref for the active item
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
@@ -122,7 +124,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     };
   }, [schedule, T_current, startOfTemplate, endOfTemplate]);
 
-
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {
       if ((item.type === 'task' || item.type === 'break' || item.type === 'free-time') && T_current >= item.startTime && T_current < item.endTime) {
@@ -145,15 +146,24 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     return (timeIntoItemMs / itemDurationMs) * 100;
   }, [activeItemInDisplay, T_current]);
 
+  // Auto-scroll to active item
+  useEffect(() => {
+    if (activeItemRef.current) {
+      activeItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [activeItemInDisplay]);
+
 
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
 
   const renderDisplayItem = (item: DisplayItem) => {
+    const isCurrentlyActive = activeItemInDisplay?.id === item.id;
+
     if (item.type === 'marker') {
       return (
         <React.Fragment key={item.id}>
           <div className="flex items-center justify-end pr-2">
-            <span className="text-sm font-bold text-foreground"> {/* Made bolder and brighter */}
+            <span className="text-sm font-bold text-foreground">
               {item.label}
             </span>
           </div>
@@ -169,6 +179,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <React.Fragment key={freeTimeItem.id}>
           <div></div>
           <div 
+            ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
               isHighlightedByNowCard ? "opacity-50 border-border" :
@@ -220,6 +231,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           </div>
 
           <div
+            ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-sm transition-all duration-200 ease-in-out animate-pop-in overflow-hidden",
               "border border-solid border-white/20", // Added subtle light border
@@ -289,36 +301,47 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <CardContent className="p-0">
           <div className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-              {!activeItemInDisplay && T_current < firstItemStartTime && (
-                <div className={cn(
-                  "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                  "top-0"
-                )}>
-                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                  <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                    ⏳ Schedule starts later today
-                  </p>
-                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+              {schedule?.items.length === 0 ? (
+                <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
+                  <ListTodo className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-lg font-semibold">Your schedule is clear!</p>
+                  <p>Start by adding a task in the input above.</p>
+                  <p className="text-sm">Try: "Meeting 60" or "Coffee 10am - 10:15am"</p>
                 </div>
-              )}
-              {!activeItemInDisplay && T_current >= lastItemEndTime && (
-                <div className={cn(
-                  "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                  "bottom-0"
-                )}>
-                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                  <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                    ✅ All tasks completed!
-                  </p>
-                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                </div>
-              )}
+              ) : (
+                <>
+                  {!activeItemInDisplay && T_current < firstItemStartTime && (
+                    <div className={cn(
+                      "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                      "top-0"
+                    )}>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                      <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                        ⏳ Schedule starts later today
+                      </p>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    </div>
+                  )}
+                  {!activeItemInDisplay && T_current >= lastItemEndTime && (
+                    <div className={cn(
+                      "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                      "bottom-0"
+                    )}>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                      <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                        ✅ All tasks completed!
+                      </p>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    </div>
+                  )}
 
-              {finalDisplayItems.map((item) => (
-                <React.Fragment key={item.id}>
-                  {renderDisplayItem(item)}
-                </React.Fragment>
-              ))}
+                  {finalDisplayItems.map((item) => (
+                    <React.Fragment key={item.id}>
+                      {renderDisplayItem(item)}
+                    </React.Fragment>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         </CardContent>

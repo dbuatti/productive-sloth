@@ -62,7 +62,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                     id: `free-${currentCursor.toISOString()}-${eventStartTime.toISOString()}`,
                     type: 'free-time',
                     startTime: currentCursor,
-                    endTime: eventEndTime, // Should be eventStartTime, not eventEndTime
+                    endTime: eventStartTime,
                     duration: freeDurationMinutes,
                     message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
                 });

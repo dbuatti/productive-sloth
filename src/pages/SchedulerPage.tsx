@@ -51,8 +51,6 @@ const SchedulerPage: React.FC = () => {
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
   
-  // Removed tAnchorForSelectedDay from useState
-
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
   const [injectionDuration, setInjectionDuration] = useState('');
@@ -79,26 +77,25 @@ const SchedulerPage: React.FC = () => {
     
     let baseTime = setHours(setMinutes(startOfDay(selectedDayDate), defaultTimeParts[1]), defaultTimeParts[0]);
 
-    // If the selected day is today, and the base time is in the past, use current time
-    // Also, if the selected day is in the past, the anchor should be the start of that day
+    // If the selected day is today, and the base time is in the past, use current time.
+    // Otherwise, if the selected day is in the past, the anchor should be the start of that day.
+    // Otherwise, use the baseTime.
     if (isSameDay(selectedDayDate, T_current)) {
       return isPast(baseTime) ? T_current : baseTime;
     } else if (isPast(selectedDayDate)) {
       return startOfDay(selectedDayDate);
     }
     return baseTime;
-  }, [formattedSelectedDay, T_current, profile?.default_auto_schedule_start_time]);
-
-  // Removed the useEffect block that managed tAnchorForSelectedDay and localStorage
+  }, [formattedSelectedDay, T_current.getTime(), profile?.default_auto_schedule_start_time]); // Use T_current.getTime() for stable dependency
 
   // Calculate the schedule based on tasks, selected day, and effective anchor
   const calculatedSchedule = useMemo(() => {
     console.log("SchedulerPage: calculatedSchedule useMemo triggered.");
     console.log("SchedulerPage: dbScheduledTasks received:", dbScheduledTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time })));
-    console.log("SchedulerPage: Effective Auto-Schedule Start Time for calculation:", effectiveAutoScheduleStartTime?.toISOString());
+    console.log("SchedulerPage: Effective Auto-Schedule Start Time for calculation:", effectiveAutoScheduleStartTime?.toISOString()); // Corrected log message
     // Pass effectiveAutoScheduleStartTime to calculateSchedule for internal logic
     return calculateSchedule(dbScheduledTasks, effectiveAutoScheduleStartTime, T_current, selectedDay);
-  }, [dbScheduledTasks, selectedDay, effectiveAutoScheduleStartTime, T_current]); // Added T_current to dependencies
+  }, [dbScheduledTasks, selectedDay, effectiveAutoScheduleStartTime, T_current.getTime()]); // Use T_current.getTime() for stable dependency
 
   // Set currentSchedule state from the memoized calculation
   useEffect(() => {
@@ -112,7 +109,6 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await clearScheduledTasks();
-    // No need to reset tAnchorForSelectedDay or localStorage here as it's now memoized
     setIsProcessingCommand(false);
     setShowClearConfirmation(false); // Close dialog
     setInputValue(''); // Clear input after successful command
@@ -408,7 +404,7 @@ const SchedulerPage: React.FC = () => {
       }
     }
     return null;
-  }, [calculatedSchedule, T_current, selectedDay]);
+  }, [calculatedSchedule, T_current.getTime(), selectedDay]); // Use T_current.getTime() for stable dependency
 
   const nextItem: ScheduledItem | null = useMemo(() => {
     if (!calculatedSchedule || !activeItem || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -422,7 +418,7 @@ const SchedulerPage: React.FC = () => {
       }
     }
     return null;
-  }, [calculatedSchedule, activeItem, T_current, selectedDay]);
+  }, [calculatedSchedule, activeItem, T_current.getTime(), selectedDay]); // Use T_current.getTime() for stable dependency
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;

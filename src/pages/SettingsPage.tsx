@@ -9,6 +9,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription, // Imported FormDescription
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -28,10 +29,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'; // Added CardHeader, CardTitle, CardContent
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
 import { Loader2 } from 'lucide-react';
 
@@ -39,7 +40,8 @@ const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters.").nullable(),
   avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')),
-  // Removed notification fields from RHF schema
+  default_auto_schedule_start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable(),
+  default_auto_schedule_end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -48,7 +50,6 @@ const SettingsPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, refreshProfile, rechargeEnergy, resetDailyStreak, updateNotificationPreferences } = useSession();
   const { setTheme } = useTheme();
 
-  // Local state for notification switches
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
 
@@ -59,19 +60,21 @@ const SettingsPage: React.FC = () => {
       first_name: '',
       last_name: '',
       avatar_url: '',
+      default_auto_schedule_start_time: '09:00',
+      default_auto_schedule_end_time: '17:00',
     },
     mode: 'onChange',
   });
 
-  // Sync RHF form with profile data
   useEffect(() => {
     if (profile) {
       form.reset({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
         avatar_url: profile.avatar_url || '',
+        default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '09:00',
+        default_auto_schedule_end_time: profile.default_auto_schedule_end_time || '17:00',
       });
-      // Sync local state for switches
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
     }
@@ -91,6 +94,8 @@ const SettingsPage: React.FC = () => {
           first_name: values.first_name,
           last_name: values.last_name,
           avatar_url: values.avatar_url === '' ? null : values.avatar_url,
+          default_auto_schedule_start_time: values.default_auto_schedule_start_time,
+          default_auto_schedule_end_time: values.default_auto_schedule_end_time,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' });
 
@@ -127,6 +132,8 @@ const SettingsPage: React.FC = () => {
           last_low_energy_notification: null,
           enable_daily_challenge_notifications: true,
           enable_low_energy_notifications: true,
+          default_auto_schedule_start_time: '09:00',
+          default_auto_schedule_end_time: '17:00',
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -167,9 +174,21 @@ const SettingsPage: React.FC = () => {
 
       setTheme("system");
       
-      // Update local state
       setDailyChallengeNotifications(true);
       setLowEnergyNotifications(true);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          default_auto_schedule_start_time: '09:00',
+          default_auto_schedule_end_time: '17:00',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
 
       showSuccess("App settings reset to default!");
       await refreshProfile();
@@ -223,10 +242,8 @@ const SettingsPage: React.FC = () => {
         <Settings className="h-7 w-7 text-primary" /> Settings
       </h1>
       
-      {/* Profile Form */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Personal Information Card */}
           <Card className="animate-hover-lift">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
@@ -253,7 +270,7 @@ const SettingsPage: React.FC = () => {
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel> {/* Corrected closing tag */}
+                      <FormLabel>Last Name</FormLabel>
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -285,7 +302,6 @@ const SettingsPage: React.FC = () => {
         </form>
       </Form>
 
-      {/* Game Stats & Actions Card */}
       <Card className="animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
@@ -345,7 +361,6 @@ const SettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* App Preferences Card (No longer uses RHF FormField) */}
       <Card className="animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
@@ -358,7 +373,6 @@ const SettingsPage: React.FC = () => {
             <ThemeToggle />
           </div>
           
-          {/* Daily Challenge Notifications (Manual State/Update) */}
           <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <Label>Daily Challenge Notifications</Label>
@@ -372,7 +386,6 @@ const SettingsPage: React.FC = () => {
             />
           </div>
 
-          {/* Low Energy Notifications (Manual State/Update) */}
           <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <Label>Low Energy Notifications</Label>
@@ -384,6 +397,53 @@ const SettingsPage: React.FC = () => {
               checked={lowEnergyNotifications}
               onCheckedChange={(checked) => handleNotificationChange('enable_low_energy_notifications', checked)}
             />
+          </div>
+
+          <div className="rounded-lg border p-3 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <Clock className="h-4 w-4" /> Auto-Schedule Window
+            </div>
+            <FormField
+              control={form.control}
+              name="default_auto_schedule_start_time"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between">
+                  <div className="space-y-0.5">
+                    <FormLabel>Default Workday Start Time</FormLabel>
+                    <FormDescription className="text-sm text-muted-foreground">
+                      The time the auto-scheduler should start filling your flexible tasks.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Input type="time" className="w-auto" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="default_auto_schedule_end_time"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between">
+                  <div className="space-y-0.5">
+                    <FormLabel>Default Workday End Time</FormLabel>
+                    <FormDescription className="text-sm text-muted-foreground">
+                      The latest time the auto-scheduler should place flexible tasks.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Input type="time" className="w-auto" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end pt-2">
+              <Button type="submit" disabled={isSubmitting || !isValid}>
+                Save Preferences
+              </Button>
+            </div>
           </div>
 
           <div className="flex justify-end mt-4">
@@ -412,7 +472,6 @@ const SettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Danger Zone Card */}
       <Card className="border-destructive/50 animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl text-destructive">
@@ -455,27 +514,27 @@ const SettingsPage: React.FC = () => {
                   This action cannot be undone. This will permanently delete your account and all associated data.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
-                  Confirm Deletion
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
+                    Confirm Deletion
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
-          <Button
-            variant="outline"
-            className="w-full flex items-center gap-2"
-            onClick={handleSignOut}
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
+            <Button
+              variant="outline"
+              className="w-full flex items-center gap-2"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
 export default SettingsPage;

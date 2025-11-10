@@ -19,6 +19,8 @@ export interface UserProfile {
   enable_daily_challenge_notifications: boolean; // Added notification preference
   enable_low_energy_notifications: boolean; // Added notification preference
   daily_challenge_target: number; // Added daily challenge target
+  default_auto_schedule_start_time: string | null; // New: Default start time for auto-scheduler
+  default_auto_schedule_end_time: string | null;   // New: Default end time for auto-scheduler
 }
 
 interface SessionContextType {

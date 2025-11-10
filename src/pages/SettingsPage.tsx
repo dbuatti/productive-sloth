@@ -230,7 +230,7 @@ const SettingsPage: React.FC = () => {
       
       {/* Profile Form */}
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" key={user.id}> {/* Moved key prop here */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" key={user.id}>
           {/* Personal Information Card */}
           <Card className="animate-hover-lift">
             <CardHeader>
@@ -241,6 +241,7 @@ const SettingsPage: React.FC = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
+                  key="first_name_field"
                   control={form.control}
                   name="first_name"
                   render={({ field }) => (
@@ -254,6 +255,7 @@ const SettingsPage: React.FC = () => {
                   )}
                 />
                 <FormField
+                  key="last_name_field"
                   control={form.control}
                   name="last_name"
                   render={({ field }) => (
@@ -268,6 +270,7 @@ const SettingsPage: React.FC = () => {
                 />
               </div>
               <FormField
+                key="avatar_url_field"
                 control={form.control}
                 name="avatar_url"
                 render={({ field }) => (
@@ -365,6 +368,7 @@ const SettingsPage: React.FC = () => {
           
           {/* Default Auto-Schedule Start Time */}
           <FormField
+            key="default_auto_schedule_start_time_field"
             control={form.control}
             name="default_auto_schedule_start_time"
             render={({ field }) => (

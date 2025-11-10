@@ -133,13 +133,31 @@ export const parseTaskInput = (input: string): ParsedTaskInput | null => {
   }
 
   // Regex for "Task Name HH:MM AM/PM - HH:MM AM/PM"
-  const timeRegex = /^(.*?)\s+(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))$/i;
-  const timeMatch = input.match(timeRegex);
+  const timeRegexNameFirst = /^(.*?)\s+(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))$/i;
+  const timeMatchNameFirst = input.match(timeRegexNameFirst);
 
-  if (timeMatch) {
-    const name = timeMatch[1].trim();
-    const startTimeStr = timeMatch[2].trim();
-    const endTimeStr = timeMatch[4].trim();
+  if (timeMatchNameFirst) {
+    const name = timeMatchNameFirst[1].trim();
+    const startTimeStr = timeMatchNameFirst[2].trim();
+    const endTimeStr = timeMatchNameFirst[4].trim();
+
+    const now = new Date();
+    const startTime = parse(startTimeStr, 'h:mm a', now);
+    const endTime = parse(endTimeStr, 'h:mm a', now);
+
+    if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+      return { name, startTime, endTime };
+    }
+  }
+
+  // New Regex for "HH:MM AM/PM - HH:MM AM/PM Task Name"
+  const timeRegexTimeFirst = /^(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s+(.*)$/i;
+  const timeMatchTimeFirst = input.match(timeRegexTimeFirst);
+
+  if (timeMatchTimeFirst) {
+    const startTimeStr = timeMatchTimeFirst[1].trim();
+    const endTimeStr = timeMatchTimeFirst[3].trim();
+    const name = timeMatchTimeFirst[5].trim(); // This should be index 5 for the last capturing group
 
     const now = new Date();
     const startTime = parse(startTimeStr, 'h:mm a', now);

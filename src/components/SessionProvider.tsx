@@ -27,7 +27,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications') // Select new notification columns and tasks_completed_today
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, default_auto_schedule_start_time') // Select new notification columns and tasks_completed_today, and default_auto_schedule_start_time
       .eq('id', userId); // Removed .single()
 
     if (error) {
@@ -153,7 +153,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile]);
 
-  const updateNotificationPreferences = useCallback(async (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => {
+  const updateNotificationPreferences = useCallback(async (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean; default_auto_schedule_start_time?: string | null }) => {
     if (!user) {
       showError("You must be logged in to update notification preferences.");
       return;
@@ -170,10 +170,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       await refreshProfile();
-      showSuccess("Notification preferences updated!");
+      showSuccess("Preferences updated!");
     } catch (error: any) {
-      showError(`Failed to update notification preferences: ${error.message}`);
-      console.error("Update notification preferences error:", error);
+      showError(`Failed to update preferences: ${error.message}`);
+      console.error("Update preferences error:", error);
     }
   }, [user, refreshProfile]);
 

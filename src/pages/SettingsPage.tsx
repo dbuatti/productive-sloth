@@ -28,10 +28,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock } from 'lucide-react'; // Added Clock icon
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'; // Added CardHeader, CardTitle, CardContent
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
 import { Loader2 } from 'lucide-react';
 
@@ -39,7 +39,7 @@ const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters.").nullable(),
   avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')),
-  // Removed notification fields from RHF schema
+  default_auto_schedule_start_time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)").nullable(), // New field
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -52,13 +52,13 @@ const SettingsPage: React.FC = () => {
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
 
-
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       first_name: '',
       last_name: '',
       avatar_url: '',
+      default_auto_schedule_start_time: '09:00', // Default value for the new field
     },
     mode: 'onChange',
   });
@@ -70,6 +70,7 @@ const SettingsPage: React.FC = () => {
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
         avatar_url: profile.avatar_url || '',
+        default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '09:00',
       });
       // Sync local state for switches
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
@@ -91,6 +92,7 @@ const SettingsPage: React.FC = () => {
           first_name: values.first_name,
           last_name: values.last_name,
           avatar_url: values.avatar_url === '' ? null : values.avatar_url,
+          default_auto_schedule_start_time: values.default_auto_schedule_start_time, // Save new field
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' });
 
@@ -127,6 +129,7 @@ const SettingsPage: React.FC = () => {
           last_low_energy_notification: null,
           enable_daily_challenge_notifications: true,
           enable_low_energy_notifications: true,
+          default_auto_schedule_start_time: '09:00', // Reset new field
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -163,6 +166,7 @@ const SettingsPage: React.FC = () => {
       await updateNotificationPreferences({
         enable_daily_challenge_notifications: true,
         enable_low_energy_notifications: true,
+        default_auto_schedule_start_time: '09:00', // Reset new preference
       });
 
       setTheme("system");
@@ -170,6 +174,7 @@ const SettingsPage: React.FC = () => {
       // Update local state
       setDailyChallengeNotifications(true);
       setLowEnergyNotifications(true);
+      form.setValue('default_auto_schedule_start_time', '09:00'); // Update form state
 
       showSuccess("App settings reset to default!");
       await refreshProfile();
@@ -253,7 +258,7 @@ const SettingsPage: React.FC = () => {
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel> {/* Corrected closing tag */}
+                      <FormLabel>Last Name</FormLabel>
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -345,7 +350,7 @@ const SettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* App Preferences Card (No longer uses RHF FormField) */}
+      {/* App Preferences Card */}
       <Card className="animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
@@ -358,6 +363,31 @@ const SettingsPage: React.FC = () => {
             <ThemeToggle />
           </div>
           
+          {/* Default Auto-Schedule Start Time */}
+          <FormField
+            control={form.control}
+            name="default_auto_schedule_start_time"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <FormLabel>Default Auto-Schedule Start Time</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    The time the scheduler will start looking for free slots for new tasks.
+                  </p>
+                </div>
+                <FormControl>
+                  <Input 
+                    type="time" 
+                    className="w-auto" 
+                    {...field} 
+                    value={field.value || ''} // Ensure controlled component
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           {/* Daily Challenge Notifications (Manual State/Update) */}
           <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">

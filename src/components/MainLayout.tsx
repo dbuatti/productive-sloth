@@ -35,10 +35,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </>
       ) : (
         <Sidebar defaultLayout={defaultLayout}>
-          <div className="flex flex-col flex-1">
+          <div className="flex flex-col h-full">
             <AppHeader />
             <ProgressBarHeader /> {/* Render ProgressBarHeader directly below AppHeader on desktop */}
-            <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6"> {/* Removed overflow-auto here */}
+            <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
               {children}
             </main>
           </div>

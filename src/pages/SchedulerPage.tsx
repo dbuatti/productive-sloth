@@ -131,11 +131,9 @@ const SchedulerPage: React.FC = () => {
       } else {
         // Timed event (Fixed Appointment)
         const selectedDayDate = parseISO(selectedDay);
-        const tempStartTime = parseFlexibleTime(parsedInput.startTime!, selectedDayDate); // Use parseFlexibleTime
-        const tempEndTime = parseFlexibleTime(parsedInput.endTime!, selectedDayDate); // Use parseFlexibleTime
-
-        let startTime = setHours(setMinutes(startOfDay(selectedDayDate), tempStartTime.getMinutes()), tempStartTime.getHours());
-        let endTime = setHours(setMinutes(startOfDay(selectedDayDate), tempEndTime.getMinutes()), tempEndTime.getHours());
+        // Use parsedInput.startTime and parsedInput.endTime directly as they are already Date objects
+        let startTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
+        let endTime = setHours(setMinutes(startOfDay(selectedDayDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
         
         if (endTime.getTime() < startTime.getTime()) {
           endTime = addDays(endTime, 1);
@@ -432,7 +430,7 @@ const SchedulerPage: React.FC = () => {
             <DialogDescription>
               Please provide the details for this task.
             </DialogDescription>
-          </DialogDescription>
+          </DialogHeader>
           <div className="grid gap-4 py-4">
             {injectionPrompt?.isTimed ? (
               <>

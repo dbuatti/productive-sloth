@@ -10,7 +10,8 @@ import {
   parseInjectionCommand,
   parseCommand,
   formatDateTime,
-  parseFlexibleTime, // Import the new helper
+  parseFlexibleTime,
+  formatTime, // Import formatTime for success message
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,7 @@ const SchedulerPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Load tAnchorForSelectedDay for the selected day from localStorage
+  // Manage tAnchorForSelectedDay based on selectedDay and current time
   useEffect(() => {
     const savedAnchorString = localStorage.getItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
     let newAnchorDate: Date | null = null;
@@ -71,17 +72,31 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    // Compare the ISO string representation to ensure we only update if the value has changed
+    // If no saved anchor, determine a default based on the selected day
+    if (!newAnchorDate) {
+      const selectedDayAsDate = parseISO(formattedSelectedDay);
+      if (isSameDay(selectedDayAsDate, T_current)) {
+        // If selected day is today, default to current time
+        newAnchorDate = T_current;
+      } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
+        // If selected day is in the future, default to start of that day
+        newAnchorDate = startOfDay(selectedDayAsDate);
+      }
+      // If selected day is in the past, newAnchorDate remains null (or could default to start of day)
+      // For now, let's keep it null if it's a past day and no anchor was saved.
+    }
+
+    // Only update state if the value has actually changed
     const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
     const newAnchorISO = newAnchorDate?.toISOString() || null;
 
     if (currentAnchorISO !== newAnchorISO) {
       setTAnchorForSelectedDay(newAnchorDate);
-      console.log(`SchedulerPage: Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
+      console.log(`SchedulerPage: Initialized/Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
     } else {
       console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
     }
-  }, [formattedSelectedDay]); // Only depend on formattedSelectedDay
+  }, [formattedSelectedDay, T_current]); // Add T_current to dependencies so it re-evaluates if current time changes
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
@@ -90,7 +105,7 @@ const SchedulerPage: React.FC = () => {
     console.log("SchedulerPage: Current tAnchorForSelectedDay for calculation:", tAnchorForSelectedDay?.toISOString());
     // Pass T_current and selectedDay to calculateSchedule for internal logic
     return calculateSchedule(dbScheduledTasks, tAnchorForSelectedDay, T_current, selectedDay);
-  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay]); // Removed T_current from dependencies here
+  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current]); // Added T_current to dependencies
 
   // Set currentSchedule state from the memoized calculation
   useEffect(() => {
@@ -120,8 +135,9 @@ const SchedulerPage: React.FC = () => {
       const isAdHocTask = 'duration' in parsedInput;
 
       // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc task, set it NOW
-      if (!tAnchorForSelectedDay && isAdHocTask && isSameDay(parseISO(selectedDay), new Date())) {
-        const newAnchor = new Date();
+      // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
+      if (!tAnchorForSelectedDay && isAdHocTask && isSameDay(parseISO(selectedDay), T_current)) {
+        const newAnchor = T_current; // Use T_current for the anchor
         setTAnchorForSelectedDay(newAnchor); // Update state
         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
         console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleCommand to:`, newAnchor.toISOString());
@@ -150,7 +166,14 @@ const SchedulerPage: React.FC = () => {
           return;
         }
 
-        if (endTime.getTime() < startTime.getTime()) {
+        // If the selected day is today, and the proposed start time is in the past,
+        // shift the task to the next day.
+        if (isSameDay(selectedDayDate, T_current) && startTime.getTime() < T_current.getTime()) {
+          startTime = addDays(startTime, 1);
+          endTime = addDays(endTime, 1);
+          showSuccess(`Scheduled "${parsedInput.name}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
+        } else if (endTime.getTime() < startTime.getTime()) {
+          // Handle rollover within the same day (e.g., 11 PM - 1 AM)
           endTime = addDays(endTime, 1);
         }
 
@@ -166,8 +189,9 @@ const SchedulerPage: React.FC = () => {
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
 
       // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
-      if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), new Date())) {
-        const newAnchor = new Date();
+      // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
+      if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), T_current)) {
+        const newAnchor = T_current; // Use T_current for the anchor
         setTAnchorForSelectedDay(newAnchor); // Update state
         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
         console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleCommand (injection) to:`, newAnchor.toISOString());
@@ -268,8 +292,9 @@ const SchedulerPage: React.FC = () => {
     const isAdHocInjection = !injectionPrompt.isTimed;
 
     // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
-    if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), new Date())) {
-      const newAnchor = new Date();
+    // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
+    if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), T_current)) {
+      const newAnchor = T_current; // Use T_current for the anchor
       setTAnchorForSelectedDay(newAnchor); // Update state
       localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
       console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleInjectionSubmit to:`, newAnchor.toISOString());
@@ -295,7 +320,14 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      if (endTime.getTime() < startTime.getTime()) {
+
+      // If the selected day is today, and the proposed start time is in the past,
+      // shift the task to the next day.
+      if (isSameDay(selectedDayDate, T_current) && startTime.getTime() < T_current.getTime()) {
+        startTime = addDays(startTime, 1);
+        endTime = addDays(endTime, 1);
+        showSuccess(`Scheduled "${injectionPrompt.taskName}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
+      } else if (endTime.getTime() < startTime.getTime()) {
         endTime.setDate(endTime.getDate() + 1);
       }
       console.log(`SchedulerPage: handleInjectionSubmit - Storing timed injection. Local Start Date: ${startTime.toLocaleString()}, Local End Date: ${endTime.toLocaleString()}`);
@@ -413,7 +445,7 @@ const SchedulerPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {isSameDay(parseISO(selectedDay), new Date()) && (
+      {isSameDay(parseISO(selectedDay), T_current) && (
         <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
       )}
 

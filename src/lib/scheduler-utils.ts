@@ -324,10 +324,12 @@ export const calculateSchedule = (
   let adHocCursor: Date; 
   const selectedDayDate = startOfDay(parseISO(selectedDateString));
 
+  // Determine the initial adHocCursor
   if (explicitTAnchor) {
+    // If an explicit anchor is provided (e.g., from localStorage or first ad-hoc task), use it.
     adHocCursor = explicitTAnchor;
   } else if (fixedAppointments.length > 0) {
-    // If no explicit anchor, but there are fixed appointments, start after the latest one
+    // If no explicit anchor, but there are fixed appointments, start after the latest one.
     const latestFixedEndTime = fixedAppointments.reduce((latest, appt) => {
         const scheduledDateLocal = startOfDay(parseISO(appt.scheduled_date));
         const utcEnd = parseISO(appt.end_time!);
@@ -342,24 +344,31 @@ export const calculateSchedule = (
     }, selectedDayDate); // Initialize with start of selected day
     adHocCursor = latestFixedEndTime;
   } else if (isSameDay(selectedDayDate, currentMoment)) {
-    // If no explicit anchor, no fixed appointments, and it's today, start from current moment
+    // If no explicit anchor, no fixed appointments, and it's the selected day is TODAY, start from current moment.
     adHocCursor = currentMoment;
   } else {
-    // If no explicit anchor, no fixed appointments, and not today, start from the beginning of the selected day
+    // If no explicit anchor, no fixed appointments, and the selected day is NOT TODAY, start from the beginning of the selected day.
     adHocCursor = selectedDayDate;
+  }
+
+  // Ensure adHocCursor is not in the past relative to the selected day's start
+  // This handles cases where currentMoment might be earlier than a fixed appointment,
+  // but adHocCursor was set to currentMoment.
+  // Also, ensure it's not before the start of the selected day.
+  if (adHocCursor.getTime() < selectedDayDate.getTime()) {
+    adHocCursor = selectedDayDate;
+  }
+  
+  // Safeguard: If the adHocCursor is still in the past relative to the currentMoment (and it's today),
+  // then advance it to the currentMoment. This is the core "real-time" adjustment.
+  if (isSameDay(selectedDayDate, currentMoment) && adHocCursor.getTime() < currentMoment.getTime()) {
+      adHocCursor = currentMoment;
   }
 
   // Sort ad-hoc tasks by their creation time to maintain the order they were added
   adHocTasks.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   adHocTasks.forEach(task => {
-    // Ensure adHocCursor is not in the past relative to the selected day's start
-    // This handles cases where currentMoment might be earlier than a fixed appointment,
-    // but adHocCursor was set to currentMoment.
-    if (adHocCursor.getTime() < selectedDayDate.getTime()) {
-      adHocCursor = selectedDayDate;
-    }
-
     let proposedStartTime = adHocCursor;
     let proposedEndTime = addMinutes(proposedStartTime, task.duration!);
 

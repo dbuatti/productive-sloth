@@ -68,29 +68,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     });
   };
 
-  const getPriorityColor = (priority: Task['priority']) => {
+  const getPriorityBadgeClasses = (priority: Task['priority']) => {
     switch (priority) {
       case 'HIGH':
-        return 'text-destructive';
+        return 'bg-destructive text-destructive-foreground border-destructive';
       case 'MEDIUM':
-        return 'text-logo-orange';
+        return 'bg-logo-orange/20 text-logo-orange border-logo-orange';
       case 'LOW':
-        return 'text-logo-green';
+        return 'bg-logo-green/20 text-logo-green border-logo-green';
       default:
-        return 'text-muted-foreground';
-    }
-  };
-
-  const getPriorityBadgeVariant = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'destructive';
-      case 'MEDIUM':
-        return 'outline'; // Using outline for medium, can be customized
-      case 'LOW':
-        return 'secondary'; // Using secondary for low, can be customized
-      default:
-        return 'outline';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -112,7 +99,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       <div 
         className={cn(
           "relative flex items-center justify-between p-4 border-l-4 transition-all duration-300 rounded-md shadow-sm",
-          "bg-card hover:bg-secondary/50",
+          "bg-card hover:bg-secondary/50 animate-hover-lift", // Added animate-hover-lift
           getPriorityBorderColor(task.priority), // Dynamic left border color
           task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
           "hover:shadow-lg hover:shadow-primary/10",
@@ -132,8 +119,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           >
             <div className="flex items-center gap-2 w-full">
               <Badge 
-                variant={getPriorityBadgeVariant(task.priority)} 
-                className={cn("capitalize px-2 py-0.5 text-xs font-semibold", getPriorityColor(task.priority))}
+                variant="outline" // Use outline variant as a base
+                className={cn(
+                  "capitalize px-2 py-0.5 text-xs font-semibold", 
+                  getPriorityBadgeClasses(task.priority) // Apply custom classes for colors
+                )}
               >
                 {task.priority.toLowerCase()}
               </Badge>

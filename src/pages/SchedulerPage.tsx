@@ -94,8 +94,9 @@ const SchedulerPage: React.FC = () => {
         newAnchorDate = T_current; // Anchor for today starts at current time
       } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
         newAnchorDate = startOfDay(selectedDayAsDate); // Anchor for future days starts at midnight
+      } else { // selectedDayAsDate is in the past
+        newAnchorDate = startOfDay(selectedDayAsDate); // Anchor for past days starts at midnight of that day
       }
-      // If selected day is in the past, newAnchorDate remains null.
     }
 
     // Update state if the value has changed AND save to localStorage if a new anchor was determined.
@@ -528,7 +529,7 @@ const SchedulerPage: React.FC = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} activeItemId={activeItem?.id || null} />
+            <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} activeItemId={activeItem?.id || null} selectedDayString={selectedDay} />
           )}
         </CardContent>
       </Card>

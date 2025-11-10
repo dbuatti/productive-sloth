@@ -13,6 +13,7 @@ interface SchedulerDisplayProps {
   T_current: Date;
   onRemoveTask: (taskId: string) => void;
   activeItemId: string | null;
+  selectedDayString: string; // New prop to pass selectedDay from parent
 }
 
 const getBubbleHeightStyle = (duration: number) => {
@@ -24,7 +25,7 @@ const getBubbleHeightStyle = (duration: number) => {
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask, activeItemId }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask, activeItemId, selectedDayString }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
@@ -316,7 +317,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
     }
   };
 
-  const isTodaySelected = isSameDay(parseISO(schedule?.summary.sessionEnd.toISOString() || T_current.toISOString()), T_current);
+  const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current); // Corrected to use selectedDayString
 
   return (
     <div className="space-y-4 animate-slide-in-up">
@@ -342,12 +343,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                 <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
                   <ListTodo className="h-12 w-12 text-muted-foreground" />
                   <p className="text-lg font-semibold">Your schedule is clear!</p>
-                  <p>Start by adding a task in the input above.</p>
+                  <p className="text-sm">Start by adding a task in the input above.</p>
                   <p className="text-sm">Try: "Piano Practice 30", "Meeting 60 10", "Mindfulness 11am - 12pm"</p>
                 </div>
               ) : (
                 <>
-                  {!activeItemInDisplay && T_current < firstItemStartTime && (
+                  {!activeItemInDisplay && T_current < firstItemStartTime && isTodaySelected && (
                     <div className={cn(
                       "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                       "top-0"
@@ -359,7 +360,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                       <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
                     </div>
                   )}
-                  {!activeItemInDisplay && T_current >= lastItemEndTime && (
+                  {!activeItemInDisplay && T_current >= lastItemEndTime && isTodaySelected && (
                     <div className={cn(
                       "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                       "bottom-0"

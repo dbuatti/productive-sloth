@@ -26,7 +26,6 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // FIX: Explicitly type the useMemo return to ensure literal types are preserved
   const commonCommands = useMemo<Suggestion[]>(() => [
     { type: 'command', name: 'clear', description: 'Clear all scheduled tasks' },
     { type: 'command', name: 'remove', description: 'Remove a task by name or index' },
@@ -109,7 +108,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full animate-slide-in-up relative">
       <Popover open={showSuggestions} onOpenChange={setShowSuggestions}>
-        <PopoverTrigger asChild>
+        <PopoverTrigger asChild onMouseDown={(e) => e.preventDefault()}>
           <Input
             ref={inputRef}
             type="text"

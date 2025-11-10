@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Send, Plus, Loader2, ListTodo, Command as CommandIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+// import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Temporarily removed
 
 interface Suggestion {
   type: 'command' | 'task';
@@ -52,30 +52,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     return filteredSuggestions.slice(0, 5);
   }, [inputValue, allTasks, commonCommands]);
 
-  // Computed value for popover open state
-  const shouldPopoverOpen = useMemo(() => {
-    const open = inputValue.length > 0 && suggestions.length > 0;
-    console.log('shouldPopoverOpen:', open, 'inputValue:', inputValue, 'suggestions.length:', suggestions.length);
-    return open;
-  }, [inputValue, suggestions]);
-
-  // Effect to ensure input remains focused when popover opens
-  useEffect(() => {
-    if (shouldPopoverOpen) {
-      // When the popover opens, ensure the input is focused.
-      // Use a small timeout to allow the DOM to settle after popover renders.
-      const timer = setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus();
-          console.log('Explicitly re-focused input:', new Date().toLocaleTimeString());
-        }
-      }, 50); // Increased timeout slightly
-      return () => clearTimeout(timer);
-    } else {
-      // When popover closes, ensure selectedIndex is reset
-      setSelectedIndex(-1);
-    }
-  }, [shouldPopoverOpen]); // Depend on the computed value
+  // Computed value for showing suggestions
+  const shouldShowSuggestions = inputValue.length > 0 && suggestions.length > 0;
 
   const handleSelectSuggestion = (suggestion: Suggestion) => {
     if (suggestion.type === 'command' && suggestion.name === 'clear') {
@@ -104,7 +82,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (shouldPopoverOpen) { // Use shouldPopoverOpen here
+    if (shouldShowSuggestions) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
@@ -119,60 +97,46 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 w-full animate-slide-in-up relative">
-      <Popover open={shouldPopoverOpen} onOpenChange={(open) => {
-        // When the popover closes, ensure the input is focused if it's not already.
-        // This handles cases where focus might have moved to a suggestion or outside.
-        if (!open && inputRef.current && document.activeElement !== inputRef.current) {
-          inputRef.current?.focus();
-        }
-        // Also reset selected index when popover closes
-        if (!open) {
-          setSelectedIndex(-1);
-        }
-      }} modal={false}>
-        <PopoverTrigger asChild>
-          <Input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            // Removed onMouseDown={(e) => e.preventDefault()} to allow natural focus behavior
-            placeholder={placeholder}
-            disabled={isLoading}
-            className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
-            onFocus={() => console.log('Input focused:', new Date().toLocaleTimeString())}
-            onBlur={() => console.log('Input blurred:', new Date().toLocaleTimeString())}
-          />
-        </PopoverTrigger>
-        {shouldPopoverOpen && ( // Render content only if popover is open
-          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-50">
-            <ul className="max-h-60 overflow-y-auto">
-              {suggestions.map((suggestion, index) => (
-                <li
-                  key={suggestion.name}
-                  className={cn(
-                    "flex items-center gap-2 p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
-                    selectedIndex === index && "bg-accent text-accent-foreground"
-                  )}
-                  onMouseDown={(e) => e.preventDefault()} // Prevent focus loss on suggestion click
-                  onClick={() => handleSelectSuggestion(suggestion)}
-                >
-                  {suggestion.type === 'command' ? <CommandIcon className="h-4 w-4" /> : <ListTodo className="h-4 w-4" />}
-                  <span>{suggestion.name}</span>
-                  {suggestion.description && <span className="text-muted-foreground text-xs ml-auto">{suggestion.description}</span>}
-                </li>
-              ))}
-            </ul>
-          </PopoverContent>
-        )}
-      </Popover>
-      <Button type="submit" disabled={isLoading} className="shrink-0 h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
-        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        <span className="sr-only">Send</span>
-      </Button>
-    </form>
+    <div className="flex flex-col gap-2 w-full animate-slide-in-up relative">
+      <form onSubmit={handleSubmit} className="flex gap-2 w-full">
+        <Input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={isLoading}
+          className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
+        />
+        <Button type="submit" disabled={isLoading} className="shrink-0 h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          <span className="sr-only">Send</span>
+        </Button>
+      </form>
+
+      {shouldShowSuggestions && (
+        <div className="absolute top-full left-0 right-0 bg-popover border border-border rounded-md shadow-lg z-50 mt-1">
+          <ul className="max-h-60 overflow-y-auto">
+            {suggestions.map((suggestion, index) => (
+              <li
+                key={suggestion.name}
+                className={cn(
+                  "flex items-center gap-2 p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                  selectedIndex === index && "bg-accent text-accent-foreground"
+                )}
+                onMouseDown={(e) => e.preventDefault()} // Prevent focus loss on suggestion click
+                onClick={() => handleSelectSuggestion(suggestion)}
+              >
+                {suggestion.type === 'command' ? <CommandIcon className="h-4 w-4" /> : <ListTodo className="h-4 w-4" />}
+                <span>{suggestion.name}</span>
+                {suggestion.description && <span className="text-muted-foreground text-xs ml-auto">{suggestion.description}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 };
 

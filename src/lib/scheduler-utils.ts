@@ -361,9 +361,7 @@ export const calculateSchedule = (
   
   // Safeguard: If the adHocPlacementCursor is still in the past relative to the currentMoment (and it's today),
   // then advance it to the currentMoment. This is the core "real-time" adjustment.
-  // This safeguard should *only* apply if explicitTAnchor was NOT set, meaning we are dynamically determining the start.
-  // If explicitTAnchor IS set, we respect it, even if it's in the past, as it represents a fixed starting point for the ad-hoc queue.
-  if (!explicitTAnchor && isSelectedDayToday && adHocPlacementCursor.getTime() < currentMoment.getTime()) {
+  if (isSelectedDayToday && adHocPlacementCursor.getTime() < currentMoment.getTime()) {
       adHocPlacementCursor = currentMoment;
   }
 
@@ -389,7 +387,6 @@ export const calculateSchedule = (
             fixedApptEnd = addDays(fixedApptEnd, 1);
         }
 
-        // Check if proposed ad-hoc task overlaps with fixed appointment
         if (
           (proposedStartTime.getTime() < fixedApptEnd.getTime() && proposedEndTime.getTime() > fixedApptStart.getTime())
         ) {

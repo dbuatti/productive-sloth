@@ -60,29 +60,47 @@ const SchedulerPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Manage tAnchorForSelectedDay: Load from localStorage
+  // Manage tAnchorForSelectedDay based on selectedDay and current time
   useEffect(() => {
+    const selectedDayAsDate = parseISO(formattedSelectedDay);
+    const isSelectedDayToday = isSameDay(selectedDayAsDate, T_current);
+
     const savedAnchorString = localStorage.getItem(`scheduler_T_Anchor_${formattedSelectedDay}`);
-    let loadedAnchorDate: Date | null = null;
+    let newAnchorDate: Date | null = null;
 
     if (savedAnchorString) {
       const parsedDate = new Date(savedAnchorString);
       if (!isNaN(parsedDate.getTime())) {
-        loadedAnchorDate = parsedDate;
+        newAnchorDate = parsedDate;
       }
     }
 
-    // Only update state if the loaded value is different from current state
-    const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
-    const loadedAnchorISO = loadedAnchorDate?.toISOString() || null;
-
-    if (currentAnchorISO !== loadedAnchorISO) {
-      setTAnchorForSelectedDay(loadedAnchorDate);
-      console.log(`SchedulerPage: Loaded tAnchorForSelectedDay for ${formattedSelectedDay} as:`, loadedAnchorDate?.toISOString());
-    } else {
-      console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null from load.`);
+    // If no saved anchor, determine a default based on the selected day
+    if (!newAnchorDate) {
+      if (isSelectedDayToday) {
+        newAnchorDate = T_current;
+      } else if (selectedDayAsDate.getTime() > T_current.getTime()) {
+        newAnchorDate = startOfDay(selectedDayAsDate);
+      }
+      // If selected day is in the past, newAnchorDate remains null (no default anchor for past days)
     }
-  }, [formattedSelectedDay]); // Only depends on selectedDay, not T_current or dbScheduledTasks.length
+
+    // Update state if the value has changed
+    const currentAnchorISO = tAnchorForSelectedDay?.toISOString() || null;
+    const newAnchorISO = newAnchorDate?.toISOString() || null;
+
+    if (currentAnchorISO !== newAnchorISO) {
+      setTAnchorForSelectedDay(newAnchorDate);
+      // If we just set a new anchor based on T_current or startOfDay, save it to localStorage
+      // This ensures persistence for the *first* time an anchor is determined for a day.
+      if (newAnchorDate && !savedAnchorString) { // Only save if it's a newly determined anchor, not one loaded from storage
+         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchorDate.toISOString());
+      }
+      console.log(`SchedulerPage: Initialized/Updated tAnchorForSelectedDay for ${formattedSelectedDay} to:`, newAnchorDate?.toISOString());
+    } else {
+      console.log(`SchedulerPage: tAnchorForSelectedDay for ${formattedSelectedDay} is already up-to-date or null.`);
+    }
+  }, [formattedSelectedDay, T_current]); // Removed dbScheduledTasks.length from dependencies
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
@@ -120,13 +138,13 @@ const SchedulerPage: React.FC = () => {
       console.log("SchedulerPage: handleCommand - Processing as parsedInput.");
       const isAdHocTask = 'duration' in parsedInput;
 
-      // Set and save tAnchorForSelectedDay if it's an ad-hoc task and no anchor is currently set
-      if (isAdHocTask && !tAnchorForSelectedDay) {
-        const selectedDayAsDate = parseISO(selectedDay);
-        const newAnchor = isSameDay(selectedDayAsDate, T_current) ? T_current : startOfDay(selectedDayAsDate);
-        setTAnchorForSelectedDay(newAnchor);
+      // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc task, set it NOW
+      // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
+      if (!tAnchorForSelectedDay && isAdHocTask && isSameDay(parseISO(selectedDay), T_current)) {
+        const newAnchor = T_current; // Use T_current for the anchor
+        setTAnchorForSelectedDay(newAnchor); // Update state
         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
-        console.log(`SchedulerPage: tAnchorForSelectedDay set and saved for ${formattedSelectedDay} to:`, newAnchor.toISOString());
+        console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleCommand to:`, newAnchor.toISOString());
       }
 
       const taskScheduledDate = formattedSelectedDay;
@@ -174,11 +192,11 @@ const SchedulerPage: React.FC = () => {
       console.log("SchedulerPage: handleCommand - Processing as injectCommand.");
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
 
-      // Set and save tAnchorForSelectedDay if it's an ad-hoc injection and no anchor is currently set
-      if (isAdHocInjection && !tAnchorForSelectedDay) {
-        const selectedDayAsDate = parseISO(selectedDay);
-        const newAnchor = isSameDay(selectedDayAsDate, T_current) ? T_current : startOfDay(selectedDayAsDate);
-        setTAnchorForSelectedDay(newAnchor);
+      // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
+      // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
+      if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), T_current)) {
+        const newAnchor = T_current; // Use T_current for the anchor
+        setTAnchorForSelectedDay(newAnchor); // Update state
         localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
         console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleCommand (injection) to:`, newAnchor.toISOString());
       }
@@ -277,11 +295,11 @@ const SchedulerPage: React.FC = () => {
     let success = false;
     const isAdHocInjection = !injectionPrompt.isTimed;
 
-    // Set and save tAnchorForSelectedDay if it's an ad-hoc injection and no anchor is currently set
-    if (isAdHocInjection && !tAnchorForSelectedDay) {
-      const selectedDayAsDate = parseISO(selectedDay);
-      const newAnchor = isSameDay(selectedDayAsDate, T_current) ? T_current : startOfDay(selectedDayAsDate);
-      setTAnchorForSelectedDay(newAnchor);
+    // If tAnchorForSelectedDay is not set for the selected day and this is the first ad-hoc injection, set it NOW
+    // This logic is now largely handled by the useEffect above, but we keep the localStorage update here
+    if (!tAnchorForSelectedDay && isAdHocInjection && isSameDay(parseISO(selectedDay), T_current)) {
+      const newAnchor = T_current; // Use T_current for the anchor
+      setTAnchorForSelectedDay(newAnchor); // Update state
       localStorage.setItem(`scheduler_T_Anchor_${formattedSelectedDay}`, newAnchor.toISOString());
       console.log(`SchedulerPage: tAnchorForSelectedDay set for ${formattedSelectedDay} for the first time in handleInjectionSubmit to:`, newAnchor.toISOString());
     }

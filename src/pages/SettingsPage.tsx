@@ -33,7 +33,7 @@ import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from 'react-router-dom'; // Corrected import for Loader2
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
@@ -229,8 +229,8 @@ const SettingsPage: React.FC = () => {
       </h1>
       
       {/* Profile Form */}
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" key={user.id}>
+      <Form {...form} key={user.id}> {/* Moved key prop here */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information Card */}
           <Card className="animate-hover-lift">
             <CardHeader>

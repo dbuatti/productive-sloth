@@ -138,7 +138,39 @@ export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date
 };
 
 export const parseTaskInput = (input: string): ParsedTaskInput | null => {
-  // Regex for "Task Name Duration [BreakDuration]"
+  const now = new Date();
+  // Regex to find a time range pattern anywhere in the string
+  const timeRangePattern = /(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))/i;
+  const timeRangeMatch = input.match(timeRangePattern);
+
+  if (timeRangeMatch) {
+    const fullTimeRangeString = timeRangeMatch[0]; // e.g., "3pm - 3:45pm"
+    const startTimeStr = timeRangeMatch[1].trim();
+    const endTimeStr = timeRangeMatch[3].trim();
+
+    const startTime = parseFlexibleTime(startTimeStr, now);
+    const endTime = parseFlexibleTime(endTimeStr, now);
+
+    if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+      // Extract task name by removing the time range part
+      const rawTaskName = input.replace(fullTimeRangeString, '').trim();
+
+      // Define stop words for cleanup
+      const stopWords = ['at', 'from', 'to', 'between', 'is', 'a', 'the', 'and'];
+      const stopWordsRegex = new RegExp(`\\b(?:${stopWords.join('|')})\\b`, 'gi');
+      
+      const cleanedTaskName = rawTaskName
+        .replace(stopWordsRegex, '') // Remove stop words
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .trim();
+
+      if (cleanedTaskName) {
+        return { name: cleanedTaskName, startTime, endTime };
+      }
+    }
+  }
+
+  // If no time range pattern is found, fall back to duration-based parsing
   const durationRegex = /^(.*?)\s+(\d+)(?:\s+(\d+))?$/;
   const durationMatch = input.match(durationRegex);
 
@@ -148,42 +180,6 @@ export const parseTaskInput = (input: string): ParsedTaskInput | null => {
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
     if (name && duration > 0) {
       return { name, duration, breakDuration };
-    }
-  }
-
-  const now = new Date();
-
-  // Regex for "Task Name HH:MM AM/PM - HH:MM AM/PM"
-  const timeRegexNameFirst = /^(.*?)\s+(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))$/i;
-  const timeMatchNameFirst = input.match(timeRegexNameFirst);
-
-  if (timeMatchNameFirst) {
-    const name = timeMatchNameFirst[1].trim();
-    const startTimeStr = timeMatchNameFirst[2].trim();
-    const endTimeStr = timeMatchNameFirst[4].trim();
-
-    const startTime = parseFlexibleTime(startTimeStr, now);
-    const endTime = parseFlexibleTime(endTimeStr, now);
-
-    if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
-      return { name, startTime, endTime };
-    }
-  }
-
-  // New Regex for "HH:MM AM/PM - HH:MM AM/PM Task Name"
-  const timeRegexTimeFirst = /^(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM))\s+(.*)$/i;
-  const timeMatchTimeFirst = input.match(timeRegexTimeFirst);
-
-  if (timeMatchTimeFirst) {
-    const startTimeStr = timeMatchTimeFirst[1].trim();
-    const endTimeStr = timeMatchTimeFirst[3].trim();
-    const name = timeMatchTimeFirst[5].trim();
-
-    const startTime = parseFlexibleTime(startTimeStr, now);
-    const endTime = parseFlexibleTime(endTimeStr, now);
-
-    if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
-      return { name, startTime, endTime };
     }
   }
 

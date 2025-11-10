@@ -114,10 +114,10 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
+            onMouseDown={(e) => e.preventDefault()} // Prevent focus loss on input click
             placeholder={placeholder}
             disabled={isLoading}
             className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
-            // Removed onPointerDown={(e) => e.preventDefault()}
           />
         </PopoverTrigger>
         {showSuggestions && (

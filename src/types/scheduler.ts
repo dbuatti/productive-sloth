@@ -78,6 +78,7 @@ export interface ScheduleSummary {
   sessionEnd: Date;
   extendsPastMidnight: boolean;
   midnightRolloverMessage: string | null;
+  unscheduledCount: number; // New: Count of tasks that couldn't fit within the workday window
 }
 
 // New type for fixed time markers

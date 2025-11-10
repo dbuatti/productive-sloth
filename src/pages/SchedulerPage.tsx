@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2 } from 'lucide-react';
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask } from '@/types/scheduler';
@@ -124,10 +124,38 @@ const SchedulerPage: React.FC = () => {
     }
   }, [formattedSelectedDay, T_current]); // tAnchorForSelectedDay is NOT in dependencies.
 
+  // Calculate workday boundaries from profile
+  const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
+  const workdayStartTime = useMemo(() => profile?.default_auto_schedule_start_time 
+    ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
+    : startOfDay(selectedDayAsDate), [profile?.default_auto_schedule_start_time, selectedDayAsDate]);
+  
+  let workdayEndTime = useMemo(() => profile?.default_auto_schedule_end_time 
+    ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_end_time) 
+    : addHours(startOfDay(selectedDayAsDate), 17), [profile?.default_auto_schedule_end_time, selectedDayAsDate]);
+
+  // Ensure workdayEndTime is after workdayStartTime, potentially rolling over to next day
+  workdayEndTime = useMemo(() => {
+    if (isBefore(workdayEndTime, workdayStartTime)) {
+      return addDays(workdayEndTime, 1);
+    }
+    return workdayEndTime;
+  }, [workdayEndTime, workdayStartTime]);
+
+  // Determine the effective start for placing new tasks (cannot be in the past for today)
+  const effectiveWorkdayStart = useMemo(() => {
+    if (isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTime, T_current)) {
+      return T_current;
+    }
+    return workdayStartTime;
+  }, [selectedDayAsDate, T_current, workdayStartTime]);
+
+
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
-    return calculateSchedule(dbScheduledTasks, tAnchorForSelectedDay, T_current, selectedDay);
-  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current]);
+    if (!profile) return null; // Ensure profile is loaded before calculating schedule
+    return calculateSchedule(dbScheduledTasks, tAnchorForSelectedDay, T_current, selectedDay, workdayStartTime, workdayEndTime);
+  }, [dbScheduledTasks, selectedDay, tAnchorForSelectedDay, T_current, workdayStartTime, workdayEndTime, profile]); // Add profile to dependencies
 
   // Set currentSchedule state from the memoized calculation
   useEffect(() => {
@@ -162,26 +190,6 @@ const SchedulerPage: React.FC = () => {
 
     let success = false;
     const taskScheduledDate = formattedSelectedDay;
-
-    // Get workday boundaries from profile
-    const selectedDayAsDate = parseISO(selectedDay);
-    const workdayStartTime = profile.default_auto_schedule_start_time 
-      ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
-      : startOfDay(selectedDayAsDate);
-    let workdayEndTime = profile.default_auto_schedule_end_time 
-      ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_end_time) 
-      : addHours(startOfDay(selectedDayAsDate), 17); // Default to 5 PM
-
-    // Ensure workdayEndTime is after workdayStartTime, potentially rolling over to next day
-    if (isBefore(workdayEndTime, workdayStartTime)) {
-      workdayEndTime = addDays(workdayEndTime, 1);
-    }
-
-    // Determine the effective start for placing new tasks (cannot be in the past for today)
-    let effectiveWorkdayStart = workdayStartTime;
-    if (isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTime, T_current)) {
-      effectiveWorkdayStart = T_current;
-    }
 
     // Get existing scheduled tasks for the day, sorted by start time
     const existingAppointments = dbScheduledTasks
@@ -384,25 +392,6 @@ const SchedulerPage: React.FC = () => {
     const taskScheduledDate = formattedSelectedDay;
     const selectedDayAsDate = parseISO(selectedDay);
 
-    // Get workday boundaries from profile
-    const workdayStartTime = profile.default_auto_schedule_start_time 
-      ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
-      : startOfDay(selectedDayAsDate);
-    let workdayEndTime = profile.default_auto_schedule_end_time 
-      ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_end_time) 
-      : addHours(startOfDay(selectedDayAsDate), 17); // Default to 5 PM
-
-    // Ensure workdayEndTime is after workdayStartTime, potentially rolling over to next day
-    if (isBefore(workdayEndTime, workdayStartTime)) {
-      workdayEndTime = addDays(workdayEndTime, 1);
-    }
-
-    // Determine the effective start for placing new tasks (cannot be in the past for today)
-    let effectiveWorkdayStart = workdayStartTime;
-    if (isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTime, T_current)) {
-      effectiveWorkdayStart = T_current;
-    }
-
     // Get existing scheduled tasks for the day, sorted by start time
     const existingAppointments = dbScheduledTasks
       .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayAsDate))
@@ -588,6 +577,15 @@ const SchedulerPage: React.FC = () => {
 
       {isSameDay(parseISO(selectedDay), T_current) && (
         <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
+      )}
+
+      {calculatedSchedule?.summary.unscheduledCount > 0 && (
+        <Card className="animate-pop-in animate-hover-lift">
+          <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span>⚠️ {calculatedSchedule.summary.unscheduledCount} task{calculatedSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
+          </CardContent>
+        </Card>
       )}
 
       <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}>

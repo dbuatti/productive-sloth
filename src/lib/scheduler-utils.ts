@@ -275,11 +275,14 @@ export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
   explicitTAnchor: Date | null, // This is tAnchorForSelectedDay from state
   currentMoment: Date, // This is T_current from state
-  selectedDateString: string // This is selectedDay from state
+  selectedDateString: string, // This is selectedDay from state
+  workdayStartTime: Date, // New parameter
+  workdayEndTime: Date   // New parameter
 ): FormattedSchedule => {
   const scheduledItems: ScheduledItem[] = [];
   let totalActiveTime = 0;
   let totalBreakTime = 0;
+  let unscheduledCount = 0; // New counter for tasks outside workday window
 
   // All tasks from DB are now treated as fixed appointments since they will have start/end times
   const allTasksWithTimes: DBScheduledTask[] = dbTasks.filter(task => task.start_time && task.end_time);
@@ -307,6 +310,11 @@ export const calculateSchedule = (
 
     if (endTime.getTime() < startTime.getTime()) {
         endTime = addDays(endTime, 1);
+    }
+
+    // Check if task falls outside the workday window
+    if (isBefore(startTime, workdayStartTime) || isAfter(endTime, workdayEndTime)) {
+      unscheduledCount++;
     }
 
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
@@ -349,6 +357,7 @@ export const calculateSchedule = (
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
     midnightRolloverMessage: midnightRolloverMessage,
+    unscheduledCount: unscheduledCount, // Add to summary
   };
 
   return {

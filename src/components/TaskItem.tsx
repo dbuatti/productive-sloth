@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock } from "lucide-react"; // Added Sparkles, Zap, CalendarDays, Clock
+import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft } from "lucide-react"; // Added AlignLeft
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,7 @@ import XPGainAnimation from "./XPGainAnimation"; // Import the animation compone
 import TaskDetailSheet from "./TaskDetailSheet"; // Import the new sheet component
 import { Badge } from "@/components/ui/badge"; // Import Badge component
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 
 interface TaskItemProps {
   task: Task;
@@ -133,6 +134,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
               )}>
                 {task.title}
               </span>
+              {task.description && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlignLeft className="h-3 w-3 text-muted-foreground shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Has description</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground"> {/* Changed text-xs to text-sm */}
               {task.due_date && (

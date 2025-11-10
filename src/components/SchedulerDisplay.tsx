@@ -191,7 +191,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               {item.label}
             </span>
           </div>
-          <div></div>
+          <div className="relative flex items-center">
+            <div className="h-px w-full bg-border" />
+            <div className="absolute right-0 h-2 w-2 rounded-full bg-border -mr-1" />
+          </div>
         </React.Fragment>
       );
     } else if (item.type === 'free-time') {

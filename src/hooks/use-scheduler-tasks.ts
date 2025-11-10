@@ -366,7 +366,6 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      // Remove duration from insert payload as it's no longer in the table
       // The `newTask` already conforms to `NewDBScheduledTask` which doesn't have `duration`.
       // So, we can directly spread `newTask` and add `user_id`.
       const taskToInsert = { ...newTask, user_id: userId }; 
@@ -464,36 +463,21 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
-  // NEW: Rezone a task (move from retired_tasks back to scheduled_tasks using auto-scheduling logic)
+  // NEW: Rezone a task (delete from retired_tasks)
   const rezoneTaskMutation = useMutation({
-    mutationFn: async (retiredTask: RetiredTask) => {
+    mutationFn: async (retiredTaskId: string) => { // Changed to take taskId
       if (!userId) throw new Error("User not authenticated.");
 
-      // 1. Delete from retired_tasks
-      const { error: deleteError } = await supabase.from('retired_tasks').delete().eq('id', retiredTask.id).eq('user_id', userId);
+      // Delete from retired_tasks
+      const { error: deleteError } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', userId);
       if (deleteError) throw new Error(`Failed to remove task from Aether Sink: ${deleteError.message}`);
-
-      // 2. Prepare for auto-scheduling (using addScheduledTask logic)
-      // For rezone, we'll use the existing addScheduledTask which finds the next available slot.
-      // We need to pass it as a NewDBScheduledTask, but without start/end times initially.
-      const taskToRezone: NewDBScheduledTask = {
-        name: retiredTask.name,
-        // duration: retiredTask.duration ?? undefined, // Duration is used for slot finding, not stored in DBScheduledTask
-        break_duration: retiredTask.break_duration ?? undefined,
-        scheduled_date: formattedSelectedDate, // Rezone for the currently selected date
-      };
-      
-      // The actual placement logic will be handled by the caller (SchedulerPage)
-      // This mutation only handles moving it out of retired_tasks.
-      return { ...taskToRezone, duration: retiredTask.duration }; // Return the task details including original duration
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
-      // scheduledTasks will be invalidated by the subsequent addScheduledTask call in SchedulerPage
-      showSuccess('Task re-zoned from Aether Sink.');
+      showSuccess('Task removed from Aether Sink.'); // This toast is for the deletion from sink
     },
     onError: (e) => {
-      showError(`Failed to re-zone task: ${e.message}`);
+      showError(`Failed to remove task from Aether Sink: ${e.message}`); // More specific error message
     }
   });
 

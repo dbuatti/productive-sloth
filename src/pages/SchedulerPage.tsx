@@ -589,10 +589,10 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(true);
 
     try {
-      // First, remove from retired_tasks
-      const taskDetails = await rezoneTask(retiredTask); // rezoneTask returns the task details for re-adding
+      const taskDuration = retiredTask.duration || 30; // Default duration if not specified
+      const selectedDayAsDate = parseISO(selectedDay); // Ensure this is correctly defined
 
-      // Then, add back to scheduled_tasks using auto-scheduling logic
+      // Get existing scheduled tasks for the day, sorted by start time
       const existingAppointments = dbScheduledTasks
         .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayAsDate))
         .map(task => ({
@@ -601,7 +601,6 @@ const SchedulerPage: React.FC = () => {
         }))
         .sort((a, b) => a.start.getTime() - b.start.getTime());
 
-      const taskDuration = taskDetails.duration || 30; // Default duration if not specified
       let proposedStartTime: Date | null = null;
       const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
 
@@ -614,24 +613,22 @@ const SchedulerPage: React.FC = () => {
 
       if (proposedStartTime) {
         const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
+        
+        // 1. Delete from retired_tasks (now that we know it can be scheduled)
+        await rezoneTask(retiredTask.id); // Call the mutation to delete from sink
+
+        // 2. Add to scheduled_tasks
         await addScheduledTask({
-          name: taskDetails.name,
+          name: retiredTask.name,
           start_time: proposedStartTime.toISOString(),
           end_time: proposedEndTime.toISOString(),
-          break_duration: taskDetails.break_duration, // Pass break_duration from retired task
+          break_duration: retiredTask.break_duration, // Pass break_duration from retired task
           scheduled_date: formattedSelectedDay,
         });
-        showSuccess(`Re-zoned "${taskDetails.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+        showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {
-        showError(`Could not find an available slot for "${taskDetails.name}" (${taskDuration} min) in your workday. It remains in the Aether Sink.`);
-        // If it couldn't be placed, re-add it to retired_tasks
-        await supabase.from('retired_tasks').insert({
-          user_id: user.id, // Corrected to user.id
-          name: taskDetails.name,
-          duration: taskDetails.duration,
-          break_duration: taskDetails.break_duration,
-          original_scheduled_date: retiredTask.original_scheduled_date,
-        });
+        showError(`Could not find an available slot for "${retiredTask.name}" (${taskDuration} min) in your workday. It remains in the Aether Sink.`);
+        // IMPORTANT: Do NOT re-insert here. The task was never deleted from the sink in this scenario.
       }
     } catch (error: any) {
       showError(`Failed to rezone task: ${error.message}`);

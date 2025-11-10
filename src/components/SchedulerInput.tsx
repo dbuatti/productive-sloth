@@ -107,7 +107,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full animate-slide-in-up relative">
-      <Popover open={showSuggestions} onOpenChange={setShowSuggestions}>
+      <Popover open={showSuggestions} onOpenChange={setShowSuggestions} modal={false}>
         <PopoverTrigger asChild onMouseDown={(e) => e.preventDefault()}>
           <Input
             ref={inputRef}

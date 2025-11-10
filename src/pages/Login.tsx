@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-      <Card className="w-full max-w-md animate-pop-in"> {/* Added animate-pop-in */}
+      <Card className="w-full max-w-md animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
         <CardHeader>
           <CardTitle className="text-2xl text-center">Daily Task Manager</CardTitle>
         </CardHeader>

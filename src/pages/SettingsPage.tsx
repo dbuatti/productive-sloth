@@ -245,7 +245,7 @@ const SettingsPage: React.FC = () => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information Card */}
-          <Card className="animate-hover-lift">
+          <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <User className="h-5 w-5 text-primary" /> Profile
@@ -302,7 +302,7 @@ const SettingsPage: React.FC = () => {
           </Card>
 
           {/* Game Stats & Actions Card */}
-          <Card className="animate-hover-lift">
+          <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <Gamepad2 className="h-5 w-5 text-logo-yellow" /> Game & Energy
@@ -362,7 +362,7 @@ const SettingsPage: React.FC = () => {
           </Card>
 
           {/* App Preferences Card */}
-          <Card className="animate-hover-lift">
+          <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <Settings className="h-5 w-5 text-primary" /> Preferences
@@ -477,7 +477,7 @@ const SettingsPage: React.FC = () => {
           </Card>
 
           {/* Danger Zone Card */}
-          <Card className="border-destructive/50 animate-hover-lift">
+          <Card className="border-destructive/50 animate-hover-lift"> {/* Added animate-hover-lift */}
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl text-destructive">
                 <Trash2 className="h-5 w-5" /> Danger Zone

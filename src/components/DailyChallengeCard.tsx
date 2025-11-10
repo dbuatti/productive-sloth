@@ -48,7 +48,7 @@ const DailyChallengeCard: React.FC = () => {
   const { isComplete, hasClaimed, progress, tasksCompleted, target } = challengeStatus;
 
   const cardClasses = cn(
-    "transition-all duration-300 ease-in-out border-2",
+    "transition-all duration-300 ease-in-out border-2 animate-hover-lift", // Added animate-hover-lift
     hasClaimed ? "border-logo-green/50 bg-logo-green/5" : 
     isComplete ? "border-accent/70 bg-accent/10 hover:shadow-lg hover:shadow-accent/20" : 
     "border-border hover:border-primary/50"

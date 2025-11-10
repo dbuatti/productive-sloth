@@ -731,7 +731,7 @@ const SchedulerPage: React.FC = () => {
         datesWithTasks={datesWithTasks} 
       />
 
-      <Card className="animate-pop-in animate-hover-lift">
+      <Card className="animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
@@ -766,7 +766,7 @@ const SchedulerPage: React.FC = () => {
       />
 
       {currentSchedule?.summary.unscheduledCount > 0 && (
-        <Card className="animate-pop-in animate-hover-lift">
+        <Card className="animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
           <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
             <AlertTriangle className="h-5 w-5" />
             <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
@@ -774,7 +774,7 @@ const SchedulerPage: React.FC = () => {
         </Card>
       )}
 
-      <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}>
+      <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}> {/* Added animate-hover-lift */}
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}

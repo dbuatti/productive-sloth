@@ -43,7 +43,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = ({ sched
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Tasks */}
-        <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in">
+        <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
           <CardHeader className="p-0 pb-2 text-center">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
               <ListTodo className="h-4 w-4 text-primary" /> Total Tasks
@@ -55,7 +55,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = ({ sched
         </Card>
 
         {/* Active Time */}
-        <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in" style={{ animationDelay: '0.1s' }}>
+        <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}> {/* Added animate-hover-lift */}
           <CardHeader className="p-0 pb-2 text-center">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
               <Zap className="h-4 w-4 text-primary" /> Active Time
@@ -69,7 +69,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = ({ sched
         </Card>
 
         {/* Break Time */}
-        <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in" style={{ animationDelay: '0.2s' }}>
+        <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.2s' }}> {/* Added animate-hover-lift */}
           <CardHeader className="p-0 pb-2 text-center">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
               <Coffee className="h-4 w-4 text-logo-orange" /> Break Time
@@ -81,7 +81,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = ({ sched
         </Card>
 
         {/* Session End */}
-        <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in" style={{ animationDelay: '0.3s' }}>
+        <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.3s' }}> {/* Added animate-hover-lift */}
           <CardHeader className="p-0 pb-2 text-center">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
               <Flag className="h-4 w-4 text-foreground" /> Session End

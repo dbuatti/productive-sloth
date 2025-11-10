@@ -20,7 +20,7 @@ const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onR
   }
 
   return (
-    <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10">
+    <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift"> {/* Added animate-hover-lift */}
       <CardHeader className="pb-2">
         <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
           <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})

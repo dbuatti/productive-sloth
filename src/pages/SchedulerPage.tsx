@@ -138,14 +138,16 @@ const SchedulerPage: React.FC = () => {
 
   // Handle pre-filling input from navigation state
   useEffect(() => {
-    if (location.state && (location.state as any).taskToSchedule) {
-      const { name, duration } = (location.state as any).taskToSchedule;
+    const taskToSchedule = (location.state as any)?.taskToSchedule;
+    if (taskToSchedule) {
+      const { name, duration } = taskToSchedule;
       const command = `inject "${name}" ${duration}`;
-      setInputValue(command);
+      // Immediately execute the command
+      handleCommand(command);
       // Clear the state so it doesn't re-trigger on subsequent visits
       navigate(location.pathname, { replace: true, state: {} }); 
     }
-  }, [location.state, setInputValue, navigate, location.pathname]);
+  }, [location.state, navigate]); // Removed handleCommand from dependencies to prevent re-render loop
 
   // Keyboard navigation for days
   useEffect(() => {

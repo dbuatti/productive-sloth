@@ -23,6 +23,7 @@ interface SchedulerInputProps {
 const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue }) => {
   const { allTasks } = useTasks();
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [popoverOpen, setPopoverOpen] = useState(false); // New state for popover visibility
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commonCommands = useMemo<Suggestion[]>(() => [
@@ -52,17 +53,25 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     return filteredSuggestions.slice(0, 5);
   }, [inputValue, allTasks, commonCommands]);
 
-  // Automatically open popover if there's input and suggestions
-  const isPopoverOpen = inputValue.length > 0 && suggestions.length > 0;
-
+  // Effect to control popoverOpen state based on inputValue and suggestions
   useEffect(() => {
-    if (isPopoverOpen && inputRef.current && document.activeElement !== inputRef.current) {
+    if (inputValue.length > 0 && suggestions.length > 0) {
+      setPopoverOpen(true);
+    } else {
+      setPopoverOpen(false);
+    }
+    setSelectedIndex(-1); // Reset selected index when suggestions change
+  }, [inputValue, suggestions]);
+
+  // Ensure input remains focused when popover opens
+  useEffect(() => {
+    if (popoverOpen && inputRef.current && document.activeElement !== inputRef.current) {
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [isPopoverOpen]);
+  }, [popoverOpen]);
 
   const handleSelectSuggestion = (suggestion: Suggestion) => {
     if (suggestion.type === 'command' && suggestion.name === 'clear') {
@@ -74,7 +83,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     } else {
       setInputValue(suggestion.name);
     }
-    setSelectedIndex(-1); // Reset selected index
+    setPopoverOpen(false); // Close popover after selection
+    setSelectedIndex(-1);
     inputRef.current?.focus();
   };
 
@@ -91,7 +101,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isPopoverOpen) {
+    if (popoverOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
@@ -107,7 +117,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full animate-slide-in-up relative">
-      <Popover open={isPopoverOpen} onOpenChange={() => { /* No-op, controlled by inputValue */ }} modal={false}>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen} modal={false}>
         <PopoverTrigger asChild>
           <Input
             ref={inputRef}
@@ -115,13 +125,13 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()} // Prevent focus loss on input click
             placeholder={placeholder}
             disabled={isLoading}
             className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
           />
         </PopoverTrigger>
-        {isPopoverOpen && ( // Render content only if popover is open
+        {popoverOpen && ( // Render content only if popover is open
           <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-50">
             <ul className="max-h-60 overflow-y-auto">
               {suggestions.map((suggestion, index) => (
@@ -131,7 +141,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
                     "flex items-center gap-2 p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
                     selectedIndex === index && "bg-accent text-accent-foreground"
                   )}
-                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseDown={(e) => e.preventDefault()} // Prevent focus loss on suggestion click
                   onClick={() => handleSelectSuggestion(suggestion)}
                 >
                   {suggestion.type === 'command' ? <CommandIcon className="h-4 w-4" /> : <ListTodo className="h-4 w-4" />}

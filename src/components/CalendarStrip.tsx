@@ -2,6 +2,7 @@ import React from 'react';
 import { format, addDays, isSameDay, isToday, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { CalendarDays } from 'lucide-react'; // Import CalendarDays icon
 
 interface CalendarStripProps {
   selectedDay: string; // Changed to string
@@ -40,7 +41,12 @@ const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedD
 
   return (
     <div className="flex justify-center items-center space-x-2 overflow-x-auto py-2 animate-slide-in-up">
-      {days}
+      {days.length > 0 ? days : (
+        <div className="text-center text-muted-foreground flex flex-col items-center justify-center py-4">
+          <CalendarDays className="h-8 w-8 mb-2" />
+          <p className="text-sm">No scheduled tasks for these days.</p>
+        </div>
+      )}
     </div>
   );
 };

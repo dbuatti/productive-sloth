@@ -27,7 +27,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
         type="text"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
-        placeholder={placeholder}
+        placeholder="Add task (e.g., 'Gym 60', 'Meeting 2pm-3pm', 'clear')" // More concise placeholder
         disabled={isLoading}
         className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
       />

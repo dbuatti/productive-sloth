@@ -344,7 +344,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
                   <ListTodo className="h-12 w-12 text-muted-foreground" />
                   <p className="text-lg font-semibold">Your schedule is clear!</p>
                   <p className="text-sm">Start by adding a task in the input above.</p>
-                  <p className="text-sm">Try: "Piano Practice 30", "Meeting 60 10", "Mindfulness 11am - 12pm"</p>
+                  <p className="text-sm">Try: "Gym 60", "Meeting 2pm-3pm", "Clear queue"</p>
                 </div>
               ) : (
                 <>

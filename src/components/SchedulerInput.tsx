@@ -53,19 +53,26 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   }, [inputValue, allTasks, commonCommands]);
 
   // Computed value for popover open state
-  const shouldPopoverOpen = inputValue.length > 0 && suggestions.length > 0;
+  const shouldPopoverOpen = useMemo(() => {
+    const open = inputValue.length > 0 && suggestions.length > 0;
+    console.log('shouldPopoverOpen:', open, 'inputValue:', inputValue, 'suggestions.length:', suggestions.length);
+    return open;
+  }, [inputValue, suggestions]);
 
   // Effect to ensure input remains focused when popover opens
   useEffect(() => {
-    if (shouldPopoverOpen && inputRef.current && document.activeElement !== inputRef.current) {
-      // Use a small timeout to ensure it runs after any potential blur caused by rendering the popover
+    if (shouldPopoverOpen) {
+      // When the popover opens, ensure the input is focused.
+      // Use a small timeout to allow the DOM to settle after popover renders.
       const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 0); 
+        if (inputRef.current) {
+          inputRef.current.focus();
+          console.log('Explicitly re-focused input:', new Date().toLocaleTimeString());
+        }
+      }, 50); // Increased timeout slightly
       return () => clearTimeout(timer);
-    }
-    // When popover closes, ensure selectedIndex is reset
-    if (!shouldPopoverOpen) {
+    } else {
+      // When popover closes, ensure selectedIndex is reset
       setSelectedIndex(-1);
     }
   }, [shouldPopoverOpen]); // Depend on the computed value

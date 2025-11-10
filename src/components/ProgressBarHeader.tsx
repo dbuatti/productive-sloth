@@ -36,7 +36,7 @@ const ProgressBarHeader: React.FC = () => {
       <div className="container mx-auto max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-3 px-4">
         {/* XP Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Sparkles className="h-4 w-4 text-logo-yellow animate-pulse-glow" /> {/* Added animate-pulse-glow */}
+          <Sparkles className="h-4 w-4 text-logo-yellow" /> {/* Removed animate-pulse-glow */}
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
@@ -56,7 +56,7 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Energy Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Zap className="h-4 w-4 text-logo-yellow animate-pulse-glow" /> {/* Added animate-pulse-glow */}
+          <Zap className="h-4 w-4 text-logo-yellow" /> {/* Removed animate-pulse-glow */}
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
@@ -85,7 +85,7 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Daily Challenge Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Trophy className="h-4 w-4 text-accent animate-pulse-glow" /> {/* Added animate-pulse-glow */}
+          <Trophy className="h-4 w-4 text-accent" /> {/* Removed animate-pulse-glow */}
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 

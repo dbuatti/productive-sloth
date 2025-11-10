@@ -120,7 +120,7 @@ const TaskCreationForm: React.FC = () => {
             <FormItem className="w-full sm:w-[120px] shrink-0">
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
-                  <SelectTrigger className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200">
+                  <SelectTrigger className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 animate-hover-lift"> {/* Added animate-hover-lift */}
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                 </FormControl>
@@ -163,7 +163,7 @@ const TaskCreationForm: React.FC = () => {
         <Button 
           type="submit" 
           disabled={isSubmitting || !isValid} 
-          className="shrink-0 w-full sm:w-auto h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
+          className="shrink-0 w-full sm:w-auto h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 animate-hover-lift" // Added animate-hover-lift
         >
           <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Quick Add</span>
         </Button>

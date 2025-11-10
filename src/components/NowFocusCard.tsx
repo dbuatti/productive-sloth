@@ -47,7 +47,7 @@ const NowFocusCard: React.FC<NowFocusCardProps> = ({ activeItem, nextItem, T_cur
 
   if (!activeItem) {
     return (
-      <Card className="animate-pop-in border-dashed border-primary/50 bg-secondary/10 text-center p-6 flex flex-col items-center justify-center space-y-3">
+      <Card className="animate-pop-in border-dashed border-primary/50 bg-secondary/10 text-center p-6 flex flex-col items-center justify-center space-y-3 animate-hover-lift"> {/* Added animate-hover-lift */}
         <Clock className="h-8 w-8 text-muted-foreground animate-pulse" />
         <CardTitle className="text-xl font-bold text-muted-foreground">No Active Task</CardTitle>
         <p className="text-sm text-muted-foreground">Your schedule is clear, or tasks start later.</p>
@@ -62,7 +62,7 @@ const NowFocusCard: React.FC<NowFocusCardProps> = ({ activeItem, nextItem, T_cur
   const textColor = isBreak ? 'text-logo-orange' : 'text-primary';
 
   return (
-    <Card className={cn("animate-pop-in border-2", cardBorderColor, cardBgColor)}>
+    <Card className={cn("animate-pop-in border-2 animate-hover-lift", cardBorderColor, cardBgColor)}> {/* Added animate-hover-lift */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
           {statusIcon} NOW FOCUS

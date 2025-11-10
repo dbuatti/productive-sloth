@@ -16,7 +16,8 @@ const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, 
           className={cn(
             "h-8 px-4 py-2 text-sm font-medium rounded-sm", // Consistent height, padding, and rounded corners
             "text-muted-foreground hover:bg-muted/50", // Improved hover for inactive tabs
-            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm" // Distinct active state with primary color and shadow
+            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm", // Distinct active state with primary color and shadow
+            "animate-hover-lift" // Added animate-hover-lift
           )}
         >
           Today
@@ -26,7 +27,8 @@ const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, 
           className={cn(
             "h-8 px-4 py-2 text-sm font-medium rounded-sm",
             "text-muted-foreground hover:bg-muted/50",
-            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm",
+            "animate-hover-lift" // Added animate-hover-lift
           )}
         >
           Yesterday
@@ -36,7 +38,8 @@ const TemporalFilterTabs: React.FC<TemporalFilterTabsProps> = ({ currentFilter, 
           className={cn(
             "h-8 px-4 py-2 text-sm font-medium rounded-sm",
             "text-muted-foreground hover:bg-muted/50",
-            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+            "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm",
+            "animate-hover-lift" // Added animate-hover-lift
           )}
         >
           Last 7 Days

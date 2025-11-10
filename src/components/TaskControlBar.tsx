@@ -30,7 +30,8 @@ const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatus
               className={cn(
                 "h-8 px-4 py-2 text-sm font-medium rounded-md", /* Changed rounded-sm to rounded-md for consistency */
                 "text-muted-foreground hover:bg-muted/50 transition-colors duration-200", /* Added transition */
-                "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md" /* Stronger shadow */
+                "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md", /* Stronger shadow */
+                "animate-hover-lift" // Added animate-hover-lift
               )}
             >
               {option.label}
@@ -43,7 +44,7 @@ const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatus
       <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
         <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
         <Select value={sortBy} onValueChange={(value: SortBy) => setSortBy(value)}>
-          <SelectTrigger className="w-[150px] focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"> {/* Added focus styles */}
+          <SelectTrigger className="w-[150px] focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 animate-hover-lift"> {/* Added focus styles and animate-hover-lift */}
             <SelectValue placeholder="Sort Option" />
           </SelectTrigger>
           <SelectContent>

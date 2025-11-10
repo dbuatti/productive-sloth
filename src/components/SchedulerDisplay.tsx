@@ -407,7 +407,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       </Card>
 
       {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
-        <Card className="animate-pop-in">
+        <Card className="animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions

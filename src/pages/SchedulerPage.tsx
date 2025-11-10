@@ -37,6 +37,69 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+// Helper for deep comparison (simple for JSON-serializable objects)
+const deepCompare = (a: any, b: any) => {
+  if (a === b) return true;
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+
+  // Handle Date objects specifically
+  if (a instanceof Date && b instanceof Date) {
+    return a.getTime() === b.getTime();
+  }
+  if (a instanceof Date || b instanceof Date) return false; // One is Date, other is not
+
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+
+  if (keysA.length !== keysB.length) return false;
+
+  for (const key of keysA) {
+    if (!keysB.includes(key) || !deepCompare(a[key], b[key])) {
+      return false;
+    }
+  }
+  return true;
+};
+
+interface TimeBlock {
+  start: Date;
+  end: Date;
+  duration: number; // in minutes
+}
+
+const getFreeTimeBlocks = (
+  appointments: { start: Date; end: Date }[],
+  workdayStart: Date,
+  workdayEnd: Date
+): TimeBlock[] => {
+  const freeBlocks: TimeBlock[] = [];
+  let currentFreeTimeStart = workdayStart;
+
+  for (const appt of appointments) {
+    // If there's a gap before this appointment
+    if (isBefore(currentFreeTimeStart, appt.start)) {
+      const duration = Math.floor((appt.start.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
+      if (duration > 0) {
+        freeBlocks.push({ start: currentFreeTimeStart, end: appt.start, duration });
+      }
+    }
+    // Move currentFreeTimeStart past this appointment's end
+    currentFreeTimeStart = isAfter(appt.end, currentFreeTimeStart) ? appt.end : currentFreeTimeStart;
+  }
+
+  // Add any remaining free time after the last appointment until workdayEnd
+  if (isBefore(currentFreeTimeStart, workdayEnd)) {
+    const duration = Math.floor((workdayEnd.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
+    if (duration > 0) {
+      freeBlocks.push({ start: currentFreeTimeStart, end: workdayEnd, duration });
+    }
+  }
+
+  return freeBlocks;
+};
+
+
 const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
@@ -49,11 +112,8 @@ const SchedulerPage: React.FC = () => {
     datesWithTasks,
   } = useSchedulerTasks(selectedDay);
 
-  const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   const [T_current, setT_current] = useState(new Date());
   
-  // Removed tAnchorForSelectedDay state and its useEffect
-
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
   const [injectionDuration, setInjectionDuration] = useState('');
@@ -137,18 +197,28 @@ const SchedulerPage: React.FC = () => {
     return workdayStartTime;
   }, [selectedDayAsDate, T_current, workdayStartTime]);
 
+  // Ref to store the previous calculated schedule for deep comparison
+  const previousCalculatedScheduleRef = useRef<FormattedSchedule | null>(null);
 
   // Calculate the schedule based on tasks, selected day, and explicit anchor
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null; // Ensure profile is loaded before calculating schedule
-    // Updated call to calculateSchedule
-    return calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime);
-  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]); // Removed tAnchorForSelectedDay and T_current from dependencies
+    const newSchedule = calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime);
+    
+    // Deep compare with previous schedule to prevent unnecessary state updates
+    if (deepCompare(newSchedule, previousCalculatedScheduleRef.current)) {
+      return previousCalculatedScheduleRef.current; // Return previous reference if content is same
+    }
+    previousCalculatedScheduleRef.current = newSchedule; // Update ref
+    return newSchedule;
+  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]);
 
   // Set currentSchedule state from the memoized calculation
+  const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   useEffect(() => {
     setCurrentSchedule(calculatedSchedule);
-  }, [calculatedSchedule]);
+  }, [calculatedSchedule]); // This useEffect will now only run if calculatedSchedule's reference changes (i.e., content changed)
+
 
   const handleClearSchedule = async () => {
     if (!user) {
@@ -157,7 +227,6 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await clearScheduledTasks();
-    // Removed localStorage.removeItem for tAnchorForSelectedDay
     setIsProcessingCommand(false);
     setShowClearConfirmation(false);
     setInputValue('');
@@ -194,31 +263,15 @@ const SchedulerPage: React.FC = () => {
         const newTaskDuration = parsedInput.duration!;
         let proposedStartTime: Date | null = null;
 
-        // Find the first available slot
-        let currentSearchTime = effectiveWorkdayStart;
+        const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
 
-        for (const appt of existingAppointments) {
-          // If there's a gap before this appointment
-          if (isBefore(currentSearchTime, appt.start)) {
-            const potentialEndTime = addMinutes(currentSearchTime, newTaskDuration);
-            if (isBefore(potentialEndTime, appt.start) || isSameDay(potentialEndTime, appt.start)) {
-              // Task fits in this gap
-              proposedStartTime = currentSearchTime;
-              break;
-            }
-          }
-          // Move past the current appointment
-          currentSearchTime = isAfter(appt.end, currentSearchTime) ? appt.end : currentSearchTime;
-        }
-
-        // Check if it fits after the last appointment or if there are no appointments
-        if (!proposedStartTime && (isBefore(currentSearchTime, workdayEndTime) || isSameDay(currentSearchTime, workdayEndTime))) {
-          const potentialEndTime = addMinutes(currentSearchTime, newTaskDuration);
-          if (isBefore(potentialEndTime, workdayEndTime) || isSameDay(potentialEndTime, workdayEndTime)) {
-            proposedStartTime = currentSearchTime;
+        for (const block of freeBlocks) {
+          if (newTaskDuration <= block.duration) {
+            proposedStartTime = block.start;
+            break; 
           }
         }
-
+        
         if (proposedStartTime) {
           const proposedEndTime = addMinutes(proposedStartTime, newTaskDuration);
           await addScheduledTask({ 
@@ -263,23 +316,12 @@ const SchedulerPage: React.FC = () => {
         const injectedTaskDuration = injectCommand.duration || 30; // Default duration for inject if not specified
         let proposedStartTime: Date | null = null;
 
-        let currentSearchTime = effectiveWorkdayStart;
+        const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
 
-        for (const appt of existingAppointments) {
-          if (isBefore(currentSearchTime, appt.start)) {
-            const potentialEndTime = addMinutes(currentSearchTime, injectedTaskDuration);
-            if (isBefore(potentialEndTime, appt.start) || isSameDay(potentialEndTime, appt.start)) {
-              proposedStartTime = currentSearchTime;
-              break;
-            }
-          }
-          currentSearchTime = isAfter(appt.end, currentSearchTime) ? appt.end : currentSearchTime;
-        }
-
-        if (!proposedStartTime && (isBefore(currentSearchTime, workdayEndTime) || isSameDay(currentSearchTime, workdayEndTime))) {
-          const potentialEndTime = addMinutes(currentSearchTime, injectedTaskDuration);
-          if (isBefore(potentialEndTime, workdayEndTime) || isSameDay(potentialEndTime, workdayEndTime)) {
-            proposedStartTime = currentSearchTime;
+        for (const block of freeBlocks) {
+          if (injectedTaskDuration <= block.duration) {
+            proposedStartTime = block.start;
+            break; 
           }
         }
 
@@ -433,23 +475,13 @@ const SchedulerPage: React.FC = () => {
       }
       
       let proposedStartTime: Date | null = null;
-      let currentSearchTime = effectiveWorkdayStart;
+      
+      const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
 
-      for (const appt of existingAppointments) {
-        if (isBefore(currentSearchTime, appt.start)) {
-          const potentialEndTime = addMinutes(currentSearchTime, injectedTaskDuration);
-          if (isBefore(potentialEndTime, appt.start) || isSameDay(potentialEndTime, appt.start)) {
-            proposedStartTime = currentSearchTime;
-            break;
-          }
-        }
-        currentSearchTime = isAfter(appt.end, currentSearchTime) ? appt.end : currentSearchTime;
-      }
-
-      if (!proposedStartTime && (isBefore(currentSearchTime, workdayEndTime) || isSameDay(currentSearchTime, workdayEndTime))) {
-        const potentialEndTime = addMinutes(currentSearchTime, injectedTaskDuration);
-        if (isBefore(potentialEndTime, workdayEndTime) || isSameDay(potentialEndTime, workdayEndTime)) {
-          proposedStartTime = currentSearchTime;
+      for (const block of freeBlocks) {
+        if (injectedTaskDuration <= block.duration) {
+          proposedStartTime = block.start;
+          break; 
         }
       }
 
@@ -481,28 +513,28 @@ const SchedulerPage: React.FC = () => {
   };
 
   const activeItem: ScheduledItem | null = useMemo(() => {
-    if (!calculatedSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
-    for (const item of calculatedSchedule.items) {
+    if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
+    for (const item of currentSchedule.items) {
       if ((item.type === 'task' || item.type === 'break') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
     return null;
-  }, [calculatedSchedule, T_current, selectedDay]);
+  }, [currentSchedule, T_current, selectedDay]);
 
   const nextItem: ScheduledItem | null = useMemo(() => {
-    if (!calculatedSchedule || !activeItem || !isSameDay(parseISO(selectedDay), T_current)) return null;
-    const activeItemIndex = calculatedSchedule.items.findIndex(item => item.id === activeItem.id);
-    if (activeItemIndex !== -1 && activeItemIndex < calculatedSchedule.items.length - 1) {
-      for (let i = activeItemIndex + 1; i < calculatedSchedule.items.length; i++) {
-        const item = calculatedSchedule.items[i];
+    if (!currentSchedule || !activeItem || !isSameDay(parseISO(selectedDay), T_current)) return null;
+    const activeItemIndex = currentSchedule.items.findIndex(item => item.id === activeItem.id);
+    if (activeItemIndex !== -1 && activeItemIndex < currentSchedule.items.length - 1) {
+      for (let i = activeItemIndex + 1; i < currentSchedule.items.length; i++) {
+        const item = currentSchedule.items[i];
         if (item.type === 'task' || item.type === 'break') {
           return item;
         }
       }
     }
     return null;
-  }, [calculatedSchedule, activeItem, T_current, selectedDay]);
+  }, [currentSchedule, activeItem, T_current, selectedDay]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand;
@@ -532,7 +564,7 @@ const SchedulerPage: React.FC = () => {
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
 
-      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} />
+      <SchedulerDashboardPanel scheduleSummary={currentSchedule?.summary || null} />
 
       <CalendarStrip 
         selectedDay={selectedDay} 
@@ -566,11 +598,11 @@ const SchedulerPage: React.FC = () => {
         <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
       )}
 
-      {calculatedSchedule?.summary.unscheduledCount > 0 && (
+      {currentSchedule?.summary.unscheduledCount > 0 && (
         <Card className="animate-pop-in animate-hover-lift">
           <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
             <AlertTriangle className="h-5 w-5" />
-            <span>⚠️ {calculatedSchedule.summary.unscheduledCount} task{calculatedSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
+            <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
           </CardContent>
         </Card>
       )}
@@ -587,7 +619,7 @@ const SchedulerPage: React.FC = () => {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} activeItemId={activeItem?.id || null} selectedDayString={selectedDay} />
+            <SchedulerDisplay schedule={currentSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} activeItemId={activeItem?.id || null} selectedDayString={selectedDay} />
           )}
         </CardContent>
       </Card>

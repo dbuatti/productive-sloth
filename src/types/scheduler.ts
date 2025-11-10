@@ -49,7 +49,7 @@ export interface DBScheduledTask {
 
 export interface NewDBScheduledTask {
   name: string;
-  duration?: number; // Optional for timed events
+  duration?: number; // Optional for duration-based tasks
   break_duration?: number;
   start_time?: string; // Optional for duration-based tasks
   end_time?: string;   // Optional for duration-based tasks

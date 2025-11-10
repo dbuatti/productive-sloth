@@ -26,7 +26,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const commonCommands: Suggestion[] = useMemo(() => [
+  // FIX: Explicitly type the useMemo return to ensure literal types are preserved
+  const commonCommands = useMemo<Suggestion[]>(() => [
     { type: 'command', name: 'clear', description: 'Clear all scheduled tasks' },
     { type: 'command', name: 'remove', description: 'Remove a task by name or index' },
     { type: 'command', name: 'inject', description: 'Inject a task with specific details' },

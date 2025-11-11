@@ -498,6 +498,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       // Perform a batch update for all tasks that need new times
       const updates = tasksToUpdate.map(task => ({
         id: task.id,
+        user_id: userId, // Explicitly include user_id to satisfy RLS
         start_time: task.start_time,
         end_time: task.end_time,
         updated_at: new Date().toISOString(),

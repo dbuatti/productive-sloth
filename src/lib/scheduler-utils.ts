@@ -26,8 +26,9 @@ const EMOJI_MAP: { [key: string]: string } = {
   'phone': '📱',
   'text': '💬',
   'contact': '🤝',
-  'student': '🧑‍🎓', // NEW: Student emoji
-  'rehearsal': '🎭', // NEW: Rehearsal emoji
+  'student': '🧑‍🎓',
+  'rehearsal': '🎭',
+  'time off': '🌴', // NEW: Time off emoji
 };
 
 // New: Map keywords to HSL hue values (0-360)
@@ -55,8 +56,9 @@ const EMOJI_HUE_MAP: { [key: string]: number } = {
   'phone': 255,
   'text': 245,
   'contact': 290,
-  'student': 265, // NEW: Hue for student-related tasks
-  'rehearsal': 315, // NEW: Hue for rehearsal-related tasks
+  'student': 265,
+  'rehearsal': 315,
+  'time off': 100, // NEW: Hue for time off (green/teal)
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {

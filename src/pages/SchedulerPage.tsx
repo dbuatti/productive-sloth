@@ -986,6 +986,24 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(false);
   };
 
+  // NEW: Handler for the "Add a Task" button in the empty schedule state
+  const handleAddTaskClick = () => {
+    setInjectionPrompt({ 
+      taskName: '', // Start with empty task name
+      isOpen: true, 
+      isTimed: false, // Default to duration-based
+      startTime: undefined,
+      endTime: undefined,
+      isCritical: false,
+      isFlexible: true,
+    });
+    setInjectionDuration('');
+    setInjectionBreak('');
+    setInjectionStartTime('');
+    setInjectionEndTime('');
+    setInputValue(''); // Clear main input if any
+  };
+
 
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -1123,7 +1141,7 @@ const SchedulerPage: React.FC = () => {
             isLoading={overallLoading} 
             inputValue={inputValue}
             setInputValue={setInputValue}
-            placeholder="Enter task or command..."
+            placeholder="Add task or command..."
           />
           <p className="text-xs text-muted-foreground">
             Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink"
@@ -1172,6 +1190,7 @@ const SchedulerPage: React.FC = () => {
               onRetireTask={handleManualRetire}
               activeItemId={activeItem?.id || null} 
               selectedDayString={selectedDay} 
+              onAddTaskClick={handleAddTaskClick} // Pass the new handler
             />
           )}
         </CardContent>
@@ -1180,7 +1199,7 @@ const SchedulerPage: React.FC = () => {
       <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>✨ Injection received: "{injectionPrompt?.taskName}"</DialogTitle>
+            <DialogTitle>✨ Injection received: "{injectionPrompt?.taskName || 'New Task'}"</DialogTitle>
             <DialogDescription>
               Please provide the details for this task.
             </DialogDescription>
@@ -1269,7 +1288,7 @@ const SchedulerPage: React.FC = () => {
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule
             </AlertDialogAction>
-          </AlertDialogFooter>
+          </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

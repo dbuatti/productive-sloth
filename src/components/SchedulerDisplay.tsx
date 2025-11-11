@@ -17,6 +17,7 @@ interface SchedulerDisplayProps {
   onRetireTask: (task: DBScheduledTask) => void; // NEW: Handler for retiring a task
   activeItemId: string | null;
   selectedDayString: string; // New prop to pass selectedDay from parent
+  onAddTaskClick: () => void; // NEW: Handler for adding a task from empty state
 }
 
 const getBubbleHeightStyle = (duration: number) => {
@@ -28,7 +29,7 @@ const getBubbleHeightStyle = (duration: number) => {
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, activeItemId, selectedDayString }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, activeItemId, selectedDayString, onAddTaskClick }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
@@ -413,7 +414,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
                   <ListTodo className="h-12 w-12 text-muted-foreground" />
                   <p className="text-lg font-semibold">Your schedule is clear for today!</p>
-                  <p className="text-sm">Ready to plan? Add a task using the input above!</p>
+                  <p className="text-sm">Ready to plan? Add a task using the input above.</p>
+                  <Button onClick={onAddTaskClick} className="mt-4 flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
+                    <PlusCircle className="h-5 w-5" /> Add a Task
+                  </Button>
                 </div>
               ) : (
                 <>

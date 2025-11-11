@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle } from 'lucide-react'; // Import RotateCcw icon, added Ghost, AlertCircle
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2 } from 'lucide-react'; // Import RotateCcw icon, added Ghost, AlertCircle, Sparkles, Loader2
 import { RetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -12,18 +12,43 @@ interface AetherSinkProps {
   retiredTasks: RetiredTask[];
   onRezoneTask: (task: RetiredTask) => void;
   onRemoveRetiredTask: (taskId: string) => void; // For permanent deletion from sink
+  onAutoScheduleSink: () => void; // NEW: Handler for auto-scheduling all sink tasks
   isLoading: boolean;
+  isProcessingCommand: boolean; // NEW: To disable button when other commands are running
 }
 
-const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onRemoveRetiredTask, isLoading }) => {
+const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand }) => {
+  const hasRetiredTasks = retiredTasks.length > 0;
+
   return (
     <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between"> {/* Adjusted for button */}
         <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
           <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
         </CardTitle>
-        <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onAutoScheduleSink}
+              disabled={!hasRetiredTasks || isLoading || isProcessingCommand}
+              className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              {isProcessingCommand ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              <span>Auto Schedule</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Automatically re-zone all retired tasks into your current schedule.</p>
+          </TooltipContent>
+        </Tooltip>
       </CardHeader>
+      <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" /> {/* Moved separator */}
       <CardContent className="space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">

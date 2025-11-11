@@ -15,6 +15,7 @@ export interface Task {
   due_date: string; // ISO date string
   created_at: string;
   updated_at: string; // Added updated_at
+  is_critical: boolean; // NEW: Critical Urgency Flag
 }
 
 export interface NewTask {
@@ -24,4 +25,5 @@ export interface NewTask {
   energy_cost: number;
   due_date: string;
   description?: string; // Added description to NewTask
+  is_critical?: boolean; // NEW: Critical Urgency Flag
 }

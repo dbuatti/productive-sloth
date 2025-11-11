@@ -15,6 +15,7 @@ export interface Task {
   due_date: string; // ISO date string
   created_at: string;
   updated_at: string; // Added updated_at
+  is_critical: boolean; // NEW: Critical Urgency Flag
 }
 
 export interface NewTask {
@@ -24,6 +25,7 @@ export interface NewTask {
   energy_cost: number;
   due_date: string;
   description?: string; // Added description to NewTask
+  is_critical?: boolean; // NEW: Critical Urgency Flag
 }
 
 // --- Scheduler Types ---
@@ -32,6 +34,7 @@ export interface RawTaskInput {
   name: string;
   duration: number; // in minutes
   breakDuration?: number; // in minutes
+  isCritical?: boolean; // NEW: Critical Urgency Flag
 }
 
 // Supabase-specific types for scheduled tasks
@@ -45,6 +48,7 @@ export interface DBScheduledTask {
   end_time: string | null;   // New: ISO date string for timed events
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
   created_at: string;
+  is_critical: boolean; // NEW: Critical Urgency Flag
 }
 
 export interface NewDBScheduledTask {
@@ -54,6 +58,7 @@ export interface NewDBScheduledTask {
   start_time?: string; // Optional for duration-based tasks
   end_time?: string;   // Optional for duration-based tasks
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
+  is_critical?: boolean; // NEW: Critical Urgency Flag
 }
 
 // New types for retired tasks (Aether Sink)
@@ -65,6 +70,7 @@ export interface RetiredTask {
   break_duration: number | null; // Break duration in minutes (retained for re-zoning)
   original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
   retired_at: string; // Timestamp when it was moved to the sink
+  is_critical: boolean; // NEW: Critical Urgency Flag
 }
 
 export interface NewRetiredTask {
@@ -73,6 +79,7 @@ export interface NewRetiredTask {
   duration: number | null;
   break_duration: number | null;
   original_scheduled_date: string;
+  is_critical?: boolean; // NEW: Critical Urgency Flag
 }
 
 export type ScheduledItemType = 'task' | 'break';
@@ -88,6 +95,7 @@ export interface ScheduledItem {
   description?: string; // For breaks
   isTimedEvent: boolean; // New: Flag to differentiate
   color?: string; // New: For custom colors (e.g., Tailwind class like 'bg-blue-500')
+  isCritical?: boolean; // NEW: Critical Urgency Flag
 }
 
 export interface ScheduleSummary {
@@ -98,6 +106,7 @@ export interface ScheduleSummary {
   extendsPastMidnight: boolean;
   midnightRolloverMessage: string | null;
   unscheduledCount: number; // New: Count of tasks that couldn't fit within the workday window
+  criticalTasksRemaining: number; // NEW: Count of critical tasks not yet completed
 }
 
 // New type for fixed time markers

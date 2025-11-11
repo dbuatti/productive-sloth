@@ -9,7 +9,7 @@ interface SchedulerDashboardPanelProps {
   scheduleSummary: ScheduleSummary | null;
 }
 
-const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = ({ scheduleSummary }) => {
+const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ scheduleSummary }) => {
   if (!scheduleSummary || scheduleSummary.totalTasks === 0) {
     return null; // Don't render if no schedule or no tasks
   }
@@ -94,6 +94,6 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = ({ sched
       </div>
     </div>
   );
-};
+});
 
 export default SchedulerDashboardPanel;

@@ -27,7 +27,7 @@ const getBubbleHeightStyle = (duration: number) => {
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current, onRemoveTask, onRetireTask, activeItemId, selectedDayString }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, activeItemId, selectedDayString }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
@@ -465,6 +465,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
       )}
     </div>
   );
-};
+});
 
 export default SchedulerDisplay;

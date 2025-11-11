@@ -11,7 +11,7 @@ interface CalendarStripProps {
   isLoadingDatesWithTasks: boolean; // New prop for loading state
 }
 
-const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedDay, datesWithTasks, isLoadingDatesWithTasks }) => {
+const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({ selectedDay, setSelectedDay, datesWithTasks, isLoadingDatesWithTasks }) => {
   const daysToDisplay = 7; // Show 7 days
   const [weekOffset, setWeekOffset] = useState(0); // 0 for current week, -1 for previous, 1 for next
 
@@ -108,6 +108,6 @@ const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedD
       </Button>
     </div>
   );
-};
+});
 
 export default CalendarStrip;

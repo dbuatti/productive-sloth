@@ -17,7 +17,7 @@ interface AetherSinkProps {
   isProcessingCommand: boolean; // NEW: To disable button when other commands are running
 }
 
-const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand }) => {
+const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand }) => {
   const hasRetiredTasks = retiredTasks.length > 0;
 
   return (
@@ -138,6 +138,6 @@ const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onR
       </CardContent>
     </Card>
   );
-};
+});
 
 export default AetherSink;

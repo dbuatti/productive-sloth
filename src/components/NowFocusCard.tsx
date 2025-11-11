@@ -12,7 +12,7 @@ interface NowFocusCardProps {
   T_current: Date;
 }
 
-const NowFocusCard: React.FC<NowFocusCardProps> = ({ activeItem, nextItem, T_current }) => {
+const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, T_current }) => {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,6 +105,6 @@ const NowFocusCard: React.FC<NowFocusCardProps> = ({ activeItem, nextItem, T_cur
       </CardContent>
     </Card>
   );
-};
+});
 
 export default NowFocusCard;

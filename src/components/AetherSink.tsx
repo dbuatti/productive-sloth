@@ -52,14 +52,14 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
       <CardContent className="space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
-            <ListTodo className="h-6 w-6 animate-pulse text-muted-foreground" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading Aether Sink" />
             <span className="ml-2 text-muted-foreground">Loading Aether Sink...</span>
           </div>
         ) : retiredTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-sm space-y-2">
             <Ghost className="h-8 w-8" />
             <p className="text-base font-semibold">Aether Sink is empty!</p>
-            <p>No tasks have been retired yet.</p>
+            <p>No tasks have been retired yet. Complete or manually retire tasks to send them here.</p>
           </div>
         ) : (
           <div className="space-y-2">

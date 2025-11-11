@@ -339,7 +339,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Move to Aether Sink</p>
-                      </TooltipContent>
+                    </TooltipContent>
                     </Tooltip>
                   )}
                   <Tooltip>
@@ -413,8 +413,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
                   <ListTodo className="h-12 w-12 text-muted-foreground" />
                   <p className="text-lg font-semibold">Your schedule is clear for today!</p>
-                  <p className="text-sm">Ready to plan? Add a task using the input above.</p>
-                  <p className="text-xs text-muted-foreground">Try: "Gym 60", "Meeting 2pm-3pm", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clean the sink 30 sink"</p>
+                  <p className="text-sm">Ready to plan? Add a task using the input above!</p>
                 </div>
               ) : (
                 <>

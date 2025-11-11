@@ -87,12 +87,12 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({ selectedDay, s
       </Button>
       {isLoadingDatesWithTasks ? (
         <div className="flex items-center justify-center h-16 w-full">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading dates with tasks" />
         </div>
-      ) : days.length > 0 ? days : (
-        <div className="text-center text-muted-foreground flex flex-col items-center justify-center py-4">
+      ) : datesWithTasks.length > 0 || days.length > 0 ? days : (
+        <div className="text-center text-muted-foreground flex flex-col items-center justify-center py-4 w-full">
           <CalendarDays className="h-8 w-8 mb-2" />
-          <p className="text-sm">No scheduled tasks for these days.</p>
+          <p className="text-sm">No scheduled tasks for this week.</p>
         </div>
       )}
 

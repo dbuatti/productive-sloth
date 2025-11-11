@@ -46,6 +46,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import WeatherWidget from '@/components/WeatherWidget';
 import { TimeBlock } from '@/types/scheduler';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'; // Import DropdownMenu components
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 
 // Helper for deep comparison (simple for JSON-serializable objects)
 const deepCompare = (a: any, b: any) => {
@@ -1082,16 +1083,23 @@ const SchedulerPage: React.FC = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={handleRandomizeBreaks} // NEW: Randomize Breaks button
-              disabled={overallLoading || !dbScheduledTasks.some(task => task.name.toLowerCase() === 'break')}
-              className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
-            >
-              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shuffle className="h-4 w-4" />}
-              <span className="sr-only">Randomize Breaks</span>
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleRandomizeBreaks} // NEW: Randomize Breaks button
+                  disabled={overallLoading || !dbScheduledTasks.some(task => task.name.toLowerCase() === 'break')}
+                  className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shuffle className="h-4 w-4" />}
+                  <span className="sr-only">Randomize Breaks</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Randomly re-allocate breaks</p>
+              </TooltipContent>
+            </Tooltip>
 
             <Button 
               variant="outline" 
@@ -1115,6 +1123,7 @@ const SchedulerPage: React.FC = () => {
             isLoading={overallLoading} 
             inputValue={inputValue}
             setInputValue={setInputValue}
+            placeholder="Enter task or command..."
           />
           <p className="text-xs text-muted-foreground">
             Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink"

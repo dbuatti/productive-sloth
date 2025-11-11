@@ -35,6 +35,7 @@ export interface RawTaskInput {
   duration: number; // in minutes
   breakDuration?: number; // in minutes
   isCritical?: boolean; // NEW: Critical Urgency Flag
+  isFlexible?: boolean; // NEW: Added isFlexible to RawTaskInput
 }
 
 // Supabase-specific types for scheduled tasks
@@ -85,7 +86,7 @@ export interface NewRetiredTask {
   // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
 }
 
-export type ScheduledItemType = 'task' | 'break';
+export type ScheduledItemType = 'task' | 'break' | 'time-off'; // NEW: Added 'time-off'
 
 export interface ScheduledItem {
   id: string; // Unique ID for React keys

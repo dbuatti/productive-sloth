@@ -89,7 +89,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     processedItems.forEach(item => {
         if (item.type === 'marker') {
             const isCovered = processedItems.some(pItem => {
-                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break') {
+                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off') { // NEW: Added time-off
                     return item.time >= pItem.startTime && item.time < pItem.endTime;
                 }
                 return false;
@@ -132,7 +132,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'free-time') && T_current >= item.startTime && T_current < item.endTime) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) { // NEW: Added time-off
         return item;
       }
     }
@@ -189,7 +189,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const renderDisplayItem = (item: DisplayItem) => {
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
     // Safely check for isPastItem only on types that have an 'endTime'
-    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time') && item.endTime <= T_current;
+    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && item.endTime <= T_current; // NEW: Added time-off
 
     if (item.type === 'marker') {
       return (
@@ -255,6 +255,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       // Use schedule.dbTasks which is the raw array from Supabase
       const dbTask = schedule?.dbTasks.find(t => t.id === scheduledItem.id);
 
+      const isTimeOff = scheduledItem.type === 'time-off'; // NEW: Check if it's a time-off item
+
       return (
         <React.Fragment key={scheduledItem.id}>
           <div className="flex items-center justify-end pr-2">
@@ -277,9 +279,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               isHighlightedByNowCard ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" : // Use live-progress for active border
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Faded for past items
-              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary" // Stronger hover shadow and border
+              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary", // Stronger hover shadow and border
+              isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10" // NEW: Distinct styling for time-off
             )}
-            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }}
+            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }} // NEW: Don't apply ambient background for time-off
           >
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">
@@ -289,7 +292,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
             <div className="relative z-10 flex items-center justify-between w-full">
               <span className={cn(
-                "text-sm flex-grow text-[hsl(var(--always-light-text))]" // Using always-light-text
+                "text-sm flex-grow",
+                isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]" // NEW: Text color for time-off
               )}>
                 <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span> {/* Made duration font-semibold */}
               </span>
@@ -317,7 +321,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   {scheduledItem.isFlexible ? 'Flexible' : 'Fixed'}
                 </Badge>
                 <span className={cn(
-                  "text-xs font-semibold font-mono text-[hsl(var(--always-light-text))] opacity-80" // Made time range font-semibold
+                  "text-xs font-semibold font-mono",
+                  isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80" // NEW: Text color for time-off
                 )}>
                   {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
                 </span>
@@ -330,8 +335,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           size="icon" 
                           onClick={() => onRetireTask(dbTask)} 
                           className={cn(
-                            "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]",
-                            "hover:bg-white/10"
+                            "h-6 w-6 p-0 shrink-0",
+                            isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10" // NEW: Text color for time-off
                           )}
                         >
                           <Archive className="h-4 w-4" />
@@ -350,8 +355,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         size="icon" 
                         onClick={() => onRemoveTask(scheduledItem.id)} 
                         className={cn(
-                          "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]", // Using always-light-text
-                          "hover:bg-white/10"
+                          "h-6 w-6 p-0 shrink-0",
+                          isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10" // NEW: Text color for time-off
                         )}
                       >
                         <Trash className="h-4 w-4" />
@@ -367,6 +372,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
               <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Using always-light-text with opacity
+            )}
+            {isTimeOff && ( // NEW: Description for time-off
+              <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>This block is reserved for personal time.</p>
             )}
 
             {isActive && (

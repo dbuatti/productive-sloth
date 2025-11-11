@@ -169,13 +169,15 @@ interface ParsedTaskInput {
   endTime?: Date;
   isCritical: boolean;
   shouldSink?: boolean; // NEW: Flag to indicate if task should go directly to sink
+  isFlexible: boolean; // NEW: Added isFlexible to parsed input
 }
 
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => {
   let isCritical = false;
   let shouldSink = false;
+  let isFlexible = true; // Default to flexible
 
-  // Order of parsing flags matters: sink, then critical
+  // Order of parsing flags matters: sink, then critical, then fixed
   if (input.endsWith(' sink')) {
     shouldSink = true;
     input = input.slice(0, -5).trim();
@@ -184,6 +186,16 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
   if (input.endsWith(' !')) {
     isCritical = true;
     input = input.slice(0, -2).trim();
+  }
+
+  if (input.endsWith(' fixed')) {
+    isFlexible = false;
+    input = input.slice(0, -6).trim();
+  }
+
+  // Check for "time off" keyword and set isFlexible to false automatically
+  if (input.toLowerCase().startsWith('time off')) {
+    isFlexible = false;
   }
 
   const timeRangePattern = /(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))/i;
@@ -209,7 +221,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
         .trim();
 
       if (cleanedTaskName) {
-        return { name: cleanedTaskName, startTime, endTime, isCritical, shouldSink };
+        return { name: cleanedTaskName, startTime, endTime, isCritical, shouldSink, isFlexible };
       }
     }
   }
@@ -222,7 +234,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
     const duration = parseInt(durationMatch[2], 10);
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
     if (name && duration > 0) {
-      return { name, duration, breakDuration, isCritical, shouldSink };
+      return { name, duration, breakDuration, isCritical, shouldSink, isFlexible };
     }
   }
 
@@ -236,12 +248,12 @@ interface ParsedInjectionCommand {
   startTime?: string;
   endTime?: string;
   isCritical: boolean;
-  isFlexible?: boolean;
+  isFlexible: boolean; // Changed to non-optional
 }
 
 export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
   let isCritical = false;
-  let isFlexible = true;
+  let isFlexible = true; // Default to flexible
 
   if (input.endsWith(' !')) {
     isCritical = true;
@@ -253,8 +265,13 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
     input = input.slice(0, -6).trim();
   }
 
+  // Check for "time off" keyword and set isFlexible to false automatically
+  if (input.toLowerCase().startsWith('inject "time off"')) {
+    isFlexible = false;
+  }
 
-  const injectRegex = /^inject\s+(.*?)(?:\s+(\d+)(?:\s+(\d+))?)?(?:\s+from\s+(\d{1,2}(:\d{2})?\s*(?:am|pm))\s+to\s+(\d{1,2}(:\d{2})?\s*(?:am|pm)))?$/i;
+
+  const injectRegex = /^inject\s+"(.*?)"(?:\s+(\d+)(?:\s+(\d+))?)?(?:\s+from\s+(\d{1,2}(:\d{2})?\s*(?:am|pm))\s+to\s+(\d{1,2}(:\d{2})?\s*(?:am|pm)))?$/i;
   const match = input.match(injectRegex);
 
   if (match) {
@@ -275,7 +292,7 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
 };
 
 interface ParsedCommand {
-  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact';
+  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact' | 'timeoff'; // Added 'timeoff'
   index?: number;
   target?: string;
 }
@@ -312,6 +329,10 @@ export const parseCommand = (input: string): ParsedCommand | null => {
 
   if (lowerInput === 'compact' || lowerInput === 'reshuffle') {
     return { type: 'compact' };
+  }
+
+  if (lowerInput.startsWith('time off')) { // NEW: Handle 'time off' as a command
+    return { type: 'timeoff' };
   }
 
   return null;
@@ -415,17 +436,18 @@ export const calculateSchedule = (
 
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
     const isStandaloneBreak = task.name.toLowerCase() === 'break';
+    const isTimeOff = task.name.toLowerCase().includes('time off'); // NEW: Check for 'time off'
     const isMealTime = ['breakfast', 'lunch', 'dinner'].some(meal => task.name.toLowerCase().includes(meal));
 
 
     scheduledItems.push({
       id: task.id, 
-      type: isStandaloneBreak ? 'break' : 'task',
+      type: isStandaloneBreak ? 'break' : (isTimeOff ? 'time-off' : 'task'), // NEW: Assign 'time-off' type
       name: task.name, 
       duration: duration,
       startTime: startTime, 
       endTime: endTime, 
-      emoji: isStandaloneBreak ? EMOJI_MAP['break'] : assignEmoji(task.name),
+      emoji: isStandaloneBreak ? EMOJI_MAP['break'] : (isTimeOff ? EMOJI_MAP['time off'] : assignEmoji(task.name)), // NEW: Assign time off emoji
       description: isStandaloneBreak ? getBreakDescription(duration) : undefined,
       isTimedEvent: true,
       isCritical: task.is_critical,
@@ -433,8 +455,8 @@ export const calculateSchedule = (
     });
     
     // Conditional addition to totalActiveTime or totalBreakTime
-    // Only add to active or break time if it's NOT a meal time
-    if (!isMealTime) {
+    // Only add to active or break time if it's NOT a meal time or time off
+    if (!isMealTime && !isTimeOff) { // NEW: Exclude time off from active/break time
       if (isStandaloneBreak || task.break_duration) {
         totalBreakTime += duration;
         if (task.break_duration) totalBreakTime += task.break_duration;

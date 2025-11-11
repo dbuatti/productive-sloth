@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle } from 'lucide-react';
+import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Coffee } from 'lucide-react'; // Added Coffee icon
 import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Re-imported Popover components
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
 
 interface Suggestion {
   type: 'command' | 'task';
@@ -120,6 +121,10 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     inputRef.current?.focus();
   };
 
+  const handleAddBreak = () => {
+    onCommand('break 15'); // Default 15-minute break
+  };
+
   return (
     <div className="flex flex-col gap-2 w-full animate-slide-in-up relative">
       <form onSubmit={handleSubmit} className="flex gap-2 w-full">
@@ -147,6 +152,24 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             </Button>
           )}
         </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              type="button" 
+              onClick={handleAddBreak} 
+              disabled={isLoading} 
+              variant="outline"
+              size="icon"
+              className="shrink-0 h-10 w-10 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+            >
+              <Coffee className="h-5 w-5" />
+              <span className="sr-only">Add 15-min Break</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Add a 15-minute break</p>
+          </TooltipContent>
+        </Tooltip>
         <Button type="submit" disabled={isLoading} className="shrink-0 h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           <span className="sr-only">Send</span>

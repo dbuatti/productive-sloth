@@ -1046,7 +1046,8 @@ const SchedulerPage: React.FC = () => {
               disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)}
               className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-all duration-200"
             >
-              <Clock className="h-4 w-4" /> Sort by Time
+              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
+              <span>Sort by Time</span>
             </Button>
             <Button 
               variant="outline" 
@@ -1055,7 +1056,8 @@ const SchedulerPage: React.FC = () => {
               disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)}
               className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-logo-yellow hover:bg-logo-yellow/10 transition-all duration-200"
             >
-              <Star className="h-4 w-4" /> Sort by Priority
+              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
+              <span>Sort by Priority</span>
             </Button>
             <Button 
               variant="outline" 

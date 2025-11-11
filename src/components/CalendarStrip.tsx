@@ -47,7 +47,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({ selectedDay, s
         className={cn(
           "flex flex-col items-center justify-center h-16 w-14 p-1 rounded-lg transition-all duration-200 relative",
           "text-muted-foreground hover:bg-secondary/50 hover:scale-105 hover:shadow-md", // Added hover effects
-          formattedDay === selectedDay && "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md", // Compare strings
+          formattedDay === selectedDay && "bg-primary text-primary-foreground border-2 border-primary-foreground/50 shadow-lg hover:bg-primary/90", // Stronger styling for selected day
           isToday(day) && formattedDay !== selectedDay && "border border-primary/50", // Subtle border for today if not selected
           hasTasks && "after:content-[''] after:absolute after:bottom-1 after:w-1.5 after:h-1.5 after:rounded-full after:bg-logo-yellow" // Indicator for days with tasks
         )}
@@ -79,7 +79,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({ selectedDay, s
         className={cn(
           "flex flex-col items-center justify-center h-16 w-14 p-1 rounded-lg transition-all duration-200 relative",
           "text-muted-foreground hover:bg-secondary/50 hover:scale-105 hover:shadow-md", // Added hover effects
-          isToday(parseISO(selectedDay)) && "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
+          isToday(parseISO(selectedDay)) && "bg-primary text-primary-foreground border-2 border-primary-foreground/50 shadow-lg hover:bg-primary/90" // Stronger styling for selected Today button
         )}
       >
         <CalendarCheck className="h-5 w-5" />

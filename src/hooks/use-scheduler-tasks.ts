@@ -47,8 +47,11 @@ const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
   const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
   return [...tasks].sort((a, b) => {
-    if (sortBy === 'PRIORITY') {
+    if (sortBy === 'PRIORITY_HIGH_TO_LOW') {
       const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+      if (priorityDiff !== 0) return priorityDiff;
+    } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
+      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
       if (priorityDiff !== 0) return priorityDiff;
     }
     // If not sorting by priority, maintain the order returned by the server (or use a secondary sort if needed)
@@ -72,7 +75,7 @@ export const useTasks = () => {
 
   const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ACTIVE'); // Changed default to 'ACTIVE'
-  const [sortBy, setSortBy] = useState<SortBy>('PRIORITY');
+  const [sortBy, setSortBy] = useState<SortBy>('PRIORITY_HIGH_TO_LOW'); // Updated default sort
   const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null); // New state for XP animation
 
   const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter, currentSortBy: SortBy): Promise<Task[]> => {
@@ -93,9 +96,10 @@ export const useTasks = () => {
     }
     
     // Server-side sorting optimization
-    if (currentSortBy === 'DUE_DATE') {
-      // Sort by due date ascending (earliest first)
+    if (currentSortBy === 'TIME_EARLIEST_TO_LATEST') {
       query = query.order('due_date', { ascending: true });
+    } else if (currentSortBy === 'TIME_LATEST_TO_EARLIEST') {
+      query = query.order('due_date', { ascending: false });
     } else {
       // Default stable sort for PRIORITY client-side sort
       query = query.order('created_at', { ascending: false });
@@ -124,7 +128,7 @@ export const useTasks = () => {
     }
 
     // Only apply client-side sort if sorting by PRIORITY (due date is handled by the server)
-    if (sortBy === 'PRIORITY') {
+    if (sortBy.startsWith('PRIORITY')) {
       return sortTasks(result, sortBy);
     }
     

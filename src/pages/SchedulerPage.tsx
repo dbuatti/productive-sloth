@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star } from 'lucide-react';
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow } from 'lucide-react'; // Added sort icons
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask } from '@/types/scheduler';
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy } from '@/types/scheduler'; // Import SortBy
 import {
   calculateSchedule,
   parseTaskInput,
@@ -45,6 +45,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import WeatherWidget from '@/components/WeatherWidget';
 import { TimeBlock } from '@/types/scheduler';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'; // Import DropdownMenu components
 
 // Helper for deep comparison (simple for JSON-serializable objects)
 const deepCompare = (a: any, b: any) => {
@@ -153,6 +154,7 @@ const SchedulerPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
+  const [currentSortBy, setCurrentSortBy] = useState<SortBy>('PRIORITY_HIGH_TO_LOW'); // New state for sorting
 
   // Calculate selectedDayAsDate early
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
@@ -896,23 +898,50 @@ const SchedulerPage: React.FC = () => {
   };
 
   // NEW: Handle sorting flexible tasks by duration
-  const handleSortByDuration = async () => {
+  const handleSortFlexibleTasks = async (sortBy: SortBy) => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
 
     const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible);
     if (flexibleTasks.length === 0) {
-      showSuccess("No flexible tasks to sort by duration.");
+      showSuccess("No flexible tasks to sort.");
       setIsProcessingCommand(false);
       return;
     }
 
-    // Sort flexible tasks by duration (shortest first)
-    const sortedFlexibleTasks = [...flexibleTasks].sort((a, b) => {
-      const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
-      const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
-      return durationA - durationB;
-    });
+    let sortedFlexibleTasks = [...flexibleTasks];
+
+    if (sortBy === 'TIME_EARLIEST_TO_LATEST') {
+      sortedFlexibleTasks.sort((a, b) => {
+        const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
+        const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+        return durationA - durationB;
+      });
+    } else if (sortBy === 'TIME_LATEST_TO_EARLIEST') {
+      sortedFlexibleTasks.sort((a, b) => {
+        const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
+        const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+        return durationB - durationA;
+      });
+    } else if (sortBy === 'PRIORITY_HIGH_TO_LOW') {
+      const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+      sortedFlexibleTasks.sort((a, b) => {
+        const priorityDiff = priorityOrder[a.is_critical ? 'HIGH' : 'MEDIUM'] - priorityOrder[b.is_critical ? 'HIGH' : 'MEDIUM']; // Use is_critical for priority
+        if (priorityDiff !== 0) return -priorityDiff; // High to Low
+        const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
+        const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+        return durationA - durationB; // Secondary sort by duration
+      });
+    } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
+      const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+      sortedFlexibleTasks.sort((a, b) => {
+        const priorityDiff = priorityOrder[a.is_critical ? 'HIGH' : 'MEDIUM'] - priorityOrder[b.is_critical ? 'HIGH' : 'MEDIUM']; // Use is_critical for priority
+        if (priorityDiff !== 0) return priorityDiff; // Low to High
+        const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
+        const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+        return durationA - durationB; // Secondary sort by duration
+      });
+    }
 
     const reorganizedTasks = compactScheduleLogic(
       dbScheduledTasks,
@@ -925,48 +954,10 @@ const SchedulerPage: React.FC = () => {
 
     if (reorganizedTasks.length > 0) {
       await compactScheduledTasks(reorganizedTasks);
-      showSuccess("Flexible tasks sorted by duration!");
+      showSuccess("Flexible tasks sorted!");
+      setCurrentSortBy(sortBy); // Update the current sort state
     } else {
-      showError("Could not sort flexible tasks by duration or no space available.");
-    }
-    setIsProcessingCommand(false);
-  };
-
-  // NEW: Handle sorting flexible tasks by priority (is_critical)
-  const handleSortByPriority = async () => {
-    if (!user || !profile || !dbScheduledTasks) return;
-    setIsProcessingCommand(true);
-
-    const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible);
-    if (flexibleTasks.length === 0) {
-      showSuccess("No flexible tasks to sort by priority.");
-      setIsProcessingCommand(false);
-      return;
-    }
-
-    // Sort flexible tasks by is_critical (critical first), then by duration (shortest first)
-    const sortedFlexibleTasks = [...flexibleTasks].sort((a, b) => {
-      if (a.is_critical && !b.is_critical) return -1;
-      if (!a.is_critical && b.is_critical) return 1;
-      const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
-      const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
-      return durationA - durationB;
-    });
-
-    const reorganizedTasks = compactScheduleLogic(
-      dbScheduledTasks,
-      selectedDayAsDate,
-      workdayStartTime,
-      workdayEndTime,
-      T_current,
-      sortedFlexibleTasks
-    );
-
-    if (reorganizedTasks.length > 0) {
-      await compactScheduledTasks(reorganizedTasks);
-      showSuccess("Flexible tasks sorted by priority!");
-    } else {
-      showError("Could not sort flexible tasks by priority or no space available.");
+      showError("Could not sort flexible tasks or no space available.");
     }
     setIsProcessingCommand(false);
   };
@@ -1039,26 +1030,35 @@ const SchedulerPage: React.FC = () => {
             <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleSortByDuration()} 
-              disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)}
-              className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-all duration-200"
-            >
-              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
-              <span>Sort by Time</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleSortByPriority()} 
-              disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)}
-              className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-logo-yellow hover:bg-logo-yellow/10 transition-all duration-200"
-            >
-              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
-              <span>Sort by Priority</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)}
+                  className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-all duration-200"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
+                  <span>Sort Flexible Tasks</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleSortFlexibleTasks('PRIORITY_HIGH_TO_LOW')}>
+                  <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Priority (High to Low)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSortFlexibleTasks('PRIORITY_LOW_TO_HIGH')}>
+                  <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Priority (Low to High)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleSortFlexibleTasks('TIME_EARLIEST_TO_LATEST')}>
+                  <Clock className="mr-2 h-4 w-4" /> Time (Earliest to Latest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSortFlexibleTasks('TIME_LATEST_TO_EARLIEST')}>
+                  <Clock className="mr-2 h-4 w-4" /> Time (Latest to Earliest)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button 
               variant="outline" 
               size="icon" 

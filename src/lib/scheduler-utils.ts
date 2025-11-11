@@ -342,6 +342,33 @@ export const mergeOverlappingTimeBlocks = (blocks: { start: Date; end: Date; dur
   return merged;
 };
 
+/**
+ * Checks if a proposed time slot overlaps with any existing merged occupied blocks.
+ * @param proposedStart The start time of the proposed slot.
+ * @param proposedEnd The end time of the proposed slot.
+ * @param occupiedBlocks An array of already merged and sorted occupied time blocks.
+ * @returns true if the proposed slot is free, false if it overlaps.
+ */
+export const isSlotFree = (
+  proposedStart: Date,
+  proposedEnd: Date,
+  occupiedBlocks: { start: Date; end: Date; duration: number }[]
+): boolean => {
+  for (const block of occupiedBlocks) {
+    // Check for overlap:
+    // (proposedStart < block.end AND proposedEnd > block.start)
+    // This covers partial overlaps, and one slot fully containing another.
+    if (isBefore(proposedStart, block.end) && isAfter(proposedEnd, block.start)) {
+      return false; // Overlap detected
+    }
+    // Edge case: proposed slot exactly matches an existing block (covered by above, but explicit for clarity)
+    if (proposedStart.getTime() === block.start.getTime() && proposedEnd.getTime() === block.end.getTime()) {
+      return false; // Exact overlap
+    }
+  }
+  return true; // No overlap found
+};
+
 
 // --- Core Scheduling Logic ---
 

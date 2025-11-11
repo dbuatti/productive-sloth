@@ -15,6 +15,7 @@ import {
   setTimeOnDate,
   compactScheduleLogic, // Import new compaction logic
   mergeOverlappingTimeBlocks, // NEW: Import mergeOverlappingTimeBlocks
+  isSlotFree, // NEW: Import isSlotFree
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -341,12 +342,12 @@ const SchedulerPage: React.FC = () => {
     taskName: string,
     taskDuration: number,
     isCritical: boolean,
-    currentAppointments: TimeBlock[], // This is the mutable list
+    existingOccupiedBlocks: TimeBlock[], // Changed name to be explicit
     effectiveWorkdayStart: Date,
     workdayEndTime: Date
   ): Promise<{ proposedStartTime: Date | null, proposedEndTime: Date | null, message: string }> => {
     let proposedStartTime: Date | null = null;
-    const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
+    const freeBlocks = getFreeTimeBlocks(existingOccupiedBlocks, effectiveWorkdayStart, workdayEndTime);
 
     // Prioritize critical tasks for earlier slots
     if (isCritical) {
@@ -401,8 +402,8 @@ const SchedulerPage: React.FC = () => {
     let success = false;
     const taskScheduledDate = formattedSelectedDay;
 
-    // Use optimisticScheduledTimes for finding free blocks
-    const currentAppointments = [...optimisticScheduledTimes];
+    // Get current occupied blocks by merging optimisticScheduledTimes
+    const occupiedBlocks = mergeOverlappingTimeBlocks(optimisticScheduledTimes);
 
     if (parsedInput) {
       const isAdHocTask = 'duration' in parsedInput;
@@ -413,7 +414,7 @@ const SchedulerPage: React.FC = () => {
           parsedInput.name,
           newTaskDuration,
           parsedInput.isCritical,
-          currentAppointments, // Pass the mutable local copy
+          occupiedBlocks, // Pass the merged occupied blocks
           effectiveWorkdayStart,
           workdayEndTime
         );
@@ -458,6 +459,13 @@ const SchedulerPage: React.FC = () => {
           endTime = addDays(endTime, 1);
         }
 
+        // NEW: Check for overlaps before adding timed event
+        if (!isSlotFree(startTime, endTime, occupiedBlocks)) {
+          showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
+          setIsProcessingCommand(false);
+          return;
+        }
+
         const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false }); // Timed tasks are fixed
         // Optimistically update local state
@@ -478,7 +486,7 @@ const SchedulerPage: React.FC = () => {
           injectCommand.taskName,
           injectedTaskDuration,
           injectCommand.isCritical,
-          currentAppointments, // Pass the mutable local copy
+          occupiedBlocks, // Pass the merged occupied blocks
           effectiveWorkdayStart,
           workdayEndTime
         );
@@ -611,8 +619,8 @@ const SchedulerPage: React.FC = () => {
     const taskScheduledDate = formattedSelectedDay;
     const selectedDayAsDate = parseISO(selectedDay);
 
-    // Use optimisticScheduledTimes for finding free blocks
-    const currentAppointments = [...optimisticScheduledTimes];
+    // Get current occupied blocks by merging optimisticScheduledTimes
+    const occupiedBlocks = mergeOverlappingTimeBlocks(optimisticScheduledTimes);
 
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
@@ -638,6 +646,13 @@ const SchedulerPage: React.FC = () => {
         showSuccess(`Scheduled "${injectionPrompt.taskName}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
       } else if (isBefore(endTime, startTime)) {
         endTime = addDays(endTime, 1);
+      }
+
+      // NEW: Check for overlaps before adding timed injection
+      if (!isSlotFree(startTime, endTime, occupiedBlocks)) {
+        showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
+        setIsProcessingCommand(false);
+        return;
       }
 
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
@@ -669,7 +684,7 @@ const SchedulerPage: React.FC = () => {
         injectionPrompt.taskName,
         injectedTaskDuration,
         injectionPrompt.isCritical,
-        currentAppointments, // Pass the mutable local copy
+        occupiedBlocks, // Pass the merged occupied blocks
         effectiveWorkdayStart,
         workdayEndTime
       );
@@ -721,13 +736,13 @@ const SchedulerPage: React.FC = () => {
       const selectedDayAsDate = parseISO(selectedDay);
 
       // Use optimisticScheduledTimes for finding free blocks
-      const currentAppointments = [...optimisticScheduledTimes];
+      const occupiedBlocks = mergeOverlappingTimeBlocks(optimisticScheduledTimes);
 
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
         retiredTask.name,
         taskDuration,
         retiredTask.is_critical,
-        currentAppointments, // Pass the mutable local copy
+        occupiedBlocks, // Pass the merged occupied blocks
         effectiveWorkdayStart,
         workdayEndTime
       );

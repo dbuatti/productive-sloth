@@ -92,16 +92,9 @@ const getFreeTimeBlocks = (
   const freeBlocks: TimeBlock[] = [];
   let currentFreeTimeStart = workdayStart;
 
-  console.log("getFreeTimeBlocks: Calculating free blocks for workdayStart:", formatTime(workdayStart), "workdayEnd:", formatTime(workdayEnd));
-  console.log("getFreeTimeBlocks: Initial occupiedBlocks:", occupiedBlocks.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
-
   for (const appt of occupiedBlocks) { // Iterate over merged appointments
-    console.log("getFreeTimeBlocks: Processing occupied block:", `${formatTime(appt.start)}-${formatTime(appt.end)}`);
-    console.log("getFreeTimeBlocks: currentFreeTimeStart before check:", formatTime(currentFreeTimeStart));
-
     // If the appointment is entirely before our current search point, skip it.
     if (isBefore(appt.end, currentFreeTimeStart)) {
-        console.log("getFreeTimeBlocks: Appt ends before currentFreeTimeStart, skipping.");
         continue;
     }
 
@@ -111,12 +104,10 @@ const getFreeTimeBlocks = (
       const duration = Math.floor((appt.start.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
       if (duration > 0) {
         freeBlocks.push({ start: currentFreeTimeStart, end: appt.start, duration });
-        console.log("getFreeTimeBlocks: Found free block:", `${formatTime(currentFreeTimeStart)}-${formatTime(appt.start)} (${duration} min)`);
       }
     }
     // Move currentFreeTimeStart past this appointment's end
     currentFreeTimeStart = isAfter(appt.end, currentFreeTimeStart) ? appt.end : currentFreeTimeStart; // Ensure it moves forward
-    console.log("getFreeTimeBlocks: currentFreeTimeStart after processing appt:", formatTime(currentFreeTimeStart));
   }
 
   // Add any remaining free time after the last appointment until workdayEnd
@@ -124,10 +115,8 @@ const getFreeTimeBlocks = (
     const duration = Math.floor((workdayEnd.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
     if (duration > 0) {
       freeBlocks.push({ start: currentFreeTimeStart, end: workdayEnd, duration });
-      console.log("getFreeTimeBlocks: Found final free block:", `${formatTime(currentFreeTimeStart)}-${formatTime(workdayEnd)} (${duration} min)`);
     }
   }
-  console.log("getFreeTimeBlocks: Final free blocks:", freeBlocks.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
   return freeBlocks;
 };
 
@@ -177,7 +166,6 @@ const SchedulerPage: React.FC = () => {
         const utcEnd = parseISO(task.end_time!);
 
         // Align the UTC times to the selectedDayAsDate, preserving their time-of-day
-        // FIX: Use local hours/minutes instead of UTC hours/minutes
         let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getMinutes()), utcStart.getHours());
         let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getMinutes()), utcEnd.getHours());
 
@@ -190,15 +178,11 @@ const SchedulerPage: React.FC = () => {
           end: localEnd,
           duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
         };
-        console.log(`SchedulerPage: Mapped task "${task.name}" (DB: ${task.start_time}-${task.end_time}) to block: ${formatTime(block.start)}-${formatTime(block.end)}`); // ADDED LOG
         return block;
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
-    console.log("SchedulerPage: Mapped and sorted times before merging:", mappedTimes.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`)); // ADDED LOG
-
     const merged = mergeOverlappingTimeBlocks(mappedTimes);
-    console.log("SchedulerPage: Calculated occupiedBlocks (merged):", merged.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
     return merged;
   }, [dbScheduledTasks, selectedDayAsDate]));
 
@@ -284,10 +268,8 @@ const SchedulerPage: React.FC = () => {
   // Determine the effective start for placing new tasks (cannot be in the past for today)
   const effectiveWorkdayStart = useMemo(() => {
     if (isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTime, T_current)) {
-      console.log("SchedulerPage: Effective workday start is T_current:", formatTime(T_current));
       return T_current;
     }
-    console.log("SchedulerPage: Effective workday start is workdayStartTime:", formatTime(workdayStartTime));
     return workdayStartTime;
   }, [selectedDayAsDate, T_current, workdayStartTime]);
 
@@ -364,30 +346,21 @@ const SchedulerPage: React.FC = () => {
     effectiveWorkdayStart: Date,
     workdayEndTime: Date
   ): Promise<{ proposedStartTime: Date | null, proposedEndTime: Date | null, message: string }> => {
-    console.log(`findFreeSlotForTask: Attempting to find slot for "${taskName}" (${taskDuration} min), Critical: ${isCritical}`);
-    console.log("findFreeSlotForTask: Existing occupied blocks:", existingOccupiedBlocks.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
-    console.log("findFreeSlotForTask: Effective workday start:", formatTime(effectiveWorkdayStart), "Workday end:", formatTime(workdayEndTime));
-
     let proposedStartTime: Date | null = null;
     const freeBlocks = getFreeTimeBlocks(existingOccupiedBlocks, effectiveWorkdayStart, workdayEndTime);
-    console.log("findFreeSlotForTask: Available free blocks:", freeBlocks.map(b => `${formatTime(b.start)}-${formatTime(b.end)} (${b.duration} min)`));
 
     // Prioritize critical tasks for earlier slots
     if (isCritical) {
-      console.log("findFreeSlotForTask: Task is critical, prioritizing earlier slots.");
       for (const block of freeBlocks) {
         if (taskDuration <= block.duration) {
           proposedStartTime = block.start;
-          console.log(`findFreeSlotForTask: Found critical slot at ${formatTime(proposedStartTime)} in block ${formatTime(block.start)}-${formatTime(block.end)}`);
           break;
         }
       }
     } else {
-      console.log("findFreeSlotForTask: Task is not critical, finding first available slot.");
       for (const block of freeBlocks) {
         if (taskDuration <= block.duration) {
           proposedStartTime = block.start;
-          console.log(`findFreeSlotForTask: Found slot at ${formatTime(proposedStartTime)} in block ${formatTime(block.start)}-${formatTime(block.end)}`);
           break; 
         }
       }
@@ -395,11 +368,9 @@ const SchedulerPage: React.FC = () => {
 
     if (proposedStartTime) {
       const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
-      console.log(`findFreeSlotForTask: Proposed slot: ${formatTime(proposedStartTime)} - ${formatTime(proposedEndTime)}`);
       return { proposedStartTime, proposedEndTime, message: "" };
     } else {
       const message = `No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${taskName}" (${taskDuration} min).`;
-      console.log(`findFreeSlotForTask: ${message}`);
       return { proposedStartTime: null, proposedEndTime: null, message: message };
     }
   }, [workdayStartTime, workdayEndTime]);
@@ -411,7 +382,6 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
-    console.log(`SchedulerPage: Clearing all scheduled tasks for ${formattedSelectedDay}`);
     await clearScheduledTasks();
     setIsProcessingCommand(false);
     setShowClearConfirmation(false);
@@ -425,7 +395,6 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
-    console.log(`SchedulerPage: Processing command input: "${input}"`);
     
     const parsedInput = parseTaskInput(input, selectedDayAsDate);
     const injectCommand = parseInjectionCommand(input);
@@ -436,16 +405,13 @@ const SchedulerPage: React.FC = () => {
 
     // Create a mutable copy of occupiedBlocks for optimistic updates within this command execution
     let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
-    console.log("SchedulerPage: currentOccupiedBlocksForScheduling (initial):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
 
     if (parsedInput) {
-      console.log("SchedulerPage: Input parsed as a task:", parsedInput);
       const isAdHocTask = 'duration' in parsedInput;
 
       if (isAdHocTask) {
         const newTaskDuration = parsedInput.duration!;
-        console.log(`SchedulerPage: Ad-hoc task "${parsedInput.name}" with duration ${newTaskDuration} min.`);
         const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
           parsedInput.name,
           newTaskDuration,
@@ -456,7 +422,6 @@ const SchedulerPage: React.FC = () => {
         );
         
         if (proposedStartTime && proposedEndTime) {
-          console.log(`SchedulerPage: Proposed slot for "${parsedInput.name}": ${formatTime(proposedStartTime)} - ${formatTime(proposedEndTime)}`);
           await addScheduledTask({ 
             name: parsedInput.name, 
             start_time: proposedStartTime.toISOString(), 
@@ -468,7 +433,6 @@ const SchedulerPage: React.FC = () => {
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-          console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after ad-hoc add):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
           
           showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -477,7 +441,6 @@ const SchedulerPage: React.FC = () => {
         }
 
       } else {
-        console.log(`SchedulerPage: Timed task "${parsedInput.name}" from ${formatTime(parsedInput.startTime!)} to ${formatTime(parsedInput.endTime!)}.`);
         let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
         let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
         
@@ -491,37 +454,29 @@ const SchedulerPage: React.FC = () => {
           startTime = addDays(startTime, 1);
           endTime = addDays(endTime, 1);
           showSuccess(`Scheduled "${parsedInput.name}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
-          console.log(`SchedulerPage: Adjusted timed task to tomorrow: ${formatTime(startTime)} - ${formatTime(endTime)}`);
         } else if (isBefore(endTime, startTime)) {
           endTime = addDays(endTime, 1);
-          console.log(`SchedulerPage: Adjusted timed task to roll over to next day: ${formatTime(startTime)} - ${formatTime(endTime)}`);
         }
 
-        console.log(`SchedulerPage: Checking if slot ${formatTime(startTime)} - ${formatTime(endTime)} is free.`);
         if (!isSlotFree(startTime, endTime, currentOccupiedBlocksForScheduling)) {
           showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
-          console.log("SchedulerPage: Slot is NOT free, showing error.");
           setIsProcessingCommand(false);
           return;
         }
-        console.log("SchedulerPage: Slot IS free.");
 
         const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false });
         currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-        console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after timed add):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
         showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
       }
     } else if (injectCommand) {
-      console.log("SchedulerPage: Input parsed as an inject command:", injectCommand);
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
 
       if (isAdHocInjection) {
         const injectedTaskDuration = injectCommand.duration || 30;
-        console.log(`SchedulerPage: Ad-hoc inject "${injectCommand.taskName}" with duration ${injectedTaskDuration} min.`);
         const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
           injectCommand.taskName,
           injectedTaskDuration,
@@ -532,7 +487,6 @@ const SchedulerPage: React.FC = () => {
         );
 
         if (proposedStartTime && proposedEndTime) {
-          console.log(`SchedulerPage: Proposed slot for injected task: ${formatTime(proposedStartTime)} - ${formatTime(proposedEndTime)}`);
           await addScheduledTask({ 
             name: injectCommand.taskName, 
             start_time: proposedStartTime.toISOString(), 
@@ -544,7 +498,6 @@ const SchedulerPage: React.FC = () => {
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-          console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after ad-hoc inject):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -553,7 +506,6 @@ const SchedulerPage: React.FC = () => {
         }
 
       } else if (injectCommand.startTime && injectCommand.endTime) {
-        console.log(`SchedulerPage: Timed inject "${injectCommand.taskName}" from ${injectCommand.startTime} to ${injectCommand.endTime}. Opening dialog.`);
         setInjectionPrompt({ 
           taskName: injectCommand.taskName, 
           isOpen: true, 
@@ -567,7 +519,6 @@ const SchedulerPage: React.FC = () => {
         setInjectionEndTime(injectCommand.endTime);
         success = true;
       } else {
-        console.log(`SchedulerPage: Duration-based inject "${injectCommand.taskName}". Opening dialog.`);
         setInjectionPrompt({ 
           taskName: injectCommand.taskName, 
           isOpen: true, 
@@ -580,65 +531,51 @@ const SchedulerPage: React.FC = () => {
         success = true;
       }
     } else if (command) {
-      console.log("SchedulerPage: Input parsed as a command:", command);
       switch (command.type) {
         case 'clear':
-          console.log("SchedulerPage: Command 'clear' detected. Showing confirmation.");
           setShowClearConfirmation(true);
           success = true;
           break;
         case 'remove':
           if (command.index !== undefined) {
-            console.log(`SchedulerPage: Command 'remove' by index ${command.index + 1}.`);
             if (command.index >= 0 && command.index < dbScheduledTasks.length) {
               const taskToRemove = dbScheduledTasks[command.index];
-              console.log(`SchedulerPage: Removing task: "${taskToRemove.name}" (ID: ${taskToRemove.id})`);
               await removeScheduledTask(taskToRemove.id);
               currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
                 !(block.start.getTime() === parseISO(taskToRemove.start_time!).getTime() && 
                   block.end.getTime() === parseISO(taskToRemove.end_time!).getTime())
               );
-              console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after remove by index):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
               success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
-              console.log("SchedulerPage: Invalid index for remove command.");
             }
           } else if (command.target) {
-            console.log(`SchedulerPage: Command 'remove' by target "${command.target}".`);
             const tasksToRemove = dbScheduledTasks.filter(task => task.name.toLowerCase().includes(command.target!.toLowerCase()));
             if (tasksToRemove.length > 0) {
               for (const task of tasksToRemove) {
-                console.log(`SchedulerPage: Removing task: "${task.name}" (ID: ${task.id})`);
                 await removeScheduledTask(task.id);
                 currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
                   !(block.start.getTime() === parseISO(task.start_time!).getTime() && 
                     block.end.getTime() === parseISO(task.end_time!).getTime())
                 );
               }
-              console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after remove by target):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
               showSuccess(`Removed tasks matching "${command.target}".`);
               success = true;
             } else {
               showError(`No tasks found matching "${command.target}".`);
-              console.log("SchedulerPage: No tasks found for remove target.");
             }
           } else {
             showError("Please specify a task name or index to remove (e.g., 'remove Task Name' or 'remove index 1').");
-            console.log("SchedulerPage: Remove command missing target or index.");
           }
           break;
         case 'show':
-          console.log("SchedulerPage: Command 'show' detected.");
           showSuccess("Displaying current queue.");
           success = true;
           break;
         case 'reorder':
-          console.log("SchedulerPage: Command 'reorder' detected (not implemented).");
           showError("Reordering is not yet implemented.");
           break;
         case 'compact':
-          console.log("SchedulerPage: Command 'compact' detected. Calling compactScheduleLogic.");
           const compactedTasks = compactScheduleLogic(
             dbScheduledTasks,
             selectedDayAsDate,
@@ -647,35 +584,29 @@ const SchedulerPage: React.FC = () => {
             T_current
           );
           if (compactedTasks.length > 0) {
-            console.log("SchedulerPage: Compacted tasks result:", compactedTasks.map(t => `${t.name} ${formatTime(parseISO(t.start_time!))}-${formatTime(parseISO(t.end_time!))}`));
             await compactScheduledTasks(compactedTasks);
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(compactedTasks.map(task => ({
               start: parseISO(task.start_time!),
               end: parseISO(task.end_time!),
               duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
             })));
-            console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after compact):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
             showSuccess("Schedule compacted!");
           } else {
             showError("No flexible tasks to compact or no space available.");
-            console.log("SchedulerPage: No flexible tasks to compact or no space available.");
           }
           success = true;
           break;
         default:
           showError("Unknown command.");
-          console.log("SchedulerPage: Unknown command detected.");
       }
     } else {
       showError("Invalid input. Please use 'Task Name Duration [Break]', 'Task Name HH:MM AM/PM - HH:MM AM/PM', or a command.");
-      console.log("SchedulerPage: Input did not match any known task or command format.");
     }
     
     setIsProcessingCommand(false);
     if (success) {
       setInputValue('');
     }
-    console.log("SchedulerPage: Command processing finished.");
   };
 
   const handleInjectionSubmit = async () => {
@@ -684,7 +615,6 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
-    console.log("SchedulerPage: Handling injection dialog submission:", injectionPrompt);
 
     let success = false;
     const taskScheduledDate = formattedSelectedDay;
@@ -692,11 +622,9 @@ const SchedulerPage: React.FC = () => {
 
     // Create a mutable copy of occupiedBlocks for optimistic updates
     let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
-    console.log("SchedulerPage: currentOccupiedBlocksForScheduling (initial for injection dialog):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
 
     if (injectionPrompt.isTimed) {
-      console.log("SchedulerPage: Timed injection from dialog.");
       if (!injectionStartTime || !injectionEndTime) {
         showError("Start time and end time are required for timed injection.");
         setIsProcessingCommand(false);
@@ -718,31 +646,24 @@ const SchedulerPage: React.FC = () => {
         startTime = addDays(startTime, 1);
         endTime = addDays(endTime, 1);
         showSuccess(`Scheduled "${injectionPrompt.taskName}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
-        console.log(`SchedulerPage: Adjusted timed injection to tomorrow: ${formatTime(startTime)} - ${formatTime(endTime)}`);
       } else if (isBefore(endTime, startTime)) {
         endTime = addDays(endTime, 1);
-        console.log(`SchedulerPage: Adjusted timed injection to roll over to next day: ${formatTime(startTime)} - ${formatTime(endTime)}`);
       }
 
-      console.log(`SchedulerPage: Checking if slot ${formatTime(startTime)} - ${formatTime(endTime)} is free for timed injection.`);
       if (!isSlotFree(startTime, endTime, currentOccupiedBlocksForScheduling)) {
         showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
-        console.log("SchedulerPage: Slot is NOT free for timed injection, showing error.");
         setIsProcessingCommand(false);
         return;
       }
-      console.log("SchedulerPage: Slot IS free for timed injection.");
 
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: injectionPrompt.isFlexible });
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-      console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after timed injection add):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
       showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
       success = true;
     } else {
-      console.log("SchedulerPage: Duration-based injection from dialog.");
       if (!injectionDuration) {
         showError("Duration is required for duration-based injection.");
         setIsProcessingCommand(false);
@@ -767,7 +688,6 @@ const SchedulerPage: React.FC = () => {
       );
 
       if (proposedStartTime && proposedEndTime) {
-        console.log(`SchedulerPage: Proposed slot for duration-based injected task: ${formatTime(proposedStartTime)} - ${formatTime(proposedEndTime)}`);
         await addScheduledTask({ 
           name: injectionPrompt.taskName, 
           start_time: proposedStartTime.toISOString(), 
@@ -779,7 +699,6 @@ const SchedulerPage: React.FC = () => {
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-        console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after duration-based injection add):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
@@ -797,7 +716,6 @@ const SchedulerPage: React.FC = () => {
       setInputValue('');
     }
     setIsProcessingCommand(false);
-    console.log("SchedulerPage: Injection dialog submission finished.");
   };
 
   // NEW: Handle rezone from Aether Sink
@@ -807,7 +725,6 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
-    console.log(`SchedulerPage: Re-zoning task "${retiredTask.name}" (ID: ${retiredTask.id}) from Aether Sink.`);
 
     try {
       const taskDuration = retiredTask.duration || 30;
@@ -815,7 +732,6 @@ const SchedulerPage: React.FC = () => {
 
       // Create a mutable copy of occupiedBlocks for optimistic updates
       let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
-      console.log("SchedulerPage: currentOccupiedBlocksForScheduling (initial for rezone):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
 
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
@@ -828,7 +744,6 @@ const SchedulerPage: React.FC = () => {
       );
 
       if (proposedStartTime && proposedEndTime) {
-        console.log(`SchedulerPage: Proposed slot for re-zoned task: ${formatTime(proposedStartTime)} - ${formatTime(proposedEndTime)}`);
         // 1. Delete from retired_tasks (now that we know it can be scheduled)
         await rezoneTask(retiredTask.id);
 
@@ -844,7 +759,6 @@ const SchedulerPage: React.FC = () => {
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-        console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after rezone add):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {
@@ -852,10 +766,9 @@ const SchedulerPage: React.FC = () => {
       }
     } catch (error: any) {
       showError(`Failed to rezone task: ${error.message}`);
-      console.error("SchedulerPage: Rezone error:", error);
+      console.error("Rezone error:", error);
     } finally {
       setIsProcessingCommand(false);
-      console.log("SchedulerPage: Rezone finished.");
     }
   };
 
@@ -866,10 +779,8 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
-    console.log(`SchedulerPage: Manually retiring task "${taskToRetire.name}" (ID: ${taskToRetire.id}).`);
     await retireTask(taskToRetire);
     setIsProcessingCommand(false);
-    console.log("SchedulerPage: Manual retirement finished.");
   };
 
   // NEW: Handle permanent removal from Aether Sink
@@ -879,7 +790,6 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
-    console.log(`SchedulerPage: Permanently removing retired task ID: ${retiredTaskId}.`);
     try {
       const { error } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', user.id);
       if (error) throw new Error(error.message);
@@ -887,10 +797,9 @@ const SchedulerPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });
     } catch (error: any) {
       showError(`Failed to remove retired task: ${error.message}`);
-      console.error("SchedulerPage: Remove retired task error:", error);
+      console.error("Remove retired task error:", error);
     } finally {
       setIsProcessingCommand(false);
-      console.log("SchedulerPage: Permanent removal finished.");
     }
   };
 
@@ -906,13 +815,11 @@ const SchedulerPage: React.FC = () => {
     }
 
     setIsProcessingCommand(true);
-    console.log(`SchedulerPage: Auto-scheduling all ${retiredTasks.length} tasks from Aether Sink.`);
     let successfulRezones = 0;
     let failedRezones = 0;
 
     // Create a mutable copy of occupiedBlocks for optimistic updates
     let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
-    console.log("SchedulerPage: currentOccupiedBlocksForScheduling (initial for auto-schedule sink):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
 
     // Sort retired tasks to prioritize critical ones first
@@ -923,7 +830,6 @@ const SchedulerPage: React.FC = () => {
     });
 
     for (const task of sortedRetiredTasks) {
-      console.log(`SchedulerPage: Attempting to auto-schedule retired task "${task.name}" (ID: ${task.id}).`);
       try {
         const taskDuration = task.duration || 30;
         const selectedDayAsDate = parseISO(selectedDay);
@@ -938,7 +844,6 @@ const SchedulerPage: React.FC = () => {
         );
 
         if (proposedStartTime && proposedEndTime) {
-          console.log(`SchedulerPage: Proposed slot for auto-scheduled retired task: ${formatTime(proposedStartTime)} - ${formatTime(proposedEndTime)}`);
           await rezoneTask(task.id);
 
           const newScheduledTask: NewDBScheduledTask = {
@@ -954,7 +859,6 @@ const SchedulerPage: React.FC = () => {
 
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-          console.log("SchedulerPage: currentOccupiedBlocksForScheduling (after auto-schedule sink add):", currentOccupiedBlocksForScheduling.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));
 
           successfulRezones++;
         } else {
@@ -962,7 +866,7 @@ const SchedulerPage: React.FC = () => {
           failedRezones++;
         }
       } catch (error) {
-        console.error(`SchedulerPage: Failed to auto-schedule task "${task.name}":`, error);
+        console.error(`Failed to auto-schedule task "${task.name}":`, error);
         failedRezones++;
       }
     }
@@ -974,14 +878,12 @@ const SchedulerPage: React.FC = () => {
       showError(`Failed to re-zone ${failedRezones} task(s) from Aether Sink due to no available slots.`);
     }
     setIsProcessingCommand(false);
-    console.log("SchedulerPage: Auto-schedule sink finished.");
   };
 
   // NEW: Handle sorting flexible tasks by duration
   const handleSortByDuration = async () => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
-    console.log("SchedulerPage: Sorting flexible tasks by duration.");
 
     const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible);
     if (flexibleTasks.length === 0) {
@@ -996,8 +898,6 @@ const SchedulerPage: React.FC = () => {
       const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
       return durationA - durationB;
     });
-    console.log("SchedulerPage: Flexible tasks sorted by duration:", sortedFlexibleTasks.map(t => `${t.name} (${Math.floor((parseISO(t.end_time!).getTime() - parseISO(t.start_time!).getTime()) / (1000 * 60))} min)`));
-
 
     const reorganizedTasks = compactScheduleLogic(
       dbScheduledTasks,
@@ -1009,22 +909,18 @@ const SchedulerPage: React.FC = () => {
     );
 
     if (reorganizedTasks.length > 0) {
-      console.log("SchedulerPage: Reorganized tasks after duration sort:", reorganizedTasks.map(t => `${t.name} ${formatTime(parseISO(t.start_time!))}-${formatTime(parseISO(t.end_time!))}`));
       await compactScheduledTasks(reorganizedTasks);
       showSuccess("Flexible tasks sorted by duration!");
     } else {
       showError("Could not sort flexible tasks by duration or no space available.");
-      console.log("SchedulerPage: Could not sort flexible tasks by duration or no space available.");
     }
     setIsProcessingCommand(false);
-    console.log("SchedulerPage: Sort by duration finished.");
   };
 
   // NEW: Handle sorting flexible tasks by priority (is_critical)
   const handleSortByPriority = async () => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
-    console.log("SchedulerPage: Sorting flexible tasks by priority.");
 
     const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible);
     if (flexibleTasks.length === 0) {
@@ -1041,8 +937,6 @@ const SchedulerPage: React.FC = () => {
       const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
       return durationA - durationB;
     });
-    console.log("SchedulerPage: Flexible tasks sorted by priority:", sortedFlexibleTasks.map(t => `${t.name} (Critical: ${t.is_critical}, Duration: ${Math.floor((parseISO(t.end_time!).getTime() - parseISO(t.start_time!).getTime()) / (1000 * 60))} min)`));
-
 
     const reorganizedTasks = compactScheduleLogic(
       dbScheduledTasks,
@@ -1054,15 +948,12 @@ const SchedulerPage: React.FC = () => {
     );
 
     if (reorganizedTasks.length > 0) {
-      console.log("SchedulerPage: Reorganized tasks after priority sort:", reorganizedTasks.map(t => `${t.name} ${formatTime(parseISO(t.start_time!))}-${formatTime(parseISO(t.end_time!))}`));
       await compactScheduledTasks(reorganizedTasks);
       showSuccess("Flexible tasks sorted by priority!");
     } else {
       showError("Could not sort flexible tasks by priority or no space available.");
-      console.log("SchedulerPage: Could not sort flexible tasks by priority or no space available.");
     }
     setIsProcessingCommand(false);
-    console.log("SchedulerPage: Sort by priority finished.");
   };
 
 
@@ -1318,7 +1209,7 @@ const SchedulerPage: React.FC = () => {
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule
             </AlertDialogAction>
-          </AlertDialogFooter>
+          </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

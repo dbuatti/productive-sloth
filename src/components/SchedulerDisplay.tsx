@@ -193,7 +193,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           </div>
           <div className="relative flex items-center">
             <div className="h-px w-full bg-border" />
-            <div className="absolute right-0 h-2 w-2 rounded-full bg-border -mr-1" />
+            <div className="absolute right-0 h-2.5 w-2.5 rounded-full bg-border -mr-1.5" /> {/* Larger dot */}
           </div>
         </React.Fragment>
       );
@@ -364,13 +364,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
         <CardContent className="p-0">
           <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
             {/* Global "Now" Indicator */}
-            {isTodaySelected && !activeItemInDisplay && firstItemStartTime && lastItemEndTime && (
+            {isTodaySelected && firstItemStartTime && lastItemEndTime && ( // Always show if today is selected
               <div 
-                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress" // Removed pulse-active-row
+                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress" 
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
-                <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> {/* Adjust top for label positioning */}
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Removed pulse-glow and border */}
+                <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> 
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> 
                     {formatTime(T_current)}
                   </span>
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp } from 'lucide-react'; // Added ChevronsUp icon
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask } from '@/types/scheduler';
@@ -13,6 +13,7 @@ import {
   parseFlexibleTime,
   formatTime,
   setTimeOnDate,
+  compactScheduleLogic, // Import new compaction logic
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -119,6 +120,7 @@ const SchedulerPage: React.FC = () => {
     isLoadingRetiredTasks, // NEW: Get loading state for retired tasks
     retireTask, // NEW: Retire task mutation
     rezoneTask, // NEW: Rezone task mutation
+    compactScheduledTasks, // NEW: Compact schedule mutation
   } = useSchedulerTasks(selectedDay);
 
   const queryClient = useQueryClient(); // Initialize useQueryClient
@@ -362,6 +364,7 @@ const SchedulerPage: React.FC = () => {
             scheduled_date: taskScheduledDate,
             break_duration: parsedInput.breakDuration,
             is_critical: parsedInput.isCritical, // Pass critical flag
+            is_flexible: true, // Duration-based tasks are flexible
           });
           showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -387,7 +390,7 @@ const SchedulerPage: React.FC = () => {
           endTime = addDays(endTime, 1);
         }
 
-        await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical }); // Pass critical flag
+        await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false }); // Timed tasks are fixed
         showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
       }
@@ -426,6 +429,7 @@ const SchedulerPage: React.FC = () => {
             break_duration: injectCommand.breakDuration, 
             scheduled_date: taskScheduledDate,
             is_critical: injectCommand.isCritical, // Pass critical flag
+            is_flexible: true, // Injected duration-based tasks are flexible
           });
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -493,6 +497,22 @@ const SchedulerPage: React.FC = () => {
         case 'reorder':
           showError("Reordering is not yet implemented.");
           break;
+        case 'compact': // Handle new compact command
+          const compactedTasks = compactScheduleLogic(
+            dbScheduledTasks,
+            selectedDayAsDate,
+            workdayStartTime,
+            workdayEndTime,
+            T_current
+          );
+          if (compactedTasks.length > 0) {
+            await compactScheduledTasks(compactedTasks);
+            showSuccess("Schedule compacted!");
+          } else {
+            showSuccess("No flexible tasks to compact or no space available.");
+          }
+          success = true;
+          break;
         default:
           showError("Unknown command.");
       }
@@ -551,7 +571,7 @@ const SchedulerPage: React.FC = () => {
         endTime = addDays(endTime, 1);
       }
 
-      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical }); // Pass critical flag
+      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: false }); // Timed tasks are fixed
       showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
       success = true;
     } else { // Duration-based injection
@@ -599,6 +619,7 @@ const SchedulerPage: React.FC = () => {
           break_duration: breakDuration, 
           scheduled_date: taskScheduledDate,
           is_critical: injectionPrompt.isCritical, // Pass critical flag
+          is_flexible: true, // Injected duration-based tasks are flexible
         });
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
@@ -673,6 +694,7 @@ const SchedulerPage: React.FC = () => {
           break_duration: retiredTask.break_duration, // Pass break_duration from retired task
           scheduled_date: formattedSelectedDay,
           is_critical: retiredTask.is_critical, // Pass critical flag
+          is_flexible: true, // Re-zoned tasks are flexible by default
         });
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {
@@ -782,13 +804,25 @@ const SchedulerPage: React.FC = () => {
       />
 
       <Card className="animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-xl font-bold flex items-center gap-2">
             <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
-          </p>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => handleCommand('compact')} 
+              disabled={overallLoading || !currentSchedule?.items.some(item => item.isFlexible)} // Disable if no flexible tasks
+              className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
+            >
+              <ChevronsUp className="h-4 w-4" />
+              <span className="sr-only">Compact Schedule</span>
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
+            </p>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <SchedulerInput 
@@ -798,7 +832,7 @@ const SchedulerPage: React.FC = () => {
             setInputValue={setInputValue}
           />
           <p className="text-xs text-muted-foreground">
-            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear'
+            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact'
           </p>
         </CardContent>
       </Card>

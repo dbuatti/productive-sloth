@@ -312,7 +312,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical }))); // Detailed log
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible }))); // Detailed log
       return data as DBScheduledTask[];
     },
     enabled: !!userId,
@@ -490,6 +490,38 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
+  // NEW: Compact scheduled tasks
+  const compactScheduledTasksMutation = useMutation({
+    mutationFn: async (tasksToUpdate: DBScheduledTask[]) => {
+      if (!userId) throw new Error("User not authenticated.");
+
+      // Perform a batch update for all tasks that need new times
+      const updates = tasksToUpdate.map(task => ({
+        id: task.id,
+        start_time: task.start_time,
+        end_time: task.end_time,
+        updated_at: new Date().toISOString(),
+      }));
+
+      // Use a transaction or multiple updates. For simplicity, multiple updates for now.
+      // Supabase `upsert` can handle updates if `id` is present.
+      const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
+
+      if (error) {
+        console.error("useSchedulerTasks: Error compacting tasks:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully compacted tasks.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      showSuccess('Schedule compacted!');
+    },
+    onError: (e) => {
+      showError(`Failed to compact schedule: ${e.message}`);
+    }
+  });
+
 
   return {
     dbScheduledTasks, // The raw data from Supabase
@@ -504,5 +536,6 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     clearScheduledTasks: clearScheduledTasksMutation.mutate,
     retireTask: retireTaskMutation.mutate, // NEW: Retire task mutation
     rezoneTask: rezoneTaskMutation.mutateAsync, // NEW: Rezone task mutation (use mutateAsync for chaining)
+    compactScheduledTasks: compactScheduledTasksMutation.mutate, // NEW: Compact schedule mutation
   };
 };

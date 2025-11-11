@@ -743,6 +743,48 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
+  // NEW: Handle auto-scheduling all tasks from the Aether Sink
+  const handleAutoScheduleSink = async () => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to auto-schedule tasks.");
+      return;
+    }
+    if (retiredTasks.length === 0) {
+      showSuccess("Aether Sink is already empty!");
+      return;
+    }
+
+    setIsProcessingCommand(true);
+    let successfulRezones = 0;
+    let failedRezones = 0;
+
+    // Sort retired tasks to prioritize critical ones first
+    const sortedRetiredTasks = [...retiredTasks].sort((a, b) => {
+      if (a.is_critical && !b.is_critical) return -1;
+      if (!a.is_critical && b.is_critical) return 1;
+      return 0;
+    });
+
+    for (const task of sortedRetiredTasks) {
+      try {
+        // Re-use the rezone logic
+        await handleRezoneFromSink(task); // This will also delete from retired_tasks on success
+        successfulRezones++;
+      } catch (error) {
+        console.error(`Failed to auto-schedule task "${task.name}":`, error);
+        failedRezones++;
+      }
+    }
+
+    if (successfulRezones > 0) {
+      showSuccess(`Successfully re-zoned ${successfulRezones} task(s) from Aether Sink.`);
+    }
+    if (failedRezones > 0) {
+      showError(`Failed to re-zone ${failedRezones} task(s) from Aether Sink due to no available slots.`);
+    }
+    setIsProcessingCommand(false);
+  };
+
 
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -848,7 +890,9 @@ const SchedulerPage: React.FC = () => {
         retiredTasks={retiredTasks} 
         onRezoneTask={handleRezoneFromSink} 
         onRemoveRetiredTask={handleRemoveRetiredTask}
+        onAutoScheduleSink={handleAutoScheduleSink} // Pass the new handler
         isLoading={isLoadingRetiredTasks}
+        isProcessingCommand={isProcessingCommand} // Pass processing state
       />
 
       {currentSchedule?.summary.unscheduledCount > 0 && (

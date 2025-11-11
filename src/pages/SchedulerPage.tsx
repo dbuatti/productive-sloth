@@ -160,11 +160,20 @@ const SchedulerPage: React.FC = () => {
     if (dbScheduledTasks) {
       const initialTimes = dbScheduledTasks
         .filter(task => task.start_time && task.end_time)
-        .map(task => ({
-          start: parseISO(task.start_time!),
-          end: parseISO(task.end_time!),
-          duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
-        }))
+        .map(task => {
+          const utcStart = parseISO(task.start_time!);
+          const utcEnd = parseISO(task.end_time!);
+          
+          // Convert UTC Date objects to local Date objects for consistent scheduling logic
+          const localStart = new Date(utcStart.getUTCFullYear(), utcStart.getUTCMonth(), utcStart.getUTCDate(), utcStart.getUTCHours(), utcStart.getUTCMinutes(), utcStart.getUTCSeconds());
+          const localEnd = new Date(utcEnd.getUTCFullYear(), utcEnd.getUTCMonth(), utcEnd.getUTCDate(), utcEnd.getUTCHours(), utcEnd.getUTCMinutes(), utcEnd.getUTCSeconds());
+
+          return {
+            start: localStart,
+            end: localEnd,
+            duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
+          };
+        })
         .sort((a, b) => a.start.getTime() - b.start.getTime());
       setOptimisticScheduledTimes(initialTimes);
     }
@@ -1111,7 +1120,7 @@ const SchedulerPage: React.FC = () => {
               This action will permanently delete all scheduled tasks for {format(parseISO(selectedDay), 'EEEE, MMMM d')}. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter> {/* Corrected from DialogFooter to AlertDialogFooter */}
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule

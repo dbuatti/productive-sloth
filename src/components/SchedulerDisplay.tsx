@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trash, Archive, AlertCircle } from 'lucide-react'; // Import Archive icon, AlertCircle
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
-import { startOfDay, addHours, addMinutes, isSameDay, parseISO } from 'date-fns';
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 
 interface SchedulerDisplayProps {
@@ -162,18 +162,24 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   }, [T_current, firstItemStartTime, lastItemEndTime]);
 
 
-  // Auto-scroll to active item
+  // Auto-scroll to active item (existing logic)
   useEffect(() => {
     if (activeItemRef.current && containerRef.current) {
       const containerRect = containerRef.current.getBoundingClientRect();
       const activeItemRect = activeItemRef.current.getBoundingClientRect();
 
-      // Only scroll if the active item is not fully in view
       if (activeItemRect.top < containerRect.top || activeItemRect.bottom > containerRect.bottom) {
         activeItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   }, [activeItemInDisplay]);
+
+  // NEW: Auto-scroll to top when selected day changes
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [selectedDayString]);
 
 
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
@@ -380,7 +386,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             {/* Global "Now" Indicator */}
             {isTodaySelected && firstItemStartTime && lastItemEndTime && ( // Always show if today is selected
               <div 
-                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress" 
+                className="absolute left-0 right-0 h-[3px] bg-live-progress z-10 border-b-2 border-live-progress" // Slightly thicker line
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> 
@@ -395,9 +401,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               {schedule?.items.length === 0 ? (
                 <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
                   <ListTodo className="h-12 w-12 text-muted-foreground" />
-                  <p className="text-lg font-semibold">Your schedule is clear!</p>
-                  <p className="text-sm">Start by adding a task in the input above.</p>
-                  <p className="text-sm">Try: "Gym 60", "Meeting 2pm-3pm", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clear queue"</p>
+                  <p className="text-lg font-semibold">Your schedule is clear for today!</p>
+                  <p className="text-sm">Ready to plan? Add a task using the input above.</p>
+                  <p className="text-xs text-muted-foreground">Try: "Gym 60", "Meeting 2pm-3pm", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clean the sink 30 sink", "Clear queue"</p>
                 </div>
               ) : (
                 <>

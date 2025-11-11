@@ -1,594 +1,410 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock } from '@/types/scheduler';
+import { ScheduledItem, FormattedSchedule, DBScheduledTask, TimeBlock, ScheduledTaskItem, ScheduledBreakItem, FreeSlotItem, ScheduledTimeOffItem, ScheduleSummary } from '@/types/scheduler'; // Updated imports
 
-// --- Constants ---
-const EMOJI_MAP: { [key: string]: string } = {
-  'gym': '🏋️', 'workout': '🏋️', 'run': '🏃', 'exercise': '🏋️', 'fitness': '💪',
-  'email': '📧', 'messages': '💬', 'calls': '📞', 'communication': '🗣️', 'admin': '⚙️', 'paperwork': '📄',
-  'meeting': '💼', 'work': '💻', 'report': '📝', 'professional': '👔', 'project': '📊', 'coding': '💻', 'develop': '💻', 'code': '💻', 'bug': '🐛', 'fix': '🛠️', 'sync': '🤝', 'standup': '🤝',
-  'design': '🎨', 'writing': '✍️', 'art': '🖼️', 'creative': '✨', 'draw': '✏️',
-  'study': '📚', 'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫', 'tutorial': '💡',
-  'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️', 'room': '🛋️',
-  'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎',
-  'brainstorm': '💡', 'strategy': '📈', 'review': '🔍', 'plan': '🗓️',
-  'gaming': '🎮', 'tv': '📺', 'hobbies': '🎲', 'leisure': '😌', 'movie': '🎬', 'relax': '🧘', 'chill': '🛋️',
-  'meditation': '🧘', 'yoga': '🧘', 'self-care': '🛀', 'wellness': '🌸', 'mindfulness': '🧠', 'nap': '😴', 'rest': '🛌',
-  'break': '☕️', 'coffee': '☕️', 'walk': '🚶', 'stretch': '🤸',
-  'piano': '🎹', 'music': '🎶', 'practice': '🎼',
-  'commute': '🚗', 'drive': '🚗', 'bus': '🚌', 'train': '🚆', 'travel': '✈️',
-  'shop': '🛍️', 'bank': '🏦', 'post': '✉️', 'errands': '🏃‍♀️',
-  'friends': '🧑‍🤝‍🧑', 'family': '👨‍👩‍👧‍👦', 'social': '🎉',
-  'wake up': '⏰',
-  'coles': '🛒',
-  'woolworths': '🛒',
-  'lesson': '🧑‍🏫',
-  'call': '📞',
-  'phone': '📱',
-  'text': '💬',
-  'contact': '🤝',
-  'student': '🧑‍🎓',
-  'rehearsal': '🎭',
-  'time off': '🌴', // NEW: Time off emoji
-};
+// NEW: Define RawTaskInput locally as it's internal to parsing
+interface RawTaskInput {
+  name: string;
+  duration?: number; // in minutes
+  startTime?: Date;
+  endTime?: Date;
+  breakDuration?: number; // in minutes
+  isCritical: boolean;
+  shouldSink?: boolean; // NEW: For tasks that go directly to Aether Sink
+}
 
-// New: Map keywords to HSL hue values (0-360)
-const EMOJI_HUE_MAP: { [key: string]: number } = {
-  'gym': 200, 'workout': 200, 'run': 210, 'exercise': 200, 'fitness': 200,
-  'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
-  'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40, 'sync': 290, 'standup': 290,
-  'design': 320, 'writing': 320, 'art': 330, 'creative': 340, 'draw': 320,
-  'study': 260, 'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260, 'tutorial': 60,
-  'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40, 'room': 150,
-  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350,
-  'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
-  'gaming': 0, 'tv': 10, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150,
-  'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150,
-  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110,
-  'piano': 270, 'music': 270, 'practice': 270,
-  'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200,
-  'shop': 180, 'bank': 220, 'post': 240, 'errands': 210,
-  'friends': 300, 'family': 300, 'social': 310,
-  'wake up': 60,
-  'coles': 180,
-  'woolworths': 180,
-  'lesson': 260,
-  'call': 250,
-  'phone': 255,
-  'text': 245,
-  'contact': 290,
-  'student': 265,
-  'rehearsal': 315,
-  'time off': 100, // NEW: Hue for time off (green/teal)
-};
+// NEW: Define TimeMarker locally as it's internal to display logic
+interface TimeMarker {
+  time: Date;
+  label: string;
+  isCurrent: boolean;
+}
 
-const BREAK_DESCRIPTIONS: { [key: number]: string } = {
-  5: "Quick stretch",
-  10: "Stand and hydrate",
-  15: "Walk around, refresh",
-  20: "Proper rest, step outside",
-  30: "Meal break, recharge",
-};
+// NEW: Define DisplayItem locally as it's internal to display logic
+type DisplayItem = ScheduledItem | TimeMarker;
 
-const DEFAULT_EMOJI = '📋';
-const DEFAULT_HUE = 220;
 
-// --- Helper Functions ---
+export const parseFlexibleTime = (timeString: string, baseDate: Date): Date => {
+  const lowerCaseTimeString = timeString.toLowerCase();
+  const now = new Date();
+  let parsedTime: Date;
 
-export const formatTime = (date: Date): string => format(date, 'hh:mm a');
-export const formatDateTime = (date: Date): string => format(date, 'EEEE, MMMM d, yyyy at hh:mm a');
-export const formatDayMonth = (date: Date): string => format(date, 'EEEE, MMMM d');
-
-export const assignEmoji = (taskName: string): string => {
-  const lowerCaseName = taskName.toLowerCase();
-  for (const keyword in EMOJI_MAP) {
-    if (lowerCaseName.includes(keyword)) {
-      return EMOJI_MAP[keyword];
-    }
-  }
-  return DEFAULT_EMOJI;
-};
-
-// New: Function to get hue based on task name
-export const getEmojiHue = (taskName: string): number => {
-  const lowerCaseName = taskName.toLowerCase();
-  for (const keyword in EMOJI_HUE_MAP) {
-    if (lowerCaseName.includes(keyword)) {
-      return EMOJI_HUE_MAP[keyword];
-    }
-  }
-  return DEFAULT_HUE;
-};
-
-export const getBreakDescription = (duration: number): string => {
-  if (duration >= 30) return BREAK_DESCRIPTIONS[30];
-  if (duration >= 20) return BREAK_DESCRIPTIONS[20];
-  if (duration >= 15) return BREAK_DESCRIPTIONS[15];
-  if (duration >= 10) return BREAK_DESCRIPTIONS[10];
-  if (duration >= 5) return BREAK_DESCRIPTIONS[5];
-  return "Short pause";
-};
-
-export const getMidnightRolloverMessage = (endDate: Date, T_current: Date): string | null => {
-  if (!isToday(endDate) && endDate.getTime() > T_current.getTime()) {
-    return `⚠️ Schedule extends past midnight into ${formatDayMonth(endDate)}`;
-  }
-  return null;
-};
-
-/**
- * Generates fixed time markers for a full 24-hour template.
- */
-export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
-  const markers: TimeMarker[] = [];
-  const startOfToday = startOfDay(T_current); // 12:00 AM today
-
-  // Add 12 AM marker
-  markers.push({ id: 'marker-0', type: 'marker', time: startOfToday, label: formatTime(startOfToday) });
-
-  // Add markers every 3 hours for a full 24-hour cycle
-  for (let i = 3; i <= 24; i += 3) {
-    const markerTime = addHours(startOfToday, i);
-    markers.push({ id: `marker-${i}`, type: 'marker', time: markerTime, label: formatTime(markerTime) });
-  }
-  
-  return markers;
-};
-
-// Helper to parse time flexibly
-export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date => {
-  const formatsToTry = [
-    'h:mm a', // e.g., "3:45 PM"
-    'h a',    // e.g., "3 PM"
-    'h:mma',  // e.g., "3:45pm"
-    'ha',     // e.g., "3pm"
-  ];
-
-  for (const formatStr of formatsToTry) {
-    const parsedDate = parse(timeString, formatStr, referenceDate); // Use referenceDate here
-    if (!isNaN(parsedDate.getTime())) {
-      return parsedDate;
-    }
+  // Handle relative times like "in 30 min"
+  const inMinutesMatch = lowerCaseTimeString.match(/^in (\d+) min$/);
+  if (inMinutesMatch) {
+    return addMinutes(now, parseInt(inMinutesMatch[1], 10));
   }
 
-  return new Date('Invalid Date'); // Explicitly return an invalid date
+  // Handle "now"
+  if (lowerCaseTimeString === 'now') {
+    return now;
+  }
+
+  // Try parsing with AM/PM
+  parsedTime = parse(lowerCaseTimeString, 'h:mm a', baseDate);
+  if (!isNaN(parsedTime.getTime())) return parsedTime;
+
+  parsedTime = parse(lowerCaseTimeString, 'h a', baseDate);
+  if (!isNaN(parsedTime.getTime())) return parsedTime;
+
+  // Try parsing 24-hour format
+  parsedTime = parse(lowerCaseTimeString, 'HH:mm', baseDate);
+  if (!isNaN(parsedTime.getTime())) return parsedTime;
+
+  parsedTime = parse(lowerCaseTimeString, 'H', baseDate);
+  if (!isNaN(parsedTime.getTime())) return parsedTime;
+
+  // Handle common keywords
+  if (lowerCaseTimeString.includes('morning')) {
+    return setHours(setMinutes(baseDate, 0), 9); // 9 AM
+  }
+  if (lowerCaseTimeString.includes('noon')) {
+    return setHours(setMinutes(baseDate, 0), 12); // 12 PM
+  }
+  if (lowerCaseTimeString.includes('afternoon')) {
+    return setHours(setMinutes(baseDate, 0), 14); // 2 PM
+  }
+  if (lowerCaseTimeString.includes('evening')) {
+    return setHours(setMinutes(baseDate, 0), 18); // 6 PM
+  }
+  if (lowerCaseTimeString.includes('night')) {
+    return setHours(setMinutes(baseDate, 0), 21); // 9 PM
+  }
+
+  // Default to current time if parsing fails
+  return now;
 };
 
-/**
- * Parses a time string (e.g., "09:00") and sets it on a reference date.
- */
+export const formatTime = (date: Date): string => {
+  return format(date, 'h:mm a');
+};
+
+export const formatDateTime = (date: Date): string => {
+  return format(date, 'MMM d, h:mm a');
+};
+
 export const setTimeOnDate = (date: Date, timeString: string): Date => {
   const [hours, minutes] = timeString.split(':').map(Number);
   return setMinutes(setHours(date, hours), minutes);
 };
 
-interface ParsedTaskInput {
-  name: string;
-  duration?: number;
-  breakDuration?: number;
-  startTime?: Date;
-  endTime?: Date;
-  isCritical: boolean;
-  shouldSink?: boolean; // NEW: Flag to indicate if task should go directly to sink
-  isFlexible: boolean; // NEW: Added isFlexible to parsed input
-}
+export const parseTaskInput = (input: string, selectedDayAsDate: Date): RawTaskInput | null => {
+  input = input.trim();
 
-export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => {
-  let isCritical = false;
-  let shouldSink = false;
-  let isFlexible = true; // Default to flexible
-
-  // Order of parsing flags matters: sink, then critical, then fixed
-  if (input.endsWith(' sink')) {
-    shouldSink = true;
-    input = input.slice(0, -5).trim();
-  }
-
-  if (input.endsWith(' !')) {
-    isCritical = true;
-    input = input.slice(0, -2).trim();
-  }
-
-  if (input.endsWith(' fixed')) {
-    isFlexible = false;
-    input = input.slice(0, -6).trim();
-  }
-
-  // Check for "time off" keyword and set isFlexible to false automatically
-  if (input.toLowerCase().startsWith('time off')) {
-    isFlexible = false;
-  }
-
-  const timeRangePattern = /(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))/i;
-  const timeRangeMatch = input.match(timeRangePattern);
-
-  if (timeRangeMatch) {
-    const fullTimeRangeString = timeRangeMatch[0];
-    const startTimeStr = timeRangeMatch[1].trim();
-    const endTimeStr = timeRangeMatch[3].trim();
-
-    const startTime = parseFlexibleTime(startTimeStr, selectedDayAsDate);
-    const endTime = parseFlexibleTime(endTimeStr, selectedDayAsDate);
-
-    if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
-      const rawTaskName = input.replace(fullTimeRangeString, '').trim();
-
-      const stopWords = ['at', 'from', 'to', 'between', 'is', 'a', 'the', 'and'];
-      const stopWordsRegex = new RegExp(`\\b(?:${stopWords.join('|')})\\b`, 'gi');
-      
-      const cleanedTaskName = rawTaskName
-        .replace(stopWordsRegex, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      if (cleanedTaskName) {
-        return { name: cleanedTaskName, startTime, endTime, isCritical, shouldSink, isFlexible };
-      }
-    }
-  }
-
-  const durationRegex = /^(.*?)\s+(\d+)(?:\s+(\d+))?$/;
+  // Regex for "Task Name Duration [Break] [!] [sink]"
+  const durationRegex = /^(.*?)\s+(\d+)(?:\s+(\d+))?(?:\s+(!))?(?:\s+(sink))?$/i;
   const durationMatch = input.match(durationRegex);
 
   if (durationMatch) {
-    const name = durationMatch[1].trim();
+    const name = durationMatch[1].trim().replace(/^"|"$/g, ''); // Remove quotes if present
     const duration = parseInt(durationMatch[2], 10);
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
+    const isCritical = !!durationMatch[4]; // Check for '!'
+    const shouldSink = !!durationMatch[5]; // Check for 'sink'
+
     if (name && duration > 0) {
-      return { name, duration, breakDuration, isCritical, shouldSink, isFlexible };
+      return { name, duration, breakDuration, isCritical, shouldSink };
+    }
+  }
+
+  // Regex for "Task Name HH:MM AM/PM - HH:MM AM/PM [!]"
+  const timeRangeRegex = /^(.*?)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*-\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)(?:\s+(!))?$/i;
+  const timeRangeMatch = input.match(timeRangeRegex);
+
+  if (timeRangeMatch) {
+    const name = timeRangeMatch[1].trim().replace(/^"|"$/g, ''); // Remove quotes if present
+    const startTimeString = timeRangeMatch[2].trim();
+    const endTimeString = timeRangeMatch[3].trim();
+    const isCritical = !!timeRangeMatch[4]; // Check for '!'
+
+    const startTime = parseFlexibleTime(startTimeString, selectedDayAsDate);
+    let endTime = parseFlexibleTime(endTimeString, selectedDayAsDate);
+
+    // If end time is before start time, assume it's the next day
+    if (isBefore(endTime, startTime)) {
+      endTime = addDays(endTime, 1);
+    }
+
+    if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+      return { name, startTime, endTime, isCritical };
     }
   }
 
   return null;
 };
 
-interface ParsedInjectionCommand {
-  taskName: string;
-  duration?: number;
-  breakDuration?: number;
-  startTime?: string;
-  endTime?: string;
-  isCritical: boolean;
-  isFlexible: boolean; // Changed to non-optional
-}
+export const parseInjectionCommand = (input: string) => {
+  input = input.trim();
+  // Regex for 'inject "Task Name" [Duration] [Break] [!] [flexible]'
+  const injectDurationRegex = /^inject\s+"(.*?)"(?:\s+(\d+))?(?:\s+(\d+))?(?:\s+(!))?(?:\s+(flexible))?$/i;
+  const injectDurationMatch = input.match(injectDurationRegex);
 
-export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
-  let isCritical = false;
-  let isFlexible = true; // Default to flexible
-
-  if (input.endsWith(' !')) {
-    isCritical = true;
-    input = input.slice(0, -2).trim();
+  if (injectDurationMatch) {
+    const taskName = injectDurationMatch[1].trim();
+    const duration = injectDurationMatch[2] ? parseInt(injectDurationMatch[2], 10) : undefined;
+    const breakDuration = injectDurationMatch[3] ? parseInt(injectDurationMatch[3], 10) : undefined;
+    const isCritical = !!injectDurationMatch[4];
+    const isFlexible = !!injectDurationMatch[5];
+    return { taskName, duration, breakDuration, isCritical, isFlexible, startTime: undefined, endTime: undefined };
   }
 
-  if (input.endsWith(' fixed')) {
-    isFlexible = false;
-    input = input.slice(0, -6).trim();
+  // Regex for 'inject "Task Name" HH:MM AM/PM - HH:MM AM/PM [!] [flexible]'
+  const injectTimeRangeRegex = /^inject\s+"(.*?)"\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*-\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)(?:\s+(!))?(?:\s+(flexible))?$/i;
+  const injectTimeRangeMatch = input.match(injectTimeRangeRegex);
+
+  if (injectTimeRangeMatch) {
+    const taskName = injectTimeRangeMatch[1].trim();
+    const startTime = injectTimeRangeMatch[2].trim();
+    const endTime = injectTimeRangeMatch[3].trim();
+    const isCritical = !!injectTimeRangeMatch[4];
+    const isFlexible = !!injectTimeRangeMatch[5];
+    return { taskName, startTime, endTime, isCritical, isFlexible, duration: undefined, breakDuration: undefined };
   }
 
-  // Check for "time off" keyword and set isFlexible to false automatically
-  if (input.toLowerCase().startsWith('inject "time off"')) {
-    isFlexible = false;
-  }
-
-
-  const injectRegex = /^inject\s+"(.*?)"(?:\s+(\d+)(?:\s+(\d+))?)?(?:\s+from\s+(\d{1,2}(:\d{2})?\s*(?:am|pm))\s+to\s+(\d{1,2}(:\d{2})?\s*(?:am|pm)))?$/i;
-  const match = input.match(injectRegex);
-
-  if (match) {
-    const taskName = match[1].trim();
-    const duration = match[2] ? parseInt(match[2], 10) : undefined;
-    const breakDuration = match[3] ? parseInt(match[3], 10) : undefined;
-    const startTime = match[4] ? match[4].trim() : undefined;
-    const endTime = match[6] ? match[6].trim() : undefined;
-
-    if (taskName) {
-      if (startTime && endTime) {
-        isFlexible = false; // Timed injections are always fixed
-      }
-      return { taskName, duration, breakDuration, startTime, endTime, isCritical, isFlexible };
-    }
-  }
   return null;
 };
 
-interface ParsedCommand {
-  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact' | 'timeoff'; // Added 'timeoff'
-  index?: number;
-  target?: string;
-}
-
-export const parseCommand = (input: string): ParsedCommand | null => {
-  const lowerInput = input.toLowerCase();
-
-  if (lowerInput === 'clear queue' || lowerInput === 'clear') {
+export const parseCommand = (input: string) => {
+  input = input.trim().toLowerCase();
+  if (input === 'clear') {
     return { type: 'clear' };
   }
-
-  const removeByIndexRegex = /^remove\s+index\s+(\d+)$/;
-  const removeByTargetRegex = /^remove\s+(.+)$/;
-
-  const removeByIndexMatch = lowerInput.match(removeByIndexRegex);
-  if (removeByIndexMatch) {
-    const index = parseInt(removeByIndexMatch[1], 10) - 1;
-    return { type: 'remove', index };
+  if (input.startsWith('remove')) {
+    const parts = input.split(' ');
+    if (parts.length > 1) {
+      if (parts[1] === 'index' && parts.length > 2) {
+        const index = parseInt(parts[2], 10);
+        if (!isNaN(index)) {
+          return { type: 'remove', index: index - 1 }; // Convert to 0-based index
+        }
+      } else {
+        const target = parts.slice(1).join(' ');
+        return { type: 'remove', target };
+      }
+    }
+    return { type: 'remove' }; // No target specified
   }
-
-  const removeByTargetMatch = lowerInput.match(removeByTargetRegex);
-  if (removeByTargetMatch) {
-    const target = removeByTargetMatch[1].trim();
-    return { type: 'remove', target };
-  }
-
-  if (lowerInput === 'show queue' || lowerInput === 'show') {
+  if (input === 'show') {
     return { type: 'show' };
   }
-
-  if (lowerInput.startsWith('reorder')) {
+  if (input === 'reorder') {
     return { type: 'reorder' };
   }
-
-  if (lowerInput === 'compact' || lowerInput === 'reshuffle') {
+  if (input === 'compact') {
     return { type: 'compact' };
   }
-
-  if (lowerInput.startsWith('time off')) { // NEW: Handle 'time off' as a command
-    return { type: 'timeoff' };
-  }
-
   return null;
 };
 
-// NEW: Helper to merge overlapping time blocks
-export const mergeOverlappingTimeBlocks = (blocks: { start: Date; end: Date; duration: number }[]): { start: Date; end: Date; duration: number }[] => {
-  if (blocks.length === 0) return [];
+export const mergeOverlappingTimeBlocks = (blocks: TimeBlock[]): TimeBlock[] => {
+  if (blocks.length === 0) {
+    return [];
+  }
 
+  // Sort blocks by start time
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-  const merged: { start: Date; end: Date; duration: number }[] = [];
+  const merged: TimeBlock[] = [];
   let currentMergedBlock = { ...blocks[0] };
 
   for (let i = 1; i < blocks.length; i++) {
     const nextBlock = blocks[i];
 
-    if (currentMergedBlock.end.getTime() >= nextBlock.start.getTime()) {
-      currentMergedBlock.end = isAfter(currentMergedBlock.end, nextBlock.end) ? currentMergedBlock.end : nextBlock.end;
+    // If the current block overlaps with the next block
+    if (isBefore(nextBlock.start, currentMergedBlock.end) || isSameDay(nextBlock.start, currentMergedBlock.end)) {
+      // Merge them by extending the end time of the current merged block
+      currentMergedBlock.end = isAfter(nextBlock.end, currentMergedBlock.end) ? nextBlock.end : currentMergedBlock.end;
       currentMergedBlock.duration = Math.floor((currentMergedBlock.end.getTime() - currentMergedBlock.start.getTime()) / (1000 * 60));
     } else {
+      // No overlap, add the current merged block to the result and start a new one
       merged.push(currentMergedBlock);
       currentMergedBlock = { ...nextBlock };
     }
   }
 
+  // Add the last merged block
   merged.push(currentMergedBlock);
   return merged;
 };
 
-/**
- * Checks if a proposed time slot overlaps with any existing merged occupied blocks.
- * @param proposedStart The start time of the proposed slot.
- * @param proposedEnd The end time of the proposed slot.
- * @param occupiedBlocks An array of already merged and sorted occupied time blocks.
- * @returns true if the proposed slot is free, false if it overlaps.
- */
 export const isSlotFree = (
-  proposedStart: Date,
-  proposedEnd: Date,
-  occupiedBlocks: { start: Date; end: Date; duration: number }[]
+  newSlotStart: Date,
+  newSlotEnd: Date,
+  occupiedBlocks: TimeBlock[]
 ): boolean => {
   for (const block of occupiedBlocks) {
     // Check for overlap:
-    // (proposedStart < block.end AND proposedEnd > block.start)
-    if (isBefore(proposedStart, block.end) && isAfter(proposedEnd, block.start)) {
-      return false; // Overlap detected
-    }
-    // Edge case: proposed slot exactly matches an existing block (covered by above, but explicit for clarity)
-    if (proposedStart.getTime() === block.start.getTime() && proposedEnd.getTime() === block.end.getTime()) {
-      return false; // Exact overlap
+    // (StartA < EndB) && (EndA > StartB)
+    if (isBefore(newSlotStart, block.end) && isAfter(newSlotEnd, block.start)) {
+      return false; // Overlap found
     }
   }
-  return true; // No overlap found
+  return true; // No overlap
 };
-
-
-// --- Core Scheduling Logic ---
 
 export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
-  selectedDateString: string,
+  selectedDay: string,
   workdayStartTime: Date,
-  workdayEndTime: Date
+  workdayEndTime: Date,
+  flexibleTasksOrder?: DBScheduledTask[] // Optional: provide a specific order for flexible tasks
 ): FormattedSchedule => {
-  const scheduledItems: ScheduledItem[] = [];
-  let totalActiveTime = 0;
-  let totalBreakTime = 0;
-  let unscheduledCount = 0;
-  let criticalTasksRemaining = 0;
+  const selectedDayAsDate = parseISO(selectedDay);
+  const now = new Date();
 
-  const allTasksWithTimes: DBScheduledTask[] = dbTasks.filter(task => task.start_time && task.end_time);
+  const fixedTasks: DBScheduledTask[] = [];
+  const flexibleTasks: DBScheduledTask[] = [];
+  const timeOffBlocks: TimeBlock[] = []; // For 'time-off' tasks
 
-  allTasksWithTimes.sort((a, b) => {
-    const startA = parseISO(a.start_time!);
-    const startB = parseISO(b.start_time!);
-    return startA.getTime() - startB.getTime();
+  dbTasks.forEach(task => {
+    if (task.is_flexible) {
+      flexibleTasks.push(task);
+    } else if (task.name.toLowerCase() === 'time off') { // Identify 'time off' tasks
+      if (task.start_time && task.end_time) {
+        const start = setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time), 'HH:mm'));
+        let end = setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time), 'HH:mm'));
+        if (isBefore(end, start)) end = addDays(end, 1); // Handle overnight
+        timeOffBlocks.push({ start, end, duration: Math.floor((end.getTime() - start.getTime()) / (1000 * 60)) });
+      }
+    } else {
+      fixedTasks.push(task);
+    }
   });
 
-  const selectedDayAsDate = parseISO(selectedDateString);
+  // Sort fixed tasks by start time
+  fixedTasks.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
 
-  allTasksWithTimes.forEach(task => {
-    let startTime = parseISO(task.start_time!);
-    let endTime = parseISO(task.end_time!);
-
-    // FIX: Use local hours/minutes instead of UTC hours/minutes
-    startTime = setHours(setMinutes(selectedDayAsDate, startTime.getMinutes()), startTime.getHours());
-    endTime = setHours(setMinutes(selectedDayAsDate, endTime.getMinutes()), endTime.getHours());
-
-    if (isBefore(endTime, startTime)) {
-        endTime = addDays(endTime, 1);
+  // Create initial occupied blocks from fixed tasks and time-off
+  let occupiedBlocks: TimeBlock[] = [];
+  fixedTasks.forEach(task => {
+    if (task.start_time && task.end_time) {
+      const start = setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time), 'HH:mm'));
+      let end = setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time), 'HH:mm'));
+      if (isBefore(end, start)) end = addDays(end, 1); // Handle overnight
+      occupiedBlocks.push({ start, end, duration: Math.floor((end.getTime() - start.getTime()) / (1000 * 60)) });
     }
+  });
+  occupiedBlocks = mergeOverlappingTimeBlocks([...occupiedBlocks, ...timeOffBlocks]); // Merge fixed tasks and time-off
 
-    if (isBefore(startTime, workdayStartTime) || isAfter(endTime, workdayEndTime)) {
-      unscheduledCount++;
+  const scheduledItems: ScheduledItem[] = [];
+  let currentOccupiedBlocks = [...occupiedBlocks]; // Use a mutable copy for scheduling flexible tasks
+
+  // Add fixed tasks and time-off to scheduled items first
+  fixedTasks.forEach(task => {
+    if (task.start_time && task.end_time) {
+      const start = setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time), 'HH:mm'));
+      let end = setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time), 'HH:mm'));
+      if (isBefore(end, start)) end = addDays(end, 1);
+      scheduledItems.push({
+        id: task.id,
+        type: 'task',
+        name: task.name,
+        startTime: start,
+        endTime: end,
+        duration: Math.floor((end.getTime() - start.getTime()) / (1000 * 60)),
+        isCritical: task.is_critical,
+        isFlexible: task.is_flexible,
+        breakDuration: task.break_duration,
+        originalTask: task,
+        emoji: '📝' // Default emoji for tasks
+      } as ScheduledTaskItem);
     }
+  });
 
-    if (task.is_critical) {
-      criticalTasksRemaining++;
-    }
-
-    const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-    const isStandaloneBreak = task.name.toLowerCase() === 'break';
-    const isTimeOff = task.name.toLowerCase().includes('time off'); // NEW: Check for 'time off'
-    const isMealTime = ['breakfast', 'lunch', 'dinner'].some(meal => task.name.toLowerCase().includes(meal));
-
-
+  timeOffBlocks.forEach((block, index) => {
     scheduledItems.push({
-      id: task.id, 
-      type: isStandaloneBreak ? 'break' : (isTimeOff ? 'time-off' : 'task'), // NEW: Assign 'time-off' type
-      name: task.name, 
-      duration: duration,
-      startTime: startTime, 
-      endTime: endTime, 
-      emoji: isStandaloneBreak ? EMOJI_MAP['break'] : (isTimeOff ? EMOJI_MAP['time off'] : assignEmoji(task.name)), // NEW: Assign time off emoji
-      description: isStandaloneBreak ? getBreakDescription(duration) : undefined,
-      isTimedEvent: true,
-      isCritical: task.is_critical,
-      isFlexible: task.is_flexible,
-    });
-    
-    // Conditional addition to totalActiveTime or totalBreakTime
-    // Only add to active or break time if it's NOT a meal time or time off
-    if (!isMealTime && !isTimeOff) { // NEW: Exclude time off from active/break time
-      if (isStandaloneBreak || task.break_duration) {
-        totalBreakTime += duration;
-        if (task.break_duration) totalBreakTime += task.break_duration;
-      } else {
-        totalActiveTime += duration;
+      id: `time-off-${index}`, // Unique ID for time-off blocks
+      type: 'time-off', // Corrected type
+      name: 'Time Off',
+      startTime: block.start,
+      endTime: block.end,
+      duration: block.duration,
+      emoji: '🏖️' // Emoji for time off
+    } as ScheduledTimeOffItem);
+  });
+
+
+  // Schedule flexible tasks
+  const tasksToSchedule = flexibleTasksOrder || flexibleTasks; // Use provided order or default
+  for (const task of tasksToSchedule) {
+    const taskDuration = task.break_duration || 30; // Assuming break_duration is the actual duration for 'break' tasks, or default
+    const isStandaloneBreak = task.name.toLowerCase() === 'break';
+
+    // Find a free slot for the flexible task
+    const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, workdayStartTime, workdayEndTime);
+
+    let placed = false;
+    for (const freeBlock of freeBlocks) {
+      if (freeBlock.duration >= taskDuration) {
+        const proposedStartTime = freeBlock.start;
+        const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
+
+        scheduledItems.push({
+          id: task.id,
+          type: isStandaloneBreak ? 'break' : 'task', // Corrected type
+          name: task.name,
+          startTime: proposedStartTime,
+          endTime: proposedEndTime,
+          duration: taskDuration,
+          isCritical: task.is_critical,
+          isFlexible: task.is_flexible,
+          breakDuration: task.break_duration,
+          originalTask: task,
+          emoji: isStandaloneBreak ? '☕' : '✨' // Emojis for breaks and flexible tasks
+        } as ScheduledTaskItem | ScheduledBreakItem);
+
+        // Update current occupied blocks
+        currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
+        currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
+        placed = true;
+        break;
       }
     }
-  });
+    if (!placed) {
+      // Mark as unscheduled if it couldn't be placed
+      console.warn(`Task "${task.name}" could not be scheduled.`);
+    }
+  }
 
+  // Sort all scheduled items by start time
   scheduledItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-  const sessionEnd = scheduledItems.length > 0 ? scheduledItems[scheduledItems.length - 1].endTime : workdayStartTime;
-  const extendsPastMidnight = !isSameDay(sessionEnd, selectedDayAsDate) && scheduledItems.length > 0;
-  const midnightRolloverMessage = extendsPastMidnight ? getMidnightRolloverMessage(sessionEnd, new Date()) : null;
+  // Generate free slots based on the final scheduled items
+  const finalOccupiedBlocks = mergeOverlappingTimeBlocks(scheduledItems.map(item => ({
+    start: item.startTime,
+    end: item.endTime,
+    duration: item.duration,
+  })));
 
+  const finalFreeBlocks = getFreeTimeBlocks(finalOccupiedBlocks, workdayStartTime, workdayEndTime);
+  finalFreeBlocks.forEach((block, index) => {
+    scheduledItems.push({
+      id: `free-slot-${index}`, // Unique ID for free slots
+      type: 'free-slot',
+      name: 'Free Time',
+      startTime: block.start,
+      endTime: block.end,
+      duration: block.duration,
+      emoji: '🧘' // Emoji for free time
+    } as FreeSlotItem);
+  });
+
+  // Re-sort after adding free slots
+  scheduledItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+  // Calculate summary
   const summary: ScheduleSummary = {
-    totalTasks: dbTasks.length, 
-    activeTime: {
-      hours: Math.floor(totalActiveTime / 60),
-      minutes: totalActiveTime % 60,
-    },
-    breakTime: totalBreakTime,
-    sessionEnd: sessionEnd,
-    extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
-    unscheduledCount: unscheduledCount,
-    criticalTasksRemaining: criticalTasksRemaining,
+    totalScheduledDuration: scheduledItems.filter(item => item.type === 'task' || item.type === 'time-off').reduce((sum, item) => sum + item.duration, 0),
+    totalBreakDuration: scheduledItems.filter(item => item.type === 'break').reduce((sum, item) => sum + item.duration, 0),
+    totalFreeTime: scheduledItems.filter(item => item.type === 'free-slot').reduce((sum, item) => sum + item.duration, 0),
+    unscheduledCount: dbTasks.length - scheduledItems.filter(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off').length,
+    workdayStart: workdayStartTime,
+    workdayEnd: workdayEndTime,
   };
 
   return {
     items: scheduledItems,
     summary: summary,
-    dbTasks: dbTasks,
   };
-};
-
-/**
- * Compacts the schedule by moving flexible tasks forward to fill gaps.
- * Fixed appointments are not moved.
- * @param allCurrentTasks The current list of DBScheduledTask objects (fixed and flexible).
- * @param selectedDate The date for which the schedule is being compacted.
- * @param workdayStartTime The start time of the user's workday.
- * @param workdayEndTime The end time of the user's workday.
- * @param T_current The current real-world time.
- * @param preSortedFlexibleTasks Optional: an array of flexible tasks already sorted by the caller.
- *                                If provided, these will be used instead of filtering and sorting internally.
- * @returns An array of DBScheduledTask objects with updated start_time and end_time.
- */
-export const compactScheduleLogic = (
-  allCurrentTasks: DBScheduledTask[],
-  selectedDate: Date,
-  workdayStartTime: Date,
-  workdayEndTime: Date,
-  T_current: Date,
-  preSortedFlexibleTasks?: DBScheduledTask[]
-): DBScheduledTask[] => {
-  const finalSchedule: DBScheduledTask[] = [];
-
-  const fixedTasks = allCurrentTasks.filter(task => !task.is_flexible);
-  const flexibleTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible);
-
-  fixedTasks.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
-
-  finalSchedule.push(...fixedTasks);
-
-  let occupiedBlocks = mergeOverlappingTimeBlocks(fixedTasks.map(task => ({
-    start: parseISO(task.start_time!),
-    end: parseISO(task.end_time!),
-    duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
-  })));
-
-
-  let currentPlacementTime = isSameDay(selectedDate, T_current) && isAfter(T_current, workdayStartTime)
-    ? T_current
-    : workdayStartTime;
-
-
-  if (isAfter(currentPlacementTime, workdayEndTime)) {
-    return fixedTasks;
-  }
-
-  for (const flexibleTask of flexibleTasksToPlace) {
-    const taskDuration = Math.floor((parseISO(flexibleTask.end_time!).getTime() - parseISO(flexibleTask.start_time!).getTime()) / (1000 * 60));
-    const taskBreakDuration = flexibleTask.break_duration || 0;
-    const totalTaskDuration = taskDuration + taskBreakDuration;
-
-    let currentSearchTime = currentPlacementTime;
-    let placed = false;
-
-    while (isBefore(currentSearchTime, workdayEndTime)) {
-      let potentialEndTime = addMinutes(currentSearchTime, totalTaskDuration);
-
-      if (isAfter(potentialEndTime, workdayEndTime)) {
-        break;
-      }
-
-      const isFree = isSlotFree(currentSearchTime, potentialEndTime, occupiedBlocks);
-
-      if (isFree) {
-        finalSchedule.push({
-          ...flexibleTask,
-          start_time: currentSearchTime.toISOString(),
-          end_time: potentialEndTime.toISOString(),
-        });
-        occupiedBlocks.push({
-          start: currentSearchTime,
-          end: potentialEndTime,
-          duration: totalTaskDuration
-        });
-        occupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks);
-        currentPlacementTime = potentialEndTime;
-        placed = true;
-        break;
-      } else {
-        let nextAvailableTime = currentSearchTime;
-        for (const block of occupiedBlocks) {
-          if (isBefore(currentSearchTime, block.end) && isAfter(potentialEndTime, block.start)) {
-            if (isAfter(block.end, nextAvailableTime)) {
-              nextAvailableTime = block.end;
-            }
-          }
-        }
-        currentSearchTime = nextAvailableTime;
-      }
-    }
-    if (!placed) {
-      console.warn(`compactScheduleLogic: Flexible task "${flexibleTask.name}" could not be placed within the workday.`);
-    }
-  }
-
-  finalSchedule.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
-  return finalSchedule;
 };
 
 export const getFreeTimeBlocks = (
@@ -601,7 +417,7 @@ export const getFreeTimeBlocks = (
 
   for (const appt of occupiedBlocks) {
     if (isBefore(appt.end, currentFreeTimeStart)) {
-        continue;
+      continue;
     }
 
     if (isBefore(currentFreeTimeStart, appt.start)) {

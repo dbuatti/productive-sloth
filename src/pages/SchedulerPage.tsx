@@ -100,7 +100,13 @@ const getFreeTimeBlocks = (
   let currentFreeTimeStart = workdayStart;
 
   for (const appt of mergedAppointments) { // Iterate over merged appointments
-    // If there's a gap before this appointment
+    // If the appointment is entirely before our current search point, skip it.
+    if (isBefore(appt.end, currentFreeTimeStart)) {
+        continue;
+    }
+
+    // If there's a gap between currentFreeTimeStart and the start of this appointment
+    // (and the appointment starts within or after the workdayStart)
     if (isBefore(currentFreeTimeStart, appt.start)) {
       const duration = Math.floor((appt.start.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
       if (duration > 0) {
@@ -108,7 +114,7 @@ const getFreeTimeBlocks = (
       }
     }
     // Move currentFreeTimeStart past this appointment's end
-    currentFreeTimeStart = isAfter(appt.end, appt.start) ? appt.end : currentFreeTimeStart; // Ensure it moves forward
+    currentFreeTimeStart = isAfter(appt.end, currentFreeTimeStart) ? appt.end : currentFreeTimeStart; // Ensure it moves forward
   }
 
   // Add any remaining free time after the last appointment until workdayEnd
@@ -161,14 +167,14 @@ const SchedulerPage: React.FC = () => {
     const mappedTimes = dbScheduledTasks
       .filter(task => task.start_time && task.end_time)
       .map(task => {
-        const utcStart = parseISO(task.start_time!);
-        const utcEnd = parseISO(task.end_time!);
-        const localStart = new Date(utcStart.getUTCFullYear(), utcStart.getUTCMonth(), utcStart.getUTCDate(), utcStart.getUTCHours(), utcStart.getUTCMinutes(), utcStart.getUTCSeconds());
-        const localEnd = new Date(utcEnd.getUTCFullYear(), utcEnd.getUTCMonth(), utcEnd.getUTCDate(), utcEnd.getUTCHours(), utcEnd.getUTCMinutes(), utcEnd.getUTCSeconds());
+        // parseISO already returns a Date object in the local timezone
+        // representing the UTC instant. No further manual conversion needed.
+        const start = parseISO(task.start_time!);
+        const end = parseISO(task.end_time!);
         return {
-          start: localStart,
-          end: localEnd,
-          duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
+          start: start,
+          end: end,
+          duration: Math.floor((end.getTime() - start.getTime()) / (1000 * 60)),
         };
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -388,7 +394,7 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     
-    const parsedInput = parseTaskInput(input);
+    const parsedInput = parseTaskInput(input, selectedDayAsDate); // Pass selectedDayAsDate
     const injectCommand = parseInjectionCommand(input);
     const command = parseCommand(input);
 
@@ -626,8 +632,8 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayAsDate);
-      const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayAsDate);
+      const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayAsDate); // Pass selectedDayAsDate
+      const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayAsDate);     // Pass selectedDayAsDate
 
       let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempStartTime.getMinutes()), tempStartTime.getHours());
       let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempEndTime.getMinutes()), tempEndTime.getHours());
@@ -1127,67 +1133,69 @@ const SchedulerPage: React.FC = () => {
               Please provide the details for this task.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {injectionPrompt?.isTimed ? (
-              <>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="startTime" className="text-right">
-                    Start Time
-                  </Label>
-                  <Input
-                    id="startTime"
-                    type="text"
-                    placeholder="e.g., 11am"
-                    value={injectionStartTime}
-                    onChange={(e) => setInjectionStartTime(e.target.value)}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="endTime" className="text-right">
-                    End Time
-                  </Label>
-                  <Input
-                    id="endTime"
-                    type="text"
-                    placeholder="e.g., 12pm"
-                    value={injectionEndTime}
-                    onChange={(e) => setInjectionEndTime(e.target.value)}
-                    className="col-span-3"
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="duration" className="text-right">
-                    Duration (min)
-                  </Label>
-                  <Input
-                    id="duration"
-                    type="number"
-                    value={injectionDuration}
-                    onChange={(e) => setInjectionDuration(e.target.value)}
-                    className="col-span-3"
-                    min="1"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="break" className="text-right">
-                    Break (min, optional)
-                  </Label>
-                  <Input
-                    id="break"
-                    type="number"
-                    value={injectionBreak}
-                    onChange={(e) => setInjectionBreak(e.target.value)}
-                    className="col-span-3"
-                    min="0"
-                  />
-                </div>
-              </>
-            )}
-          </div>
+          <React.Fragment> {/* Wrap content in Fragment */}
+            <div className="grid gap-4 py-4">
+              {injectionPrompt?.isTimed ? (
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="startTime" className="text-right">
+                      Start Time
+                    </Label>
+                    <Input
+                      id="startTime"
+                      type="text"
+                      placeholder="e.g., 11am"
+                      value={injectionStartTime}
+                      onChange={(e) => setInjectionStartTime(e.target.value)}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="endTime" className="text-right">
+                      End Time
+                    </Label>
+                    <Input
+                      id="endTime"
+                      type="text"
+                      placeholder="e.g., 12pm"
+                      value={injectionEndTime}
+                      onChange={(e) => setInjectionEndTime(e.target.value)}
+                      className="col-span-3"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="duration" className="text-right">
+                      Duration (min)
+                    </Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      value={injectionDuration}
+                      onChange={(e) => setInjectionDuration(e.target.value)}
+                      className="col-span-3"
+                      min="1"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="break" className="text-right">
+                      Break (min, optional)
+                    </Label>
+                    <Input
+                      id="break"
+                      type="number"
+                      value={injectionBreak}
+                      onChange={(e) => setInjectionBreak(e.target.value)}
+                      className="col-span-3"
+                      min="0"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </React.Fragment> {/* Close Fragment */}
           <DialogFooter>
             <Button type="button" onClick={handleInjectionSubmit}>
               Add Task
@@ -1210,7 +1218,7 @@ const SchedulerPage: React.FC = () => {
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule
             </AlertDialogAction>
-          </AlertDialogFooter>
+          </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

@@ -138,7 +138,7 @@ export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date
   ];
 
   for (const formatStr of formatsToTry) {
-    const parsedDate = parse(timeString, formatStr, referenceDate);
+    const parsedDate = parse(timeString, formatStr, referenceDate); // Use referenceDate here
     if (!isNaN(parsedDate.getTime())) {
       return parsedDate;
     }
@@ -164,8 +164,7 @@ interface ParsedTaskInput {
   isCritical: boolean; // Added isCritical
 }
 
-export const parseTaskInput = (input: string): ParsedTaskInput | null => {
-  const now = new Date();
+export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => { // Add selectedDayAsDate
   let isCritical = false;
 
   // Check for critical flag and remove it from the input string for further parsing
@@ -183,8 +182,8 @@ export const parseTaskInput = (input: string): ParsedTaskInput | null => {
     const startTimeStr = timeRangeMatch[1].trim();
     const endTimeStr = timeRangeMatch[3].trim();
 
-    const startTime = parseFlexibleTime(startTimeStr, now);
-    const endTime = parseFlexibleTime(endTimeStr, now);
+    const startTime = parseFlexibleTime(startTimeStr, selectedDayAsDate); // Use selectedDayAsDate
+    const endTime = parseFlexibleTime(endTimeStr, selectedDayAsDate);     // Use selectedDayAsDate
 
     if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
       // Extract task name by removing the time range part
@@ -389,28 +388,25 @@ export const calculateSchedule = (
 
   // Sort all tasks by their start time
   allTasksWithTimes.sort((a, b) => {
-    const scheduledDateA = startOfDay(parseISO(a.scheduled_date));
-    const utcStartA = parseISO(a.start_time!);
-    const localTimeA = setHours(setMinutes(scheduledDateA, utcStartA.getUTCMinutes()), utcStartA.getUTCHours());
-
-    const scheduledDateB = startOfDay(parseISO(b.scheduled_date));
-    const utcStartB = parseISO(b.start_time!);
-    const localTimeB = setHours(setMinutes(scheduledDateB, utcStartB.getUTCMinutes()), utcStartB.getUTCHours());
-
-    return localTimeA.getTime() - localTimeB.getTime();
+    const startA = parseISO(a.start_time!);
+    const startB = parseISO(b.start_time!);
+    return startA.getTime() - startB.getTime();
   });
 
   const selectedDayAsDate = parseISO(selectedDateString); // Parse selectedDateString once
 
   allTasksWithTimes.forEach(task => {
-    const referenceDay = startOfDay(parseISO(task.scheduled_date)); 
+    // Use parseISO directly for start_time and end_time
     let startTime = parseISO(task.start_time!);
     let endTime = parseISO(task.end_time!);
 
-    startTime = setHours(setMinutes(referenceDay, startTime.getMinutes()), startTime.getHours());
-    endTime = setHours(setMinutes(referenceDay, endTime.getMinutes()), endTime.getHours());
+    // Adjust startTime and endTime to be on the selectedDayAsDate,
+    // preserving their time-of-day but aligning to the selected date.
+    startTime = setHours(setMinutes(selectedDayAsDate, startTime.getMinutes()), startTime.getHours());
+    endTime = setHours(setMinutes(selectedDayAsDate, endTime.getMinutes()), endTime.getHours());
 
-    if (endTime.getTime() < startTime.getTime()) {
+    // If endTime is before startTime (e.g., 11 PM - 1 AM), it means it rolls over to the next day
+    if (isBefore(endTime, startTime)) {
         endTime = addDays(endTime, 1);
     }
 

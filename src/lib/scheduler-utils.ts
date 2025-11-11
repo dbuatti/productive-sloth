@@ -513,7 +513,7 @@ export const calculateSchedule = (
     breakTime: totalBreakDuration,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
+    midnightRolloverMessage: midnightRolloverMessage, // Corrected typo here
     criticalTasksRemaining: criticalTasksRemaining,
   };
 

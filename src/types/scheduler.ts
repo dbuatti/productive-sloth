@@ -146,3 +146,10 @@ export interface FormattedSchedule {
 }
 
 export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker; // Added CurrentTimeMarker
+
+// NEW: TimeBlock interface for scheduler utility functions
+export interface TimeBlock {
+  start: Date;
+  end: Date;
+  duration: number; // in minutes
+}

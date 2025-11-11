@@ -44,6 +44,7 @@ import AetherSink from '@/components/AetherSink'; // Import AetherSink component
 import { supabase } from '@/integrations/supabase/client'; // Import supabase
 import { useQueryClient } from '@tanstack/react-query'; // Import useQueryClient
 import WeatherWidget from '@/components/WeatherWidget'; // Import WeatherWidget
+import { TimeBlock } from '@/types/scheduler'; // Import TimeBlock from scheduler types
 
 // Helper for deep comparison (simple for JSON-serializable objects)
 const deepCompare = (a: any, b: any) => {
@@ -83,12 +84,6 @@ function useDeepCompareMemoize<T>(value: T): T {
   return useMemo(() => ref.current, [signalRef.current]);
 }
 
-interface TimeBlock {
-  start: Date;
-  end: Date;
-  duration: number; // in minutes
-}
-
 const getFreeTimeBlocks = (
   appointments: { start: Date; end: Date }[],
   workdayStart: Date,
@@ -113,7 +108,7 @@ const getFreeTimeBlocks = (
       }
     }
     // Move currentFreeTimeStart past this appointment's end
-    currentFreeTimeStart = isAfter(appt.end, currentFreeTimeStart) ? appt.end : currentFreeTimeStart;
+    currentFreeTimeStart = isAfter(appt.end, appt.start) ? appt.end : currentFreeTimeStart; // Ensure it moves forward
   }
 
   // Add any remaining free time after the last appointment until workdayEnd
@@ -466,7 +461,7 @@ const SchedulerPage: React.FC = () => {
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false }); // Timed tasks are fixed
         // Optimistically update the mutable array for subsequent checks within this handler
         currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
-        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling); // Fixed typo here
+        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
         showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
@@ -497,7 +492,7 @@ const SchedulerPage: React.FC = () => {
           });
           // Optimistically update the mutable array for subsequent checks within this handler
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
-          currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling); // Fixed typo here
+          currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -702,7 +697,7 @@ const SchedulerPage: React.FC = () => {
         });
         // Optimistically update the mutable array for subsequent checks within this handler
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
-        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling); // Fixed typo here
+        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;

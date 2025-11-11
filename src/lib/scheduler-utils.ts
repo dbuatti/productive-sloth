@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock } from '@/types/scheduler'; // Import TimeBlock
 
 // --- Constants ---
 const EMOJI_MAP: { [key: string]: string } = {
@@ -585,4 +585,42 @@ export const compactScheduleLogic = (
   finalSchedule.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
 
   return finalSchedule;
+};
+
+export const getFreeTimeBlocks = (
+  occupiedBlocks: TimeBlock[], // This is already merged and sorted
+  workdayStart: Date, // This is effectiveWorkdayStart
+  workdayEnd: Date
+): TimeBlock[] => {
+  const freeBlocks: TimeBlock[] = [];
+  let currentFreeTimeStart = workdayStart; // Start looking for free time from here
+
+  for (const appt of occupiedBlocks) {
+    // If the appointment is entirely before our current search point, skip it.
+    if (isBefore(appt.end, currentFreeTimeStart)) {
+        continue;
+    }
+
+    // If there's a gap between currentFreeTimeStart and the start of this appointment
+    // (and the appointment starts within or after the workdayStart)
+    if (isBefore(currentFreeTimeStart, appt.start)) {
+      const duration = Math.floor((appt.start.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
+      if (duration > 0) {
+        freeBlocks.push({ start: currentFreeTimeStart, end: appt.start, duration });
+      }
+    }
+    // Advance currentFreeTimeStart past the end of this appointment,
+    // ensuring it doesn't go backwards if an appointment ends before currentFreeTimeStart.
+    currentFreeTimeStart = isAfter(appt.end, currentFreeTimeStart) ? appt.end : currentFreeTimeStart;
+  }
+
+  // Add any remaining free time after the last appointment until workdayEnd
+  if (isBefore(currentFreeTimeStart, workdayEnd)) {
+    const duration = Math.floor((workdayEnd.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
+    if (duration > 0) {
+      freeBlocks.push({ start: currentFreeTimeStart, end: workdayEnd, duration });
+    }
+  }
+
+  return freeBlocks;
 };

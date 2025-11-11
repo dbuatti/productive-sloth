@@ -414,7 +414,6 @@ const SchedulerPage: React.FC = () => {
               name: parsedInput.name, 
               start_time: proposedStartTime.toISOString(), 
               end_time: proposedEndTime.toISOString(), 
-              scheduled_date: taskScheduledDate,
               break_duration: parsedInput.breakDuration,
               is_critical: parsedInput.isCritical,
               is_flexible: parsedInput.isFlexible,
@@ -1152,7 +1151,7 @@ const SchedulerPage: React.FC = () => {
             isLoading={overallLoading} 
             inputValue={inputValue}
             setInputValue={setInputValue}
-            placeholder="Add task or command (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm', 'inject \"Project X\" 30', 'remove \"Gym\"', 'clear', 'compact')"
+            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm') or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact')`}
           />
           <p className="text-xs text-muted-foreground">
             Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm"

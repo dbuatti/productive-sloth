@@ -38,19 +38,6 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
   };
 };
 
-// Helper function for client-side sorting (only used for PRIORITY sorting)
-const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
-  const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-
-  return [...tasks].sort((a, b) => {
-    if (sortBy === 'PRIORITY') {
-      const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
-      if (priorityDiff !== 0) return priorityDiff;
-    }
-    return 0; 
-  });
-};
-
 const calculateLevelAndRemainingXp = (totalXp: number) => {
   const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
   const xpForCurrentLevel = (level - 1) * XP_PER_LEVEL;
@@ -92,11 +79,13 @@ export const useTasks = () => {
         .gte('due_date', dateRange.start);
     }
     
-    // Server-side sorting for DUE_DATE
+    // Server-side sorting
     if (currentSortBy === 'DUE_DATE') {
       query = query.order('due_date', { ascending: true });
+    } else if (currentSortBy === 'PRIORITY') {
+      query = query.order('priority', { ascending: false }); // Sort HIGH to LOW
     } else {
-      // Default stable sort for client-side PRIORITY sort
+      // Default stable sort if no specific sort is applied
       query = query.order('created_at', { ascending: false });
     }
 
@@ -107,22 +96,15 @@ export const useTasks = () => {
   }, [userId]);
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
-    queryKey: ['tasks', userId, temporalFilter, statusFilter, sortBy], // Include statusFilter in query key
-    queryFn: () => fetchTasks(temporalFilter, statusFilter, sortBy), // Pass statusFilter to fetchTasks
+    queryKey: ['tasks', userId, temporalFilter, statusFilter, sortBy],
+    queryFn: () => fetchTasks(temporalFilter, statusFilter, sortBy),
     enabled: !!userId,
   });
 
-  // --- Filtering and Sorting Logic (Only PRIORITY sorting remains client-side) ---
+  // All filtering and sorting is now handled server-side, so this memo can be simplified.
   const filteredTasks = useMemo(() => {
-    let result = tasks;
-
-    // Only apply client-side sort if sorting by PRIORITY
-    if (sortBy === 'PRIORITY') {
-      return sortTasks(result, sortBy);
-    }
-    
-    return result;
-  }, [tasks, sortBy]); // Removed statusFilter from dependencies as it's now server-side
+    return tasks;
+  }, [tasks]);
 
   // --- CRUD Mutations ---
 

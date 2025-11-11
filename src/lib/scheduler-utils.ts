@@ -113,7 +113,7 @@ export const getMidnightRolloverMessage = (endDate: Date, T_current: Date): stri
   return null;
 };
 
-export const generateFixedTimeMarkers = (T_current: Date): TimeMarker => {
+export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
   const markers: TimeMarker[] = [];
   const startOfToday = startOfDay(T_current);
 

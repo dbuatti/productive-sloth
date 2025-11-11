@@ -1,32 +1,23 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { ScheduledItem, FormattedSchedule, DBScheduledTask, TimeBlock, ScheduledTaskItem, ScheduledBreakItem, FreeSlotItem, ScheduledTimeOffItem, ScheduleSummary } from '@/types/scheduler'; // Updated imports
+import React, { useMemo, useRef, useEffect } from 'react';
+import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker, DBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle } from 'lucide-react';
+import { Trash, Archive, AlertCircle } from 'lucide-react'; // Import Archive icon, AlertCircle
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
-import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, format } from 'date-fns'; // Added format
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Added AlertDialog imports
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
+import { Badge } from '@/components/ui/badge'; // Import Badge component
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
-  onRemoveTask: (taskId: string) => Promise<void>;
-  onRetireTask: (task: DBScheduledTask) => Promise<void>;
+  onRemoveTask: (taskId: string) => void;
+  onRetireTask: (task: DBScheduledTask) => void; // NEW: Handler for retiring a task
   activeItemId: string | null;
-  selectedDayString: string;
-  onAddTaskClick: () => void;
+  selectedDayString: string; // New prop to pass selectedDay from parent
+  onAddTaskClick: () => void; // NEW: Handler for adding a task from empty state
 }
 
 const getBubbleHeightStyle = (duration: number) => {
@@ -38,164 +29,110 @@ const getBubbleHeightStyle = (duration: number) => {
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
-// Define a type for events that will be processed and displayed
-type DisplayEvent = {
-  id: string;
-  type: ScheduledItem['type'];
-  name: string;
-  start: Date; // Unified start time
-  end: Date;   // Unified end time
-  duration: number;
-  originalItem: ScheduledItem; // Reference to the original ScheduledItem
-};
-
-type DisplayItemWithMarker = ScheduledItem | { type: 'marker'; time: Date; label: string };
-
-
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, activeItemId, selectedDayString, onAddTaskClick }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const activeItemRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
 
-  // State for confirmation dialogs
-  const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
-  const [taskToRemove, setTaskToRemove] = useState<string | null>(null);
-  const [showRetireConfirmation, setShowRetireConfirmation] = useState(false);
-  const [taskToRetire, setTaskToRetire] = useState<DBScheduledTask | null>(null);
-
-  const handleRemoveClick = (taskId: string) => {
-    setTaskToRemove(taskId);
-    setShowRemoveConfirmation(true);
-  };
-
-  const handleRetireClick = (task: DBScheduledTask) => {
-    setTaskToRetire(task);
-    setShowRetireConfirmation(true);
-  };
-
-  const confirmRemove = async () => {
-    if (taskToRemove) {
-      await onRemoveTask(taskToRemove);
-      setTaskToRemove(null);
-      setShowRemoveConfirmation(false);
-    }
-  };
-
-  const confirmRetire = async () => {
-    if (taskToRetire) {
-      await onRetireTask(taskToRetire);
-      setTaskToRetire(null);
-      setShowRetireConfirmation(false);
-    }
-  };
+  const activeItemRef = useRef<HTMLDivElement>(null); // Ref for the active item
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
-    const allEvents: DisplayEvent[] = []; 
+    const allEvents: (ScheduledItem | TimeMarker)[] = []; 
 
-    scheduledTasks.forEach(item => {
-      if (item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'free-slot') {
-        allEvents.push({
-          id: item.id,
-          type: item.type,
-          name: item.name,
-          start: item.startTime, // Use startTime as unified 'start'
-          end: item.endTime,     // Use endTime as unified 'end'
-          duration: item.duration,
-          originalItem: item,
-        });
-      }
+    scheduledTasks.forEach(task => allEvents.push(task));
+
+    allEvents.push({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
+    allEvents.push({ id: 'marker-24hr', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); 
+
+    allEvents.sort((a, b) => {
+        const timeA = 'time' in a ? a.time : a.startTime;
+        const timeB = 'time' in b ? b.time : b.startTime;
+        return timeA.getTime() - timeB.getTime();
     });
 
-    // Sort all events by start time
-    allEvents.sort((a, b) => a.start.getTime() - b.start.getTime());
-
-    const processedItems: DisplayItemWithMarker[] = [];
+    const processedItems: DisplayItem[] = [];
     let currentCursor = startOfTemplate;
 
     allEvents.forEach(event => {
-      // Add free time if there's a gap
-      if (event.start.getTime() > currentCursor.getTime()) {
-        const freeDurationMs = event.start.getTime() - currentCursor.getTime();
-        const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
-        if (freeDurationMinutes > 0) {
-          processedItems.push({
-            id: `free-${currentCursor.toISOString()}-${event.start.toISOString()}`,
-            type: 'free-slot',
-            name: 'Free Time',
-            startTime: currentCursor,
-            endTime: event.start,
-            duration: freeDurationMinutes,
-            emoji: '🧘'
-          } as FreeSlotItem);
+        const eventStartTime = 'time' in event ? event.time : event.startTime;
+        const eventEndTime = 'time' in event ? event.time : event.endTime;
+
+        if (eventStartTime.getTime() > currentCursor.getTime()) {
+            const freeDurationMs = eventStartTime.getTime() - currentCursor.getTime();
+            const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
+            if (freeDurationMinutes > 0) {
+                processedItems.push({
+                    id: `free-${currentCursor.toISOString()}-${eventStartTime.toISOString()}`,
+                    type: 'free-time',
+                    startTime: currentCursor,
+                    endTime: eventStartTime,
+                    duration: freeDurationMinutes,
+                    message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}min Free Time`,
+                });
+            }
         }
-      }
 
-      // Add the actual scheduled item
-      processedItems.push(event.originalItem);
-      
-      currentCursor = event.end;
+        const isRedundantMarker = event.type === 'marker' && processedItems.some(pItem => 
+            ('startTime' in pItem && pItem.startTime.getTime() === event.time.getTime()) ||
+            ('endTime' in pItem && pItem.endTime.getTime() === event.time.getTime())
+        );
+
+        if (!isRedundantMarker) {
+            processedItems.push(event);
+        }
+        
+        currentCursor = event.type === 'marker' ? event.time : eventEndTime;
     });
 
-    // Add any remaining free time until the end of the template
-    if (currentCursor.getTime() < endOfTemplate.getTime()) {
-      const freeDurationMs = endOfTemplate.getTime() - currentCursor.getTime();
-      const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
-      if (freeDurationMinutes > 0) {
-        processedItems.push({
-          id: `free-${currentCursor.toISOString()}-${endOfTemplate.toISOString()}`,
-          type: 'free-slot',
-          name: 'Free Time',
-          startTime: currentCursor,
-          endTime: endOfTemplate,
-          duration: freeDurationMinutes,
-          emoji: '🧘'
-        } as FreeSlotItem);
-      }
-    }
-
-    // Add time markers every 3 hours
-    const markers: { type: 'marker'; time: Date; label: string }[] = [];
-    for (let i = 0; i <= 24; i += 3) {
-      const markerTime = addHours(startOfTemplate, i);
-      // Only add marker if it doesn't fall exactly on a scheduled item's start/end
-      const isCovered = processedItems.some(item => {
-        if (item.type === 'marker') return false; // Markers don't cover other items
-        return (isSameDay(item.startTime, markerTime) && item.startTime.getHours() === markerTime.getHours() && item.startTime.getMinutes() === markerTime.getMinutes()) ||
-               (isSameDay(item.endTime, markerTime) && item.endTime.getHours() === markerTime.getHours() && item.endTime.getMinutes() === markerTime.getMinutes());
-      });
-      if (!isCovered) {
-        markers.push({ type: 'marker', time: markerTime, label: formatTime(markerTime) });
-      }
-    }
-
-    const finalItemsWithMarkers = [...processedItems, ...markers].sort((a, b) => {
-      const timeA = 'time' in a ? a.time : a.startTime;
-      const timeB = 'time' in b ? b.time : b.startTime;
-      return timeA.getTime() - timeB.getTime();
+    const filteredItems: DisplayItem[] = [];
+    processedItems.forEach(item => {
+        if (item.type === 'marker') {
+            const isCovered = processedItems.some(pItem => {
+                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off') { // NEW: Added time-off
+                    return item.time >= pItem.startTime && item.time < pItem.endTime;
+                }
+                return false;
+            });
+            if (!isCovered) {
+                filteredItems.push(item);
+            }
+        } else {
+            filteredItems.push(item);
+        }
     });
 
-    const firstItem = finalItemsWithMarkers[0];
-    const lastItem = finalItemsWithMarkers[finalItemsWithMarkers.length - 1];
+    const hasStartMarker = filteredItems.some(item => ('startTime' in item ? item.startTime : item.time).getTime() === startOfTemplate.getTime());
+    if (!hasStartMarker) {
+        filteredItems.unshift({ id: 'marker-0-final', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
+    }
+    const hasEndMarker = filteredItems.some(item => ('endTime' in item ? item.endTime : item.time).getTime() === endOfTemplate.getTime());
+    if (!hasEndMarker) {
+        filteredItems.push({ id: 'marker-24hr-final', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) });
+    }
 
-    const actualStartTime = firstItem
-      ? (firstItem.type === 'marker' ? firstItem.time : firstItem.startTime)
-      : startOfTemplate;
-    const actualEndTime = lastItem
-      ? (lastItem.type === 'marker' ? lastItem.time : lastItem.endTime)
-      : endOfTemplate;
+    filteredItems.sort((a, b) => {
+        const timeA = 'time' in a ? a.time : a.startTime;
+        const timeB = 'time' in b ? b.time : b.startTime;
+        return timeA.getTime() - timeB.getTime();
+    });
+
+    const firstRenderedItem = filteredItems[0];
+    const lastRenderedItem = filteredItems[filteredItems.length - 1];
+
+    const actualStartTime = firstRenderedItem ? ('time' in firstRenderedItem ? firstRenderedItem.time : firstRenderedItem.startTime) : startOfTemplate;
+    const actualEndTime = lastRenderedItem ? ('time' in lastRenderedItem ? lastRenderedItem.time : lastRenderedItem.endTime) : endOfTemplate;
 
     return {
-      finalDisplayItems: finalItemsWithMarkers,
-      firstItemStartTime: actualStartTime,
-      lastItemEndTime: actualEndTime,
+        finalDisplayItems: filteredItems,
+        firstItemStartTime: actualStartTime,
+        lastItemEndTime: actualEndTime,
     };
-  }, [schedule, startOfTemplate, endOfTemplate, T_current]); // Added T_current to dependencies for isCovered
+  }, [schedule, T_current, startOfTemplate, endOfTemplate]);
 
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {
-      if (item.type !== 'marker' && T_current >= item.startTime && T_current < item.endTime) { // Corrected type check
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) { // NEW: Added time-off
         return item;
       }
     }
@@ -215,6 +152,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     return (timeIntoItemMs / itemDurationMs) * 100;
   }, [activeItemInDisplay, T_current]);
 
+  // Calculate global progress line position
   const globalProgressLineTopPercentage = useMemo(() => {
     if (!containerRef.current || !firstItemStartTime || !lastItemEndTime) return 0;
 
@@ -225,6 +163,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     return (timeIntoScheduleMs / totalScheduleDurationMs) * 100;
   }, [T_current, firstItemStartTime, lastItemEndTime]);
 
+
+  // Auto-scroll to active item (existing logic)
   useEffect(() => {
     if (activeItemRef.current && containerRef.current) {
       const containerRect = containerRef.current.getBoundingClientRect();
@@ -236,19 +176,24 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     }
   }, [activeItemInDisplay]);
 
+  // NEW: Auto-scroll to top when selected day changes
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [selectedDayString]);
 
-  const renderDisplayItem = (item: DisplayItemWithMarker) => { // Corrected type
-    const isCurrentlyActive = activeItemInDisplay?.id === ('id' in item ? item.id : undefined);
-    const isPastItem = ('endTime' in item) && item.endTime <= T_current;
+
+  const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
+
+  const renderDisplayItem = (item: DisplayItem) => {
+    const isCurrentlyActive = activeItemInDisplay?.id === item.id;
+    // Safely check for isPastItem only on types that have an 'endTime'
+    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && item.endTime <= T_current; // NEW: Added time-off
 
     if (item.type === 'marker') {
       return (
-        <React.Fragment key={item.time.toISOString()}>
+        <React.Fragment key={item.id}>
           <div className="flex items-center justify-end pr-2">
             <span className="text-sm font-bold text-foreground">
               {item.label}
@@ -256,12 +201,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           </div>
           <div className="relative flex items-center">
             <div className="h-px w-full bg-border" />
-            <div className="absolute right-0 h-2.5 w-2.5 rounded-full bg-border -mr-1.5" />
+            <div className="absolute right-0 h-2.5 w-2.5 rounded-full bg-border -mr-1.5" /> {/* Larger dot */}
           </div>
         </React.Fragment>
       );
-    } else if (item.type === 'free-slot') {
-      const freeTimeItem = item as FreeSlotItem;
+    } else if (item.type === 'free-time') {
+      const freeTimeItem = item as FreeTimeItem;
       const isActive = T_current >= freeTimeItem.startTime && T_current < freeTimeItem.endTime;
       const isHighlightedByNowCard = activeItemId === freeTimeItem.id;
 
@@ -269,23 +214,23 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         <React.Fragment key={freeTimeItem.id}>
           <div></div>
           <div 
-            ref={isCurrentlyActive ? activeItemRef : null}
+            ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
               isHighlightedByNowCard ? "opacity-50 border-border" :
               isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70",
-              isPastItem && "opacity-50 border-muted-foreground/30"
+              isPastItem && "opacity-50 border-muted-foreground/30" // Faded for past items
             )}
           >
-            {freeTimeItem.name} ({freeTimeItem.duration} min)
+            {freeTimeItem.message}
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress"
+                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress" // Increased height, removed pulse-glow
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap">
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Removed pulse-glow and border */}
                     {formatTime(T_current)}
                   </span>
                 </div>
@@ -295,18 +240,22 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         </React.Fragment>
       );
     } else {
-      const scheduledItem = item as ScheduledTaskItem | ScheduledBreakItem | ScheduledTimeOffItem;
+      const scheduledItem = item as ScheduledItem;
       const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
       const isHighlightedByNowCard = activeItemId === scheduledItem.id;
 
       if (scheduledItem.endTime < startOfTemplate) return null;
 
       const hue = getEmojiHue(scheduledItem.name);
-      const saturation = 50;
-      const lightness = 35;
+      const saturation = 50; // Increased saturation
+      const lightness = 35; // Increased lightness
       const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
 
-      const isTimeOff = scheduledItem.type === 'time-off';
+      // Find the corresponding DBScheduledTask to pass to onRetireTask
+      // Use schedule.dbTasks which is the raw array from Supabase
+      const dbTask = schedule?.dbTasks.find(t => t.id === scheduledItem.id);
+
+      const isTimeOff = scheduledItem.type === 'time-off'; // NEW: Check if it's a time-off item
 
       return (
         <React.Fragment key={scheduledItem.id}>
@@ -315,7 +264,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
               isHighlightedByNowCard ? "bg-primary text-primary-foreground" :
               isActive ? "bg-primary/20 text-primary" :
-              isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
+              isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground", // Use isPastItem here
               "hover:scale-105"
             )}>
               {formatTime(scheduledItem.startTime)}
@@ -323,17 +272,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           </div>
 
           <div
-            ref={isCurrentlyActive ? activeItemRef : null}
+            ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
             className={cn(
-              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden",
-              "border-2 border-foreground/20",
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden", // Changed shadow-sm to shadow-md
+              "border-2 border-foreground/20", // Changed border-white to border-foreground/20
               isHighlightedByNowCard ? "opacity-50" :
-              isActive ? "border-live-progress animate-pulse-active-row" :
-              isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border",
-              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary",
-              isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10"
+              isActive ? "border-live-progress animate-pulse-active-row" : // Use live-progress for active border
+              isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Faded for past items
+              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary", // Stronger hover shadow and border
+              isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10" // NEW: Distinct styling for time-off
             )}
-            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }}
+            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }} // NEW: Don't apply ambient background for time-off
           >
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">
@@ -344,12 +293,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             <div className="relative z-10 flex items-center justify-between w-full">
               <span className={cn(
                 "text-sm flex-grow",
-                isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
+                isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]" // NEW: Text color for time-off
               )}>
-                <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span>
+                <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span> {/* Made duration font-semibold */}
               </span>
               <div className="flex items-center gap-1 ml-auto shrink-0">
-                {('isCritical' in scheduledItem && scheduledItem.isCritical) && (
+                {scheduledItem.isCritical && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
@@ -361,23 +310,33 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {/* NEW: Flexible/Fixed Badge */}
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "px-2 py-0.5 text-xs font-semibold",
+                    scheduledItem.isFlexible ? "bg-blue-500/20 text-blue-300 border-blue-500" : "bg-purple-500/20 text-purple-300 border-purple-500"
+                  )}
+                >
+                  {scheduledItem.isFlexible ? 'Flexible' : 'Fixed'}
+                </Badge>
                 <span className={cn(
                   "text-xs font-semibold font-mono",
-                  isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
+                  isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80" // NEW: Text color for time-off
                 )}>
                   {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
                 </span>
-                <div className="flex items-center gap-1 ml-2">
-                  {scheduledItem.type === 'task' && ( // Only show retire button for actual tasks
+                <div className="flex items-center gap-1 ml-2"> {/* Group buttons */}
+                  {dbTask && ( // Only show retire button if it's a real DB task
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          onClick={() => handleRetireClick(scheduledItem.originalTask)}
+                          onClick={() => onRetireTask(dbTask)} 
                           className={cn(
                             "h-6 w-6 p-0 shrink-0",
-                            isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"
+                            isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10" // NEW: Text color for time-off
                           )}
                         >
                           <Archive className="h-4 w-4" />
@@ -394,10 +353,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        onClick={() => handleRemoveClick(scheduledItem.id)}
+                        onClick={() => onRemoveTask(scheduledItem.id)} 
                         className={cn(
                           "h-6 w-6 p-0 shrink-0",
-                          isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"
+                          isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10" // NEW: Text color for time-off
                         )}
                       >
                         <Trash className="h-4 w-4" />
@@ -411,21 +370,21 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 </div>
               </div>
             </div>
-            {scheduledItem.type === 'break' && (scheduledItem as ScheduledBreakItem).description && (
-              <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{(scheduledItem as ScheduledBreakItem).description}</p>
+            {scheduledItem.type === 'break' && scheduledItem.description && (
+              <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Using always-light-text with opacity
             )}
-            {isTimeOff && (
+            {isTimeOff && ( // NEW: Description for time-off
               <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>This block is reserved for personal time.</p>
             )}
 
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress"
+                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress" // Increased height, removed pulse-glow
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap">
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Removed pulse-glow and border */}
                     {formatTime(T_current)}
                   </span>
                 </div>
@@ -437,27 +396,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     }
   };
 
-  const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current);
-
-  if (!schedule || schedule.items.length === 0) {
-    return (
-      <Card className="p-6 text-center text-muted-foreground animate-fade-in">
-        <p className="text-lg mb-4">No tasks scheduled for {format(parseISO(selectedDayString), 'EEEE, MMMM d')}.</p>
-        <Button onClick={onAddTaskClick} className="flex items-center gap-2">
-          <PlusCircle className="h-5 w-5" /> Add Your First Task
-        </Button>
-      </Card>
-    );
-  }
+  const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current); // Corrected to use selectedDayString
 
   return (
     <div className="space-y-4 animate-slide-in-up">
       <Card className="animate-pop-in">
         <CardContent className="p-0">
           <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
-            {isTodaySelected && firstItemStartTime && lastItemEndTime && (
+            {/* Global "Now" Indicator */}
+            {isTodaySelected && firstItemStartTime && lastItemEndTime && ( // Always show if today is selected
               <div 
-                className="absolute left-0 right-0 h-[3px] bg-live-progress z-10 border-b-2 border-live-progress"
+                className="absolute left-0 right-0 h-[3px] bg-live-progress z-10 border-b-2 border-live-progress" // Slightly thicker line
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> 
@@ -469,99 +418,79 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             )}
 
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-              {!activeItemInDisplay && T_current < firstItemStartTime && isTodaySelected && (
-                <div className={cn(
-                  "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                  "top-0"
-                )}>
-                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                  <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                    ⏳ Schedule starts later today
-                  </p>
-                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+              {schedule?.items.length === 0 ? (
+                <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
+                  <ListTodo className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-lg font-semibold">Your schedule is clear for today!</p>
+                  <p className="text-sm">Ready to plan? Add a task using the input above.</p>
+                  <Button onClick={onAddTaskClick} className="mt-4 flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
+                    <PlusCircle className="h-5 w-5" /> Add a Task
+                  </Button>
                 </div>
-              )}
-              {!activeItemInDisplay && T_current >= lastItemEndTime && isTodaySelected && (
-                <div className={cn(
-                  "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                  "bottom-0"
-                )}>
-                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                  <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                    ✅ All tasks completed!
-                  </p>
-                  <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                </div>
-              )}
+              ) : (
+                <>
+                  {!activeItemInDisplay && T_current < firstItemStartTime && isTodaySelected && (
+                    <div className={cn(
+                      "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                      "top-0"
+                    )}>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                      <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                        ⏳ Schedule starts later today
+                      </p>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    </div>
+                  )}
+                  {!activeItemInDisplay && T_current >= lastItemEndTime && isTodaySelected && (
+                    <div className={cn(
+                      "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                      "bottom-0"
+                    )}>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                      <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                        ✅ All tasks completed!
+                      </p>
+                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    </div>
+                  )}
 
-              {finalDisplayItems.map((item) => (
-                <React.Fragment key={'id' in item ? item.id : item.time.toISOString()}>
-                  {renderDisplayItem(item)}
-                </React.Fragment>
-              ))}
+                  {finalDisplayItems.map((item) => (
+                    <React.Fragment key={item.id}>
+                      {renderDisplayItem(item)}
+                    </React.Fragment>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {schedule?.summary && schedule.summary.totalScheduledDuration > 0 && ( // Added schedule?.summary check
-        <Card className="animate-pop-in animate-hover-lift">
+      {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
+        <Card className="animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            {schedule.summary.totalScheduledDuration > 12 * 60 && ( // Removed optional chaining here
-              <p className="text-red-500">⚠️ Intense schedule. Remember to include meals and rest.</p>
+            {schedule?.summary.extendsPastMidnight && (
+              <p className="text-orange-500 font-semibold">⚠️ {schedule.summary.midnightRolloverMessage}</p>
             )}
-            {schedule.summary.unscheduledCount > 0 && ( // Removed optional chaining here
-              <p className="text-orange-500 font-semibold">
-                ⚠️ {schedule.summary.unscheduledCount} task{schedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.
+            {schedule?.summary.criticalTasksRemaining > 0 && (
+              <p className="text-red-500 font-semibold">
+                ⚠️ Critical task{schedule.summary.criticalTasksRemaining > 1 ? 's' : ''} remain. Rezone now!
               </p>
             )}
-            {schedule.summary.totalScheduledDuration < 6 * 60 && ( // Removed optional chaining here
+            {totalScheduledMinutes < 6 * 60 && (
               <p>💡 Light day! Consider adding buffer time for flexibility.</p>
+            )}
+            {totalScheduledMinutes > 12 * 60 && (
+              <p className="text-red-500">⚠️ Intense schedule. Remember to include meals and rest.</p>
             )}
           </CardContent>
         </Card>
       )}
-
-      {/* Remove Confirmation Dialog */}
-      <AlertDialog open={showRemoveConfirmation} onOpenChange={setShowRemoveConfirmation}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action will permanently delete "{taskToRemove ? schedule?.items.find(i => i.id === taskToRemove)?.name : 'this task'}" from your schedule. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemove} className="bg-destructive hover:bg-destructive/90">
-              Delete Task
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Retire Confirmation Dialog */}
-      <AlertDialog open={showRetireConfirmation} onOpenChange={setShowRetireConfirmation}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Retirement</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to send "{taskToRetire?.name || 'this task'}" to the Aether Sink? It will be removed from your schedule but can be re-zoned later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRetire}>
-              Send to Sink
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 });

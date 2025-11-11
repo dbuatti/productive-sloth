@@ -184,14 +184,17 @@ const SchedulerPage: React.FC = () => {
         if (isBefore(localEnd, localStart)) {
           localEnd = addDays(localEnd, 1);
         }
-
-        return {
+        const block = {
           start: localStart,
           end: localEnd,
           duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
         };
+        console.log(`SchedulerPage: Mapped task "${task.name}" (DB: ${task.start_time}-${task.end_time}) to block: ${formatTime(block.start)}-${formatTime(block.end)}`); // ADDED LOG
+        return block;
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    console.log("SchedulerPage: Mapped and sorted times before merging:", mappedTimes.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`)); // ADDED LOG
 
     const merged = mergeOverlappingTimeBlocks(mappedTimes);
     console.log("SchedulerPage: Calculated occupiedBlocks (merged):", merged.map(b => `${formatTime(b.start)}-${formatTime(b.end)}`));

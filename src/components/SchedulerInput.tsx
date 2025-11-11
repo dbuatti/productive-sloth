@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Coffee } from 'lucide-react'; // Added Coffee icon
+import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Coffee } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Re-imported Popover components
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Suggestion {
   type: 'command' | 'task';
@@ -25,12 +25,13 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   const { allTasks } = useTasks();
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isPopoverExplicitlyOpen, setIsPopoverExplicitlyOpen] = useState(false); // User-controlled open/close
+  const [isPopoverExplicitlyOpen, setIsPopoverExplicitlyOpen] = useState(false);
 
   const commonCommands = useMemo<Suggestion[]>(() => [
     { type: 'command', name: 'clear', description: 'Clear all scheduled tasks' },
     { type: 'command', name: 'remove', description: 'Remove a task by name or index' },
     { type: 'command', name: 'inject', description: 'Inject a task with specific details' },
+    { type: 'command', name: 'time off', description: 'Block out a period as "Time Off"' }, // Added 'time off' command
   ], []);
 
   const suggestions = useMemo(() => {
@@ -56,17 +57,15 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
 
   const shouldShowSuggestions = inputValue.length > 0 && suggestions.length > 0;
 
-  // Control popover visibility based on suggestions and explicit user action
   useEffect(() => {
     if (shouldShowSuggestions) {
       setIsPopoverExplicitlyOpen(true);
     } else {
       setIsPopoverExplicitlyOpen(false);
     }
-    setSelectedIndex(-1); // Reset selected index whenever suggestions change
+    setSelectedIndex(-1);
   }, [shouldShowSuggestions]);
 
-  // Effect to re-focus input after successful command (when inputValue becomes empty)
   useEffect(() => {
     if (!isLoading && inputValue === '' && inputRef.current) {
       inputRef.current.focus();
@@ -81,11 +80,13 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
       setInputValue('remove ');
     } else if (suggestion.type === 'command' && suggestion.name === 'inject') {
       setInputValue('inject ');
+    } else if (suggestion.type === 'command' && suggestion.name === 'time off') { // Handle 'time off' suggestion
+      onCommand('time off'); // Trigger the command directly
     } else {
       setInputValue(suggestion.name);
     }
     setSelectedIndex(-1);
-    setIsPopoverExplicitlyOpen(false); // Close popover after selection
+    setIsPopoverExplicitlyOpen(false);
     inputRef.current?.focus();
   };
 
@@ -102,7 +103,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (shouldShowSuggestions && isPopoverExplicitlyOpen) { // Only navigate if popover is open
+    if (shouldShowSuggestions && isPopoverExplicitlyOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
@@ -122,7 +123,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
   };
 
   const handleAddBreak = () => {
-    onCommand('break 15'); // Default 15-minute break
+    onCommand('break 15');
   };
 
   return (
@@ -135,7 +136,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Add task or command..."
+            placeholder="Add task or command (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm')"
             disabled={isLoading}
             className="flex-grow h-10 pr-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
           />
@@ -145,9 +146,9 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
               variant="ghost"
               size="icon"
               onClick={handleClearInput}
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 text-muted-foreground hover:text-primary" // Increased h/w, changed hover color
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 text-muted-foreground hover:text-primary"
             >
-              <XCircle className="h-5 w-5" /> {/* Slightly larger icon */}
+              <XCircle className="h-5 w-5" />
               <span className="sr-only">Clear input</span>
             </Button>
           )}
@@ -178,14 +179,13 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
 
       <Popover open={isPopoverExplicitlyOpen} onOpenChange={setIsPopoverExplicitlyOpen}>
         <PopoverTrigger asChild>
-          {/* Invisible trigger to anchor the popover to the input */}
           <div className="absolute top-0 left-0 w-full h-10 pointer-events-none" />
         </PopoverTrigger>
         <PopoverContent 
           className="p-0 w-[var(--radix-popover-trigger-width)] mt-1" 
           align="start" 
           sideOffset={5}
-          onOpenAutoFocus={(e) => e.preventDefault()} // Prevent focus stealing from input
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <ul className="max-h-60 overflow-y-auto">
             {suggestions.map((suggestion, index) => (
@@ -195,7 +195,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
                   "flex items-center gap-2 p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
                   selectedIndex === index && "bg-accent text-accent-foreground"
                 )}
-                onMouseDown={(e) => e.preventDefault()} // Prevent focus loss on suggestion click
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelectSuggestion(suggestion)}
               >
                 {suggestion.type === 'command' ? <CommandIcon className="h-4 w-4" /> : <ListTodo className="h-4 w-4" />}

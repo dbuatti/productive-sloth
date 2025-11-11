@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { showError } from '@/utils/toast';
 
 interface WeatherData {
@@ -11,7 +11,7 @@ interface WeatherData {
   icon: string; // OpenWeatherMap icon code
   city: string;
   country: string;
-  rainVolumeLastHour?: number; // NEW: Rain volume for the last 1 hour (mm)
+  rainVolumeLastHour?: number; // Rain volume for the last 1 hour (mm)
 }
 
 interface UseWeatherOptions {
@@ -21,31 +21,29 @@ interface UseWeatherOptions {
   enabled?: boolean;
 }
 
-const OPENWEATHER_API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
+// Supabase Project ID and URL are needed to invoke the Edge Function
+const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
+const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions) => {
   const [locationError, setLocationError] = useState<string | null>(null);
 
   const fetchWeatherData = async (): Promise<WeatherData> => {
-    if (!OPENWEATHER_API_KEY) {
-      throw new Error("OpenWeatherMap API key is not set. Please set VITE_OPENWEATHER_API_KEY in your environment variables.");
-    }
+    const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/get-weather`;
 
-    let url = `https://api.openweathermap.org/data/2.5/weather?units=metric&appid=${OPENWEATHER_API_KEY}`;
+    const payload = { city, lat, lon };
 
-    if (lat && lon) {
-      url += `&lat=${lat}&lon=${lon}`;
-    } else if (city) {
-      url += `&q=${city}`;
-    } else {
-      // Default to a city if no coordinates or city provided
-      url += `&q=London`; // Fallback city
-    }
+    const response = await fetch(edgeFunctionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
 
-    const response = await fetch(url);
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch weather data');
+      throw new Error(errorData.error || 'Failed to fetch weather data via Edge Function');
     }
     const data = await response.json();
 
@@ -58,19 +56,18 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
       icon: data.weather[0].icon,
       city: data.name,
       country: data.sys.country,
-      rainVolumeLastHour: data.rain?.['1h'], // Extract rain volume for last 1 hour
+      rainVolumeLastHour: data.rain?.['1h'],
     };
   };
 
   const { data, isLoading, error } = useQuery<WeatherData, Error>({
     queryKey: ['weather', lat, lon, city],
     queryFn: fetchWeatherData,
-    enabled: enabled && !!OPENWEATHER_API_KEY && (!!lat && !!lon || !!city),
+    enabled: enabled && (!!lat && !!lon || !!city), // Only enable if coordinates or city are provided
     staleTime: 5 * 60 * 1000, // 5 minutes stale time
-    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection time (replaces cacheTime)
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection time
   });
 
-  // Handle errors using a useEffect hook
   useEffect(() => {
     if (error) {
       showError(`Weather fetch error: ${error.message}`);
@@ -83,27 +80,25 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            // If we get a position, re-run the query with coordinates
-            // For simplicity, we'll let the user explicitly pass lat/lon or city
-            // or rely on the default city. For now, just log.
-            console.log("Geolocation obtained:", position.coords.latitude, position.coords.longitude);
-            // If I wanted to use this, I'd need to update the state that useWeather depends on,
-            // e.g., by having lat/lon as state in SchedulerPage and passing it down.
-            // For now, I'll stick to explicit city or default.
+            // For now, we'll rely on the user explicitly passing lat/lon or city
+            // or the default city in the WeatherWidget.
+            // If you want to use geolocation, you'd need to update state here
+            // that the useWeather hook depends on (e.g., by having lat/lon as state
+            // in SchedulerPage and passing it down).
+            console.log("Geolocation obtained, but not automatically used by useWeather hook. Pass lat/lon or city explicitly.");
           },
           (geoError) => {
-            setLocationError(`Geolocation error: ${geoError.message}. Defaulting to London.`);
-            showError(`Geolocation error: ${geoError.message}. Defaulting to London.`);
+            setLocationError(`Geolocation error: ${geoError.message}. Defaulting to Melbourne.`);
+            showError(`Geolocation error: ${geoError.message}. Defaulting to Melbourne.`);
           },
           { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
         );
       } else {
-        setLocationError("Geolocation is not supported by your browser. Defaulting to London.");
-        showError("Geolocation is not supported by your browser. Defaulting to London.");
+        setLocationError("Geolocation is not supported by your browser. Defaulting to Melbourne.");
+        showError("Geolocation is not supported by your browser. Defaulting to Melbourne.");
       }
     }
   }, [enabled, lat, lon, city]);
-
 
   return {
     weather: data,

@@ -28,10 +28,9 @@ const EMOJI_MAP: { [key: string]: string } = {
   'contact': '🤝',
   'student': '🧑‍🎓',
   'rehearsal': '🎭',
-  'time off': '🌴', // NEW: Time off emoji
+  'time off': '🌴',
 };
 
-// New: Map keywords to HSL hue values (0-360)
 const EMOJI_HUE_MAP: { [key: string]: number } = {
   'gym': 200, 'workout': 200, 'run': 210, 'exercise': 200, 'fitness': 200,
   'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
@@ -58,7 +57,7 @@ const EMOJI_HUE_MAP: { [key: string]: number } = {
   'contact': 290,
   'student': 265,
   'rehearsal': 315,
-  'time off': 100, // NEW: Hue for time off (green/teal)
+  'time off': 100,
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {
@@ -88,7 +87,6 @@ export const assignEmoji = (taskName: string): string => {
   return DEFAULT_EMOJI;
 };
 
-// New: Function to get hue based on task name
 export const getEmojiHue = (taskName: string): number => {
   const lowerCaseName = taskName.toLowerCase();
   for (const keyword in EMOJI_HUE_MAP) {
@@ -115,17 +113,12 @@ export const getMidnightRolloverMessage = (endDate: Date, T_current: Date): stri
   return null;
 };
 
-/**
- * Generates fixed time markers for a full 24-hour template.
- */
-export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
+export const generateFixedTimeMarkers = (T_current: Date): TimeMarker => {
   const markers: TimeMarker[] = [];
-  const startOfToday = startOfDay(T_current); // 12:00 AM today
+  const startOfToday = startOfDay(T_current);
 
-  // Add 12 AM marker
   markers.push({ id: 'marker-0', type: 'marker', time: startOfToday, label: formatTime(startOfToday) });
 
-  // Add markers every 3 hours for a full 24-hour cycle
   for (let i = 3; i <= 24; i += 3) {
     const markerTime = addHours(startOfToday, i);
     markers.push({ id: `marker-${i}`, type: 'marker', time: markerTime, label: formatTime(markerTime) });
@@ -134,28 +127,24 @@ export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
   return markers;
 };
 
-// Helper to parse time flexibly
 export const parseFlexibleTime = (timeString: string, referenceDate: Date): Date => {
   const formatsToTry = [
-    'h:mm a', // e.g., "3:45 PM"
-    'h a',    // e.g., "3 PM"
-    'h:mma',  // e.g., "3:45pm"
-    'ha',     // e.g., "3pm"
+    'h:mm a',
+    'h a',
+    'h:mma',
+    'ha',
   ];
 
   for (const formatStr of formatsToTry) {
-    const parsedDate = parse(timeString, formatStr, referenceDate); // Use referenceDate here
+    const parsedDate = parse(timeString, formatStr, referenceDate);
     if (!isNaN(parsedDate.getTime())) {
       return parsedDate;
     }
   }
 
-  return new Date('Invalid Date'); // Explicitly return an invalid date
+  return new Date('Invalid Date');
 };
 
-/**
- * Parses a time string (e.g., "09:00") and sets it on a reference date.
- */
 export const setTimeOnDate = (date: Date, timeString: string): Date => {
   const [hours, minutes] = timeString.split(':').map(Number);
   return setMinutes(setHours(date, hours), minutes);
@@ -168,8 +157,8 @@ interface ParsedTaskInput {
   startTime?: Date;
   endTime?: Date;
   isCritical: boolean;
-  shouldSink?: boolean; // NEW: Flag to indicate if task should go directly to sink
-  isFlexible: boolean; // NEW: Added isFlexible to parsed input
+  shouldSink?: boolean;
+  isFlexible: boolean;
 }
 
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => {
@@ -193,7 +182,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
     input = input.slice(0, -6).trim();
   }
 
-  // Check for "time off" keyword and set isFlexible to false automatically
+  // Enforce 'Time Off' as fixed, regardless of 'fixed' keyword presence
   if (input.toLowerCase().startsWith('time off')) {
     isFlexible = false;
   }
@@ -248,7 +237,7 @@ interface ParsedInjectionCommand {
   startTime?: string;
   endTime?: string;
   isCritical: boolean;
-  isFlexible: boolean; // Changed to non-optional
+  isFlexible: boolean;
 }
 
 export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
@@ -265,7 +254,7 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
     input = input.slice(0, -6).trim();
   }
 
-  // Check for "time off" keyword and set isFlexible to false automatically
+  // Enforce 'Time Off' as fixed, regardless of 'fixed' keyword presence
   if (input.toLowerCase().startsWith('inject "time off"')) {
     isFlexible = false;
   }
@@ -285,6 +274,10 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
       if (startTime && endTime) {
         isFlexible = false; // Timed injections are always fixed
       }
+      // Re-apply 'Time Off' fixed enforcement for injection
+      if (taskName.toLowerCase() === 'time off') {
+        isFlexible = false;
+      }
       return { taskName, duration, breakDuration, startTime, endTime, isCritical, isFlexible };
     }
   }
@@ -292,7 +285,7 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
 };
 
 interface ParsedCommand {
-  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact' | 'timeoff'; // Added 'timeoff'
+  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact' | 'timeoff';
   index?: number;
   target?: string;
 }
@@ -331,14 +324,13 @@ export const parseCommand = (input: string): ParsedCommand | null => {
     return { type: 'compact' };
   }
 
-  if (lowerInput.startsWith('time off')) { // NEW: Handle 'time off' as a command
+  if (lowerInput.startsWith('time off')) {
     return { type: 'timeoff' };
   }
 
   return null;
 };
 
-// NEW: Helper to merge overlapping time blocks
 export const mergeOverlappingTimeBlocks = (blocks: { start: Date; end: Date; duration: number }[]): { start: Date; end: Date; duration: number }[] => {
   if (blocks.length === 0) return [];
 
@@ -363,30 +355,20 @@ export const mergeOverlappingTimeBlocks = (blocks: { start: Date; end: Date; dur
   return merged;
 };
 
-/**
- * Checks if a proposed time slot overlaps with any existing merged occupied blocks.
- * @param proposedStart The start time of the proposed slot.
- * @param proposedEnd The end time of the proposed slot.
- * @param occupiedBlocks An array of already merged and sorted occupied time blocks.
- * @returns true if the proposed slot is free, false if it overlaps.
- */
 export const isSlotFree = (
   proposedStart: Date,
   proposedEnd: Date,
   occupiedBlocks: { start: Date; end: Date; duration: number }[]
 ): boolean => {
   for (const block of occupiedBlocks) {
-    // Check for overlap:
-    // (proposedStart < block.end AND proposedEnd > block.start)
     if (isBefore(proposedStart, block.end) && isAfter(proposedEnd, block.start)) {
-      return false; // Overlap detected
+      return false;
     }
-    // Edge case: proposed slot exactly matches an existing block (covered by above, but explicit for clarity)
     if (proposedStart.getTime() === block.start.getTime() && proposedEnd.getTime() === block.end.getTime()) {
-      return false; // Exact overlap
+      return false;
     }
   }
-  return true; // No overlap found
+  return true;
 };
 
 
@@ -418,7 +400,6 @@ export const calculateSchedule = (
     let startTime = parseISO(task.start_time!);
     let endTime = parseISO(task.end_time!);
 
-    // FIX: Use local hours/minutes instead of UTC hours/minutes
     startTime = setHours(setMinutes(selectedDayAsDate, startTime.getMinutes()), startTime.getHours());
     endTime = setHours(setMinutes(selectedDayAsDate, endTime.getMinutes()), endTime.getHours());
 
@@ -436,27 +417,25 @@ export const calculateSchedule = (
 
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
     const isStandaloneBreak = task.name.toLowerCase() === 'break';
-    const isTimeOff = task.name.toLowerCase().includes('time off'); // NEW: Check for 'time off'
+    const isTimeOff = task.name.toLowerCase().includes('time off');
     const isMealTime = ['breakfast', 'lunch', 'dinner'].some(meal => task.name.toLowerCase().includes(meal));
 
 
     scheduledItems.push({
       id: task.id, 
-      type: isStandaloneBreak ? 'break' : (isTimeOff ? 'time-off' : 'task'), // NEW: Assign 'time-off' type
+      type: isStandaloneBreak ? 'break' : (isTimeOff ? 'time-off' : 'task'),
       name: task.name, 
       duration: duration,
       startTime: startTime, 
       endTime: endTime, 
-      emoji: isStandaloneBreak ? EMOJI_MAP['break'] : (isTimeOff ? EMOJI_MAP['time off'] : assignEmoji(task.name)), // NEW: Assign time off emoji
+      emoji: isStandaloneBreak ? EMOJI_MAP['break'] : (isTimeOff ? EMOJI_MAP['time off'] : assignEmoji(task.name)),
       description: isStandaloneBreak ? getBreakDescription(duration) : undefined,
       isTimedEvent: true,
       isCritical: task.is_critical,
       isFlexible: task.is_flexible,
     });
     
-    // Conditional addition to totalActiveTime or totalBreakTime
-    // Only add to active or break time if it's NOT a meal time or time off
-    if (!isMealTime && !isTimeOff) { // NEW: Exclude time off from active/break time
+    if (!isMealTime && !isTimeOff) {
       if (isStandaloneBreak || task.break_duration) {
         totalBreakTime += duration;
         if (task.break_duration) totalBreakTime += task.break_duration;
@@ -493,18 +472,6 @@ export const calculateSchedule = (
   };
 };
 
-/**
- * Compacts the schedule by moving flexible tasks forward to fill gaps.
- * Fixed appointments are not moved.
- * @param allCurrentTasks The current list of DBScheduledTask objects (fixed and flexible).
- * @param selectedDate The date for which the schedule is being compacted.
- * @param workdayStartTime The start time of the user's workday.
- * @param workdayEndTime The end time of the user's workday.
- * @param T_current The current real-world time.
- * @param preSortedFlexibleTasks Optional: an array of flexible tasks already sorted by the caller.
- *                                If provided, these will be used instead of filtering and sorting internally.
- * @returns An array of DBScheduledTask objects with updated start_time and end_time.
- */
 export const compactScheduleLogic = (
   allCurrentTasks: DBScheduledTask[],
   selectedDate: Date,

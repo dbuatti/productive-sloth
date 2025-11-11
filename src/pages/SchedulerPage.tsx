@@ -177,8 +177,9 @@ const SchedulerPage: React.FC = () => {
         const utcEnd = parseISO(task.end_time!);
 
         // Align the UTC times to the selectedDayAsDate, preserving their time-of-day
-        let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getUTCMinutes()), utcStart.getUTCHours());
-        let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getUTCMinutes()), utcEnd.getUTCHours());
+        // FIX: Use local hours/minutes instead of UTC hours/minutes
+        let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getMinutes()), utcStart.getHours());
+        let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getMinutes()), utcEnd.getHours());
 
         // Handle rollover to next day if end time is before start time
         if (isBefore(localEnd, localStart)) {

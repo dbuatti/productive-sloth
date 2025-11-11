@@ -421,6 +421,7 @@ export const calculateSchedule = (
     let startTime = parseISO(task.start_time!);
     let endTime = parseISO(task.end_time!);
 
+    // FIX: Use local hours/minutes instead of UTC hours/minutes
     startTime = setHours(setMinutes(selectedDayAsDate, startTime.getMinutes()), startTime.getHours());
     endTime = setHours(setMinutes(selectedDayAsDate, endTime.getMinutes()), endTime.getHours());
 

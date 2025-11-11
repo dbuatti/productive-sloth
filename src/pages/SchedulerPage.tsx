@@ -128,7 +128,7 @@ const SchedulerPage: React.FC = () => {
   const [T_current, setT_current] = useState(new Date());
   
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
-  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string; isCritical?: boolean } | null>(null); // Added isCritical
+  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string; isCritical?: boolean; isFlexible?: boolean } | null>(null); // Added isCritical, isFlexible
   const [injectionDuration, setInjectionDuration] = useState('');
   const [injectionBreak, setInjectionBreak] = useState('');
   const [injectionStartTime, setInjectionStartTime] = useState('');
@@ -429,7 +429,7 @@ const SchedulerPage: React.FC = () => {
             break_duration: injectCommand.breakDuration, 
             scheduled_date: taskScheduledDate,
             is_critical: injectCommand.isCritical, // Pass critical flag
-            is_flexible: true, // Injected duration-based tasks are flexible
+            is_flexible: injectCommand.isFlexible, // Pass flexible flag
           });
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -445,6 +445,7 @@ const SchedulerPage: React.FC = () => {
           startTime: injectCommand.startTime,
           endTime: injectCommand.endTime,
           isCritical: injectCommand.isCritical, // Pass critical flag
+          isFlexible: injectCommand.isFlexible, // Pass flexible flag
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -457,6 +458,7 @@ const SchedulerPage: React.FC = () => {
           startTime: undefined,
           endTime: undefined,
           isCritical: injectCommand.isCritical, // Pass critical flag
+          isFlexible: injectCommand.isFlexible, // Pass flexible flag
         });
         success = true;
       }
@@ -571,7 +573,7 @@ const SchedulerPage: React.FC = () => {
         endTime = addDays(endTime, 1);
       }
 
-      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: false }); // Timed tasks are fixed
+      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: injectionPrompt.isFlexible }); // Timed tasks are fixed
       showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
       success = true;
     } else { // Duration-based injection
@@ -619,7 +621,7 @@ const SchedulerPage: React.FC = () => {
           break_duration: breakDuration, 
           scheduled_date: taskScheduledDate,
           is_critical: injectionPrompt.isCritical, // Pass critical flag
-          is_flexible: true, // Injected duration-based tasks are flexible
+          is_flexible: injectionPrompt.isFlexible, // Pass flexible flag
         });
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
@@ -694,7 +696,7 @@ const SchedulerPage: React.FC = () => {
           break_duration: retiredTask.break_duration, // Pass break_duration from retired task
           scheduled_date: formattedSelectedDay,
           is_critical: retiredTask.is_critical, // Pass critical flag
-          is_flexible: true, // Re-zoned tasks are flexible by default
+          is_flexible: retiredTask.is_flexible, // Pass flexible flag from retired task
         });
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {

@@ -72,6 +72,7 @@ export interface RetiredTask {
   original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
   retired_at: string; // Timestamp when it was moved to the sink
   is_critical: boolean; // NEW: Critical Urgency Flag
+  is_flexible: boolean; // NEW: Added is_flexible to retired tasks for re-zoning
 }
 
 export interface NewRetiredTask {
@@ -81,6 +82,7 @@ export interface NewRetiredTask {
   break_duration: number | null;
   original_scheduled_date: string;
   is_critical?: boolean; // NEW: Critical Urgency Flag
+  is_flexible?: boolean; // NEW: Added is_flexible to NewRetiredTask
 }
 
 export type ScheduledItemType = 'task' | 'break';

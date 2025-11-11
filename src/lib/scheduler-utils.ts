@@ -228,16 +228,25 @@ interface ParsedInjectionCommand {
   startTime?: string;
   endTime?: string;
   isCritical: boolean; // Added isCritical
+  isFlexible?: boolean; // Added isFlexible
 }
 
 export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
   let isCritical = false;
+  let isFlexible = true; // Default to flexible for injected tasks unless specified otherwise
 
   // Check for critical flag and remove it from the input string for further parsing
   if (input.endsWith(' !')) {
     isCritical = true;
     input = input.slice(0, -2).trim(); // Remove ' !'
   }
+
+  // Check for fixed flag (e.g., "inject task 60 fixed")
+  if (input.endsWith(' fixed')) {
+    isFlexible = false;
+    input = input.slice(0, -6).trim(); // Remove ' fixed'
+  }
+
 
   const injectRegex = /^inject\s+(.*?)(?:\s+(\d+)(?:\s+(\d+))?)?(?:\s+from\s+(\d{1,2}(:\d{2})?\s*(?:am|pm))\s+to\s+(\d{1,2}(:\d{2})?\s*(?:am|pm)))?$/i;
   const match = input.match(injectRegex);
@@ -250,7 +259,11 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
     const endTime = match[6] ? match[6].trim() : undefined;
 
     if (taskName) {
-      return { taskName, duration, breakDuration, startTime, endTime, isCritical };
+      // If start and end times are provided, it's a fixed task
+      if (startTime && endTime) {
+        isFlexible = false;
+      }
+      return { taskName, duration, breakDuration, startTime, endTime, isCritical, isFlexible };
     }
   }
   return null;

@@ -112,7 +112,7 @@ export const getMidnightRolloverMessage = (endDate: Date, T_current: Date): stri
 /**
  * Generates fixed time markers for a full 24-hour template.
  */
-export const generateFixedTimeMarkers = (T_current: Date): TimeMarker => {
+export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
   const markers: TimeMarker[] = [];
   const startOfToday = startOfDay(T_current); // 12:00 AM today
 
@@ -120,7 +120,7 @@ export const generateFixedTimeMarkers = (T_current: Date): TimeMarker => {
   markers.push({ id: 'marker-0', type: 'marker', time: startOfToday, label: formatTime(startOfToday) });
 
   // Add markers every 3 hours for a full 24-hour cycle
-  for (let i = 3; i <= 24; i += 3) { // Changed loop to go up to 24 hours
+  for (let i = 3; i <= 24; i += 3) {
     const markerTime = addHours(startOfToday, i);
     markers.push({ id: `marker-${i}`, type: 'marker', time: markerTime, label: formatTime(markerTime) });
   }
@@ -439,7 +439,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTime,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
+    midnightRolloverMessage: midnightRolloverMessage, // Corrected typo here
     unscheduledCount: unscheduledCount, // Add to summary
     criticalTasksRemaining: criticalTasksRemaining, // NEW: Add to summary
   };

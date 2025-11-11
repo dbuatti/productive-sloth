@@ -65,6 +65,13 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     setSelectedIndex(-1); // Reset selected index whenever suggestions change
   }, [shouldShowSuggestions]);
 
+  // Effect to re-focus input after successful command (when inputValue becomes empty)
+  useEffect(() => {
+    if (!isLoading && inputValue === '' && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [inputValue, isLoading]);
+
 
   const handleSelectSuggestion = (suggestion: Suggestion) => {
     if (suggestion.type === 'command' && suggestion.name === 'clear') {

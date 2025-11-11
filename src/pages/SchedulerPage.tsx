@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } => 'react-router-dom';
 import AetherSink from '@/components/AetherSink'; // Import AetherSink component
 import { supabase } from '@/integrations/supabase/client'; // Import supabase
 import { useQueryClient } from '@tanstack/react-query'; // Import useQueryClient

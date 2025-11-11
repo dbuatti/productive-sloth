@@ -177,6 +177,31 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, refreshProfile]);
 
+  // NEW: Generic function to update profile fields
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!user) {
+      showError("You must be logged in to update your profile.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      await refreshProfile();
+      showSuccess("Profile updated successfully!");
+    } catch (error: any) {
+      showError(`Failed to update profile: ${error.message}`);
+      console.error("Update profile error:", error);
+    }
+  }, [user, refreshProfile]);
+
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
       setSession(currentSession);
@@ -353,7 +378,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       resetLevelUp,
       resetDailyStreak,
       claimDailyReward,
-      updateNotificationPreferences
+      updateNotificationPreferences,
+      updateProfile // NEW: Expose updateProfile
     }}>
       {children}
     </SessionContext.Provider>

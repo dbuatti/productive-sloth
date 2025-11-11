@@ -37,6 +37,7 @@ interface SessionContextType {
   resetDailyStreak: () => Promise<void>; // Added resetDailyStreak function
   claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>; // Added claimDailyReward function
   updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>; // Added updateNotificationPreferences
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>; // NEW: Function to update profile fields
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

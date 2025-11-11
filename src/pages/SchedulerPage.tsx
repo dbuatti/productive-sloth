@@ -157,27 +157,37 @@ const SchedulerPage: React.FC = () => {
 
   // Initialize optimisticScheduledTimes when dbScheduledTasks changes
   useEffect(() => {
-    if (dbScheduledTasks) {
-      const initialTimes = dbScheduledTasks
-        .filter(task => task.start_time && task.end_time)
-        .map(task => {
-          const utcStart = parseISO(task.start_time!);
-          const utcEnd = parseISO(task.end_time!);
-          
-          // Convert UTC Date objects to local Date objects for consistent scheduling logic
-          const localStart = new Date(utcStart.getUTCFullYear(), utcStart.getUTCMonth(), utcStart.getUTCDate(), utcStart.getUTCHours(), utcStart.getUTCMinutes(), utcStart.getUTCSeconds());
-          const localEnd = new Date(utcEnd.getUTCFullYear(), utcEnd.getUTCMonth(), utcEnd.getUTCDate(), utcEnd.getUTCHours(), utcEnd.getUTCMinutes(), utcEnd.getUTCSeconds());
+    if (!dbScheduledTasks) {
+      // If dbScheduledTasks is null or undefined, clear optimistic state
+      if (optimisticScheduledTimes.length > 0) {
+        setOptimisticScheduledTimes([]);
+      }
+      return;
+    }
 
-          return {
-            start: localStart,
-            end: localEnd,
-            duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
-          };
-        })
-        .sort((a, b) => a.start.getTime() - b.start.getTime());
+    const initialTimes = dbScheduledTasks
+      .filter(task => task.start_time && task.end_time)
+      .map(task => {
+        const utcStart = parseISO(task.start_time!);
+        const utcEnd = parseISO(task.end_time!);
+        
+        // Convert UTC Date objects to local Date objects for consistent scheduling logic
+        const localStart = new Date(utcStart.getUTCFullYear(), utcStart.getUTCMonth(), utcStart.getUTCDate(), utcStart.getUTCHours(), utcStart.getUTCMinutes(), utcStart.getUTCSeconds());
+        const localEnd = new Date(utcEnd.getUTCFullYear(), utcEnd.getUTCMonth(), utcEnd.getUTCDate(), utcEnd.getUTCHours(), utcEnd.getUTCMinutes(), utcEnd.getUTCSeconds());
+
+        return {
+          start: localStart,
+          end: localEnd,
+          duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
+        };
+      })
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+    
+    // Only update if the content of initialTimes is different from current optimisticScheduledTimes
+    if (!deepCompare(initialTimes, optimisticScheduledTimes)) {
       setOptimisticScheduledTimes(initialTimes);
     }
-  }, [dbScheduledTasks]);
+  }, [dbScheduledTasks, optimisticScheduledTimes]);
 
 
   // Handle pre-filling input from navigation state
@@ -1120,7 +1130,7 @@ const SchedulerPage: React.FC = () => {
               This action will permanently delete all scheduled tasks for {format(parseISO(selectedDay), 'EEEE, MMMM d')}. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter> {/* Corrected from DialogFooter to AlertDialogFooter */}
+          <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule

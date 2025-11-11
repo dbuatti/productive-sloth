@@ -80,7 +80,7 @@ function useDeepCompareMemoize<T>(value: T): T {
     signalRef.current++;
   }
 
-  return useMemo(() => ref.current, [signalRef.current]);
+  return useMemo(() => ref.current, [signalRef.current],);
 }
 
 const getFreeTimeBlocks = (
@@ -417,6 +417,7 @@ const SchedulerPage: React.FC = () => {
               break_duration: parsedInput.breakDuration,
               is_critical: parsedInput.isCritical,
               is_flexible: parsedInput.isFlexible,
+              scheduled_date: taskScheduledDate, // ADDED: Missing scheduled_date
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -722,8 +723,8 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleRezoneFromSink = async (retiredTask: RetiredTask) => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to rezone tasks.");
+    if (!user) {
+      showError("You must be logged in to rezone tasks.");
       return;
     }
     setIsProcessingCommand(true);

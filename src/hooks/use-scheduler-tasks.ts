@@ -180,7 +180,14 @@ export const useTasks = () => {
             return; // Stop further processing
           }
 
-          const newXp = profile.xp + updatedTask.metadata_xp;
+          let xpGained = updatedTask.metadata_xp;
+          // Add XP bonus for critical tasks completed on the day they are flagged
+          if (updatedTask.is_critical && isToday(parseISO(updatedTask.due_date))) {
+            xpGained += 5; // +5 XP bonus for critical tasks
+            showSuccess(`Critical task bonus! +5 XP`);
+          }
+
+          const newXp = profile.xp + xpGained;
           const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
           const newEnergy = Math.max(0, profile.energy - updatedTask.energy_cost); // Deduct energy, ensure not negative
           const newTasksCompletedToday = profile.tasks_completed_today + 1; // Increment tasks completed today
@@ -219,7 +226,7 @@ export const useTasks = () => {
             await refreshProfile(); // Refresh profile data in session context
             
             // --- Trigger XP Animation ---
-            setXpGainAnimation({ taskId: updatedTask.id, xpAmount: updatedTask.metadata_xp });
+            setXpGainAnimation({ taskId: updatedTask.id, xpAmount: xpGained }); // Use xpGained
             // ---------------------------
 
             showSuccess(`Task completed! -${updatedTask.energy_cost} Energy`);
@@ -305,7 +312,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time }))); // Detailed log
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical }))); // Detailed log
       return data as DBScheduledTask[];
     },
     enabled: !!userId,
@@ -348,7 +355,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name })));
+      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical })));
       return data as RetiredTask[];
     },
     enabled: !!userId,
@@ -360,6 +367,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     name: dbTask.name,
     duration: Math.floor((parseISO(dbTask.end_time!).getTime() - parseISO(dbTask.start_time!).getTime()) / (1000 * 60)), // Derive duration
     breakDuration: dbTask.break_duration ?? undefined,
+    isCritical: dbTask.is_critical, // Pass critical flag
   }));
 
   // Add a new scheduled task
@@ -444,6 +452,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         duration: Math.floor((parseISO(taskToRetire.end_time!).getTime() - parseISO(taskToRetire.start_time!).getTime()) / (1000 * 60)), // Derive duration for retired task
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
+        is_critical: taskToRetire.is_critical, // Pass critical flag
       };
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);

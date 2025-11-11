@@ -31,6 +31,7 @@ import DatePicker from "./DatePicker";
 import { useTasks } from '@/hooks/use-tasks';
 import { showSuccess } from "@/utils/toast";
 import { useSession } from '@/hooks/use-session'; // Import useSession
+import { Switch } from '@/components/ui/switch'; // Import Switch
 
 // Define the schema for editing, matching the TaskEditDialog logic
 const formSchema = z.object({
@@ -41,6 +42,7 @@ const formSchema = z.object({
   // New fields for gamification metadata
   metadata_xp: z.coerce.number().int().min(0, "XP must be a positive number."),
   energy_cost: z.coerce.number().int().min(0, "Energy cost must be a positive number."),
+  isCritical: z.boolean().default(false), // Added isCritical
 });
 
 type TaskDetailFormValues = z.infer<typeof formSchema>;
@@ -68,6 +70,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       dueDate: new Date(),
       metadata_xp: 0,
       energy_cost: 0,
+      isCritical: false, // Default to false
     },
   });
 
@@ -86,6 +89,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         dueDate: task.due_date ? new Date(task.due_date) : new Date(), 
         metadata_xp: task.metadata_xp,
         energy_cost: task.energy_cost,
+        isCritical: task.is_critical, // Set critical flag
       });
     }
   }, [task, form]);
@@ -104,6 +108,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         due_date: values.dueDate.toISOString(),
         metadata_xp: values.metadata_xp, // Include XP
         energy_cost: values.energy_cost, // Include Energy Cost
+        is_critical: values.isCritical, // Include critical flag
       });
       showSuccess("Task updated successfully!");
       onOpenChange(false);
@@ -300,6 +305,28 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                   )}
                 />
               </div>
+
+              {/* Is Critical Switch */}
+              <FormField
+                control={form.control}
+                name="isCritical"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Critical Task</FormLabel>
+                      <FormDescription>
+                        Mark this task as critical (must be completed today).
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             </div>
               
             {/* Save Button in Footer */}

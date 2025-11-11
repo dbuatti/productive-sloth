@@ -179,7 +179,14 @@ export const useTasks = () => {
             return; // Stop further processing
           }
 
-          const newXp = profile.xp + updatedTask.metadata_xp;
+          let xpGained = updatedTask.metadata_xp;
+          // Add XP bonus for critical tasks completed on the day they are flagged
+          if (updatedTask.is_critical && isToday(parseISO(updatedTask.due_date))) {
+            xpGained += 5; // +5 XP bonus for critical tasks
+            showSuccess(`Critical task bonus! +5 XP`);
+          }
+
+          const newXp = profile.xp + xpGained;
           const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
           const newEnergy = Math.max(0, profile.energy - updatedTask.energy_cost); // Deduct energy, ensure not negative
           const newTasksCompletedToday = profile.tasks_completed_today + 1; // Increment tasks completed today
@@ -218,7 +225,7 @@ export const useTasks = () => {
             await refreshProfile(); // Refresh profile data in session context
             
             // --- Trigger XP Animation ---
-            setXpGainAnimation({ taskId: updatedTask.id, xpAmount: updatedTask.metadata_xp });
+            setXpGainAnimation({ taskId: updatedTask.id, xpAmount: xpGained }); // Use xpGained
             // ---------------------------
 
             showSuccess(`Task completed! -${updatedTask.energy_cost} Energy`);

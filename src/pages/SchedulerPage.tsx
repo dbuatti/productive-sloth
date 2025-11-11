@@ -126,7 +126,7 @@ const SchedulerPage: React.FC = () => {
   const [T_current, setT_current] = useState(new Date());
   
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
-  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string } | null>(null);
+  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string; isCritical?: boolean } | null>(null); // Added isCritical
   const [injectionDuration, setInjectionDuration] = useState('');
   const [injectionBreak, setInjectionBreak] = useState('');
   const [injectionStartTime, setInjectionStartTime] = useState('');
@@ -151,8 +151,8 @@ const SchedulerPage: React.FC = () => {
   useEffect(() => {
     const taskToSchedule = (location.state as any)?.taskToSchedule;
     if (taskToSchedule) {
-      const { name, duration } = taskToSchedule;
-      const command = `inject "${name}" ${duration}`;
+      const { name, duration, isCritical } = taskToSchedule; // Get isCritical
+      const command = `inject "${name}" ${duration}${isCritical ? ' !' : ''}`; // Append ' !' if critical
       // Immediately execute the command
       handleCommand(command);
       // Clear the state so it doesn't re-trigger on subsequent visits
@@ -334,10 +334,22 @@ const SchedulerPage: React.FC = () => {
 
         const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
 
-        for (const block of freeBlocks) {
-          if (newTaskDuration <= block.duration) {
-            proposedStartTime = block.start;
-            break; 
+        // Prioritize critical tasks for earlier slots
+        if (parsedInput.isCritical) {
+          // Find the earliest possible slot for a critical task
+          for (const block of freeBlocks) {
+            if (newTaskDuration <= block.duration) {
+              proposedStartTime = block.start;
+              break;
+            }
+          }
+        } else {
+          // For non-critical tasks, find the first available slot
+          for (const block of freeBlocks) {
+            if (newTaskDuration <= block.duration) {
+              proposedStartTime = block.start;
+              break; 
+            }
           }
         }
         
@@ -349,6 +361,7 @@ const SchedulerPage: React.FC = () => {
             end_time: proposedEndTime.toISOString(), 
             scheduled_date: taskScheduledDate,
             break_duration: parsedInput.breakDuration,
+            is_critical: parsedInput.isCritical, // Pass critical flag
           });
           showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -374,7 +387,7 @@ const SchedulerPage: React.FC = () => {
           endTime = addDays(endTime, 1);
         }
 
-        await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
+        await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical }); // Pass critical flag
         showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
       }
@@ -387,10 +400,20 @@ const SchedulerPage: React.FC = () => {
 
         const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
 
-        for (const block of freeBlocks) {
-          if (injectedTaskDuration <= block.duration) {
-            proposedStartTime = block.start;
-            break; 
+        // Prioritize critical tasks for earlier slots
+        if (injectCommand.isCritical) {
+          for (const block of freeBlocks) {
+            if (injectedTaskDuration <= block.duration) {
+              proposedStartTime = block.start;
+              break;
+            }
+          }
+        } else {
+          for (const block of freeBlocks) {
+            if (injectedTaskDuration <= block.duration) {
+              proposedStartTime = block.start;
+              break; 
+            }
           }
         }
 
@@ -401,7 +424,8 @@ const SchedulerPage: React.FC = () => {
             start_time: proposedStartTime.toISOString(), 
             end_time: proposedEndTime.toISOString(), 
             break_duration: injectCommand.breakDuration, 
-            scheduled_date: taskScheduledDate 
+            scheduled_date: taskScheduledDate,
+            is_critical: injectCommand.isCritical, // Pass critical flag
           });
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -415,7 +439,8 @@ const SchedulerPage: React.FC = () => {
           isOpen: true, 
           isTimed: true,
           startTime: injectCommand.startTime,
-          endTime: injectCommand.endTime
+          endTime: injectCommand.endTime,
+          isCritical: injectCommand.isCritical, // Pass critical flag
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -426,7 +451,8 @@ const SchedulerPage: React.FC = () => {
           isOpen: true, 
           isTimed: false,
           startTime: undefined,
-          endTime: undefined
+          endTime: undefined,
+          isCritical: injectCommand.isCritical, // Pass critical flag
         });
         success = true;
       }
@@ -525,7 +551,7 @@ const SchedulerPage: React.FC = () => {
         endTime = addDays(endTime, 1);
       }
 
-      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate });
+      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical }); // Pass critical flag
       showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
       success = true;
     } else { // Duration-based injection
@@ -547,10 +573,20 @@ const SchedulerPage: React.FC = () => {
       
       const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
 
-      for (const block of freeBlocks) {
-        if (injectedTaskDuration <= block.duration) {
-          proposedStartTime = block.start;
-          break; 
+      // Prioritize critical tasks for earlier slots
+      if (injectionPrompt.isCritical) {
+        for (const block of freeBlocks) {
+          if (injectedTaskDuration <= block.duration) {
+            proposedStartTime = block.start;
+            break;
+          }
+        }
+      } else {
+        for (const block of freeBlocks) {
+          if (injectedTaskDuration <= block.duration) {
+            proposedStartTime = block.start;
+            break; 
+          }
         }
       }
 
@@ -561,7 +597,8 @@ const SchedulerPage: React.FC = () => {
           start_time: proposedStartTime.toISOString(), 
           end_time: proposedEndTime.toISOString(), 
           break_duration: breakDuration, 
-          scheduled_date: taskScheduledDate 
+          scheduled_date: taskScheduledDate,
+          is_critical: injectionPrompt.isCritical, // Pass critical flag
         });
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
@@ -605,10 +642,20 @@ const SchedulerPage: React.FC = () => {
       let proposedStartTime: Date | null = null;
       const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
 
-      for (const block of freeBlocks) {
-        if (taskDuration <= block.duration) {
-          proposedStartTime = block.start;
-          break;
+      // Prioritize critical tasks for earlier slots
+      if (retiredTask.is_critical) {
+        for (const block of freeBlocks) {
+          if (taskDuration <= block.duration) {
+            proposedStartTime = block.start;
+            break;
+          }
+        }
+      } else {
+        for (const block of freeBlocks) {
+          if (taskDuration <= block.duration) {
+            proposedStartTime = block.start;
+            break; 
+          }
         }
       }
 
@@ -625,6 +672,7 @@ const SchedulerPage: React.FC = () => {
           end_time: proposedEndTime.toISOString(),
           break_duration: retiredTask.break_duration, // Pass break_duration from retired task
           scheduled_date: formattedSelectedDay,
+          is_critical: retiredTask.is_critical, // Pass critical flag
         });
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {

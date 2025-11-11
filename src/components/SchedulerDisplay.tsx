@@ -3,7 +3,7 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive } from 'lucide-react'; // Import Archive icon
+import { Trash, Archive, AlertCircle } from 'lucide-react'; // Import Archive icon, AlertCircle
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO } from 'date-fns';
@@ -285,52 +285,66 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
               )}>
                 <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span> {/* Made duration font-semibold */}
               </span>
-              <span className={cn(
-                "text-xs font-semibold font-mono ml-auto text-[hsl(var(--always-light-text))] opacity-80" // Made time range font-semibold
-              )}>
-                {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
-              </span>
-              <div className="flex items-center gap-1 ml-2"> {/* Group buttons */}
-                {dbTask && ( // Only show retire button if it's a real DB task
+              <div className="flex items-center gap-1 ml-auto shrink-0">
+                {scheduledItem.isCritical && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
+                        <AlertCircle className="h-3 w-3" strokeWidth={2.5} />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Critical Task: Must be completed today!</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                <span className={cn(
+                  "text-xs font-semibold font-mono text-[hsl(var(--always-light-text))] opacity-80" // Made time range font-semibold
+                )}>
+                  {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
+                </span>
+                <div className="flex items-center gap-1 ml-2"> {/* Group buttons */}
+                  {dbTask && ( // Only show retire button if it's a real DB task
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => onRetireTask(dbTask)} 
+                          className={cn(
+                            "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]",
+                            "hover:bg-white/10"
+                          )}
+                        >
+                          <Archive className="h-4 w-4" />
+                          <span className="sr-only">Retire task</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Move to Aether Sink</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        onClick={() => onRetireTask(dbTask)} 
+                        onClick={() => onRemoveTask(scheduledItem.id)} 
                         className={cn(
-                          "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]",
+                          "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]", // Using always-light-text
                           "hover:bg-white/10"
                         )}
                       >
-                        <Archive className="h-4 w-4" />
-                        <span className="sr-only">Retire task</span>
+                        <Trash className="h-4 w-4" />
+                        <span className="sr-only">Remove task</span>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Move to Aether Sink</p>
+                      <p>Remove from schedule</p>
                     </TooltipContent>
                   </Tooltip>
-                )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => onRemoveTask(scheduledItem.id)} 
-                      className={cn(
-                        "h-6 w-6 p-0 shrink-0 text-[hsl(var(--always-light-text))]", // Using always-light-text
-                        "hover:bg-white/10"
-                      )}
-                    >
-                      <Trash className="h-4 w-4" />
-                      <span className="sr-only">Remove task</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Remove from schedule</p>
-                  </TooltipContent>
-                </Tooltip>
+                </div>
               </div>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
@@ -434,6 +448,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({ schedule, T_current
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {schedule?.summary.extendsPastMidnight && (
               <p className="text-orange-500 font-semibold">⚠️ {schedule.summary.midnightRolloverMessage}</p>
+            )}
+            {schedule?.summary.criticalTasksRemaining > 0 && (
+              <p className="text-red-500 font-semibold">
+                ⚠️ Critical task{schedule.summary.criticalTasksRemaining > 1 ? 's' : ''} remain. Rezone now!
+              </p>
             )}
             {totalScheduledMinutes < 6 * 60 && (
               <p>💡 Light day! Consider adding buffer time for flexibility.</p>

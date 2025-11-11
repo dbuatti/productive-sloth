@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost } from 'lucide-react'; // Import RotateCcw icon, added Ghost
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle } from 'lucide-react'; // Import RotateCcw icon, added Ghost, AlertCircle
 import { RetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -51,6 +51,18 @@ const AetherSink: React.FC<AetherSinkProps> = ({ retiredTasks, onRezoneTask, onR
                 >
                   <div className="flex flex-col items-start flex-grow min-w-0">
                     <div className="flex items-center gap-1">
+                      {task.is_critical && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
+                              <AlertCircle className="h-3 w-3" strokeWidth={2.5} />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Critical Task: Must be completed today!</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                       <span className="text-base">{emoji}</span>
                       <span className="font-semibold text-foreground truncate">{task.name}</span>
                       {task.duration && <span className="text-xs text-foreground/80">({task.duration} min)</span>}

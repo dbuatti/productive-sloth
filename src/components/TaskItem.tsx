@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft } from "lucide-react"; // Added AlignLeft
+import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle } from "lucide-react"; // Added AlertCircle
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,6 +64,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         taskToSchedule: {
           name: task.title,
           duration: task.energy_cost, // Use energy_cost as duration proxy
+          isCritical: task.is_critical, // Pass critical flag
         }
       } 
     });
@@ -119,6 +120,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
             className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex flex-col items-start min-w-0 flex-grow`}
           >
             <div className="flex items-center gap-2 w-full">
+              {task.is_critical && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
+                      <AlertCircle className="h-3 w-3" strokeWidth={2.5} /> {/* Exclamation mark icon */}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Critical Task: Must be completed today!</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Badge 
                 variant="outline" // Use outline variant as a base
                 className={cn(

@@ -68,13 +68,23 @@ const TaskCreationForm: React.FC = () => {
   const onQuickSubmit = (values: QuickTaskCreationFormValues) => {
     const { title, priority, dueDate } = values;
 
+    let taskTitle = title.trim();
+    let isCritical = false;
+
+    // Check for critical flag and remove it from the title
+    if (taskTitle.endsWith(' !')) {
+      isCritical = true;
+      taskTitle = taskTitle.slice(0, -2).trim();
+    }
+
     const newTask: NewTask = {
-      title: title.trim(),
+      title: taskTitle,
       description: undefined, // No description in quick add
       priority: priority,
       metadata_xp: priority === 'HIGH' ? 20 : priority === 'MEDIUM' ? 10 : 5, // Assign XP based on priority
       energy_cost: priority === 'HIGH' ? 15 : priority === 'MEDIUM' ? 10 : 5, // Assign Energy Cost based on priority
       due_date: dueDate.toISOString(),
+      is_critical: isCritical, // Pass critical flag
     };
 
     addTask(newTask);
@@ -102,7 +112,7 @@ const TaskCreationForm: React.FC = () => {
             <FormItem className="flex-grow min-w-[150px]">
               <FormControl>
                 <Input
-                  placeholder="Add a new task..."
+                  placeholder="Add a new task... (append ' !' for critical)"
                   {...field}
                   className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
                 />

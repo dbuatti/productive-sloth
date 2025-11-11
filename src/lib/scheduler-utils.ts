@@ -161,10 +161,19 @@ interface ParsedTaskInput {
   breakDuration?: number;
   startTime?: Date;
   endTime?: Date;
+  isCritical: boolean; // Added isCritical
 }
 
 export const parseTaskInput = (input: string): ParsedTaskInput | null => {
   const now = new Date();
+  let isCritical = false;
+
+  // Check for critical flag and remove it from the input string for further parsing
+  if (input.endsWith(' !')) {
+    isCritical = true;
+    input = input.slice(0, -2).trim(); // Remove ' !'
+  }
+
   // Regex to find a time range pattern anywhere in the string
   const timeRangePattern = /(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))/i;
   const timeRangeMatch = input.match(timeRangePattern);
@@ -191,7 +200,7 @@ export const parseTaskInput = (input: string): ParsedTaskInput | null => {
         .trim();
 
       if (cleanedTaskName) {
-        return { name: cleanedTaskName, startTime, endTime };
+        return { name: cleanedTaskName, startTime, endTime, isCritical };
       }
     }
   }
@@ -205,7 +214,7 @@ export const parseTaskInput = (input: string): ParsedTaskInput | null => {
     const duration = parseInt(durationMatch[2], 10);
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
     if (name && duration > 0) {
-      return { name, duration, breakDuration };
+      return { name, duration, breakDuration, isCritical };
     }
   }
 
@@ -218,9 +227,18 @@ interface ParsedInjectionCommand {
   breakDuration?: number;
   startTime?: string;
   endTime?: string;
+  isCritical: boolean; // Added isCritical
 }
 
 export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
+  let isCritical = false;
+
+  // Check for critical flag and remove it from the input string for further parsing
+  if (input.endsWith(' !')) {
+    isCritical = true;
+    input = input.slice(0, -2).trim(); // Remove ' !'
+  }
+
   const injectRegex = /^inject\s+(.*?)(?:\s+(\d+)(?:\s+(\d+))?)?(?:\s+from\s+(\d{1,2}(:\d{2})?\s*(?:am|pm))\s+to\s+(\d{1,2}(:\d{2})?\s*(?:am|pm)))?$/i;
   const match = input.match(injectRegex);
 
@@ -232,7 +250,7 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
     const endTime = match[6] ? match[6].trim() : undefined;
 
     if (taskName) {
-      return { taskName, duration, breakDuration, startTime, endTime };
+      return { taskName, duration, breakDuration, startTime, endTime, isCritical };
     }
   }
   return null;
@@ -289,6 +307,7 @@ export const calculateSchedule = (
   let totalActiveTime = 0;
   let totalBreakTime = 0;
   let unscheduledCount = 0; // New counter for tasks outside workday window
+  let criticalTasksRemaining = 0; // NEW: Counter for critical tasks
 
   // All tasks from DB are now treated as fixed appointments since they will have start/end times
   const allTasksWithTimes: DBScheduledTask[] = dbTasks.filter(task => task.start_time && task.end_time);
@@ -325,6 +344,11 @@ export const calculateSchedule = (
       unscheduledCount++;
     }
 
+    // Increment critical tasks remaining if it's a critical task
+    if (task.is_critical) {
+      criticalTasksRemaining++;
+    }
+
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
     const isStandaloneBreak = task.name.toLowerCase() === 'break';
 
@@ -338,6 +362,7 @@ export const calculateSchedule = (
       emoji: isStandaloneBreak ? EMOJI_MAP['break'] : assignEmoji(task.name),
       description: isStandaloneBreak ? getBreakDescription(duration) : undefined,
       isTimedEvent: true, // All tasks from DB are now treated as timed events
+      isCritical: task.is_critical, // Pass critical flag
     });
     
     if (isStandaloneBreak || task.break_duration) { // If it's a break or has a break_duration, count it as break time
@@ -367,6 +392,7 @@ export const calculateSchedule = (
     extendsPastMidnight: extendsPastMidnight,
     midnightRolloverMessage: midnightRolloverMessage,
     unscheduledCount: unscheduledCount, // Add to summary
+    criticalTasksRemaining: criticalTasksRemaining, // NEW: Add to summary
   };
 
   return {

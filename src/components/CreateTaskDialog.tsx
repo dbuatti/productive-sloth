@@ -9,9 +9,18 @@ import DatePicker from './DatePicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage,
+  FormDescription // Imported FormDescription
+} from '@/components/ui/form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch'; // Imported Switch
 
 // 1. Define Schema
 const TaskCreationSchema = z.object({
@@ -19,6 +28,7 @@ const TaskCreationSchema = z.object({
   description: z.string().max(1000).optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
+  isCritical: z.boolean().default(false), // Added isCritical field
 });
 
 type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
@@ -41,13 +51,14 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
       description: '',
       priority: defaultPriority,
       dueDate: defaultDueDate,
+      isCritical: false, // Default to false
     },
     mode: 'onChange',
   });
 
   // 3. Handle Submission
   const onSubmit = (values: TaskCreationFormValues) => {
-    const { title, priority, dueDate, description } = values;
+    const { title, priority, dueDate, description, isCritical } = values;
 
     const newTask: NewTask = {
       title: title.trim(),
@@ -56,6 +67,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
       metadata_xp: priority === 'HIGH' ? 20 : priority === 'MEDIUM' ? 10 : 5,
       energy_cost: priority === 'HIGH' ? 15 : priority === 'MEDIUM' ? 10 : 5,
       due_date: dueDate.toISOString(),
+      is_critical: isCritical, // Pass critical flag
     };
 
     addTask(newTask, {
@@ -68,6 +80,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
           description: '',
           priority: values.priority, 
           dueDate: values.dueDate, 
+          isCritical: false, // Reset critical flag for next task
         });
       }
     });
@@ -170,6 +183,28 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Is Critical Switch */}
+            <FormField
+              control={form.control}
+              name="isCritical"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Critical Task</FormLabel>
+                    <FormDescription>
+                      Mark this task as critical (must be completed today).
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

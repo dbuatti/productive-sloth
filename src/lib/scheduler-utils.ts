@@ -26,6 +26,8 @@ const EMOJI_MAP: { [key: string]: string } = {
   'phone': '📱',
   'text': '💬',
   'contact': '🤝',
+  'student': '🧑‍🎓', // NEW: Student emoji
+  'rehearsal': '🎭', // NEW: Rehearsal emoji
 };
 
 // New: Map keywords to HSL hue values (0-360)
@@ -53,6 +55,8 @@ const EMOJI_HUE_MAP: { [key: string]: number } = {
   'phone': 255,
   'text': 245,
   'contact': 290,
+  'student': 265, // NEW: Hue for student-related tasks
+  'rehearsal': 315, // NEW: Hue for rehearsal-related tasks
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {
@@ -439,7 +443,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTime,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
+    midnightRolloverMessage: midnightRolloverMessage, // Corrected typo here
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
   };

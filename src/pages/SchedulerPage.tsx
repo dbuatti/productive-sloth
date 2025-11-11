@@ -141,6 +141,8 @@ const SchedulerPage: React.FC = () => {
     rezoneTask,
     compactScheduledTasks,
     randomizeBreaks, // NEW: Import randomizeBreaks
+    sortBy, // NEW: Get sortBy from hook
+    setSortBy, // NEW: Get setSortBy from hook
   } = useSchedulerTasks(selectedDay);
 
   const queryClient = useQueryClient();
@@ -156,7 +158,7 @@ const SchedulerPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
-  const [currentSortBy, setCurrentSortBy] = useState<SortBy>('PRIORITY_HIGH_TO_LOW'); // New state for sorting
+  // const [currentSortBy, setCurrentSortBy] = useState<SortBy>('PRIORITY_HIGH_TO_LOW'); // Removed, now managed by useSchedulerTasks
 
   // Calculate selectedDayAsDate early
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
@@ -920,7 +922,7 @@ const SchedulerPage: React.FC = () => {
   };
 
   // NEW: Handle sorting flexible tasks by duration
-  const handleSortFlexibleTasks = async (sortBy: SortBy) => {
+  const handleSortFlexibleTasks = async (newSortBy: SortBy) => { // Changed parameter name
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
 
@@ -933,19 +935,19 @@ const SchedulerPage: React.FC = () => {
 
     let sortedFlexibleTasks = [...flexibleTasks];
 
-    if (sortBy === 'TIME_EARLIEST_TO_LATEST') {
+    if (newSortBy === 'TIME_EARLIEST_TO_LATEST') {
       sortedFlexibleTasks.sort((a, b) => {
         const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
         const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
         return durationA - durationB;
       });
-    } else if (sortBy === 'TIME_LATEST_TO_EARLIEST') {
+    } else if (newSortBy === 'TIME_LATEST_TO_EARLIEST') {
       sortedFlexibleTasks.sort((a, b) => {
         const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
         const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
         return durationB - durationA;
       });
-    } else if (sortBy === 'PRIORITY_HIGH_TO_LOW') {
+    } else if (newSortBy === 'PRIORITY_HIGH_TO_LOW') {
       const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
       sortedFlexibleTasks.sort((a, b) => {
         const priorityDiff = priorityOrder[a.is_critical ? 'HIGH' : 'MEDIUM'] - priorityOrder[b.is_critical ? 'HIGH' : 'MEDIUM']; // Use is_critical for priority
@@ -954,7 +956,7 @@ const SchedulerPage: React.FC = () => {
         const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
         return durationA - durationB; // Secondary sort by duration
       });
-    } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
+    } else if (newSortBy === 'PRIORITY_LOW_TO_HIGH') {
       const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
       sortedFlexibleTasks.sort((a, b) => {
         const priorityDiff = priorityOrder[a.is_critical ? 'HIGH' : 'MEDIUM'] - priorityOrder[b.is_critical ? 'HIGH' : 'MEDIUM']; // Use is_critical for priority
@@ -977,7 +979,7 @@ const SchedulerPage: React.FC = () => {
     if (reorganizedTasks.length > 0) {
       await compactScheduledTasks(reorganizedTasks);
       showSuccess("Flexible tasks sorted!");
-      setCurrentSortBy(sortBy); // Update the current sort state
+      setSortBy(newSortBy); // Update the current sort state in the hook
     } else {
       showError("Could not sort flexible tasks or no space available.");
     }

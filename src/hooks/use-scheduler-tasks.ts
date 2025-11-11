@@ -297,21 +297,39 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
 
   const formattedSelectedDate = selectedDate; // Now directly use selectedDate
 
+  const [sortBy, setSortBy] = useState<SortBy>('TIME_EARLIEST_TO_LATEST'); // NEW: State for sorting
+
   // Fetch all scheduled tasks for the current user and selected date
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
-    queryKey: ['scheduledTasks', userId, formattedSelectedDate], // Include selectedDate in query key
+    queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy], // Include sortBy in query key
     queryFn: async () => {
       if (!userId) {
         console.log("useSchedulerTasks: No user ID, returning empty array.");
         return [];
       }
-      console.log("useSchedulerTasks: Fetching scheduled tasks for user:", userId, "on date:", formattedSelectedDate);
-      const { data, error } = await supabase
+      console.log("useSchedulerTasks: Fetching scheduled tasks for user:", userId, "on date:", formattedSelectedDate, "sorted by:", sortBy);
+      let query = supabase
         .from('scheduled_tasks')
         .select('*')
         .eq('user_id', userId)
-        .eq('scheduled_date', formattedSelectedDate) // Filter by scheduled_date
-        .order('created_at', { ascending: true }); // Order by creation to maintain queue order
+        .eq('scheduled_date', formattedSelectedDate); // Filter by scheduled_date
+
+      // Apply sorting based on sortBy state
+      if (sortBy === 'TIME_EARLIEST_TO_LATEST') {
+        query = query.order('start_time', { ascending: true });
+      } else if (sortBy === 'TIME_LATEST_TO_EARLIEST') {
+        query = query.order('start_time', { ascending: false });
+      } else if (sortBy === 'PRIORITY_HIGH_TO_LOW') {
+        // For priority, we need to sort by is_critical first (true comes before false), then by start_time
+        query = query.order('is_critical', { ascending: false }).order('start_time', { ascending: true });
+      } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
+        // For priority, we need to sort by is_critical first (false comes before true), then by start_time
+        query = query.order('is_critical', { ascending: true }).order('start_time', { ascending: true });
+      } else {
+        query = query.order('created_at', { ascending: true }); // Default stable sort
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
@@ -392,13 +410,13 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     // NEW: Optimistic update logic
     onMutate: async (newTask: NewDBScheduledTask) => {
       // Cancel any outgoing refetches for the scheduled tasks query
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
 
       // Snapshot the previous value
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 
       // Optimistically update to the new value
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], (old) => {
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
         const tempId = Math.random().toString(36).substring(2, 9); // Temporary ID for optimistic item
         const now = new Date().toISOString();
         const optimisticTask: DBScheduledTask = {
@@ -421,7 +439,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       return { previousScheduledTasks };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] }); // Invalidate for current date
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] }); // Invalidate for current date
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] }); // Invalidate for dates with tasks
       showSuccess('Task added to schedule!');
     },
@@ -429,7 +447,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       showError(`Failed to add task to schedule: ${err.message}`);
       // Rollback to the previous cached value on error
       if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
     }
   });
@@ -495,23 +513,23 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     },
     // NEW: Optimistic update for removeScheduledTask
     onMutate: async (taskId: string) => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], (old) =>
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
         (old || []).filter(task => task.id !== taskId)
       );
       return { previousScheduledTasks };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] }); // Invalidate for current date
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] }); // Invalidate for current date
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] }); // Invalidate for dates with tasks
       showSuccess('Task removed from schedule.');
     },
     onError: (e, taskId, context) => {
       showError(`Failed to remove task from schedule: ${e.message}`);
       if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
     }
   });
@@ -530,21 +548,21 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     },
     // NEW: Optimistic update for clearScheduledTasks
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], []);
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], []);
       return { previousScheduledTasks };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] }); // Invalidate for current date
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] }); // Invalidate for current date
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] }); // Invalidate for dates with tasks
       showSuccess('Schedule cleared for today!');
     },
     onError: (e, _variables, context) => {
       showError(`Failed to clear schedule: ${e.message}`);
       if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
     }
   });
@@ -572,14 +590,14 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     },
     // NEW: Optimistic update for retireTask
     onMutate: async (taskToRetire: DBScheduledTask) => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
 
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
 
       // Optimistically remove from scheduledTasks
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], (old) =>
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
         (old || []).filter(task => task.id !== taskToRetire.id)
       );
 
@@ -601,7 +619,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       return { previousScheduledTasks, previousRetiredTasks };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Task moved to Aether Sink.');
@@ -610,7 +628,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       showError(`Failed to retire task: ${err.message}`);
       // Revert optimistic updates on error
       if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
       if (context?.previousRetiredTasks) {
         queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
@@ -680,20 +698,20 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     },
     // NEW: Optimistic update for compactScheduledTasks
     onMutate: async (tasksToUpdate: DBScheduledTask[]) => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], tasksToUpdate);
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], tasksToUpdate);
       return { previousScheduledTasks };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       showSuccess('Schedule compacted!');
     },
     onError: (e, _variables, context) => {
       showError(`Failed to compact schedule: ${e.message}`);
       if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
     }
   });
@@ -822,8 +840,8 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       return { placedBreaks, failedToPlaceBreaks };
     },
     onMutate: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }) => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, selectedDate] });
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate]);
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, selectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy]);
 
       const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break');
       let breakTasks = currentDbTasks.filter(task => task.name.toLowerCase() === 'break');
@@ -902,12 +920,12 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         }
       }
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate], optimisticFinalTasksForUpdate);
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy], optimisticFinalTasksForUpdate);
 
       return { previousScheduledTasks };
     },
     onSuccess: ({ placedBreaks, failedToPlaceBreaks }) => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       if (placedBreaks.length > 0) {
         showSuccess(`Successfully randomized and placed ${placedBreaks.length} breaks.`);
       }
@@ -918,7 +936,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     onError: (e, variables, context) => {
       showError(`Failed to randomize breaks: ${e.message}`);
       if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, variables.selectedDate], context.previousScheduledTasks);
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, variables.selectedDate, sortBy], context.previousScheduledTasks);
       }
     }
   });
@@ -940,5 +958,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     rezoneTask: rezoneTaskMutation.mutateAsync, // NEW: Rezone task mutation (use mutateAsync for chaining)
     compactScheduledTasks: compactScheduledTasksMutation.mutate, // NEW: Compact schedule mutation
     randomizeBreaks: randomizeBreaksMutation.mutate, // NEW: Randomize breaks mutation
+    sortBy, // Expose sortBy state
+    setSortBy, // Expose setSortBy function
   };
 };

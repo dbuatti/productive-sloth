@@ -331,6 +331,43 @@ const SchedulerPage: React.FC = () => {
     }
   }, [user, dbScheduledTasks, isSchedulerTasksLoading, selectedDay, profile, hasMorningFixRunToday, retireTask]);
 
+  // Helper function to find a free slot and propose start/end times
+  const findFreeSlotForTask = useCallback(async (
+    taskName: string,
+    taskDuration: number,
+    isCritical: boolean,
+    currentAppointments: TimeBlock[], // This is the mutable list
+    effectiveWorkdayStart: Date,
+    workdayEndTime: Date
+  ): Promise<{ proposedStartTime: Date | null, proposedEndTime: Date | null, message: string }> => {
+    let proposedStartTime: Date | null = null;
+    const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
+
+    // Prioritize critical tasks for earlier slots
+    if (isCritical) {
+      for (const block of freeBlocks) {
+        if (taskDuration <= block.duration) {
+          proposedStartTime = block.start;
+          break;
+        }
+      }
+    } else {
+      for (const block of freeBlocks) {
+        if (taskDuration <= block.duration) {
+          proposedStartTime = block.start;
+          break; 
+        }
+      }
+    }
+
+    if (proposedStartTime) {
+      const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
+      return { proposedStartTime, proposedEndTime, message: "" };
+    } else {
+      return { proposedStartTime: null, proposedEndTime: null, message: `No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${taskName}" (${taskDuration} min).` };
+    }
+  }, [workdayStartTime, workdayEndTime]); // Dependencies for useCallback
+
 
   const handleClearSchedule = async () => {
     if (!user) {
@@ -367,31 +404,16 @@ const SchedulerPage: React.FC = () => {
 
       if (isAdHocTask) {
         const newTaskDuration = parsedInput.duration!;
-        let proposedStartTime: Date | null = null;
-
-        const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
-
-        // Prioritize critical tasks for earlier slots
-        if (parsedInput.isCritical) {
-          // Find the earliest possible slot for a critical task
-          for (const block of freeBlocks) {
-            if (newTaskDuration <= block.duration) {
-              proposedStartTime = block.start;
-              break;
-            }
-          }
-        } else {
-          // For non-critical tasks, find the first available slot
-          for (const block of freeBlocks) {
-            if (newTaskDuration <= block.duration) {
-              proposedStartTime = block.start;
-              break; 
-            }
-          }
-        }
+        const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+          parsedInput.name,
+          newTaskDuration,
+          parsedInput.isCritical,
+          currentAppointments, // Pass the mutable local copy
+          effectiveWorkdayStart,
+          workdayEndTime
+        );
         
-        if (proposedStartTime) {
-          const proposedEndTime = addMinutes(proposedStartTime, newTaskDuration);
+        if (proposedStartTime && proposedEndTime) {
           await addScheduledTask({ 
             name: parsedInput.name, 
             start_time: proposedStartTime.toISOString(), 
@@ -410,7 +432,7 @@ const SchedulerPage: React.FC = () => {
           showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
         } else {
-          showError(`No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${parsedInput.name}" (${newTaskDuration} min).`);
+          showError(message);
         }
 
       } else { // This is a timed event (e.g., "Meeting 11am - 12pm")
@@ -447,29 +469,16 @@ const SchedulerPage: React.FC = () => {
 
       if (isAdHocInjection) {
         const injectedTaskDuration = injectCommand.duration || 30; // Default duration for inject if not specified
-        let proposedStartTime: Date | null = null;
+        const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+          injectCommand.taskName,
+          injectedTaskDuration,
+          injectCommand.isCritical,
+          currentAppointments, // Pass the mutable local copy
+          effectiveWorkdayStart,
+          workdayEndTime
+        );
 
-        const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
-
-        // Prioritize critical tasks for earlier slots
-        if (injectCommand.isCritical) {
-          for (const block of freeBlocks) {
-            if (injectedTaskDuration <= block.duration) {
-              proposedStartTime = block.start;
-              break;
-            }
-          }
-        } else {
-          for (const block of freeBlocks) {
-            if (injectedTaskDuration <= block.duration) {
-              proposedStartTime = block.start;
-              break; 
-            }
-          }
-        }
-
-        if (proposedStartTime) {
-          const proposedEndTime = addMinutes(proposedStartTime, injectedTaskDuration);
+        if (proposedStartTime && proposedEndTime) {
           await addScheduledTask({ 
             name: injectCommand.taskName, 
             start_time: proposedStartTime.toISOString(), 
@@ -488,7 +497,7 @@ const SchedulerPage: React.FC = () => {
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
         } else {
-          showError(`No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${injectCommand.taskName}" (${injectedTaskDuration} min).`);
+          showError(message);
         }
 
       } else if (injectCommand.startTime && injectCommand.endTime) {
@@ -651,29 +660,16 @@ const SchedulerPage: React.FC = () => {
         return;
       }
       
-      let proposedStartTime: Date | null = null;
-      
-      const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
+      const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+        injectionPrompt.taskName,
+        injectedTaskDuration,
+        injectionPrompt.isCritical,
+        currentAppointments, // Pass the mutable local copy
+        effectiveWorkdayStart,
+        workdayEndTime
+      );
 
-      // Prioritize critical tasks for earlier slots
-      if (injectionPrompt.isCritical) {
-        for (const block of freeBlocks) {
-          if (injectedTaskDuration <= block.duration) {
-            proposedStartTime = block.start;
-            break;
-          }
-        }
-      } else {
-        for (const block of freeBlocks) {
-          if (injectedTaskDuration <= block.duration) {
-            proposedStartTime = block.start;
-            break; 
-          }
-        }
-      }
-
-      if (proposedStartTime) {
-        const proposedEndTime = addMinutes(proposedStartTime, injectedTaskDuration);
+      if (proposedStartTime && proposedEndTime) {
         await addScheduledTask({ 
           name: injectionPrompt.taskName, 
           start_time: proposedStartTime.toISOString(), 
@@ -692,7 +688,7 @@ const SchedulerPage: React.FC = () => {
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
       } else {
-        showError(`No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${injectionPrompt.taskName}" (${injectedTaskDuration} min).`);
+        showError(message);
       }
     }
     
@@ -717,34 +713,21 @@ const SchedulerPage: React.FC = () => {
 
     try {
       const taskDuration = retiredTask.duration || 30; // Default duration if not specified
-      const selectedDayAsDate = parseISO(selectedDay); // Ensure this is correctly defined
+      const selectedDayAsDate = parseISO(selectedDay);
 
       // Use optimisticScheduledTimes for finding free blocks
       const currentAppointments = [...optimisticScheduledTimes];
 
-      let proposedStartTime: Date | null = null;
-      const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
+      const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+        retiredTask.name,
+        taskDuration,
+        retiredTask.is_critical,
+        currentAppointments, // Pass the mutable local copy
+        effectiveWorkdayStart,
+        workdayEndTime
+      );
 
-      // Prioritize critical tasks for earlier slots
-      if (retiredTask.is_critical) {
-        for (const block of freeBlocks) {
-          if (taskDuration <= block.duration) {
-            proposedStartTime = block.start;
-            break;
-          }
-        }
-      } else {
-        for (const block of freeBlocks) {
-          if (taskDuration <= block.duration) {
-            proposedStartTime = block.start;
-            break; 
-          }
-        }
-      }
-
-      if (proposedStartTime) {
-        const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
-        
+      if (proposedStartTime && proposedEndTime) {
         // 1. Delete from retired_tasks (now that we know it can be scheduled)
         await rezoneTask(retiredTask.id); // Call the mutation to delete from sink
 
@@ -766,8 +749,7 @@ const SchedulerPage: React.FC = () => {
         });
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {
-        showError(`Could not find an available slot for "${retiredTask.name}" (${taskDuration} min) in your workday. It remains in the Aether Sink.`);
-        // IMPORTANT: Do NOT re-insert here. The task was never deleted from the sink in this scenario.
+        showError(message); // Error from findFreeSlotForTask
       }
     } catch (error: any) {
       showError(`Failed to rezone task: ${error.message}`);
@@ -827,7 +809,7 @@ const SchedulerPage: React.FC = () => {
     let failedRezones = 0;
 
     // Create a mutable copy of optimisticScheduledTimes for the loop
-    let currentOptimisticTimes = [...optimisticScheduledTimes];
+    let currentOptimisticTimesForBatch = [...optimisticScheduledTimes]; // Use a distinct name
 
     // Sort retired tasks to prioritize critical ones first
     const sortedRetiredTasks = [...retiredTasks].sort((a, b) => {
@@ -841,28 +823,16 @@ const SchedulerPage: React.FC = () => {
         const taskDuration = task.duration || 30;
         const selectedDayAsDate = parseISO(selectedDay);
 
-        let proposedStartTime: Date | null = null;
-        const freeBlocks = getFreeTimeBlocks(currentOptimisticTimes, effectiveWorkdayStart, workdayEndTime);
+        const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+          task.name,
+          taskDuration,
+          task.is_critical,
+          currentOptimisticTimesForBatch, // Pass the mutable local copy
+          effectiveWorkdayStart,
+          workdayEndTime
+        );
 
-        if (task.is_critical) {
-          for (const block of freeBlocks) {
-            if (taskDuration <= block.duration) {
-              proposedStartTime = block.start;
-              break;
-            }
-          }
-        } else {
-          for (const block of freeBlocks) {
-            if (taskDuration <= block.duration) {
-              proposedStartTime = block.start;
-              break; 
-            }
-          }
-        }
-
-        if (proposedStartTime) {
-          const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
-          
+        if (proposedStartTime && proposedEndTime) {
           await rezoneTask(task.id); // Delete from retired_tasks
           await addScheduledTask({ // Add to scheduled_tasks
             name: task.name,
@@ -874,13 +844,13 @@ const SchedulerPage: React.FC = () => {
             is_flexible: true, // Default to flexible when re-zoning from sink
           });
 
-          // Optimistically update the local list for subsequent tasks in this batch
-          currentOptimisticTimes.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
-          currentOptimisticTimes.sort((a, b) => a.start.getTime() - b.start.getTime());
+          // Update the local list for subsequent tasks in this batch
+          currentOptimisticTimesForBatch.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
+          currentOptimisticTimesForBatch.sort((a, b) => a.start.getTime() - b.start.getTime());
 
           successfulRezones++;
         } else {
-          showError(`Could not find an available slot for "${task.name}" (${taskDuration} min) in your workday. It remains in the Aether Sink.`);
+          showError(message); // Error from findFreeSlotForTask
           failedRezones++;
         }
       } catch (error) {
@@ -889,8 +859,8 @@ const SchedulerPage: React.FC = () => {
       }
     }
 
-    // After the loop, update the main optimistic state once
-    setOptimisticScheduledTimes(currentOptimisticTimes);
+    // After the loop, update the main optimistic state once with the final batch result
+    setOptimisticScheduledTimes(currentOptimisticTimesForBatch);
 
     if (successfulRezones > 0) {
       showSuccess(`Successfully re-zoned ${successfulRezones} task(s) from Aether Sink.`);

@@ -49,6 +49,7 @@ export interface DBScheduledTask {
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
   created_at: string;
   is_critical: boolean; // NEW: Critical Urgency Flag
+  is_flexible: boolean; // NEW: Flag for schedule compaction
 }
 
 export interface NewDBScheduledTask {
@@ -59,6 +60,7 @@ export interface NewDBScheduledTask {
   end_time?: string;   // Optional for duration-based tasks
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
   is_critical?: boolean; // NEW: Critical Urgency Flag
+  is_flexible?: boolean; // NEW: Flag for schedule compaction
 }
 
 // New types for retired tasks (Aether Sink)
@@ -96,6 +98,7 @@ export interface ScheduledItem {
   isTimedEvent: boolean; // New: Flag to differentiate
   color?: string; // New: For custom colors (e.g., Tailwind class like 'bg-blue-500')
   isCritical?: boolean; // NEW: Critical Urgency Flag
+  isFlexible?: boolean; // NEW: Flag for schedule compaction
 }
 
 export interface ScheduleSummary {

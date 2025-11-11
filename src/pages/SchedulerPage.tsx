@@ -161,13 +161,11 @@ const SchedulerPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize optimisticScheduledTimes when dbScheduledTasks changes
+  // Initialize optimisticScheduledTimes from dbScheduledTasks when dbScheduledTasks changes
+  // This useEffect ensures that optimisticScheduledTimes is always in sync with the latest server data
   useEffect(() => {
     if (!dbScheduledTasks) {
-      // If dbScheduledTasks is null or undefined, clear optimistic state
-      if (optimisticScheduledTimes.length > 0) {
-        setOptimisticScheduledTimes([]);
-      }
+      setOptimisticScheduledTimes([]);
       return;
     }
 
@@ -193,7 +191,7 @@ const SchedulerPage: React.FC = () => {
     if (!deepCompare(initialTimes, optimisticScheduledTimes)) {
       setOptimisticScheduledTimes(initialTimes);
     }
-  }, [dbScheduledTasks, optimisticScheduledTimes]);
+  }, [dbScheduledTasks]); // Only depend on dbScheduledTasks
 
 
   // Handle pre-filling input from navigation state
@@ -382,6 +380,8 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await clearScheduledTasks();
+    // Optimistically clear local state
+    setOptimisticScheduledTimes([]);
     setIsProcessingCommand(false);
     setShowClearConfirmation(false);
     setInputValue('');
@@ -656,7 +656,7 @@ const SchedulerPage: React.FC = () => {
       }
 
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: injectionPrompt.isFlexible }); // Timed tasks are fixed
+      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: false }); // Timed tasks are fixed
       // Optimistically update local state
       setOptimisticScheduledTimes(prev => {
         const newEntry = { start: startTime, end: endTime, duration: duration };

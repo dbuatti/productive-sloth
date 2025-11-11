@@ -415,7 +415,6 @@ export const calculateSchedule = (
 
     const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
     const isStandaloneBreak = task.name.toLowerCase() === 'break';
-    // NEW: Identify meal times
     const isMealTime = ['breakfast', 'lunch', 'dinner'].some(meal => task.name.toLowerCase().includes(meal));
 
 
@@ -434,11 +433,14 @@ export const calculateSchedule = (
     });
     
     // Conditional addition to totalActiveTime or totalBreakTime
-    if (isStandaloneBreak || task.break_duration || isMealTime) { // Include isMealTime here
-      totalBreakTime += duration;
-      if (task.break_duration) totalBreakTime += task.break_duration; // Still add explicit break duration
-    } else {
-      totalActiveTime += duration;
+    // Only add to active or break time if it's NOT a meal time
+    if (!isMealTime) {
+      if (isStandaloneBreak || task.break_duration) {
+        totalBreakTime += duration;
+        if (task.break_duration) totalBreakTime += task.break_duration;
+      } else {
+        totalActiveTime += duration;
+      }
     }
   });
 

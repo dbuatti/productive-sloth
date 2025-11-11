@@ -499,8 +499,13 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const updates = tasksToUpdate.map(task => ({
         id: task.id,
         user_id: userId, // Explicitly include user_id to satisfy RLS
+        name: task.name, // Include name
+        break_duration: task.break_duration, // Include break_duration
         start_time: task.start_time,
         end_time: task.end_time,
+        scheduled_date: task.scheduled_date, // Include scheduled_date
+        is_critical: task.is_critical, // Include is_critical
+        is_flexible: task.is_flexible, // Include is_flexible
         updated_at: new Date().toISOString(),
       }));
 

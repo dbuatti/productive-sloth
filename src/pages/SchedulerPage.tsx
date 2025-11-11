@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow } from 'lucide-react'; // Added sort icons
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle } from 'lucide-react'; // Added sort icons, Shuffle icon
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority } from '@/types/scheduler'; // Import SortBy and TaskPriority
@@ -139,6 +139,7 @@ const SchedulerPage: React.FC = () => {
     retireTask,
     rezoneTask,
     compactScheduledTasks,
+    randomizeBreaks, // NEW: Import randomizeBreaks
   } = useSchedulerTasks(selectedDay);
 
   const queryClient = useQueryClient();
@@ -962,6 +963,28 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(false);
   };
 
+  // NEW: Handle Randomize Breaks
+  const handleRandomizeBreaks = async () => {
+    if (!user || !profile || !dbScheduledTasks) return;
+    setIsProcessingCommand(true);
+
+    const breaksToRandomize = dbScheduledTasks.filter(task => task.name.toLowerCase() === 'break');
+    if (breaksToRandomize.length === 0) {
+      showSuccess("No break tasks to randomize.");
+      setIsProcessingCommand(false);
+      return;
+    }
+
+    await randomizeBreaks({
+      selectedDate: formattedSelectedDay,
+      workdayStartTime: effectiveWorkdayStart,
+      workdayEndTime: workdayEndTime,
+      currentDbTasks: dbScheduledTasks,
+    });
+
+    setIsProcessingCommand(false);
+  };
+
 
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -1058,6 +1081,17 @@ const SchedulerPage: React.FC = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleRandomizeBreaks} // NEW: Randomize Breaks button
+              disabled={overallLoading || !dbScheduledTasks.some(task => task.name.toLowerCase() === 'break')}
+              className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
+            >
+              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shuffle className="h-4 w-4" />}
+              <span className="sr-only">Randomize Breaks</span>
+            </Button>
 
             <Button 
               variant="outline" 

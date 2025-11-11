@@ -2,11 +2,12 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types'; // Keep Task and NewTask from '@/types' if they are distinct
-import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput, new retired task types, SortBy, and TaskPriority
+import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput, new retired task types, SortBy, and TaskPriority, TimeBlock
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday, format } from 'date-fns'; // Import format
+import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday, format, addMinutes } from 'date-fns'; // Import format, addMinutes
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants'; // Import constants
+import { mergeOverlappingTimeBlocks, getFreeTimeBlocks } from '@/lib/scheduler-utils'; // Import scheduler utility functions
 
 // Helper function to calculate date boundaries for server-side filtering
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
@@ -697,6 +698,182 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
+  // NEW: Randomize breaks mutation
+  const randomizeBreaksMutation = useMutation({
+    mutationFn: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }: {
+      selectedDate: string;
+      workdayStartTime: Date;
+      workdayEndTime: Date;
+      currentDbTasks: DBScheduledTask[];
+    }) => {
+      if (!userId) throw new Error("User not authenticated.");
+
+      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break');
+      let breakTasks = currentDbTasks.filter(task => task.name.toLowerCase() === 'break');
+
+      if (breakTasks.length === 0) {
+        return { placedBreaks: [], failedToPlaceBreaks: [] }; // No changes needed
+      }
+
+      let occupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(nonBreakTasks.map(task => ({
+        start: parseISO(task.start_time!),
+        end: parseISO(task.end_time!),
+        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
+      })));
+
+      // Shuffle break tasks for randomness
+      for (let i = breakTasks.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [breakTasks[i], breakTasks[j]] = [breakTasks[j], breakTasks[i]];
+      }
+
+      const placedBreaks: DBScheduledTask[] = [];
+      const failedToPlaceBreaks: DBScheduledTask[] = [];
+
+      for (const breakTask of breakTasks) {
+        const breakDuration = breakTask.break_duration || 15; // Default break duration if not specified
+        let placed = false;
+
+        const freeBlocks = getFreeTimeBlocks(occupiedBlocks, workdayStartTime, workdayEndTime);
+
+        for (const freeBlock of freeBlocks) {
+          if (breakDuration <= freeBlock.duration) {
+            const proposedStartTime = freeBlock.start;
+            const proposedEndTime = addMinutes(proposedStartTime, breakDuration);
+
+            placedBreaks.push({
+              ...breakTask,
+              start_time: proposedStartTime.toISOString(),
+              end_time: proposedEndTime.toISOString(),
+              scheduled_date: selectedDate, // Ensure it's for the selected date
+              is_flexible: true, // Breaks are flexible
+            });
+
+            // Update occupied blocks with the newly placed break
+            occupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: breakDuration });
+            occupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks); // Re-merge to keep it sorted and non-overlapping
+            placed = true;
+            break;
+          }
+        }
+
+        if (!placed) {
+          failedToPlaceBreaks.push(breakTask);
+        }
+      }
+
+      // Combine non-break tasks with newly placed breaks
+      const finalTasks = [...nonBreakTasks, ...placedBreaks];
+
+      // Perform batch update for all tasks that need new times
+      const updates = finalTasks.map(task => ({
+        id: task.id,
+        user_id: userId,
+        name: task.name,
+        break_duration: task.break_duration,
+        start_time: task.start_time,
+        end_time: task.end_time,
+        scheduled_date: task.scheduled_date,
+        is_critical: task.is_critical,
+        is_flexible: task.is_flexible,
+        updated_at: new Date().toISOString(),
+      }));
+
+      // Delete any breaks that failed to be placed (optional, but good for cleanup)
+      if (failedToPlaceBreaks.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('scheduled_tasks')
+          .delete()
+          .in('id', failedToPlaceBreaks.map(task => task.id))
+          .eq('user_id', userId);
+        if (deleteError) console.error("Failed to delete unplaced breaks:", deleteError.message);
+      }
+
+      const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
+      if (error) throw new Error(error.message);
+
+      return { placedBreaks, failedToPlaceBreaks };
+    },
+    onMutate: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, selectedDate] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate]);
+
+      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break');
+      let breakTasks = currentDbTasks.filter(task => task.name.toLowerCase() === 'break');
+
+      if (breakTasks.length === 0) {
+        return { previousScheduledTasks };
+      }
+
+      let optimisticOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(nonBreakTasks.map(task => ({
+        start: parseISO(task.start_time!),
+        end: parseISO(task.end_time!),
+        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
+      })));
+
+      // Shuffle break tasks for randomness (client-side for optimistic update)
+      for (let i = breakTasks.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [breakTasks[i], breakTasks[j]] = [breakTasks[j], breakTasks[i]];
+      }
+
+      const optimisticPlacedBreaks: DBScheduledTask[] = [];
+      const optimisticFailedToPlaceBreaks: DBScheduledTask[] = [];
+
+      for (const breakTask of breakTasks) {
+        const breakDuration = breakTask.break_duration || 15;
+        let placed = false;
+
+        const freeBlocks = getFreeTimeBlocks(optimisticOccupiedBlocks, workdayStartTime, workdayEndTime);
+
+        for (const freeBlock of freeBlocks) {
+          if (breakDuration <= freeBlock.duration) {
+            const proposedStartTime = freeBlock.start;
+            const proposedEndTime = addMinutes(proposedStartTime, breakDuration);
+
+            optimisticPlacedBreaks.push({
+              ...breakTask,
+              start_time: proposedStartTime.toISOString(),
+              end_time: proposedEndTime.toISOString(),
+              scheduled_date: selectedDate,
+              is_flexible: true,
+            });
+
+            optimisticOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: breakDuration });
+            optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
+            placed = true;
+            break;
+          }
+        }
+
+        if (!placed) {
+          optimisticFailedToPlaceBreaks.push(breakTask);
+        }
+      }
+
+      const optimisticFinalTasks = [...nonBreakTasks, ...optimisticPlacedBreaks];
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate], optimisticFinalTasks);
+
+      return { previousScheduledTasks };
+    },
+    onSuccess: ({ placedBreaks, failedToPlaceBreaks }) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      if (placedBreaks.length > 0) {
+        showSuccess(`Successfully randomized and placed ${placedBreaks.length} breaks.`);
+      }
+      if (failedToPlaceBreaks.length > 0) {
+        showError(`Failed to place ${failedToPlaceBreaks.length} breaks due to no available slots.`);
+      }
+    },
+    onError: (e, variables, context) => {
+      showError(`Failed to randomize breaks: ${e.message}`);
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, variables.selectedDate], context.previousScheduledTasks);
+      }
+    }
+  });
+
 
   return {
     dbScheduledTasks, // The raw data from Supabase
@@ -713,5 +890,6 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     retireTask: retireTaskMutation.mutate, // NEW: Retire task mutation
     rezoneTask: rezoneTaskMutation.mutateAsync, // NEW: Rezone task mutation (use mutateAsync for chaining)
     compactScheduledTasks: compactScheduledTasksMutation.mutate, // NEW: Compact schedule mutation
+    randomizeBreaks: randomizeBreaksMutation.mutate, // NEW: Randomize breaks mutation
   };
 };

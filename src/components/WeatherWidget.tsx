@@ -38,8 +38,8 @@ const getWeatherIcon = (iconCode: string) => {
 };
 
 const WeatherWidget: React.FC = () => {
-  // For now, default to London. Can be extended to use geolocation or user settings.
-  const { weather, isLoading, error } = useWeather({ city: "London" }); 
+  // Fetch weather for Melbourne
+  const { weather, isLoading, error } = useWeather({ city: "Melbourne" }); 
 
   if (isLoading) {
     return (

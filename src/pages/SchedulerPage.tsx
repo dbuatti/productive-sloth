@@ -81,7 +81,10 @@ const getFreeTimeBlocks = (
   const freeBlocks: TimeBlock[] = [];
   let currentFreeTimeStart = workdayStart;
 
-  for (const appt of appointments) {
+  // Ensure appointments are sorted by start time
+  const sortedAppointments = [...appointments].sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  for (const appt of sortedAppointments) {
     // If there's a gap before this appointment
     if (isBefore(currentFreeTimeStart, appt.start)) {
       const duration = Math.floor((appt.start.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
@@ -137,6 +140,9 @@ const SchedulerPage: React.FC = () => {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false); // New state for morning fix
 
+  // NEW: Optimistic state for scheduled times to prevent overlaps
+  const [optimisticScheduledTimes, setOptimisticScheduledTimes] = useState<TimeBlock[]>([]);
+
   const formattedSelectedDay = selectedDay;
   const location = useLocation();
   const navigate = useNavigate();
@@ -149,6 +155,22 @@ const SchedulerPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Initialize optimisticScheduledTimes when dbScheduledTasks changes
+  useEffect(() => {
+    if (dbScheduledTasks) {
+      const initialTimes = dbScheduledTasks
+        .filter(task => task.start_time && task.end_time)
+        .map(task => ({
+          start: parseISO(task.start_time!),
+          end: parseISO(task.end_time!),
+          duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        }))
+        .sort((a, b) => a.start.getTime() - b.start.getTime());
+      setOptimisticScheduledTimes(initialTimes);
+    }
+  }, [dbScheduledTasks]);
+
+
   // Handle pre-filling input from navigation state
   useEffect(() => {
     const taskToSchedule = (location.state as any)?.taskToSchedule;
@@ -157,7 +179,7 @@ const SchedulerPage: React.FC = () => {
       const command = `inject "${name}" ${duration}${isCritical ? ' !' : ''}`; // Append ' !' if critical
       // Immediately execute the command
       handleCommand(command);
-      // Clear the state so it doesn't re-trigger on subsequent visits
+      // Clear the state so it's not re-triggered on subsequent visits
       navigate(location.pathname, { replace: true, state: {} }); 
     }
   }, [location.state, navigate]); // Removed handleCommand from dependencies to prevent re-render loop
@@ -318,14 +340,8 @@ const SchedulerPage: React.FC = () => {
     let success = false;
     const taskScheduledDate = formattedSelectedDay;
 
-    // Get existing scheduled tasks for the day, sorted by start time
-    const existingAppointments = dbScheduledTasks
-      .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayAsDate))
-      .map(task => ({
-        start: setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm')),
-        end: setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm')),
-      }))
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
+    // Use optimisticScheduledTimes for finding free blocks
+    const currentAppointments = [...optimisticScheduledTimes];
 
     if (parsedInput) {
       const isAdHocTask = 'duration' in parsedInput;
@@ -334,7 +350,7 @@ const SchedulerPage: React.FC = () => {
         const newTaskDuration = parsedInput.duration!;
         let proposedStartTime: Date | null = null;
 
-        const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
+        const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
 
         // Prioritize critical tasks for earlier slots
         if (parsedInput.isCritical) {
@@ -366,6 +382,12 @@ const SchedulerPage: React.FC = () => {
             is_critical: parsedInput.isCritical, // Pass critical flag
             is_flexible: true, // Duration-based tasks are flexible
           });
+          // Optimistically update local state
+          setOptimisticScheduledTimes(prev => {
+            const newEntry = { start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration };
+            const updated = [...prev, newEntry].sort((a, b) => a.start.getTime() - b.start.getTime());
+            return updated;
+          });
           showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
         } else {
@@ -390,7 +412,14 @@ const SchedulerPage: React.FC = () => {
           endTime = addDays(endTime, 1);
         }
 
+        const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false }); // Timed tasks are fixed
+        // Optimistically update local state
+        setOptimisticScheduledTimes(prev => {
+          const newEntry = { start: startTime, end: endTime, duration: duration };
+          const updated = [...prev, newEntry].sort((a, b) => a.start.getTime() - b.start.getTime());
+          return updated;
+        });
         showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
       }
@@ -401,7 +430,7 @@ const SchedulerPage: React.FC = () => {
         const injectedTaskDuration = injectCommand.duration || 30; // Default duration for inject if not specified
         let proposedStartTime: Date | null = null;
 
-        const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
+        const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
 
         // Prioritize critical tasks for earlier slots
         if (injectCommand.isCritical) {
@@ -430,6 +459,12 @@ const SchedulerPage: React.FC = () => {
             scheduled_date: taskScheduledDate,
             is_critical: injectCommand.isCritical, // Pass critical flag
             is_flexible: injectCommand.isFlexible, // Pass flexible flag
+          });
+          // Optimistically update local state
+          setOptimisticScheduledTimes(prev => {
+            const newEntry = { start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration };
+            const updated = [...prev, newEntry].sort((a, b) => a.start.getTime() - b.start.getTime());
+            return updated;
           });
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -473,6 +508,8 @@ const SchedulerPage: React.FC = () => {
             if (command.index >= 0 && command.index < dbScheduledTasks.length) {
               const taskToRemove = dbScheduledTasks[command.index];
               await removeScheduledTask(taskToRemove.id);
+              // Optimistically update local state
+              setOptimisticScheduledTimes(prev => prev.filter(item => item.start.toISOString() !== parseISO(taskToRemove.start_time!).toISOString())); // Filter by start time as a simple unique identifier for now
               success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
@@ -482,6 +519,8 @@ const SchedulerPage: React.FC = () => {
             if (tasksToRemove.length > 0) {
               for (const task of tasksToRemove) {
                 await removeScheduledTask(task.id);
+                // Optimistically update local state
+                setOptimisticScheduledTimes(prev => prev.filter(item => item.start.toISOString() !== parseISO(task.start_time!).toISOString()));
               }
               showSuccess(`Removed tasks matching "${command.target}".`);
               success = true;
@@ -509,6 +548,7 @@ const SchedulerPage: React.FC = () => {
           );
           if (compactedTasks.length > 0) {
             await compactScheduledTasks(compactedTasks);
+            // Optimistic update for compaction is complex, rely on query invalidation for now
             showSuccess("Schedule compacted!");
           } else {
             showSuccess("No flexible tasks to compact or no space available.");
@@ -538,14 +578,8 @@ const SchedulerPage: React.FC = () => {
     const taskScheduledDate = formattedSelectedDay;
     const selectedDayAsDate = parseISO(selectedDay);
 
-    // Get existing scheduled tasks for the day, sorted by start time
-    const existingAppointments = dbScheduledTasks
-      .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayAsDate))
-      .map(task => ({
-        start: setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm')),
-        end: setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm')),
-      }))
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
+    // Use optimisticScheduledTimes for finding free blocks
+    const currentAppointments = [...optimisticScheduledTimes];
 
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
@@ -573,7 +607,14 @@ const SchedulerPage: React.FC = () => {
         endTime = addDays(endTime, 1);
       }
 
+      const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: injectionPrompt.isFlexible }); // Timed tasks are fixed
+      // Optimistically update local state
+      setOptimisticScheduledTimes(prev => {
+        const newEntry = { start: startTime, end: endTime, duration: duration };
+        const updated = [...prev, newEntry].sort((a, b) => a.start.getTime() - b.start.getTime());
+        return updated;
+      });
       showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
       success = true;
     } else { // Duration-based injection
@@ -593,7 +634,7 @@ const SchedulerPage: React.FC = () => {
       
       let proposedStartTime: Date | null = null;
       
-      const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
+      const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
 
       // Prioritize critical tasks for earlier slots
       if (injectionPrompt.isCritical) {
@@ -622,6 +663,12 @@ const SchedulerPage: React.FC = () => {
           scheduled_date: taskScheduledDate,
           is_critical: injectionPrompt.isCritical, // Pass critical flag
           is_flexible: injectionPrompt.isFlexible, // Pass flexible flag
+        });
+        // Optimistically update local state
+        setOptimisticScheduledTimes(prev => {
+          const newEntry = { start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration };
+          const updated = [...prev, newEntry].sort((a, b) => a.start.getTime() - b.start.getTime());
+          return updated;
         });
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
@@ -653,17 +700,11 @@ const SchedulerPage: React.FC = () => {
       const taskDuration = retiredTask.duration || 30; // Default duration if not specified
       const selectedDayAsDate = parseISO(selectedDay); // Ensure this is correctly defined
 
-      // Get existing scheduled tasks for the day, sorted by start time
-      const existingAppointments = dbScheduledTasks
-        .filter(task => isSameDay(parseISO(task.scheduled_date), selectedDayAsDate))
-        .map(task => ({
-          start: setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm')),
-          end: setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm')),
-        }))
-        .sort((a, b) => a.start.getTime() - b.start.getTime());
+      // Use optimisticScheduledTimes for finding free blocks
+      const currentAppointments = [...optimisticScheduledTimes];
 
       let proposedStartTime: Date | null = null;
-      const freeBlocks = getFreeTimeBlocks(existingAppointments, effectiveWorkdayStart, workdayEndTime);
+      const freeBlocks = getFreeTimeBlocks(currentAppointments, effectiveWorkdayStart, workdayEndTime);
 
       // Prioritize critical tasks for earlier slots
       if (retiredTask.is_critical) {
@@ -698,6 +739,12 @@ const SchedulerPage: React.FC = () => {
           is_critical: retiredTask.is_critical, // Pass critical flag
           is_flexible: retiredTask.is_flexible, // Pass flexible flag from retired task
         });
+        // Optimistically update local state
+        setOptimisticScheduledTimes(prev => {
+          const newEntry = { start: proposedStartTime, end: proposedEndTime, duration: taskDuration };
+          const updated = [...prev, newEntry].sort((a, b) => a.start.getTime() - b.start.getTime());
+          return updated;
+        });
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {
         showError(`Could not find an available slot for "${retiredTask.name}" (${taskDuration} min) in your workday. It remains in the Aether Sink.`);
@@ -719,6 +766,8 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await retireTask(taskToRetire);
+    // Optimistically remove from local state
+    setOptimisticScheduledTimes(prev => prev.filter(item => item.start.toISOString() !== parseISO(taskToRetire.start_time!).toISOString()));
     setIsProcessingCommand(false);
   };
 
@@ -758,6 +807,9 @@ const SchedulerPage: React.FC = () => {
     let successfulRezones = 0;
     let failedRezones = 0;
 
+    // Create a mutable copy of optimisticScheduledTimes for the loop
+    let currentOptimisticTimes = [...optimisticScheduledTimes];
+
     // Sort retired tasks to prioritize critical ones first
     const sortedRetiredTasks = [...retiredTasks].sort((a, b) => {
       if (a.is_critical && !b.is_critical) return -1;
@@ -767,14 +819,59 @@ const SchedulerPage: React.FC = () => {
 
     for (const task of sortedRetiredTasks) {
       try {
-        // Re-use the rezone logic
-        await handleRezoneFromSink(task); // This will also delete from retired_tasks on success
-        successfulRezones++;
+        const taskDuration = task.duration || 30;
+        const selectedDayAsDate = parseISO(selectedDay);
+
+        let proposedStartTime: Date | null = null;
+        const freeBlocks = getFreeTimeBlocks(currentOptimisticTimes, effectiveWorkdayStart, workdayEndTime);
+
+        if (task.is_critical) {
+          for (const block of freeBlocks) {
+            if (taskDuration <= block.duration) {
+              proposedStartTime = block.start;
+              break;
+            }
+          }
+        } else {
+          for (const block of freeBlocks) {
+            if (taskDuration <= block.duration) {
+              proposedStartTime = block.start;
+              break; 
+            }
+          }
+        }
+
+        if (proposedStartTime) {
+          const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
+          
+          await rezoneTask(task.id); // Delete from retired_tasks
+          await addScheduledTask({ // Add to scheduled_tasks
+            name: task.name,
+            start_time: proposedStartTime.toISOString(),
+            end_time: proposedEndTime.toISOString(),
+            break_duration: task.break_duration,
+            scheduled_date: formattedSelectedDay,
+            is_critical: task.is_critical,
+            is_flexible: task.is_flexible,
+          });
+
+          // Optimistically update the local list for subsequent tasks in this batch
+          currentOptimisticTimes.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
+          currentOptimisticTimes.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+          successfulRezones++;
+        } else {
+          showError(`Could not find an available slot for "${task.name}" (${taskDuration} min) in your workday. It remains in the Aether Sink.`);
+          failedRezones++;
+        }
       } catch (error) {
         console.error(`Failed to auto-schedule task "${task.name}":`, error);
         failedRezones++;
       }
     }
+
+    // After the loop, update the main optimistic state once
+    setOptimisticScheduledTimes(currentOptimisticTimes);
 
     if (successfulRezones > 0) {
       showSuccess(`Successfully re-zoned ${successfulRezones} task(s) from Aether Sink.`);

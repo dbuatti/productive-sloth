@@ -374,8 +374,6 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      // The `newTask` already conforms to `NewDBScheduledTask` which doesn't have `duration`.
-      // So, we can directly spread `newTask` and add `user_id`.
       const taskToInsert = { ...newTask, user_id: userId }; 
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
@@ -386,13 +384,48 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       console.log("useSchedulerTasks: Successfully inserted task:", data);
       return data as DBScheduledTask;
     },
+    // NEW: Optimistic update logic
+    onMutate: async (newTask: NewDBScheduledTask) => {
+      // Cancel any outgoing refetches for the scheduled tasks query
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+
+      // Snapshot the previous value
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], (old) => {
+        const tempId = Math.random().toString(36).substring(2, 9); // Temporary ID for optimistic item
+        const now = new Date().toISOString();
+        const optimisticTask: DBScheduledTask = {
+          id: tempId, // Use temp ID
+          user_id: userId!,
+          name: newTask.name,
+          break_duration: newTask.break_duration ?? null,
+          start_time: newTask.start_time ?? now, // Provide fallback if not present
+          end_time: newTask.end_time ?? now, // Provide fallback if not present
+          scheduled_date: newTask.scheduled_date,
+          created_at: now,
+          updated_at: now,
+          is_critical: newTask.is_critical ?? false,
+          is_flexible: newTask.is_flexible ?? true,
+        };
+        return [...(old || []), optimisticTask];
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousScheduledTasks };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] }); // Invalidate for current date
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] }); // Invalidate for dates with tasks
       showSuccess('Task added to schedule!');
     },
-    onError: (e) => {
-      showError(`Failed to add task to schedule: ${e.message}`);
+    onError: (err, newTask, context) => {
+      showError(`Failed to add task to schedule: ${err.message}`);
+      // Rollback to the previous cached value on error
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+      }
     }
   });
 
@@ -408,13 +441,26 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       }
       console.log("useSchedulerTasks: Successfully removed task ID:", taskId);
     },
+    // NEW: Optimistic update for removeScheduledTask
+    onMutate: async (taskId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], (old) =>
+        (old || []).filter(task => task.id !== taskId)
+      );
+      return { previousScheduledTasks };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] }); // Invalidate for current date
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] }); // Invalidate for dates with tasks
       showSuccess('Task removed from schedule.');
     },
-    onError: (e) => {
+    onError: (e, taskId, context) => {
       showError(`Failed to remove task from schedule: ${e.message}`);
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+      }
     }
   });
 
@@ -430,13 +476,24 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       }
       console.log("useSchedulerTasks: Successfully cleared all scheduled tasks for user:", userId, "on date:", formattedSelectedDate);
     },
+    // NEW: Optimistic update for clearScheduledTasks
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], []);
+      return { previousScheduledTasks };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] }); // Invalidate for current date
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] }); // Invalidate for dates with tasks
       showSuccess('Schedule cleared for today!');
     },
-    onError: (e) => {
+    onError: (e, _variables, context) => {
       showError(`Failed to clear schedule: ${e.message}`);
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+      }
     }
   });
 
@@ -453,7 +510,6 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
         is_critical: taskToRetire.is_critical, // Pass critical flag
-        // is_flexible: taskToRetire.is_flexible, // REMOVED: Not present in retired_tasks table
       };
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -462,14 +518,51 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const { error: deleteError } = await supabase.from('scheduled_tasks').delete().eq('id', taskToRetire.id).eq('user_id', userId);
       if (deleteError) throw new Error(`Failed to remove task from schedule: ${deleteError.message}`);
     },
+    // NEW: Optimistic update for retireTask
+    onMutate: async (taskToRetire: DBScheduledTask) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      // Optimistically remove from scheduledTasks
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], (old) =>
+        (old || []).filter(task => task.id !== taskToRetire.id)
+      );
+
+      // Optimistically add to retiredTasks
+      const newRetiredTask: RetiredTask = {
+        id: taskToRetire.id, // Use original ID for optimistic update
+        user_id: userId!,
+        name: taskToRetire.name,
+        duration: Math.floor((parseISO(taskToRetire.end_time!).getTime() - parseISO(taskToRetire.start_time!).getTime()) / (1000 * 60)),
+        break_duration: taskToRetire.break_duration,
+        original_scheduled_date: taskToRetire.scheduled_date,
+        retired_at: new Date().toISOString(),
+        is_critical: taskToRetire.is_critical,
+      };
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+        [newRetiredTask, ...(old || [])]
+      );
+
+      return { previousScheduledTasks, previousRetiredTasks };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Task moved to Aether Sink.');
     },
-    onError: (e) => {
-      showError(`Failed to retire task: ${e.message}`);
+    onError: (err, taskToRetire, context) => {
+      showError(`Failed to retire task: ${err.message}`);
+      // Revert optimistic updates on error
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+      }
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
     }
   });
 
@@ -482,12 +575,25 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const { error: deleteError } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', userId);
       if (deleteError) throw new Error(`Failed to remove task from Aether Sink: ${deleteError.message}`);
     },
+    // NEW: Optimistic update for rezoneTask (only handles removal from retiredTasks cache)
+    onMutate: async (retiredTaskId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+        (old || []).filter(task => task.id !== retiredTaskId)
+      );
+      return { previousRetiredTasks };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
       showSuccess('Task removed from Aether Sink.'); // This toast is for the deletion from sink
     },
-    onError: (e) => {
-      showError(`Failed to remove task from Aether Sink: ${e.message}`); // More specific error message
+    onError: (err, retiredTaskId, context) => {
+      showError(`Failed to remove task from Aether Sink: ${err.message}`); // More specific error message
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
     }
   });
 
@@ -520,12 +626,24 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       }
       console.log("useSchedulerTasks: Successfully compacted tasks.");
     },
+    // NEW: Optimistic update for compactScheduledTasks
+    onMutate: async (tasksToUpdate: DBScheduledTask[]) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
+
+      // Optimistically replace the entire scheduledTasks cache with the new, compacted list
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], tasksToUpdate);
+      return { previousScheduledTasks };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
       showSuccess('Schedule compacted!');
     },
-    onError: (e) => {
+    onError: (e, _variables, context) => {
       showError(`Failed to compact schedule: ${e.message}`);
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], context.previousScheduledTasks);
+      }
     }
   });
 

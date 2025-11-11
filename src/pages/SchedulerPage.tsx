@@ -172,8 +172,16 @@ const SchedulerPage: React.FC = () => {
       .sort((a, b) => a.start.getTime() - b.start.getTime());
   }, [dbScheduledTasks, selectedDay]); // Depend on dbScheduledTasks and selectedDay
 
-  // Memoized occupied blocks derived from memoizedScheduledTimes
-  const occupiedBlocks = useMemo(() => mergeOverlappingTimeBlocks(memoizedScheduledTimes), [memoizedScheduledTimes]);
+  // Memoized occupied blocks derived from memoizedScheduledTimes (from react-query cache)
+  const occupiedBlocksFromCache = useMemo(() => mergeOverlappingTimeBlocks(memoizedScheduledTimes), [memoizedScheduledTimes]);
+
+  // NEW: Local state for occupied blocks, updated immediately for optimistic scheduling
+  const [localOccupiedBlocks, setLocalOccupiedBlocks] = useState<TimeBlock[]>([]);
+
+  // Effect to keep localOccupiedBlocks in sync with the cache-derived occupiedBlocks
+  useEffect(() => {
+    setLocalOccupiedBlocks(occupiedBlocksFromCache);
+  }, [occupiedBlocksFromCache]);
 
 
   const formattedSelectedDay = selectedDay;
@@ -374,7 +382,8 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await clearScheduledTasks();
-    // No need to manually update optimisticScheduledTimes here, as query invalidation will handle it.
+    // Optimistically clear local occupied blocks
+    setLocalOccupiedBlocks([]);
     setIsProcessingCommand(false);
     setShowClearConfirmation(false);
     setInputValue('');
@@ -395,8 +404,8 @@ const SchedulerPage: React.FC = () => {
     let success = false;
     const taskScheduledDate = formattedSelectedDay;
 
-    // Create a mutable copy of occupiedBlocks for optimistic updates within this command execution
-    let optimisticOccupiedBlocks = [...occupiedBlocks];
+    // Use localOccupiedBlocks for immediate scheduling decisions
+    let currentOptimisticBlocks = [...localOccupiedBlocks];
 
     if (parsedInput) {
       const isAdHocTask = 'duration' in parsedInput;
@@ -407,7 +416,7 @@ const SchedulerPage: React.FC = () => {
           parsedInput.name,
           newTaskDuration,
           parsedInput.isCritical,
-          optimisticOccupiedBlocks, // Pass the optimistic blocks
+          currentOptimisticBlocks, // Pass the local optimistic blocks
           effectiveWorkdayStart,
           workdayEndTime
         );
@@ -422,9 +431,9 @@ const SchedulerPage: React.FC = () => {
             is_critical: parsedInput.isCritical, // Pass critical flag
             is_flexible: true, // Duration-based tasks are flexible
           });
-          // Optimistically update local occupied blocks
-          optimisticOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
-          optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
+          // Optimistically update local occupied blocks state
+          currentOptimisticBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
+          setLocalOccupiedBlocks(mergeOverlappingTimeBlocks(currentOptimisticBlocks));
           
           showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -451,7 +460,7 @@ const SchedulerPage: React.FC = () => {
         }
 
         // NEW: Check for overlaps before adding timed event
-        if (!isSlotFree(startTime, endTime, optimisticOccupiedBlocks)) { // Pass optimistic blocks
+        if (!isSlotFree(startTime, endTime, currentOptimisticBlocks)) { // Pass local optimistic blocks
           showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
           setIsProcessingCommand(false);
           return;
@@ -459,9 +468,9 @@ const SchedulerPage: React.FC = () => {
 
         const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false }); // Timed tasks are fixed
-        // Optimistically update local occupied blocks
-        optimisticOccupiedBlocks.push({ start: startTime, end: endTime, duration: duration });
-        optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
+        // Optimistically update local occupied blocks state
+        currentOptimisticBlocks.push({ start: startTime, end: endTime, duration: duration });
+        setLocalOccupiedBlocks(mergeOverlappingTimeBlocks(currentOptimisticBlocks));
 
         showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
@@ -475,7 +484,7 @@ const SchedulerPage: React.FC = () => {
           injectCommand.taskName,
           injectedTaskDuration,
           injectCommand.isCritical,
-          optimisticOccupiedBlocks, // Pass the optimistic blocks
+          currentOptimisticBlocks, // Pass the local optimistic blocks
           effectiveWorkdayStart,
           workdayEndTime
         );
@@ -490,9 +499,9 @@ const SchedulerPage: React.FC = () => {
             is_critical: injectCommand.isCritical, // Pass critical flag
             is_flexible: injectCommand.isFlexible, // Pass flexible flag
           });
-          // Optimistically update local occupied blocks
-          optimisticOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
-          optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
+          // Optimistically update local occupied blocks state
+          currentOptimisticBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
+          setLocalOccupiedBlocks(mergeOverlappingTimeBlocks(currentOptimisticBlocks));
 
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -536,8 +545,8 @@ const SchedulerPage: React.FC = () => {
             if (command.index >= 0 && command.index < dbScheduledTasks.length) {
               const taskToRemove = dbScheduledTasks[command.index];
               await removeScheduledTask(taskToRemove.id);
-              // No need to manually update optimisticOccupiedBlocks here for removal,
-              // as the query invalidation will handle it.
+              // Optimistically remove from local occupied blocks state
+              setLocalOccupiedBlocks(prev => prev.filter(block => block.start.toISOString() !== parseISO(taskToRemove.start_time!).toISOString() || block.end.toISOString() !== parseISO(taskToRemove.end_time!).toISOString()));
               success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
@@ -547,7 +556,8 @@ const SchedulerPage: React.FC = () => {
             if (tasksToRemove.length > 0) {
               for (const task of tasksToRemove) {
                 await removeScheduledTask(task.id);
-                // No need to manually update optimisticOccupiedBlocks here for removal.
+                // Optimistically remove from local occupied blocks state
+                setLocalOccupiedBlocks(prev => prev.filter(block => block.start.toISOString() !== parseISO(task.start_time!).toISOString() || block.end.toISOString() !== parseISO(task.end_time!).toISOString()));
               }
               showSuccess(`Removed tasks matching "${command.target}".`);
               success = true;
@@ -575,10 +585,11 @@ const SchedulerPage: React.FC = () => {
           );
           if (compactedTasks.length > 0) {
             await compactScheduledTasks(compactedTasks);
-            // No need for optimistic update here, as compactScheduledTasks handles the full update.
+            // The compactScheduledTasks mutation's onMutate already updates the react-query cache,
+            // which will then trigger the useEffect to update localOccupiedBlocks.
             showSuccess("Schedule compacted!");
           } else {
-            showSuccess("No flexible tasks to compact or no space available.");
+            showError("No flexible tasks to compact or no space available.");
           }
           success = true;
           break;
@@ -605,8 +616,8 @@ const SchedulerPage: React.FC = () => {
     const taskScheduledDate = formattedSelectedDay;
     const selectedDayAsDate = parseISO(selectedDay);
 
-    // Create a mutable copy of occupiedBlocks for optimistic updates
-    let optimisticOccupiedBlocks = [...occupiedBlocks];
+    // Use localOccupiedBlocks for immediate scheduling decisions
+    let currentOptimisticBlocks = [...localOccupiedBlocks];
 
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
@@ -635,7 +646,7 @@ const SchedulerPage: React.FC = () => {
       }
 
       // NEW: Check for overlaps before adding timed injection
-      if (!isSlotFree(startTime, endTime, optimisticOccupiedBlocks)) { // Pass optimistic blocks
+      if (!isSlotFree(startTime, endTime, currentOptimisticBlocks)) { // Pass local optimistic blocks
         showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
         setIsProcessingCommand(false);
         return;
@@ -643,9 +654,9 @@ const SchedulerPage: React.FC = () => {
 
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: injectionPrompt.isFlexible }); // Timed tasks are fixed
-      // Optimistically update local occupied blocks
-      optimisticOccupiedBlocks.push({ start: startTime, end: endTime, duration: duration });
-      optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
+      // Optimistically update local occupied blocks state
+      currentOptimisticBlocks.push({ start: startTime, end: endTime, duration: duration });
+      setLocalOccupiedBlocks(mergeOverlappingTimeBlocks(currentOptimisticBlocks));
 
       showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
       success = true;
@@ -668,7 +679,7 @@ const SchedulerPage: React.FC = () => {
         injectionPrompt.taskName,
         injectedTaskDuration,
         injectionPrompt.isCritical,
-        optimisticOccupiedBlocks, // Pass the optimistic blocks
+        currentOptimisticBlocks, // Pass the local optimistic blocks
         effectiveWorkdayStart,
         workdayEndTime
       );
@@ -683,9 +694,9 @@ const SchedulerPage: React.FC = () => {
           is_critical: injectionPrompt.isCritical, // Pass critical flag
           is_flexible: injectionPrompt.isFlexible, // Pass flexible flag
         });
-        // Optimistically update local occupied blocks
-        optimisticOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
-        optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
+        // Optimistically update local occupied blocks state
+        currentOptimisticBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
+        setLocalOccupiedBlocks(mergeOverlappingTimeBlocks(currentOptimisticBlocks));
 
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
@@ -717,14 +728,14 @@ const SchedulerPage: React.FC = () => {
       const taskDuration = retiredTask.duration || 30; // Default duration if not specified
       const selectedDayAsDate = parseISO(selectedDay);
 
-      // Create a mutable copy of occupiedBlocks for optimistic updates
-      let optimisticOccupiedBlocks = [...occupiedBlocks];
+      // Use localOccupiedBlocks for immediate scheduling decisions
+      let currentOptimisticBlocks = [...localOccupiedBlocks];
 
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
         retiredTask.name,
         taskDuration,
         retiredTask.is_critical,
-        optimisticOccupiedBlocks, // Pass the optimistic blocks
+        currentOptimisticBlocks, // Pass the local optimistic blocks
         effectiveWorkdayStart,
         workdayEndTime
       );
@@ -743,9 +754,9 @@ const SchedulerPage: React.FC = () => {
           is_critical: retiredTask.is_critical, // Pass critical flag
           is_flexible: true, // Default to flexible when re-zoning from sink
         });
-        // Optimistically update local occupied blocks
-        optimisticOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
-        optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
+        // Optimistically update local occupied blocks state
+        currentOptimisticBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
+        setLocalOccupiedBlocks(mergeOverlappingTimeBlocks(currentOptimisticBlocks));
 
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {
@@ -767,7 +778,8 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await retireTask(taskToRetire);
-    // No need to manually update optimisticOccupiedBlocks here for removal.
+    // Optimistically remove from local occupied blocks state
+    setLocalOccupiedBlocks(prev => prev.filter(block => block.start.toISOString() !== parseISO(taskToRetire.start_time!).toISOString() || block.end.toISOString() !== parseISO(taskToRetire.end_time!).toISOString()));
     setIsProcessingCommand(false);
   };
 
@@ -807,8 +819,8 @@ const SchedulerPage: React.FC = () => {
     let successfulRezones = 0;
     let failedRezones = 0;
 
-    // Create a mutable copy of memoizedScheduledTimes for the loop
-    let currentOptimisticTimesForBatch = [...memoizedScheduledTimes]; // Use a distinct name
+    // Use localOccupiedBlocks for immediate scheduling decisions
+    let currentOptimisticBlocks = [...localOccupiedBlocks];
 
     // Sort retired tasks to prioritize critical ones first
     const sortedRetiredTasks = [...retiredTasks].sort((a, b) => {
@@ -826,7 +838,7 @@ const SchedulerPage: React.FC = () => {
           task.name,
           taskDuration,
           task.is_critical,
-          currentOptimisticTimesForBatch, // Pass the mutable local copy
+          currentOptimisticBlocks, // Pass the mutable local copy
           effectiveWorkdayStart,
           workdayEndTime
         );
@@ -846,8 +858,9 @@ const SchedulerPage: React.FC = () => {
           await addScheduledTask(newScheduledTask); // Add to scheduled_tasks
 
           // Update the local list for subsequent tasks in this batch
-          currentOptimisticTimesForBatch.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
-          currentOptimisticTimesForBatch = mergeOverlappingTimeBlocks(currentOptimisticTimesForBatch);
+          currentOptimisticBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
+          currentOptimisticBlocks = mergeOverlappingTimeBlocks(currentOptimisticBlocks);
+          setLocalOccupiedBlocks(currentOptimisticBlocks); // Update local state
 
           successfulRezones++;
         } else {
@@ -899,6 +912,8 @@ const SchedulerPage: React.FC = () => {
 
     if (reorganizedTasks.length > 0) {
       await compactScheduledTasks(reorganizedTasks);
+      // The compactScheduledTasks mutation's onMutate already updates the react-query cache,
+      // which will then trigger the useEffect to update localOccupiedBlocks.
       showSuccess("Flexible tasks sorted by duration!");
     } else {
       showError("Could not sort flexible tasks by duration or no space available.");
@@ -939,6 +954,8 @@ const SchedulerPage: React.FC = () => {
 
     if (reorganizedTasks.length > 0) {
       await compactScheduledTasks(reorganizedTasks);
+      // The compactScheduledTasks mutation's onMutate already updates the react-query cache,
+      // which will then trigger the useEffect to update localOccupiedBlocks.
       showSuccess("Flexible tasks sorted by priority!");
     } else {
       showError("Could not sort flexible tasks by priority or no space available.");

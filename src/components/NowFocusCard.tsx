@@ -63,7 +63,7 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
   const textColor = isBreak ? 'text-logo-orange' : 'text-primary';
 
   return (
-    <Card className={cn("animate-pop-in border-2 animate-hover-lift", cardBorderColor, cardBgColor)}> {/* Added animate-hover-lift */}
+    <Card className={cn("animate-pop-in border-2 animate-hover-lift", cardBorderColor, cardBgColor, activeItem && "animate-pulse-glow-subtle")}> {/* Added animate-pulse-glow-subtle */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
           {statusIcon} NOW FOCUS

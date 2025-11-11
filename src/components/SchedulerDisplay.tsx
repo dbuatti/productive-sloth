@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
+import { Badge } from '@/components/ui/badge'; // Import Badge component
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -304,6 +305,16 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {/* NEW: Flexible/Fixed Badge */}
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "px-2 py-0.5 text-xs font-semibold",
+                    scheduledItem.isFlexible ? "bg-blue-500/20 text-blue-300 border-blue-500" : "bg-purple-500/20 text-purple-300 border-purple-500"
+                  )}
+                >
+                  {scheduledItem.isFlexible ? 'Flexible' : 'Fixed'}
+                </Badge>
                 <span className={cn(
                   "text-xs font-semibold font-mono text-[hsl(var(--always-light-text))] opacity-80" // Made time range font-semibold
                 )}>
@@ -403,7 +414,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   <ListTodo className="h-12 w-12 text-muted-foreground" />
                   <p className="text-lg font-semibold">Your schedule is clear for today!</p>
                   <p className="text-sm">Ready to plan? Add a task using the input above.</p>
-                  <p className="text-xs text-muted-foreground">Try: "Gym 60", "Meeting 2pm-3pm", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clean the sink 30 sink", "Clear queue"</p>
+                  <p className="text-xs text-muted-foreground">Try: "Gym 60", "Meeting 2pm-3pm", "Mindfulness 11am - 12pm", "Inject Gym", "Inject Meeting from 2pm to 3pm", "Clean the sink 30 sink"</p>
                 </div>
               ) : (
                 <>

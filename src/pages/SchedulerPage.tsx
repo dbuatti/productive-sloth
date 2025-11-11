@@ -466,7 +466,7 @@ const SchedulerPage: React.FC = () => {
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false }); // Timed tasks are fixed
         // Optimistically update the mutable array for subsequent checks within this handler
         currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
-        currentOptimisticBlocksForScheduling = mergeOverlappingTimeBlocks(currentOptimisticBlocksForScheduling);
+        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling); // Fixed typo here
 
         showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
@@ -497,7 +497,7 @@ const SchedulerPage: React.FC = () => {
           });
           // Optimistically update the mutable array for subsequent checks within this handler
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
-          currentOptimisticBlocksForScheduling = mergeOverlappingTimeBlocks(currentOptimisticBlocksForScheduling);
+          currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling); // Fixed typo here
 
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
@@ -587,7 +587,7 @@ const SchedulerPage: React.FC = () => {
           );
           if (compactedTasks.length > 0) {
             await compactScheduledTasks(compactedTasks);
-            // For immediate consistency, update currentOptimisticBlocksForScheduling here.
+            // For immediate consistency, update currentOccupiedBlocksForScheduling here.
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(compactedTasks.map(task => ({
               start: parseISO(task.start_time!),
               end: parseISO(task.end_time!),
@@ -702,7 +702,7 @@ const SchedulerPage: React.FC = () => {
         });
         // Optimistically update the mutable array for subsequent checks within this handler
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
-        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling); // Fixed typo here
 
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;

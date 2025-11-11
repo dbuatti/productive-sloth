@@ -223,7 +223,7 @@ export const useTasks = () => {
             console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today):", profileError.message);
             showError("Failed to update profile stats.");
           } else {
-            await refreshProfile(); // Refresh profile data in session context
+            await refreshProfile(); // Refresh local profile state
             
             // --- Trigger XP Animation ---
             setXpGainAnimation({ taskId: updatedTask.id, xpAmount: xpGained }); // Use xpGained
@@ -429,6 +429,53 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
+  // NEW: Add a new retired task directly to the Aether Sink
+  const addRetiredTaskMutation = useMutation({
+    mutationFn: async (newTask: NewRetiredTask) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString() };
+      console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
+      const { data, error } = await supabase.from('retired_tasks').insert(taskToInsert).select().single();
+      if (error) {
+        console.error("useSchedulerTasks: Error inserting retired task:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully inserted retired task:", data);
+      return data as RetiredTask;
+    },
+    onMutate: async (newTask: NewRetiredTask) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) => {
+        const tempId = Math.random().toString(36).substring(2, 9);
+        const optimisticTask: RetiredTask = {
+          id: tempId,
+          user_id: userId!,
+          name: newTask.name,
+          duration: newTask.duration ?? null,
+          break_duration: newTask.break_duration ?? null,
+          original_scheduled_date: newTask.original_scheduled_date,
+          retired_at: new Date().toISOString(),
+          is_critical: newTask.is_critical ?? false,
+        };
+        return [optimisticTask, ...(old || [])];
+      });
+      return { previousRetiredTasks };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      showSuccess('Task sent directly to Aether Sink!');
+    },
+    onError: (err, newTask, context) => {
+      showError(`Failed to send task to Aether Sink: ${err.message}`);
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
+    }
+  });
+
+
   // Remove a specific scheduled task by ID
   const removeScheduledTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
@@ -631,7 +678,6 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate]);
 
-      // Optimistically replace the entire scheduledTasks cache with the new, compacted list
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate], tasksToUpdate);
       return { previousScheduledTasks };
     },
@@ -657,6 +703,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     retiredTasks, // NEW: Retired tasks
     isLoadingRetiredTasks, // NEW: Loading state for retired tasks
     addScheduledTask: addScheduledTaskMutation.mutate,
+    addRetiredTask: addRetiredTaskMutation.mutate, // NEW: Add retired task mutation
     removeScheduledTask: removeScheduledTaskMutation.mutate,
     clearScheduledTasks: clearScheduledTasksMutation.mutate,
     retireTask: retireTaskMutation.mutate, // NEW: Retire task mutation

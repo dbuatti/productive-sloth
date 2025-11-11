@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask } from '@/types/scheduler';
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -128,6 +128,7 @@ const SchedulerPage: React.FC = () => {
     dbScheduledTasks,
     isLoading: isSchedulerTasksLoading, 
     addScheduledTask, 
+    addRetiredTask, // NEW: Import addRetiredTask
     removeScheduledTask, 
     clearScheduledTasks,
     datesWithTasks,
@@ -408,69 +409,83 @@ const SchedulerPage: React.FC = () => {
 
 
     if (parsedInput) {
-      const isAdHocTask = 'duration' in parsedInput;
-
-      if (isAdHocTask) {
-        const newTaskDuration = parsedInput.duration!;
-        const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-          parsedInput.name,
-          newTaskDuration,
-          parsedInput.isCritical,
-          currentOccupiedBlocksForScheduling,
-          effectiveWorkdayStart,
-          workdayEndTime
-        );
-        
-        if (proposedStartTime && proposedEndTime) {
-          await addScheduledTask({ 
-            name: parsedInput.name, 
-            start_time: proposedStartTime.toISOString(), 
-            end_time: proposedEndTime.toISOString(), 
-            scheduled_date: taskScheduledDate,
-            break_duration: parsedInput.breakDuration,
-            is_critical: parsedInput.isCritical,
-            is_flexible: true,
-          });
-          currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
-          currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-          
-          showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
-          success = true;
-        } else {
-          showError(message);
-        }
-
-      } else {
-        let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
-        let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
-        
-        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-          showError("Invalid time format for start/end times.");
-          setIsProcessingCommand(false);
-          return;
-        }
-
-        if (isSameDay(selectedDayAsDate, T_current) && isBefore(startTime, T_current)) {
-          startTime = addDays(startTime, 1);
-          endTime = addDays(endTime, 1);
-          showSuccess(`Scheduled "${parsedInput.name}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
-        } else if (isBefore(endTime, startTime)) {
-          endTime = addDays(endTime, 1);
-        }
-
-        if (!isSlotFree(startTime, endTime, currentOccupiedBlocksForScheduling)) {
-          showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
-          setIsProcessingCommand(false);
-          return;
-        }
-
-        const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-        await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false });
-        currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
-        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-
-        showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
+      // NEW: Handle tasks that should go directly to the Aether Sink
+      if (parsedInput.shouldSink) {
+        const newRetiredTask: NewRetiredTask = {
+          user_id: user.id, // Added missing user_id
+          name: parsedInput.name,
+          duration: parsedInput.duration || null,
+          break_duration: parsedInput.breakDuration || null,
+          original_scheduled_date: taskScheduledDate,
+          is_critical: parsedInput.isCritical,
+        };
+        await addRetiredTask(newRetiredTask);
         success = true;
+      } else { // Existing scheduling logic
+        const isAdHocTask = 'duration' in parsedInput;
+
+        if (isAdHocTask) {
+          const newTaskDuration = parsedInput.duration!;
+          const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+            parsedInput.name,
+            newTaskDuration,
+            parsedInput.isCritical,
+            currentOccupiedBlocksForScheduling,
+            effectiveWorkdayStart,
+            workdayEndTime
+          );
+          
+          if (proposedStartTime && proposedEndTime) {
+            await addScheduledTask({ 
+              name: parsedInput.name, 
+              start_time: proposedStartTime.toISOString(), 
+              end_time: proposedEndTime.toISOString(), 
+              scheduled_date: taskScheduledDate,
+              break_duration: parsedInput.breakDuration,
+              is_critical: parsedInput.isCritical,
+              is_flexible: true,
+            });
+            currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
+            currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+            
+            showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+            success = true;
+          } else {
+            showError(message);
+          }
+
+        } else {
+          let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
+          let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
+          
+          if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+            showError("Invalid time format for start/end times.");
+            setIsProcessingCommand(false);
+            return;
+          }
+
+          if (isSameDay(selectedDayAsDate, T_current) && isBefore(startTime, T_current)) {
+            startTime = addDays(startTime, 1);
+            endTime = addDays(endTime, 1);
+            showSuccess(`Scheduled "${parsedInput.name}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
+          } else if (isBefore(endTime, startTime)) {
+            endTime = addDays(endTime, 1);
+          }
+
+          if (!isSlotFree(startTime, endTime, currentOccupiedBlocksForScheduling)) {
+            showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
+            setIsProcessingCommand(false);
+            return;
+          }
+
+          const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+          await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false });
+          currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
+          currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+
+          showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
+          success = true;
+        }
       }
     } else if (injectCommand) {
       const isAdHocInjection = !injectCommand.startTime && !injectCommand.endTime;
@@ -1066,7 +1081,7 @@ const SchedulerPage: React.FC = () => {
             setInputValue={setInputValue}
           />
           <p className="text-xs text-muted-foreground">
-            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact'
+            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink"
           </p>
         </CardContent>
       </Card>

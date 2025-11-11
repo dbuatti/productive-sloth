@@ -166,10 +166,18 @@ interface ParsedTaskInput {
   startTime?: Date;
   endTime?: Date;
   isCritical: boolean;
+  shouldSink?: boolean; // NEW: Flag to indicate if task should go directly to sink
 }
 
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => {
   let isCritical = false;
+  let shouldSink = false;
+
+  // Order of parsing flags matters: sink, then critical
+  if (input.endsWith(' sink')) {
+    shouldSink = true;
+    input = input.slice(0, -5).trim();
+  }
 
   if (input.endsWith(' !')) {
     isCritical = true;
@@ -199,7 +207,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
         .trim();
 
       if (cleanedTaskName) {
-        return { name: cleanedTaskName, startTime, endTime, isCritical };
+        return { name: cleanedTaskName, startTime, endTime, isCritical, shouldSink };
       }
     }
   }
@@ -212,7 +220,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
     const duration = parseInt(durationMatch[2], 10);
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
     if (name && duration > 0) {
-      return { name, duration, breakDuration, isCritical };
+      return { name, duration, breakDuration, isCritical, shouldSink };
     }
   }
 
@@ -443,7 +451,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTime,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage, // Corrected typo here
+    midnightRolloverMessage: midnightRolloverMessage,
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
   };

@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
-import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput and new retired task types
+import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types'; // Keep Task and NewTask from '@/types' if they are distinct
+import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput, new retired task types, SortBy, and TaskPriority
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday, format } from 'date-fns'; // Import format

@@ -496,6 +496,8 @@ export const calculateSchedule = (
     ? `Schedule extends past midnight, ending at ${formatTime(sessionEnd)} tomorrow.` 
     : undefined;
 
+  console.log("Calculated midnightRolloverMessage:", midnightRolloverMessage); // Debugging log
+
   const summary: ScheduleSummary = {
     totalScheduledDuration: totalScheduledDuration,
     totalBreakDuration: totalBreakDuration,
@@ -511,7 +513,7 @@ export const calculateSchedule = (
     breakTime: totalBreakDuration,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRoloverMessage,
+    midnightRolloverMessage: midnightRolloverMessage,
     criticalTasksRemaining: criticalTasksRemaining,
   };
 

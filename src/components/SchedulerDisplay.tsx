@@ -1,14 +1,23 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { ScheduledItem, FormattedSchedule, DBScheduledTask, TimeBlock, ScheduledTaskItem, ScheduledBreakItem, FreeSlotItem, ScheduledTimeOffItem } from '@/types/scheduler';
+import { ScheduledItem, FormattedSchedule, DBScheduledTask, TimeBlock, ScheduledTaskItem, ScheduledBreakItem, FreeSlotItem, ScheduledTimeOffItem, ScheduleSummary } from '@/types/scheduler'; // Updated imports
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
 import { Trash, Archive, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
-import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter } from 'date-fns';
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, format } from 'date-fns'; // Added format
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Added AlertDialog imports
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -28,6 +37,20 @@ const getBubbleHeightStyle = (duration: number) => {
   let calculatedHeight = baseHeight + (duration * multiplier);
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
+
+// Define a type for events that will be processed and displayed
+type DisplayEvent = {
+  id: string;
+  type: ScheduledItem['type'];
+  name: string;
+  start: Date; // Unified start time
+  end: Date;   // Unified end time
+  duration: number;
+  originalItem: ScheduledItem; // Reference to the original ScheduledItem
+};
+
+type DisplayItemWithMarker = ScheduledItem | { type: 'marker'; time: Date; label: string };
+
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, activeItemId, selectedDayString, onAddTaskClick }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
@@ -69,15 +92,18 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
-    const allEvents: (ScheduledItem | TimeBlock)[] = []; 
+    const allEvents: DisplayEvent[] = []; 
 
     scheduledTasks.forEach(item => {
       if (item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'free-slot') {
         allEvents.push({
-          start: item.startTime,
-          end: item.endTime,
+          id: item.id,
+          type: item.type,
+          name: item.name,
+          start: item.startTime, // Use startTime as unified 'start'
+          end: item.endTime,     // Use endTime as unified 'end'
           duration: item.duration,
-          originalItem: item // Store original item for later reconstruction
+          originalItem: item,
         });
       }
     });
@@ -85,7 +111,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     // Sort all events by start time
     allEvents.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-    const processedItems: (ScheduledItem | { type: 'marker'; time: Date; label: string })[] = [];
+    const processedItems: DisplayItemWithMarker[] = [];
     let currentCursor = startOfTemplate;
 
     allEvents.forEach(event => {
@@ -107,9 +133,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       }
 
       // Add the actual scheduled item
-      if ('originalItem' in event) {
-        processedItems.push(event.originalItem);
-      }
+      processedItems.push(event.originalItem);
       
       currentCursor = event.end;
     });
@@ -136,10 +160,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     for (let i = 0; i <= 24; i += 3) {
       const markerTime = addHours(startOfTemplate, i);
       // Only add marker if it doesn't fall exactly on a scheduled item's start/end
-      const isCovered = processedItems.some(item => 
-        (item.startTime && isSameDay(item.startTime, markerTime) && item.startTime.getHours() === markerTime.getHours() && item.startTime.getMinutes() === markerTime.getMinutes()) ||
-        (item.endTime && isSameDay(item.endTime, markerTime) && item.endTime.getHours() === markerTime.getHours() && item.endTime.getMinutes() === markerTime.getMinutes())
-      );
+      const isCovered = processedItems.some(item => {
+        if (item.type === 'marker') return false; // Markers don't cover other items
+        return (isSameDay(item.startTime, markerTime) && item.startTime.getHours() === markerTime.getHours() && item.startTime.getMinutes() === markerTime.getMinutes()) ||
+               (isSameDay(item.endTime, markerTime) && item.endTime.getHours() === markerTime.getHours() && item.endTime.getMinutes() === markerTime.getMinutes());
+      });
       if (!isCovered) {
         markers.push({ type: 'marker', time: markerTime, label: formatTime(markerTime) });
       }
@@ -151,19 +176,26 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       return timeA.getTime() - timeB.getTime();
     });
 
-    const actualStartTime = finalItemsWithMarkers.length > 0 ? ('time' in finalItemsWithMarkers[0] ? finalItemsWithMarkers[0].time : finalItemsWithMarkers[0].startTime) : startOfTemplate;
-    const actualEndTime = finalItemsWithMarkers.length > 0 ? ('time' in finalItemsWithMarkers[finalItemsWithMarkers.length - 1] ? finalItemsWithMarkers[finalItemsWithMarkers.length - 1].time : finalItemsWithMarkers[finalItemsWithMarkers.length - 1].endTime) : endOfTemplate;
+    const firstItem = finalItemsWithMarkers[0];
+    const lastItem = finalItemsWithMarkers[finalItemsWithMarkers.length - 1];
+
+    const actualStartTime = firstItem
+      ? (firstItem.type === 'marker' ? firstItem.time : firstItem.startTime)
+      : startOfTemplate;
+    const actualEndTime = lastItem
+      ? (lastItem.type === 'marker' ? lastItem.time : lastItem.endTime)
+      : endOfTemplate;
 
     return {
       finalDisplayItems: finalItemsWithMarkers,
       firstItemStartTime: actualStartTime,
       lastItemEndTime: actualEndTime,
     };
-  }, [schedule, startOfTemplate, endOfTemplate]);
+  }, [schedule, startOfTemplate, endOfTemplate, T_current]); // Added T_current to dependencies for isCovered
 
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'free-slot' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
+      if (item.type !== 'marker' && T_current >= item.startTime && T_current < item.endTime) { // Corrected type check
         return item;
       }
     }
@@ -210,7 +242,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     }
   }, [selectedDayString]);
 
-  const renderDisplayItem = (item: typeof finalDisplayItems[0]) => {
+  const renderDisplayItem = (item: DisplayItemWithMarker) => { // Corrected type
     const isCurrentlyActive = activeItemInDisplay?.id === ('id' in item ? item.id : undefined);
     const isPastItem = ('endTime' in item) && item.endTime <= T_current;
 
@@ -472,7 +504,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         </CardContent>
       </Card>
 
-      {schedule?.summary.totalScheduledDuration > 0 && (
+      {schedule?.summary && schedule.summary.totalScheduledDuration > 0 && ( // Added schedule?.summary check
         <Card className="animate-pop-in animate-hover-lift">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
@@ -480,15 +512,15 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            {schedule?.summary.totalScheduledDuration > 12 * 60 && (
+            {schedule.summary.totalScheduledDuration > 12 * 60 && ( // Removed optional chaining here
               <p className="text-red-500">⚠️ Intense schedule. Remember to include meals and rest.</p>
             )}
-            {schedule?.summary.unscheduledCount > 0 && (
+            {schedule.summary.unscheduledCount > 0 && ( // Removed optional chaining here
               <p className="text-orange-500 font-semibold">
                 ⚠️ {schedule.summary.unscheduledCount} task{schedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.
               </p>
             )}
-            {schedule?.summary.totalScheduledDuration < 6 * 60 && (
+            {schedule.summary.totalScheduledDuration < 6 * 60 && ( // Removed optional chaining here
               <p>💡 Light day! Consider adding buffer time for flexibility.</p>
             )}
           </CardContent>

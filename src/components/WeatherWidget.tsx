@@ -38,8 +38,8 @@ const getWeatherIcon = (iconCode: string) => {
 };
 
 const WeatherWidget: React.FC = () => {
-  // Fetch weather for Melbourne
-  const { weather, isLoading, error } = useWeather({ city: "Melbourne" }); 
+  // Fetch weather for Melbourne, Victoria, Australia
+  const { weather, isLoading, error } = useWeather({ city: "Melbourne, Victoria, Australia" }); 
 
   if (isLoading) {
     return (

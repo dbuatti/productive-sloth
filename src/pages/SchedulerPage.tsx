@@ -85,21 +85,14 @@ function useDeepCompareMemoize<T>(value: T): T {
 }
 
 const getFreeTimeBlocks = (
-  appointments: { start: Date; end: Date }[],
-  workdayStart: Date,
+  occupiedBlocks: TimeBlock[], // This is already merged and sorted
+  workdayStart: Date, // This is effectiveWorkdayStart
   workdayEnd: Date
 ): TimeBlock[] => {
-  // 1. Convert to TimeBlock format and merge overlapping appointments first
-  const mergedAppointments = mergeOverlappingTimeBlocks(appointments.map(a => ({
-    start: a.start,
-    end: a.end,
-    duration: Math.floor((a.end.getTime() - a.start.getTime()) / (1000 * 60))
-  })));
-
   const freeBlocks: TimeBlock[] = [];
   let currentFreeTimeStart = workdayStart;
 
-  for (const appt of mergedAppointments) { // Iterate over merged appointments
+  for (const appt of occupiedBlocks) { // Iterate over merged appointments
     // If the appointment is entirely before our current search point, skip it.
     if (isBefore(appt.end, currentFreeTimeStart)) {
         continue;
@@ -161,26 +154,37 @@ const SchedulerPage: React.FC = () => {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false); // New state for morning fix
 
+  // Calculate selectedDayAsDate early
+  const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
+
   // Memoized occupied blocks, deeply compared for stability
   const occupiedBlocks = useDeepCompareMemoize(useMemo(() => {
     if (!dbScheduledTasks) return [];
     const mappedTimes = dbScheduledTasks
       .filter(task => task.start_time && task.end_time)
       .map(task => {
-        // parseISO already returns a Date object in the local timezone
-        // representing the UTC instant. No further manual conversion needed.
-        const start = parseISO(task.start_time!);
-        const end = parseISO(task.end_time!);
+        const utcStart = parseISO(task.start_time!);
+        const utcEnd = parseISO(task.end_time!);
+
+        // Align the UTC times to the selectedDayAsDate, preserving their time-of-day
+        let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getUTCMinutes()), utcStart.getUTCHours());
+        let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getUTCMinutes()), utcEnd.getUTCHours());
+
+        // Handle rollover to next day if end time is before start time
+        if (isBefore(localEnd, localStart)) {
+          localEnd = addDays(localEnd, 1);
+        }
+
         return {
-          start: start,
-          end: end,
-          duration: Math.floor((end.getTime() - start.getTime()) / (1000 * 60)),
+          start: localStart,
+          end: localEnd,
+          duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
         };
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
     return mergeOverlappingTimeBlocks(mappedTimes);
-  }, [dbScheduledTasks, selectedDay])); // Dependencies for the inner useMemo
+  }, [dbScheduledTasks, selectedDayAsDate])); // Dependency changed to selectedDayAsDate
 
 
   const formattedSelectedDay = selectedDay;
@@ -247,7 +251,6 @@ const SchedulerPage: React.FC = () => {
 
 
   // Calculate workday boundaries from profile
-  const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
   const workdayStartTime = useMemo(() => profile?.default_auto_schedule_start_time 
     ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
     : startOfDay(selectedDayAsDate), [profile?.default_auto_schedule_start_time, selectedDayAsDate]);

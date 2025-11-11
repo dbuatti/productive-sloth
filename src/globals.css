@@ -202,17 +202,7 @@
     }
   }
 
-  /* New animation for subtle lift on hover */
-  @keyframes hover-lift {
-    from {
-      transform: translateY(0);
-      box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    }
-    to {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    }
-  }
+  /* Removed "hover-lift" keyframe */
 
   .animate-pulse-glow {
     animation: pulse-glow 2s infinite ease-in-out;
@@ -242,6 +232,7 @@
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   }
   .animate-hover-lift:hover {
-    animation: hover-lift 0.2s forwards;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   }
 }

@@ -89,22 +89,12 @@ export default {
             height: "0",
           },
         },
-        // New animation for subtle lift on hover
-        "hover-lift": {
-          from: {
-            transform: "translateY(0)",
-            boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-          },
-          to: {
-            transform: "translateY(-2px)",
-            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-          },
-        },
+        // Removed "hover-lift" keyframe
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "hover-lift": "hover-lift 0.2s forwards", // Define the animation
+        // Removed "hover-lift" animation
       },
     },
   },

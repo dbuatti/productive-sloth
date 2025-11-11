@@ -42,19 +42,18 @@ export interface DBScheduledTask {
   id: string;
   user_id: string;
   name: string;
-  // duration: number | null; // Removed: duration is derived from start_time/end_time
   break_duration: number | null;
   start_time: string | null; // New: ISO date string for timed events
   end_time: string | null;   // New: ISO date string for timed events
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
   created_at: string;
+  updated_at: string; // NEW: Added updated_at column
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_flexible: boolean; // NEW: Flag for schedule compaction
 }
 
 export interface NewDBScheduledTask {
   name: string;
-  // duration?: number; // Removed: duration is derived from start_time/end_time
   break_duration?: number;
   start_time?: string; // Optional for duration-based tasks
   end_time?: string;   // Optional for duration-based tasks

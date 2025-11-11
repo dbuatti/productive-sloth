@@ -51,6 +51,7 @@ export interface DBScheduledTask {
   updated_at: string; // NEW: Added updated_at column
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_flexible: boolean; // NEW: Flag for schedule compaction
+  is_locked: boolean; // NEW: Task Immutability Flag
 }
 
 export interface NewDBScheduledTask {
@@ -61,6 +62,7 @@ export interface NewDBScheduledTask {
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
   is_critical?: boolean; // NEW: Critical Urgency Flag
   is_flexible?: boolean; // NEW: Flag for schedule compaction
+  is_locked?: boolean; // NEW: Task Immutability Flag
 }
 
 // New types for retired tasks (Aether Sink)
@@ -73,6 +75,7 @@ export interface RetiredTask {
   original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
   retired_at: string; // Timestamp when it was moved to the sink
   is_critical: boolean; // NEW: Critical Urgency Flag
+  is_locked: boolean; // NEW: Task Immutability Flag
   // is_flexible: boolean; // REMOVED: Not present in retired_tasks table
 }
 
@@ -83,6 +86,7 @@ export interface NewRetiredTask {
   break_duration: number | null;
   original_scheduled_date: string;
   is_critical?: boolean; // NEW: Critical Urgency Flag
+  is_locked?: boolean; // NEW: Task Immutability Flag
   // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
 }
 
@@ -101,6 +105,7 @@ export interface ScheduledItem {
   color?: string; // New: For custom colors (e.g., Tailwind class like 'bg-blue-500')
   isCritical?: boolean; // NEW: Critical Urgency Flag
   isFlexible?: boolean; // NEW: Flag for schedule compaction
+  isLocked?: boolean; // NEW: Task Immutability Flag
 }
 
 export interface ScheduleSummary {

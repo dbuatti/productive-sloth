@@ -431,6 +431,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
           updated_at: now,
           is_critical: newTask.is_critical ?? false,
           is_flexible: newTask.is_flexible ?? true,
+          is_locked: newTask.is_locked ?? false, // ADDED: is_locked property
         };
         return [...(old || []), optimisticTask];
       });
@@ -481,6 +482,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
           original_scheduled_date: newTask.original_scheduled_date,
           retired_at: new Date().toISOString(),
           is_critical: newTask.is_critical ?? false,
+          is_locked: newTask.is_locked ?? false, // ADDED: is_locked property
         };
         return [optimisticTask, ...(old || [])];
       });
@@ -580,6 +582,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
         is_critical: taskToRetire.is_critical, // Pass critical flag
+        is_locked: taskToRetire.is_locked, // Pass locked flag
       };
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -611,6 +614,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         original_scheduled_date: taskToRetire.scheduled_date,
         retired_at: new Date().toISOString(),
         is_critical: taskToRetire.is_critical,
+        is_locked: taskToRetire.is_locked, // ADDED: is_locked property
       };
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
         [newRetiredTask, ...(old || [])]
@@ -683,6 +687,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         scheduled_date: task.scheduled_date, // Include scheduled_date
         is_critical: task.is_critical, // Include is_critical
         is_flexible: task.is_flexible, // Include is_flexible
+        is_locked: task.is_locked, // Include is_locked
         updated_at: new Date().toISOString(),
       }));
 
@@ -795,6 +800,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
                 end_time: proposedEndTime.toISOString(),
                 scheduled_date: selectedDate, // Ensure it's for the selected date
                 is_flexible: true, // Breaks are always flexible
+                is_locked: breakTask.is_locked, // Include is_locked
                 updated_at: new Date().toISOString(),
               };
               finalTasksForUpdate.push(newBreakTask);
@@ -821,6 +827,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         scheduled_date: task.scheduled_date,
         is_critical: task.is_critical,
         is_flexible: task.is_flexible,
+        is_locked: task.is_locked, // Include is_locked
         updated_at: new Date().toISOString(),
       }));
 
@@ -905,6 +912,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
                 end_time: proposedEndTime.toISOString(),
                 scheduled_date: selectedDate,
                 is_flexible: true,
+                is_locked: breakTask.is_locked, // Include is_locked
                 updated_at: new Date().toISOString(),
               };
               optimisticFinalTasksForUpdate.push(newBreakTask);

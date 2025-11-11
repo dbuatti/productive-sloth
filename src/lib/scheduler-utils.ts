@@ -481,130 +481,108 @@ export const calculateSchedule = (
 /**
  * Compacts the schedule by moving flexible tasks forward to fill gaps.
  * Fixed appointments are not moved.
- * @param currentTasks The current list of DBScheduledTask objects.
+ * @param allCurrentTasks The current list of DBScheduledTask objects (fixed and flexible).
  * @param selectedDate The date for which the schedule is being compacted.
  * @param workdayStartTime The start time of the user's workday.
  * @param workdayEndTime The end time of the user's workday.
  * @param T_current The current real-world time.
+ * @param preSortedFlexibleTasks Optional: an array of flexible tasks already sorted by the caller.
+ *                                If provided, these will be used instead of filtering and sorting internally.
  * @returns An array of DBScheduledTask objects with updated start_time and end_time.
  */
 export const compactScheduleLogic = (
-  currentTasks: DBScheduledTask[],
+  allCurrentTasks: DBScheduledTask[], // Renamed for clarity
   selectedDate: Date,
   workdayStartTime: Date,
   workdayEndTime: Date,
-  T_current: Date
+  T_current: Date,
+  preSortedFlexibleTasks?: DBScheduledTask[] // Optional: flexible tasks already sorted by caller
 ): DBScheduledTask[] => {
-  const updatedTasks: DBScheduledTask[] = [];
+  const finalSchedule: DBScheduledTask[] = [];
 
-  // Separate flexible and fixed tasks
-  const flexibleTasks = currentTasks.filter(task => task.is_flexible);
-  const fixedTasks = currentTasks.filter(task => !task.is_flexible);
+  const fixedTasks = allCurrentTasks.filter(task => !task.is_flexible);
+  const flexibleTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible);
 
   // Sort fixed tasks by their start time to establish immovable blocks
-  fixedTasks.sort((a, b) => {
-    const startA = parseISO(a.start_time!);
-    const startB = parseISO(b.start_time!);
-    return startA.getTime() - startB.getTime();
-  });
+  fixedTasks.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
 
-  // Sort flexible tasks by their original start time (or creation time) to maintain relative order
-  flexibleTasks.sort((a, b) => {
-    const startA = parseISO(a.start_time!);
-    const startB = parseISO(b.start_time!);
-    return startA.getTime() - startB.getTime();
-  });
+  // Start with all fixed tasks in the final schedule
+  finalSchedule.push(...fixedTasks);
 
-  // Determine the starting point for compaction
-  // It should be the later of the workday start or the current time (if today)
+  // Create a list of occupied blocks from fixed tasks (and later, from placed flexible tasks)
+  let occupiedBlocks = mergeOverlappingTimeBlocks(fixedTasks.map(task => ({
+    start: parseISO(task.start_time!),
+    end: parseISO(task.end_time!),
+    duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
+  })));
+
   let currentPlacementTime = isSameDay(selectedDate, T_current) && isAfter(T_current, workdayStartTime)
     ? T_current
     : workdayStartTime;
 
   // Ensure currentPlacementTime is not after workdayEndTime
   if (isAfter(currentPlacementTime, workdayEndTime)) {
-    return currentTasks; // No compaction possible if starting point is past workday end
+    // If starting point is past workday end, no flexible tasks can be placed
+    return fixedTasks; // Only return fixed tasks
   }
 
-  // Combine fixed and flexible tasks for processing, maintaining original order for fixed
-  const allTasksForProcessing = [...fixedTasks, ...flexibleTasks].sort((a, b) => {
-    const startA = parseISO(a.start_time!);
-    const startB = parseISO(b.start_time!);
-    return startA.getTime() - startB.getTime();
-  });
-
-  // Iterate through all tasks, placing fixed tasks and compacting flexible tasks
-  for (const task of allTasksForProcessing) {
-    if (!task.start_time || !task.end_time) {
-      // Should not happen with current logic, but as a safeguard
-      updatedTasks.push(task);
-      continue;
-    }
-
-    const taskDuration = Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60));
-    const taskBreakDuration = task.break_duration || 0;
+  // Now, iterate through the (pre-sorted or default-sorted) flexible tasks and place them
+  for (const flexibleTask of flexibleTasksToPlace) {
+    const taskDuration = Math.floor((parseISO(flexibleTask.end_time!).getTime() - parseISO(flexibleTask.start_time!).getTime()) / (1000 * 60));
+    const taskBreakDuration = flexibleTask.break_duration || 0;
     const totalTaskDuration = taskDuration + taskBreakDuration;
 
-    if (!task.is_flexible) {
-      // Fixed tasks retain their original times, but we need to advance currentPlacementTime past them
-      updatedTasks.push(task);
-      const fixedTaskEndTime = parseISO(task.end_time);
-      if (isAfter(fixedTaskEndTime, currentPlacementTime)) {
-        currentPlacementTime = fixedTaskEndTime;
-      }
-    } else {
-      // Flexible tasks are moved
-      let newStartTime = currentPlacementTime;
-      let newEndTime = addMinutes(newStartTime, totalTaskDuration);
+    let currentSearchTime = currentPlacementTime;
+    let placed = false;
 
-      // Check for overlaps with fixed tasks
-      let overlapDetected = false;
-      for (const fixed of fixedTasks) {
-        const fixedStart = parseISO(fixed.start_time!);
-        const fixedEnd = parseISO(fixed.end_time!);
+    while (isBefore(currentSearchTime, workdayEndTime)) {
+      let potentialEndTime = addMinutes(currentSearchTime, totalTaskDuration);
 
-        // If the new flexible task overlaps with a fixed task
-        if (
-          (isBefore(newStartTime, fixedEnd) && isAfter(newEndTime, fixedStart)) || // Flexible task spans fixed task
-          (isSameDay(newStartTime, fixedStart) && isSameDay(newEndTime, fixedEnd) && newStartTime.getTime() === fixedStart.getTime() && newEndTime.getTime() === fixedEnd.getTime()) // Exact overlap
-        ) {
-          overlapDetected = true;
-          // Move currentPlacementTime past the fixed task and re-calculate
-          currentPlacementTime = fixedEnd;
-          newStartTime = currentPlacementTime;
-          newEndTime = addMinutes(newStartTime, totalTaskDuration);
-          break; // Re-check for overlaps with the new position
-        }
+      if (isAfter(potentialEndTime, workdayEndTime)) {
+        break; // Task won't fit within workday
       }
 
-      // If after adjusting for fixed tasks, the task still fits within workday
-      if (isBefore(newEndTime, workdayEndTime) || isSameDay(newEndTime, workdayEndTime)) {
-        updatedTasks.push({
-          ...task,
-          start_time: newStartTime.toISOString(),
-          end_time: newEndTime.toISOString(),
+      // Check if this slot is free from currently occupied blocks
+      const isFree = isSlotFree(currentSearchTime, potentialEndTime, occupiedBlocks);
+
+      if (isFree) {
+        finalSchedule.push({
+          ...flexibleTask,
+          start_time: currentSearchTime.toISOString(),
+          end_time: potentialEndTime.toISOString(),
         });
-        currentPlacementTime = newEndTime; // Advance cursor for next task
+        // Add this newly placed task to our occupied blocks for subsequent checks
+        occupiedBlocks.push({
+          start: currentSearchTime,
+          end: potentialEndTime,
+          duration: totalTaskDuration
+        });
+        occupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks); // Re-merge
+        currentPlacementTime = potentialEndTime; // Advance the general placement cursor
+        placed = true;
+        break;
       } else {
-        // Task cannot fit within the workday, mark as unscheduled or handle as needed
-        // For now, we'll just skip adding it to the updated list if it doesn't fit
-        // This means it will effectively be removed from the schedule for the day
-        console.warn(`Flexible task "${task.name}" could not be compacted within the workday.`);
+        // If not free, find the end of the overlapping block and try after it
+        let nextAvailableTime = currentSearchTime;
+        for (const block of occupiedBlocks) {
+          if (isBefore(currentSearchTime, block.end) && isAfter(potentialEndTime, block.start)) {
+            if (isAfter(block.end, nextAvailableTime)) {
+              nextAvailableTime = block.end;
+            }
+          }
+        }
+        currentSearchTime = nextAvailableTime;
       }
+    }
+    if (!placed) {
+      console.warn(`Flexible task "${flexibleTask.name}" could not be placed within the workday.`);
+      // If not placed, it's effectively removed from the schedule for this day
+      // We don't add it to finalSchedule, so it's implicitly removed.
     }
   }
 
-  // Filter out any flexible tasks that couldn't be placed
-  const finalCompactedTasks = updatedTasks.filter(task => {
-    if (task.is_flexible) {
-      // Check if its start_time is within the workday boundaries
-      const taskStart = parseISO(task.start_time!);
-      const taskEnd = parseISO(task.end_time!);
-      return (isAfter(taskStart, workdayStartTime) || isSameDay(taskStart, workdayStartTime)) &&
-             (isBefore(taskEnd, workdayEndTime) || isSameDay(taskEnd, workdayEndTime));
-    }
-    return true; // Keep fixed tasks
-  });
+  // Final sort by start time
+  finalSchedule.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
 
-  return finalCompactedTasks;
+  return finalSchedule;
 };

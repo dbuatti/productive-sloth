@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp } from 'lucide-react'; // Added ChevronsUp icon
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star } from 'lucide-react'; // Added ChevronsUp icon, Star
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask } from '@/types/scheduler';
@@ -801,7 +801,7 @@ const SchedulerPage: React.FC = () => {
 
     for (const task of sortedRetiredTasks) {
       try {
-        const taskDuration = task.duration || 30;
+        const taskDuration = task.duration || 30; // Default duration if not specified
         const selectedDayAsDate = parseISO(selectedDay);
 
         const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
@@ -815,7 +815,8 @@ const SchedulerPage: React.FC = () => {
 
         if (proposedStartTime && proposedEndTime) {
           await rezoneTask(task.id); // Delete from retired_tasks
-          await addScheduledTask({ // Add to scheduled_tasks
+
+          const newScheduledTask: NewDBScheduledTask = { // Define new task for insertion
             name: task.name,
             start_time: proposedStartTime.toISOString(),
             end_time: proposedEndTime.toISOString(),
@@ -823,7 +824,8 @@ const SchedulerPage: React.FC = () => {
             scheduled_date: formattedSelectedDay,
             is_critical: task.is_critical,
             is_flexible: true, // Default to flexible when re-zoning from sink
-          });
+          };
+          await addScheduledTask(newScheduledTask); // Add to scheduled_tasks
 
           // Update the local list for subsequent tasks in this batch
           currentOptimisticTimesForBatch.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
@@ -849,6 +851,83 @@ const SchedulerPage: React.FC = () => {
     }
     if (failedRezones > 0) {
       showError(`Failed to re-zone ${failedRezones} task(s) from Aether Sink due to no available slots.`);
+    }
+    setIsProcessingCommand(false);
+  };
+
+  // NEW: Handle sorting flexible tasks by duration
+  const handleSortByDuration = async () => {
+    if (!user || !profile || !dbScheduledTasks) return;
+    setIsProcessingCommand(true);
+
+    const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible);
+    if (flexibleTasks.length === 0) {
+      showSuccess("No flexible tasks to sort by duration.");
+      setIsProcessingCommand(false);
+      return;
+    }
+
+    // Sort flexible tasks by duration (shortest first)
+    const sortedFlexibleTasks = [...flexibleTasks].sort((a, b) => {
+      const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
+      const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+      return durationA - durationB;
+    });
+
+    const reorganizedTasks = compactScheduleLogic(
+      dbScheduledTasks, // Pass all tasks
+      selectedDayAsDate,
+      workdayStartTime,
+      workdayEndTime,
+      T_current,
+      sortedFlexibleTasks // Pass the pre-sorted flexible tasks
+    );
+
+    if (reorganizedTasks.length > 0) {
+      await compactScheduledTasks(reorganizedTasks);
+      showSuccess("Flexible tasks sorted by duration!");
+    } else {
+      showError("Could not sort flexible tasks by duration or no space available.");
+    }
+    setIsProcessingCommand(false);
+  };
+
+  // NEW: Handle sorting flexible tasks by priority (is_critical)
+  const handleSortByPriority = async () => {
+    if (!user || !profile || !dbScheduledTasks) return;
+    setIsProcessingCommand(true);
+
+    const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible);
+    if (flexibleTasks.length === 0) {
+      showSuccess("No flexible tasks to sort by priority.");
+      setIsProcessingCommand(false);
+      return;
+    }
+
+    // Sort flexible tasks by is_critical (critical first), then by duration (shortest first)
+    const sortedFlexibleTasks = [...flexibleTasks].sort((a, b) => {
+      if (a.is_critical && !b.is_critical) return -1; // Critical first
+      if (!a.is_critical && b.is_critical) return 1;
+      // If both are critical or both are not, sort by duration
+      const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
+      const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+      return durationA - durationB;
+    });
+
+    const reorganizedTasks = compactScheduleLogic(
+      dbScheduledTasks, // Pass all tasks
+      selectedDayAsDate,
+      workdayStartTime,
+      workdayEndTime,
+      T_current,
+      sortedFlexibleTasks // Pass the pre-sorted flexible tasks
+    );
+
+    if (reorganizedTasks.length > 0) {
+      await compactScheduledTasks(reorganizedTasks);
+      showSuccess("Flexible tasks sorted by priority!");
+    } else {
+      showError("Could not sort flexible tasks by priority or no space available.");
     }
     setIsProcessingCommand(false);
   };
@@ -923,9 +1002,27 @@ const SchedulerPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <Button 
               variant="outline" 
+              size="sm" 
+              onClick={() => handleSortByDuration()} 
+              disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)} // Disable if no flexible tasks
+              className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-all duration-200"
+            >
+              <Clock className="h-4 w-4" /> Sort by Time
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleSortByPriority()} 
+              disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)} // Disable if no flexible tasks
+              className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-logo-yellow hover:bg-logo-yellow/10 transition-all duration-200"
+            >
+              <Star className="h-4 w-4" /> Sort by Priority
+            </Button>
+            <Button 
+              variant="outline" 
               size="icon" 
               onClick={() => handleCommand('compact')} 
-              disabled={overallLoading || !currentSchedule?.items.some(item => item.isFlexible)} // Disable if no flexible tasks
+              disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)} // Disable if no flexible tasks
               className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
             >
               <ChevronsUp className="h-4 w-4" />

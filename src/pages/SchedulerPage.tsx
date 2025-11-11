@@ -1288,7 +1288,7 @@ const SchedulerPage: React.FC = () => {
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule
             </AlertDialogAction>
-          </DialogFooter>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

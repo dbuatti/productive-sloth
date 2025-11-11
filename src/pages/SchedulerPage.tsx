@@ -43,6 +43,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink'; // Import AetherSink component
 import { supabase } from '@/integrations/supabase/client'; // Import supabase
 import { useQueryClient } from '@tanstack/react-query'; // Import useQueryClient
+import WeatherWidget from '@/components/WeatherWidget'; // Import WeatherWidget
 
 // Helper for deep comparison (simple for JSON-serializable objects)
 const deepCompare = (a: any, b: any) => {
@@ -373,7 +374,6 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await clearScheduledTasks();
-    // Optimistically clear local state
     // No need to manually update optimisticScheduledTimes here, as query invalidation will handle it.
     setIsProcessingCommand(false);
     setShowClearConfirmation(false);
@@ -937,6 +937,7 @@ const SchedulerPage: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <WeatherWidget /> {/* <--- Placed here */}
           <SchedulerInput 
             onCommand={handleCommand} 
             isLoading={overallLoading} 

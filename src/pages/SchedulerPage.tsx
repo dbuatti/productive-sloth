@@ -14,6 +14,7 @@ import {
   formatTime,
   setTimeOnDate,
   compactScheduleLogic, // Import new compaction logic
+  mergeOverlappingTimeBlocks, // NEW: Import mergeOverlappingTimeBlocks
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -78,13 +79,17 @@ const getFreeTimeBlocks = (
   workdayStart: Date,
   workdayEnd: Date
 ): TimeBlock[] => {
+  // 1. Convert to TimeBlock format and merge overlapping appointments first
+  const mergedAppointments = mergeOverlappingTimeBlocks(appointments.map(a => ({
+    start: a.start,
+    end: a.end,
+    duration: Math.floor((a.end.getTime() - a.start.getTime()) / (1000 * 60))
+  })));
+
   const freeBlocks: TimeBlock[] = [];
   let currentFreeTimeStart = workdayStart;
 
-  // Ensure appointments are sorted by start time
-  const sortedAppointments = [...appointments].sort((a, b) => a.start.getTime() - b.start.getTime());
-
-  for (const appt of sortedAppointments) {
+  for (const appt of mergedAppointments) { // Iterate over merged appointments
     // If there's a gap before this appointment
     if (isBefore(currentFreeTimeStart, appt.start)) {
       const duration = Math.floor((appt.start.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));

@@ -42,7 +42,7 @@ const EMOJI_HUE_MAP: { [key: string]: number } = {
   'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150, // Teals/Rose/Orange
   'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, // Warm oranges/Greens
   'piano': 270, 'music': 270, 'practice': 270, // Purples
-  'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200, // Reds/Blues
+  'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200, // Reds/Oranges/Blues
   'shop': 180, 'bank': 220, 'post': 240, 'errands': 210, // Cyan/Blues/Indigo
   'friends': 300, 'family': 300, 'social': 310, // Rose/Pink
   'wake up': 60, // Added 'wake up' hue (yellow/orange for morning)
@@ -112,7 +112,7 @@ export const getMidnightRolloverMessage = (endDate: Date, T_current: Date): stri
 /**
  * Generates fixed time markers for a full 24-hour template.
  */
-export const generateFixedTimeMarkers = (T_current: Date): TimeMarker[] => {
+export const generateFixedTimeMarkers = (T_current: Date): TimeMarker => {
   const markers: TimeMarker[] = [];
   const startOfToday = startOfDay(T_current); // 12:00 AM today
 
@@ -311,6 +311,37 @@ export const parseCommand = (input: string): ParsedCommand | null => {
 
   return null;
 };
+
+// NEW: Helper to merge overlapping time blocks
+export const mergeOverlappingTimeBlocks = (blocks: { start: Date; end: Date; duration: number }[]): { start: Date; end: Date; duration: number }[] => {
+  if (blocks.length === 0) return [];
+
+  // Sort blocks by start time
+  blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  const merged: { start: Date; end: Date; duration: number }[] = [];
+  let currentMergedBlock = { ...blocks[0] };
+
+  for (let i = 1; i < blocks.length; i++) {
+    const nextBlock = blocks[i];
+
+    // If the current merged block overlaps with the next block
+    // (i.e., current block ends at or after the next block starts)
+    if (currentMergedBlock.end.getTime() >= nextBlock.start.getTime()) {
+      // Extend the current merged block to cover the next block's end time if it extends further
+      currentMergedBlock.end = isAfter(currentMergedBlock.end, nextBlock.end) ? currentMergedBlock.end : nextBlock.end;
+      currentMergedBlock.duration = Math.floor((currentMergedBlock.end.getTime() - currentMergedBlock.start.getTime()) / (1000 * 60));
+    } else {
+      // No overlap, add the current merged block and start a new one
+      merged.push(currentMergedBlock);
+      currentMergedBlock = { ...nextBlock };
+    }
+  }
+
+  merged.push(currentMergedBlock); // Add the last merged block
+  return merged;
+};
+
 
 // --- Core Scheduling Logic ---
 

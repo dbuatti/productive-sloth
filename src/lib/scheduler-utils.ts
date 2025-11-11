@@ -82,6 +82,11 @@ export const formatDateTime = (date: Date): string => {
   return format(date, 'MMM d, h:mm a');
 };
 
+// NEW: Exported formatDayMonth
+export const formatDayMonth = (date: Date): string => {
+  return format(date, 'MMM d');
+};
+
 export const setTimeOnDate = (date: Date, timeString: string): Date => {
   const [hours, minutes] = timeString.split(':').map(Number);
   return setMinutes(setHours(date, hours), minutes);
@@ -436,4 +441,45 @@ export const getFreeTimeBlocks = (
     }
   }
   return freeBlocks;
+};
+
+// Placeholder for compactScheduleLogic
+export const compactScheduleLogic = (
+  dbTasks: DBScheduledTask[],
+  selectedDayAsDate: Date,
+  workdayStartTime: Date,
+  workdayEndTime: Date,
+  T_current: Date,
+  flexibleTasksOrder?: DBScheduledTask[]
+): DBScheduledTask[] => {
+  // This is a placeholder. Implement your actual compaction logic here.
+  // For now, it will just return the flexible tasks in the given order,
+  // or the original flexible tasks if no order is provided.
+  const flexibleTasks = dbTasks.filter(task => task.is_flexible);
+  const tasksToCompact = flexibleTasksOrder || flexibleTasks;
+
+  // Simple placeholder: just return the flexible tasks without actual compaction
+  // In a real scenario, this would re-calculate start/end times to fill gaps.
+  return tasksToCompact.map(task => ({
+    ...task,
+    start_time: task.start_time || new Date().toISOString(), // Provide a default if null
+    end_time: task.end_time || addMinutes(new Date(), task.break_duration || 30).toISOString(), // Provide a default if null
+  }));
+};
+
+// Placeholder for getEmojiHue
+export const getEmojiHue = (name: string): number => {
+  // Simple hash to a hue value (0-360)
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash % 360);
+};
+
+// Placeholder for assignEmoji
+export const assignEmoji = (name: string): string => {
+  const emojis = ['✨', '🚀', '💡', '📚', '💻', '💪', '🧘', '☕', '📝', '🗓️'];
+  const index = name.length % emojis.length;
+  return emojis[index];
 };

@@ -1,5 +1,3 @@
-import { TimeBlock } from './scheduler-utils'; // <-- REMOVE THIS LINE
-
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST';
 
@@ -70,7 +68,7 @@ export interface ScheduledTaskItem extends BaseScheduledItem {
   isCritical: boolean;
   isFlexible: boolean;
   breakDuration?: number | null;
-  originalTask: DBScheduledTask;
+  originalTask: DBScheduledTask; // Added originalTask for tasks
 }
 
 // Specific interface for a scheduled break

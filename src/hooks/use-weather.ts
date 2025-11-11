@@ -65,11 +65,15 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
     queryFn: fetchWeatherData,
     enabled: enabled && !!OPENWEATHER_API_KEY && (!!lat && !!lon || !!city),
     staleTime: 5 * 60 * 1000, // 5 minutes stale time
-    cacheTime: 10 * 60 * 1000, // 10 minutes cache time
-    onError: (err) => {
-      showError(`Weather fetch error: ${err.message}`);
-    },
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection time (replaces cacheTime)
   });
+
+  // Handle errors using a useEffect hook
+  useEffect(() => {
+    if (error) {
+      showError(`Weather fetch error: ${error.message}`);
+    }
+  }, [error]);
 
   // Handle geolocation if no explicit lat/lon/city is provided
   useEffect(() => {

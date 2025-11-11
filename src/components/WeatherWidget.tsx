@@ -62,32 +62,34 @@ const WeatherWidget: React.FC = () => {
     return null;
   }
 
+  // After this check, 'weather' is guaranteed to be of type WeatherData.
+  // Using non-null assertion (!) to explicitly tell TypeScript this.
   return (
     <Card className="p-3 flex items-center justify-between animate-pop-in animate-hover-lift">
       <div className="flex items-center gap-3">
-        {getWeatherIcon(weather.icon)}
+        {getWeatherIcon(weather!.icon)}
         <div className="flex flex-col">
           <span className="text-lg font-bold text-foreground">
-            {Math.round(weather.temperature)}°C
+            {Math.round(weather!.temperature)}°C
           </span>
           <span className="text-xs text-muted-foreground capitalize">
-            {weather.description}
+            {weather!.description}
           </span>
         </div>
       </div>
       <div className="flex flex-col items-end">
         <span className="text-sm font-medium text-foreground">
-            {weather.city}, {weather.country}
+            {weather!.city}, {weather!.country}
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Thermometer className="h-3 w-3" />
-              H:{Math.round(weather.maxTemperature)}° L:{Math.round(weather.minTemperature)}°
+              H:{Math.round(weather!.maxTemperature)}° L:{Math.round(weather!.minTemperature)}°
             </span>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Feels like {Math.round(weather.feelsLike)}°C</p>
+            <p>Feels like {Math.round(weather!.feelsLike)}°C</p>
           </TooltipContent>
         </Tooltip>
       </div>

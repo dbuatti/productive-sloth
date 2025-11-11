@@ -355,7 +355,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_flexible: t.is_flexible })));
+      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical }))); // Removed is_flexible from log
       return data as RetiredTask[];
     },
     enabled: !!userId,
@@ -453,7 +453,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
         is_critical: taskToRetire.is_critical, // Pass critical flag
-        is_flexible: taskToRetire.is_flexible, // Pass flexible flag
+        // is_flexible: taskToRetire.is_flexible, // REMOVED: Not present in retired_tasks table
       };
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);

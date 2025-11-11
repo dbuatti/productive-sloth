@@ -756,7 +756,7 @@ const SchedulerPage: React.FC = () => {
           break_duration: retiredTask.break_duration, // Pass break_duration from retired task
           scheduled_date: formattedSelectedDay,
           is_critical: retiredTask.is_critical, // Pass critical flag
-          is_flexible: retiredTask.is_flexible, // Pass flexible flag from retired task
+          is_flexible: true, // Default to flexible when re-zoning from sink
         });
         // Optimistically update local state
         setOptimisticScheduledTimes(prev => {
@@ -871,7 +871,7 @@ const SchedulerPage: React.FC = () => {
             break_duration: task.break_duration,
             scheduled_date: formattedSelectedDay,
             is_critical: task.is_critical,
-            is_flexible: task.is_flexible,
+            is_flexible: true, // Default to flexible when re-zoning from sink
           });
 
           // Optimistically update the local list for subsequent tasks in this batch

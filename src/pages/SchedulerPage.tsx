@@ -632,8 +632,8 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         return;
       }
-      const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayAsDate); // Pass selectedDayAsDate
-      const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayAsDate);     // Pass selectedDayAsDate
+      const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayAsDate);
+      const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayAsDate);
 
       let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempStartTime.getMinutes()), tempStartTime.getHours());
       let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempEndTime.getMinutes()), tempEndTime.getHours());
@@ -1218,7 +1218,7 @@ const SchedulerPage: React.FC = () => {
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule
             </AlertDialogAction>
-          </DialogFooter>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

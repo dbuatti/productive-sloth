@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink } from 'lucide-react'; // Added Code and ExternalLink icons
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -472,6 +472,28 @@ const SettingsPage: React.FC = () => {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Developer Tools Card */}
+          <Card className="animate-hover-lift">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Code className="h-5 w-5 text-secondary-foreground" /> Developer Tools
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                <Label>Gemini App Link</Label>
+                <a 
+                  href="https://gemini.google.com/app/208092550e910314" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center gap-1 text-primary hover:underline"
+                >
+                  Open Gemini <ExternalLink className="h-4 w-4" />
+                </a>
               </div>
             </CardContent>
           </Card>

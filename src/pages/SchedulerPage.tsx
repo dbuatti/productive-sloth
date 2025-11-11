@@ -80,7 +80,7 @@ function useDeepCompareMemoize<T>(value: T): T {
     signalRef.current++;
   }
 
-  return useMemo(() => ref.current, [signalRef.current],);
+  return useMemo(() => ref.current, [signalRef.current]);
 }
 
 const getFreeTimeBlocks = (
@@ -415,9 +415,9 @@ const SchedulerPage: React.FC = () => {
               start_time: proposedStartTime.toISOString(), 
               end_time: proposedEndTime.toISOString(), 
               break_duration: parsedInput.breakDuration,
+              scheduled_date: taskScheduledDate, // Added missing scheduled_date
               is_critical: parsedInput.isCritical,
               is_flexible: parsedInput.isFlexible,
-              scheduled_date: taskScheduledDate, // ADDED: Missing scheduled_date
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -482,7 +482,7 @@ const SchedulerPage: React.FC = () => {
             start_time: proposedStartTime.toISOString(), 
             end_time: proposedEndTime.toISOString(), 
             break_duration: injectCommand.breakDuration, 
-            scheduled_date: taskScheduledDate,
+            scheduled_date: taskScheduledDate, // This one has it
             is_critical: injectCommand.isCritical,
             is_flexible: injectCommand.isFlexible,
           });
@@ -697,7 +697,7 @@ const SchedulerPage: React.FC = () => {
           start_time: proposedStartTime.toISOString(), 
           end_time: proposedEndTime.toISOString(), 
           break_duration: breakDuration, 
-          scheduled_date: taskScheduledDate,
+          scheduled_date: taskScheduledDate, // Added missing scheduled_date
           is_critical: injectionPrompt.isCritical,
           is_flexible: injectionPrompt.isFlexible,
         });
@@ -723,8 +723,8 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleRezoneFromSink = async (retiredTask: RetiredTask) => {
-    if (!user) {
-      showError("You must be logged in to rezone tasks.");
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to rezone tasks.");
       return;
     }
     setIsProcessingCommand(true);
@@ -754,7 +754,7 @@ const SchedulerPage: React.FC = () => {
           start_time: proposedStartTime.toISOString(),
           end_time: proposedEndTime.toISOString(),
           break_duration: retiredTask.break_duration,
-          scheduled_date: formattedSelectedDay,
+          scheduled_date: formattedSelectedDay, // This one has it
           is_critical: retiredTask.is_critical,
           is_flexible: true,
         });
@@ -1152,7 +1152,7 @@ const SchedulerPage: React.FC = () => {
             isLoading={overallLoading} 
             inputValue={inputValue}
             setInputValue={setInputValue}
-            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm') or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact')`}
+            placeholder={`Add task or command (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm', 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact')`}
           />
           <p className="text-xs text-muted-foreground">
             Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm"

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useWeather } from '@/hooks/use-weather';
 import { Card, CardContent } from '@/components/ui/card';
-import { CloudSun, Sun, CloudRain, CloudSnow, CloudLightning, Cloud, Thermometer, Loader2 } from 'lucide-react';
+import { CloudSun, Sun, CloudRain, CloudSnow, CloudLightning, Cloud, Thermometer, Loader2, Droplet } from 'lucide-react'; // Import Droplet icon
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -81,17 +81,32 @@ const WeatherWidget: React.FC = () => {
         <span className="text-sm font-medium text-foreground">
             {weather!.city}, {weather!.country}
         </span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Thermometer className="h-3 w-3" />
-              H:{Math.round(weather!.maxTemperature)}° L:{Math.round(weather!.minTemperature)}°
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Feels like {Math.round(weather!.feelsLike)}°C</p>
-          </TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-2 mt-1"> {/* Group temp and rain info */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Thermometer className="h-3 w-3" />
+                H:{Math.round(weather!.maxTemperature)}° L:{Math.round(weather!.minTemperature)}°
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Feels like {Math.round(weather!.feelsLike)}°C</p>
+            </TooltipContent>
+          </Tooltip>
+          {weather!.rainVolumeLastHour !== undefined && weather!.rainVolumeLastHour > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs text-blue-500 flex items-center gap-1">
+                  <Droplet className="h-3 w-3" />
+                  {weather!.rainVolumeLastHour}mm (1h)
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Rain volume in the last hour</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
     </Card>
   );

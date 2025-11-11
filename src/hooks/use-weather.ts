@@ -11,6 +11,7 @@ interface WeatherData {
   icon: string; // OpenWeatherMap icon code
   city: string;
   country: string;
+  rainVolumeLastHour?: number; // NEW: Rain volume for the last 1 hour (mm)
 }
 
 interface UseWeatherOptions {
@@ -57,6 +58,7 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
       icon: data.weather[0].icon,
       city: data.name,
       country: data.sys.country,
+      rainVolumeLastHour: data.rain?.['1h'], // Extract rain volume for last 1 hour
     };
   };
 

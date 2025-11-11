@@ -335,7 +335,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible }))); // Detailed log
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked }))); // Detailed log
       return data as DBScheduledTask[];
     },
     enabled: !!userId,
@@ -378,7 +378,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical }))); // Removed is_flexible from log
+      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked }))); // Removed is_flexible from log
       return data as RetiredTask[];
     },
     enabled: !!userId,
@@ -676,8 +676,20 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     mutationFn: async (tasksToUpdate: DBScheduledTask[]) => {
       if (!userId) throw new Error("User not authenticated.");
 
+      // Filter out locked tasks from being updated by compaction
+      const updatableTasks = tasksToUpdate.filter(task => !task.is_locked);
+      const lockedTasks = tasksToUpdate.filter(task => task.is_locked);
+
+      if (updatableTasks.length === 0 && lockedTasks.length > 0) {
+        showSuccess("No flexible tasks to compact, locked tasks were skipped.");
+        return; // No actual update needed if only locked tasks are present
+      } else if (updatableTasks.length === 0) {
+        showSuccess("No flexible tasks to compact.");
+        return;
+      }
+
       // Perform a batch update for all tasks that need new times
-      const updates = tasksToUpdate.map(task => ({
+      const updates = updatableTasks.map(task => ({
         id: task.id,
         user_id: userId, // Explicitly include user_id to satisfy RLS
         name: task.name, // Include name
@@ -706,7 +718,13 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], tasksToUpdate);
+      // Optimistically update only non-locked tasks
+      const updatedTasks = (previousScheduledTasks || []).map(oldTask => {
+        const newTask = tasksToUpdate.find(t => t.id === oldTask.id);
+        return newTask && !oldTask.is_locked ? newTask : oldTask;
+      });
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], updatedTasks);
       return { previousScheduledTasks };
     },
     onSuccess: () => {
@@ -731,24 +749,25 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break');
-      let breakTasks = currentDbTasks.filter(task => task.name.toLowerCase() === 'break');
+      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked); // Keep locked breaks fixed
+      let breakTasksToRandomize = currentDbTasks.filter(task => task.name.toLowerCase() === 'break' && !task.is_locked); // Only randomize unlocked breaks
 
-      if (breakTasks.length === 0) {
+      if (breakTasksToRandomize.length === 0) {
+        showSuccess("No flexible break tasks to randomize.");
         return { placedBreaks: [], failedToPlaceBreaks: [] }; // No changes needed
       }
 
       // Shuffle break tasks for randomness
-      for (let i = breakTasks.length - 1; i > 0; i--) {
+      for (let i = breakTasksToRandomize.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [breakTasks[i], breakTasks[j]] = [breakTasks[j], breakTasks[i]];
+        [breakTasksToRandomize[i], breakTasksToRandomize[j]] = [breakTasksToRandomize[j], breakTasksToRandomize[i]];
       }
 
-      const finalTasksForUpdate: DBScheduledTask[] = [...nonBreakTasks]; // Start with non-breaks
+      const finalTasksForUpdate: DBScheduledTask[] = [...nonBreakTasks]; // Start with non-breaks and locked breaks
       const placedBreaks: DBScheduledTask[] = [];
       const failedToPlaceBreaks: DBScheduledTask[] = [];
 
-      for (const breakTask of breakTasks) {
+      for (const breakTask of breakTasksToRandomize) {
         const breakDuration = breakTask.break_duration || 15; // Default break duration
         let placed = false;
 
@@ -850,10 +869,10 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, selectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy]);
 
-      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break');
-      let breakTasks = currentDbTasks.filter(task => task.name.toLowerCase() === 'break');
+      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked);
+      let breakTasksToRandomize = currentDbTasks.filter(task => task.name.toLowerCase() === 'break' && !task.is_locked);
 
-      if (breakTasks.length === 0) {
+      if (breakTasksToRandomize.length === 0) {
         return { previousScheduledTasks };
       }
 
@@ -863,12 +882,12 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const optimisticFailedToPlaceBreaks: DBScheduledTask[] = [];
 
       // Shuffle break tasks for randomness (client-side for optimistic update)
-      for (let i = breakTasks.length - 1; i > 0; i--) {
+      for (let i = breakTasksToRandomize.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [breakTasks[i], breakTasks[j]] = [breakTasks[j], breakTasks[i]];
+        [breakTasksToRandomize[i], breakTasksToRandomize[j]] = [breakTasksToRandomize[j], breakTasksToRandomize[i]];
       }
 
-      for (const breakTask of breakTasks) {
+      for (const breakTask of breakTasksToRandomize) {
         const breakDuration = breakTask.break_duration || 15;
         let placed = false;
 
@@ -949,6 +968,90 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
+  // NEW: Toggle is_locked status for a scheduled task
+  const toggleScheduledTaskLockMutation = useMutation({
+    mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log(`useSchedulerTasks: Attempting to toggle lock for task ID: ${taskId} to ${isLocked}`);
+      const { data, error } = await supabase
+        .from('scheduled_tasks')
+        .update({ is_locked: isLocked, updated_at: new Date().toISOString() })
+        .eq('id', taskId)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) {
+        console.error("useSchedulerTasks: Error toggling task lock:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully toggled lock for task:", data);
+      return data as DBScheduledTask;
+    },
+    onMutate: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
+        (old || []).map(task =>
+          task.id === taskId ? { ...task, is_locked: isLocked } : task
+        )
+      );
+      return { previousScheduledTasks };
+    },
+    onSuccess: (updatedTask) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      showSuccess(`Task "${updatedTask.name}" ${updatedTask.is_locked ? 'locked' : 'unlocked'}.`);
+    },
+    onError: (err, { taskId, isLocked }, context) => {
+      showError(`Failed to toggle lock for task: ${err.message}`);
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
+      }
+    }
+  });
+
+  // NEW: Toggle is_locked status for a retired task
+  const toggleRetiredTaskLockMutation = useMutation({
+    mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log(`useSchedulerTasks: Attempting to toggle lock for retired task ID: ${taskId} to ${isLocked}`);
+      const { data, error } = await supabase
+        .from('retired_tasks')
+        .update({ is_locked: isLocked, retired_at: new Date().toISOString() }) // Update retired_at to reflect change
+        .eq('id', taskId)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) {
+        console.error("useSchedulerTasks: Error toggling retired task lock:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully toggled lock for retired task:", data);
+      return data as RetiredTask;
+    },
+    onMutate: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+        (old || []).map(task =>
+          task.id === taskId ? { ...task, is_locked: isLocked } : task
+        )
+      );
+      return { previousRetiredTasks };
+    },
+    onSuccess: (updatedTask) => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      showSuccess(`Retired task "${updatedTask.name}" ${updatedTask.is_locked ? 'locked' : 'unlocked'}.`);
+    },
+    onError: (err, { taskId, isLocked }, context) => {
+      showError(`Failed to toggle lock for retired task: ${err.message}`);
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
+    }
+  });
+
 
   return {
     dbScheduledTasks, // The raw data from Supabase
@@ -966,6 +1069,8 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     rezoneTask: rezoneTaskMutation.mutateAsync, // NEW: Rezone task mutation (use mutateAsync for chaining)
     compactScheduledTasks: compactScheduledTasksMutation.mutate, // NEW: Compact schedule mutation
     randomizeBreaks: randomizeBreaksMutation.mutate, // NEW: Randomize breaks mutation
+    toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutate, // NEW: Toggle scheduled task lock
+    toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutate, // NEW: Toggle retired task lock
     sortBy, // Expose sortBy state
     setSortBy, // Expose setSortBy function
   };

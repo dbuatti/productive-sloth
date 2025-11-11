@@ -3,12 +3,13 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle } from 'lucide-react'; // Import Archive icon, AlertCircle
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock } from 'lucide-react'; // Import Archive icon, AlertCircle, Lock, Unlock, Clock
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
-import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter } from 'date-fns';
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns'; // Added isPast
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 import { Badge } from '@/components/ui/badge'; // Import Badge component
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Import useSchedulerTasks
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -35,6 +36,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
 
   const activeItemRef = useRef<HTMLDivElement>(null); // Ref for the active item
+  const { toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString); // Use the hook to get the toggle function
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
@@ -243,12 +245,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const scheduledItem = item as ScheduledItem;
       const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
       const isHighlightedByNowCard = activeItemId === scheduledItem.id;
+      const isLocked = scheduledItem.isLocked; // Get lock status
+      const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current); // Missed if locked and time passed (not today)
 
       if (scheduledItem.endTime < startOfTemplate) return null;
 
       const hue = getEmojiHue(scheduledItem.name);
       const saturation = 50; // Increased saturation
-      const lightness = 35; // Increased lightness
+      const lightness = isLocked ? 25 : 35; // Darker shade for locked tasks
       const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
 
       // Find the corresponding DBScheduledTask to pass to onRetireTask
@@ -275,10 +279,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden", // Changed shadow-sm to shadow-md
-              "border-2 border-foreground/20", // Changed border-white to border-foreground/20
+              "border-2",
               isHighlightedByNowCard ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" : // Use live-progress for active border
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Faded for past items
+              isLocked && "border-primary/70 bg-primary/10", // Stronger border and subtle background for locked tasks
+              isMissed && "border-destructive/70 bg-destructive/10", // Red border for missed locked tasks
               "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary", // Stronger hover shadow and border
               isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10" // NEW: Distinct styling for time-off
             )}
@@ -310,6 +316,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {isMissed && (
+                  <Badge variant="destructive" className="px-2 py-0.5 text-xs font-semibold">
+                    MISSED
+                  </Badge>
+                )}
                 {/* NEW: Flexible/Fixed Badge */}
                 <Badge 
                   variant="outline" 
@@ -327,6 +338,27 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
                 </span>
                 <div className="flex items-center gap-1 ml-2"> {/* Group buttons */}
+                  {/* Lock/Unlock Button */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked })}
+                        className={cn(
+                          "h-6 w-6 p-0 shrink-0",
+                          isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"
+                        )}
+                      >
+                        {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                        <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
                   {dbTask && ( // Only show retire button if it's a real DB task
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -334,9 +366,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           variant="ghost" 
                           size="icon" 
                           onClick={() => onRetireTask(dbTask)} 
+                          disabled={isLocked} // Disable if locked
                           className={cn(
                             "h-6 w-6 p-0 shrink-0",
-                            isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10" // NEW: Text color for time-off
+                            isLocked ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10") // NEW: Text color for time-off
                           )}
                         >
                           <Archive className="h-4 w-4" />
@@ -344,7 +377,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Move to Aether Sink</p>
+                        <p>{isLocked ? "Unlock to Retire" : "Move to Aether Sink"}</p>
                     </TooltipContent>
                     </Tooltip>
                   )}
@@ -354,9 +387,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         variant="ghost" 
                         size="icon" 
                         onClick={() => onRemoveTask(scheduledItem.id)} 
+                        disabled={isLocked} // Disable if locked
                         className={cn(
                           "h-6 w-6 p-0 shrink-0",
-                          isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10" // NEW: Text color for time-off
+                          isLocked ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10") // NEW: Text color for time-off
                         )}
                       >
                         <Trash className="h-4 w-4" />
@@ -364,7 +398,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Remove from schedule</p>
+                      <p>{isLocked ? "Unlock to Remove" : "Remove from schedule"}</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>

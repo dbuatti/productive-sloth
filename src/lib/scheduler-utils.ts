@@ -433,6 +433,7 @@ export const calculateSchedule = (
       isTimedEvent: true,
       isCritical: task.is_critical,
       isFlexible: task.is_flexible,
+      isLocked: task.is_locked, // NEW: Pass is_locked status
     });
     
     if (!isMealTime && !isTimeOff) {
@@ -482,8 +483,8 @@ export const compactScheduleLogic = (
 ): DBScheduledTask[] => {
   const finalSchedule: DBScheduledTask[] = [];
 
-  const fixedTasks = allCurrentTasks.filter(task => !task.is_flexible);
-  const flexibleTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible);
+  const fixedTasks = allCurrentTasks.filter(task => !task.is_flexible || task.is_locked); // Treat locked tasks as fixed
+  const flexibleTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible && !task.is_locked); // Only place unlocked flexible tasks
 
   fixedTasks.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
 

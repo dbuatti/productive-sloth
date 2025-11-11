@@ -1,12 +1,13 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2 } from 'lucide-react'; // Import RotateCcw icon, added Ghost, AlertCircle, Sparkles, Loader2
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock } from 'lucide-react'; // Import RotateCcw icon, added Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock
 import { RetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils'; // Import getEmojiHue and assignEmoji
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Import useSchedulerTasks
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -19,6 +20,7 @@ interface AetherSinkProps {
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand }) => {
   const hasRetiredTasks = retiredTasks.length > 0;
+  const { toggleRetiredTaskLock } = useSchedulerTasks(''); // Pass empty string as selectedDate is not relevant here
 
   return (
     <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
@@ -32,7 +34,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               variant="secondary"
               size="sm"
               onClick={onAutoScheduleSink}
-              disabled={!hasRetiredTasks || isLoading || isProcessingCommand}
+              disabled={!hasRetiredTasks || isLoading || isProcessingCommand || retiredTasks.every(task => task.is_locked)} // Disable if all tasks are locked
               className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
             >
               {isProcessingCommand ? (
@@ -44,7 +46,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Automatically re-zone all retired tasks into your current schedule.</p>
+            <p>Automatically re-zone all unlocked retired tasks into your current schedule.</p>
           </TooltipContent>
         </Tooltip>
       </CardHeader>
@@ -67,12 +69,16 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               const hue = getEmojiHue(task.name);
               const emoji = assignEmoji(task.name);
               const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
+              const isLocked = task.is_locked;
 
               return (
                 <div 
                   key={task.id} 
-                  className="flex items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out"
-                  style={{ backgroundColor: ambientBackgroundColor }}
+                  className={cn(
+                    "flex items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out",
+                    isLocked ? "border-primary/70 bg-primary/10" : "" // Visual cue for locked tasks
+                  )}
+                  style={{ backgroundColor: isLocked ? undefined : ambientBackgroundColor }}
                 >
                   <div className="flex flex-col items-start flex-grow min-w-0">
                     <div className="flex items-center gap-1">
@@ -89,28 +95,53 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                         </Tooltip>
                       )}
                       <span className="text-base">{emoji}</span>
-                      <span className="font-semibold text-foreground truncate">{task.name}</span>
-                      {task.duration && <span className="text-xs text-foreground/80">({task.duration} min)</span>}
+                      <span className={cn("font-semibold truncate", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
+                      {task.duration && <span className={cn("text-xs", isLocked ? "text-primary/80" : "text-foreground/80")}>({task.duration} min)</span>}
                     </div>
                     <span className="text-xs italic text-muted-foreground mt-0.5">
                       Originally for {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 ml-auto shrink-0">
+                    {/* Lock/Unlock Button */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked })}
+                          className={cn(
+                            "h-7 w-7 p-0 shrink-0",
+                            isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20"
+                          )}
+                        >
+                          {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                          <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
+                      </TooltipContent>
+                    </Tooltip>
+
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
                           variant="secondary"
                           size="icon" 
                           onClick={() => onRezoneTask(task)}
-                          className="h-7 w-7 text-primary hover:bg-primary/10"
+                          disabled={isLocked || isProcessingCommand} // Disable if locked or processing
+                          className={cn(
+                            "h-7 w-7 text-primary hover:bg-primary/10",
+                            (isLocked || isProcessingCommand) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
+                          )}
                         >
                           <RotateCcw className="h-4 w-4" />
                           <span className="sr-only">Rezone</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Re-zone to schedule</p>
+                        <p>{isLocked ? "Unlock to Re-zone" : "Re-zone to schedule"}</p>
                       </TooltipContent>
                     </Tooltip>
                     <Tooltip>
@@ -119,14 +150,18 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                           variant="ghost" 
                           size="icon" 
                           onClick={() => onRemoveRetiredTask(task.id)}
-                          className="h-7 w-7 text-destructive hover:bg-destructive/20"
+                          disabled={isLocked || isProcessingCommand} // Disable if locked or processing
+                          className={cn(
+                            "h-7 w-7 text-destructive hover:bg-destructive/20",
+                            (isLocked || isProcessingCommand) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
+                          )}
                         >
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Delete</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Permanently delete</p>
+                        <p>{isLocked ? "Unlock to Delete" : "Permanently delete"}</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>

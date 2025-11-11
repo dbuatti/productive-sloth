@@ -80,7 +80,7 @@ function useDeepCompareMemoize<T>(value: T): T {
     signalRef.current++;
   }
 
-  return useMemo(() => ref.current, [signalRef.current]);
+  return useMemo(() => ref.current, [signalRef.current],);
 }
 
 const getFreeTimeBlocks = (
@@ -290,6 +290,7 @@ const SchedulerPage: React.FC = () => {
     if (isViewingToday && !hasMorningFixRunToday) {
       const tasksToRetire = dbScheduledTasks.filter(task => {
         if (!task.start_time || !task.end_time) return false;
+        if (task.is_locked) return false; // Do not auto-retire locked tasks
 
         const taskEndTime = setTimeOnDate(currentDay, format(parseISO(task.end_time), 'HH:mm'));
         
@@ -324,7 +325,18 @@ const SchedulerPage: React.FC = () => {
     workdayEndTime: Date
   ): Promise<{ proposedStartTime: Date | null, proposedEndTime: Date | null, message: string }> => {
     let proposedStartTime: Date | null = null;
-    const freeBlocks = getFreeTimeBlocks(existingOccupiedBlocks, effectiveWorkdayStart, workdayEndTime);
+    
+    // Filter out locked tasks from available slots
+    const lockedTaskBlocks = dbScheduledTasks
+      .filter(task => task.is_locked && task.start_time && task.end_time)
+      .map(task => ({
+        start: setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm')),
+        end: setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm')),
+        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
+      }));
+
+    const allOccupiedBlocks = mergeOverlappingTimeBlocks([...existingOccupiedBlocks, ...lockedTaskBlocks]);
+    const freeBlocks = getFreeTimeBlocks(allOccupiedBlocks, effectiveWorkdayStart, workdayEndTime);
 
     if (isCritical) {
       for (const block of freeBlocks) {
@@ -349,7 +361,7 @@ const SchedulerPage: React.FC = () => {
       const message = `No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${taskName}" (${taskDuration} min).`;
       return { proposedStartTime: null, proposedEndTime: null, message: message };
     }
-  }, [workdayStartTime, workdayEndTime]);
+  }, [workdayStartTime, workdayEndTime, dbScheduledTasks, selectedDayAsDate]);
 
 
   const handleClearSchedule = async () => {
@@ -358,7 +370,32 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
-    await clearScheduledTasks();
+    
+    // Only clear unlocked tasks
+    const unlockedTasks = dbScheduledTasks.filter(task => !task.is_locked);
+    if (unlockedTasks.length === 0) {
+      showSuccess("No unlocked tasks to clear.");
+      setIsProcessingCommand(false);
+      setShowClearConfirmation(false);
+      setInputValue('');
+      return;
+    }
+
+    const { error } = await supabase.from('scheduled_tasks')
+      .delete()
+      .in('id', unlockedTasks.map(task => task.id))
+      .eq('user_id', user.id)
+      .eq('scheduled_date', formattedSelectedDay);
+
+    if (error) {
+      showError(`Failed to clear schedule: ${error.message}`);
+      console.error("Clear schedule error:", error);
+    } else {
+      showSuccess('Unlocked tasks cleared for today!');
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
+    }
+
     setIsProcessingCommand(false);
     setShowClearConfirmation(false);
     setInputValue('');
@@ -415,9 +452,9 @@ const SchedulerPage: React.FC = () => {
               start_time: proposedStartTime.toISOString(), 
               end_time: proposedEndTime.toISOString(), 
               break_duration: parsedInput.breakDuration,
-              scheduled_date: taskScheduledDate, // Added missing scheduled_date
               is_critical: parsedInput.isCritical,
               is_flexible: parsedInput.isFlexible,
+              scheduled_date: taskScheduledDate,
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -482,7 +519,7 @@ const SchedulerPage: React.FC = () => {
             start_time: proposedStartTime.toISOString(), 
             end_time: proposedEndTime.toISOString(), 
             break_duration: injectCommand.breakDuration, 
-            scheduled_date: taskScheduledDate, // This one has it
+            scheduled_date: taskScheduledDate,
             is_critical: injectCommand.isCritical,
             is_flexible: injectCommand.isFlexible,
           });
@@ -530,6 +567,11 @@ const SchedulerPage: React.FC = () => {
           if (command.index !== undefined) {
             if (command.index >= 0 && command.index < dbScheduledTasks.length) {
               const taskToRemove = dbScheduledTasks[command.index];
+              if (taskToRemove.is_locked) {
+                showError(`Cannot remove locked task "${taskToRemove.name}". Unlock it first.`);
+                setIsProcessingCommand(false);
+                return;
+              }
               await removeScheduledTask(taskToRemove.id);
               currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
                 !(block.start.getTime() === parseISO(taskToRemove.start_time!).getTime() && 
@@ -542,6 +584,12 @@ const SchedulerPage: React.FC = () => {
           } else if (command.target) {
             const tasksToRemove = dbScheduledTasks.filter(task => task.name.toLowerCase().includes(command.target!.toLowerCase()));
             if (tasksToRemove.length > 0) {
+              const lockedTasksFound = tasksToRemove.filter(task => task.is_locked);
+              if (lockedTasksFound.length > 0) {
+                showError(`Cannot remove locked task(s) matching "${command.target}". Unlock them first.`);
+                setIsProcessingCommand(false);
+                return;
+              }
               for (const task of tasksToRemove) {
                 await removeScheduledTask(task.id);
                 currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
@@ -576,8 +624,8 @@ const SchedulerPage: React.FC = () => {
           if (compactedTasks.length > 0) {
             await compactScheduledTasks(compactedTasks);
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(compactedTasks.map(task => ({
-              start: parseISO(task.start_time!),
-              end: parseISO(task.end_time!),
+              start: parseISO(task.start_time!).getTime() < parseISO(task.end_time!).getTime() ? parseISO(task.start_time!) : setHours(setMinutes(addDays(parseISO(task.scheduled_date), 1), parseISO(task.start_time!).getMinutes()), parseISO(task.start_time!).getHours()),
+              end: parseISO(task.start_time!).getTime() < parseISO(task.end_time!).getTime() ? parseISO(task.end_time!) : setHours(setMinutes(addDays(parseISO(task.scheduled_date), 1), parseISO(task.end_time!).getMinutes()), parseISO(task.end_time!).getHours()),
               duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
             })));
             showSuccess("Schedule compacted!");
@@ -697,7 +745,7 @@ const SchedulerPage: React.FC = () => {
           start_time: proposedStartTime.toISOString(), 
           end_time: proposedEndTime.toISOString(), 
           break_duration: breakDuration, 
-          scheduled_date: taskScheduledDate, // Added missing scheduled_date
+          scheduled_date: taskScheduledDate,
           is_critical: injectionPrompt.isCritical,
           is_flexible: injectionPrompt.isFlexible,
         });
@@ -723,8 +771,12 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleRezoneFromSink = async (retiredTask: RetiredTask) => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to rezone tasks.");
+    if (!user) {
+      showError("You must be logged in to rezone tasks.");
+      return;
+    }
+    if (retiredTask.is_locked) {
+      showError(`Cannot re-zone locked task "${retiredTask.name}". Unlock it first.`);
       return;
     }
     setIsProcessingCommand(true);
@@ -754,7 +806,7 @@ const SchedulerPage: React.FC = () => {
           start_time: proposedStartTime.toISOString(),
           end_time: proposedEndTime.toISOString(),
           break_duration: retiredTask.break_duration,
-          scheduled_date: formattedSelectedDay, // This one has it
+          scheduled_date: formattedSelectedDay,
           is_critical: retiredTask.is_critical,
           is_flexible: true,
         });
@@ -778,6 +830,10 @@ const SchedulerPage: React.FC = () => {
       showError("You must be logged in to retire tasks.");
       return;
     }
+    if (taskToRetire.is_locked) {
+      showError(`Cannot retire locked task "${taskToRetire.name}". Unlock it first.`);
+      return;
+    }
     setIsProcessingCommand(true);
     await retireTask(taskToRetire);
     setIsProcessingCommand(false);
@@ -786,6 +842,11 @@ const SchedulerPage: React.FC = () => {
   const handleRemoveRetiredTask = async (retiredTaskId: string) => {
     if (!user) {
       showError("You must be logged in to remove retired tasks.");
+      return;
+    }
+    const task = retiredTasks.find(t => t.id === retiredTaskId);
+    if (task?.is_locked) {
+      showError(`Cannot delete locked retired task "${task.name}". Unlock it first.`);
       return;
     }
     setIsProcessingCommand(true);
@@ -807,8 +868,9 @@ const SchedulerPage: React.FC = () => {
       showError("Please log in and ensure your profile is loaded to auto-schedule tasks.");
       return;
     }
-    if (retiredTasks.length === 0) {
-      showSuccess("Aether Sink is already empty!");
+    const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
+    if (unlockedRetiredTasks.length === 0) {
+      showSuccess("No unlocked tasks in Aether Sink to auto-schedule!");
       return;
     }
 
@@ -819,7 +881,7 @@ const SchedulerPage: React.FC = () => {
     let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
 
 
-    const sortedRetiredTasks = [...retiredTasks].sort((a, b) => {
+    const sortedRetiredTasks = [...unlockedRetiredTasks].sort((a, b) => {
       if (a.is_critical && !b.is_critical) return -1;
       if (!a.is_critical && b.is_critical) return 1;
       return 0;
@@ -881,9 +943,9 @@ const SchedulerPage: React.FC = () => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
 
-    const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible);
+    const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked); // Only sort unlocked flexible tasks
     if (flexibleTasks.length === 0) {
-      showSuccess("No flexible tasks to sort.");
+      showSuccess("No unlocked flexible tasks to sort.");
       setIsProcessingCommand(false);
       return;
     }
@@ -923,7 +985,7 @@ const SchedulerPage: React.FC = () => {
     }
 
     const reorganizedTasks = compactScheduleLogic(
-      dbScheduledTasks,
+      dbScheduledTasks, // Pass all tasks, logic inside will filter locked/fixed
       selectedDayAsDate,
       workdayStartTime,
       workdayEndTime,
@@ -945,9 +1007,9 @@ const SchedulerPage: React.FC = () => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
 
-    const breaksToRandomize = dbScheduledTasks.filter(task => task.name.toLowerCase() === 'break');
+    const breaksToRandomize = dbScheduledTasks.filter(task => task.name.toLowerCase() === 'break' && !task.is_locked); // Only randomize unlocked breaks
     if (breaksToRandomize.length === 0) {
-      showSuccess("No break tasks to randomize.");
+      showSuccess("No flexible break tasks to randomize.");
       setIsProcessingCommand(false);
       return;
     }
@@ -956,7 +1018,7 @@ const SchedulerPage: React.FC = () => {
       selectedDate: formattedSelectedDay,
       workdayStartTime: effectiveWorkdayStart,
       workdayEndTime: workdayEndTime,
-      currentDbTasks: dbScheduledTasks,
+      currentDbTasks: dbScheduledTasks, // Pass all tasks, logic inside will filter locked/fixed
     });
 
     setIsProcessingCommand(false);
@@ -1069,7 +1131,7 @@ const SchedulerPage: React.FC = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)}
+                  disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible && !item.is_locked)} // Disable if no unlocked flexible tasks
                   className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-all duration-200"
                 >
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
@@ -1099,7 +1161,7 @@ const SchedulerPage: React.FC = () => {
                   variant="outline" 
                   size="icon" 
                   onClick={handleRandomizeBreaks}
-                  disabled={overallLoading || !dbScheduledTasks.some(task => task.name.toLowerCase() === 'break')}
+                  disabled={overallLoading || !dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked)} // Disable if no unlocked breaks
                   className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
                 >
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shuffle className="h-4 w-4" />}
@@ -1107,7 +1169,7 @@ const SchedulerPage: React.FC = () => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Randomly re-allocate breaks</p>
+                <p>Randomly re-allocate unlocked breaks</p>
               </TooltipContent>
             </Tooltip>
 
@@ -1115,7 +1177,7 @@ const SchedulerPage: React.FC = () => {
               variant="outline" 
               size="icon" 
               onClick={() => handleCommand('compact')} 
-              disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible)}
+              disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible && !item.is_locked)} // Disable if no unlocked flexible tasks
               className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
             >
               <ChevronsUp className="h-4 w-4" />
@@ -1152,7 +1214,7 @@ const SchedulerPage: React.FC = () => {
             isLoading={overallLoading} 
             inputValue={inputValue}
             setInputValue={setInputValue}
-            placeholder={`Add task or command (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm', 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact')`}
+            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm') or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact')`}
           />
           <p className="text-xs text-muted-foreground">
             Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm"

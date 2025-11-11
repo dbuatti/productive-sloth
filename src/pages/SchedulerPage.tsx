@@ -400,6 +400,9 @@ const SchedulerPage: React.FC = () => {
     let success = false;
     const taskScheduledDate = formattedSelectedDay;
 
+    // Create a mutable copy of occupiedBlocks for optimistic updates within this command execution
+    let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+
     if (parsedInput) {
       const isAdHocTask = 'duration' in parsedInput;
 
@@ -409,7 +412,7 @@ const SchedulerPage: React.FC = () => {
           parsedInput.name,
           newTaskDuration,
           parsedInput.isCritical,
-          occupiedBlocks, // Use the stable occupiedBlocks
+          currentOccupiedBlocksForScheduling, // Pass the mutable optimistic blocks
           effectiveWorkdayStart,
           workdayEndTime
         );
@@ -424,6 +427,10 @@ const SchedulerPage: React.FC = () => {
             is_critical: parsedInput.isCritical, // Pass critical flag
             is_flexible: true, // Duration-based tasks are flexible
           });
+          // Optimistically update the mutable array for subsequent checks within this handler
+          currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
+          currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+          
           showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
         } else {
@@ -449,7 +456,7 @@ const SchedulerPage: React.FC = () => {
         }
 
         // NEW: Check for overlaps before adding timed event
-        if (!isSlotFree(startTime, endTime, occupiedBlocks)) { // Use the stable occupiedBlocks
+        if (!isSlotFree(startTime, endTime, currentOccupiedBlocksForScheduling)) { // Pass mutable optimistic blocks
           showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
           setIsProcessingCommand(false);
           return;
@@ -457,6 +464,10 @@ const SchedulerPage: React.FC = () => {
 
         const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
         await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: false }); // Timed tasks are fixed
+        // Optimistically update the mutable array for subsequent checks within this handler
+        currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
+        currentOptimisticBlocksForScheduling = mergeOverlappingTimeBlocks(currentOptimisticBlocksForScheduling);
+
         showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
         success = true;
       }
@@ -469,7 +480,7 @@ const SchedulerPage: React.FC = () => {
           injectCommand.taskName,
           injectedTaskDuration,
           injectCommand.isCritical,
-          occupiedBlocks, // Use the stable occupiedBlocks
+          currentOccupiedBlocksForScheduling, // Pass the mutable optimistic blocks
           effectiveWorkdayStart,
           workdayEndTime
         );
@@ -484,6 +495,10 @@ const SchedulerPage: React.FC = () => {
             is_critical: injectCommand.isCritical, // Pass critical flag
             is_flexible: injectCommand.isFlexible, // Pass flexible flag
           });
+          // Optimistically update the mutable array for subsequent checks within this handler
+          currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
+          currentOptimisticBlocksForScheduling = mergeOverlappingTimeBlocks(currentOptimisticBlocksForScheduling);
+
           showSuccess(`Injected "${injectCommand.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
           success = true;
         } else {
@@ -526,6 +541,11 @@ const SchedulerPage: React.FC = () => {
             if (command.index >= 0 && command.index < dbScheduledTasks.length) {
               const taskToRemove = dbScheduledTasks[command.index];
               await removeScheduledTask(taskToRemove.id);
+              // Optimistically update the mutable array for subsequent checks within this handler
+              currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
+                !(block.start.getTime() === parseISO(taskToRemove.start_time!).getTime() && 
+                  block.end.getTime() === parseISO(taskToRemove.end_time!).getTime())
+              );
               success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
@@ -535,6 +555,11 @@ const SchedulerPage: React.FC = () => {
             if (tasksToRemove.length > 0) {
               for (const task of tasksToRemove) {
                 await removeScheduledTask(task.id);
+                // Optimistically update the mutable array for subsequent checks within this handler
+                currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
+                  !(block.start.getTime() === parseISO(task.start_time!).getTime() && 
+                    block.end.getTime() === parseISO(task.end_time!).getTime())
+                );
               }
               showSuccess(`Removed tasks matching "${command.target}".`);
               success = true;
@@ -562,6 +587,12 @@ const SchedulerPage: React.FC = () => {
           );
           if (compactedTasks.length > 0) {
             await compactScheduledTasks(compactedTasks);
+            // For immediate consistency, update currentOptimisticBlocksForScheduling here.
+            currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(compactedTasks.map(task => ({
+              start: parseISO(task.start_time!),
+              end: parseISO(task.end_time!),
+              duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
+            })));
             showSuccess("Schedule compacted!");
           } else {
             showError("No flexible tasks to compact or no space available.");
@@ -591,6 +622,9 @@ const SchedulerPage: React.FC = () => {
     const taskScheduledDate = formattedSelectedDay;
     const selectedDayAsDate = parseISO(selectedDay);
 
+    // Create a mutable copy of occupiedBlocks for optimistic updates
+    let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+
     if (injectionPrompt.isTimed) {
       if (!injectionStartTime || !injectionEndTime) {
         showError("Start time and end time are required for timed injection.");
@@ -618,7 +652,7 @@ const SchedulerPage: React.FC = () => {
       }
 
       // NEW: Check for overlaps before adding timed injection
-      if (!isSlotFree(startTime, endTime, occupiedBlocks)) { // Use the stable occupiedBlocks
+      if (!isSlotFree(startTime, endTime, currentOccupiedBlocksForScheduling)) { // Pass mutable optimistic blocks
         showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
         setIsProcessingCommand(false);
         return;
@@ -626,6 +660,10 @@ const SchedulerPage: React.FC = () => {
 
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: injectionPrompt.isFlexible }); // Timed tasks are fixed
+      // Optimistically update the mutable array for subsequent checks within this handler
+      currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
+      currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+
       showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
       success = true;
     } else { // Duration-based injection
@@ -647,7 +685,7 @@ const SchedulerPage: React.FC = () => {
         injectionPrompt.taskName,
         injectedTaskDuration,
         injectionPrompt.isCritical,
-        occupiedBlocks, // Use the stable occupiedBlocks
+        currentOccupiedBlocksForScheduling, // Pass the mutable optimistic blocks
         effectiveWorkdayStart,
         workdayEndTime
       );
@@ -662,6 +700,10 @@ const SchedulerPage: React.FC = () => {
           is_critical: injectionPrompt.isCritical, // Pass critical flag
           is_flexible: injectionPrompt.isFlexible, // Pass flexible flag
         });
+        // Optimistically update the mutable array for subsequent checks within this handler
+        currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
+        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+
         showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         success = true;
       } else {
@@ -692,11 +734,14 @@ const SchedulerPage: React.FC = () => {
       const taskDuration = retiredTask.duration || 30; // Default duration if not specified
       const selectedDayAsDate = parseISO(selectedDay);
 
+      // Create a mutable copy of occupiedBlocks for optimistic updates
+      let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
         retiredTask.name,
         taskDuration,
         retiredTask.is_critical,
-        occupiedBlocks, // Use the stable occupiedBlocks
+        currentOccupiedBlocksForScheduling, // Pass the mutable optimistic blocks
         effectiveWorkdayStart,
         workdayEndTime
       );
@@ -715,6 +760,10 @@ const SchedulerPage: React.FC = () => {
           is_critical: retiredTask.is_critical, // Pass critical flag
           is_flexible: true, // Default to flexible when re-zoning from sink
         });
+        // Optimistically update the mutable array for subsequent checks within this handler
+        currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
+        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
       } else {
         showError(message); // Error from findFreeSlotForTask
@@ -774,6 +823,9 @@ const SchedulerPage: React.FC = () => {
     let successfulRezones = 0;
     let failedRezones = 0;
 
+    // Create a mutable copy of occupiedBlocks for optimistic updates
+    let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+
     // Sort retired tasks to prioritize critical ones first
     const sortedRetiredTasks = [...retiredTasks].sort((a, b) => {
       if (a.is_critical && !b.is_critical) return -1;
@@ -790,7 +842,7 @@ const SchedulerPage: React.FC = () => {
           task.name,
           taskDuration,
           task.is_critical,
-          occupiedBlocks, // Use the stable occupiedBlocks
+          currentOccupiedBlocksForScheduling, // Pass the mutable local copy
           effectiveWorkdayStart,
           workdayEndTime
         );
@@ -808,6 +860,10 @@ const SchedulerPage: React.FC = () => {
             is_flexible: true, // Default to flexible when re-zoning from sink
           };
           await addScheduledTask(newScheduledTask); // Add to scheduled_tasks
+
+          // Update the local list for subsequent tasks in this batch
+          currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
+          currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
           successfulRezones++;
         } else {

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types'; // Keep Task and NewTask from '@/types' if they are distinct
-import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput, new retired task types, SortBy, and TaskPriority, TimeBlock
+import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput, new retired task types, SortBy, and TaskPriority, TimeBlock, AutoBalancePayload
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns'; // Import format, addMinutes, isBefore, isAfter
@@ -1087,7 +1087,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         break_duration: task.break_duration,
         original_scheduled_date: task.scheduled_date,
         is_critical: task.is_critical,
-        is_locked: task.is_locked, // Should be false, but explicitly pass
+        is_locked: task.is_locked,
       }));
 
       // 4. Insert into retired_tasks
@@ -1151,6 +1151,100 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
+  // NEW: Auto-Balance Schedule Mutation (Stage 2)
+  const autoBalanceScheduleMutation = useMutation({
+    mutationFn: async (payload: AutoBalancePayload) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { scheduledTaskIdsToDelete, retiredTaskIdsToDelete, tasksToInsert, tasksToKeepInSink, selectedDate } = payload;
+
+      // 1. Delete old flexible tasks from scheduled_tasks
+      if (scheduledTaskIdsToDelete.length > 0) {
+        const { error: deleteScheduledError } = await supabase
+          .from('scheduled_tasks')
+          .delete()
+          .in('id', scheduledTaskIdsToDelete)
+          .eq('user_id', userId)
+          .eq('scheduled_date', selectedDate);
+        if (deleteScheduledError) throw new Error(`Failed to clear old schedule tasks: ${deleteScheduledError.message}`);
+      }
+
+      // 2. Delete old retired tasks from retired_tasks
+      if (retiredTaskIdsToDelete.length > 0) {
+        const { error: deleteRetiredError } = await supabase
+          .from('retired_tasks')
+          .delete()
+          .in('id', retiredTaskIdsToDelete)
+          .eq('user_id', userId);
+        if (deleteRetiredError) throw new Error(`Failed to clear old retired tasks: ${deleteRetiredError.message}`);
+      }
+
+      // 3. Insert newly timed tasks into scheduled_tasks
+      if (tasksToInsert.length > 0) {
+        const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId }));
+        const { error: insertScheduledError } = await supabase
+          .from('scheduled_tasks')
+          .insert(tasksToInsertWithUserId);
+        if (insertScheduledError) throw new Error(`Failed to insert new scheduled tasks: ${insertScheduledError.message}`);
+      }
+
+      // 4. Re-insert failed tasks back into retired_tasks
+      if (tasksToKeepInSink.length > 0) {
+        const tasksToKeepInSinkWithUserId = tasksToKeepInSink.map(task => ({ 
+          ...task, 
+          user_id: userId, 
+          retired_at: new Date().toISOString() // Ensure retired_at is updated
+        }));
+        const { error: reinsertRetiredError } = await supabase
+          .from('retired_tasks')
+          .insert(tasksToKeepInSinkWithUserId);
+        if (reinsertRetiredError) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${reinsertRetiredError.message}`);
+      }
+      
+      return { tasksPlaced: tasksToInsert.length, tasksKeptInSink: tasksToKeepInSink.length };
+    },
+    onMutate: async (payload: AutoBalancePayload) => {
+      // Optimistic update is too complex for this atomic operation, rely on refetch
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
+      
+      // Snapshot previous state for rollback
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy]);
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      // Optimistically clear the flexible tasks from the schedule and all deleted tasks from the sink
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], (old) =>
+        (old || []).filter(task => !payload.scheduledTaskIdsToDelete.includes(task.id))
+      );
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+        (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id))
+      );
+
+      return { previousScheduledTasks, previousRetiredTasks };
+    },
+    onSuccess: (result, payload) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      
+      let message = `Schedule balanced! ${result.tasksPlaced} task(s) placed.`;
+      if (result.tasksKeptInSink > 0) {
+        message += ` ${result.tasksKeptInSink} task(s) returned to Aether Sink.`;
+      }
+      showSuccess(message);
+    },
+    onError: (err, payload, context) => {
+      showError(`Failed to auto-balance schedule: ${err.message}`);
+      // Rollback to previous state on error
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], context.previousScheduledTasks);
+      }
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
+    }
+  });
+
 
   return {
     dbScheduledTasks, // The raw data from Supabase
@@ -1171,6 +1265,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutate, // NEW: Toggle scheduled task lock
     toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutate, // NEW: Toggle retired task lock
     aetherDump: aetherDumpMutation.mutate, // NEW: Expose Aether Dump mutation
+    autoBalanceSchedule: autoBalanceScheduleMutation.mutate, // NEW: Expose Auto Balance Schedule mutation
     sortBy, // Expose sortBy state
     setSortBy, // Expose setSortBy function
   };

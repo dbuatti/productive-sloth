@@ -90,6 +90,15 @@ export interface NewRetiredTask {
   // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
 }
 
+// NEW: Payload for the atomic auto-balance mutation
+export interface AutoBalancePayload {
+  scheduledTaskIdsToDelete: string[];
+  retiredTaskIdsToDelete: string[];
+  tasksToInsert: NewDBScheduledTask[];
+  tasksToKeepInSink: NewRetiredTask[];
+  selectedDate: string;
+}
+
 export type ScheduledItemType = 'task' | 'break' | 'time-off'; // NEW: Added 'time-off'
 
 export interface ScheduledItem {

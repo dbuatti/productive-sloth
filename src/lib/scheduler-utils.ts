@@ -285,7 +285,7 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
 };
 
 interface ParsedCommand {
-  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact' | 'timeoff';
+  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact' | 'timeoff' | 'aether dump' | 'reset schedule';
   index?: number;
   target?: string;
 }
@@ -326,6 +326,14 @@ export const parseCommand = (input: string): ParsedCommand | null => {
 
   if (lowerInput.startsWith('time off')) {
     return { type: 'timeoff' };
+  }
+
+  if (lowerInput === 'aether dump') {
+    return { type: 'aether dump' };
+  }
+
+  if (lowerInput === 'reset schedule') {
+    return { type: 'reset schedule' };
   }
 
   return null;

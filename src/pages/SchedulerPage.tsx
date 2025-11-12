@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff } from 'lucide-react';
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority } from '@/types/scheduler';
@@ -133,6 +133,8 @@ const SchedulerPage: React.FC = () => {
     rezoneTask,
     compactScheduledTasks,
     randomizeBreaks,
+    toggleScheduledTaskLock, // NEW: Import toggleScheduledTaskLock
+    aetherDump, // NEW: Import aetherDump
     sortBy,
     setSortBy,
   } = useSchedulerTasks(selectedDay);
@@ -646,6 +648,11 @@ const SchedulerPage: React.FC = () => {
           });
           setInjectionStartTime(format(T_current, 'h:mm a'));
           setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
+          success = true;
+          break;
+        case 'aether dump': // NEW: Aether Dump command
+        case 'reset schedule': // NEW: Reset Schedule command
+          await aetherDump();
           success = true;
           break;
         default:
@@ -1202,6 +1209,25 @@ const SchedulerPage: React.FC = () => {
               </TooltipContent>
             </Tooltip>
 
+            {/* NEW: Aether Dump Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => aetherDump()} 
+                  disabled={overallLoading || !dbScheduledTasks.some(task => task.is_flexible && !task.is_locked)} // Disable if no flexible, unlocked tasks
+                  className="h-8 w-8 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                  <span className="sr-only">Aether Dump / Reset Schedule</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Move all flexible, unlocked tasks to Aether Sink</p>
+              </TooltipContent>
+            </Tooltip>
+
             <p className="text-sm text-muted-foreground">
               Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
             </p>
@@ -1214,10 +1240,10 @@ const SchedulerPage: React.FC = () => {
             isLoading={overallLoading} 
             inputValue={inputValue}
             setInputValue={setInputValue}
-            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm') or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact')`}
+            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm', 'Time Off 2pm-3pm') or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump')`}
           />
           <p className="text-xs text-muted-foreground">
-            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm"
+            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump"
           </p>
         </CardContent>
       </Card>

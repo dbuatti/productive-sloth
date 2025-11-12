@@ -1057,6 +1057,100 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
+  // NEW: Aether Dump mutation
+  const aetherDumpMutation = useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error("User not authenticated.");
+
+      // 1. Fetch all scheduled tasks for the current day
+      const { data: currentScheduledTasks, error: fetchError } = await supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('scheduled_date', formattedSelectedDate);
+
+      if (fetchError) throw new Error(`Failed to fetch scheduled tasks for Aether Dump: ${fetchError.message}`);
+
+      // 2. Filter for flexible and unlocked tasks
+      const tasksToDump = currentScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
+
+      if (tasksToDump.length === 0) {
+        showSuccess("No flexible, unlocked tasks to dump to Aether Sink.");
+        return; // No tasks to dump
+      }
+
+      // 3. Prepare tasks for insertion into retired_tasks
+      const newRetiredTasks: NewRetiredTask[] = tasksToDump.map(task => ({
+        user_id: userId,
+        name: task.name,
+        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        break_duration: task.break_duration,
+        original_scheduled_date: task.scheduled_date,
+        is_critical: task.is_critical,
+        is_locked: task.is_locked, // Should be false, but explicitly pass
+      }));
+
+      // 4. Insert into retired_tasks
+      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
+      if (insertError) throw new Error(`Failed to move tasks to Aether Sink: ${insertError.message}`);
+
+      // 5. Delete from scheduled_tasks
+      const { error: deleteError } = await supabase
+        .from('scheduled_tasks')
+        .delete()
+        .in('id', tasksToDump.map(task => task.id))
+        .eq('user_id', userId); // Ensure RLS is respected
+      if (deleteError) throw new Error(`Failed to remove tasks from schedule: ${deleteError.message}`);
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      // Optimistically update scheduledTasks: remove flexible, unlocked tasks
+      const tasksToDump = (previousScheduledTasks || []).filter(task => task.is_flexible && !task.is_locked);
+      const remainingScheduledTasks = (previousScheduledTasks || []).filter(task => !task.is_flexible || task.is_locked);
+      
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], remainingScheduledTasks);
+
+      // Optimistically update retiredTasks: add the dumped tasks
+      const now = new Date().toISOString();
+      const optimisticRetiredTasks: RetiredTask[] = tasksToDump.map(task => ({
+        id: task.id,
+        user_id: userId!,
+        name: task.name,
+        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        break_duration: task.break_duration,
+        original_scheduled_date: task.scheduled_date,
+        retired_at: now,
+        is_critical: task.is_critical,
+        is_locked: task.is_locked,
+      }));
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+        [...optimisticRetiredTasks, ...(old || [])]
+      );
+
+      return { previousScheduledTasks, previousRetiredTasks };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      showSuccess('Flexible tasks moved to Aether Sink!');
+    },
+    onError: (err, _variables, context) => {
+      showError(`Failed to perform Aether Dump: ${err.message}`);
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
+      }
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
+    }
+  });
+
 
   return {
     dbScheduledTasks, // The raw data from Supabase
@@ -1076,6 +1170,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     randomizeBreaks: randomizeBreaksMutation.mutate, // NEW: Randomize breaks mutation
     toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutate, // NEW: Toggle scheduled task lock
     toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutate, // NEW: Toggle retired task lock
+    aetherDump: aetherDumpMutation.mutate, // NEW: Expose Aether Dump mutation
     sortBy, // Expose sortBy state
     setSortBy, // Expose setSortBy function
   };

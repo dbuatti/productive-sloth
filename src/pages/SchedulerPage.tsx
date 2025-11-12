@@ -154,7 +154,7 @@ const SchedulerPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
-  const [isSinkOpen, setIsSinkOpen] = useState(true); // NEW: State for Aether Sink collapse
+  const [isSinkOpen, setIsSinkOpen] = useState(false); // CHANGED: Set to false to be closed by default
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 

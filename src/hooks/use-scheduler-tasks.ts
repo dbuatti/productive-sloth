@@ -307,6 +307,11 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.log("useSchedulerTasks: No user ID, returning empty array.");
         return [];
       }
+      // NEW: Prevent query if selectedDate is empty
+      if (!formattedSelectedDate) {
+        console.log("useSchedulerTasks: No selected date, returning empty array.");
+        return [];
+      }
       console.log("useSchedulerTasks: Fetching scheduled tasks for user:", userId, "on date:", formattedSelectedDate, "sorted by:", sortBy);
       let query = supabase
         .from('scheduled_tasks')
@@ -338,7 +343,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked }))); // Detailed log
       return data as DBScheduledTask[];
     },
-    enabled: !!userId,
+    enabled: !!userId && !!formattedSelectedDate, // Also update enabled condition
   });
 
   // Fetch all unique dates that have scheduled tasks for the calendar strip indicators

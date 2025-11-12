@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority } from '@/types/scheduler';
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -16,6 +16,7 @@ import {
   compactScheduleLogic,
   mergeOverlappingTimeBlocks,
   isSlotFree,
+  getFreeTimeBlocks, // Ensure getFreeTimeBlocks is imported
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -83,36 +84,36 @@ function useDeepCompareMemoize<T>(value: T): T {
   return useMemo(() => ref.current, [signalRef.current],);
 }
 
-const getFreeTimeBlocks = (
-  occupiedBlocks: TimeBlock[],
-  workdayStart: Date,
-  workdayEnd: Date
-): TimeBlock[] => {
-  const freeBlocks: TimeBlock[] = [];
-  let currentFreeTimeStart = workdayStart;
+// Helper type for unification (defined locally for simplicity)
+interface UnifiedTask {
+  id: string;
+  name: string;
+  duration: number;
+  break_duration: number | null;
+  is_critical: boolean;
+  is_flexible: boolean;
+  source: 'scheduled' | 'retired';
+  originalId: string; // ID in the source table
+}
 
-  for (const appt of occupiedBlocks) {
-    if (isBefore(appt.end, currentFreeTimeStart)) {
-        continue;
-    }
+const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
+const LONG_TASK_THRESHOLD = 90;
 
-    if (isBefore(currentFreeTimeStart, appt.start)) {
-      const duration = Math.floor((appt.start.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
-      if (duration > 0) {
-        freeBlocks.push({ start: currentFreeTimeStart, end: appt.start, duration });
-      }
-    }
-    currentFreeTimeStart = isAfter(appt.end, currentFreeTimeStart) ? appt.end : currentFreeTimeStart;
-  }
-
-  if (isBefore(currentFreeTimeStart, workdayEnd)) {
-    const duration = Math.floor((workdayEnd.getTime() - currentFreeTimeStart.getTime()) / (1000 * 60));
-    if (duration > 0) {
-      freeBlocks.push({ start: currentFreeTimeStart, end: workdayEnd, duration });
-    }
-  }
-  return freeBlocks;
-};
+const INTERLEAVING_PATTERN = [
+  // Duration (min), Criticality (C/NC)
+  { duration: 15, critical: true }, { duration: 15, critical: false },
+  { duration: 60, critical: true }, { duration: 60, critical: false },
+  { duration: 5, critical: true }, { duration: 5, critical: false },
+  { duration: 45, critical: true }, { duration: 45, critical: false },
+  { duration: 10, critical: true }, { duration: 10, critical: false },
+  { duration: 90, critical: true }, { duration: 90, critical: false },
+  { duration: 20, critical: true }, { duration: 20, critical: false },
+  { duration: 30, critical: true }, { duration: 30, critical: false },
+  { duration: 75, critical: true }, { duration: 75, critical: false },
+  { duration: 25, critical: true }, { duration: 25, critical: false },
+  { duration: LONG_TASK_THRESHOLD + 1, critical: true }, // Represents 90+
+  { duration: LONG_TASK_THRESHOLD + 1, critical: false }, // Represents 90+
+];
 
 
 const SchedulerPage: React.FC = () => {
@@ -137,6 +138,7 @@ const SchedulerPage: React.FC = () => {
     aetherDump, // NEW: Import aetherDump
     sortBy,
     setSortBy,
+    autoBalanceSchedule, // NEW: Import autoBalanceSchedule
   } = useSchedulerTasks(selectedDay);
 
   const queryClient = useQueryClient();
@@ -872,78 +874,223 @@ const SchedulerPage: React.FC = () => {
 
   const handleAutoScheduleSink = async () => {
     if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to auto-schedule tasks.");
-      return;
+        showError("Please log in and ensure your profile is loaded to auto-schedule tasks.");
+        return;
     }
-    const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
-    if (unlockedRetiredTasks.length === 0) {
-      showSuccess("No unlocked tasks in Aether Sink to auto-schedule!");
-      return;
-    }
-
     setIsProcessingCommand(true);
-    let successfulRezones = 0;
-    let failedRezones = 0;
 
-    let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+    try {
+        // --- 1. Unification and Normalization ---
+        const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
+        const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
 
+        if (flexibleScheduledTasks.length === 0 && unlockedRetiredTasks.length === 0) {
+            showSuccess("No unlocked flexible tasks in schedule or Aether Sink to balance.");
+            setIsProcessingCommand(false);
+            return;
+        }
 
-    const sortedRetiredTasks = [...unlockedRetiredTasks].sort((a, b) => {
-      if (a.is_critical && !b.is_critical) return -1;
-      if (!a.is_critical && b.is_critical) return 1;
-      return 0;
-    });
+        const unifiedPool: UnifiedTask[] = [];
+        const scheduledTaskIdsToDelete: string[] = [];
+        const retiredTaskIdsToDelete: string[] = [];
 
-    for (const task of sortedRetiredTasks) {
-      try {
-        const taskDuration = task.duration || 30;
-        const selectedDayAsDate = parseISO(selectedDay);
+        // Add flexible scheduled tasks
+        flexibleScheduledTasks.forEach(task => {
+            const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
+            unifiedPool.push({
+                id: task.id,
+                name: task.name,
+                duration: duration,
+                break_duration: task.break_duration,
+                is_critical: task.is_critical,
+                is_flexible: true,
+                source: 'scheduled',
+                originalId: task.id,
+            });
+            scheduledTaskIdsToDelete.push(task.id);
+        });
 
-        const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-          task.name,
-          taskDuration,
-          task.is_critical,
-          true,
-          currentOccupiedBlocksForScheduling,
-          effectiveWorkdayStart,
-          workdayEndTime
+        // Add unlocked retired tasks
+        unlockedRetiredTasks.forEach(task => {
+            unifiedPool.push({
+                id: task.id, // Use retired task ID temporarily
+                name: task.name,
+                duration: task.duration || 30, // Default to 30 min if duration is null
+                break_duration: task.break_duration,
+                is_critical: task.is_critical,
+                is_flexible: true,
+                source: 'retired',
+                originalId: task.id,
+            });
+            retiredTaskIdsToDelete.push(task.id);
+        });
+
+        // --- 2. Categorization and Interleaving (Vibe Flow) ---
+        const buckets: Record<string, UnifiedTask[]> = {};
+        INTERLEAVING_PATTERN.forEach(p => {
+            const key = `${p.duration}-${p.critical}`;
+            buckets[key] = [];
+        });
+
+        unifiedPool.forEach(task => {
+            let durationKey = task.duration;
+            if (task.duration > LONG_TASK_THRESHOLD) {
+                durationKey = LONG_TASK_THRESHOLD + 1;
+            } else if (!DURATION_BUCKETS.includes(task.duration)) {
+                // If duration doesn't match a bucket, find the closest standard bucket or default to 30
+                durationKey = DURATION_BUCKETS.find(d => d >= task.duration) || 30;
+            }
+            
+            const key = `${durationKey}-${task.is_critical}`;
+            if (buckets[key]) {
+                buckets[key].push(task);
+            } else {
+                // Fallback for unexpected durations
+                const fallbackKey = `${30}-${task.is_critical}`;
+                buckets[fallbackKey].push(task);
+            }
+        });
+
+        // Sort buckets internally by name (stable sort)
+        Object.values(buckets).forEach(bucket => bucket.sort((a, b) => a.name.localeCompare(b.name)));
+
+        const balancedQueue: UnifiedTask[] = [];
+        let tasksRemaining = unifiedPool.length;
+        let cycleCount = 0;
+
+        while (tasksRemaining > 0 && cycleCount < 500) { // Safety break
+            let pulledInCycle = false;
+            for (const pattern of INTERLEAVING_PATTERN) {
+                const key = `${pattern.duration}-${pattern.critical}`;
+                if (buckets[key] && buckets[key].length > 0) {
+                    const task = buckets[key].shift()!;
+                    balancedQueue.push(task);
+                    tasksRemaining--;
+                    pulledInCycle = true;
+                }
+            }
+            if (!pulledInCycle && tasksRemaining > 0) {
+                // If we completed a full cycle but still have tasks remaining, 
+                // it means the remaining tasks are in buckets we already tried.
+                // This handles cases where only one type of task (e.g., only 5m critical) remains.
+                // We need to pull the remaining tasks directly.
+                Object.values(buckets).forEach(bucket => {
+                    while(bucket.length > 0) {
+                        const task = bucket.shift()!;
+                        balancedQueue.push(task);
+                        tasksRemaining--;
+                    }
+                });
+                break; 
+            }
+            cycleCount++;
+        }
+        
+        // --- 3. Re-Timing and Placement ---
+        const tasksToInsert: NewDBScheduledTask[] = [];
+        const tasksToKeepInSink: NewRetiredTask[] = [];
+        
+        // Fixed blocks are all locked tasks (flexible or not) + fixed unlocked tasks
+        const fixedTasks = dbScheduledTasks.filter(task => task.is_locked || !task.is_flexible);
+        
+        const fixedOccupiedBlocks = mergeOverlappingTimeBlocks(fixedTasks
+            .filter(task => task.start_time && task.end_time)
+            .map(task => {
+                const start = setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm'));
+                let end = setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm'));
+                if (isBefore(end, start)) end = addDays(end, 1);
+                return { start, end, duration: Math.floor((end.getTime() - start.getTime()) / (1000 * 60)) };
+            })
         );
 
-        if (proposedStartTime && proposedEndTime) {
-          await rezoneTask(task.id);
+        let currentOccupiedBlocks = [...fixedOccupiedBlocks];
+        let currentPlacementTime = effectiveWorkdayStart;
 
-          const newScheduledTask: NewDBScheduledTask = {
-            name: task.name,
-            start_time: proposedStartTime.toISOString(),
-            end_time: proposedEndTime.toISOString(),
-            break_duration: task.break_duration,
-            scheduled_date: formattedSelectedDay,
-            is_critical: task.is_critical,
-            is_flexible: true,
-          };
-          await addScheduledTask(newScheduledTask);
+        for (const task of balancedQueue) {
+            let placed = false;
+            let searchTime = currentPlacementTime;
 
-          currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
-          currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+            // Find the earliest free slot after currentPlacementTime
+            while (isBefore(searchTime, workdayEndTime)) {
+                const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchTime, workdayEndTime);
+                
+                if (freeBlocks.length === 0) {
+                    break; // No more free time today
+                }
 
-          successfulRezones++;
-        } else {
-          showError(message);
-          failedRezones++;
+                const taskDuration = task.duration;
+                const breakDuration = task.break_duration || 0;
+                const totalDuration = taskDuration + breakDuration;
+
+                // Find the first free block large enough
+                const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
+
+                if (suitableBlock) {
+                    const proposedStartTime = suitableBlock.start;
+                    const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
+
+                    // Double check against current occupied blocks (should pass if freeBlocks is correct)
+                    if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocks)) {
+                        tasksToInsert.push({
+                            name: task.name,
+                            start_time: proposedStartTime.toISOString(),
+                            end_time: proposedEndTime.toISOString(),
+                            break_duration: task.break_duration,
+                            scheduled_date: formattedSelectedDay,
+                            is_critical: task.is_critical,
+                            is_flexible: true, // Always true for tasks coming from the flexible pool
+                            is_locked: false, // Always false as we only process unlocked tasks
+                        });
+
+                        // Update occupied blocks for the next task
+                        currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
+                        currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
+                        currentPlacementTime = proposedEndTime;
+                        placed = true;
+                        break;
+                    }
+                }
+                
+                // If no suitable block was found in this iteration, break the search loop
+                break; 
+            }
+
+            if (!placed) {
+                // Task could not be placed, return it to the sink
+                tasksToKeepInSink.push({
+                    user_id: user.id,
+                    name: task.name,
+                    duration: task.duration,
+                    break_duration: task.break_duration,
+                    original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
+                    is_critical: task.is_critical,
+                    is_locked: false,
+                });
+            }
         }
-      } catch (error) {
-        console.error(`Failed to auto-schedule task "${task.name}":`, error);
-        failedRezones++;
-      }
-    }
 
-    if (successfulRezones > 0) {
-      showSuccess(`Successfully re-zoned ${successfulRezones} task{s} from Aether Sink.`);
+        // --- 4. Execute Atomic Database Synchronization ---
+        const payload: AutoBalancePayload = {
+            scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
+            retiredTaskIdsToDelete: retiredTaskIdsToDelete,
+            tasksToInsert: tasksToInsert,
+            tasksToKeepInSink: tasksToKeepInSink,
+            selectedDate: formattedSelectedDay,
+        };
+
+        await autoBalanceSchedule(payload);
+
+    } catch (error: any) {
+        showError(`Failed to auto-balance schedule: ${error.message}`);
+        console.error("Auto-balance error:", error);
+    } finally {
+        setIsProcessingCommand(false);
     }
-    if (failedRezones > 0) {
-      showError(`Failed to re-zone ${failedRezones} task{s} from Aether Sink due to no available slots.`);
-    }
-    setIsProcessingCommand(false);
+  };
+
+  const handleAutoScheduleSinkWrapper = () => {
+    // Use the new comprehensive handler
+    handleAutoScheduleSink();
   };
 
   const handleSortFlexibleTasks = async (newSortBy: SortBy) => {
@@ -1256,7 +1403,7 @@ const SchedulerPage: React.FC = () => {
         retiredTasks={retiredTasks} 
         onRezoneTask={handleRezoneFromSink} 
         onRemoveRetiredTask={handleRemoveRetiredTask}
-        onAutoScheduleSink={handleAutoScheduleSink}
+        onAutoScheduleSink={handleAutoScheduleSinkWrapper} // Use the wrapper function
         isLoading={isLoadingRetiredTasks}
         isProcessingCommand={isProcessingCommand}
       />

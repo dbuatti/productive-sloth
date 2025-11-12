@@ -154,6 +154,7 @@ const SchedulerPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
+  const [isSinkOpen, setIsSinkOpen] = useState(true); // NEW: State for Aether Sink collapse
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -333,11 +334,23 @@ const SchedulerPage: React.FC = () => {
     // Filter out locked tasks from available slots
     const lockedTaskBlocks = dbScheduledTasks
       .filter(task => task.is_locked && task.start_time && task.end_time)
-      .map(task => ({
-        start: setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm')),
-        end: setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm')),
-        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
-      }));
+      .map(task => {
+        const utcStart = parseISO(task.start_time!);
+        const utcEnd = parseISO(task.end_time!);
+
+        let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getMinutes()), utcStart.getHours());
+        let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getMinutes()), utcEnd.getHours());
+
+        if (isBefore(localEnd, localStart)) {
+          localEnd = addDays(localEnd, 1);
+        }
+        const block = {
+          start: localStart,
+          end: localEnd,
+          duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
+        };
+        return block;
+      });
 
     const allOccupiedBlocks = mergeOverlappingTimeBlocks([...existingOccupiedBlocks, ...lockedTaskBlocks]);
     const freeBlocks = getFreeTimeBlocks(allOccupiedBlocks, effectiveWorkdayStart, workdayEndTime);
@@ -365,7 +378,7 @@ const SchedulerPage: React.FC = () => {
       const message = `No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${taskName}" (${taskDuration} min).`;
       return { proposedStartTime: null, proposedEndTime: null, message: message };
     }
-  }, [workdayStartTime, workdayEndTime, dbScheduledTasks, selectedDayAsDate]);
+  }, [workdayStartTime, workdayEndTime, dbScheduledTasks, selectedDayAsDate, effectiveWorkdayStart]);
 
 
   const handleClearSchedule = async () => {
@@ -972,7 +985,6 @@ const SchedulerPage: React.FC = () => {
             if (!pulledInCycle && tasksRemaining > 0) {
                 // If we completed a full cycle but still have tasks remaining, 
                 // it means the remaining tasks are in buckets we already tried.
-                // This handles cases where only one type of task (e.g., only 5m critical) remains.
                 // We need to pull the remaining tasks directly.
                 Object.values(buckets).forEach(bucket => {
                     while(bucket.length > 0) {
@@ -1406,6 +1418,8 @@ const SchedulerPage: React.FC = () => {
         onAutoScheduleSink={handleAutoScheduleSinkWrapper} // Use the wrapper function
         isLoading={isLoadingRetiredTasks}
         isProcessingCommand={isProcessingCommand}
+        isSinkOpen={isSinkOpen} // NEW: Pass state
+        onToggle={() => setIsSinkOpen(prev => !prev)} // NEW: Pass toggle handler
       />
 
       {currentSchedule?.summary.unscheduledCount > 0 && (

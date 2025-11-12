@@ -321,16 +321,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     MISSED
                   </Badge>
                 )}
-                {/* NEW: Flexible/Fixed Badge */}
-                <Badge 
-                  variant="outline" 
-                  className={cn(
-                    "px-2 py-0.5 text-xs font-semibold",
-                    scheduledItem.isFlexible ? "bg-blue-500/20 text-blue-300 border-blue-500" : "bg-purple-500/20 text-purple-300 border-purple-500"
-                  )}
-                >
-                  {scheduledItem.isFlexible ? 'Flexible' : 'Fixed'}
-                </Badge>
+                {/* REMOVED: Flexible/Fixed Badge */}
                 <span className={cn(
                   "text-xs font-semibold font-mono",
                   isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80" // NEW: Text color for time-off

@@ -295,7 +295,8 @@ const SchedulerPage: React.FC = () => {
     if (isViewingToday && !hasMorningFixRunToday) {
       const tasksToRetire = dbScheduledTasks.filter(task => {
         if (!task.start_time || !task.end_time) return false;
-        if (task.is_locked) return false; // Do not auto-retire locked tasks
+        if (task.is_locked) return false;
+        if (!task.is_flexible) return false; // NEW: Do not auto-retire non-flexible tasks
 
         const taskEndTime = setTimeOnDate(currentDay, format(parseISO(task.end_time), 'HH:mm'));
         

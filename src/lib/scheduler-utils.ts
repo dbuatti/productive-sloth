@@ -576,8 +576,10 @@ export const compactScheduleLogic = (
   const fixedTasks = allCurrentTasks.filter(task => !task.is_flexible || task.is_locked); // Treat locked tasks as fixed
   let flexibleTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible && !task.is_locked); // Only place unlocked flexible tasks
 
-  // Default sorting if Vibe Flow is not enabled (e.g., by creation time or existing order)
-  flexibleTasksToPlace.sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime());
+  // Default sorting if no preSortedFlexibleTasks are provided
+  if (!preSortedFlexibleTasks) {
+    flexibleTasksToPlace.sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime());
+  }
 
 
   fixedTasks.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());

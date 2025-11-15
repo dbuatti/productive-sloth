@@ -7,7 +7,7 @@ import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants';
-import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic } from '@/lib/scheduler-utils'; // Removed sortTasksByVibeFlow
+import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue } from '@/lib/scheduler-utils'; // Removed sortTasksByVibeFlow
 import { useTasks } from './use-tasks';
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
@@ -100,6 +100,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
         query = query.order('is_critical', { ascending: false }).order('start_time', { ascending: true });
       } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
         query = query.order('is_critical', { ascending: true }).order('start_time', { ascending: true });
+      } else if (sortBy === 'EMOJI') {
+        // EMOJI sorting is client-side as it depends on task name parsing
+        // We'll fetch by creation time and sort client-side
+        query = query.order('created_at', { ascending: true });
       } else {
         query = query.order('created_at', { ascending: true });
       }
@@ -111,6 +115,16 @@ export const useSchedulerTasks = (selectedDate: string) => {
         throw new Error(error.message);
       }
       console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed })));
+      
+      // Client-side sorting for EMOJI
+      if (sortBy === 'EMOJI') {
+        return (data as DBScheduledTask[]).sort((a, b) => {
+          const hueA = getEmojiHue(a.name);
+          const hueB = getEmojiHue(b.name);
+          return hueA - hueB;
+        });
+      }
+
       return data as DBScheduledTask[];
     },
     enabled: !!userId && !!formattedSelectedDate,

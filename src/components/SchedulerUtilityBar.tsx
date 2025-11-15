@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Zap, Shuffle, Settings2, Globe, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock } from 'lucide-react'; // Removed Brain icon for Vibe Flow
+import { Loader2, Zap, Shuffle, Settings2, Globe, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Smile } from 'lucide-react'; // Removed Brain icon for Vibe Flow, Added Smile icon
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
@@ -143,6 +143,10 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onSortFlexibleTasks('TIME_LATEST_TO_EARLIEST')} className={cn(sortBy === 'TIME_LATEST_TO_EARLIEST' && 'bg-accent text-accent-foreground')}>
                 <Clock className="mr-2 h-4 w-4" /> Duration (Longest First)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onSortFlexibleTasks('EMOJI')} className={cn(sortBy === 'EMOJI' && 'bg-accent text-accent-foreground')}>
+                <Smile className="mr-2 h-4 w-4" /> Emoji
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

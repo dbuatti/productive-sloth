@@ -18,6 +18,7 @@ import {
   isSlotFree,
   getFreeTimeBlocks, // Ensure getFreeTimeBlocks is imported
   calculateEnergyCost, // NEW: Import calculateEnergyCost
+  getEmojiHue, // NEW: Import getEmojiHue for client-side sorting
   // Removed sortTasksByVibeFlow
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
@@ -1175,6 +1176,12 @@ const SchedulerPage: React.FC = () => {
         const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
         return durationA - durationB;
       });
+    } else if (newSortBy === 'EMOJI') {
+      sortedFlexibleTasks.sort((a, b) => {
+        const hueA = getEmojiHue(a.name);
+        const hueB = getEmojiHue(b.name);
+        return hueA - hueB;
+      });
     }
 
     const reorganizedTasks = compactScheduleLogic(
@@ -1407,7 +1414,7 @@ const SchedulerPage: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger 
             value="aether-sink" 
-            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
+            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
           >
             <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
           </TabsTrigger>

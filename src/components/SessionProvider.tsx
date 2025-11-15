@@ -207,8 +207,15 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Main useEffect for auth state changes and initial session load
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null); // This will trigger the separate profile fetch useEffect
+      // Only update session if its access token or user ID has changed
+      if (session?.access_token !== currentSession?.access_token || session?.user?.id !== currentSession?.user?.id) {
+        setSession(currentSession);
+      }
+
+      // Only update user if the ID changes or if the user presence changes
+      if (user?.id !== currentSession?.user?.id) {
+        setUser(currentSession?.user ?? null);
+      }
 
       if (event === 'SIGNED_IN' && window.location.pathname === '/login') {
         navigate('/');
@@ -224,8 +231,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const loadInitialSession = async () => {
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null); // This will trigger the separate profile fetch useEffect
+        
+        // Only update session if its access token or user ID has changed
+        if (session?.access_token !== initialSession?.access_token || session?.user?.id !== initialSession?.user?.id) {
+          setSession(initialSession);
+        }
+
+        // Only update user if the ID changes or if the user presence changes
+        if (user?.id !== initialSession?.user?.id) {
+          setUser(initialSession?.user ?? null);
+        }
         
         if (!initialSession && window.location.pathname !== '/login') {
           navigate('/login');
@@ -236,7 +251,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.error("Error during initial session load:", error);
         setSession(null);
         setUser(null);
-        setProfile(null);
+        setProfile(null); // Ensure profile is cleared on error
         if (window.location.pathname !== '/login') {
           navigate('/login');
         }
@@ -250,7 +265,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [navigate]); // Only navigate is a dependency here
+  }, [navigate, session, user]); // Added session and user to dependencies for comparison logic
 
   // Separate useEffect to fetch/refresh profile when user changes
   useEffect(() => {

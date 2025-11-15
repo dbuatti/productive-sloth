@@ -52,7 +52,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SchedulerUtilityBar from '@/components/SchedulerUtilityBar'; // NEW: Import SchedulerUtilityBar
-import WorkdayWindowDialog from '@/components/WorkdayWindowDialog'; // Corrected: Removed 'ui/' from the path
+import WorkdayWindowDialog from '@/components/WorkdayWindowDialog'; // NEW: Import WorkdayWindowDialog
 
 const deepCompare = (a: any, b: any) => {
   if (a === b) return true;
@@ -1345,6 +1345,18 @@ const SchedulerPage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id] });
     showSuccess("Schedule refreshed!");
   };
+
+  // Effect to trigger Vibe Sort when isVibeFlowEnabled changes
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (user && profile && !isProcessingCommand) {
+      handleVibeSort();
+    }
+  }, [isVibeFlowEnabled, user, profile, isProcessingCommand]);
 
 
   const activeItem: ScheduledItem | null = useMemo(() => {

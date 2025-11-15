@@ -681,13 +681,13 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     mutationFn: async (tasksToUpdate: DBScheduledTask[]) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      // Filter out locked tasks from being updated by compaction
-      const updatableTasks = tasksToUpdate.filter(task => !task.is_locked);
-      const lockedTasks = tasksToUpdate.filter(task => task.is_locked);
+      // Filter out locked tasks AND non-flexible tasks from being updated by compaction
+      const updatableTasks = tasksToUpdate.filter(task => task.is_flexible && !task.is_locked);
+      const nonUpdatableTasks = tasksToUpdate.filter(task => !task.is_flexible || task.is_locked);
 
-      if (updatableTasks.length === 0 && lockedTasks.length > 0) {
-        showSuccess("No flexible tasks to compact, locked tasks were skipped.");
-        return; // No actual update needed if only locked tasks are present
+      if (updatableTasks.length === 0 && nonUpdatableTasks.length > 0) {
+        showSuccess("No flexible tasks to compact, fixed/locked tasks were skipped.");
+        return; // No actual update needed if only non-updatable tasks are present
       } else if (updatableTasks.length === 0) {
         showSuccess("No flexible tasks to compact.");
         return;
@@ -723,10 +723,11 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 
-      // Optimistically update only non-locked tasks
+      // Optimistically update only flexible and non-locked tasks
       const updatedTasks = (previousScheduledTasks || []).map(oldTask => {
         const newTask = tasksToUpdate.find(t => t.id === oldTask.id);
-        return newTask && !oldTask.is_locked ? newTask : oldTask;
+        // Only update if the task is flexible and not locked
+        return newTask && newTask.is_flexible && !newTask.is_locked ? newTask : oldTask;
       });
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], updatedTasks);
@@ -754,7 +755,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked); // Keep locked breaks fixed
+      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break'); // All non-breaks, regardless of lock status
       let breakTasksToRandomize = currentDbTasks.filter(task => task.name.toLowerCase() === 'break' && !task.is_locked); // Only randomize unlocked breaks
 
       if (breakTasksToRandomize.length === 0) {
@@ -768,24 +769,24 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         [breakTasksToRandomize[i], breakTasksToRandomize[j]] = [breakTasksToRandomize[j], breakTasksToRandomize[i]];
       }
 
-      const finalTasksForUpdate: DBScheduledTask[] = [...nonBreakTasks]; // Start with non-breaks and locked breaks
       const placedBreaks: DBScheduledTask[] = [];
       const failedToPlaceBreaks: DBScheduledTask[] = [];
+
+      // Create a temporary set of occupied blocks from non-break tasks and locked breaks
+      let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
+        currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked) // Fixed non-breaks and locked breaks
+          .map(task => ({
+            start: parseISO(task.start_time!),
+            end: parseISO(task.end_time!),
+            duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
+          }))
+      );
 
       for (const breakTask of breakTasksToRandomize) {
         const breakDuration = breakTask.break_duration || 15; // Default break duration
         let placed = false;
 
-        // Recalculate occupied blocks and free blocks for each break placement
-        // This ensures that newly placed breaks are considered for subsequent placements
-        let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
-          finalTasksForUpdate.map(task => ({
-            start: parseISO(task.start_time!),
-            end: parseISO(task.end_time!),
-            duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
-          }))
-        );
-
+        // Recalculate free blocks for each break placement
         let freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, workdayStartTime, workdayEndTime);
 
         // Shuffle free blocks to add randomness to which gap is chosen
@@ -816,7 +817,6 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
             if (isAfter(proposedEndTime, freeBlock.end)) proposedEndTime = freeBlock.end;
 
             // Final check for slot freedom (should always be true if freeBlock was correctly identified)
-            // This is more of a sanity check.
             if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocks)) {
               const newBreakTask: DBScheduledTask = {
                 ...breakTask,
@@ -827,8 +827,10 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
                 is_locked: breakTask.is_locked, // Include is_locked
                 updated_at: new Date().toISOString(),
               };
-              finalTasksForUpdate.push(newBreakTask);
               placedBreaks.push(newBreakTask);
+              // Update currentOccupiedBlocks for subsequent break placements
+              currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: breakDuration });
+              currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
               placed = true;
               break; // Move to the next breakTask
             }
@@ -841,21 +843,25 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       }
 
       // Perform batch update for all tasks that need new times
-      const updates = finalTasksForUpdate.map(task => ({
-        id: task.id,
-        user_id: userId,
-        name: task.name,
-        break_duration: task.break_duration,
-        start_time: task.start_time,
-        end_time: task.end_time,
-        scheduled_date: task.scheduled_date,
-        is_critical: task.is_critical,
-        is_flexible: task.is_flexible,
-        is_locked: task.is_locked, // Include is_locked
-        updated_at: new Date().toISOString(),
-      }));
+      if (placedBreaks.length > 0) {
+        const updates = placedBreaks.map(task => ({
+          id: task.id,
+          user_id: userId,
+          name: task.name,
+          break_duration: task.break_duration,
+          start_time: task.start_time,
+          end_time: task.end_time,
+          scheduled_date: task.scheduled_date,
+          is_critical: task.is_critical,
+          is_flexible: task.is_flexible,
+          is_locked: task.is_locked, // Include is_locked
+          updated_at: new Date().toISOString(),
+        }));
+        const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
+        if (error) throw new Error(`Failed to update placed breaks: ${error.message}`);
+      }
 
-      // Delete any breaks that failed to be placed (optional, but good for cleanup)
+      // Delete any breaks that failed to be placed
       if (failedToPlaceBreaks.length > 0) {
         const { error: deleteError } = await supabase
           .from('scheduled_tasks')
@@ -865,16 +871,13 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         if (deleteError) console.error("Failed to delete unplaced breaks:", deleteError.message);
       }
 
-      const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
-      if (error) throw new Error(error.message);
-
       return { placedBreaks, failedToPlaceBreaks };
     },
     onMutate: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, selectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy]);
 
-      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked);
+      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break');
       let breakTasksToRandomize = currentDbTasks.filter(task => task.name.toLowerCase() === 'break' && !task.is_locked);
 
       if (breakTasksToRandomize.length === 0) {
@@ -882,7 +885,6 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       }
 
       // Optimistic update logic mirrors the mutationFn's placement logic
-      const optimisticFinalTasksForUpdate: DBScheduledTask[] = [...nonBreakTasks];
       const optimisticPlacedBreaks: DBScheduledTask[] = [];
       const optimisticFailedToPlaceBreaks: DBScheduledTask[] = [];
 
@@ -892,17 +894,19 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         [breakTasksToRandomize[i], breakTasksToRandomize[j]] = [breakTasksToRandomize[j], breakTasksToRandomize[i]];
       }
 
-      for (const breakTask of breakTasksToRandomize) {
-        const breakDuration = breakTask.break_duration || 15;
-        let placed = false;
-
-        let optimisticOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
-          optimisticFinalTasksForUpdate.map(task => ({
+      // Create a temporary set of occupied blocks from non-break tasks and locked breaks
+      let optimisticOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
+        currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked) // Fixed non-breaks and locked breaks
+          .map(task => ({
             start: parseISO(task.start_time!),
             end: parseISO(task.end_time!),
             duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
           }))
-        );
+      );
+
+      for (const breakTask of breakTasksToRandomize) {
+        const breakDuration = breakTask.break_duration || 15;
+        let placed = false;
 
         let freeBlocks = getFreeTimeBlocks(optimisticOccupiedBlocks, workdayStartTime, workdayEndTime);
 
@@ -936,11 +940,13 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
                 end_time: proposedEndTime.toISOString(),
                 scheduled_date: selectedDate,
                 is_flexible: true,
-                is_locked: breakTask.is_locked, // Include is_locked
+                is_locked: breakTask.is_locked,
                 updated_at: new Date().toISOString(),
               };
-              optimisticFinalTasksForUpdate.push(newBreakTask);
               optimisticPlacedBreaks.push(newBreakTask);
+              // Update optimistic occupied blocks for subsequent break placements
+              optimisticOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: breakDuration });
+              optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
               placed = true;
               break;
             }
@@ -952,7 +958,15 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         }
       }
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy], optimisticFinalTasksForUpdate);
+      // Construct the new scheduled tasks array for optimistic update
+      // It should include non-break tasks, locked breaks, and newly placed breaks
+      const newScheduledTasks = [
+        ...nonBreakTasks,
+        ...currentDbTasks.filter(task => task.name.toLowerCase() === 'break' && task.is_locked), // Add back locked breaks
+        ...optimisticPlacedBreaks
+      ];
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy], newScheduledTasks);
 
       return { previousScheduledTasks };
     },

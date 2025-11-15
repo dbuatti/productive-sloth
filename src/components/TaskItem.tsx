@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import XPGainAnimation from "./XPGainAnimation";
-import TaskDetailSheet from "./TaskDetailSheet";
+import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks"; // Updated import
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -185,7 +185,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         </DropdownMenu>
       </div>
 
-      <TaskDetailSheet
+      <TaskDetailSheetForTasks
         task={selectedTask}
         open={isSheetOpen && selectedTask?.id === task.id}
         onOpenChange={(open) => {

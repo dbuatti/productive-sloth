@@ -357,7 +357,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         user_id: userId,
         name: taskToRetire.name,
         duration: (taskToRetire.start_time && taskToRetire.end_time) 
-                  ? Math.floor((parseISO(taskToRetire.end_time).getTime() - parseISO(taskToRetire.start_time).getTime()) / (1000 * 60)) 
+                  ? Math.floor((parseISO(taskToRetire.end_time!).getTime() - parseISO(taskToRetire.start_time!).getTime()) / (1000 * 60)) 
                   : null,
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
@@ -1211,6 +1211,49 @@ export const useSchedulerTasks = (selectedDate: string) => {
     }
   });
 
+  const updateScheduledTaskDetailsMutation = useMutation({
+    mutationFn: async (task: Partial<DBScheduledTask> & { id: string }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log("useSchedulerTasks: Attempting to update scheduled task details:", task);
+      const { data, error } = await supabase
+        .from('scheduled_tasks')
+        .update({ ...task, updated_at: new Date().toISOString() })
+        .eq('id', task.id)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("useSchedulerTasks: Error updating scheduled task details:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully updated scheduled task details:", data);
+      return data as DBScheduledTask;
+    },
+    onMutate: async (updatedTask: Partial<DBScheduledTask> & { id: string }) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
+        (old || []).map(task =>
+          task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+        )
+      );
+      return { previousScheduledTasks };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      showSuccess('Scheduled task details updated!');
+    },
+    onError: (e, _variables, context) => {
+      showError(`Failed to update scheduled task details: ${e.message}`);
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
+      }
+    }
+  });
+
   const clearXpGainAnimation = useCallback(() => {
     setXpGainAnimation(null);
   }, []);
@@ -1239,6 +1282,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
     autoBalanceSchedule: autoBalanceScheduleMutation.mutate,
     completeScheduledTask: completeScheduledTaskMutation.mutate,
     updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutate, // Expose for other uses if needed
+    updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutate, // NEW: Expose new mutation
     sortBy,
     setSortBy,
     xpGainAnimation,

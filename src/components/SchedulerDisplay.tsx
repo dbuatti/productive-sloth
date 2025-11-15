@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker, DBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
@@ -10,6 +10,8 @@ import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfte
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import InfoChip from './InfoChip'; // Import InfoChip
+import ScheduledTaskDetailSheet from './ScheduledTaskDetailSheet'; // Import ScheduledTaskDetailSheet
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -37,6 +39,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const containerRef = useRef<HTMLDivElement>(null);
   const activeItemRef = useRef<HTMLDivElement>(null);
   const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString); // Added updateScheduledTaskStatus
+
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null); // State for hovered item
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [selectedScheduledTask, setSelectedScheduledTask] = useState<DBScheduledTask | null>(null);
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
@@ -182,6 +188,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     }
   }, [selectedDayString]);
 
+  const handleInfoChipClick = (dbTask: DBScheduledTask) => {
+    setSelectedScheduledTask(dbTask);
+    setIsSheetOpen(true);
+  };
 
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
 
@@ -291,6 +301,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }}
+            onMouseEnter={() => setHoveredItemId(scheduledItem.id)} // Set hovered item
+            onMouseLeave={() => setHoveredItemId(null)} // Clear hovered item
           >
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">
@@ -460,6 +472,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 </div>
               </>
             )}
+            {dbTask && (
+              <InfoChip 
+                onClick={() => handleInfoChipClick(dbTask)} 
+                isHovered={hoveredItemId === scheduledItem.id} 
+              />
+            )}
           </div>
         </React.Fragment>
       );
@@ -469,100 +487,111 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current);
 
   return (
-    <div className="space-y-4 animate-slide-in-up">
-      <Card className="animate-pop-in animate-hover-lift">
-        <CardContent className="p-0">
-          <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
-            {/* Global "Now" Indicator */}
-            {isTodaySelected && firstItemStartTime && lastItemEndTime && (
-              <div 
-                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress"
-                style={{ top: `${globalProgressLineTopPercentage}%` }}
-              >
-                <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-live-progress z-20" />
-                <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> 
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> 
-                    {formatTime(T_current)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-              {schedule?.items.length === 0 ? (
-                <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
-                  <ListTodo className="h-12 w-12 text-muted-foreground" />
-                  <p className="text-lg font-semibold">Your schedule is clear for today!</p>
-                  <p className="text-sm">Ready to plan? Add a task using the input above.</p>
-                  <Button onClick={onAddTaskClick} className="mt-4 flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
-                    <PlusCircle className="h-5 w-5" /> Add a Task
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  {!activeItemInDisplay && T_current < firstItemStartTime && isTodaySelected && (
-                    <div className={cn(
-                      "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                      "top-0"
-                    )}>
-                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                      <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                        ⏳ Schedule starts later today
-                      </p>
-                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                    </div>
-                  )}
-                  {!activeItemInDisplay && T_current >= lastItemEndTime && isTodaySelected && (
-                    <div className={cn(
-                      "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                      "bottom-0"
-                    )}>
-                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                      <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                        ✅ All tasks completed!
-                      </p>
-                      <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                    </div>
-                  )}
-
-                  {finalDisplayItems.map((item) => (
-                    <React.Fragment key={item.id}>
-                      {renderDisplayItem(item)}
-                    </React.Fragment>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
+    <>
+      <div className="space-y-4 animate-slide-in-up">
         <Card className="animate-pop-in animate-hover-lift">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            {schedule?.summary.extendsPastMidnight && (
-              <p className="text-orange-500 font-semibold">⚠️ {schedule.summary.midnightRolloverMessage}</p>
-            )}
-            {schedule?.summary.criticalTasksRemaining > 0 && (
-              <p className="text-red-500 font-semibold">
-                ⚠️ Critical task{schedule.summary.criticalTasksRemaining > 1 ? 's' : ''} remain. Rezone now!
-              </p>
-            )}
-            {totalScheduledMinutes < 6 * 60 && (
-              <p>💡 Light day! Consider adding buffer time for flexibility.</p>
-            )}
-            {totalScheduledMinutes > 12 * 60 && (
-              <p className="text-red-500">⚠️ Intense schedule. Remember to include meals and rest.</p>
-            )}
+          <CardContent className="p-0">
+            <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
+              {/* Global "Now" Indicator */}
+              {isTodaySelected && firstItemStartTime && lastItemEndTime && (
+                <div 
+                  className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress"
+                  style={{ top: `${globalProgressLineTopPercentage}%` }}
+                >
+                  <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-live-progress z-20" />
+                  <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> 
+                    <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> 
+                      {formatTime(T_current)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                {schedule?.items.length === 0 ? (
+                  <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
+                    <ListTodo className="h-12 w-12 text-muted-foreground" />
+                    <p className="text-lg font-semibold">Your schedule is clear for today!</p>
+                    <p className="text-sm">Ready to plan? Add a task using the input above.</p>
+                    <Button onClick={onAddTaskClick} className="mt-4 flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
+                      <PlusCircle className="h-5 w-5" /> Add a Task
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {!activeItemInDisplay && T_current < firstItemStartTime && isTodaySelected && (
+                      <div className={cn(
+                        "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                        "top-0"
+                      )}>
+                        <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                        <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                          ⏳ Schedule starts later today
+                        </p>
+                        <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                      </div>
+                    )}
+                    {!activeItemInDisplay && T_current >= lastItemEndTime && isTodaySelected && (
+                      <div className={cn(
+                        "col-span-2 text-center text-muted-foreground text-sm py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
+                        "bottom-0"
+                      )}>
+                        <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                        <p className="font-semibold text-primary flex items-center justify-center gap-2">
+                          ✅ All tasks completed!
+                        </p>
+                        <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                      </div>
+                    )}
+
+                    {finalDisplayItems.map((item) => (
+                      <React.Fragment key={item.id}>
+                        {renderDisplayItem(item)}
+                      </React.Fragment>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
-      )}
-    </div>
+
+        {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
+          <Card className="animate-pop-in animate-hover-lift">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              {schedule?.summary.extendsPastMidnight && (
+                <p className="text-orange-500 font-semibold">⚠️ {schedule.summary.midnightRolloverMessage}</p>
+              )}
+              {schedule?.summary.criticalTasksRemaining > 0 && (
+                <p className="text-red-500 font-semibold">
+                  ⚠️ Critical task{schedule.summary.criticalTasksRemaining > 1 ? 's' : ''} remain. Rezone now!
+                </p>
+              )}
+              {totalScheduledMinutes < 6 * 60 && (
+                <p>💡 Light day! Consider adding buffer time for flexibility.</p>
+              )}
+              {totalScheduledMinutes > 12 * 60 && (
+                <p className="text-red-500">⚠️ Intense schedule. Remember to include meals and rest.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+      <ScheduledTaskDetailSheet
+        task={selectedScheduledTask}
+        open={isSheetOpen}
+        onOpenChange={(open) => {
+          setIsSheetOpen(open);
+          if (!open) setSelectedScheduledTask(null);
+        }}
+        selectedDayString={selectedDayString}
+      />
+    </>
   );
 });
 

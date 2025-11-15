@@ -54,6 +54,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SchedulerUtilityBar from '@/components/SchedulerUtilityBar'; // NEW: Import SchedulerUtilityBar
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog'; // NEW: Import WorkdayWindowDialog
+import ScheduledTaskDetailSheet from '@/components/ScheduledTaskDetailSheet'; // NEW: Import ScheduledTaskDetailSheet
 
 const deepCompare = (a: any, b: any) => {
   if (a === b) return true;
@@ -109,6 +110,18 @@ const INTERLEAVING_PATTERN = [
   { duration: LONG_TASK_THRESHOLD + 1, critical: false }, // Represents 90+
 ];
 
+interface InjectionPromptState {
+  taskName: string;
+  isOpen: boolean;
+  isTimed?: boolean;
+  duration?: number;
+  breakDuration?: number; // Added breakDuration
+  startTime?: string;
+  endTime?: string;
+  isCritical?: boolean;
+  isFlexible?: boolean;
+  energyCost?: number;
+}
 
 const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy } = useSession(); // NEW: Added rechargeEnergy
@@ -142,7 +155,7 @@ const SchedulerPage: React.FC = () => {
   const [T_current, setT_current] = useState(new Date());
   
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
-  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; duration?: number; startTime?: string; endTime?: string; isCritical?: boolean; isFlexible?: boolean; energyCost?: number } | null>(null);
+  const [injectionPrompt, setInjectionPrompt] = useState<InjectionPromptState | null>(null); // Updated type
   const [injectionDuration, setInjectionDuration] = useState('');
   const [injectionBreak, setInjectionBreak] = useState('');
   const [injectionStartTime, setInjectionStartTime] = useState('');
@@ -209,6 +222,7 @@ const SchedulerPage: React.FC = () => {
         isCritical: isCritical,
         isFlexible: true,
         energyCost: calculateEnergyCost(duration, isCritical),
+        breakDuration: undefined, // Explicitly set as undefined if not provided by taskToSchedule
       });
       setInjectionDuration(String(duration));
       navigate(location.pathname, { replace: true, state: {} }); 
@@ -584,6 +598,7 @@ const SchedulerPage: React.FC = () => {
           isCritical: injectCommand.isCritical,
           isFlexible: injectCommand.isFlexible,
           energyCost: injectCommand.energyCost,
+          breakDuration: injectCommand.breakDuration, // Pass breakDuration
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -599,6 +614,7 @@ const SchedulerPage: React.FC = () => {
           isCritical: injectCommand.isCritical,
           isFlexible: injectCommand.isFlexible,
           energyCost: injectCommand.energyCost,
+          breakDuration: injectCommand.breakDuration, // Pass breakDuration
         });
         success = true;
       }
@@ -669,6 +685,7 @@ const SchedulerPage: React.FC = () => {
             isCritical: false,
             isFlexible: false,
             energyCost: 0,
+            breakDuration: undefined, // Explicitly set as undefined
           });
           setInjectionStartTime(format(T_current, 'h:mm a'));
           setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -753,6 +770,7 @@ const SchedulerPage: React.FC = () => {
         name: injectionPrompt.taskName, 
         start_time: startTime.toISOString(), 
         end_time: endTime.toISOString(), 
+        break_duration: injectionPrompt.breakDuration, // Pass break duration
         scheduled_date: taskScheduledDate, 
         is_critical: injectionPrompt.isCritical, 
         is_flexible: injectionPrompt.isFlexible, 
@@ -1236,6 +1254,7 @@ const SchedulerPage: React.FC = () => {
       isCritical: false,
       isFlexible: true,
       energyCost: calculateEnergyCost(30, false),
+      breakDuration: undefined, // Explicitly set as undefined
     });
     setInjectionDuration('30');
     setInjectionBreak('');
@@ -1254,6 +1273,7 @@ const SchedulerPage: React.FC = () => {
       isCritical: false,
       isFlexible: false,
       energyCost: 0,
+      breakDuration: undefined, // Explicitly set as undefined
     });
     setInjectionStartTime(format(T_current, 'h:mm a'));
     setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -1469,6 +1489,7 @@ const SchedulerPage: React.FC = () => {
               Please provide the details for this task.
             </DialogDescription>
           </DialogHeader>
+          {/* Removed the duplicate </DialogDescription> tag here */}
           <React.Fragment>
             <div className="grid gap-4 py-4">
               {injectionPrompt?.isTimed ? (

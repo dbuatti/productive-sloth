@@ -258,7 +258,12 @@ export const useSchedulerTasks = (selectedDate: string) => {
       showSuccess('Task sent directly to Aether Sink!');
     },
     onError: (err, newTask, context) => {
-      showError(`Failed to send task to Aether Sink: ${err.message}`);
+      // Check if the error message indicates a unique constraint violation (409 Conflict)
+      if (err instanceof Error && err.message.includes('409 (Conflict)')) {
+        showError(`A task named "${newTask.name}" for the original date ${format(parseISO(newTask.original_scheduled_date), 'MMM d, yyyy')} already exists in the Aether Sink. If you wish to add it again, consider modifying its name slightly.`);
+      } else {
+        showError(`Failed to send task to Aether Sink: ${err.message}`);
+      }
       if (context?.previousRetiredTasks) {
         queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
       }

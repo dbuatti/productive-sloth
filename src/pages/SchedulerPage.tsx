@@ -142,6 +142,7 @@ const SchedulerPage: React.FC = () => {
     sortBy,
     setSortBy,
     autoBalanceSchedule, // NEW: Import autoBalanceSchedule
+    completeScheduledTask, // NEW: Import completeScheduledTask
   } = useSchedulerTasks(selectedDay);
 
   const queryClient = useQueryClient();
@@ -1301,6 +1302,27 @@ const SchedulerPage: React.FC = () => {
     setInputValue('');
   };
 
+  const handleCompleteScheduledTask = async (taskToComplete: DBScheduledTask) => {
+    if (!user) {
+      showError("You must be logged in to complete tasks.");
+      return;
+    }
+    if (taskToComplete.is_locked) {
+      showError(`Cannot complete locked task "${taskToComplete.name}". Unlock it first.`);
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      await completeScheduledTask(taskToComplete);
+      showSuccess(`Task "${taskToComplete.name}" completed!`);
+    } catch (error: any) {
+      showError(`Failed to complete task: ${error.message}`);
+      console.error("Complete scheduled task error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
 
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -1544,6 +1566,7 @@ const SchedulerPage: React.FC = () => {
               T_current={T_current} 
               onRemoveTask={removeScheduledTask} 
               onRetireTask={handleManualRetire}
+              onCompleteTask={handleCompleteScheduledTask} // NEW: Pass the complete handler
               activeItemId={activeItem?.id || null} 
               selectedDayString={selectedDay} 
               onAddTaskClick={handleAddTaskClick}

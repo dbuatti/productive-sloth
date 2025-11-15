@@ -8,6 +8,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns'; // Import format, addMinutes, isBefore, isAfter
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants'; // Import constants
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree } from '@/lib/scheduler-utils'; // Import scheduler utility functions, including isSlotFree
+import { useTasks } from './use-tasks'; // NEW: Import useTasks to leverage its mutations
 
 // Helper function to calculate date boundaries for server-side filtering
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
@@ -294,6 +295,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
   const queryClient = useQueryClient();
   const { user } = useSession();
   const userId = user?.id;
+  const { addTask, updateTask } = useTasks(); // NEW: Import addTask and updateTask from useTasks
 
   const formattedSelectedDate = selectedDate; // Now directly use selectedDate
 
@@ -626,7 +628,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
         retired_at: new Date().toISOString(),
-        is_critical: taskToRetire.is_critical,
+        is_critical: taskToToRetire.is_critical,
         is_locked: taskToRetire.is_locked, // ADDED: is_locked property
         energy_cost: taskToRetire.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
       };
@@ -1383,6 +1385,40 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
+  // NEW: Complete a scheduled task (triggers energy deduction, XP, etc.)
+  const completeScheduledTaskMutation = useMutation({
+    mutationFn: async (taskToComplete: DBScheduledTask) => {
+      if (!userId) throw new Error("User not authenticated.");
+
+      // 1. Create a new entry in the main 'tasks' table
+      const newTask: NewTask = {
+        title: taskToComplete.name,
+        description: `Completed from schedule on ${format(parseISO(taskToComplete.scheduled_date), 'MMM d, yyyy')}`,
+        priority: taskToComplete.is_critical ? 'HIGH' : 'MEDIUM', // Assign priority based on criticality
+        metadata_xp: taskToComplete.energy_cost * 2, // Example: XP is double energy cost
+        energy_cost: taskToComplete.energy_cost,
+        due_date: taskToComplete.scheduled_date,
+        is_critical: taskToComplete.is_critical,
+      };
+      const addedTask = await addTask(newTask); // Use the addTask mutation from useTasks
+
+      // 2. Mark the newly created task as completed to trigger gamification logic
+      await updateTask({ id: addedTask.id, is_completed: true }); // Use the updateTask mutation from useTasks
+
+      // 3. Remove the task from the scheduled_tasks table
+      await removeScheduledTaskMutation.mutateAsync(taskToComplete.id); // Use mutateAsync to await completion
+    },
+    onSuccess: () => {
+      // Invalidate relevant queries. The addTask and updateTask mutations already invalidate 'tasks'.
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      // showSuccess is handled by the updateTask mutation's onSuccess
+    },
+    onError: (err) => {
+      showError(`Failed to complete scheduled task: ${err.message}`);
+    }
+  });
+
 
   return {
     dbScheduledTasks, // The raw data from Supabase
@@ -1405,6 +1441,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     aetherDump: aetherDumpMutation.mutate, // NEW: Expose Aether Dump mutation
     aetherDumpMega: aetherDumpMegaMutation.mutate, // NEW: Expose Aether Dump Mega mutation
     autoBalanceSchedule: autoBalanceScheduleMutation.mutate, // NEW: Expose Auto Balance Schedule mutation
+    completeScheduledTask: completeScheduledTaskMutation.mutate, // NEW: Expose completeScheduledTask mutation
     sortBy, // Expose sortBy state
     setSortBy, // Expose setSortBy function
   };

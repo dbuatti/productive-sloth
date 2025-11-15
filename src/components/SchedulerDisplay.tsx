@@ -3,7 +3,7 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap } from 'lucide-react'; // Import Archive icon, AlertCircle, Lock, Unlock, Clock, Zap
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle } from 'lucide-react'; // Import Archive icon, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns'; // Added isPast
@@ -16,6 +16,7 @@ interface SchedulerDisplayProps {
   T_current: Date;
   onRemoveTask: (taskId: string) => void;
   onRetireTask: (task: DBScheduledTask) => void; // NEW: Handler for retiring a task
+  onCompleteTask: (task: DBScheduledTask) => void; // NEW: Handler for completing a task
   activeItemId: string | null;
   selectedDayString: string; // New prop to pass selectedDay from parent
   onAddTaskClick: () => void; // NEW: Handler for adding a task from empty state
@@ -30,7 +31,7 @@ const getBubbleHeightStyle = (duration: number) => {
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, activeItemId, selectedDayString, onAddTaskClick }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
@@ -255,11 +256,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const lightness = isLocked ? 25 : 35; // Darker shade for locked tasks
       const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
 
-      // Find the corresponding DBScheduledTask to pass to onRetireTask
+      // Find the corresponding DBScheduledTask to pass to onRetireTask and onCompleteTask
       // Use schedule.dbTasks which is the raw array from Supabase
       const dbTask = schedule?.dbTasks.find(t => t.id === scheduledItem.id);
 
       const isTimeOff = scheduledItem.type === 'time-off'; // NEW: Check if it's a time-off item
+      const isBreak = scheduledItem.type === 'break'; // NEW: Check if it's a break item
 
       return (
         <React.Fragment key={scheduledItem.id}>
@@ -363,6 +365,29 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
                     </TooltipContent>
                   </Tooltip>
+
+                  {dbTask && !isBreak && !isTimeOff && ( // Only show complete/retire buttons for actual tasks
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => onCompleteTask(dbTask)} 
+                          disabled={isLocked} // Disable if locked
+                          className={cn(
+                            "h-6 w-6 p-0 shrink-0",
+                            isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
+                          )}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="sr-only">Complete task</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
 
                   {dbTask && ( // Only show retire button if it's a real DB task
                     <Tooltip>

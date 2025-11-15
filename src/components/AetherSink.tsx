@@ -18,65 +18,68 @@ interface AetherSinkProps {
   isProcessingCommand: boolean; // To disable button when other commands are running
   isSinkOpen: boolean; // NEW: State for collapse/expand
   onToggle: () => void; // NEW: Handler to toggle state
+  hideTitle?: boolean; // NEW: Prop to hide the card title
 }
 
-const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, isSinkOpen, onToggle }) => {
+const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, isSinkOpen, onToggle, hideTitle = false }) => {
   const hasRetiredTasks = retiredTasks.length > 0;
   const { toggleRetiredTaskLock } = useSchedulerTasks(''); // Pass empty string as selectedDate is not relevant here
 
   return (
     <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
-          <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
-        </CardTitle>
-        <div className="flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={onAutoScheduleSink}
-                disabled={!hasRetiredTasks || isLoading || isProcessingCommand || retiredTasks.every(task => task.is_locked)}
-                className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                {isProcessingCommand ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                <span>Auto Schedule</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Automatically re-zone all unlocked retired tasks into your current schedule.</p>
-            </TooltipContent>
-          </Tooltip>
-          
-          {/* NEW: Toggle Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggle}
-                className="h-8 w-8 text-muted-foreground hover:bg-secondary/50"
-              >
-                {isSinkOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                <span className="sr-only">{isSinkOpen ? "Collapse Sink" : "Expand Sink"}</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isSinkOpen ? "Collapse Sink" : "Expand Sink"}</p>
+      {!hideTitle && (
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
+            <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={onAutoScheduleSink}
+                  disabled={!hasRetiredTasks || isLoading || isProcessingCommand || retiredTasks.every(task => task.is_locked)}
+                  className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  {isProcessingCommand ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  <span>Auto Schedule</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Automatically re-zone all unlocked retired tasks into your current schedule.</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            {/* NEW: Toggle Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggle}
+                  className="h-8 w-8 text-muted-foreground hover:bg-secondary/50"
+                >
+                  {isSinkOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  <span className="sr-only">{isSinkOpen ? "Collapse Sink" : "Expand Sink"}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isSinkOpen ? "Collapse Sink" : "Expand Sink"}</p>
             </TooltipContent>
           </Tooltip>
         </div>
       </CardHeader>
+      )}
       
       {/* Conditional Content Rendering */}
       {isSinkOpen && (
         <>
-          <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />
+          {!hideTitle && <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />}
           <CardContent className="space-y-3">
             {isLoading ? (
               <div className="flex items-center justify-center py-4">

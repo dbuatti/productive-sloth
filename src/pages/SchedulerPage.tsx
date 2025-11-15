@@ -49,7 +49,7 @@ import WeatherWidget from '@/components/WeatherWidget';
 import { TimeBlock } from '@/types/scheduler';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-// Removed DEFAULT_ENERGY_COST import
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // NEW: Import Tabs components
 
 const deepCompare = (a: any, b: any) => {
   if (a === b) return true;
@@ -161,6 +161,7 @@ const SchedulerPage: React.FC = () => {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false); // Corrected typo
   const [isSinkOpen, setIsSinkOpen] = useState(false); // CHANGED: Set to false to be closed by default
+  const [activeTab, setActiveTab] = useState('vibe-schedule'); // NEW: State for active tab
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -1375,19 +1376,6 @@ const SchedulerPage: React.FC = () => {
         hasFlexibleTasks={hasFlexibleTasksOnCurrentDay} // Pass prop to enable/disable buttons
       />
 
-      <CalendarStrip 
-        selectedDay={selectedDay} 
-        setSelectedDay={setSelectedDay} 
-        datesWithTasks={datesWithTasks} 
-        isLoadingDatesWithTasks={isLoadingDatesWithTasks}
-      />
-
-      {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="sticky top-[96px] z-50 bg-background pb-4"> {/* Adjusted top to 96px */}
-          <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
-        </div>
-      )}
-
       <Card className="animate-pop-in animate-hover-lift">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -1440,9 +1428,6 @@ const SchedulerPage: React.FC = () => {
                 <p>Randomly re-allocate unlocked breaks</p>
               </TooltipContent>
             </Tooltip>
-
-            {/* Removed Compact Schedule Button - now in Dashboard Panel */}
-            {/* Removed Aether Dump Button - now in Dashboard Panel */}
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1501,17 +1486,6 @@ const SchedulerPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      <AetherSink 
-        retiredTasks={retiredTasks} 
-        onRezoneTask={handleRezoneFromSink} 
-        onRemoveRetiredTask={handleRemoveRetiredTask}
-        onAutoScheduleSink={handleAutoScheduleSinkWrapper} // Use the wrapper function
-        isLoading={isLoadingRetiredTasks}
-        isProcessingCommand={isProcessingCommand}
-        isSinkOpen={isSinkOpen} // NEW: Pass state
-        onToggle={() => setIsSinkOpen(prev => !prev)} // NEW: Pass toggle handler
-      />
-
       {currentSchedule?.summary.unscheduledCount > 0 && (
         <Card className="animate-pop-in animate-hover-lift">
           <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
@@ -1521,31 +1495,78 @@ const SchedulerPage: React.FC = () => {
         </Card>
       )}
 
-      <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isSchedulerTasksLoading ? (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {/* NEW: Tabbed Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md">
+          <TabsTrigger 
+            value="vibe-schedule" 
+            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
+          >
+            <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Your Vibe Schedule
+          </TabsTrigger>
+          <TabsTrigger 
+            value="aether-sink" 
+            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
+          >
+            <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="vibe-schedule" className="space-y-4">
+          <CalendarStrip 
+            selectedDay={selectedDay} 
+            setSelectedDay={setSelectedDay} 
+            datesWithTasks={datesWithTasks} 
+            isLoadingDatesWithTasks={isLoadingDatesWithTasks}
+          />
+
+          {isSameDay(parseISO(selectedDay), T_current) && (
+            <div className="sticky top-[96px] z-50 bg-background pb-4"> {/* Adjusted top to 96px */}
+              <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
             </div>
-          ) : (
-            <SchedulerDisplay 
-              schedule={currentSchedule} 
-              T_current={T_current} 
-              onRemoveTask={removeScheduledTask} 
-              onRetireTask={handleManualRetire}
-              onCompleteTask={handleCompleteScheduledTask} // NEW: Pass the complete handler
-              activeItemId={activeItem?.id || null} 
-              selectedDayString={selectedDay} 
-              onAddTaskClick={handleAddTaskClick}
-            />
           )}
-        </CardContent>
-      </Card>
+
+          <Card className="animate-pop-in animate-hover-lift">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isSchedulerTasksLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <SchedulerDisplay 
+                  schedule={currentSchedule} 
+                  T_current={T_current} 
+                  onRemoveTask={removeScheduledTask} 
+                  onRetireTask={handleManualRetire}
+                  onCompleteTask={handleCompleteScheduledTask} // NEW: Pass the complete handler
+                  activeItemId={activeItem?.id || null} 
+                  selectedDayString={selectedDay} 
+                  onAddTaskClick={handleAddTaskClick}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="aether-sink" className="space-y-4">
+          <AetherSink 
+            retiredTasks={retiredTasks} 
+            onRezoneTask={handleRezoneFromSink} 
+            onRemoveRetiredTask={handleRemoveRetiredTask}
+            onAutoScheduleSink={handleAutoScheduleSinkWrapper} // Use the wrapper function
+            isLoading={isLoadingRetiredTasks}
+            isProcessingCommand={isProcessingCommand}
+            isSinkOpen={true} // Always open when in its tab
+            onToggle={() => {}} // No toggle needed when in its tab
+            hideTitle={true} // Hide the title as the tab provides it
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>
         <DialogContent className="sm:max-w-[425px]">

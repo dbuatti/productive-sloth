@@ -1497,9 +1497,9 @@ const SchedulerPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* 5. NOW FOCUS Card */}
+      {/* 5. NOW FOCUS Card - UNSTICKY */}
       {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="sticky top-[144px] z-50 bg-background pb-4"> {/* Adjusted top to 144px (AppHeader + ProgressBarHeader) */}
+        <div className="bg-background pb-4"> {/* Removed sticky, top, z-50 */}
           <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
         </div>
       )}
@@ -1516,7 +1516,7 @@ const SchedulerPage: React.FC = () => {
 
       {/* 7. Tabbed Schedule Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[192px] z-20"> {/* Adjusted top to 192px (AppHeader + ProgressBarHeader + NowFocusCard) */}
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[32px] z-20"> {/* TabsList remains sticky */}
           <TabsTrigger 
             value="vibe-schedule" 
             className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"

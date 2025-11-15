@@ -45,8 +45,9 @@ serve(async (req) => {
 
     let payload;
     try {
-      payload = await verify(token, secretKey, 'HS256'); // Use the encoded secretKey
-    } catch (jwtError) {
+      // Corrected: Pass the algorithm as an object
+      payload = await verify(token, secretKey, { name: "HMAC", hash: "SHA-256" }); 
+    } catch (jwtError: any) {
       console.error("JWT Verification Error:", jwtError);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {
         status: 401,

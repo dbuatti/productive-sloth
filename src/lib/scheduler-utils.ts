@@ -2,7 +2,7 @@ import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, par
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock } from '@/types/scheduler';
 
 // --- Constants ---
-const EMOJI_MAP: { [key: string]: string } = {
+export const EMOJI_MAP: { [key: string]: string } = {
   'gym': '🏋️', 'workout': '🏋️', 'run': '🏃', 'exercise': '🏋️', 'fitness': '💪',
   'email': '📧', 'messages': '💬', 'calls': '📞', 'communication': '🗣️', 'admin': '⚙️', 'paperwork': '📄',
   'meeting': '💼', 'work': '💻', 'report': '📝', 'professional': '👔', 'project': '📊', 'coding': '💻', 'develop': '💻', 'code': '💻', 'bug': '🐛', 'fix': '🛠️', 'sync': '🤝', 'standup': '🤝',
@@ -42,7 +42,7 @@ const EMOJI_MAP: { [key: string]: string } = {
   'milk': '🥛', 'cartons': '🥛', // For 'Empty the old milk cartons'
 };
 
-const EMOJI_HUE_MAP: { [key: string]: number } = {
+export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'gym': 200, 'workout': 200, 'run': 210, 'exercise': 200, 'fitness': 200,
   'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
   'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40, 'sync': 290, 'standup': 290,

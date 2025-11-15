@@ -164,7 +164,7 @@ interface ParsedTaskInput {
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => {
   let isCritical = false;
   let shouldSink = false;
-  let isFlexible = true; // Default to flexible
+  let isFlexible = true; // Default to flexible, will be overridden for timed tasks
 
   // Order of parsing flags matters: sink, then critical, then fixed
   if (input.endsWith(' sink')) {
@@ -172,14 +172,16 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
     input = input.slice(0, -5).trim();
   }
 
+  // Check for 'fixed' keyword first, as it's an explicit override
+  const hasFixedKeyword = input.endsWith(' fixed');
+  if (hasFixedKeyword) {
+    isFlexible = false;
+    input = input.slice(0, -6).trim();
+  }
+
   if (input.endsWith(' !')) {
     isCritical = true;
     input = input.slice(0, -2).trim();
-  }
-
-  if (input.endsWith(' fixed')) {
-    isFlexible = false;
-    input = input.slice(0, -6).trim();
   }
 
   // Enforce 'Time Off' as fixed, regardless of 'fixed' keyword presence
@@ -191,6 +193,13 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
   const timeRangeMatch = input.match(timeRangePattern);
 
   if (timeRangeMatch) {
+    // If a time range is specified, it's implicitly fixed unless 'flexible' was explicitly used
+    // The `hasFixedKeyword` check above already handles explicit `fixed`.
+    // If `hasFixedKeyword` is false, but a time range is found, we set `isFlexible = false`.
+    if (!hasFixedKeyword && !input.endsWith(' flexible')) { // Ensure 'flexible' keyword doesn't override implicit fixed
+      isFlexible = false;
+    }
+    
     const fullTimeRangeString = timeRangeMatch[0];
     const startTimeStr = timeRangeMatch[1].trim();
     const endTimeStr = timeRangeMatch[3].trim();

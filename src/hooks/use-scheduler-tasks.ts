@@ -988,21 +988,50 @@ export const useSchedulerTasks = (selectedDate: string) => {
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const edgeFunctionUrl = `https://yfgapigmiyclgryqdgne.supabase.co/functions/v1/auto-balance-schedule`;
-      const response = await fetch(edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to auto-balance schedule via Edge Function');
+      // 1. Delete scheduled tasks
+      if (payload.scheduledTaskIdsToDelete.length > 0) {
+        const { error } = await supabase
+          .from('scheduled_tasks')
+          .delete()
+          .in('id', payload.scheduledTaskIdsToDelete)
+          .eq('user_id', userId)
+          .eq('scheduled_date', payload.selectedDate);
+        if (error) throw new Error(`Failed to delete old scheduled tasks: ${error.message}`);
       }
-      return await response.json();
+
+      // 2. Delete retired tasks
+      if (payload.retiredTaskIdsToDelete.length > 0) {
+        const { error } = await supabase
+          .from('retired_tasks')
+          .delete()
+          .in('id', payload.retiredTaskIdsToDelete)
+          .eq('user_id', userId);
+        if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
+      }
+
+      // 3. Insert new scheduled tasks
+      if (payload.tasksToInsert.length > 0) {
+        const tasksToInsertWithUserId = payload.tasksToInsert.map(task => ({ ...task, user_id: userId }));
+        const { error } = await supabase
+          .from('scheduled_tasks')
+          .insert(tasksToInsertWithUserId);
+        if (error) throw new Error(`Failed to insert new scheduled tasks: ${error.message}`);
+      }
+
+      // 4. Insert tasks back into the sink (those that couldn't be placed)
+      if (payload.tasksToKeepInSink.length > 0) {
+        const tasksToKeepInSinkWithUserId = payload.tasksToKeepInSink.map(task => ({ 
+          ...task, 
+          user_id: userId, 
+          retired_at: new Date().toISOString() 
+        }));
+        const { error } = await supabase
+          .from('retired_tasks')
+          .insert(tasksToKeepInSinkWithUserId);
+        if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
+      }
+
+      return { tasksPlaced: payload.tasksToInsert.length, tasksKeptInSink: payload.tasksToKeepInSink.length };
     },
     onMutate: async (payload: AutoBalancePayload) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });

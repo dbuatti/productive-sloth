@@ -132,7 +132,7 @@ const SchedulerPage: React.FC = () => {
     aetherDumpMega,
     sortBy,
     setSortBy,
-    autoBalanceSchedule,
+    autoBalanceSchedule, // Now client-side
     completeScheduledTask,
   } = useSchedulerTasks(selectedDay);
 

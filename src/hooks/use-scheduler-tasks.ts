@@ -590,7 +590,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
           break_duration: task.break_duration,
           start_time: task.start_time,
           end_time: task.end_time,
-          scheduled_date: task.scheduled_date,
+          scheduled_date: selectedDate,
           is_critical: task.is_critical,
           is_flexible: task.is_flexible,
           is_locked: task.is_locked,
@@ -987,49 +987,22 @@ export const useSchedulerTasks = (selectedDate: string) => {
   const autoBalanceScheduleMutation = useMutation({
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { scheduledTaskIdsToDelete, retiredTaskIdsToDelete, tasksToInsert, tasksToKeepInSink, selectedDate } = payload;
 
-      if (scheduledTaskIdsToDelete.length > 0) {
-        const { error: deleteScheduledError } = await supabase
-          .from('scheduled_tasks')
-          .delete()
-          .in('id', scheduledTaskIdsToDelete)
-          .eq('user_id', userId)
-          .eq('scheduled_date', selectedDate);
-        if (deleteScheduledError) throw new Error(`Failed to clear old schedule tasks: ${deleteScheduledError.message}`);
-      }
+      const edgeFunctionUrl = `https://yfgapigmiyclgryqdgne.supabase.co/functions/v1/auto-balance-schedule`;
+      const response = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-      if (retiredTaskIdsToDelete.length > 0) {
-        const { error: deleteRetiredError } = await supabase
-          .from('retired_tasks')
-          .delete()
-          .in('id', retiredTaskIdsToDelete)
-          .eq('user_id', userId);
-        if (deleteRetiredError) throw new Error(`Failed to clear old retired tasks: ${deleteRetiredError.message}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to auto-balance schedule via Edge Function');
       }
-
-      if (tasksToInsert.length > 0) {
-        const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId, energy_cost: task.energy_cost ?? 0, is_completed: task.is_completed ?? false }));
-        const { error: insertScheduledError } = await supabase
-          .from('scheduled_tasks')
-          .insert(tasksToInsertWithUserId);
-        if (insertScheduledError) throw new Error(`Failed to insert new scheduled tasks: ${insertScheduledError.message}`);
-      }
-
-      if (tasksToKeepInSink.length > 0) {
-        const tasksToKeepInSinkWithUserId = tasksToKeepInSink.map(task => ({ 
-          ...task, 
-          user_id: userId, 
-          retired_at: new Date().toISOString(),
-          energy_cost: task.energy_cost ?? 0
-        }));
-        const { error: reinsertRetiredError } = await supabase
-          .from('retired_tasks')
-          .insert(tasksToKeepInSinkWithUserId);
-        if (reinsertRetiredError) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${reinsertRetiredError.message}`);
-      }
-      
-      return { tasksPlaced: tasksToInsert.length, tasksKeptInSink: tasksToKeepInSink.length };
+      return await response.json();
     },
     onMutate: async (payload: AutoBalancePayload) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });

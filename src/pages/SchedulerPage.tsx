@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe } from 'lucide-react'; // Added Globe icon
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap } from 'lucide-react'; // Added Globe icon, Zap
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload } from '@/types/scheduler';
@@ -92,6 +92,7 @@ interface UnifiedTask {
   break_duration: number | null;
   is_critical: boolean;
   is_flexible: boolean;
+  energy_cost: number | null; // NEW: Added energy_cost
   source: 'scheduled' | 'retired';
   originalId: string; // ID in the source table
 }
@@ -147,7 +148,7 @@ const SchedulerPage: React.FC = () => {
   const [T_current, setT_current] = useState(new Date());
   
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
-  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; startTime?: string; endTime?: string; isCritical?: boolean; isFlexible?: boolean } | null>(null);
+  const [injectionPrompt, setInjectionPrompt] = useState<{ taskName: string; isOpen: boolean; isTimed?: boolean; duration?: number; startTime?: string; endTime?: string; isCritical?: boolean; isFlexible?: boolean; energyCost?: number } | null>(null); // NEW: Added duration
   const [injectionDuration, setInjectionDuration] = useState('');
   const [injectionBreak, setInjectionBreak] = useState('');
   const [injectionStartTime, setInjectionStartTime] = useState('');
@@ -201,9 +202,19 @@ const SchedulerPage: React.FC = () => {
   useEffect(() => {
     const taskToSchedule = (location.state as any)?.taskToSchedule;
     if (taskToSchedule) {
-      const { name, duration, isCritical } = taskToSchedule;
+      const { name, duration, isCritical, energyCost } = taskToSchedule; // NEW: Extract energyCost
       const command = `inject "${name}" ${duration}${isCritical ? ' !' : ''}`;
-      handleCommand(command);
+      // We need to pass energyCost to the injection prompt
+      setInjectionPrompt({
+        taskName: name,
+        isOpen: true,
+        isTimed: false, // Assuming duration-based from 'My Tasks'
+        duration: duration, // <-- This is the line that caused the error
+        isCritical: isCritical,
+        isFlexible: true, // Tasks from My Tasks are flexible by default
+        energyCost: energyCost, // NEW: Pass energyCost
+      });
+      setInjectionDuration(String(duration)); // Pre-fill duration
       navigate(location.pathname, { replace: true, state: {} }); 
     }
   }, [location.state, navigate]);
@@ -327,6 +338,7 @@ const SchedulerPage: React.FC = () => {
     taskDuration: number,
     isCritical: boolean,
     isFlexible: boolean,
+    energyCost: number | undefined, // NEW: Added energyCost
     existingOccupiedBlocks: TimeBlock[],
     effectiveWorkdayStart: Date,
     workdayEndTime: Date
@@ -447,6 +459,7 @@ const SchedulerPage: React.FC = () => {
           break_duration: parsedInput.breakDuration || null,
           original_scheduled_date: taskScheduledDate,
           is_critical: parsedInput.isCritical,
+          energy_cost: parsedInput.energyCost ?? null, // NEW: Pass energyCost
         };
         await addRetiredTask(newRetiredTask);
         success = true;
@@ -460,6 +473,7 @@ const SchedulerPage: React.FC = () => {
             newTaskDuration,
             parsedInput.isCritical,
             parsedInput.isFlexible,
+            parsedInput.energyCost, // NEW: Pass energyCost
             currentOccupiedBlocksForScheduling,
             effectiveWorkdayStart,
             workdayEndTime
@@ -474,6 +488,7 @@ const SchedulerPage: React.FC = () => {
               is_critical: parsedInput.isCritical,
               is_flexible: parsedInput.isFlexible,
               scheduled_date: taskScheduledDate,
+              energy_cost: parsedInput.energyCost, // NEW: Pass energyCost
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -509,7 +524,7 @@ const SchedulerPage: React.FC = () => {
           }
 
           const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: parsedInput.isFlexible });
+          await addScheduledTask({ name: parsedInput.name, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: parsedInput.isCritical, is_flexible: parsedInput.isFlexible, energy_cost: parsedInput.energyCost }); // NEW: Pass energyCost
           currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
@@ -527,6 +542,7 @@ const SchedulerPage: React.FC = () => {
           injectedTaskDuration,
           injectCommand.isCritical,
           injectCommand.isFlexible,
+          injectCommand.energyCost, // NEW: Pass energyCost
           currentOccupiedBlocksForScheduling,
           effectiveWorkdayStart,
           workdayEndTime
@@ -541,6 +557,7 @@ const SchedulerPage: React.FC = () => {
             scheduled_date: taskScheduledDate,
             is_critical: injectCommand.isCritical,
             is_flexible: injectCommand.isFlexible,
+            energy_cost: injectCommand.energyCost, // NEW: Pass energyCost
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -560,6 +577,7 @@ const SchedulerPage: React.FC = () => {
           endTime: injectCommand.endTime,
           isCritical: injectCommand.isCritical,
           isFlexible: injectCommand.isFlexible,
+          energyCost: injectCommand.energyCost, // NEW: Pass energyCost
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -569,10 +587,12 @@ const SchedulerPage: React.FC = () => {
           taskName: injectCommand.taskName, 
           isOpen: true, 
           isTimed: false,
+          duration: injectCommand.duration, // NEW: Pass duration for non-timed injection
           startTime: undefined,
           endTime: undefined,
           isCritical: injectCommand.isCritical,
           isFlexible: injectCommand.isFlexible,
+          energyCost: injectCommand.energyCost, // NEW: Pass energyCost
         });
         success = true;
       }
@@ -662,6 +682,7 @@ const SchedulerPage: React.FC = () => {
             endTime: format(addHours(T_current, 1), 'h:mm a'),
             isCritical: false,
             isFlexible: false, // Enforce Time Off as fixed
+            energyCost: 0, // Time Off has no energy cost
           });
           setInjectionStartTime(format(T_current, 'h:mm a'));
           setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -736,7 +757,15 @@ const SchedulerPage: React.FC = () => {
       }
 
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-      await addScheduledTask({ name: injectionPrompt.taskName, start_time: startTime.toISOString(), end_time: endTime.toISOString(), scheduled_date: taskScheduledDate, is_critical: injectionPrompt.isCritical, is_flexible: injectionPrompt.isFlexible });
+      await addScheduledTask({ 
+        name: injectionPrompt.taskName, 
+        start_time: startTime.toISOString(), 
+        end_time: endTime.toISOString(), 
+        scheduled_date: taskScheduledDate, 
+        is_critical: injectionPrompt.isCritical, 
+        is_flexible: injectionPrompt.isFlexible, 
+        energy_cost: injectionPrompt.energyCost 
+      }); // NEW: Pass energyCost
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
@@ -762,6 +791,7 @@ const SchedulerPage: React.FC = () => {
         injectedTaskDuration,
         injectionPrompt.isCritical,
         injectionPrompt.isFlexible,
+        injectionPrompt.energyCost, // NEW: Pass energyCost
         currentOccupiedBlocksForScheduling,
         effectiveWorkdayStart,
         workdayEndTime
@@ -776,6 +806,7 @@ const SchedulerPage: React.FC = () => {
           scheduled_date: taskScheduledDate,
           is_critical: injectionPrompt.isCritical,
           is_flexible: injectionPrompt.isFlexible,
+          energy_cost: injectionPrompt.energyCost, // NEW: Pass energyCost
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -821,6 +852,7 @@ const SchedulerPage: React.FC = () => {
         taskDuration,
         retiredTask.is_critical,
         true,
+        retiredTask.energy_cost ?? undefined, // NEW: Pass energy_cost
         currentOccupiedBlocksForScheduling,
         effectiveWorkdayStart,
         workdayEndTime
@@ -837,6 +869,7 @@ const SchedulerPage: React.FC = () => {
           scheduled_date: formattedSelectedDay,
           is_critical: retiredTask.is_critical,
           is_flexible: true,
+          energy_cost: retiredTask.energy_cost, // NEW: Pass energy_cost
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -923,6 +956,7 @@ const SchedulerPage: React.FC = () => {
                 break_duration: task.break_duration,
                 is_critical: task.is_critical,
                 is_flexible: true,
+                energy_cost: task.energy_cost, // NEW: Pass energy_cost
                 source: 'scheduled',
                 originalId: task.id,
             });
@@ -938,6 +972,7 @@ const SchedulerPage: React.FC = () => {
                 break_duration: task.break_duration,
                 is_critical: task.is_critical,
                 is_flexible: true,
+                energy_cost: task.energy_cost, // NEW: Pass energy_cost
                 source: 'retired',
                 originalId: task.id,
             });
@@ -1022,6 +1057,7 @@ const SchedulerPage: React.FC = () => {
                 is_critical: task.is_critical,
                 is_flexible: task.is_flexible,
                 is_locked: task.is_locked,
+                energy_cost: task.energy_cost, // NEW: Pass energy_cost
             });
         });
 
@@ -1072,6 +1108,7 @@ const SchedulerPage: React.FC = () => {
                             is_critical: task.is_critical,
                             is_flexible: true, // Always true for tasks coming from the flexible pool
                             is_locked: false, // Always false as we only process unlocked tasks
+                            energy_cost: task.energy_cost, // NEW: Pass energy_cost
                         });
 
                         // Update occupied blocks for the next task
@@ -1097,6 +1134,7 @@ const SchedulerPage: React.FC = () => {
                     original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
                     is_critical: task.is_critical,
                     is_locked: false,
+                    energy_cost: task.energy_cost, // NEW: Pass energy_cost
                 });
             }
         }
@@ -1215,10 +1253,12 @@ const SchedulerPage: React.FC = () => {
       taskName: '',
       isOpen: true, 
       isTimed: false,
+      duration: undefined, // NEW: Default duration
       startTime: undefined,
       endTime: undefined,
       isCritical: false,
       isFlexible: true,
+      energyCost: undefined, // NEW: Default energyCost
     });
     setInjectionDuration('');
     setInjectionBreak('');
@@ -1236,6 +1276,7 @@ const SchedulerPage: React.FC = () => {
       endTime: format(addHours(T_current, 1), 'h:mm a'),
       isCritical: false,
       isFlexible: false, // Enforce Time Off as fixed
+      energyCost: 0, // Time Off has no energy cost
     });
     setInjectionStartTime(format(T_current, 'h:mm a'));
     setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));

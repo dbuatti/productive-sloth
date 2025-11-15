@@ -181,12 +181,14 @@ interface ParsedTaskInput {
   isCritical: boolean;
   shouldSink?: boolean;
   isFlexible: boolean;
+  energyCost?: number; // NEW: Added energyCost
 }
 
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => {
   let isCritical = false;
   let shouldSink = false;
   let isFlexible = true; // Default to flexible, will be overridden for timed tasks
+  let energyCost: number | undefined = undefined; // NEW: Initialize energyCost
 
   // Order of parsing flags matters: sink, then critical, then fixed
   if (input.endsWith(' sink')) {
@@ -241,7 +243,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
         .trim();
 
       if (cleanedTaskName) {
-        return { name: cleanedTaskName, startTime, endTime, isCritical, shouldSink, isFlexible };
+        return { name: cleanedTaskName, startTime, endTime, isCritical, shouldSink, isFlexible, energyCost };
       }
     }
   }
@@ -254,7 +256,9 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
     const duration = parseInt(durationMatch[2], 10);
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
     if (name && duration > 0) {
-      return { name, duration, breakDuration, isCritical, shouldSink, isFlexible };
+      // For duration-based tasks, we can assign a default energy cost based on duration or priority if needed
+      // For now, we'll leave it undefined, assuming it comes from 'My Tasks' or injection.
+      return { name, duration, breakDuration, isCritical, shouldSink, isFlexible, energyCost };
     }
   }
 
@@ -269,11 +273,13 @@ interface ParsedInjectionCommand {
   endTime?: string;
   isCritical: boolean;
   isFlexible: boolean;
+  energyCost?: number; // NEW: Added energyCost
 }
 
 export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
   let isCritical = false;
   let isFlexible = true; // Default to flexible
+  let energyCost: number | undefined = undefined; // NEW: Initialize energyCost
 
   if (input.endsWith(' !')) {
     isCritical = true;
@@ -309,7 +315,9 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
       if (taskName.toLowerCase() === 'time off') {
         isFlexible = false;
       }
-      return { taskName, duration, breakDuration, startTime, endTime, isCritical, isFlexible };
+      // For injection, we might derive energyCost from duration or have a default
+      // For now, leave undefined, assuming it's passed from 'My Tasks' or a default is set later.
+      return { taskName, duration, breakDuration, startTime, endTime, isCritical, isFlexible, energyCost };
     }
   }
   return null;
@@ -477,6 +485,7 @@ export const calculateSchedule = (
       isCritical: task.is_critical,
       isFlexible: task.is_flexible,
       isLocked: task.is_locked, // NEW: Pass is_locked status
+      energyCost: task.energy_cost ?? undefined, // NEW: Pass energy_cost
     });
     
     if (!isMealTime && !isTimeOff) {
@@ -504,7 +513,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTime,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRoloverMessage,
+    midnightRolloverMessage: midnightRolloverMessage,
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
   };

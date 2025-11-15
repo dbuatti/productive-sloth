@@ -3,7 +3,7 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock } from 'lucide-react'; // Import Archive icon, AlertCircle, Lock, Unlock, Clock
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap } from 'lucide-react'; // Import Archive icon, AlertCircle, Lock, Unlock, Clock, Zap
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns'; // Added isPast
@@ -321,7 +321,21 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     MISSED
                   </Badge>
                 )}
-                {/* REMOVED: Flexible/Fixed Badge */}
+                {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && ( // NEW: Display energy cost
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className={cn(
+                        "flex items-center gap-1 text-xs font-semibold font-mono",
+                        isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
+                      )}>
+                        {scheduledItem.energyCost} <Zap className="h-3 w-3" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Energy Cost</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <span className={cn(
                   "text-xs font-semibold font-mono",
                   isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80" // NEW: Text color for time-off

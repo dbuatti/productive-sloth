@@ -65,6 +65,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           name: task.title,
           duration: task.energy_cost, // Use energy_cost as duration proxy
           isCritical: task.is_critical, // Pass critical flag
+          energyCost: task.energy_cost, // NEW: Pass actual energy_cost
         }
       } 
     });

@@ -340,7 +340,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked }))); // Detailed log
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost }))); // Detailed log
       return data as DBScheduledTask[];
     },
     enabled: !!userId && !!formattedSelectedDate, // Also update enabled condition
@@ -383,7 +383,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked }))); // Removed is_flexible from log
+      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost }))); // Removed is_flexible from log
       return data as RetiredTask[];
     },
     enabled: !!userId,
@@ -396,6 +396,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     duration: Math.floor((parseISO(dbTask.end_time!).getTime() - parseISO(dbTask.start_time!).getTime()) / (1000 * 60)), // Derive duration
     breakDuration: dbTask.break_duration ?? undefined,
     isCritical: dbTask.is_critical, // Pass critical flag
+    energyCost: dbTask.energy_cost ?? undefined, // NEW: Pass energyCost
   }));
 
   // Add a new scheduled task
@@ -437,6 +438,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
           is_critical: newTask.is_critical ?? false,
           is_flexible: newTask.is_flexible ?? true,
           is_locked: newTask.is_locked ?? false, // ADDED: is_locked property
+          energy_cost: newTask.energy_cost ?? null, // NEW: Add energy_cost
         };
         return [...(old || []), optimisticTask];
       });
@@ -488,6 +490,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
           retired_at: new Date().toISOString(),
           is_critical: newTask.is_critical ?? false,
           is_locked: newTask.is_locked ?? false, // ADDED: is_locked property
+          energy_cost: newTask.energy_cost ?? null, // NEW: Add energy_cost
         };
         return [optimisticTask, ...(old || [])];
       });
@@ -583,11 +586,14 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const newRetiredTask: NewRetiredTask = {
         user_id: userId,
         name: taskToRetire.name,
-        duration: Math.floor((parseISO(taskToRetire.end_time!).getTime() - parseISO(taskToRetire.start_time!).getTime()) / (1000 * 60)), // Derive duration for retired task
+        duration: (taskToRetire.start_time && taskToRetire.end_time) 
+                  ? Math.floor((parseISO(taskToRetire.end_time).getTime() - parseISO(taskToRetire.start_time).getTime()) / (1000 * 60)) 
+                  : null, // Derive duration for retired task
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
         is_critical: taskToRetire.is_critical, // Pass critical flag
         is_locked: taskToRetire.is_locked, // Pass locked flag
+        energy_cost: taskToRetire.energy_cost, // NEW: Pass energy_cost
       };
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -614,12 +620,15 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         id: taskToRetire.id, // Use original ID for optimistic update
         user_id: userId!,
         name: taskToRetire.name,
-        duration: Math.floor((parseISO(taskToRetire.end_time!).getTime() - parseISO(taskToRetire.start_time!).getTime()) / (1000 * 60)),
+        duration: (taskToRetire.start_time && taskToRetire.end_time) 
+                  ? Math.floor((parseISO(taskToRetire.end_time).getTime() - parseISO(taskToRetire.start_time).getTime()) / (1000 * 60)) 
+                  : null,
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
         retired_at: new Date().toISOString(),
         is_critical: taskToRetire.is_critical,
         is_locked: taskToRetire.is_locked, // ADDED: is_locked property
+        energy_cost: taskToRetire.energy_cost, // NEW: Add energy_cost
       };
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
         [newRetiredTask, ...(old || [])]
@@ -705,6 +714,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         is_critical: task.is_critical, // Include is_critical
         is_flexible: task.is_flexible, // Include is_flexible
         is_locked: task.is_locked, // Include is_locked
+        energy_cost: task.energy_cost, // NEW: Include energy_cost
         updated_at: new Date().toISOString(),
       }));
 
@@ -825,6 +835,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
                 scheduled_date: selectedDate, // Ensure it's for the selected date
                 is_flexible: true, // Breaks are always flexible
                 is_locked: breakTask.is_locked, // Include is_locked
+                energy_cost: breakTask.energy_cost, // NEW: Include energy_cost
                 updated_at: new Date().toISOString(),
               };
               placedBreaks.push(newBreakTask);
@@ -854,7 +865,8 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
           scheduled_date: task.scheduled_date,
           is_critical: task.is_critical,
           is_flexible: task.is_flexible,
-          is_locked: task.is_locked, // Include is_locked
+          is_locked: task.is_locked,
+          energy_cost: task.energy_cost, // NEW: Include energy_cost
           updated_at: new Date().toISOString(),
         }));
         const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
@@ -941,6 +953,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
                 scheduled_date: selectedDate,
                 is_flexible: true,
                 is_locked: breakTask.is_locked,
+                energy_cost: breakTask.energy_cost, // NEW: Include energy_cost
                 updated_at: new Date().toISOString(),
               };
               optimisticPlacedBreaks.push(newBreakTask);
@@ -1104,6 +1117,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         original_scheduled_date: task.scheduled_date,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
+        energy_cost: task.energy_cost, // NEW: Pass energy_cost
       }));
 
       // 4. Insert into retired_tasks
@@ -1145,6 +1159,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         retired_at: now,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
+        energy_cost: task.energy_cost, // NEW: Pass energy_cost
       }));
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
         [...optimisticRetiredTasks, ...(old || [])]
@@ -1201,6 +1216,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         original_scheduled_date: task.scheduled_date, // Keep original scheduled date
         is_critical: task.is_critical,
         is_locked: task.is_locked,
+        energy_cost: task.energy_cost, // NEW: Pass energy_cost
       }));
 
       // 3. Insert into retired_tasks
@@ -1246,8 +1262,8 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         retired_at: now,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
+        energy_cost: task.energy_cost, // NEW: Pass energy_cost
       }));
-
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
         [...optimisticRetiredTasks, ...(old || [])]
       );

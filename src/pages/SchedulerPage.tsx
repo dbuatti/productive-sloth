@@ -1359,25 +1359,7 @@ const SchedulerPage: React.FC = () => {
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;
-
-  if (isSessionLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="container mx-auto p-4 max-w-3xl space-y-6 text-center text-muted-foreground">
-        <h1 className="text-3xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up">
-          <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
-        </h1>
-        <p className="text-lg">Please log in to use the Vibe Scheduler.</p>
-      </div>
-    );
-  }
+  const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
@@ -1385,7 +1367,13 @@ const SchedulerPage: React.FC = () => {
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
 
-      <SchedulerDashboardPanel scheduleSummary={currentSchedule?.summary || null} />
+      <SchedulerDashboardPanel 
+        scheduleSummary={currentSchedule?.summary || null} 
+        onCompactSchedule={() => handleCommand('compact')} // Pass handler for compact
+        onAetherDump={() => aetherDump()} // Pass handler for aether dump
+        isProcessingCommand={isProcessingCommand}
+        hasFlexibleTasks={hasFlexibleTasksOnCurrentDay} // Pass prop to enable/disable buttons
+      />
 
       <CalendarStrip 
         selectedDay={selectedDay} 
@@ -1411,7 +1399,7 @@ const SchedulerPage: React.FC = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible && !item.is_locked)} // Disable if no unlocked flexible tasks
+                  disabled={overallLoading || !hasFlexibleTasksOnCurrentDay} // Disable if no unlocked flexible tasks
                   className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-all duration-200"
                 >
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
@@ -1453,16 +1441,8 @@ const SchedulerPage: React.FC = () => {
               </TooltipContent>
             </Tooltip>
 
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => handleCommand('compact')} 
-              disabled={overallLoading || !dbScheduledTasks.some(item => item.is_flexible && !item.is_locked)} // Disable if no unlocked flexible tasks
-              className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
-            >
-              <ChevronsUp className="h-4 w-4" />
-              <span className="sr-only">Compact Schedule</span>
-            </Button>
+            {/* Removed Compact Schedule Button - now in Dashboard Panel */}
+            {/* Removed Aether Dump Button - now in Dashboard Panel */}
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1498,25 +1478,6 @@ const SchedulerPage: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>
                 <p>Move ALL flexible, unlocked tasks from ALL days to Aether Sink</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Existing Aether Dump Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={() => aetherDump()} 
-                  disabled={overallLoading || !dbScheduledTasks.some(task => task.is_flexible && !task.is_locked)} // Disable if no flexible, unlocked tasks on current day
-                  className="h-8 w-8 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
-                >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                  <span className="sr-only">Aether Dump / Reset Schedule</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Move all flexible, unlocked tasks from CURRENT day to Aether Sink</p>
               </TooltipContent>
             </Tooltip>
 

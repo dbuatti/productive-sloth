@@ -33,7 +33,6 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    // Corrected: Use 'JWT_SECRET' instead of 'SUPABASE_JWT_SECRET'
     const JWT_SECRET = Deno.env.get('JWT_SECRET'); 
 
     if (!JWT_SECRET) {
@@ -41,9 +40,12 @@ serve(async (req) => {
       throw new Error("JWT secret is not set in Supabase secrets.");
     }
 
+    // Encode the JWT_SECRET string into a Uint8Array
+    const secretKey = new TextEncoder().encode(JWT_SECRET);
+
     let payload;
     try {
-      payload = await verify(token, JWT_SECRET, 'HS256');
+      payload = await verify(token, secretKey, 'HS256'); // Use the encoded secretKey
     } catch (jwtError) {
       console.error("JWT Verification Error:", jwtError);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {

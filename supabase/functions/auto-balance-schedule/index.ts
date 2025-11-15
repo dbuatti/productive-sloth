@@ -1,3 +1,4 @@
+/// <reference lib="deno.ns" />
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { verify } from 'https://deno.land/x/djwt@v2.8/mod.ts';
@@ -32,16 +33,17 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const SUPABASE_JWT_SECRET = Deno.env.get('SUPABASE_JWT_SECRET');
+    // Corrected: Use 'JWT_SECRET' instead of 'SUPABASE_JWT_SECRET'
+    const JWT_SECRET = Deno.env.get('JWT_SECRET'); 
 
-    if (!SUPABASE_JWT_SECRET) {
-      console.error("Configuration Error: Supabase JWT secret is not set.");
-      throw new Error("Supabase JWT secret is not set in Supabase secrets.");
+    if (!JWT_SECRET) {
+      console.error("Configuration Error: JWT secret is not set.");
+      throw new Error("JWT secret is not set in Supabase secrets.");
     }
 
     let payload;
     try {
-      payload = await verify(token, SUPABASE_JWT_SECRET, 'HS256');
+      payload = await verify(token, JWT_SECRET, 'HS256');
     } catch (jwtError) {
       console.error("JWT Verification Error:", jwtError);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {

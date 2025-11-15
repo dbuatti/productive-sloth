@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom'; // Corrected import syntax
+import { useNavigate } from 'react-router-dom';
 import { SessionContext, UserProfile } from '@/hooks/use-session';
-import { dismissToast, showSuccess, showError } from '@/utils/toast'; // Import showSuccess and showError
+import { dismissToast, showSuccess, showError } from '@/utils/toast';
 import { isToday, parseISO, isPast, addMinutes, startOfDay } from 'date-fns';
 import { 
   ENERGY_REGEN_AMOUNT, 
@@ -13,38 +13,41 @@ import {
   LOW_ENERGY_THRESHOLD, 
   LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
   DAILY_CHALLENGE_TASKS_REQUIRED
-} from '@/lib/constants'; // Import constants
+} from '@/lib/constants';
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Keep true initially
-  const [showLevelUp, setShowLevelUp] = useState(false); // New state for level up celebration
-  const [levelUpLevel, setLevelUpLevel] = useState(0); // New state for the level achieved
+  const [isLoading, setIsLoading] = useState(true);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpLevel, setLevelUpLevel] = useState(0);
   const navigate = useNavigate();
 
+  // Stabilized fetchProfile function
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, default_auto_schedule_start_time, default_auto_schedule_end_time') // Select new notification columns and tasks_completed_today, and auto-schedule times
-      .eq('id', userId); // Removed .single()
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time')
+      .eq('id', userId)
+      .single(); // Added .single() for robustness
 
     if (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);
-    } else if (data && data.length > 0) {
-      setProfile(data[0] as UserProfile); // Take the first profile if found
+    } else if (data) {
+      setProfile(data as UserProfile);
     } else {
       setProfile(null);
     }
-  }, []);
+  }, []); // No dependencies, as supabase and setProfile are stable
 
+  // Refined refreshProfile function
   const refreshProfile = useCallback(async () => {
     if (user?.id) {
       await fetchProfile(user.id);
     }
-  }, [user, fetchProfile]);
+  }, [user?.id, fetchProfile]); // Depends on user.id and stable fetchProfile
 
   const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
     if (!user || !profile) {
@@ -93,7 +96,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .from('profiles')
         .update({ 
           daily_streak: 0, 
-          last_streak_update: null, // Reset last update to ensure next task starts a new streak
+          last_streak_update: null,
           updated_at: new Date().toISOString() 
         })
         .eq('id', user.id);
@@ -123,7 +126,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (profile.tasks_completed_today < DAILY_CHALLENGE_TASKS_REQUIRED) {
-      showError(`Complete ${DAILY_CHALLENGE_TASKS_REQUIRED} tasks to claim your daily challenge reward!`);
+      showError(`Complete ${DAILY_CHALLENGE_TASKS_REQUIRED} tasks to claim your daily challenge reward! 🎉`);
       return;
     }
 
@@ -177,7 +180,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, refreshProfile]);
 
-  // NEW: Generic function to update profile fields
   const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
     if (!user) {
       showError("You must be logged in to update your profile.");
@@ -202,54 +204,36 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, refreshProfile]);
 
+  // Main useEffect for auth state changes and initial session load
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
       setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      if (currentSession?.user) {
-        await fetchProfile(currentSession.user.id);
-      } else {
-        setProfile(null);
-      }
+      setUser(currentSession?.user ?? null); // This will trigger the separate profile fetch useEffect
 
       if (event === 'SIGNED_IN' && window.location.pathname === '/login') {
         navigate('/');
       } else if (event === 'SIGNED_OUT' && window.location.pathname !== '/login') {
         navigate('/login');
       }
-      // For USER_UPDATED, profile is already refreshed above.
-      // For INITIAL_SESSION, the initial load logic below handles navigation.
     };
 
-    // Set up auth listener
     const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
       handleAuthChange(event, currentSession);
     });
 
-    // Initial session check and loading state management
-    const loadSessionAndProfile = async () => {
+    const loadInitialSession = async () => {
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
         setSession(initialSession);
-        setUser(initialSession?.user ?? null);
-
-        if (initialSession?.user) {
-          await fetchProfile(initialSession.user.id);
-        } else {
-          setProfile(null);
-        }
-
-        // Handle initial navigation after session and profile are loaded
+        setUser(initialSession?.user ?? null); // This will trigger the separate profile fetch useEffect
+        
         if (!initialSession && window.location.pathname !== '/login') {
           navigate('/login');
         } else if (initialSession && window.location.pathname === '/login') {
           navigate('/');
         }
-
       } catch (error) {
         console.error("Error during initial session load:", error);
-        // Even on error, we should stop loading to prevent infinite spinner
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -257,16 +241,25 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           navigate('/login');
         }
       } finally {
-        setIsLoading(false); // Always set to false after initial load attempt
+        setIsLoading(false);
       }
     };
 
-    loadSessionAndProfile();
+    loadInitialSession();
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, fetchProfile]); // Removed isLoading and user?.id from dependencies to prevent re-runs
+  }, [navigate]); // Only navigate is a dependency here
+
+  // Separate useEffect to fetch/refresh profile when user changes
+  useEffect(() => {
+    if (user?.id) {
+      refreshProfile();
+    } else {
+      setProfile(null); // Clear profile if user logs out
+    }
+  }, [user?.id, refreshProfile]); // Depends on user.id and stable refreshProfile
 
   // Energy Regeneration Effect
   useEffect(() => {
@@ -297,7 +290,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (updateError) {
             console.error("Failed to regenerate energy:", updateError.message);
           } else {
-            await refreshProfile(); // Refresh local profile state
+            await refreshProfile();
           }
         }
       }, ENERGY_REGEN_INTERVAL_MS);
@@ -315,13 +308,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const now = new Date();
     const today = startOfDay(now);
 
-    // Check if last_daily_reward_claim was not today, if so, reset tasks_completed_today
     const lastRewardClaim = profile.last_daily_reward_claim ? parseISO(profile.last_daily_reward_claim) : null;
     const lastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
 
     const shouldResetTasksCompletedToday = 
       (!lastRewardClaim || !isToday(lastRewardClaim)) && 
-      (!lastStreakUpdate || !isToday(lastStreakUpdate)); // Also reset if streak wasn't updated today
+      (!lastStreakUpdate || !isToday(lastStreakUpdate));
 
     if (shouldResetTasksCompletedToday && profile.tasks_completed_today > 0) {
       supabase.from('profiles').update({ tasks_completed_today: 0 }).eq('id', user.id).then(({ error }) => {
@@ -330,26 +322,24 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
     }
 
-    // Daily Reward Notification (now Daily Challenge Notification)
     const lastRewardNotification = profile.last_daily_reward_notification ? parseISO(profile.last_daily_reward_notification) : null;
 
     const canNotifyDailyChallenge = 
-      profile.enable_daily_challenge_notifications && // Check user preference
-      (!lastRewardClaim || !isToday(lastRewardClaim)) && // Challenge not claimed today
-      (!lastRewardNotification || !isToday(lastRewardNotification)); // Not notified today
+      profile.enable_daily_challenge_notifications &&
+      (!lastRewardClaim || !isToday(lastRewardClaim)) &&
+      (!lastRewardNotification || !isToday(lastRewardNotification));
 
     if (canNotifyDailyChallenge) {
       showSuccess(`Your daily challenge is ready! Complete ${DAILY_CHALLENGE_TASKS_REQUIRED} tasks to claim your reward! 🎉`);
       supabase.from('profiles').update({ last_daily_reward_notification: now.toISOString() }).eq('id', user.id).then(({ error }) => {
         if (error) console.error("Failed to update last_daily_reward_notification:", error.message);
-        else refreshProfile(); // Refresh to update local profile state
+        else refreshProfile();
       });
     }
 
-    // Low Energy Notification
     const lastLowEnergyNotification = profile.last_low_energy_notification ? parseISO(profile.last_low_energy_notification) : null;
     const canNotifyLowEnergy = 
-      profile.enable_low_energy_notifications && // Check user preference
+      profile.enable_low_energy_notifications &&
       profile.energy <= LOW_ENERGY_THRESHOLD && 
       (!lastLowEnergyNotification || isPast(addMinutes(lastLowEnergyNotification, LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES)));
 
@@ -357,7 +347,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       showError(`Energy is low (${profile.energy}%)! Recharge to keep completing tasks. ⚡`);
       supabase.from('profiles').update({ last_low_energy_notification: now.toISOString() }).eq('id', user.id).then(({ error }) => {
         if (error) console.error("Failed to update last_low_energy_notification:", error.message);
-        else refreshProfile(); // Refresh to update local profile state
+        else refreshProfile();
       });
     }
 
@@ -379,7 +369,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       resetDailyStreak,
       claimDailyReward,
       updateNotificationPreferences,
-      updateProfile // NEW: Expose updateProfile
+      updateProfile
     }}>
       {children}
     </SessionContext.Provider>

@@ -13,7 +13,7 @@ interface AetherSinkProps {
   retiredTasks: RetiredTask[];
   onRezoneTask: (task: RetiredTask) => void;
   onRemoveRetiredTask: (taskId: string) => void; // For permanent deletion from sink
-  onAutoScheduleSink: () => void; // Handler for auto-scheduling all sink tasks
+  // Removed onAutoScheduleSink prop
   isLoading: boolean;
   isProcessingCommand: boolean; // To disable button when other commands are running
   isSinkOpen: boolean; // NEW: State for collapse/expand
@@ -21,7 +21,7 @@ interface AetherSinkProps {
   hideTitle?: boolean; // NEW: Prop to hide the card title
 }
 
-const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, isSinkOpen, onToggle, hideTitle = false }) => {
+const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, isLoading, isProcessingCommand, isSinkOpen, onToggle, hideTitle = false }) => {
   const hasRetiredTasks = retiredTasks.length > 0;
   const { toggleRetiredTaskLock } = useSchedulerTasks(''); // Pass empty string as selectedDate is not relevant here
 
@@ -33,27 +33,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
             <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={onAutoScheduleSink}
-                  disabled={!hasRetiredTasks || isLoading || isProcessingCommand || retiredTasks.every(task => task.is_locked)}
-                  className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
-                >
-                  {isProcessingCommand ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                  <span>Auto Schedule</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Automatically re-zone all unlocked retired tasks into your current schedule.</p>
-              </TooltipContent>
-            </Tooltip>
+            {/* Removed Auto Schedule Button from here */}
             
             {/* NEW: Toggle Button */}
             <Tooltip>

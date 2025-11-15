@@ -1497,9 +1497,9 @@ const SchedulerPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* 5. NOW FOCUS Card - UNSTICKY */}
+      {/* 5. NOW FOCUS Card */}
       {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="bg-background pb-4"> {/* Removed sticky, top, z-50 */}
+        <div className="sticky top-[144px] z-50 bg-background pb-4"> {/* Adjusted top to 144px (AppHeader + ProgressBarHeader) */}
           <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
         </div>
       )}
@@ -1516,7 +1516,7 @@ const SchedulerPage: React.FC = () => {
 
       {/* 7. Tabbed Schedule Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[32px] z-20"> {/* TabsList remains sticky */}
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[192px] z-20"> {/* Adjusted top to 192px (AppHeader + ProgressBarHeader + NowFocusCard) */}
           <TabsTrigger 
             value="vibe-schedule" 
             className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
@@ -1560,11 +1560,36 @@ const SchedulerPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="aether-sink" className="space-y-4">
+          {/* Auto Schedule Button - MOVED HERE */}
+          <div className="flex justify-end mb-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleAutoScheduleSinkWrapper}
+                  disabled={!retiredTasks.some(task => !task.is_locked) || isLoadingRetiredTasks || isProcessingCommand} // Enabled if any unlocked retired tasks
+                  className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  {isProcessingCommand ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  <span>Auto Schedule</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Automatically re-zone all unlocked retired tasks into your current schedule.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
           <AetherSink 
             retiredTasks={retiredTasks} 
             onRezoneTask={handleRezoneFromSink} 
             onRemoveRetiredTask={handleRemoveRetiredTask}
-            onAutoScheduleSink={handleAutoScheduleSinkWrapper} // Use the wrapper function
+            // Removed onAutoScheduleSink prop as it's now handled directly in SchedulerPage
             isLoading={isLoadingRetiredTasks}
             isProcessingCommand={isProcessingCommand}
             isSinkOpen={true} // Always open when in its tab

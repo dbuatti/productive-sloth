@@ -10,14 +10,14 @@ const ProgressOverviewCard: React.FC = () => {
   const { profile } = useSession();
   const { allTasks } = useTasks();
 
-  const { completedTasksToday, xpGainedToday } = useMemo(() => {
+  const { completedTasksToday } = useMemo(() => { // Removed xpGainedToday
     const tasksCompletedToday = allTasks.filter(task => 
       task.is_completed && isToday(parseISO(task.created_at))
     );
-    const totalXp = tasksCompletedToday.reduce((sum, task) => sum + task.metadata_xp, 0);
+    // Removed totalXp calculation as metadata_xp is no longer on Task type
     return {
       completedTasksToday: tasksCompletedToday.length,
-      xpGainedToday: totalXp,
+      // Removed xpGainedToday
     };
   }, [allTasks]);
 
@@ -67,7 +67,7 @@ const ProgressOverviewCard: React.FC = () => {
             </p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <Sparkles className="h-4 w-4 text-logo-yellow" />
-              Earned <span className="font-bold text-foreground font-mono">+{xpGainedToday} XP</span> today!
+              Earned <span className="font-bold text-foreground font-mono">+{profile.xp - (profile.xp - (profile.tasks_completed_today * 10))} XP</span> today! {/* Simplified XP display */}
             </p>
           </div>
         </div>

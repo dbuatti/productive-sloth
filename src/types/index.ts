@@ -10,8 +10,7 @@ export interface Task {
   description?: string; // Added description
   is_completed: boolean;
   priority: TaskPriority;
-  metadata_xp: number;
-  energy_cost: number;
+  // Removed metadata_xp and energy_cost
   due_date: string; // ISO date string
   created_at: string;
   updated_at: string; // Added updated_at
@@ -21,8 +20,7 @@ export interface Task {
 export interface NewTask {
   title: string;
   priority: TaskPriority;
-  metadata_xp: number;
-  energy_cost: number;
+  // Removed metadata_xp and energy_cost
   due_date: string;
   description?: string; // Added description to NewTask
   is_critical?: boolean; // NEW: Critical Urgency Flag

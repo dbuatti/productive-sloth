@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
 import { BookOpen, Sparkles, Clock, ListTodo, Settings, Trophy, TrendingUp, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code } from 'lucide-react'; // Imported Gamepad and Code
-import { EMOJI_MAP, EMOJI_HUE_MAP } from '@/lib/scheduler-utils'; // Import maps for emoji guide
+import { EMOJI_MAP, EMOJI_HUE_MAP, calculateEnergyCost } from '@/lib/scheduler-utils'; // Import maps for emoji guide, and calculateEnergyCost
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/use-session';
 import { XP_PER_LEVEL, MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, LOW_ENERGY_THRESHOLD, DAILY_CHALLENGE_XP, DAILY_CHALLENGE_ENERGY, DAILY_CHALLENGE_TASKS_REQUIRED } from '@/lib/constants';
-import { DEFAULT_ENERGY_COST } from '@/lib/scheduler-utils'; // NEW: Import DEFAULT_ENERGY_COST
+// Removed DEFAULT_ENERGY_COST import
 
 const DocumentationPage: React.FC = () => {
   const { user } = useSession();
@@ -24,6 +24,9 @@ const DocumentationPage: React.FC = () => {
       </div>
     );
   }
+
+  // Example energy cost for documentation
+  const exampleDefaultEnergyCost = calculateEnergyCost(30, false); // 30 min, non-critical
 
   return (
     <div className="container mx-auto p-4 max-w-4xl space-y-8 animate-slide-in-up">
@@ -269,13 +272,13 @@ const DocumentationPage: React.FC = () => {
               <ul className="list-disc list-inside space-y-3 text-muted-foreground">
                 <li>
                   <span className="font-semibold text-foreground">Add a duration-based task:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">Task Name 60 [BreakDuration] [!] [sink] [energy X]</code>
-                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">Gym 60 energy 20</code>, <code className="font-mono">Read Book 30 10 energy 15</code> (30 min task, 10 min break, 15 energy), <code className="font-mono">Critical Task 45 ! energy 25</code>, <code className="font-mono">Old Task 20 sink energy 5</code></p>
+                  <code className="block bg-muted p-2 rounded-md mt-1">Task Name 60 [BreakDuration] [!] [sink]</code>
+                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">Gym 60</code> (60 min task, calculated energy cost), <code className="font-mono">Read Book 30 10</code> (30 min task, 10 min break, calculated energy cost), <code className="font-mono">Critical Task 45 !</code> (45 min task, critical, calculated energy cost), <code className="font-mono">Old Task 20 sink</code> (20 min task, sent to sink, calculated energy cost)</p>
                 </li>
                 <li>
                   <span className="font-semibold text-foreground">Add a fixed-time task:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">Task Name HH:MM AM/PM - HH:MM AM/PM [!] [fixed] [energy X]</code>
-                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">Meeting 10am-11am energy 10</code>, <code className="font-mono">Doctor Appt 2:30pm-3pm fixed ! energy 0</code></p>
+                  <code className="block bg-muted p-2 rounded-md mt-1">Task Name HH:MM AM/PM - HH:MM AM/PM [!] [fixed]</code>
+                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">Meeting 10am-11am</code> (calculated energy cost), <code className="font-mono">Doctor Appt 2:30pm-3pm fixed !</code> (critical, calculated energy cost)</p>
                 </li>
                 <li>
                   <span className="font-semibold text-foreground">Add "Time Off":</span>
@@ -288,8 +291,8 @@ const DocumentationPage: React.FC = () => {
                 </li>
                 <li>
                   <span className="font-semibold text-foreground">Inject a task (detailed dialog):</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">inject "Task Name" [Duration] [BreakDuration] [from HH:MM AM/PM to HH:MM AM/PM] [!] [fixed] [energy X]</code>
-                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">inject "Project X" 30 energy 15</code>, <code className="font-mono">inject "Client Call" from 3pm to 3:30pm fixed energy 0</code>. The dialog will also allow manual entry of energy cost.</p>
+                  <code className="block bg-muted p-2 rounded-md mt-1">inject "Task Name" [Duration] [BreakDuration] [from HH:MM AM/PM to HH:MM AM/PM] [!] [fixed]</code>
+                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">inject "Project X" 30</code>, <code className="font-mono">inject "Client Call" from 3pm to 3:30pm fixed</code>. The dialog will automatically calculate energy cost based on duration and criticality.</p>
                 </li>
                 <li>
                   <span className="font-semibold text-foreground">Remove a task:</span>
@@ -323,7 +326,7 @@ const DocumentationPage: React.FC = () => {
                   <li><code className="font-mono">!</code>: Marks a task as critical.</li>
                   <li><code className="font-mono">sink</code>: Sends a duration-based task directly to the Aether Sink instead of scheduling it.</li>
                   <li><code className="font-mono">fixed</code>: Explicitly marks a duration-based task as fixed, preventing the scheduler from moving it. Timed tasks are implicitly fixed.</li>
-                  <li><code className="font-mono">energy X</code>: Sets the energy cost for the task to X. If not specified, defaults to {DEFAULT_ENERGY_COST}.</li>
+                  <li>Energy cost is automatically calculated based on duration and criticality.</li>
                 </ul>
               </p>
             </Card>

@@ -94,7 +94,7 @@ const BREAK_DESCRIPTIONS: { [key: number]: string } = {
 
 const DEFAULT_EMOJI = '📋';
 const DEFAULT_HUE = 220;
-export const DEFAULT_ENERGY_COST = 10; // NEW: Default energy cost for tasks if not specified
+// Removed DEFAULT_ENERGY_COST as it's now calculated
 
 // --- Helper Functions ---
 
@@ -175,6 +175,16 @@ export const setTimeOnDate = (date: Date, timeString: string): Date => {
   return setMinutes(setHours(date, hours), minutes);
 };
 
+/**
+ * Calculates the energy cost based on task duration and criticality.
+ * Formula: (Task Duration in Minutes * 0.5) + (If Critical * 10)
+ */
+export const calculateEnergyCost = (duration: number, isCritical: boolean): number => {
+  const baseCost = duration * 0.5;
+  const criticalSurcharge = isCritical ? 10 : 0;
+  return Math.round(baseCost + criticalSurcharge); // Round to nearest whole number
+};
+
 interface ParsedTaskInput {
   name: string;
   duration?: number;
@@ -193,15 +203,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
   let isCritical = false;
   let shouldSink = false;
   let isFlexible = true; // Default to flexible, will be overridden for timed tasks
-  let energyCost: number = DEFAULT_ENERGY_COST; // NEW: Initialize energyCost to default
-
-  // Regex to capture 'energy X' flag
-  const energyRegex = /\s+energy\s+(\d+)\b(?!\S)/i; 
-  const energyMatch = input.match(energyRegex);
-  if (energyMatch) {
-    energyCost = parseInt(energyMatch[1], 10);
-    input = input.replace(energyMatch[0], '').trim(); // Remove the matched part and re-trim
-  }
+  let energyCost: number = 0; // Will be calculated later
 
   // Order of parsing flags matters: sink, then critical, then fixed
   if (input.endsWith(' sink')) {
@@ -257,6 +259,8 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
         .trim();
 
       if (cleanedTaskName) {
+        const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+        energyCost = calculateEnergyCost(duration, isCritical);
         return { name: cleanedTaskName, startTime, endTime, isCritical, shouldSink, isFlexible, energyCost };
       }
     }
@@ -270,6 +274,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
     const duration = parseInt(durationMatch[2], 10);
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
     if (name && duration > 0) {
+      energyCost = calculateEnergyCost(duration, isCritical);
       return { name, duration, breakDuration, isCritical, shouldSink, isFlexible, energyCost };
     }
   }
@@ -293,15 +298,7 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
 
   let isCritical = false;
   let isFlexible = true; // Default to flexible
-  let energyCost: number = DEFAULT_ENERGY_COST; // NEW: Initialize energyCost to default
-
-  // Capture and remove energy flag first
-  const energyRegex = /\s+energy\s+(\d+)\b(?!\S)/i; 
-  const energyMatch = input.match(energyRegex);
-  if (energyMatch) {
-    energyCost = parseInt(energyMatch[1], 10);
-    input = input.replace(energyMatch[0], '').trim(); // Remove the matched part and re-trim
-  }
+  let energyCost: number = 0; // Will be calculated later
 
   if (input.endsWith(' !')) {
     isCritical = true;
@@ -333,7 +330,16 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
     if (taskName) {
       if (startTime && endTime) {
         isFlexible = false; // Timed injections are always fixed
+        // For injection command, we can't calculate energyCost here without selectedDayAsDate
+        // It will be calculated in SchedulerPage when the dialog is submitted.
+        energyCost = 0; // Placeholder, will be recalculated
+      } else if (duration) {
+        energyCost = calculateEnergyCost(duration, isCritical);
+      } else {
+        // If no duration or time, default to a common duration for calculation
+        energyCost = calculateEnergyCost(30, isCritical);
       }
+      
       // Re-apply 'Time Off' fixed enforcement for injection
       if (taskName.toLowerCase() === 'time off') {
         isFlexible = false;

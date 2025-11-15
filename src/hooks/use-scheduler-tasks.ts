@@ -7,7 +7,7 @@ import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns'; // Import format, addMinutes, isBefore, isAfter
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants'; // Import constants
-import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree } from '@/lib/scheduler-utils'; // Import scheduler utility functions, including isSlotFree
+import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost } from '@/lib/scheduler-utils'; // Import scheduler utility functions, including isSlotFree and calculateEnergyCost
 import { useTasks } from './use-tasks'; // NEW: Import useTasks to leverage its mutations
 
 // Helper function to calculate date boundaries for server-side filtering
@@ -72,13 +72,14 @@ const calculateLevelAndRemainingXp = (totalXp: number) => {
 
 export const useSchedulerTasks = (selectedDate: string) => { // Changed to string
   const queryClient = useQueryClient();
-  const { user } = useSession();
+  const { user, profile, refreshProfile, triggerLevelUp } = useSession(); // NEW: Get profile, refreshProfile, and triggerLevelUp
   const userId = user?.id;
   const { addTaskMutation, updateTaskMutation } = useTasks(); // NEW: Import addTaskMutation and updateTaskMutation from useTasks
 
   const formattedSelectedDate = selectedDate; // Now directly use selectedDate
 
   const [sortBy, setSortBy] = useState<SortBy>('TIME_EARLIEST_TO_LATEST'); // NEW: State for sorting
+  const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null); // NEW: State for XP animation
 
   // Fetch all scheduled tasks for the current user and selected date
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
@@ -1167,36 +1168,94 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
   // NEW: Complete a scheduled task (triggers energy deduction, XP, etc.)
   const completeScheduledTaskMutation = useMutation({
     mutationFn: async (taskToComplete: DBScheduledTask) => {
-      if (!userId) throw new Error("User not authenticated.");
+      if (!userId || !profile) throw new Error("User not authenticated or profile not loaded.");
 
-      // 1. Create a new entry in the main 'tasks' table
-      const newTask: NewTask = {
-        title: taskToComplete.name,
-        description: `Completed from schedule on ${format(parseISO(taskToComplete.scheduled_date), 'MMM d, yyyy')}`,
-        priority: taskToComplete.is_critical ? 'HIGH' : 'MEDIUM', // Assign priority based on criticality
-        metadata_xp: taskToComplete.energy_cost * 2, // Example: XP is double energy cost
-        energy_cost: taskToComplete.energy_cost,
-        due_date: taskToComplete.scheduled_date,
-        is_critical: taskToComplete.is_critical,
-      };
-      const addedTask = await addTaskMutation.mutateAsync(newTask); // Use the addTaskMutation.mutateAsync from useTasks
+      // 1. Energy Check
+      if (profile.energy < taskToComplete.energy_cost) {
+        showError(`Not enough energy to complete "${taskToComplete.name}". You need ${taskToComplete.energy_cost} energy, but have ${profile.energy}.`);
+        throw new Error("Insufficient energy."); // Throw to prevent further execution
+      }
 
-      // 2. Mark the newly created task as completed to trigger gamification logic
-      await updateTaskMutation.mutateAsync({ id: addedTask.id, is_completed: true }); // Use the updateTaskMutation.mutateAsync from useTasks
+      // 2. Calculate XP gain
+      let xpGained = taskToComplete.energy_cost * 2; // Example: XP is double energy cost
+      // Add XP bonus for critical tasks completed on the day they are flagged
+      if (taskToComplete.is_critical && isToday(parseISO(taskToComplete.scheduled_date))) {
+        xpGained += 5; // +5 XP bonus for critical tasks
+        showSuccess(`Critical task bonus! +5 XP`);
+      }
 
-      // 3. Remove the task from the scheduled_tasks table
+      // 3. Update user profile (XP, Level, Energy, Daily Streak, Tasks Completed Today)
+      const newXp = profile.xp + xpGained;
+      const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
+      const newEnergy = Math.max(0, profile.energy - taskToComplete.energy_cost); // Deduct energy, ensure not negative
+      const newTasksCompletedToday = profile.tasks_completed_today + 1; // Increment tasks completed today
+
+      let newDailyStreak = profile.daily_streak;
+      let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
+      const now = new Date();
+      const today = startOfDay(now);
+
+      if (!newLastStreakUpdate || isYesterday(newLastStreakUpdate)) {
+        // If no previous update or last update was yesterday, increment streak
+        newDailyStreak += 1;
+      } else if (!isToday(newLastStreakUpdate)) {
+        // If last update was not today or yesterday, reset streak
+        newDailyStreak = 1;
+      }
+      // If isToday(newLastStreakUpdate), streak doesn't change for today
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          xp: newXp, 
+          level: newLevel, 
+          daily_streak: newDailyStreak,
+          last_streak_update: today.toISOString(), // Update streak date to today
+          energy: newEnergy, // Update energy
+          tasks_completed_today: newTasksCompletedToday, // Update tasks completed today
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today):", profileError.message);
+        showError("Failed to update profile stats.");
+        throw new Error("Failed to update profile stats."); // Throw to trigger onError
+      } else {
+        await refreshProfile(); // Refresh local profile state
+        
+        // --- Trigger XP Animation ---
+        setXpGainAnimation({ taskId: taskToComplete.id, xpAmount: xpGained }); // Use xpGained
+        // ---------------------------
+
+        showSuccess(`Task completed! -${taskToComplete.energy_cost} Energy`);
+        if (newLevel > profile.level) {
+          showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
+          triggerLevelUp(newLevel); // Trigger the level up celebration
+        }
+      }
+
+      // 4. Remove the task from the scheduled_tasks table
       await removeScheduledTaskMutation.mutateAsync(taskToComplete.id); // Use mutateAsync to await completion
     },
     onSuccess: () => {
-      // Invalidate relevant queries. The addTask and updateTask mutations already invalidate 'tasks'.
+      // Invalidate relevant queries.
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
-      // showSuccess is handled by the updateTask mutation's onSuccess
+      // showSuccess is handled within the mutationFn
     },
     onError: (err) => {
-      showError(`Failed to complete scheduled task: ${err.message}`);
+      // Error toast is handled within the mutationFn for specific cases (e.g., insufficient energy)
+      // Generic error for other failures
+      if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats.") {
+        showError(`Failed to complete scheduled task: ${err.message}`);
+      }
     }
   });
+
+  const clearXpGainAnimation = useCallback(() => {
+    setXpGainAnimation(null);
+  }, []);
 
 
   return {
@@ -1223,5 +1282,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     completeScheduledTask: completeScheduledTaskMutation.mutate, // NEW: Expose completeScheduledTask mutation
     sortBy, // Expose sortBy state
     setSortBy, // Expose setSortBy function
+    xpGainAnimation, // NEW: Expose XP animation state
+    clearXpGainAnimation, // NEW: Expose clear function
   };
 };

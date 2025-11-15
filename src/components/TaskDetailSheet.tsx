@@ -39,9 +39,7 @@ const formSchema = z.object({
   description: z.string().optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
   dueDate: z.date({ required_error: "Due date is required." }), 
-  // New fields for gamification metadata
-  metadata_xp: z.coerce.number().int().min(0, "XP must be a positive number."),
-  energy_cost: z.coerce.number().int().min(0, "Energy cost must be a positive number."),
+  // Removed metadata_xp and energy_cost
   isCritical: z.boolean().default(false), // Added isCritical
 });
 
@@ -68,16 +66,12 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       description: "",
       priority: "MEDIUM",
       dueDate: new Date(),
-      metadata_xp: 0,
-      energy_cost: 0,
+      // Removed metadata_xp and energy_cost
       isCritical: false, // Default to false
     },
   });
 
-  // Watch energy cost field for dynamic feedback
-  const energyCost = form.watch('energy_cost');
-  const currentEnergy = profile?.energy ?? 0;
-  const isEnergyInsufficient = energyCost > currentEnergy;
+  // Removed energyCost watch and isEnergyInsufficient logic
 
   // Reset form when a new task is selected or sheet opens
   useEffect(() => {
@@ -87,8 +81,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         description: task.description || "",
         priority: task.priority,
         dueDate: task.due_date ? new Date(task.due_date) : new Date(), 
-        metadata_xp: task.metadata_xp,
-        energy_cost: task.energy_cost,
+        // Removed metadata_xp and energy_cost
         isCritical: task.is_critical, // Set critical flag
       });
     }
@@ -106,8 +99,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         description: descriptionValue,
         priority: values.priority,
         due_date: values.dueDate.toISOString(),
-        metadata_xp: values.metadata_xp, // Include XP
-        energy_cost: values.energy_cost, // Include Energy Cost
+        // Removed metadata_xp and energy_cost
         is_critical: values.isCritical, // Include critical flag
       });
       showSuccess("Task updated successfully!");
@@ -163,70 +155,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
             
             <div className="flex-grow overflow-y-auto space-y-6 pb-8">
-              {/* Current Energy Display */}
-              <div className={cn(
-                "flex items-center justify-between p-3 rounded-lg border transition-colors duration-200",
-                isEnergyInsufficient ? "border-destructive bg-destructive/10" : "border-primary/50 bg-primary/5"
-              )}>
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <BatteryCharging className={cn("h-4 w-4", isEnergyInsufficient ? "text-destructive" : "text-primary")} />
-                  Current Energy:
-                </div>
-                <span className={cn("font-bold font-mono", isEnergyInsufficient ? "text-destructive" : "text-primary")}>
-                  {currentEnergy}
-                </span>
-              </div>
-
-              {/* Metadata Overview - Now editable fields */}
-              <div className="grid grid-cols-2 gap-4 text-sm font-medium">
-                <FormField
-                  control={form.control}
-                  name="metadata_xp"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2 text-logo-yellow">
-                        <Sparkles className="h-4 w-4" /> XP Reward
-                      </FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="XP" 
-                          {...field} 
-                          onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
-                          className="font-mono text-foreground"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="energy_cost"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className={cn("flex items-center gap-2", isEnergyInsufficient ? "text-destructive" : "text-primary")}>
-                        <Zap className="h-4 w-4" /> Energy Cost
-                      </FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="Energy" 
-                          {...field} 
-                          onChange={(e) => field.onChange(e.target.value)} // Use onChange to handle string input for z.coerce.number
-                          className={cn("font-mono text-foreground", isEnergyInsufficient && "border-destructive focus:ring-destructive")}
-                        />
-                      </FormControl>
-                      {isEnergyInsufficient && (
-                        <FormDescription className="text-destructive font-semibold">
-                          Warning: Cost exceeds current energy!
-                        </FormDescription>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {/* Removed Current Energy Display */}
+              {/* Removed Metadata Overview - XP Reward and Energy Cost fields */}
 
               {/* Title */}
               <FormField

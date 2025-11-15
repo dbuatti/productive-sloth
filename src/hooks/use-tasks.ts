@@ -59,23 +59,17 @@ const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
   });
 };
 
-const calculateLevelAndRemainingXp = (totalXp: number) => {
-  const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
-  const xpForCurrentLevel = (level - 1) * XP_PER_LEVEL;
-  const xpTowardsNextLevel = totalXp - xpForCurrentLevel;
-  const xpRemainingForNextLevel = XP_PER_LEVEL - xpTowardsNextLevel;
-  return { level, xpTowardsNextLevel, xpRemainingForNextLevel };
-};
+// Removed calculateLevelAndRemainingXp as gamification logic is moved
 
 export const useTasks = () => {
   const queryClient = useQueryClient();
-  const { user, profile, refreshProfile, triggerLevelUp } = useSession(); // Get profile, refreshProfile, and triggerLevelUp
+  const { user } = useSession(); // Removed profile, refreshProfile, triggerLevelUp
   const userId = user?.id;
 
   const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ACTIVE'); // Changed default to 'ACTIVE'
   const [sortBy, setSortBy] = useState<SortBy>('PRIORITY_HIGH_TO_LOW'); // Updated default sort
-  const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null); // New state for XP animation
+  // Removed xpGainAnimation state
 
   const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter, currentSortBy: SortBy): Promise<Task[]> => {
     if (!userId) return [];
@@ -139,6 +133,7 @@ export const useTasks = () => {
   const addTaskMutation = useMutation({
     mutationFn: async (newTask: NewTask) => {
       if (!userId) throw new Error("User not authenticated.");
+      // Removed metadata_xp and energy_cost from taskToInsert
       const taskToInsert = { ...newTask, user_id: userId };
       const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
       if (error) throw new Error(error.message);
@@ -155,6 +150,7 @@ export const useTasks = () => {
 
   const updateTaskMutation = useMutation({
     mutationFn: async (task: Partial<Task> & { id: string }) => {
+      // Removed metadata_xp and energy_cost from task update
       const { data, error } = await supabase
         .from('tasks')
         .update(task)
@@ -169,81 +165,8 @@ export const useTasks = () => {
       // Invalidate queries to force a refetch/re-evaluation of tasks
       await queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
 
-      // Handle XP gain, Streak update, Energy deduction, and tasks_completed_today increment on task completion
-      if (updatedTask.is_completed && profile && user) {
-        const taskBeforeUpdate = tasks.find(t => t.id === updatedTask.id);
-        // Only process if the task was NOT completed before this update
-        if (taskBeforeUpdate && !taskBeforeUpdate.is_completed) {
-          // Energy Check
-          if (profile.energy < updatedTask.energy_cost) {
-            showError(`Not enough energy to complete "${updatedTask.title}". You need ${updatedTask.energy_cost} energy, but have ${profile.energy}.`);
-            // Revert task completion in UI if energy is insufficient
-            // This optimistic update needs to be reverted if the server-side logic fails
-            // For now, the invalidateQueries above will handle fetching the correct state from DB
-            return; // Stop further processing
-          }
-
-          let xpGained = updatedTask.metadata_xp;
-          // Add XP bonus for critical tasks completed on the day they are flagged
-          if (updatedTask.is_critical && isToday(parseISO(updatedTask.due_date))) {
-            xpGained += 5; // +5 XP bonus for critical tasks
-            showSuccess(`Critical task bonus! +5 XP`);
-          }
-
-          const newXp = profile.xp + xpGained;
-          const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
-          const newEnergy = Math.max(0, profile.energy - updatedTask.energy_cost); // Deduct energy, ensure not negative
-          const newTasksCompletedToday = profile.tasks_completed_today + 1; // Increment tasks completed today
-
-          let newDailyStreak = profile.daily_streak;
-          let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
-          const now = new Date();
-          const today = startOfDay(now);
-
-          if (!newLastStreakUpdate || isYesterday(newLastStreakUpdate)) {
-            // If no previous update or last update was yesterday, increment streak
-            newDailyStreak += 1;
-          } else if (!isToday(newLastStreakUpdate)) {
-            // If last update was not today or yesterday, reset streak
-            newDailyStreak = 1;
-          }
-          // If isToday(newLastStreakUpdate), streak doesn't change for today
-
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ 
-              xp: newXp, 
-              level: newLevel, 
-              daily_streak: newDailyStreak,
-              last_streak_update: today.toISOString(), // Update streak date to today
-              energy: newEnergy, // Update energy
-              tasks_completed_today: newTasksCompletedToday, // Update tasks completed today
-              updated_at: new Date().toISOString() 
-            })
-            .eq('id', user.id);
-
-          if (profileError) {
-            console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today):", profileError.message);
-            showError("Failed to update profile stats.");
-          } else {
-            await refreshProfile(); // Refresh local profile state
-            
-            // --- Trigger XP Animation ---
-            setXpGainAnimation({ taskId: updatedTask.id, xpAmount: xpGained }); // Use xpGained
-            // ---------------------------
-
-            showSuccess(`Task completed! -${updatedTask.energy_cost} Energy`);
-            if (newLevel > profile.level) {
-              showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
-              triggerLevelUp(newLevel); // Trigger the level up celebration
-            }
-          }
-        } else if (!updatedTask.is_completed && profile && user) {
-          // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
-          await refreshProfile();
-        }
-      } else if (updatedTask.is_completed) {
-        // If task was already completed, just show success (no XP/streak/energy change)
+      // Removed all gamification logic (XP gain, streak update, energy deduction, tasks_completed_today increment, level up trigger, XP animation)
+      if (updatedTask.is_completed) {
         showSuccess('Task completed!');
       }
     },
@@ -266,9 +189,7 @@ export const useTasks = () => {
     }
   });
 
-  const clearXpGainAnimation = useCallback(() => {
-    setXpGainAnimation(null);
-  }, []);
+  // Removed clearXpGainAnimation
 
   return {
     tasks: filteredTasks,
@@ -286,7 +207,6 @@ export const useTasks = () => {
     addTaskMutation, // Expose the mutation object directly for advanced use (e.g., mutateAsync)
     updateTaskMutation, // Expose the mutation object directly for advanced use (e.g., mutateAsync)
     deleteTaskMutation, // Expose the mutation object directly for advanced use (e.g., mutateAsync)
-    xpGainAnimation, // Expose XP animation state
-    clearXpGainAnimation, // Expose clear function
+    // Removed xpGainAnimation and clearXpGainAnimation
   };
 };

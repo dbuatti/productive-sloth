@@ -41,7 +41,8 @@ const AnalyticsPage: React.FC = () => {
         if (dataMap.has(key)) {
           const entry = dataMap.get(key)!;
           entry.tasksCompleted += 1;
-          entry.xpGained += task.metadata_xp;
+          // Removed xpGained calculation from task.metadata_xp as it's no longer on Task type
+          // XP gain is now handled by scheduled tasks completion
         }
       }
     });
@@ -115,10 +116,10 @@ const AnalyticsPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* XP Gain Trend Chart */}
+      {/* XP Gain Trend Chart - Now only shows tasks completed, as XP is tied to scheduled tasks */}
       <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.3s' }}>
         <CardHeader>
-          <CardTitle className="text-xl">XP Gain Trend (Last 7 Days)</CardTitle>
+          <CardTitle className="text-xl">Tasks Completed Trend (Last 7 Days)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">
@@ -142,11 +143,11 @@ const AnalyticsPage: React.FC = () => {
                 />
                 <Area 
                   type="monotone" 
-                  dataKey="xpGained" 
+                  dataKey="tasksCompleted" // Changed to tasksCompleted
                   stroke="hsl(var(--logo-yellow))" 
                   fillOpacity={1} 
                   fill="url(#colorXp)" 
-                  name="XP Gained"
+                  name="Tasks Completed" // Changed name
                 />
               </AreaChart>
             </ResponsiveContainer>

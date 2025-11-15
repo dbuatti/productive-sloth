@@ -81,8 +81,7 @@ const TaskCreationForm: React.FC = () => {
       title: taskTitle,
       description: undefined, // No description in quick add
       priority: priority,
-      metadata_xp: priority === 'HIGH' ? 20 : priority === 'MEDIUM' ? 10 : 5, // Assign XP based on priority
-      energy_cost: priority === 'HIGH' ? 15 : priority === 'MEDIUM' ? 10 : 5, // Assign Energy Cost based on priority
+      // Removed metadata_xp and energy_cost
       due_date: dueDate.toISOString(),
       is_critical: isCritical, // Pass critical flag
     };

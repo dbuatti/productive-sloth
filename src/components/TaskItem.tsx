@@ -26,11 +26,10 @@ interface TaskItemProps {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { updateTask, deleteTask, xpGainAnimation, clearXpGainAnimation } = useTasks(); // Corrected: Use the exposed updateTask and deleteTask functions
+  const { updateTask, deleteTask } = useTasks(); 
   const navigate = useNavigate(); // Initialize navigate
 
-  // Check if this specific task should show the XP animation
-  const showXpAnimation = xpGainAnimation?.taskId === task.id;
+  // Removed showXpAnimation
 
   const handleToggleComplete = async () => {
     try {
@@ -63,9 +62,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       state: { 
         taskToSchedule: {
           name: task.title,
-          duration: task.energy_cost, // Use energy_cost as duration proxy
+          // Removed duration and energyCost as they are now calculated by scheduler
           isCritical: task.is_critical, // Pass critical flag
-          energyCost: task.energy_cost, // NEW: Pass actual energy_cost
         }
       } 
     });
@@ -166,25 +164,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                   <span>{format(new Date(task.due_date), "MMM d")}</span>
                 </span>
               )}
-              <span className="flex items-center gap-1 font-mono">
-                <Sparkles className="h-3 w-3 text-logo-yellow" />
-                <span>{task.metadata_xp} XP</span>
-              </span>
-              <span className="flex items-center gap-1 font-mono">
-                <Zap className="h-3 w-3 text-primary" />
-                <span>{task.energy_cost} Energy</span>
-              </span>
+              {/* Removed XP and Energy Cost display */}
             </div>
           </label>
         </div>
         
-        {/* XP Gain Animation */}
-        {showXpAnimation && xpGainAnimation && (
-          <XPGainAnimation 
-            xpAmount={xpGainAnimation.xpAmount} 
-            onAnimationEnd={clearXpGainAnimation} 
-          />
-        )}
+        {/* Removed XP Gain Animation */}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -64,8 +64,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
       title: title.trim(),
       description: description?.trim() || undefined,
       priority: priority,
-      metadata_xp: priority === 'HIGH' ? 20 : priority === 'MEDIUM' ? 10 : 5,
-      energy_cost: priority === 'HIGH' ? 15 : priority === 'MEDIUM' ? 10 : 5,
+      // Removed metadata_xp and energy_cost
       due_date: dueDate.toISOString(),
       is_critical: isCritical, // Pass critical flag
     };

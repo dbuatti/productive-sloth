@@ -28,7 +28,7 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
       break;
     case 'LAST_7_DAYS':
       startDate = subDays(startOfToday, 7);
-      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+      endDate = startOfToday;
       break;
     default:
       return null;
@@ -221,13 +221,17 @@ export const useSchedulerTasks = (selectedDate: string) => {
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
       const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0 };
-      console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
-      const { data, error } = await supabase.from('retired_tasks').insert(taskToInsert).select().single();
+      console.log("useSchedulerTasks: Attempting to upsert new retired task:", taskToInsert);
+      const { data, error } = await supabase
+        .from('retired_tasks')
+        .upsert(taskToInsert, { onConflict: 'user_id,name,original_scheduled_date' }) // Changed to upsert
+        .select()
+        .single();
       if (error) {
-        console.error("useSchedulerTasks: Error inserting retired task:", error.message);
+        console.error("useSchedulerTasks: Error upserting retired task:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully inserted retired task:", data);
+      console.log("useSchedulerTasks: Successfully upserted retired task:", data);
       return data as RetiredTask;
     },
     onMutate: async (newTask: NewRetiredTask) => {
@@ -346,8 +350,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_locked: taskToRetire.is_locked,
         energy_cost: taskToRetire.energy_cost ?? 0,
       };
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
-      if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
+      const { error: upsertError } = await supabase
+        .from('retired_tasks')
+        .upsert(newRetiredTask, { onConflict: 'user_id,name,original_scheduled_date' }); // Changed to upsert
+      if (upsertError) throw new Error(`Failed to move task to Aether Sink: ${upsertError.message}`);
 
       const { error: deleteError } = await supabase.from('scheduled_tasks').delete().eq('id', taskToRetire.id).eq('user_id', userId);
       if (deleteError) throw new Error(`Failed to remove task from schedule: ${deleteError.message}`);
@@ -835,8 +841,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
         energy_cost: task.energy_cost ?? 0,
       }));
 
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
-      if (insertError) throw new Error(`Failed to move tasks to Aether Sink: ${insertError.message}`);
+      const { error: upsertError } = await supabase
+        .from('retired_tasks')
+        .upsert(newRetiredTasks, { onConflict: 'user_id,name,original_scheduled_date' }); // Changed to upsert
+      if (upsertError) throw new Error(`Failed to move tasks to Aether Sink: ${upsertError.message}`);
 
       const { error: deleteError } = await supabase
         .from('scheduled_tasks')
@@ -928,8 +936,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
         energy_cost: task.energy_cost ?? 0,
       }));
 
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
-      if (insertError) throw new Error(`Failed to move tasks to Aether Sink (Mega): ${insertError.message}`);
+      const { error: upsertError } = await supabase
+        .from('retired_tasks')
+        .upsert(newRetiredTasks, { onConflict: 'user_id,name,original_scheduled_date' }); // Changed to upsert
+      if (upsertError) throw new Error(`Failed to move tasks to Aether Sink (Mega): ${upsertError.message}`);
 
       const { error: deleteError } = await supabase
         .from('scheduled_tasks')
@@ -1028,7 +1038,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         }));
         const { error } = await supabase
           .from('retired_tasks')
-          .insert(tasksToKeepInSinkWithUserId);
+          .upsert(tasksToKeepInSinkWithUserId, { onConflict: 'user_id,name,original_scheduled_date' }); // Changed to upsert
         if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
       }
 

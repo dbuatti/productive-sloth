@@ -123,7 +123,7 @@ serve(async (req) => {
       }));
       const { error } = await supabaseClient
         .from('retired_tasks')
-        .insert(tasksToKeepInSinkWithUserId);
+        .upsert(tasksToKeepInSinkWithUserId, { onConflict: 'user_id,name,original_scheduled_date' }); // Changed to upsert
       if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
       console.log("Unscheduled tasks re-inserted into sink successfully.");
     }

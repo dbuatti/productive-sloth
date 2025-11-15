@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
-import { BookOpen, Sparkles, Clock, ListTodo, Settings, TrendingUp, Trophy, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code } from 'lucide-react'; // Added Gamepad and Code
+import { BookOpen, Sparkles, Clock, ListTodo, Settings, Trophy, TrendingUp, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code } from 'lucide-react'; // Imported Gamepad and Code
 import { EMOJI_MAP, EMOJI_HUE_MAP } from '@/lib/scheduler-utils'; // Import maps for emoji guide
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/use-session';
@@ -63,7 +63,7 @@ const DocumentationPage: React.FC = () => {
           <AccordionContent>
             <Card className="p-6 space-y-6">
               <h3 className="text-xl font-bold flex items-center gap-2">
-                <Gamepad className="h-5 w-5 text-logo-yellow" /> Gamification
+                <Gamepad className="h-5 w-5 text-logo-yellow" /> Gamification {/* Changed Gamepad2 to Gamepad */}
               </h3>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground">
                 <li>

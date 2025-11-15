@@ -504,7 +504,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTime,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
+    midnightRolloverMessage: midnightRoloverMessage,
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
   };

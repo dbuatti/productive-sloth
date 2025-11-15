@@ -92,6 +92,7 @@ const BREAK_DESCRIPTIONS: { [key: number]: string } = {
 
 const DEFAULT_EMOJI = '📋';
 const DEFAULT_HUE = 220;
+export const DEFAULT_ENERGY_COST = 10; // NEW: Default energy cost for tasks if not specified
 
 // --- Helper Functions ---
 
@@ -188,7 +189,15 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
   let isCritical = false;
   let shouldSink = false;
   let isFlexible = true; // Default to flexible, will be overridden for timed tasks
-  let energyCost: number = 0; // NEW: Initialize energyCost to 0
+  let energyCost: number = DEFAULT_ENERGY_COST; // NEW: Initialize energyCost to default
+
+  // Regex to capture 'energy X' flag
+  const energyRegex = /\s+energy\s+(\d+)$/i;
+  const energyMatch = input.match(energyRegex);
+  if (energyMatch) {
+    energyCost = parseInt(energyMatch[1], 10);
+    input = input.replace(energyRegex, '').trim(); // Remove energy flag from input
+  }
 
   // Order of parsing flags matters: sink, then critical, then fixed
   if (input.endsWith(' sink')) {
@@ -211,6 +220,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
   // Enforce 'Time Off' as fixed, regardless of 'fixed' keyword presence
   if (input.toLowerCase().startsWith('time off')) {
     isFlexible = false;
+    energyCost = 0; // Time Off has no energy cost
   }
 
   const timeRangePattern = /(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))\s*-\s*(\d{1,2}(:\d{2})?\s*(?:AM|PM|am|pm))/i;
@@ -256,8 +266,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
     const duration = parseInt(durationMatch[2], 10);
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
     if (name && duration > 0) {
-      // For duration-based tasks, we can assign a default energy cost based on duration or priority if needed
-      // For now, we'll leave it undefined, assuming it comes from 'My Tasks' or injection.
       return { name, duration, breakDuration, isCritical, shouldSink, isFlexible, energyCost };
     }
   }
@@ -279,7 +287,15 @@ interface ParsedInjectionCommand {
 export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
   let isCritical = false;
   let isFlexible = true; // Default to flexible
-  let energyCost: number = 0; // NEW: Initialize energyCost to 0
+  let energyCost: number = DEFAULT_ENERGY_COST; // NEW: Initialize energyCost to default
+
+  // Regex to capture 'energy X' flag
+  const energyRegex = /\s+energy\s+(\d+)$/i;
+  const energyMatch = input.match(energyRegex);
+  if (energyMatch) {
+    energyCost = parseInt(energyMatch[1], 10);
+    input = input.replace(energyRegex, '').trim(); // Remove energy flag from input
+  }
 
   if (input.endsWith(' !')) {
     isCritical = true;
@@ -294,6 +310,7 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
   // Enforce 'Time Off' as fixed, regardless of 'fixed' keyword presence
   if (input.toLowerCase().startsWith('inject "time off"')) {
     isFlexible = false;
+    energyCost = 0; // Time Off has no energy cost
   }
 
 
@@ -314,9 +331,8 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
       // Re-apply 'Time Off' fixed enforcement for injection
       if (taskName.toLowerCase() === 'time off') {
         isFlexible = false;
+        energyCost = 0; // Time Off has no energy cost
       }
-      // For injection, we might derive energyCost from duration or have a default
-      // For now, leave undefined, assuming it's passed from 'My Tasks' or a default is set later.
       return { taskName, duration, breakDuration, startTime, endTime, isCritical, isFlexible, energyCost };
     }
   }

@@ -136,7 +136,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump')`}
+            placeholder={`Add task (e.g., 'Gym 60 energy 20', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30 energy 15', 'remove "Gym"', 'clear', 'compact', 'aether dump')`}
             disabled={isLoading}
             className="flex-grow h-10 pr-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
           />

@@ -40,7 +40,7 @@ interface CreateTaskDialogProps {
 }
 
 const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, defaultDueDate, onTaskCreated }) => {
-  const { addTask } = useTasks();
+  const { addTask } = useTasks(); // Corrected: Use the exposed addTask function
   const [isOpen, setIsOpen] = React.useState(false);
   
   // 2. Initialize useForm

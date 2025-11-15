@@ -26,7 +26,7 @@ interface TaskItemProps {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { updateTask, deleteTask, xpGainAnimation, clearXpGainAnimation } = useTasks();
+  const { updateTask, deleteTask, xpGainAnimation, clearXpGainAnimation } = useTasks(); // Corrected: Use the exposed updateTask and deleteTask functions
   const navigate = useNavigate(); // Initialize navigate
 
   // Check if this specific task should show the XP animation

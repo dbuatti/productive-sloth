@@ -39,7 +39,7 @@ const getAdaptiveDefaultPriority = (energy: number | undefined): TaskPriority =>
 };
 
 const TaskCreationForm: React.FC = () => {
-  const { addTask } = useTasks();
+  const { addTask } = useTasks(); // Corrected: Use the exposed addTask function
   const { profile } = useSession();
   
   const defaultPriority = getAdaptiveDefaultPriority(profile?.energy);

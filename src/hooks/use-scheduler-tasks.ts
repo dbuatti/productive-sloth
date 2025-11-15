@@ -5,7 +5,7 @@ import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types'; // Ke
 import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload } from '@/types/scheduler'; // Import scheduler types, including RawTaskInput, new retired task types, SortBy, and TaskPriority, TimeBlock, AutoBalancePayload
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO, compareDesc, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns'; // Import format, addMinutes, isBefore, isAfter
+import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns'; // Import format, addMinutes, isBefore, isAfter
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants'; // Import constants
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree } from '@/lib/scheduler-utils'; // Import scheduler utility functions, including isSlotFree
 import { useTasks } from './use-tasks'; // NEW: Import useTasks to leverage its mutations
@@ -70,232 +70,11 @@ const calculateLevelAndRemainingXp = (totalXp: number) => {
   return { level, xpTowardsNextLevel, xpRemainingForNextLevel };
 };
 
-export const useTasks = () => {
-  const queryClient = useQueryClient();
-  const { user, profile, refreshProfile, triggerLevelUp } = useSession(); // Get profile, refreshProfile, and triggerLevelUp
-  const userId = user?.id;
-
-  const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
-  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ACTIVE'); // Changed default to 'ACTIVE'
-  const [sortBy, setSortBy] = useState<SortBy>('PRIORITY_HIGH_TO_LOW'); // Updated default sort
-  const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null); // New state for XP animation
-
-  const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter, currentSortBy: SortBy): Promise<Task[]> => {
-    if (!userId) return [];
-    
-    let query = supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', userId);
-
-    const dateRange = getDateRange(currentTemporalFilter);
-
-    if (dateRange) {
-      // Use gte for start date and lte for end date
-      query = query
-        .lte('due_date', dateRange.end)
-        .gte('due_date', dateRange.start);
-    }
-    
-    // Server-side sorting optimization
-    if (currentSortBy === 'TIME_EARLIEST_TO_LATEST') {
-      query = query.order('due_date', { ascending: true });
-    } else if (currentSortBy === 'TIME_LATEST_TO_EARLIEST') {
-      query = query.order('due_date', { ascending: false });
-    } else {
-      // Default stable sort for PRIORITY client-side sort
-      query = query.order('created_at', { ascending: false });
-    }
-
-    const { data, error } = await query;
-
-    if (error) throw new Error(error.message);
-    return data as Task[];
-  }, [userId]);
-
-  const { data: tasks = [], isLoading } = useQuery<Task[]>({
-    queryKey: ['tasks', userId, temporalFilter, sortBy], // Refetch when temporal filter or sort changes
-    queryFn: () => fetchTasks(temporalFilter, sortBy),
-    enabled: !!userId,
-  });
-
-  // --- Filtering and Sorting Logic (Status filtering and PRIORITY sorting remain client-side) ---
-  const filteredTasks = useMemo(() => {
-    let result = tasks;
-
-    if (statusFilter === 'ACTIVE') {
-      result = result.filter(task => !task.is_completed);
-    } else if (statusFilter === 'COMPLETED') {
-      result = result.filter(task => task.is_completed);
-    }
-
-    // Only apply client-side sort if sorting by PRIORITY (due date is handled by the server)
-    if (sortBy.startsWith('PRIORITY')) {
-      return sortTasks(result, sortBy);
-    }
-    
-    return result;
-  }, [tasks, statusFilter, sortBy]);
-
-  // --- CRUD Mutations ---
-
-  const addTaskMutation = useMutation({
-    mutationFn: async (newTask: NewTask) => {
-      if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId };
-      const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
-      if (error) throw new Error(error.message);
-      return data as Task;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      showSuccess('Task added successfully!');
-    },
-    onError: (e) => {
-      showError(`Failed to add task: ${e.message}`);
-    }
-  });
-
-  const updateTaskMutation = useMutation({
-    mutationFn: async (task: Partial<Task> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .update(task)
-        .eq('id', task.id)
-        .select()
-        .single();
-      
-      if (error) throw new Error(error.message);
-      return data as Task;
-    },
-    onSuccess: async (updatedTask) => {
-      // Invalidate queries to force a refetch/re-evaluation of tasks
-      await queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
-
-      // Handle XP gain, Streak update, Energy deduction, and tasks_completed_today increment on task completion
-      if (updatedTask.is_completed && profile && user) {
-        const taskBeforeUpdate = tasks.find(t => t.id === updatedTask.id);
-        // Only process if the task was NOT completed before this update
-        if (taskBeforeUpdate && !taskBeforeUpdate.is_completed) {
-          // Energy Check
-          if (profile.energy < updatedTask.energy_cost) {
-            showError(`Not enough energy to complete "${updatedTask.title}". You need ${updatedTask.energy_cost} energy, but have ${profile.energy}.`);
-            // Revert task completion in UI if energy is insufficient
-            // This optimistic update needs to be reverted if the server-side logic fails
-            // For now, the invalidateQueries above will handle fetching the correct state from DB
-            return; // Stop further processing
-          }
-
-          let xpGained = updatedTask.metadata_xp;
-          // Add XP bonus for critical tasks completed on the day they are flagged
-          if (updatedTask.is_critical && isToday(parseISO(updatedTask.due_date))) {
-            xpGained += 5; // +5 XP bonus for critical tasks
-            showSuccess(`Critical task bonus! +5 XP`);
-          }
-
-          const newXp = profile.xp + xpGained;
-          const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
-          const newEnergy = Math.max(0, profile.energy - updatedTask.energy_cost); // Deduct energy, ensure not negative
-          const newTasksCompletedToday = profile.tasks_completed_today + 1; // Increment tasks completed today
-
-          let newDailyStreak = profile.daily_streak;
-          let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
-          const now = new Date();
-          const today = startOfDay(now);
-
-          if (!newLastStreakUpdate || isYesterday(newLastStreakUpdate)) {
-            // If no previous update or last update was yesterday, increment streak
-            newDailyStreak += 1;
-          } else if (!isToday(newLastStreakUpdate)) {
-            // If last update was not today or yesterday, reset streak
-            newDailyStreak = 1;
-          }
-          // If isToday(newLastStreakUpdate), streak doesn't change for today
-
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ 
-              xp: newXp, 
-              level: newLevel, 
-              daily_streak: newDailyStreak,
-              last_streak_update: today.toISOString(), // Update streak date to today
-              energy: newEnergy, // Update energy
-              tasks_completed_today: newTasksCompletedToday, // Update tasks completed today
-              updated_at: new Date().toISOString() 
-            })
-            .eq('id', user.id);
-
-          if (profileError) {
-            console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today):", profileError.message);
-            showError("Failed to update profile stats.");
-          } else {
-            await refreshProfile(); // Refresh local profile state
-            
-            // --- Trigger XP Animation ---
-            setXpGainAnimation({ taskId: updatedTask.id, xpAmount: xpGained }); // Use xpGained
-            // ---------------------------
-
-            showSuccess(`Task completed! -${updatedTask.energy_cost} Energy`);
-            if (newLevel > profile.level) {
-              showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
-              triggerLevelUp(newLevel); // Trigger the level up celebration
-            }
-          }
-        } else if (!updatedTask.is_completed && profile && user) {
-          // If task is uncompleted, just refresh profile to ensure consistency if other updates happened.
-          await refreshProfile();
-        }
-      } else if (updatedTask.is_completed) {
-        // If task was already completed, just show success (no XP/streak/energy change)
-        showSuccess('Task completed!');
-      }
-    },
-    onError: (e) => {
-      showError(`Failed to update task: ${e.message}`);
-    }
-  });
-
-  const deleteTaskMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('tasks').delete().eq('id', id);
-      if (error) throw new Error(error.message);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      showSuccess('Task deleted.');
-    },
-    onError: (e) => {
-      showError(`Failed to delete task: ${e.message}`);
-    }
-  });
-
-  const clearXpGainAnimation = useCallback(() => {
-    setXpGainAnimation(null);
-  }, []);
-
-  return {
-    tasks: filteredTasks,
-    allTasks: tasks,
-    isLoading,
-    temporalFilter,
-    setTemporalFilter,
-    statusFilter,
-    setStatusFilter,
-    sortBy,
-    setSortBy,
-    addTask: addTaskMutation.mutate,
-    updateTask: updateTaskMutation.mutate,
-    deleteTask: deleteTaskMutation.mutate,
-    xpGainAnimation, // Expose XP animation state
-    clearXpGainAnimation, // Expose clear function
-  };
-};
-
 export const useSchedulerTasks = (selectedDate: string) => { // Changed to string
   const queryClient = useQueryClient();
   const { user } = useSession();
   const userId = user?.id;
-  const { addTask, updateTask } = useTasks(); // NEW: Import addTask and updateTask from useTasks
+  const { addTaskMutation, updateTaskMutation } = useTasks(); // NEW: Import addTaskMutation and updateTaskMutation from useTasks
 
   const formattedSelectedDate = selectedDate; // Now directly use selectedDate
 
@@ -628,7 +407,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         break_duration: taskToRetire.break_duration,
         original_scheduled_date: taskToRetire.scheduled_date,
         retired_at: new Date().toISOString(),
-        is_critical: taskToToRetire.is_critical,
+        is_critical: taskToRetire.is_critical, 
         is_locked: taskToRetire.is_locked, // ADDED: is_locked property
         energy_cost: taskToRetire.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
       };
@@ -1400,10 +1179,10 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         due_date: taskToComplete.scheduled_date,
         is_critical: taskToComplete.is_critical,
       };
-      const addedTask = await addTask(newTask); // Use the addTask mutation from useTasks
+      const addedTask = await addTaskMutation.mutateAsync(newTask); // Use the addTaskMutation.mutateAsync from useTasks
 
       // 2. Mark the newly created task as completed to trigger gamification logic
-      await updateTask({ id: addedTask.id, is_completed: true }); // Use the updateTask mutation from useTasks
+      await updateTaskMutation.mutateAsync({ id: addedTask.id, is_completed: true }); // Use the updateTaskMutation.mutateAsync from useTasks
 
       // 3. Remove the task from the scheduled_tasks table
       await removeScheduledTaskMutation.mutateAsync(taskToComplete.id); // Use mutateAsync to await completion

@@ -35,7 +35,7 @@ import { Switch } from '@/components/ui/switch'; // Import Switch
 
 // Define the schema for editing, matching the TaskEditDialog logic
 const formSchema = z.object({
-  title: z.string().min(1, { message: "Title is required." }),
+  title: z.string().min(1, { message: "Title is required." }).max(255),
   description: z.string().optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
   dueDate: z.date({ required_error: "Due date is required." }), 
@@ -58,7 +58,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateTask } = useTasks();
+  const { updateTask } = useTasks(); // Corrected: Use the exposed updateTask function
   const { profile } = useSession(); // Get profile for energy check
 
   const form = useForm<TaskDetailFormValues>({

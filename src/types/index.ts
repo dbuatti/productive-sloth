@@ -1,7 +1,7 @@
 export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
 export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
-export type SortBy = 'PRIORITY' | 'DUE_DATE';
+export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST'; // Updated SortBy
 
 export interface Task {
   id: string;

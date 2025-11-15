@@ -1376,7 +1376,7 @@ const SchedulerPage: React.FC = () => {
 
       {/* NEW: Tabbed Navigation - MOVED TO TOP */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[104px] z-20"> {/* Made TabsList sticky */}
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[32px] z-20"> {/* Adjusted top to 32px */}
           <TabsTrigger 
             value="vibe-schedule" 
             className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
@@ -1392,6 +1392,14 @@ const SchedulerPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="vibe-schedule" className="space-y-4">
+          {/* Date Wheel - MOVED HERE, to the very top of the tab content */}
+          <CalendarStrip 
+            selectedDay={selectedDay} 
+            setSelectedDay={setSelectedDay} 
+            datesWithTasks={datesWithTasks} 
+            isLoadingDatesWithTasks={isLoadingDatesWithTasks}
+          />
+
           <Card className="animate-pop-in animate-hover-lift">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -1512,19 +1520,11 @@ const SchedulerPage: React.FC = () => {
           )}
 
           {isSameDay(parseISO(selectedDay), T_current) && (
-            <div className="sticky top-[144px] z-50 bg-background pb-4"> {/* Adjusted top to 144px */}
+            <div className="sticky top-[132px] z-50 bg-background pb-4"> {/* Adjusted top to 132px */}
               <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
             </div>
           )}
           
-          {/* Date Wheel - MOVED HERE, under NowFocusCard */}
-          <CalendarStrip 
-            selectedDay={selectedDay} 
-            setSelectedDay={setSelectedDay} 
-            datesWithTasks={datesWithTasks} 
-            isLoadingDatesWithTasks={isLoadingDatesWithTasks}
-          />
-
           <Card className="animate-pop-in animate-hover-lift">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">

@@ -1097,7 +1097,9 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const newRetiredTasks: NewRetiredTask[] = tasksToDump.map(task => ({
         user_id: userId,
         name: task.name,
-        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        duration: (task.start_time && task.end_time) 
+                  ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
+                  : null, // Set duration to null if start/end times are missing
         break_duration: task.break_duration,
         original_scheduled_date: task.scheduled_date,
         is_critical: task.is_critical,
@@ -1135,7 +1137,9 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         id: task.id,
         user_id: userId!,
         name: task.name,
-        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        duration: (task.start_time && task.end_time) 
+                  ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
+                  : null, // Set duration to null if start/end times are missing
         break_duration: task.break_duration,
         original_scheduled_date: task.scheduled_date,
         retired_at: now,
@@ -1189,7 +1193,9 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const newRetiredTasks: NewRetiredTask[] = allFlexibleScheduledTasks.map(task => ({
         user_id: userId,
         name: task.name,
-        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        duration: (task.start_time && task.end_time) 
+                  ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
+                  : null, // Set duration to null if start/end times are missing
         break_duration: task.break_duration,
         original_scheduled_date: task.scheduled_date, // Keep original scheduled date
         is_critical: task.is_critical,
@@ -1230,7 +1236,9 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         id: task.id,
         user_id: userId!,
         name: task.name,
-        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        duration: (task.start_time && task.end_time) 
+                  ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
+                  : null, // Set duration to null if start/end times are missing
         break_duration: task.break_duration,
         original_scheduled_date: task.scheduled_date,
         retired_at: now,

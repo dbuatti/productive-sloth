@@ -67,89 +67,68 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log("Starting transaction for user:", userId);
-    const { data: transactionData, error: transactionError } = await supabaseClient.rpc('start_transaction');
-    if (transactionError) {
-      console.error(`Failed to start transaction: ${transactionError.message}`);
-      throw new Error(`Failed to start transaction: ${transactionError.message}`);
+    // Perform operations sequentially. If any step fails, the outer catch block will handle it.
+    // This is not a true ACID transaction across multiple tables, but it's a common and robust pattern
+    // for serverless functions where full database transactions might be complex or not directly supported.
+    
+    // 1. Delete scheduled tasks
+    if (scheduledTaskIdsToDelete.length > 0) {
+      console.log("Deleting scheduled tasks:", scheduledTaskIdsToDelete);
+      const { error } = await supabaseClient
+        .from('scheduled_tasks')
+        .delete()
+        .in('id', scheduledTaskIdsToDelete)
+        .eq('user_id', userId)
+        .eq('scheduled_date', selectedDate);
+      if (error) throw new Error(`Failed to delete old scheduled tasks: ${error.message}`);
+      console.log("Scheduled tasks deleted successfully.");
     }
-    console.log("Transaction started.");
 
-    try {
-      // 1. Delete scheduled tasks
-      if (scheduledTaskIdsToDelete.length > 0) {
-        console.log("Deleting scheduled tasks:", scheduledTaskIdsToDelete);
-        const { error } = await supabaseClient
-          .from('scheduled_tasks')
-          .delete()
-          .in('id', scheduledTaskIdsToDelete)
-          .eq('user_id', userId)
-          .eq('scheduled_date', selectedDate);
-        if (error) throw new Error(`Failed to delete old scheduled tasks: ${error.message}`);
-        console.log("Scheduled tasks deleted successfully.");
-      }
-
-      // 2. Delete retired tasks
-      if (retiredTaskIdsToDelete.length > 0) {
-        console.log("Deleting retired tasks:", retiredTaskIdsToDelete);
-        const { error } = await supabaseClient
-          .from('retired_tasks')
-          .delete()
-          .in('id', retiredTaskIdsToDelete)
-          .eq('user_id', userId);
-        if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
-        console.log("Retired tasks deleted successfully.");
-      }
-
-      // 3. Insert new scheduled tasks
-      if (tasksToInsert.length > 0) {
-        console.log("Inserting new scheduled tasks:", tasksToInsert.length);
-        const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId }));
-        const { error } = await supabaseClient
-          .from('scheduled_tasks')
-          .insert(tasksToInsertWithUserId);
-        if (error) throw new Error(`Failed to insert new scheduled tasks: ${error.message}`);
-        console.log("New scheduled tasks inserted successfully.");
-      }
-
-      // 4. Insert tasks back into the sink (those that couldn't be placed)
-      if (tasksToKeepInSink.length > 0) {
-        console.log("Re-inserting tasks into sink:", tasksToKeepInSink.length);
-        const tasksToKeepInSinkWithUserId = tasksToKeepInSink.map(task => ({ 
-          ...task, 
-          user_id: userId, 
-          retired_at: new Date().toISOString() 
-        }));
-        const { error } = await supabaseClient
-          .from('retired_tasks')
-          .insert(tasksToKeepInSinkWithUserId);
-        if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
-        console.log("Unscheduled tasks re-inserted into sink successfully.");
-      }
-
-      console.log("Committing transaction.");
-      // Commit the transaction
-      await supabaseClient.rpc('commit_transaction');
-      console.log("Transaction committed.");
-
-      return new Response(JSON.stringify({ tasksPlaced: tasksToInsert.length, tasksKeptInSink: tasksToKeepInSink.length }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-
-    } catch (innerError: any) {
-      console.error("Edge Function transaction error, attempting rollback:", innerError.message);
-      // Rollback the transaction on error
-      await supabaseClient.rpc('rollback_transaction');
-      console.error("Transaction rolled back.");
-      return new Response(JSON.stringify({ error: innerError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // 2. Delete retired tasks
+    if (retiredTaskIdsToDelete.length > 0) {
+      console.log("Deleting retired tasks:", retiredTaskIdsToDelete);
+      const { error } = await supabaseClient
+        .from('retired_tasks')
+        .delete()
+        .in('id', retiredTaskIdsToDelete)
+        .eq('user_id', userId);
+      if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
+      console.log("Retired tasks deleted successfully.");
     }
+
+    // 3. Insert new scheduled tasks
+    if (tasksToInsert.length > 0) {
+      console.log("Inserting new scheduled tasks:", tasksToInsert.length);
+      const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId }));
+      const { error } = await supabaseClient
+        .from('scheduled_tasks')
+        .insert(tasksToInsertWithUserId);
+      if (error) throw new Error(`Failed to insert new scheduled tasks: ${error.message}`);
+      console.log("New scheduled tasks inserted successfully.");
+    }
+
+    // 4. Insert tasks back into the sink (those that couldn't be placed)
+    if (tasksToKeepInSink.length > 0) {
+      console.log("Re-inserting tasks into sink:", tasksToKeepInSink.length);
+      const tasksToKeepInSinkWithUserId = tasksToKeepInSink.map(task => ({ 
+        ...task, 
+        user_id: userId, 
+        retired_at: new Date().toISOString() 
+      }));
+      const { error } = await supabaseClient
+        .from('retired_tasks')
+        .insert(tasksToKeepInSinkWithUserId);
+      if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
+      console.log("Unscheduled tasks re-inserted into sink successfully.");
+    }
+
+    return new Response(JSON.stringify({ tasksPlaced: tasksToInsert.length, tasksKeptInSink: tasksToKeepInSink.length }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error: any) {
-    console.error("Edge Function top-level error:", error.message);
+    console.error("Edge Function error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

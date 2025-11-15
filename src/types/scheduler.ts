@@ -174,3 +174,16 @@ export interface TimeBlock {
   end: Date;
   duration: number; // in minutes
 }
+
+// Helper type for unification (moved from SchedulerPage.tsx)
+export interface UnifiedTask {
+  id: string;
+  name: string;
+  duration: number;
+  break_duration: number | null;
+  is_critical: boolean;
+  is_flexible: boolean;
+  energy_cost: number;
+  source: 'scheduled' | 'retired';
+  originalId: string; // ID in the source table
+}

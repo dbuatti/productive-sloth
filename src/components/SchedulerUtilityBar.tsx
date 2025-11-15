@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Zap, Shuffle, Settings2, Globe, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock } from 'lucide-react';
+import { Loader2, Zap, Shuffle, Settings2, Globe, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Brain } from 'lucide-react'; // Added Brain icon for Vibe Flow
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
@@ -18,6 +18,8 @@ interface SchedulerUtilityBarProps {
   onSortFlexibleTasks: (sortBy: SortBy) => void;
   onOpenWorkdayWindowDialog: () => void;
   sortBy: SortBy;
+  isVibeFlowEnabled: boolean; // NEW: Add isVibeFlowEnabled prop
+  onToggleVibeFlow: () => void; // NEW: Add onToggleVibeFlow prop
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -29,6 +31,8 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   onSortFlexibleTasks,
   onOpenWorkdayWindowDialog,
   sortBy,
+  isVibeFlowEnabled, // NEW: Destructure prop
+  onToggleVibeFlow, // NEW: Destructure prop
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
@@ -127,6 +131,30 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Vibe Flow Toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant={isVibeFlowEnabled ? "default" : "outline"} // Highlight if enabled
+                size="icon" 
+                onClick={onToggleVibeFlow} 
+                disabled={isProcessingCommand}
+                className={cn(
+                  "h-10 w-10 transition-all duration-200",
+                  isVibeFlowEnabled ? "bg-logo-green text-logo-green-foreground hover:bg-logo-green/90" : "text-muted-foreground hover:bg-muted/10",
+                  isProcessingCommand && "text-muted-foreground/50 cursor-not-allowed"
+                )}
+                style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+              >
+                <Brain className="h-5 w-5" />
+                <span className="sr-only">Toggle Vibe Flow</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isVibeFlowEnabled ? "Vibe Flow Enabled (Group by Likeness)" : "Vibe Flow Disabled (Time-based)"}</p>
+            </TooltipContent>
+          </Tooltip>
+
           {/* Workday Window Toggle */}
           <Tooltip>
             <TooltipTrigger asChild>

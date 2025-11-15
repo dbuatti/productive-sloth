@@ -2,12 +2,12 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
-import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload } from '@/types/scheduler';
+import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask } from '@/types/scheduler';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants';
-import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, sortTasksByVibeFlow, compactScheduleLogic } from '@/lib/scheduler-utils';
 import { useTasks } from './use-tasks';
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
@@ -430,7 +430,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
   });
 
   const compactScheduledTasksMutation = useMutation({
-    mutationFn: async (tasksToUpdate: DBScheduledTask[]) => {
+    mutationFn: async ({ tasksToUpdate, isVibeFlowEnabled }: { tasksToUpdate: DBScheduledTask[], isVibeFlowEnabled: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
 
       const updatableTasks = tasksToUpdate.filter(task => task.is_flexible && !task.is_locked);
@@ -467,7 +467,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
       }
       console.log("useSchedulerTasks: Successfully compacted tasks.");
     },
-    onMutate: async (tasksToUpdate: DBScheduledTask[]) => {
+    onMutate: async ({ tasksToUpdate, isVibeFlowEnabled }: { tasksToUpdate: DBScheduledTask[], isVibeFlowEnabled: boolean }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 

@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask } from '@/types/scheduler';
 
 // --- Constants ---
 export const EMOJI_MAP: { [key: string]: string } = {
@@ -450,6 +450,28 @@ export const isSlotFree = (
   return true;
 };
 
+/**
+ * Sorts tasks by Vibe Flow pattern:
+ * 1. Critical tasks first.
+ * 2. Then by Emoji/Color Hue.
+ * 3. Then by duration (longest first) within each emoji group.
+ */
+export const sortTasksByVibeFlow = (tasks: UnifiedTask[]): UnifiedTask[] => {
+  return [...tasks].sort((a, b) => {
+    // 1. Critical tasks first
+    if (a.is_critical && !b.is_critical) return -1;
+    if (!a.is_critical && b.is_critical) return 1;
+
+    // 2. Then by Emoji/Color Hue
+    const hueA = getEmojiHue(a.name);
+    const hueB = getEmojiHue(b.name);
+    if (hueA !== hueB) return hueA - hueB;
+
+    // 3. Then by duration (longest first)
+    return b.duration - a.duration;
+  });
+};
+
 
 // --- Core Scheduling Logic ---
 
@@ -559,12 +581,35 @@ export const compactScheduleLogic = (
   workdayStartTime: Date,
   workdayEndTime: Date,
   T_current: Date,
-  preSortedFlexibleTasks?: DBScheduledTask[]
+  preSortedFlexibleTasks?: DBScheduledTask[],
+  isVibeFlowEnabled: boolean = false // NEW: Add isVibeFlowEnabled parameter
 ): DBScheduledTask[] => {
   const finalSchedule: DBScheduledTask[] = [];
 
   const fixedTasks = allCurrentTasks.filter(task => !task.is_flexible || task.is_locked); // Treat locked tasks as fixed
-  const flexibleTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible && !task.is_locked); // Only place unlocked flexible tasks
+  let flexibleTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible && !task.is_locked); // Only place unlocked flexible tasks
+
+  // NEW: Apply Vibe Flow sorting if enabled
+  if (isVibeFlowEnabled) {
+    const unifiedFlexibleTasks: UnifiedTask[] = flexibleTasksToPlace.map(task => ({
+      id: task.id,
+      name: task.name,
+      duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+      break_duration: task.break_duration,
+      is_critical: task.is_critical,
+      is_flexible: task.is_flexible,
+      energy_cost: task.energy_cost,
+      source: 'scheduled', // Or 'retired' if coming from sink, but for compacting, it's scheduled
+      originalId: task.id,
+    }));
+    flexibleTasksToPlace = sortTasksByVibeFlow(unifiedFlexibleTasks).map(unifiedTask => 
+      allCurrentTasks.find(task => task.id === unifiedTask.id)!
+    );
+  } else {
+    // Default sorting if Vibe Flow is not enabled (e.g., by creation time or existing order)
+    flexibleTasksToPlace.sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime());
+  }
+
 
   fixedTasks.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
 

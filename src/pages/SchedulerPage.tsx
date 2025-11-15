@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2 } from 'lucide-react'; // Added Globe icon, Zap, Settings2
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2, Brain } from 'lucide-react'; // Added Brain icon for Vibe Flow
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload } from '@/types/scheduler';
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -18,6 +18,7 @@ import {
   isSlotFree,
   getFreeTimeBlocks, // Ensure getFreeTimeBlocks is imported
   calculateEnergyCost, // NEW: Import calculateEnergyCost
+  sortTasksByVibeFlow, // NEW: Import sortTasksByVibeFlow
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -88,19 +89,6 @@ function useDeepCompareMemoize<T>(value: T): T {
   return useMemo(() => ref.current, [signalRef.current],);
 }
 
-// Helper type for unification (defined locally for simplicity)
-interface UnifiedTask {
-  id: string;
-  name: string;
-  duration: number;
-  break_duration: number | null;
-  is_critical: boolean;
-  is_flexible: boolean;
-  energy_cost: number;
-  source: 'scheduled' | 'retired';
-  originalId: string; // ID in the source table
-}
-
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
 
@@ -164,6 +152,7 @@ const SchedulerPage: React.FC = () => {
   // Removed isSinkOpen state
   const [activeTab, setActiveTab] = useState('vibe-schedule');
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false); // NEW: State for WorkdayWindowDialog
+  const [isVibeFlowEnabled, setIsVibeFlowEnabled] = useState(true); // NEW: State for Vibe Flow toggle
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -673,10 +662,12 @@ const SchedulerPage: React.FC = () => {
             selectedDayAsDate,
             workdayStartTime,
             workdayEndTime,
-            T_current
+            T_current,
+            undefined, // preSortedFlexibleTasks
+            isVibeFlowEnabled // Pass the Vibe Flow toggle state
           );
           if (compactedTasks.length > 0) {
-            await compactScheduledTasks(compactedTasks);
+            await compactScheduledTasks({ tasksToUpdate: compactedTasks, isVibeFlowEnabled });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(compactedTasks.map(task => ({
               start: parseISO(task.start_time!).getTime() < parseISO(task.end_time!).getTime() ? parseISO(task.start_time!) : setHours(setMinutes(addDays(parseISO(task.scheduled_date), 1), parseISO(task.start_time!).getMinutes()), parseISO(task.start_time!).getHours()),
               end: parseISO(task.start_time!).getTime() < parseISO(task.end_time!).getTime() ? parseISO(task.end_time!) : setHours(setMinutes(addDays(parseISO(task.scheduled_date), 1), parseISO(task.end_time!).getMinutes()), parseISO(task.end_time!).getHours()),
@@ -1003,57 +994,12 @@ const SchedulerPage: React.FC = () => {
         });
 
         // --- 2. Categorization and Interleaving (Vibe Flow) ---
-        const buckets: Record<string, UnifiedTask[]> = {};
-        INTERLEAVING_PATTERN.forEach(p => {
-            const key = `${p.duration}-${p.critical}`;
-            buckets[key] = [];
-        });
-
-        unifiedPool.forEach(task => {
-            let durationKey = task.duration;
-            if (task.duration > LONG_TASK_THRESHOLD) {
-                durationKey = LONG_TASK_THRESHOLD + 1;
-            } else if (!DURATION_BUCKETS.includes(task.duration)) {
-                durationKey = DURATION_BUCKETS.find(d => d >= task.duration) || 30;
-            }
-            
-            const key = `${durationKey}-${task.is_critical}`;
-            if (buckets[key]) {
-                buckets[key].push(task);
-            } else {
-                const fallbackKey = `${30}-${task.is_critical}`;
-                buckets[fallbackKey].push(task);
-            }
-        });
-
-        Object.values(buckets).forEach(bucket => bucket.sort((a, b) => a.name.localeCompare(b.name)));
-
-        const balancedQueue: UnifiedTask[] = [];
-        let tasksRemaining = unifiedPool.length;
-        let cycleCount = 0;
-
-        while (tasksRemaining > 0 && cycleCount < 500) {
-            let pulledInCycle = false;
-            for (const pattern of INTERLEAVING_PATTERN) {
-                const key = `${pattern.duration}-${pattern.critical}`;
-                if (buckets[key] && buckets[key].length > 0) {
-                    const task = buckets[key].shift()!;
-                    balancedQueue.push(task);
-                    tasksRemaining--;
-                    pulledInCycle = true;
-                }
-            }
-            if (!pulledInCycle && tasksRemaining > 0) {
-                Object.values(buckets).forEach(bucket => {
-                    while(bucket.length > 0) {
-                        const task = bucket.shift()!;
-                        balancedQueue.push(task);
-                        tasksRemaining--;
-                    }
-                });
-                break; 
-            }
-            cycleCount++;
+        let balancedQueue: UnifiedTask[] = [];
+        if (isVibeFlowEnabled) {
+          balancedQueue = sortTasksByVibeFlow(unifiedPool);
+        } else {
+          // Default sorting if Vibe Flow is not enabled (e.g., by creation time or existing order)
+          balancedQueue = [...unifiedPool].sort((a, b) => a.name.localeCompare(b.name)); // Example default sort
         }
         
         // --- 3. Re-Timing and Placement ---
@@ -1237,11 +1183,12 @@ const SchedulerPage: React.FC = () => {
       workdayStartTime,
       workdayEndTime,
       T_current,
-      sortedFlexibleTasks
+      sortedFlexibleTasks,
+      isVibeFlowEnabled // Pass the Vibe Flow toggle state
     );
 
     if (reorganizedTasks.length > 0) {
-      await compactScheduledTasks(reorganizedTasks);
+      await compactScheduledTasks({ tasksToUpdate: reorganizedTasks, isVibeFlowEnabled });
       showSuccess("Flexible tasks sorted!");
       setSortBy(newSortBy);
     } else {
@@ -1426,6 +1373,8 @@ const SchedulerPage: React.FC = () => {
         onSortFlexibleTasks={handleSortFlexibleTasks}
         onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
         sortBy={sortBy}
+        isVibeFlowEnabled={isVibeFlowEnabled} // NEW: Pass Vibe Flow state
+        onToggleVibeFlow={() => setIsVibeFlowEnabled(prev => !prev)} // NEW: Pass Vibe Flow toggle handler
       />
 
       {/* 6. NOW FOCUS Card - STICKY */}
@@ -1498,7 +1447,6 @@ const SchedulerPage: React.FC = () => {
             onAutoScheduleSink={handleAutoScheduleSinkWrapper}
             isLoading={isLoadingRetiredTasks}
             isProcessingCommand={isProcessingCommand}
-            // Removed isSinkOpen and onToggle props
             profileEnergy={profile?.energy || 0} // NEW: Pass profile energy for critical task status
           />
         </TabsContent>

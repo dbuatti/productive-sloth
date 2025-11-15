@@ -1071,7 +1071,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     }
   });
 
-  // NEW: Aether Dump mutation
+  // NEW: Aether Dump mutation (for current day only)
   const aetherDumpMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User not authenticated.");
@@ -1089,7 +1089,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const tasksToDump = currentScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
 
       if (tasksToDump.length === 0) {
-        showSuccess("No flexible, unlocked tasks to dump to Aether Sink.");
+        showSuccess("No flexible, unlocked tasks to dump to Aether Sink for today.");
         return; // No tasks to dump
       }
 
@@ -1164,6 +1164,103 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       }
     }
   });
+
+  // NEW: Aether Dump Mega mutation (for all days)
+  const aetherDumpMegaMutation = useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error("User not authenticated.");
+
+      // 1. Fetch ALL flexible and unlocked scheduled tasks for the current user
+      const { data: allFlexibleScheduledTasks, error: fetchError } = await supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_flexible', true)
+        .eq('is_locked', false);
+
+      if (fetchError) throw new Error(`Failed to fetch all flexible scheduled tasks for Aether Dump Mega: ${fetchError.message}`);
+
+      if (allFlexibleScheduledTasks.length === 0) {
+        showSuccess("No flexible, unlocked tasks to dump to Aether Sink from any day.");
+        return; // No tasks to dump
+      }
+
+      // 2. Prepare tasks for insertion into retired_tasks
+      const newRetiredTasks: NewRetiredTask[] = allFlexibleScheduledTasks.map(task => ({
+        user_id: userId,
+        name: task.name,
+        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        break_duration: task.break_duration,
+        original_scheduled_date: task.scheduled_date, // Keep original scheduled date
+        is_critical: task.is_critical,
+        is_locked: task.is_locked,
+      }));
+
+      // 3. Insert into retired_tasks
+      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
+      if (insertError) throw new Error(`Failed to move tasks to Aether Sink (Mega): ${insertError.message}`);
+
+      // 4. Delete from scheduled_tasks
+      const { error: deleteError } = await supabase
+        .from('scheduled_tasks')
+        .delete()
+        .in('id', allFlexibleScheduledTasks.map(task => task.id))
+        .eq('user_id', userId); // Ensure RLS is respected
+      if (deleteError) throw new Error(`Failed to remove tasks from schedule (Mega): ${deleteError.message}`);
+    },
+    onMutate: async () => {
+      // Optimistic update for Aether Dump Mega is complex due to affecting all dates.
+      // For simplicity and safety, we will invalidate all relevant queries.
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId] }); // Cancel all scheduled tasks queries
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
+
+      // No direct optimistic update of scheduledTasks cache across all dates.
+      // Instead, we'll rely on refetching after success.
+      // We can optimistically add to retiredTasks.
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      // Fetch current flexible tasks to optimistically add to retired sink
+      const currentScheduledTasksSnapshot = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
+        .flatMap(([_key, data]) => data || [])
+        .filter(task => task.is_flexible && !task.is_locked);
+
+      const now = new Date().toISOString();
+      const optimisticRetiredTasks: RetiredTask[] = currentScheduledTasksSnapshot.map(task => ({
+        id: task.id,
+        user_id: userId!,
+        name: task.name,
+        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+        break_duration: task.break_duration,
+        original_scheduled_date: task.scheduled_date,
+        retired_at: now,
+        is_critical: task.is_critical,
+        is_locked: task.is_locked,
+      }));
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+        [...optimisticRetiredTasks, ...(old || [])]
+      );
+
+      return { previousRetiredTasks };
+    },
+    onSuccess: () => {
+      // Invalidate all scheduledTasks queries to ensure all dates are refetched
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      showSuccess('All flexible tasks moved to Aether Sink!');
+    },
+    onError: (err, _variables, context) => {
+      showError(`Failed to perform Aether Dump Mega: ${err.message}`);
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
+      // Note: Rolling back scheduledTasks across all dates is complex,
+      // relying on refetch on error for consistency.
+    }
+  });
+
 
   // NEW: Auto-Balance Schedule Mutation (Stage 2)
   const autoBalanceScheduleMutation = useMutation({
@@ -1279,6 +1376,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutate, // NEW: Toggle scheduled task lock
     toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutate, // NEW: Toggle retired task lock
     aetherDump: aetherDumpMutation.mutate, // NEW: Expose Aether Dump mutation
+    aetherDumpMega: aetherDumpMegaMutation.mutate, // NEW: Expose Aether Dump Mega mutation
     autoBalanceSchedule: autoBalanceScheduleMutation.mutate, // NEW: Expose Auto Balance Schedule mutation
     sortBy, // Expose sortBy state
     setSortBy, // Expose setSortBy function

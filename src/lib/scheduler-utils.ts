@@ -294,7 +294,7 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
 };
 
 interface ParsedCommand {
-  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact' | 'timeoff' | 'aether dump' | 'reset schedule';
+  type: 'clear' | 'remove' | 'show' | 'reorder' | 'compact' | 'timeoff' | 'aether dump' | 'reset schedule' | 'aether dump mega'; // Added 'aether dump mega'
   index?: number;
   target?: string;
 }
@@ -339,6 +339,10 @@ export const parseCommand = (input: string): ParsedCommand | null => {
 
   if (lowerInput === 'aether dump') {
     return { type: 'aether dump' };
+  }
+
+  if (lowerInput === 'aether dump mega') { // NEW: Aether Dump Mega command
+    return { type: 'aether dump mega' };
   }
 
   if (lowerInput === 'reset schedule') {

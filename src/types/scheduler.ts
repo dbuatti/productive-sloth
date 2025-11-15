@@ -54,6 +54,7 @@ export interface DBScheduledTask {
   is_flexible: boolean; // NEW: Flag for schedule compaction
   is_locked: boolean; // NEW: Task Immutability Flag
   energy_cost: number; // NEW: Made energy_cost required
+  is_completed: boolean; // NEW: Added is_completed for scheduled tasks
 }
 
 export interface NewDBScheduledTask {
@@ -66,6 +67,7 @@ export interface NewDBScheduledTask {
   is_flexible?: boolean; // NEW: Flag for schedule compaction
   is_locked?: boolean; // NEW: Task Immutability Flag
   energy_cost: number; // NEW: Made energy_cost required
+  is_completed?: boolean; // NEW: Added is_completed for new scheduled tasks
 }
 
 // New types for retired tasks (Aether Sink)
@@ -121,6 +123,7 @@ export interface ScheduledItem {
   isFlexible?: boolean; // NEW: Flag for schedule compaction
   isLocked?: boolean; // NEW: Task Immutability Flag
   energyCost: number; // NEW: Made energyCost required
+  isCompleted: boolean; // NEW: Added isCompleted for scheduled items
 }
 
 export interface ScheduleSummary {

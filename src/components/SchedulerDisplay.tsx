@@ -36,7 +36,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null);
   const activeItemRef = useRef<HTMLDivElement>(null);
-  const { toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString);
+  const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString); // Added updateScheduledTaskStatus
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
@@ -192,14 +192,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     if (item.type === 'marker') {
       return (
         <React.Fragment key={item.id}>
-          <div className="flex items-center justify-end pr-2">
-            <span className="text-sm font-bold text-foreground">
-              {item.label}
-            </span>
-          </div>
+          <div></div> {/* Empty div to align with the grid */}
           <div className="relative flex items-center">
             <div className="h-px w-full bg-border" />
             <div className="absolute right-0 h-2.5 w-2.5 rounded-full bg-border -mr-1.5" />
+            <span className="absolute right-full mr-2 text-sm font-bold text-foreground whitespace-nowrap">
+              {item.label}
+            </span>
           </div>
         </React.Fragment>
       );
@@ -244,7 +243,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const isLocked = scheduledItem.isLocked;
       const isFixed = !scheduledItem.isFlexible;
       const isFixedOrLocked = isFixed || isLocked;
-      const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current);
+      const isCompleted = scheduledItem.isCompleted; // NEW: Get completion status
+      const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current) && !isCompleted; // Only missed if not completed
 
       if (scheduledItem.endTime < startOfTemplate) return null;
 
@@ -287,6 +287,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               isFixedOrLocked && "border-[3px] border-live-progress", // 3px solid cyan border
               // ADVANCED LOGIC: Critical Task Visual Enhancement
               scheduledItem.isCritical && "border-logo-yellow/70 ring-2 ring-logo-yellow/50", // Stronger border/ring for critical tasks
+              isCompleted && "opacity-50 line-through", // NEW: Visual for completed tasks
               "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }}
@@ -344,29 +345,31 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
                 </span>
                 <div className="flex items-center gap-1 ml-2">
-                  {/* Lock/Unlock Button */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked })}
-                        className={cn(
-                          "h-6 w-6 p-0 shrink-0",
-                          isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"
-                        )}
-                        style={isLocked ? { pointerEvents: 'auto' } : undefined}
-                      >
-                        {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                        <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  {/* Lock/Unlock Button - Only for flexible tasks */}
+                  {scheduledItem.isFlexible && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked })}
+                          className={cn(
+                            "h-6 w-6 p-0 shrink-0",
+                            isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"
+                          )}
+                          style={isLocked ? { pointerEvents: 'auto' } : undefined}
+                        >
+                          {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                          <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
 
-                  {dbTask && !isBreak && !isTimeOff && (
+                  {dbTask && !isBreak && !isTimeOff && !isCompleted && ( // Only show complete button if not completed
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 

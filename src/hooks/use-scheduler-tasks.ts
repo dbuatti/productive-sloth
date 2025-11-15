@@ -110,7 +110,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost })));
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed })));
       return data as DBScheduledTask[];
     },
     enabled: !!userId && !!formattedSelectedDate,
@@ -168,7 +168,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0 };
+      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false };
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -200,6 +200,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
           is_flexible: newTask.is_flexible ?? true,
           is_locked: newTask.is_locked ?? false,
           energy_cost: newTask.energy_cost ?? 0,
+          is_completed: newTask.is_completed ?? false,
         };
         return [...(old || []), optimisticTask];
       });
@@ -456,6 +457,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_flexible: task.is_flexible,
         is_locked: task.is_locked,
         energy_cost: task.energy_cost ?? 0,
+        is_completed: task.is_completed ?? false,
         updated_at: new Date().toISOString(),
       }));
 
@@ -471,12 +473,13 @@ export const useSchedulerTasks = (selectedDate: string) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 
-      const updatedTasks = (previousScheduledTasks || []).map(oldTask => {
-        const newTask = tasksToUpdate.find(t => t.id === oldTask.id);
-        return newTask && newTask.is_flexible && !newTask.is_locked ? newTask : oldTask;
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
+        const updatedTasks = (old || []).map(oldTask => {
+          const newTask = tasksToUpdate.find(t => t.id === oldTask.id);
+          return newTask && newTask.is_flexible && !newTask.is_locked ? newTask : oldTask;
+        });
+        return updatedTasks;
       });
-
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], updatedTasks);
       return { previousScheduledTasks };
     },
     onSuccess: () => {
@@ -562,6 +565,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
                 is_flexible: true,
                 is_locked: breakTask.is_locked,
                 energy_cost: breakTask.energy_cost ?? 0,
+                is_completed: breakTask.is_completed ?? false,
                 updated_at: new Date().toISOString(),
               };
               placedBreaks.push(newBreakTask);
@@ -591,6 +595,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
           is_flexible: task.is_flexible,
           is_locked: task.is_locked,
           energy_cost: task.energy_cost ?? 0,
+          is_completed: task.is_completed ?? false,
           updated_at: new Date().toISOString(),
         }));
         const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
@@ -673,6 +678,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
                 is_flexible: true,
                 is_locked: breakTask.is_locked,
                 energy_cost: breakTask.energy_cost ?? 0,
+                is_completed: breakTask.is_completed ?? false,
                 updated_at: new Date().toISOString(),
               };
               optimisticPlacedBreaks.push(newBreakTask);
@@ -806,7 +812,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         .from('scheduled_tasks')
         .select('*')
         .eq('user_id', userId)
-        .eq('scheduled_date', formattedSelectedDate);
+        .eq('scheduled_date', formattedSelectedDay);
 
       if (fetchError) throw new Error(`Failed to fetch scheduled tasks for Aether Dump: ${fetchError.message}`);
 
@@ -1003,7 +1009,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
       }
 
       if (tasksToInsert.length > 0) {
-        const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId, energy_cost: task.energy_cost ?? 0 }));
+        const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId, energy_cost: task.energy_cost ?? 0, is_completed: task.is_completed ?? false }));
         const { error: insertScheduledError } = await supabase
           .from('scheduled_tasks')
           .insert(tasksToInsertWithUserId);
@@ -1060,6 +1066,47 @@ export const useSchedulerTasks = (selectedDate: string) => {
       }
       if (context?.previousRetiredTasks) {
         queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
+    }
+  });
+
+  const updateScheduledTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log(`useSchedulerTasks: Attempting to update completion status for task ID: ${taskId} to ${isCompleted}`);
+      const { data, error } = await supabase
+        .from('scheduled_tasks')
+        .update({ is_completed: isCompleted, updated_at: new Date().toISOString() })
+        .eq('id', taskId)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) {
+        console.error("useSchedulerTasks: Error updating task completion status:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully updated completion status for task:", data);
+      return data as DBScheduledTask;
+    },
+    onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
+        (old || []).map(task =>
+          task.id === taskId ? { ...task, is_completed: isCompleted } : task
+        )
+      );
+      return { previousScheduledTasks };
+    },
+    onSuccess: (updatedTask) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      showSuccess(`Task "${updatedTask.name}" marked as ${updatedTask.is_completed ? 'completed' : 'incomplete'}.`);
+    },
+    onError: (err, { taskId, isCompleted }, context) => {
+      showError(`Failed to update completion status for task: ${err.message}`);
+      if (context?.previousScheduledTasks) {
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
     }
   });
@@ -1124,7 +1171,12 @@ export const useSchedulerTasks = (selectedDate: string) => {
         }
       }
 
-      await removeScheduledTaskMutation.mutateAsync(taskToComplete.id);
+      // Conditional completion logic
+      if (taskToComplete.is_flexible) {
+        await removeScheduledTaskMutation.mutateAsync(taskToComplete.id);
+      } else {
+        await updateScheduledTaskStatusMutation.mutateAsync({ taskId: taskToComplete.id, isCompleted: true });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
@@ -1164,6 +1216,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
     aetherDumpMega: aetherDumpMegaMutation.mutate,
     autoBalanceSchedule: autoBalanceScheduleMutation.mutate,
     completeScheduledTask: completeScheduledTaskMutation.mutate,
+    updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutate, // Expose for other uses if needed
     sortBy,
     setSortBy,
     xpGainAnimation,

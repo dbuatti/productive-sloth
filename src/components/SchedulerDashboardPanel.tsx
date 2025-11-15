@@ -46,6 +46,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                   onClick={onCompactSchedule} 
                   disabled={isProcessingCommand || !hasFlexibleTasks}
                   className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
+                  style={isProcessingCommand || !hasFlexibleTasks ? { pointerEvents: 'auto' } : undefined}
                 >
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronsUp className="h-4 w-4" />}
                   <span className="sr-only">Compact Schedule</span>
@@ -65,6 +66,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                   onClick={onAetherDump} 
                   disabled={isProcessingCommand || !hasFlexibleTasks}
                   className="h-8 w-8 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+                  style={isProcessingCommand || !hasFlexibleTasks ? { pointerEvents: 'auto' } : undefined}
                 >
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} {/* Changed to Trash2 */}
                   <span className="sr-only">Aether Dump</span>
@@ -84,6 +86,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                   onClick={onRefreshSchedule} 
                   disabled={isProcessingCommand}
                   className="h-8 w-8 text-muted-foreground hover:bg-muted/10 transition-all duration-200"
+                  style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                 >
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
                   <span className="sr-only">Refresh Schedule</span>

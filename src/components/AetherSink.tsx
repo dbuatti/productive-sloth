@@ -43,6 +43,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   onClick={onAutoScheduleSink}
                   disabled={!hasRetiredTasks || isLoading || isProcessingCommand || retiredTasks.every(task => task.is_locked)}
                   className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
+                  style={(!hasRetiredTasks || isLoading || isProcessingCommand || retiredTasks.every(task => task.is_locked)) ? { pointerEvents: 'auto' } : undefined}
                 >
                   {isProcessingCommand ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -167,6 +168,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 "h-7 w-7 p-0 shrink-0",
                                 isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20"
                               )}
+                              style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                             >
                               {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                               <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
@@ -188,6 +190,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 "h-7 w-7 text-primary hover:bg-primary/10",
                                 (isLocked || isProcessingCommand || isCriticalAwaitingEnergy) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
+                              style={(isLocked || isProcessingCommand || isCriticalAwaitingEnergy) ? { pointerEvents: 'auto' } : undefined}
                             >
                               <RotateCcw className="h-4 w-4" />
                               <span className="sr-only">Rezone</span>
@@ -208,6 +211,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 "h-7 w-7 text-destructive hover:bg-destructive/20",
                                 (isLocked || isProcessingCommand) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
+                              style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                             >
                               <Trash2 className="h-4 w-4" />
                               <span className="sr-only">Delete</span>

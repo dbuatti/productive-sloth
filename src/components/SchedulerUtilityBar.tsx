@@ -50,6 +50,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   "h-10 w-10 text-logo-yellow hover:bg-logo-yellow/10 transition-all duration-200",
                   isEnergyFull && "text-muted-foreground/50 cursor-not-allowed"
                 )}
+                style={isProcessingCommand || isEnergyFull ? { pointerEvents: 'auto' } : undefined}
               >
                 {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
                 <span className="sr-only">Recharge Energy</span>
@@ -72,6 +73,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
                   !hasUnlockedBreaks && "text-muted-foreground/50 cursor-not-allowed"
                 )}
+                style={isProcessingCommand || !hasUnlockedBreaks ? { pointerEvents: 'auto' } : undefined}
               >
                 {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shuffle className="h-5 w-5" />}
                 <span className="sr-only">Randomize Breaks</span>
@@ -95,6 +97,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                       "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
                       !hasFlexibleTasksOnCurrentDay && "text-muted-foreground/50 cursor-not-allowed"
                     )}
+                    style={isProcessingCommand || !hasFlexibleTasksOnCurrentDay ? { pointerEvents: 'auto' } : undefined}
                   >
                     {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowDownWideNarrow className="h-5 w-5" />}
                     <span className="sr-only">Sort Flexible Tasks</span>
@@ -133,6 +136,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 onClick={onOpenWorkdayWindowDialog} 
                 disabled={isProcessingCommand}
                 className="h-10 w-10 text-muted-foreground hover:bg-muted/10 transition-all duration-200"
+                style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
               >
                 <Settings2 className="h-5 w-5" />
                 <span className="sr-only">Workday Window Settings</span>

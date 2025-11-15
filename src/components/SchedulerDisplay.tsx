@@ -355,6 +355,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           "h-6 w-6 p-0 shrink-0",
                           isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"
                         )}
+                        style={isLocked ? { pointerEvents: 'auto' } : undefined}
                       >
                         {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                         <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
@@ -377,6 +378,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                             "h-6 w-6 p-0 shrink-0",
                             isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                           )}
+                          style={isLocked ? { pointerEvents: 'auto' } : undefined}
                         >
                           <CheckCircle className="h-4 w-4" />
                           <span className="sr-only">Complete task</span>
@@ -400,6 +402,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                             "h-6 w-6 p-0 shrink-0",
                             isLocked ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                           )}
+                          style={isLocked ? { pointerEvents: 'auto' } : undefined}
                         >
                           <Archive className="h-4 w-4" />
                           <span className="sr-only">Retire task</span>
@@ -421,6 +424,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           "h-6 w-6 p-0 shrink-0",
                           isLocked ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                         )}
+                        style={isLocked ? { pointerEvents: 'auto' } : undefined}
                       >
                         <Trash className="h-4 w-4" />
                         <span className="sr-only">Remove task</span>

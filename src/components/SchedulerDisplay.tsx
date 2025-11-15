@@ -193,6 +193,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     setIsSheetOpen(true);
   };
 
+  // NEW: Handle click on the task item itself
+  const handleTaskItemClick = (event: React.MouseEvent, dbTask: DBScheduledTask) => {
+    // Prevent opening the sheet if a child interactive element (like a button) was clicked
+    const target = event.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) {
+      return;
+    }
+    setSelectedScheduledTask(dbTask);
+    setIsSheetOpen(true);
+  };
+
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
 
   const renderDisplayItem = (item: DisplayItem) => {
@@ -285,7 +296,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div
             ref={isCurrentlyActive ? activeItemRef : null}
             className={cn(
-              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden",
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", // Added cursor-pointer
               "border-2", // Base border width
               isHighlightedByNowCard ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" :
@@ -303,6 +314,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }}
             onMouseEnter={() => setHoveredItemId(scheduledItem.id)} // Set hovered item
             onMouseLeave={() => setHoveredItemId(null)} // Clear hovered item
+            onClick={(e) => dbTask && handleTaskItemClick(e, dbTask)} // NEW: Added onClick handler
           >
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">

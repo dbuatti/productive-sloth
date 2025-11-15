@@ -7,7 +7,7 @@ import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants';
-import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, sortTasksByVibeFlow, compactScheduleLogic } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic } from '@/lib/scheduler-utils'; // Removed sortTasksByVibeFlow
 import { useTasks } from './use-tasks';
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
@@ -212,11 +212,8 @@ export const useSchedulerTasks = (selectedDate: string) => {
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Task added to schedule!');
     },
-    onError: (err, newTask, context) => {
-      showError(`Failed to add task to schedule: ${err.message}`);
-      if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
-      }
+    onError: (e) => {
+      showError(`Failed to add task to schedule: ${e.message}`);
     }
   });
 
@@ -433,7 +430,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
   });
 
   const compactScheduledTasksMutation = useMutation({
-    mutationFn: async ({ tasksToUpdate, isVibeFlowEnabled }: { tasksToUpdate: DBScheduledTask[], isVibeFlowEnabled: boolean }) => {
+    mutationFn: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => { // Removed isVibeFlowEnabled
       if (!userId) throw new Error("User not authenticated.");
 
       const updatableTasks = tasksToUpdate.filter(task => task.is_flexible && !task.is_locked);
@@ -471,7 +468,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
       }
       console.log("useSchedulerTasks: Successfully compacted tasks.");
     },
-    onMutate: async ({ tasksToUpdate, isVibeFlowEnabled }: { tasksToUpdate: DBScheduledTask[], isVibeFlowEnabled: boolean }) => {
+    onMutate: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => { // Removed isVibeFlowEnabled
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
 

@@ -9,14 +9,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 interface SchedulerDashboardPanelProps {
   scheduleSummary: ScheduleSummary | null;
-  onVibeSort: () => void; // Renamed from onCompactSchedule
   onAetherDump: () => void;
   isProcessingCommand: boolean;
   hasFlexibleTasks: boolean;
   onRefreshSchedule: () => void; // NEW: Handler for refresh
 }
 
-const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ scheduleSummary, onVibeSort, onAetherDump, isProcessingCommand, hasFlexibleTasks, onRefreshSchedule }) => {
+const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ scheduleSummary, onAetherDump, isProcessingCommand, hasFlexibleTasks, onRefreshSchedule }) => {
   const [isCollapsed, setIsCollapsed] = useState(false); // NEW: State for collapse/expand
 
   if (!scheduleSummary || scheduleSummary.totalTasks === 0) {
@@ -37,26 +36,6 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard
           </CardTitle>
           <div className="flex items-center gap-2">
-            {/* Vibe Sort Button (replaces old Compact Schedule) */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={onVibeSort} 
-                  disabled={isProcessingCommand || !hasFlexibleTasks}
-                  className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
-                  style={isProcessingCommand || !hasFlexibleTasks ? { pointerEvents: 'auto' } : undefined}
-                >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                  <span className="sr-only">Vibe Sort</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Vibe Sort: Dump current flexible tasks, sort, and re-slot immediately.</p>
-              </TooltipContent>
-            </Tooltip>
-
             {/* Aether Dump Button */}
             <Tooltip>
               <TooltipTrigger asChild>

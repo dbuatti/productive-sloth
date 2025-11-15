@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2, Brain } from 'lucide-react'; // Added Brain icon for Vibe Flow
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2 } from 'lucide-react'; // Removed Brain icon for Vibe Flow
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask } from '@/types/scheduler';
@@ -18,7 +18,7 @@ import {
   isSlotFree,
   getFreeTimeBlocks, // Ensure getFreeTimeBlocks is imported
   calculateEnergyCost, // NEW: Import calculateEnergyCost
-  sortTasksByVibeFlow, // NEW: Import sortTasksByVibeFlow
+  // Removed sortTasksByVibeFlow
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -152,7 +152,7 @@ const SchedulerPage: React.FC = () => {
   // Removed isSinkOpen state
   const [activeTab, setActiveTab] = useState('vibe-schedule');
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false); // NEW: State for WorkdayWindowDialog
-  const [isVibeFlowEnabled, setIsVibeFlowEnabled] = useState(true); // NEW: State for Vibe Flow toggle
+  // Removed isVibeFlowEnabled state
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -972,15 +972,9 @@ const SchedulerPage: React.FC = () => {
             retiredTaskIdsToDelete.push(task.id);
         });
 
-        // --- 2. Categorization and Interleaving (Vibe Flow) ---
-        let balancedQueue: UnifiedTask[] = [];
-        if (isVibeFlowEnabled) {
-          balancedQueue = sortTasksByVibeFlow(unifiedPool);
-        } else {
-          // Default sorting if Vibe Flow is not enabled (e.g., by creation time or existing order)
-          balancedQueue = [...unifiedPool].sort((a, b) => a.name.localeCompare(b.name)); // Example default sort
-        }
-        
+        // --- 2. Categorization and Interleaving (Default Sorting) ---
+        let balancedQueue: UnifiedTask[] = [...unifiedPool].sort((a, b) => a.name.localeCompare(b.name)); // Default sort
+
         // --- 3. Re-Timing and Placement ---
         const tasksToInsert: NewDBScheduledTask[] = [];
         const tasksToKeepInSink: NewRetiredTask[] = [];
@@ -1111,65 +1105,7 @@ const SchedulerPage: React.FC = () => {
     handleAutoScheduleSink();
   };
 
-  // NEW: handleVibeSort function
-  const handleVibeSort = async () => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to use Vibe Sort.");
-      return;
-    }
-    setIsProcessingCommand(true);
-
-    try {
-      // 1. Perform an Aether Dump (Current Day) for flexible, unlocked tasks
-      const flexibleScheduledTasksToDump = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
-      if (flexibleScheduledTasksToDump.length > 0) {
-        const newRetiredTasks: NewRetiredTask[] = flexibleScheduledTasksToDump.map(task => ({
-          user_id: user.id,
-          name: task.name,
-          duration: (task.start_time && task.end_time) 
-                    ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
-                    : null,
-          break_duration: task.break_duration,
-          original_scheduled_date: task.scheduled_date,
-          is_critical: task.is_critical,
-          is_locked: task.is_locked,
-          energy_cost: task.energy_cost ?? 0,
-        }));
-
-        const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
-        if (insertError) throw new Error(`Failed to move tasks to Aether Sink for Vibe Sort: ${insertError.message}`);
-
-        const { error: deleteError } = await supabase
-          .from('scheduled_tasks')
-          .delete()
-          .in('id', flexibleScheduledTasksToDump.map(task => task.id))
-          .eq('user_id', user.id);
-        if (deleteError) throw new Error(`Failed to remove tasks from schedule for Vibe Sort: ${deleteError.message}`);
-      }
-
-      // 2. Immediately trigger the Auto Schedule process (which now includes Vibe Flow sorting)
-      // We need to ensure the retiredTasks state is updated before calling handleAutoScheduleSink
-      // Invalidate queries to ensure fresh data for the next step
-      await queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
-      await queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });
-      await queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
-
-      // Wait for the query client to refetch before proceeding
-      await queryClient.refetchQueries({ queryKey: ['retiredTasks', user.id] });
-      await queryClient.refetchQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
-
-      // Now call the auto-schedule logic
-      await handleAutoScheduleSink(); // This will now operate on the newly dumped tasks + any existing sink tasks
-
-      showSuccess("Vibe Sort completed!");
-
-    } catch (error: any) {
-      showError(`Failed to perform Vibe Sort: ${error.message}`);
-      console.error("Vibe Sort error:", error);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  };
+  // Removed handleVibeSort function
 
   // NEW: handleCompactSchedule function
   const handleCompactSchedule = async () => {
@@ -1183,11 +1119,11 @@ const SchedulerPage: React.FC = () => {
       workdayEndTime,
       T_current,
       undefined, // preSortedFlexibleTasks
-      isVibeFlowEnabled // Pass the Vibe Flow toggle state
+      // Removed isVibeFlowEnabled parameter
     );
 
     if (compactedTasks.length > 0) {
-      await compactScheduledTasks({ tasksToUpdate: compactedTasks, isVibeFlowEnabled });
+      await compactScheduledTasks({ tasksToUpdate: compactedTasks }); // Removed isVibeFlowEnabled
       showSuccess("Schedule compacted!");
     } else {
       showError("No flexible tasks to compact or no space available.");
@@ -1248,11 +1184,11 @@ const SchedulerPage: React.FC = () => {
       workdayEndTime,
       T_current,
       sortedFlexibleTasks,
-      isVibeFlowEnabled // Pass the Vibe Flow toggle state
+      // Removed isVibeFlowEnabled parameter
     );
 
     if (reorganizedTasks.length > 0) {
-      await compactScheduledTasks({ tasksToUpdate: reorganizedTasks, isVibeFlowEnabled });
+      await compactScheduledTasks({ tasksToUpdate: reorganizedTasks }); // Removed isVibeFlowEnabled
       showSuccess("Flexible tasks sorted!");
       setSortBy(newSortBy);
     } else {
@@ -1347,18 +1283,7 @@ const SchedulerPage: React.FC = () => {
     showSuccess("Schedule refreshed!");
   };
 
-  // Effect to trigger Vibe Sort when isVibeFlowEnabled changes
-  const isInitialMount = useRef(true);
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    if (user && profile && !isProcessingCommand) {
-      handleVibeSort();
-    }
-  }, [isVibeFlowEnabled, user, profile, isProcessingCommand]);
-
+  // Removed useEffect to trigger Vibe Sort when isVibeFlowEnabled changes
 
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -1398,7 +1323,7 @@ const SchedulerPage: React.FC = () => {
       {/* 2. Session Dashboard (Metrics + Zone 1: Global Management) */}
       <SchedulerDashboardPanel 
         scheduleSummary={currentSchedule?.summary || null} 
-        onVibeSort={handleVibeSort} // Updated to new handleVibeSort
+        // Removed onVibeSort
         onAetherDump={() => aetherDump()}
         isProcessingCommand={isProcessingCommand}
         hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
@@ -1449,8 +1374,8 @@ const SchedulerPage: React.FC = () => {
         onSortFlexibleTasks={handleSortFlexibleTasks}
         onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
         sortBy={sortBy}
-        isVibeFlowEnabled={isVibeFlowEnabled}
-        onToggleVibeFlow={() => setIsVibeFlowEnabled(prev => !prev)}
+        // Removed isVibeFlowEnabled
+        // Removed onToggleVibeFlow
         onCompactSchedule={handleCompactSchedule} // Pass the new handler here
       />
 

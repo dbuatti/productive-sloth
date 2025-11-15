@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
-import { BookOpen, Sparkles, Clock, ListTodo, Settings, Trophy, TrendingUp, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code, Star, Brain } from 'lucide-react'; // Imported Gamepad and Code, Star, Brain
+import { BookOpen, Sparkles, Clock, ListTodo, Settings, Trophy, TrendingUp, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code, Star } from 'lucide-react'; // Removed Brain icon
 import { EMOJI_MAP, EMOJI_HUE_MAP, calculateEnergyCost } from '@/lib/scheduler-utils';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/use-session';
@@ -136,15 +136,10 @@ const DocumentationPage: React.FC = () => {
                   <span className="font-semibold text-foreground">Aether Dump Mega:</span> Moves all *flexible, unlocked* tasks from *all future and current days' schedules* to the Aether Sink.
                 </li>
                 <li>
-                  <span className="font-semibold text-foreground">Auto-Balance:</span> A comprehensive process (triggered by "Auto Schedule" in Aether Sink) that unifies all flexible tasks from the current schedule and the Aether Sink, sorts them using a "Vibe Flow" interleaving pattern, and then attempts to re-place them into the current day's schedule. Tasks that cannot be placed are returned to the Aether Sink.
+                  <span className="font-semibold text-foreground">Auto-Balance:</span> A comprehensive process (triggered by "Auto Schedule" in Aether Sink) that unifies all flexible tasks from the current schedule and the Aether Sink, sorts them using a default pattern, and then attempts to re-place them into the current day's schedule. Tasks that cannot be placed are returned to the Aether Sink.
                 </li>
                 <li>
                   <span className="font-semibold text-foreground">Time Off:</span> Dedicated blocks in your schedule for personal time, always treated as fixed.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground flex items-center gap-1">
-                    <Brain className="h-4 w-4 text-logo-green" /> Vibe Flow Grouping:
-                  </span> When enabled (via the toggle in the utility bar), the scheduler will prioritize grouping tasks with similar emojis/color hues together to minimize context switching during `compact` and `auto-schedule` operations. Critical tasks are always prioritized first.
                 </li>
               </ul>
             </Card>
@@ -321,11 +316,6 @@ const DocumentationPage: React.FC = () => {
                 <li>
                   <span className="font-semibold text-foreground">Move ALL flexible, unlocked tasks from ALL days to Aether Sink:</span>
                   <code className="block bg-muted p-2 rounded-md mt-1">aether dump mega</code> (or click <Globe className="inline-block h-4 w-4 align-text-bottom" />)
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground flex items-center gap-1">
-                    <Brain className="h-4 w-4 text-logo-green" /> Toggle Vibe Flow:
-                  </span> Click the <Brain className="inline-block h-4 w-4 align-text-bottom text-logo-green" /> button in the utility bar to enable/disable Vibe Flow grouping. When enabled, `compact` and `auto-schedule` operations will prioritize grouping tasks by similar emoji/color hues to minimize context switching.
                 </li>
               </ul>
               <p className="text-sm text-muted-foreground mt-4">

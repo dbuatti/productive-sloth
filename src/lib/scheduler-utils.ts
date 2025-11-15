@@ -5,7 +5,7 @@ import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, Sche
 export const EMOJI_MAP: { [key: string]: string } = {
   'gym': '🏋️', 'workout': '🏋️', 'run': '🏃', 'exercise': '🏋️', 'fitness': '💪',
   'email': '📧', 'messages': '💬', 'calls': '📞', 'communication': '🗣️', 'admin': '⚙️', 'paperwork': '📄',
-  'meeting': '💼', 'work': '💻', 'report': '📝', 'professional': '👔', 'project': '📊', 'coding': '💻', 'develop': '💻', 'code': '💻', 'bug': '🐛', 'fix': '🛠️', 'sync': '🤝', 'standup': '🤝',
+  'meeting': '💼', 'work': '💻', 'report': '📝', 'professional': '👔', 'project': '📊', 'coding': '💻', 'develop': '💻', 'code': '💻', 'bug': '🐛', 'fix': '🛠️',
   'design': '🎨', 'writing': '✍️', 'art': '🖼️', 'creative': '✨', 'draw': '✏️',
   'study': '📚', 'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫', 'tutorial': '💡',
   'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️', 'room': '🛋️',
@@ -40,12 +40,13 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'channel': '🧘', 'anxious': '🧘', // For 'Channel about what might be recycling me...'
   'recycling': '♻️', 'bin': '♻️', // For 'Bring in the new recycling bin'
   'milk': '🥛', 'cartons': '🥛', // For 'Empty the old milk cartons'
+  'sync': '🤝', 'standup': '🤝', // Added back
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'gym': 200, 'workout': 200, 'run': 210, 'exercise': 200, 'fitness': 200,
   'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
-  'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40, 'sync': 290, 'standup': 290,
+  'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40,
   'design': 320, 'writing': 320, 'art': 330, 'creative': 340, 'draw': 320,
   'study': 260, 'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260, 'tutorial': 60,
   'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40, 'room': 150,
@@ -80,6 +81,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'channel': 160, 'anxious': 160,
   'recycling': 140, 'bin': 140,
   'milk': 40, 'cartons': 40,
+  'sync': 290, 'standup': 290, // Added back
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {
@@ -194,11 +196,11 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
   let energyCost: number = DEFAULT_ENERGY_COST; // NEW: Initialize energyCost to default
 
   // Regex to capture 'energy X' flag
-  const energyRegex = /\s+energy\s+(\d+)$/i;
+  const energyRegex = /\s+energy\s+(\d+)\b(?!\S)/i; 
   const energyMatch = input.match(energyRegex);
   if (energyMatch) {
     energyCost = parseInt(energyMatch[1], 10);
-    input = input.replace(energyRegex, '').trim(); // Remove energy flag from input
+    input = input.replace(energyMatch[0], '').trim(); // Remove the matched part and re-trim
   }
 
   // Order of parsing flags matters: sink, then critical, then fixed
@@ -293,12 +295,12 @@ export const parseInjectionCommand = (input: string): ParsedInjectionCommand | n
   let isFlexible = true; // Default to flexible
   let energyCost: number = DEFAULT_ENERGY_COST; // NEW: Initialize energyCost to default
 
-  // Regex to capture 'energy X' flag
-  const energyRegex = /\s+energy\s+(\d+)$/i;
+  // Capture and remove energy flag first
+  const energyRegex = /\s+energy\s+(\d+)\b(?!\S)/i; 
   const energyMatch = input.match(energyRegex);
   if (energyMatch) {
     energyCost = parseInt(energyMatch[1], 10);
-    input = input.replace(energyRegex, '').trim(); // Remove energy flag from input
+    input = input.replace(energyMatch[0], '').trim(); // Remove the matched part and re-trim
   }
 
   if (input.endsWith(' !')) {

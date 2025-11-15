@@ -477,7 +477,7 @@ const SchedulerPage: React.FC = () => {
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-            
+
             showSuccess(`Scheduled "${parsedInput.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
             success = true;
           } else {
@@ -1008,9 +1008,23 @@ const SchedulerPage: React.FC = () => {
         const tasksToInsert: NewDBScheduledTask[] = [];
         const tasksToKeepInSink: NewRetiredTask[] = [];
         
-        // Fixed blocks are all locked tasks (flexible or not) + fixed unlocked tasks
+        // Fixed tasks are all locked tasks (flexible or not) + fixed unlocked tasks
         const fixedTasks = dbScheduledTasks.filter(task => task.is_locked || !task.is_flexible);
         
+        // Add fixed tasks to the tasksToInsert array first, as they should retain their positions
+        fixedTasks.forEach(task => {
+            tasksToInsert.push({
+                name: task.name,
+                start_time: task.start_time,
+                end_time: task.end_time,
+                break_duration: task.break_duration,
+                scheduled_date: task.scheduled_date,
+                is_critical: task.is_critical,
+                is_flexible: task.is_flexible,
+                is_locked: task.is_locked,
+            });
+        });
+
         const fixedOccupiedBlocks = mergeOverlappingTimeBlocks(fixedTasks
             .filter(task => task.start_time && task.end_time)
             .map(task => {

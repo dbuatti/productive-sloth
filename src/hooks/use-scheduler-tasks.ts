@@ -787,7 +787,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
       console.log(`useSchedulerTasks: Attempting to toggle lock for retired task ID: ${taskId} to ${isLocked}`);
       const { data, error } = await supabase
         .from('retired_tasks')
-        .update({ is_locked: isLocked, retired_at: new Date().toISOString() })
+        .update({ is_locked: isLocked, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
         .eq('id', taskId)
         .eq('user_id', userId)
         .select()
@@ -1029,13 +1029,13 @@ export const useSchedulerTasks = (selectedDate: string) => {
         if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
       }
 
-      // 3. Insert new scheduled tasks
+      // 3. Upsert new scheduled tasks (including fixed tasks that were not deleted)
       if (payload.tasksToInsert.length > 0) {
         const tasksToInsertWithUserId = payload.tasksToInsert.map(task => ({ ...task, user_id: userId }));
         const { error } = await supabase
           .from('scheduled_tasks')
-          .insert(tasksToInsertWithUserId);
-        if (error) throw new Error(`Failed to insert new scheduled tasks: ${error.message}`);
+          .upsert(tasksToInsertWithUserId, { onConflict: 'id' }); // Changed from insert to upsert
+        if (error) throw new Error(`Failed to upsert new scheduled tasks: ${error.message}`);
       }
 
       // 4. Insert tasks back into the sink (those that couldn't be placed)
@@ -1077,7 +1077,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
       
       let message = `Schedule balanced! ${result.tasksPlaced} task(s) placed.`;
       if (result.tasksKeptInSink > 0) {
-        message += ` ${result.tasksKeptInSink} task(s) returned to Aether Sink.`;
+        message += ` ${result.tasksKeptInSink} task{result.tasksKeptInSink > 1 ? 's' : ''} returned to Aether Sink.`;
       }
       showSuccess(message);
     },

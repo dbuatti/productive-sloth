@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface InfoChipProps {
-  onClick: () => void;
+  onClick: (event: React.MouseEvent) => void; // Updated to accept a MouseEvent
   isHovered: boolean;
   tooltipContent?: string;
 }

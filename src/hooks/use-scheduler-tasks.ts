@@ -1180,12 +1180,13 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         .select('*')
         .eq('user_id', userId)
         .eq('is_flexible', true)
-        .eq('is_locked', false);
+        .eq('is_locked', false)
+        .gte('scheduled_date', format(startOfDay(new Date()), 'yyyy-MM-dd')); // NEW: Filter for today and future dates
 
       if (fetchError) throw new Error(`Failed to fetch all flexible scheduled tasks for Aether Dump Mega: ${fetchError.message}`);
 
       if (allFlexibleScheduledTasks.length === 0) {
-        showSuccess("No flexible, unlocked tasks to dump to Aether Sink from any day.");
+        showSuccess("No flexible, unlocked tasks to dump to Aether Sink from today or future days.");
         return; // No tasks to dump
       }
 
@@ -1227,9 +1228,10 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
 
       // Fetch current flexible tasks to optimistically add to retired sink
+      // Filter for today and future dates in the optimistic update as well
       const currentScheduledTasksSnapshot = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
         .flatMap(([_key, data]) => data || [])
-        .filter(task => task.is_flexible && !task.is_locked);
+        .filter(task => task.is_flexible && !task.is_locked && isAfter(parseISO(task.scheduled_date), subDays(startOfDay(new Date()), 1))); // Filter for today and future
 
       const now = new Date().toISOString();
       const optimisticRetiredTasks: RetiredTask[] = currentScheduledTasksSnapshot.map(task => ({
@@ -1257,7 +1259,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
-      showSuccess('All flexible tasks moved to Aether Sink!');
+      showSuccess('All flexible tasks from today and future moved to Aether Sink!');
     },
     onError: (err, _variables, context) => {
       showError(`Failed to perform Aether Dump Mega: ${err.message}`);

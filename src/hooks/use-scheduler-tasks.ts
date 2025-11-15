@@ -237,22 +237,23 @@ export const useSchedulerTasks = (selectedDate: string) => {
       await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) => {
-        const tempId = Math.random().toString(36).substring(2, 9);
-        const optimisticTask: RetiredTask = {
-          id: tempId,
-          user_id: userId!,
-          name: newTask.name,
-          duration: newTask.duration ?? null,
-          break_duration: newTask.break_duration ?? null,
-          original_scheduled_date: newTask.original_scheduled_date,
-          retired_at: new Date().toISOString(),
-          is_critical: newTask.is_critical ?? false,
-          is_locked: newTask.is_locked ?? false,
-          energy_cost: newTask.energy_cost ?? 0,
-        };
-        return [optimisticTask, ...(old || [])];
-      });
+      // Removed optimistic update for retiredTasks to prevent duplicates
+      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) => {
+      //   const tempId = Math.random().toString(36).substring(2, 9);
+      //   const optimisticTask: RetiredTask = {
+      //     id: tempId,
+      //     user_id: userId!,
+      //     name: newTask.name,
+      //     duration: newTask.duration ?? null,
+      //     break_duration: newTask.break_duration ?? null,
+      //     original_scheduled_date: newTask.original_scheduled_date,
+      //     retired_at: new Date().toISOString(),
+      //     is_critical: newTask.is_critical ?? false,
+      //     is_locked: newTask.is_locked ?? false,
+      //     energy_cost: newTask.energy_cost ?? 0,
+      //   };
+      //   return [optimisticTask, ...(old || [])];
+      // });
       return { previousRetiredTasks };
     },
     onSuccess: () => {
@@ -365,23 +366,24 @@ export const useSchedulerTasks = (selectedDate: string) => {
         (old || []).filter(task => task.id !== taskToRetire.id)
       );
 
-      const newRetiredTask: RetiredTask = {
-        id: taskToRetire.id,
-        user_id: userId!,
-        name: taskToRetire.name,
-        duration: (taskToRetire.start_time && taskToRetire.end_time) 
-                  ? Math.floor((parseISO(taskToRetire.end_time).getTime() - parseISO(taskToRetire.start_time).getTime()) / (1000 * 60)) 
-                  : null,
-        break_duration: taskToRetire.break_duration,
-        original_scheduled_date: taskToRetire.scheduled_date,
-        retired_at: new Date().toISOString(),
-        is_critical: taskToRetire.is_critical, 
-        is_locked: taskToRetire.is_locked,
-        energy_cost: taskToRetire.energy_cost ?? 0,
-      };
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-        [newRetiredTask, ...(old || [])]
-      );
+      // Removed optimistic update for retiredTasks to prevent duplicates
+      // const newRetiredTask: RetiredTask = {
+      //   id: taskToRetire.id,
+      //   user_id: userId!,
+      //   name: taskToRetire.name,
+      //   duration: (taskToRetire.start_time && taskToRetire.end_time) 
+      //             ? Math.floor((parseISO(taskToRetire.end_time).getTime() - parseISO(taskToRetire.start_time).getTime()) / (1000 * 60)) 
+      //             : null,
+      //   break_duration: taskToRetire.break_duration,
+      //   original_scheduled_date: taskToRetire.scheduled_date,
+      //   retired_at: new Date().toISOString(),
+      //   is_critical: taskToRetire.is_critical, 
+      //   is_locked: taskToRetire.is_locked,
+      //   energy_cost: taskToRetire.energy_cost ?? 0,
+      // };
+      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+      //   [newRetiredTask, ...(old || [])]
+      // );
 
       return { previousScheduledTasks, previousRetiredTasks };
     },
@@ -858,24 +860,25 @@ export const useSchedulerTasks = (selectedDate: string) => {
       
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], remainingScheduledTasks);
 
-      const now = new Date().toISOString();
-      const optimisticRetiredTasks: RetiredTask[] = tasksToDump.map(task => ({
-        id: task.id,
-        user_id: userId!,
-        name: task.name,
-        duration: (task.start_time && task.end_time) 
-                  ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
-                  : null,
-        break_duration: task.break_duration,
-        original_scheduled_date: task.scheduled_date,
-        retired_at: now,
-        is_critical: task.is_critical,
-        is_locked: task.is_locked,
-        energy_cost: task.energy_cost ?? 0,
-      }));
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-        [...optimisticRetiredTasks, ...(old || [])]
-      );
+      // Removed optimistic update for retiredTasks to prevent duplicates
+      // const now = new Date().toISOString();
+      // const optimisticRetiredTasks: RetiredTask[] = tasksToDump.map(task => ({
+      //   id: task.id,
+      //   user_id: userId!,
+      //   name: task.name,
+      //   duration: (task.start_time && task.end_time) 
+      //             ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
+      //             : null,
+      //   break_duration: task.break_duration,
+      //   original_scheduled_date: task.scheduled_date,
+      //   retired_at: now,
+      //   is_critical: task.is_critical,
+      //   is_locked: task.is_locked,
+      //   energy_cost: task.energy_cost ?? 0,
+      // }));
+      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+      //   [...optimisticRetiredTasks, ...(old || [])]
+      // );
 
       return { previousScheduledTasks, previousRetiredTasks };
     },
@@ -945,28 +948,29 @@ export const useSchedulerTasks = (selectedDate: string) => {
 
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
 
-      const currentScheduledTasksSnapshot = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
-        .flatMap(([_key, data]) => data || [])
-        .filter(task => task.is_flexible && !task.is_locked && isAfter(parseISO(task.scheduled_date), subDays(startOfDay(new Date()), 1)));
+      // Removed optimistic update for retiredTasks to prevent duplicates
+      // const currentScheduledTasksSnapshot = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
+      //   .flatMap(([_key, data]) => data || [])
+      //   .filter(task => task.is_flexible && !task.is_locked && isAfter(parseISO(task.scheduled_date), subDays(startOfDay(new Date()), 1)));
 
-      const now = new Date().toISOString();
-      const optimisticRetiredTasks: RetiredTask[] = currentScheduledTasksSnapshot.map(task => ({
-        id: task.id,
-        user_id: userId!,
-        name: task.name,
-        duration: (task.start_time && task.end_time) 
-                  ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
-                  : null,
-        break_duration: task.break_duration,
-        original_scheduled_date: task.scheduled_date,
-        retired_at: now,
-        is_critical: task.is_critical,
-        is_locked: task.is_locked,
-        energy_cost: task.energy_cost ?? 0,
-      }));
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-        [...optimisticRetiredTasks, ...(old || [])]
-      );
+      // const now = new Date().toISOString();
+      // const optimisticRetiredTasks: RetiredTask[] = currentScheduledTasksSnapshot.map(task => ({
+      //   id: task.id,
+      //   user_id: userId!,
+      //   name: task.name,
+      //   duration: (task.start_time && task.end_time) 
+      //             ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
+      //             : null,
+      //   break_duration: task.break_duration,
+      //   original_scheduled_date: task.scheduled_date,
+      //   retired_at: now,
+      //   is_critical: task.is_critical,
+      //   is_locked: task.is_locked,
+      //   energy_cost: task.energy_cost ?? 0,
+      // }));
+      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+      //   [...optimisticRetiredTasks, ...(old || [])]
+      // );
 
       return { previousRetiredTasks };
     },

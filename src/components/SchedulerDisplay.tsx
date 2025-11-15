@@ -189,19 +189,23 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   }, [selectedDayString]);
 
   const handleInfoChipClick = (dbTask: DBScheduledTask) => {
+    console.log("SchedulerDisplay: InfoChip clicked for task:", dbTask.name);
     setSelectedScheduledTask(dbTask);
     setIsSheetOpen(true);
   };
 
   // NEW: Handle click on the task item itself
   const handleTaskItemClick = (event: React.MouseEvent, dbTask: DBScheduledTask) => {
+    console.log("SchedulerDisplay: Task item clicked for task:", dbTask.name, "Event target:", event.target);
     // Prevent opening the sheet if a child interactive element (like a button) was clicked
     const target = event.target as HTMLElement;
     if (target.closest('button') || target.closest('a')) {
+      console.log("SchedulerDisplay: Click originated from an interactive child, preventing sheet open.");
       return;
     }
     setSelectedScheduledTask(dbTask);
     setIsSheetOpen(true);
+    console.log("SchedulerDisplay: Setting isSheetOpen to true for task:", dbTask.name);
   };
 
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
@@ -314,7 +318,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }}
             onMouseEnter={() => setHoveredItemId(scheduledItem.id)} // Set hovered item
             onMouseLeave={() => setHoveredItemId(null)} // Clear hovered item
-            onClick={(e) => dbTask && handleTaskItemClick(e, dbTask)} // NEW: Added onClick handler
+            onClick={(e) => {
+              console.log("SchedulerDisplay: Task item container clicked. Item ID:", scheduledItem.id);
+              dbTask && handleTaskItemClick(e, dbTask);
+            }}
           >
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">
@@ -376,7 +383,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          onClick={() => toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked })}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent parent onClick from firing
+                            toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked });
+                          }}
                           className={cn(
                             "h-6 w-6 p-0 shrink-0",
                             isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"
@@ -399,7 +409,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          onClick={() => onCompleteTask(dbTask)} 
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent parent onClick from firing
+                            onCompleteTask(dbTask);
+                          }}
                           disabled={isLocked}
                           className={cn(
                             "h-6 w-6 p-0 shrink-0",
@@ -423,7 +436,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          onClick={() => onRetireTask(dbTask)} 
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent parent onClick from firing
+                            onRetireTask(dbTask);
+                          }}
                           disabled={isLocked}
                           className={cn(
                             "h-6 w-6 p-0 shrink-0",
@@ -445,7 +461,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        onClick={() => onRemoveTask(scheduledItem.id)} 
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent parent onClick from firing
+                          onRemoveTask(scheduledItem.id);
+                        }}
                         disabled={isLocked}
                         className={cn(
                           "h-6 w-6 p-0 shrink-0",
@@ -486,7 +505,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             )}
             {dbTask && (
               <InfoChip 
-                onClick={() => handleInfoChipClick(dbTask)} 
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent parent onClick from firing
+                  handleInfoChipClick(dbTask);
+                }}
                 isHovered={hoveredItemId === scheduledItem.id} 
               />
             )}
@@ -598,6 +620,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         task={selectedScheduledTask}
         open={isSheetOpen}
         onOpenChange={(open) => {
+          console.log("SchedulerDisplay: Sheet onOpenChange. New state:", open);
           setIsSheetOpen(open);
           if (!open) setSelectedScheduledTask(null);
         }}

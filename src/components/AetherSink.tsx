@@ -58,19 +58,23 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
   };
 
   const handleInfoChipClick = (retiredTask: RetiredTask) => {
+    console.log("AetherSink: InfoChip clicked for retired task:", retiredTask.name);
     setSelectedRetiredTask(retiredTask);
     setIsSheetOpen(true);
   };
 
   // Handle click on the task item itself
   const handleTaskItemClick = (event: React.MouseEvent, retiredTask: RetiredTask) => {
+    console.log("AetherSink: Retired task item clicked for task:", retiredTask.name, "Event target:", event.target);
     // Prevent opening the sheet if a child interactive element (like a button) was clicked
     const target = event.target as HTMLElement;
     if (target.closest('button') || target.closest('a')) {
+      console.log("AetherSink: Click originated from an interactive child, preventing sheet open.");
       return;
     }
     setSelectedRetiredTask(retiredTask);
     setIsSheetOpen(true);
+    console.log("AetherSink: Setting isSheetOpen to true for retired task:", retiredTask.name);
   };
 
   return (
@@ -219,7 +223,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              onClick={() => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked })}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent parent onClick from firing
+                                toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked });
+                              }}
                               className={cn(
                                 "h-7 w-7 p-0 shrink-0",
                                 isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20")
@@ -240,7 +247,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             <Button 
                               variant="secondary"
                               size="icon" 
-                              onClick={() => onRezoneTask(task)}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent parent onClick from firing
+                                onRezoneTask(task);
+                              }}
                               disabled={isLocked || isProcessingCommand || isCriticalAwaitingEnergy} // Disable if awaiting energy
                               className={cn(
                                 "h-7 w-7 text-primary hover:bg-primary/10",
@@ -261,7 +271,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              onClick={() => onRemoveRetiredTask(task.id)}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent parent onClick from firing
+                                onRemoveRetiredTask(task.id);
+                              }}
                               disabled={isLocked || isProcessingCommand}
                               className={cn(
                                 "h-7 w-7 text-destructive hover:bg-destructive/20",
@@ -279,7 +292,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                         </Tooltip>
                       </div>
                       <InfoChip 
-                        onClick={() => handleInfoChipClick(task)} 
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent parent onClick from firing
+                          handleInfoChipClick(task);
+                        }}
                         isHovered={hoveredItemId === task.id} 
                       />
                     </div>
@@ -294,6 +310,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
         task={selectedRetiredTask}
         open={isSheetOpen}
         onOpenChange={(open) => {
+          console.log("AetherSink: Sheet onOpenChange. New state:", open);
           setIsSheetOpen(open);
           if (!open) setSelectedRetiredTask(null);
         }}

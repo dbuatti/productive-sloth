@@ -29,6 +29,17 @@ const EMOJI_MAP: { [key: string]: string } = {
   'student': '🧑‍🎓',
   'rehearsal': '🎭',
   'time off': '🌴',
+  // Updated/New Emojis based on chat-id=764
+  'message': '💬', // For 'Return message to Lydia', 'Return message to Damien'
+  'journal': '✍️', // For 'Journal about my relationship...'
+  'washing': '👕', // For 'Load of washing'
+  'money': '💰', 'transactions': '💰', // For 'Money transactions update'
+  'mop': '🪣', 'floor': '🪣', // For 'Mop floor'
+  'quote': '📝', 'send quote': '📝', // For 'Send and create quote for Stephen', 'Send quote to Mama Alto'
+  'doctor': '🩺', 'medical': '🩺', // For 'Isabelle MD'
+  'channel': '🧘', 'anxious': '🧘', // For 'Channel about what might be recycling me...'
+  'recycling': '♻️', 'bin': '♻️', // For 'Bring in the new recycling bin'
+  'milk': '🥛', 'cartons': '🥛', // For 'Empty the old milk cartons'
 };
 
 const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -58,6 +69,17 @@ const EMOJI_HUE_MAP: { [key: string]: number } = {
   'student': 265,
   'rehearsal': 315,
   'time off': 100,
+  // Updated/New Emojis based on chat-id=764
+  'message': 245,
+  'journal': 320,
+  'washing': 200,
+  'money': 60, 'transactions': 60,
+  'mop': 120, 'floor': 120,
+  'quote': 230, 'send quote': 230,
+  'doctor': 300, 'medical': 300,
+  'channel': 160, 'anxious': 160,
+  'recycling': 140, 'bin': 140,
+  'milk': 40, 'cartons': 40,
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {

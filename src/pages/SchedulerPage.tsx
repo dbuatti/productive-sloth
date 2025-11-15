@@ -274,16 +274,17 @@ const SchedulerPage: React.FC = () => {
 
   const previousCalculatedScheduleRef = useRef<FormattedSchedule | null>(null);
 
-  const calculatedSchedule = useMemo(() => {
+  const calculatedSchedule = useDeepCompareMemoize(useMemo(() => {
     if (!profile) return null;
     const newSchedule = calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime);
     
-    if (deepCompare(newSchedule, previousCalculatedScheduleRef.current)) {
-      return previousCalculatedScheduleRef.current;
-    }
-    previousCalculatedScheduleRef.current = newSchedule;
+    // The deepCompare logic is now handled by useDeepCompareMemoize wrapper
+    // if (deepCompare(newSchedule, previousCalculatedScheduleRef.current)) {
+    //   return previousCalculatedScheduleRef.current;
+    // }
+    // previousCalculatedScheduleRef.current = newSchedule;
     return newSchedule;
-  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]);
+  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]));
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   useEffect(() => {

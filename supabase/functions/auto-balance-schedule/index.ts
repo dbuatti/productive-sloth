@@ -1,4 +1,3 @@
-/// <reference lib="deno.ns" />
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { verify } from 'https://deno.land/x/djwt@v2.8/mod.ts';
@@ -45,8 +44,8 @@ serve(async (req) => {
 
     let payload;
     try {
-      // Corrected: Pass the algorithm as an object with 'alg' property
-      payload = await verify(token, secretKey, { alg: "HS256" }); 
+      // Removed the explicit algorithm parameter, relying on the JWT header
+      payload = await verify(token, secretKey); 
     } catch (jwtError: any) {
       console.error("JWT Verification Error:", jwtError);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {

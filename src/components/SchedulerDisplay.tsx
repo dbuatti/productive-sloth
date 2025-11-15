@@ -247,6 +247,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
       const isHighlightedByNowCard = activeItemId === scheduledItem.id;
       const isLocked = scheduledItem.isLocked; // Get lock status
+      const isFixed = !scheduledItem.isFlexible; // A task is fixed if it's not flexible
+      const isFixedOrLocked = isFixed || isLocked; // Condition for the strong border
       const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current); // Missed if locked and time passed (not today)
 
       if (scheduledItem.endTime < startOfTemplate) return null;
@@ -281,14 +283,16 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden", // Changed shadow-sm to shadow-md
-              "border-2",
+              "border-2", // Base border width
               isHighlightedByNowCard ? "opacity-50" :
-              isActive ? "border-live-progress animate-pulse-active-row" : // Use live-progress for active border
-              isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Faded for past items
-              isLocked && "border-primary/70 bg-primary/10", // Stronger border and subtle background for locked tasks
-              isMissed && "border-destructive/70 bg-destructive/10", // Red border for missed locked tasks
-              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary", // Stronger hover shadow and border
-              isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10" // NEW: Distinct styling for time-off
+              isActive ? "border-live-progress animate-pulse-active-row" : // Active item border
+              isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Default/past item border
+              isLocked && "bg-primary/10", // Subtle background for locked tasks (border handled below)
+              isMissed && "border-destructive/70 bg-destructive/10", // Red border and background for missed locked tasks
+              isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10", // Distinct styling for time-off
+              // NEW: Strong border for fixed or locked tasks
+              isFixedOrLocked && "border-live-progress", // Apply strong cyan border
+              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary" // Hover effects
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }} // NEW: Don't apply ambient background for time-off
           >

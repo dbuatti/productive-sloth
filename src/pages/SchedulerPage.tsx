@@ -1364,8 +1364,12 @@ const SchedulerPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
-      {/* Removed "Vibe Scheduler" Heading */}
+      {/* 1. Vibe Scheduler Title */}
+      <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
+        <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
+      </h1>
 
+      {/* 2. Session Dashboard */}
       <SchedulerDashboardPanel 
         scheduleSummary={currentSchedule?.summary || null} 
         onCompactSchedule={() => handleCommand('compact')} // Pass handler for compact
@@ -1374,9 +1378,145 @@ const SchedulerPage: React.FC = () => {
         hasFlexibleTasks={hasFlexibleTasksOnCurrentDay} // Pass prop to enable/disable buttons
       />
 
-      {/* NEW: Tabbed Navigation - MOVED TO TOP */}
+      {/* 3. Calendar Strip */}
+      <CalendarStrip 
+        selectedDay={selectedDay} 
+        setSelectedDay={setSelectedDay} 
+        datesWithTasks={datesWithTasks} 
+        isLoadingDatesWithTasks={isLoadingDatesWithTasks}
+      />
+
+      {/* 4. "Schedule Your Day" Input Bar */}
+      <Card className="animate-pop-in animate-hover-lift">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-xl font-bold flex items-center gap-2">
+            <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={overallLoading || !hasFlexibleTasksOnCurrentDay} // Disable if no unlocked flexible tasks
+                  className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-all duration-200"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
+                  <span>Sort Flexible Tasks</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleSortFlexibleTasks('PRIORITY_HIGH_TO_LOW')}>
+                  <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Priority (High to Low)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSortFlexibleTasks('PRIORITY_LOW_TO_HIGH')}>
+                  <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Priority (Low to High)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleSortFlexibleTasks('TIME_EARLIEST_TO_LATEST')}>
+                  <Clock className="mr-2 h-4 w-4" /> Time (Earliest to Latest)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSortFlexibleTasks('TIME_LATEST_TO_EARLIEST')}>
+                  <Clock className="mr-2 h-4 w-4" /> Time (Latest to Earliest)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleRandomizeBreaks}
+                  disabled={overallLoading || !dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked)} // Disable if no unlocked breaks
+                  className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shuffle className="h-4 w-4" />}
+                  <span className="sr-only">Randomize Breaks</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Randomly re-allocate unlocked breaks</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={handleAddTimeOffClick} 
+                  disabled={overallLoading}
+                  className="h-8 w-8 text-logo-green hover:bg-logo-green/10 transition-all duration-200"
+                >
+                  <CalendarOff className="h-4 w-4" />
+                  <span className="sr-only">Add Time Off</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Block out a period as "Time Off"</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* NEW: Aether Dump Mega Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => handleCommand('aether dump mega')} 
+                  disabled={overallLoading || !datesWithTasks.length} // Disable if no tasks on any day
+                  className="h-8 w-8 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                  <span className="sr-only">Aether Dump Mega</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Move ALL flexible, unlocked tasks from ALL days to Aether Sink</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <p className="text-sm text-muted-foreground">
+              Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <WeatherWidget />
+          <SchedulerInput 
+            onCommand={handleCommand} 
+            isLoading={overallLoading} 
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump', 'aether dump mega')`}
+          />
+          <p className="text-xs text-muted-foreground">
+            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 5. NOW FOCUS Card */}
+      {isSameDay(parseISO(selectedDay), T_current) && (
+        <div className="sticky top-[144px] z-50 bg-background pb-4"> {/* Adjusted top to 144px (AppHeader + ProgressBarHeader) */}
+          <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
+        </div>
+      )}
+      
+      {/* 6. "Tasks Outside Workday" Alert */}
+      {currentSchedule?.summary.unscheduledCount > 0 && (
+        <Card className="animate-pop-in animate-hover-lift">
+          <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 7. Tabbed Schedule Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[32px] z-20"> {/* Adjusted top to 32px */}
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[192px] z-20"> {/* Adjusted top to 192px (AppHeader + ProgressBarHeader + NowFocusCard) */}
           <TabsTrigger 
             value="vibe-schedule" 
             className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
@@ -1392,139 +1532,6 @@ const SchedulerPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="vibe-schedule" className="space-y-4">
-          {/* Date Wheel - MOVED HERE, to the very top of the tab content */}
-          <CalendarStrip 
-            selectedDay={selectedDay} 
-            setSelectedDay={setSelectedDay} 
-            datesWithTasks={datesWithTasks} 
-            isLoadingDatesWithTasks={isLoadingDatesWithTasks}
-          />
-
-          <Card className="animate-pop-in animate-hover-lift">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
-                <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      disabled={overallLoading || !hasFlexibleTasksOnCurrentDay} // Disable if no unlocked flexible tasks
-                      className="flex items-center gap-1 h-8 px-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-all duration-200"
-                    >
-                      {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
-                      <span>Sort Flexible Tasks</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleSortFlexibleTasks('PRIORITY_HIGH_TO_LOW')}>
-                      <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Priority (High to Low)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleSortFlexibleTasks('PRIORITY_LOW_TO_HIGH')}>
-                      <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Priority (Low to High)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => handleSortFlexibleTasks('TIME_EARLIEST_TO_LATEST')}>
-                      <Clock className="mr-2 h-4 w-4" /> Time (Earliest to Latest)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleSortFlexibleTasks('TIME_LATEST_TO_EARLIEST')}>
-                      <Clock className="mr-2 h-4 w-4" /> Time (Latest to Earliest)
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={handleRandomizeBreaks}
-                      disabled={overallLoading || !dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked)} // Disable if no unlocked breaks
-                      className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
-                    >
-                      {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shuffle className="h-4 w-4" />}
-                      <span className="sr-only">Randomize Breaks</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Randomly re-allocate unlocked breaks</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={handleAddTimeOffClick} 
-                      disabled={overallLoading}
-                      className="h-8 w-8 text-logo-green hover:bg-logo-green/10 transition-all duration-200"
-                    >
-                      <CalendarOff className="h-4 w-4" />
-                      <span className="sr-only">Add Time Off</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Block out a period as "Time Off"</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                {/* NEW: Aether Dump Mega Button */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={() => handleCommand('aether dump mega')} 
-                      disabled={overallLoading || !datesWithTasks.length} // Disable if no tasks on any day
-                      className="h-8 w-8 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
-                    >
-                      {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-                      <span className="sr-only">Aether Dump Mega</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Move ALL flexible, unlocked tasks from ALL days to Aether Sink</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <p className="text-sm text-muted-foreground">
-                  Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <WeatherWidget />
-              <SchedulerInput 
-                onCommand={handleCommand} 
-                isLoading={overallLoading} 
-                inputValue={inputValue}
-                setInputValue={setInputValue}
-                placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump', 'aether dump mega')`}
-              />
-              <p className="text-xs text-muted-foreground">
-                Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-              </p>
-            </CardContent>
-          </Card>
-
-          {currentSchedule?.summary.unscheduledCount > 0 && (
-            <Card className="animate-pop-in animate-hover-lift">
-              <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
-              </CardContent>
-            </Card>
-          )}
-
-          {isSameDay(parseISO(selectedDay), T_current) && (
-            <div className="sticky top-[132px] z-50 bg-background pb-4"> {/* Adjusted top to 132px */}
-              <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
-            </div>
-          )}
-          
           <Card className="animate-pop-in animate-hover-lift">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">

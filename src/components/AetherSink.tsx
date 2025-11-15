@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star } from 'lucide-react'; // Removed Chevron icons
-import { RetiredTask } from '@/types/scheduler';
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus } from 'lucide-react'; // Removed Chevron icons, added Plus
+import { RetiredTask, NewRetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
+import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils'; // Import parseSinkTaskInput
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { Badge } from '@/components/ui/badge'; // Import Badge
+import { Input } from '@/components/ui/input'; // Import Input
+import { useSession } from '@/hooks/use-session'; // Import useSession
+import { showError } from '@/utils/toast'; // Import showError
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -23,7 +26,30 @@ interface AetherSinkProps {
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy }) => {
   const hasRetiredTasks = retiredTasks.length > 0;
-  const { toggleRetiredTaskLock } = useSchedulerTasks('');
+  const { toggleRetiredTaskLock, addRetiredTask } = useSchedulerTasks('');
+  const { user } = useSession(); // Get user for adding tasks
+  const [sinkInputValue, setSinkInputValue] = useState('');
+
+  const handleAddSinkTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      showError("You must be logged in to add tasks to the Aether Sink.");
+      return;
+    }
+    if (!sinkInputValue.trim()) {
+      showError("Task name cannot be empty.");
+      return;
+    }
+
+    const parsedTask = parseSinkTaskInput(sinkInputValue, user.id);
+
+    if (parsedTask) {
+      await addRetiredTask(parsedTask);
+      setSinkInputValue('');
+    } else {
+      showError("Invalid task format. Use 'Task Name [Duration] [!]'.");
+    }
+  };
 
   return (
     <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
@@ -63,6 +89,29 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
       <>
         {!hideTitle && <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />}
         <CardContent className="space-y-3">
+          {/* New: Add Task to Sink Input */}
+          <form onSubmit={handleAddSinkTask} className="flex gap-2 w-full pt-2">
+            <Input
+              type="text"
+              placeholder="Add task to sink (e.g., 'Read Book 30', 'Critical Idea !')"
+              value={sinkInputValue}
+              onChange={(e) => setSinkInputValue(e.target.value)}
+              disabled={isProcessingCommand}
+              className="flex-grow h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
+            />
+            <Button 
+              type="submit" 
+              disabled={isProcessingCommand || !sinkInputValue.trim()} 
+              className="shrink-0 h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
+            >
+              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              <span className="sr-only">Add to Sink</span>
+            </Button>
+          </form>
+          <p className="text-xs text-muted-foreground">
+            Tip: Add duration (e.g., "Task Name 30") and/or mark as critical (e.g., "Important Idea !")
+          </p>
+
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading Aether Sink" />

@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
 export const EMOJI_MAP: { [key: string]: string } = {
@@ -714,4 +714,55 @@ export const getFreeTimeBlocks = (
     }
   }
   return freeBlocks;
+};
+
+/**
+ * Parses a string input to create a NewRetiredTask object.
+ * Expected format: "Task Name [Duration] [!]"
+ * - Task Name: The name of the task.
+ * - Duration (optional): A number representing the task duration in minutes. Defaults to 30 if not provided.
+ * - ! (optional): Marks the task as critical.
+ */
+export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTask | null => {
+  input = input.trim();
+
+  if (!input) return null;
+
+  let isCritical = false;
+  if (input.endsWith(' !')) {
+    isCritical = true;
+    input = input.slice(0, -2).trim();
+  }
+
+  const durationRegex = /^(.*?)\s+(\d+)$/;
+  const durationMatch = input.match(durationRegex);
+
+  let name: string;
+  let duration: number | null = 30; // Default duration for sink tasks
+  let breakDuration: number | null = null;
+
+  if (durationMatch) {
+    name = durationMatch[1].trim();
+    duration = parseInt(durationMatch[2], 10);
+    if (isNaN(duration) || duration <= 0) {
+      duration = 30; // Fallback to default if invalid duration
+    }
+  } else {
+    name = input;
+  }
+
+  if (!name) return null;
+
+  const energyCost = calculateEnergyCost(duration || 30, isCritical); // Calculate energy cost
+
+  return {
+    user_id: userId,
+    name: name,
+    duration: duration,
+    break_duration: breakDuration,
+    original_scheduled_date: format(new Date(), 'yyyy-MM-dd'), // Default to today
+    is_critical: isCritical,
+    is_locked: false, // New tasks in sink are not locked by default
+    energy_cost: energyCost,
+  };
 };

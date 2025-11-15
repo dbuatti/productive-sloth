@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListTodo, Zap, Coffee, Flag, ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown } from 'lucide-react'; // Icons for the stat cards, added ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown
+import { ListTodo, Zap, Coffee, Flag, ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react'; // Icons for the stat cards, added ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown, RotateCcw
 import { ScheduleSummary } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
@@ -9,14 +9,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 interface SchedulerDashboardPanelProps {
   scheduleSummary: ScheduleSummary | null;
-  onCompactSchedule: () => void;
+  onVibeSort: () => void; // Renamed from onCompactSchedule
   onAetherDump: () => void;
   isProcessingCommand: boolean;
   hasFlexibleTasks: boolean;
   onRefreshSchedule: () => void; // NEW: Handler for refresh
 }
 
-const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ scheduleSummary, onCompactSchedule, onAetherDump, isProcessingCommand, hasFlexibleTasks, onRefreshSchedule }) => {
+const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ scheduleSummary, onVibeSort, onAetherDump, isProcessingCommand, hasFlexibleTasks, onRefreshSchedule }) => {
   const [isCollapsed, setIsCollapsed] = useState(false); // NEW: State for collapse/expand
 
   if (!scheduleSummary || scheduleSummary.totalTasks === 0) {
@@ -37,23 +37,23 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard
           </CardTitle>
           <div className="flex items-center gap-2">
-            {/* Compact Schedule Button */}
+            {/* Vibe Sort Button (replaces old Compact Schedule) */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  onClick={onCompactSchedule} 
+                  onClick={onVibeSort} 
                   disabled={isProcessingCommand || !hasFlexibleTasks}
                   className="h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200"
                   style={isProcessingCommand || !hasFlexibleTasks ? { pointerEvents: 'auto' } : undefined}
                 >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronsUp className="h-4 w-4" />}
-                  <span className="sr-only">Compact Schedule</span>
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                  <span className="sr-only">Vibe Sort</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Compact flexible tasks</p>
+                <p>Vibe Sort: Dump current flexible tasks, sort, and re-slot immediately.</p>
               </TooltipContent>
             </Tooltip>
 

@@ -52,7 +52,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SchedulerUtilityBar from '@/components/SchedulerUtilityBar'; // NEW: Import SchedulerUtilityBar
-import WorkdayWindowDialog from '@/components/WorkdayWindowDialog'; // NEW: Import WorkdayWindowDialog
+import WorkdayWindowDialog from '@/components/WorkdayWindowDialog'; // Corrected: Removed 'ui/' from the path
 
 const deepCompare = (a: any, b: any) => {
   if (a === b) return true;
@@ -656,29 +656,7 @@ const SchedulerPage: React.FC = () => {
         case 'reorder':
           showError("Reordering is not yet implemented.");
           break;
-        case 'compact':
-          const compactedTasks = compactScheduleLogic(
-            dbScheduledTasks,
-            selectedDayAsDate,
-            workdayStartTime,
-            workdayEndTime,
-            T_current,
-            undefined, // preSortedFlexibleTasks
-            isVibeFlowEnabled // Pass the Vibe Flow toggle state
-          );
-          if (compactedTasks.length > 0) {
-            await compactScheduledTasks({ tasksToUpdate: compactedTasks, isVibeFlowEnabled });
-            currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(compactedTasks.map(task => ({
-              start: parseISO(task.start_time!).getTime() < parseISO(task.end_time!).getTime() ? parseISO(task.start_time!) : setHours(setMinutes(addDays(parseISO(task.scheduled_date), 1), parseISO(task.start_time!).getMinutes()), parseISO(task.start_time!).getHours()),
-              end: parseISO(task.start_time!).getTime() < parseISO(task.end_time!).getTime() ? parseISO(task.end_time!) : setHours(setMinutes(addDays(parseISO(task.scheduled_date), 1), parseISO(task.end_time!).getMinutes()), parseISO(task.end_time!).getHours()),
-              duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
-            })));
-            showSuccess("Schedule compacted!");
-          } else {
-            showError("No flexible tasks to compact or no space available.");
-          }
-          success = true;
-          break;
+        // Removed 'compact' case from here, it will be handled by the new button in UtilityBar
         case 'timeoff':
           setInjectionPrompt({ 
             taskName: 'Time Off', 
@@ -697,7 +675,7 @@ const SchedulerPage: React.FC = () => {
           success = true;
           break;
         case 'aether dump':
-        case 'reset schedule':
+        case 'reset schedule': // 'reset schedule' now maps to 'aether dump'
           await aetherDump();
           success = true;
           break;
@@ -1132,6 +1110,91 @@ const SchedulerPage: React.FC = () => {
     handleAutoScheduleSink();
   };
 
+  // NEW: handleVibeSort function
+  const handleVibeSort = async () => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to use Vibe Sort.");
+      return;
+    }
+    setIsProcessingCommand(true);
+
+    try {
+      // 1. Perform an Aether Dump (Current Day) for flexible, unlocked tasks
+      const flexibleScheduledTasksToDump = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
+      if (flexibleScheduledTasksToDump.length > 0) {
+        const newRetiredTasks: NewRetiredTask[] = flexibleScheduledTasksToDump.map(task => ({
+          user_id: user.id,
+          name: task.name,
+          duration: (task.start_time && task.end_time) 
+                    ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
+                    : null,
+          break_duration: task.break_duration,
+          original_scheduled_date: task.scheduled_date,
+          is_critical: task.is_critical,
+          is_locked: task.is_locked,
+          energy_cost: task.energy_cost ?? 0,
+        }));
+
+        const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
+        if (insertError) throw new Error(`Failed to move tasks to Aether Sink for Vibe Sort: ${insertError.message}`);
+
+        const { error: deleteError } = await supabase
+          .from('scheduled_tasks')
+          .delete()
+          .in('id', flexibleScheduledTasksToDump.map(task => task.id))
+          .eq('user_id', user.id);
+        if (deleteError) throw new Error(`Failed to remove tasks from schedule for Vibe Sort: ${deleteError.message}`);
+      }
+
+      // 2. Immediately trigger the Auto Schedule process (which now includes Vibe Flow sorting)
+      // We need to ensure the retiredTasks state is updated before calling handleAutoScheduleSink
+      // Invalidate queries to ensure fresh data for the next step
+      await queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
+      await queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });
+      await queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
+
+      // Wait for the query client to refetch before proceeding
+      await queryClient.refetchQueries({ queryKey: ['retiredTasks', user.id] });
+      await queryClient.refetchQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
+
+      // Now call the auto-schedule logic
+      await handleAutoScheduleSink(); // This will now operate on the newly dumped tasks + any existing sink tasks
+
+      showSuccess("Vibe Sort completed!");
+
+    } catch (error: any) {
+      showError(`Failed to perform Vibe Sort: ${error.message}`);
+      console.error("Vibe Sort error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
+  // NEW: handleCompactSchedule function
+  const handleCompactSchedule = async () => {
+    if (!user || !profile || !dbScheduledTasks) return;
+    setIsProcessingCommand(true);
+
+    const compactedTasks = compactScheduleLogic(
+      dbScheduledTasks,
+      selectedDayAsDate,
+      workdayStartTime,
+      workdayEndTime,
+      T_current,
+      undefined, // preSortedFlexibleTasks
+      isVibeFlowEnabled // Pass the Vibe Flow toggle state
+    );
+
+    if (compactedTasks.length > 0) {
+      await compactScheduledTasks({ tasksToUpdate: compactedTasks, isVibeFlowEnabled });
+      showSuccess("Schedule compacted!");
+    } else {
+      showError("No flexible tasks to compact or no space available.");
+    }
+    setIsProcessingCommand(false);
+  };
+
+
   const handleSortFlexibleTasks = async (newSortBy: SortBy) => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
@@ -1322,7 +1385,7 @@ const SchedulerPage: React.FC = () => {
       {/* 2. Session Dashboard (Metrics + Zone 1: Global Management) */}
       <SchedulerDashboardPanel 
         scheduleSummary={currentSchedule?.summary || null} 
-        onCompactSchedule={() => handleCommand('compact')}
+        onVibeSort={handleVibeSort} // Updated to new handleVibeSort
         onAetherDump={() => aetherDump()}
         isProcessingCommand={isProcessingCommand}
         hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
@@ -1364,7 +1427,7 @@ const SchedulerPage: React.FC = () => {
       </Card>
 
       {/* 5. Zone 3: Real-Time Utility Bar */}
-      <SchedulerUtilityBar
+      <SchedulerUtilityBar 
         isProcessingCommand={isProcessingCommand}
         hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
         dbScheduledTasks={dbScheduledTasks}
@@ -1373,8 +1436,9 @@ const SchedulerPage: React.FC = () => {
         onSortFlexibleTasks={handleSortFlexibleTasks}
         onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
         sortBy={sortBy}
-        isVibeFlowEnabled={isVibeFlowEnabled} // NEW: Pass Vibe Flow state
-        onToggleVibeFlow={() => setIsVibeFlowEnabled(prev => !prev)} // NEW: Pass Vibe Flow toggle handler
+        isVibeFlowEnabled={isVibeFlowEnabled}
+        onToggleVibeFlow={() => setIsVibeFlowEnabled(prev => !prev)}
+        onCompactSchedule={handleCompactSchedule} // Pass the new handler here
       />
 
       {/* 6. NOW FOCUS Card - STICKY */}

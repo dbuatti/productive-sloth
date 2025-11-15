@@ -25,7 +25,7 @@ interface AetherSinkProps {
 }
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy }) => {
-  const hasRetiredTasks = retiredTasks.length > 0;
+  const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked); // Check for unlocked tasks
   const { toggleRetiredTaskLock, addRetiredTask } = useSchedulerTasks('');
   const { user } = useSession(); // Get user for adding tasks
   const [sinkInputValue, setSinkInputValue] = useState('');
@@ -65,9 +65,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   variant="secondary"
                   size="sm"
                   onClick={onAutoScheduleSink}
-                  disabled={!hasRetiredTasks || isLoading || isProcessingCommand || retiredTasks.every(task => task.is_locked)}
+                  disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand} // Disabled if no unlocked tasks
                   className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
-                  style={(!hasRetiredTasks || isLoading || isProcessingCommand || retiredTasks.every(task => task.is_locked)) ? { pointerEvents: 'auto' } : undefined}
+                  style={(!hasUnlockedRetiredTasks || isLoading || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                 >
                   {isProcessingCommand ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

@@ -20,6 +20,7 @@ interface SchedulerUtilityBarProps {
   sortBy: SortBy;
   isVibeFlowEnabled: boolean; // NEW: Add isVibeFlowEnabled prop
   onToggleVibeFlow: () => void; // NEW: Add onToggleVibeFlow prop
+  onCompactSchedule: () => void; // NEW: Add onCompactSchedule prop
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -33,6 +34,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   sortBy,
   isVibeFlowEnabled, // NEW: Destructure prop
   onToggleVibeFlow, // NEW: Destructure prop
+  onCompactSchedule, // NEW: Destructure prop
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
@@ -85,6 +87,26 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
             </TooltipTrigger>
             <TooltipContent>
               <p>Randomly re-allocate unlocked breaks</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Compacting Button (NEW LOCATION) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={onCompactSchedule} 
+                disabled={isProcessingCommand || !hasFlexibleTasksOnCurrentDay}
+                className="h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200"
+                style={isProcessingCommand || !hasFlexibleTasksOnCurrentDay ? { pointerEvents: 'auto' } : undefined}
+              >
+                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronsUp className="h-5 w-5" />}
+                <span className="sr-only">Compact Schedule</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Compact flexible tasks to fill gaps</p>
             </TooltipContent>
           </Tooltip>
 

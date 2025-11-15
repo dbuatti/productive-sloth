@@ -536,6 +536,7 @@ export const calculateSchedule = (
       isFlexible: task.is_flexible,
       isLocked: task.is_locked, // NEW: Pass is_locked status
       energyCost: task.energy_cost, // NEW: Pass energy_cost
+      isCompleted: task.is_completed, // NEW: Pass is_completed status
     });
     
     if (!isMealTime && !isTimeOff) {

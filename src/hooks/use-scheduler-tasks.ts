@@ -812,7 +812,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         .from('scheduled_tasks')
         .select('*')
         .eq('user_id', userId)
-        .eq('scheduled_date', formattedSelectedDay);
+        .eq('scheduled_date', formattedSelectedDate);
 
       if (fetchError) throw new Error(`Failed to fetch scheduled tasks for Aether Dump: ${fetchError.message}`);
 

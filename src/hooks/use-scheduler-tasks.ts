@@ -1008,8 +1008,17 @@ export const useSchedulerTasks = (selectedDate: string) => {
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId) throw new Error("User not authenticated.");
 
+      console.log("autoBalanceScheduleMutation: Payload received:", {
+        scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
+        retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
+        tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
+        tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
+        selectedDate: payload.selectedDate,
+      });
+
       // 1. Delete scheduled tasks
       if (payload.scheduledTaskIdsToDelete.length > 0) {
+        console.log("autoBalanceScheduleMutation: Deleting scheduled tasks with IDs:", payload.scheduledTaskIdsToDelete);
         const { error } = await supabase
           .from('scheduled_tasks')
           .delete()
@@ -1017,25 +1026,30 @@ export const useSchedulerTasks = (selectedDate: string) => {
           .eq('user_id', userId)
           .eq('scheduled_date', payload.selectedDate);
         if (error) throw new Error(`Failed to delete old scheduled tasks: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: Scheduled tasks deleted successfully.");
       }
 
       // 2. Delete retired tasks
       if (payload.retiredTaskIdsToDelete.length > 0) {
+        console.log("autoBalanceScheduleMutation: Deleting retired tasks with IDs:", payload.retiredTaskIdsToDelete);
         const { error } = await supabase
           .from('retired_tasks')
           .delete()
           .in('id', payload.retiredTaskIdsToDelete)
           .eq('user_id', userId);
         if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: Retired tasks deleted successfully.");
       }
 
       // 3. Upsert new scheduled tasks (including fixed tasks that were not deleted)
       if (payload.tasksToInsert.length > 0) {
         const tasksToInsertWithUserId = payload.tasksToInsert.map(task => ({ ...task, user_id: userId }));
+        console.log("autoBalanceScheduleMutation: Upserting new scheduled tasks:", tasksToInsertWithUserId.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })));
         const { error } = await supabase
           .from('scheduled_tasks')
           .upsert(tasksToInsertWithUserId, { onConflict: 'id' }); // Changed from insert to upsert
         if (error) throw new Error(`Failed to upsert new scheduled tasks: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: New scheduled tasks upserted successfully.");
       }
 
       // 4. Insert tasks back into the sink (those that couldn't be placed)
@@ -1045,10 +1059,12 @@ export const useSchedulerTasks = (selectedDate: string) => {
           user_id: userId, 
           retired_at: new Date().toISOString() 
         }));
+        console.log("autoBalanceScheduleMutation: Re-inserting tasks into sink:", tasksToKeepInSinkWithUserId.map(t => ({ name: t.name })));
         const { error } = await supabase
           .from('retired_tasks')
           .insert(tasksToKeepInSinkWithUserId);
         if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: Unscheduled tasks re-inserted into sink successfully.");
       }
 
       return { tasksPlaced: payload.tasksToInsert.length, tasksKeptInSink: payload.tasksToKeepInSink.length };
@@ -1077,7 +1093,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
       
       let message = `Schedule balanced! ${result.tasksPlaced} task(s) placed.`;
       if (result.tasksKeptInSink > 0) {
-        message += ` ${result.tasksKeptInSink} task{result.tasksKeptInSink > 1 ? 's' : ''} returned to Aether Sink.`;
+        message += ` ${result.tasksKeptInSink} task${result.tasksKeptInSink > 1 ? 's' : ''} returned to Aether Sink.`;
       }
       showSuccess(message);
     },

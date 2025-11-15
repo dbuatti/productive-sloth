@@ -58,6 +58,7 @@ export interface DBScheduledTask {
 }
 
 export interface NewDBScheduledTask {
+  id?: string; // NEW: Added optional ID for upsert operations
   name: string;
   break_duration?: number;
   start_time?: string; // Optional for duration-based tasks
@@ -93,7 +94,7 @@ export interface NewRetiredTask {
   original_scheduled_date: string;
   is_critical?: boolean; // NEW: Critical Urgency Flag
   is_locked?: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energy_cost required
+  energy_cost: number; // NEW: Made energyCost required
   // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
 }
 

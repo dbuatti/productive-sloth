@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle } from "lucide-react"; // Added AlertCircle
+import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,11 +13,11 @@ import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import XPGainAnimation from "./XPGainAnimation"; // Import the animation component
-import TaskDetailSheet from "./TaskDetailSheet"; // Import the new sheet component
-import { Badge } from "@/components/ui/badge"; // Import Badge component
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
+import XPGainAnimation from "./XPGainAnimation";
+import TaskDetailSheet from "./TaskDetailSheet";
+import { Badge } from "@/components/ui/badge";
+import { useNavigate } from 'react-router-dom';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TaskItemProps {
   task: Task;
@@ -27,9 +27,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { updateTask, deleteTask } = useTasks(); 
-  const navigate = useNavigate(); // Initialize navigate
-
-  // Removed showXpAnimation
+  const navigate = useNavigate();
 
   const handleToggleComplete = async () => {
     try {
@@ -57,13 +55,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   };
 
   const handleScheduleNow = () => {
-    // Navigate to scheduler page, pre-filling with task data for injection
     navigate('/scheduler', { 
       state: { 
         taskToSchedule: {
           name: task.title,
-          // Removed duration and energyCost as they are now calculated by scheduler
-          isCritical: task.is_critical, // Pass critical flag
+          isCritical: task.is_critical,
         }
       } 
     });
@@ -100,11 +96,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       <div 
         className={cn(
           "relative flex items-center justify-between p-4 border-l-4 transition-all duration-300 rounded-md shadow-sm",
-          "bg-card hover:bg-secondary/50 animate-hover-lift", // Added animate-hover-lift
-          getPriorityBorderColor(task.priority), // Dynamic left border color
+          "bg-card hover:bg-secondary/50 animate-hover-lift",
+          getPriorityBorderColor(task.priority),
           task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
           "hover:shadow-lg hover:shadow-primary/10",
-          "border-b border-dashed border-border/50 last:border-b-0" // Divider line
+          "border-b border-dashed border-border/50 last:border-b-0"
         )}
       >
         <div className="flex items-center space-x-3 flex-grow min-w-0">
@@ -112,7 +108,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
             checked={task.is_completed}
             onCheckedChange={handleToggleComplete}
             id={`task-${task.id}`}
-            className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-5 w-5" // Larger checkbox
+            className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-5 w-5"
           />
           <label
             htmlFor={`task-${task.id}`}
@@ -123,7 +119,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                      <AlertCircle className="h-3 w-3" strokeWidth={2.5} /> {/* Exclamation mark icon */}
+                      <AlertCircle className="h-3 w-3" strokeWidth={2.5} />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -132,10 +128,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 </Tooltip>
               )}
               <Badge 
-                variant="outline" // Use outline variant as a base
+                variant="outline"
                 className={cn(
                   "capitalize px-2 py-0.5 text-xs font-semibold", 
-                  getPriorityBadgeClasses(task.priority) // Apply custom classes for colors
+                  getPriorityBadgeClasses(task.priority)
                 )}
               >
                 {task.priority.toLowerCase()}
@@ -157,20 +153,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 </Tooltip>
               )}
             </div>
-            <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground"> {/* Changed text-xs to text-sm */}
+            <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground">
               {task.due_date && (
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3 w-3" />
                   <span>{format(new Date(task.due_date), "MMM d")}</span>
                 </span>
               )}
-              {/* Removed XP and Energy Cost display */}
             </div>
           </label>
         </div>
         
-        {/* Removed XP Gain Animation */}
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-secondary transition-colors duration-200 shrink-0 ml-2">
@@ -192,7 +185,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         </DropdownMenu>
       </div>
 
-      {/* Task Detail Sheet */}
       <TaskDetailSheet
         task={selectedTask}
         open={isSheetOpen && selectedTask?.id === task.id}

@@ -11,10 +11,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import CreateTaskDialog from './CreateTaskDialog';
-import { useSession } from '@/hooks/use-session'; // Import useSession
-import { MAX_ENERGY } from '@/lib/constants'; // Import MAX_ENERGY
+import { useSession } from '@/hooks/use-session';
+import { MAX_ENERGY } from '@/lib/constants';
 
-// 1. Define Schema for Quick Add
 const QuickTaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
@@ -23,39 +22,36 @@ const QuickTaskCreationSchema = z.object({
 
 type QuickTaskCreationFormValues = z.infer<typeof QuickTaskCreationSchema>;
 
-// Helper to determine adaptive default priority
 const getAdaptiveDefaultPriority = (energy: number | undefined): TaskPriority => {
   if (energy === undefined) return 'MEDIUM';
   
   const energyPercentage = (energy / MAX_ENERGY) * 100;
 
   if (energyPercentage < 30) {
-    return 'LOW'; // Low energy, suggest low cost tasks
+    return 'LOW';
   } else if (energyPercentage <= 70) {
-    return 'MEDIUM'; // Medium energy, suggest medium tasks
+    return 'MEDIUM';
   } else {
-    return 'HIGH'; // High energy, suggest high reward/cost tasks
+    return 'HIGH';
   }
 };
 
 const TaskCreationForm: React.FC = () => {
-  const { addTask } = useTasks(); // Corrected: Use the exposed addTask function
+  const { addTask } = useTasks();
   const { profile } = useSession();
   
   const defaultPriority = getAdaptiveDefaultPriority(profile?.energy);
   
-  // 2. Initialize useForm for Quick Add
   const form = useForm<QuickTaskCreationFormValues>({
     resolver: zodResolver(QuickTaskCreationSchema),
     defaultValues: {
       title: '',
-      priority: defaultPriority, // Use adaptive default
-      dueDate: new Date(), // Default to today
+      priority: defaultPriority,
+      dueDate: new Date(),
     },
-    mode: 'onChange', // Enable validation on change
+    mode: 'onChange',
   });
 
-  // Reset form defaults if profile/energy changes (e.g., after recharge)
   React.useEffect(() => {
     const newDefaultPriority = getAdaptiveDefaultPriority(profile?.energy);
     if (form.getValues('priority') !== newDefaultPriority) {
@@ -64,14 +60,12 @@ const TaskCreationForm: React.FC = () => {
   }, [profile?.energy, form]);
 
 
-  // 3. Handle Quick Submission
   const onQuickSubmit = (values: QuickTaskCreationFormValues) => {
     const { title, priority, dueDate } = values;
 
     let taskTitle = title.trim();
     let isCritical = false;
 
-    // Check for critical flag and remove it from the title
     if (taskTitle.endsWith(' !')) {
       isCritical = true;
       taskTitle = taskTitle.slice(0, -2).trim();
@@ -79,16 +73,14 @@ const TaskCreationForm: React.FC = () => {
 
     const newTask: NewTask = {
       title: taskTitle,
-      description: undefined, // No description in quick add
+      description: undefined,
       priority: priority,
-      // Removed metadata_xp and energy_cost
       due_date: dueDate.toISOString(),
-      is_critical: isCritical, // Pass critical flag
+      is_critical: isCritical,
     };
 
     addTask(newTask);
     
-    // Reset title, but retain the priority and dueDate for batch entry
     form.reset({
       title: '',
       priority: values.priority, 
@@ -103,7 +95,6 @@ const TaskCreationForm: React.FC = () => {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onQuickSubmit)} className="flex flex-col sm:flex-row gap-2 animate-slide-in-up">
         
-        {/* Title Input */}
         <FormField
           control={form.control}
           name="title"
@@ -121,7 +112,6 @@ const TaskCreationForm: React.FC = () => {
           )}
         />
 
-        {/* Priority Select */}
         <FormField
           control={form.control}
           name="priority"
@@ -129,7 +119,7 @@ const TaskCreationForm: React.FC = () => {
             <FormItem className="w-full sm:w-[120px] shrink-0">
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
-                  <SelectTrigger className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 animate-hover-lift"> {/* Added animate-hover-lift */}
+                  <SelectTrigger className="h-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 animate-hover-lift">
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                 </FormControl>
@@ -144,7 +134,6 @@ const TaskCreationForm: React.FC = () => {
           )}
         />
 
-        {/* Due Date Picker */}
         <FormField
           control={form.control}
           name="dueDate"
@@ -161,18 +150,16 @@ const TaskCreationForm: React.FC = () => {
           )}
         />
         
-        {/* Detailed Task Dialog Button */}
         <CreateTaskDialog 
           defaultPriority={form.getValues('priority')}
           defaultDueDate={form.getValues('dueDate')}
           onTaskCreated={() => form.reset({ title: '', priority: form.getValues('priority'), dueDate: form.getValues('dueDate') })}
         />
 
-        {/* Quick Add Submit Button */}
         <Button 
           type="submit" 
           disabled={isSubmitting || !isValid} 
-          className="shrink-0 w-full sm:w-auto h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 animate-hover-lift" // Added animate-hover-lift
+          className="shrink-0 w-full sm:w-auto h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 animate-hover-lift"
         >
           <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Quick Add</span>
         </Button>

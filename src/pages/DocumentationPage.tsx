@@ -2,12 +2,11 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
-import { BookOpen, Sparkles, Clock, ListTodo, Settings, Trophy, TrendingUp, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code } from 'lucide-react'; // Imported Gamepad and Code
-import { EMOJI_MAP, EMOJI_HUE_MAP, calculateEnergyCost } from '@/lib/scheduler-utils'; // Import maps for emoji guide, and calculateEnergyCost
+import { BookOpen, Sparkles, Clock, ListTodo, Settings, Trophy, TrendingUp, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code, Star } from 'lucide-react'; // Imported Gamepad and Code, Star
+import { EMOJI_MAP, EMOJI_HUE_MAP, calculateEnergyCost } from '@/lib/scheduler-utils';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/use-session';
 import { XP_PER_LEVEL, MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, LOW_ENERGY_THRESHOLD, DAILY_CHALLENGE_XP, DAILY_CHALLENGE_ENERGY, DAILY_CHALLENGE_TASKS_REQUIRED } from '@/lib/constants';
-// Removed DEFAULT_ENERGY_COST import
 
 const DocumentationPage: React.FC = () => {
   const { user } = useSession();
@@ -25,8 +24,7 @@ const DocumentationPage: React.FC = () => {
     );
   }
 
-  // Example energy cost for documentation
-  const exampleDefaultEnergyCost = calculateEnergyCost(30, false); // 30 min, non-critical
+  const exampleDefaultEnergyCost = calculateEnergyCost(30, false);
 
   return (
     <div className="container mx-auto p-4 max-w-4xl space-y-8 animate-slide-in-up">
@@ -67,7 +65,7 @@ const DocumentationPage: React.FC = () => {
           <AccordionContent>
             <Card className="p-6 space-y-6">
               <h3 className="text-xl font-bold flex items-center gap-2">
-                <Gamepad className="h-5 w-5 text-logo-yellow" /> Gamification {/* Changed Gamepad2 to Gamepad */}
+                <Gamepad className="h-5 w-5 text-logo-yellow" /> Gamification
               </h3>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground">
                 <li>

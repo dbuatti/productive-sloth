@@ -7,7 +7,6 @@ import { Loader2, TrendingUp, CheckCircle, Sparkles } from 'lucide-react';
 import { format, parseISO, startOfDay, subDays } from 'date-fns';
 import { XP_PER_LEVEL } from '@/lib/constants';
 
-// Helper to generate a date range for the last 7 days
 const generateDateRange = (days: number) => {
   const dates: Date[] = [];
   for (let i = days - 1; i >= 0; i--) {
@@ -26,13 +25,11 @@ const AnalyticsPage: React.FC = () => {
     const last7Days = generateDateRange(7);
     const dataMap = new Map<string, { date: string, tasksCompleted: number, xpGained: number }>();
 
-    // Initialize map with last 7 days
     last7Days.forEach(date => {
       const key = format(date, 'yyyy-MM-dd');
       dataMap.set(key, { date: format(date, 'MMM d'), tasksCompleted: 0, xpGained: 0 });
     });
 
-    // Populate data from tasks
     allTasks.forEach(task => {
       if (task.is_completed) {
         const completionDate = startOfDay(parseISO(task.created_at));
@@ -41,13 +38,10 @@ const AnalyticsPage: React.FC = () => {
         if (dataMap.has(key)) {
           const entry = dataMap.get(key)!;
           entry.tasksCompleted += 1;
-          // Removed xpGained calculation from task.metadata_xp as it's no longer on Task type
-          // XP gain is now handled by scheduled tasks completion
         }
       }
     });
 
-    // Convert map values to array and sort by date
     return Array.from(dataMap.values()).sort((a, b) => {
       const dateA = parseISO(a.date);
       const dateB = parseISO(b.date);
@@ -76,7 +70,6 @@ const AnalyticsPage: React.FC = () => {
         <TrendingUp className="h-7 w-7 text-primary" /> Gamification Analytics
       </h1>
 
-      {/* Key Metrics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="animate-pop-in animate-hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -116,7 +109,6 @@ const AnalyticsPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* XP Gain Trend Chart - Now only shows tasks completed, as XP is tied to scheduled tasks */}
       <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.3s' }}>
         <CardHeader>
           <CardTitle className="text-xl">Tasks Completed Trend (Last 7 Days)</CardTitle>
@@ -143,11 +135,11 @@ const AnalyticsPage: React.FC = () => {
                 />
                 <Area 
                   type="monotone" 
-                  dataKey="tasksCompleted" // Changed to tasksCompleted
+                  dataKey="tasksCompleted"
                   stroke="hsl(var(--logo-yellow))" 
                   fillOpacity={1} 
                   fill="url(#colorXp)" 
-                  name="Tasks Completed" // Changed name
+                  name="Tasks Completed"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -155,7 +147,6 @@ const AnalyticsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Tasks Completed Chart */}
       <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.4s' }}>
         <CardHeader>
           <CardTitle className="text-xl">Tasks Completed (Last 7 Days)</CardTitle>
@@ -179,7 +170,7 @@ const AnalyticsPage: React.FC = () => {
                   dataKey="tasksCompleted" 
                   fill="hsl(var(--primary))" 
                   name="Tasks Completed"
-                  radius={[4, 4, 0, 0]} // Rounded corners for bars
+                  radius={[4, 4, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>

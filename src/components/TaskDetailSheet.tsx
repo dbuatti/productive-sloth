@@ -30,17 +30,15 @@ import { Task, TaskPriority } from "@/types";
 import DatePicker from "./DatePicker";
 import { useTasks } from '@/hooks/use-tasks';
 import { showSuccess } from "@/utils/toast";
-import { useSession } from '@/hooks/use-session'; // Import useSession
-import { Switch } from '@/components/ui/switch'; // Import Switch
+import { useSession } from '@/hooks/use-session';
+import { Switch } from '@/components/ui/switch';
 
-// Define the schema for editing, matching the TaskEditDialog logic
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }).max(255),
   description: z.string().optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
   dueDate: z.date({ required_error: "Due date is required." }), 
-  // Removed metadata_xp and energy_cost
-  isCritical: z.boolean().default(false), // Added isCritical
+  isCritical: z.boolean().default(false),
 });
 
 type TaskDetailFormValues = z.infer<typeof formSchema>;
@@ -56,8 +54,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateTask } = useTasks(); // Corrected: Use the exposed updateTask function
-  const { profile } = useSession(); // Get profile for energy check
+  const { updateTask } = useTasks();
+  const { profile } = useSession();
 
   const form = useForm<TaskDetailFormValues>({
     resolver: zodResolver(formSchema),
@@ -66,14 +64,10 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       description: "",
       priority: "MEDIUM",
       dueDate: new Date(),
-      // Removed metadata_xp and energy_cost
-      isCritical: false, // Default to false
+      isCritical: false,
     },
   });
 
-  // Removed energyCost watch and isEnergyInsufficient logic
-
-  // Reset form when a new task is selected or sheet opens
   useEffect(() => {
     if (task) {
       form.reset({
@@ -81,8 +75,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         description: task.description || "",
         priority: task.priority,
         dueDate: task.due_date ? new Date(task.due_date) : new Date(), 
-        // Removed metadata_xp and energy_cost
-        isCritical: task.is_critical, // Set critical flag
+        isCritical: task.is_critical,
       });
     }
   }, [task, form]);
@@ -99,15 +92,12 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         description: descriptionValue,
         priority: values.priority,
         due_date: values.dueDate.toISOString(),
-        // Removed metadata_xp and energy_cost
-        is_critical: values.isCritical, // Include critical flag
+        is_critical: values.isCritical,
       });
       showSuccess("Task updated successfully!");
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to save task:", error);
-      // Error toast is handled inside useTasks if it's a completion/energy issue, 
-      // otherwise, the mutation onError handles it.
     }
   };
 
@@ -129,7 +119,6 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
     }
   };
   
-  // Helper to safely format updated_at
   const lastUpdatedDate = task.updated_at ? new Date(task.updated_at) : null;
   const formattedLastUpdated = lastUpdatedDate && !isNaN(lastUpdatedDate.getTime()) 
     ? format(lastUpdatedDate, 'MMM d, yyyy HH:mm') 
@@ -155,9 +144,6 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
             
             <div className="flex-grow overflow-y-auto space-y-6 pb-8">
-              {/* Removed Current Energy Display */}
-              {/* Removed Metadata Overview - XP Reward and Energy Cost fields */}
-
               {/* Title */}
               <FormField
                 control={form.control}

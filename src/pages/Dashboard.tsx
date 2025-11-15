@@ -10,7 +10,7 @@ import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
 import { Accordion } from '@/components/ui/accordion';
-import DailyChallengeCard from '@/components/DailyChallengeCard'; // Import new card
+import DailyChallengeCard from '@/components/DailyChallengeCard';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -78,7 +78,7 @@ const Dashboard = () => {
         <Accordion 
           type="multiple" 
           className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={PRIORITY_ORDER} // Expanded by default
+          defaultValue={PRIORITY_ORDER}
         >
           {PRIORITY_ORDER.map(priority => (
             <PrioritySection 

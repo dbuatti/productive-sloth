@@ -9,8 +9,8 @@ import { isToday, parseISO } from 'date-fns';
 import { 
   MAX_ENERGY, 
   RECHARGE_BUTTON_AMOUNT, 
-} from '@/lib/constants'; // Import constants
-import { calculateLevelInfo } from '@/lib/utils'; // Import from utils
+} from '@/lib/constants';
+import { calculateLevelInfo } from '@/lib/utils';
 
 const ProgressBarHeader: React.FC = () => {
   const { profile, rechargeEnergy } = useSession();
@@ -20,14 +20,11 @@ const ProgressBarHeader: React.FC = () => {
     return null;
   }
 
-  // XP Progress
   const { level, xpTowardsNextLevel, xpNeededForNextLevel, progressPercentage: xpProgress } = calculateLevelInfo(profile.xp);
 
-  // Energy Progress
   const energyPercentage = (profile.energy / MAX_ENERGY) * 100;
   const isEnergyFull = profile.energy >= MAX_ENERGY;
 
-  // Daily Challenge Progress
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
   const dailyChallengeProgress = (profile.tasks_completed_today / profile.daily_challenge_target) * 100;
 
@@ -36,13 +33,13 @@ const ProgressBarHeader: React.FC = () => {
       <div className="container mx-auto max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-3 px-4">
         {/* XP Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Sparkles className="h-4 w-4 text-logo-yellow" /> {/* Removed animate-pulse-glow */}
+          <Sparkles className="h-4 w-4 text-logo-yellow" />
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
                 value={xpProgress} 
-                className="h-2 flex-grow bg-secondary" /* Changed to bg-secondary */
-                indicatorClassName="bg-primary" /* Changed to primary */
+                className="h-2 flex-grow bg-secondary"
+                indicatorClassName="bg-primary"
               />
             </TooltipTrigger>
             <TooltipContent>
@@ -56,13 +53,13 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Energy Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Zap className="h-4 w-4 text-logo-yellow" /> {/* Removed animate-pulse-glow */}
+          <Zap className="h-4 w-4 text-logo-yellow" />
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
                 value={energyPercentage} 
-                className="h-2 flex-grow bg-secondary" /* Changed to bg-secondary */
-                indicatorClassName="bg-primary" /* Changed to primary */
+                className="h-2 flex-grow bg-secondary"
+                indicatorClassName="bg-primary"
               />
             </TooltipTrigger>
             <TooltipContent>
@@ -85,13 +82,13 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Daily Challenge Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Trophy className="h-4 w-4 text-accent" /> {/* Removed animate-pulse-glow */}
+          <Trophy className="h-4 w-4 text-accent" />
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
                 value={dailyChallengeProgress} 
-                className="h-2 flex-grow bg-secondary" /* Changed to bg-secondary */
-                indicatorClassName="bg-accent" /* Changed to accent */
+                className="h-2 flex-grow bg-secondary"
+                indicatorClassName="bg-accent"
               />
             </TooltipTrigger>
             <TooltipContent>

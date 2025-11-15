@@ -10,7 +10,7 @@ import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
 import { Accordion } from '@/components/ui/accordion';
-import DailyChallengeCard from '@/components/DailyChallengeCard'; // Import new card
+import DailyChallengeCard from '@/components/DailyChallengeCard';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
@@ -78,7 +78,7 @@ const Dashboard = () => {
         <Accordion 
           type="multiple" 
           className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={PRIORITY_ORDER} // Expanded by default
+          defaultValue={PRIORITY_ORDER}
         >
           {PRIORITY_ORDER.map(priority => (
             <PrioritySection 
@@ -89,7 +89,7 @@ const Dashboard = () => {
           ))}
         </Accordion>
       ) : (
-        <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up">
+        <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
           <ClipboardList className="h-12 w-12 text-muted-foreground" />
           <p className="text-lg font-semibold">No tasks found!</p>
           <p>Start by adding a new task above to get organized.</p>

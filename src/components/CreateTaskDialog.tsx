@@ -16,19 +16,18 @@ import {
   FormItem, 
   FormLabel, 
   FormMessage,
-  FormDescription // Imported FormDescription
+  FormDescription
 } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch'; // Imported Switch
+import { Switch } from '@/components/ui/switch';
 
-// 1. Define Schema
 const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
   description: z.string().max(1000).optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
-  isCritical: z.boolean().default(false), // Added isCritical field
+  isCritical: z.boolean().default(false),
 });
 
 type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
@@ -40,10 +39,9 @@ interface CreateTaskDialogProps {
 }
 
 const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, defaultDueDate, onTaskCreated }) => {
-  const { addTask } = useTasks(); // Corrected: Use the exposed addTask function
+  const { addTask } = useTasks();
   const [isOpen, setIsOpen] = React.useState(false);
   
-  // 2. Initialize useForm
   const form = useForm<TaskCreationFormValues>({
     resolver: zodResolver(TaskCreationSchema),
     defaultValues: {
@@ -51,12 +49,11 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
       description: '',
       priority: defaultPriority,
       dueDate: defaultDueDate,
-      isCritical: false, // Default to false
+      isCritical: false,
     },
     mode: 'onChange',
   });
 
-  // 3. Handle Submission
   const onSubmit = (values: TaskCreationFormValues) => {
     const { title, priority, dueDate, description, isCritical } = values;
 
@@ -64,22 +61,20 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
       title: title.trim(),
       description: description?.trim() || undefined,
       priority: priority,
-      // Removed metadata_xp and energy_cost
       due_date: dueDate.toISOString(),
-      is_critical: isCritical, // Pass critical flag
+      is_critical: isCritical,
     };
 
     addTask(newTask, {
       onSuccess: () => {
         onTaskCreated();
         setIsOpen(false);
-        // Reset title and description, but retain priority and dueDate
         form.reset({
           title: '',
           description: '',
           priority: values.priority, 
           dueDate: values.dueDate, 
-          isCritical: false, // Reset critical flag for next task
+          isCritical: false,
         });
       }
     });
@@ -108,7 +103,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             
-            {/* Title Input (Duplicated for validation consistency, but hidden if already in main form) */}
             <FormField
               control={form.control}
               name="title"
@@ -123,7 +117,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
               )}
             />
 
-            {/* Description Textarea */}
             <FormField
               control={form.control}
               name="description"
@@ -143,7 +136,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
               )}
             />
 
-            {/* Priority Select */}
             <FormField
               control={form.control}
               name="priority"
@@ -167,7 +159,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
               )}
             />
 
-            {/* Due Date Picker */}
             <FormField
               control={form.control}
               name="dueDate"
@@ -186,7 +177,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
               )}
             />
 
-            {/* Is Critical Switch */}
             <FormField
               control={form.control}
               name="isCritical"

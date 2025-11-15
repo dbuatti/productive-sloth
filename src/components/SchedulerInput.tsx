@@ -19,9 +19,10 @@ interface SchedulerInputProps {
   placeholder?: string;
   inputValue: string;
   setInputValue: (value: string) => void;
+  onDetailedInject: () => void; // NEW: Handler for detailed injector button
 }
 
-const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue }) => {
+const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject }) => {
   const { allTasks } = useTasks();
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -31,7 +32,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     { type: 'command', name: 'clear', description: 'Clear all scheduled tasks' },
     { type: 'command', name: 'remove', description: 'Remove a task by name or index' },
     { type: 'command', name: 'inject', description: 'Inject a task with specific details' },
-    { type: 'command', name: 'time off', description: 'Block out a period as "Time Off"' }, // Added 'time off' command
+    { type: 'command', name: 'time off', description: 'Block out a period as "Time Off"' },
   ], []);
 
   const suggestions = useMemo(() => {
@@ -80,8 +81,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
       setInputValue('remove ');
     } else if (suggestion.type === 'command' && suggestion.name === 'inject') {
       setInputValue('inject ');
-    } else if (suggestion.type === 'command' && suggestion.name === 'time off') { // Handle 'time off' suggestion
-      onCommand('time off'); // Trigger the command directly
+    } else if (suggestion.type === 'command' && suggestion.name === 'time off') {
+      onCommand('time off');
     } else {
       setInputValue(suggestion.name);
     }
@@ -169,6 +170,25 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
           </TooltipTrigger>
           <TooltipContent>
             <p>Add a 15-minute break</p>
+          </TooltipContent>
+        </Tooltip>
+        {/* NEW: Detailed Task Injector Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              type="button" 
+              onClick={onDetailedInject} 
+              disabled={isLoading} 
+              variant="outline"
+              size="icon"
+              className="shrink-0 h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200"
+            >
+              <Plus className="h-5 w-5" />
+              <span className="sr-only">Detailed Task Injector</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Inject a task with specific details</p>
           </TooltipContent>
         </Tooltip>
         <Button type="submit" disabled={isLoading} className="shrink-0 h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">

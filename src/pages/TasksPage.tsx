@@ -66,7 +66,7 @@ const TasksPage: React.FC = () => {
         <Accordion 
           type="multiple" 
           className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={PRIORITY_ORDER} // Set default to expanded
+          defaultValue={PRIORITY_ORDER}
         >
           {PRIORITY_ORDER.map(priority => (
             <PrioritySection 

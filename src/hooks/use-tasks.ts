@@ -7,7 +7,6 @@ import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants';
 
-// Helper function to calculate date boundaries for server-side filtering
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
   const now = new Date();
   const startOfToday = startOfDay(now);
@@ -17,19 +16,16 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
 
   switch (filter) {
     case 'TODAY':
-      // For TODAY, we want tasks due anytime in the past (to catch overdue tasks) 
-      // up until the end of today.
-      // We use a very old date for the start to capture all past dates.
-      startDate = new Date(0); // Epoch time, effectively capturing all past dates
-      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000); // End of today
+      startDate = new Date(0);
+      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
       break;
     case 'YESTERDAY':
       startDate = subDays(startOfToday, 1);
-      endDate = startOfToday; // Start of today
+      endDate = startOfToday;
       break;
     case 'LAST_7_DAYS':
       startDate = subDays(startOfToday, 7);
-      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000); // End of today
+      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
       break;
     default:
       return null;
@@ -41,7 +37,6 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
   };
 };
 
-// Helper function for client-side sorting (only used for PRIORITY sorting)
 const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
   const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
@@ -53,23 +48,18 @@ const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
       const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
       if (priorityDiff !== 0) return priorityDiff;
     }
-    // If not sorting by priority, maintain the order returned by the server (or use a secondary sort if needed)
-    // Since we rely on the server for DUE_DATE sort, we only need to handle PRIORITY here.
     return 0; 
   });
 };
 
-// Removed calculateLevelAndRemainingXp as gamification logic is moved
-
 export const useTasks = () => {
   const queryClient = useQueryClient();
-  const { user } = useSession(); // Removed profile, refreshProfile, triggerLevelUp
+  const { user } = useSession();
   const userId = user?.id;
 
   const [temporalFilter, setTemporalFilter] = useState<TemporalFilter>('TODAY');
-  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ACTIVE'); // Changed default to 'ACTIVE'
-  const [sortBy, setSortBy] = useState<SortBy>('PRIORITY_HIGH_TO_LOW'); // Updated default sort
-  // Removed xpGainAnimation state
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('ACTIVE');
+  const [sortBy, setSortBy] = useState<SortBy>('PRIORITY_HIGH_TO_LOW');
 
   const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter, currentSortBy: SortBy): Promise<Task[]> => {
     if (!userId) return [];
@@ -82,19 +72,16 @@ export const useTasks = () => {
     const dateRange = getDateRange(currentTemporalFilter);
 
     if (dateRange) {
-      // Use gte for start date and lte for end date
       query = query
         .lte('due_date', dateRange.end)
         .gte('due_date', dateRange.start);
     }
     
-    // Server-side sorting optimization
     if (currentSortBy === 'TIME_EARLIEST_TO_LATEST') {
       query = query.order('due_date', { ascending: true });
     } else if (currentSortBy === 'TIME_LATEST_TO_EARLIEST') {
       query = query.order('due_date', { ascending: false });
     } else {
-      // Default stable sort for PRIORITY client-side sort
       query = query.order('created_at', { ascending: false });
     }
 
@@ -105,12 +92,11 @@ export const useTasks = () => {
   }, [userId]);
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
-    queryKey: ['tasks', userId, temporalFilter, sortBy], // Refetch when temporal filter or sort changes
+    queryKey: ['tasks', userId, temporalFilter, sortBy],
     queryFn: () => fetchTasks(temporalFilter, sortBy),
     enabled: !!userId,
   });
 
-  // --- Filtering and Sorting Logic (Status filtering and PRIORITY sorting remain client-side) ---
   const filteredTasks = useMemo(() => {
     let result = tasks;
 
@@ -120,7 +106,6 @@ export const useTasks = () => {
       result = result.filter(task => task.is_completed);
     }
 
-    // Only apply client-side sort if sorting by PRIORITY (due date is handled by the server)
     if (sortBy.startsWith('PRIORITY')) {
       return sortTasks(result, sortBy);
     }
@@ -128,12 +113,9 @@ export const useTasks = () => {
     return result;
   }, [tasks, statusFilter, sortBy]);
 
-  // --- CRUD Mutations ---
-
   const addTaskMutation = useMutation({
     mutationFn: async (newTask: NewTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      // Removed metadata_xp and energy_cost from taskToInsert
       const taskToInsert = { ...newTask, user_id: userId };
       const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
       if (error) throw new Error(error.message);
@@ -150,7 +132,6 @@ export const useTasks = () => {
 
   const updateTaskMutation = useMutation({
     mutationFn: async (task: Partial<Task> & { id: string }) => {
-      // Removed metadata_xp and energy_cost from task update
       const { data, error } = await supabase
         .from('tasks')
         .update(task)
@@ -162,10 +143,8 @@ export const useTasks = () => {
       return data as Task;
     },
     onSuccess: async (updatedTask) => {
-      // Invalidate queries to force a refetch/re-evaluation of tasks
       await queryClient.invalidateQueries({ queryKey: ['tasks', userId] });
 
-      // Removed all gamification logic (XP gain, streak update, energy deduction, tasks_completed_today increment, level up trigger, XP animation)
       if (updatedTask.is_completed) {
         showSuccess('Task completed!');
       }
@@ -189,8 +168,6 @@ export const useTasks = () => {
     }
   });
 
-  // Removed clearXpGainAnimation
-
   return {
     tasks: filteredTasks,
     allTasks: tasks,
@@ -201,12 +178,11 @@ export const useTasks = () => {
     setStatusFilter,
     sortBy,
     setSortBy,
-    addTask: addTaskMutation.mutate, // Expose mutate as addTask
-    updateTask: updateTaskMutation.mutate, // Expose mutate as updateTask
-    deleteTask: deleteTaskMutation.mutate, // Expose mutate as deleteTask
-    addTaskMutation, // Expose the mutation object directly for advanced use (e.g., mutateAsync)
-    updateTaskMutation, // Expose the mutation object directly for advanced use (e.g., mutateAsync)
-    deleteTaskMutation, // Expose the mutation object directly for advanced use (e.g., mutateAsync)
-    // Removed xpGainAnimation and clearXpGainAnimation
+    addTask: addTaskMutation.mutate,
+    updateTask: updateTaskMutation.mutate,
+    deleteTask: deleteTaskMutation.mutate,
+    addTaskMutation,
+    updateTaskMutation,
+    deleteTaskMutation,
   };
 };

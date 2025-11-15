@@ -3,23 +3,23 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle } from 'lucide-react'; // Import Archive icon, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star } from 'lucide-react'; // Import Archive icon, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
-import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns'; // Added isPast
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
-import { Badge } from '@/components/ui/badge'; // Import Badge component
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Import useSchedulerTasks
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
   onRemoveTask: (taskId: string) => void;
-  onRetireTask: (task: DBScheduledTask) => void; // NEW: Handler for retiring a task
-  onCompleteTask: (task: DBScheduledTask) => void; // NEW: Handler for completing a task
+  onRetireTask: (task: DBScheduledTask) => void;
+  onCompleteTask: (task: DBScheduledTask) => void;
   activeItemId: string | null;
-  selectedDayString: string; // New prop to pass selectedDay from parent
-  onAddTaskClick: () => void; // NEW: Handler for adding a task from empty state
+  selectedDayString: string;
+  onAddTaskClick: () => void;
 }
 
 const getBubbleHeightStyle = (duration: number) => {
@@ -34,10 +34,9 @@ const getBubbleHeightStyle = (duration: number) => {
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
-  const containerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
-
-  const activeItemRef = useRef<HTMLDivElement>(null); // Ref for the active item
-  const { toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString); // Use the hook to get the toggle function
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeItemRef = useRef<HTMLDivElement>(null);
+  const { toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString);
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
@@ -92,7 +91,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     processedItems.forEach(item => {
         if (item.type === 'marker') {
             const isCovered = processedItems.some(pItem => {
-                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off') { // NEW: Added time-off
+                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off') {
                     return item.time >= pItem.startTime && item.time < pItem.endTime;
                 }
                 return false;
@@ -135,7 +134,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) { // NEW: Added time-off
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
@@ -155,7 +154,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     return (timeIntoItemMs / itemDurationMs) * 100;
   }, [activeItemInDisplay, T_current]);
 
-  // Calculate global progress line position
   const globalProgressLineTopPercentage = useMemo(() => {
     if (!containerRef.current || !firstItemStartTime || !lastItemEndTime) return 0;
 
@@ -167,7 +165,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   }, [T_current, firstItemStartTime, lastItemEndTime]);
 
 
-  // Auto-scroll to active item (existing logic)
   useEffect(() => {
     if (activeItemRef.current && containerRef.current) {
       const containerRect = containerRef.current.getBoundingClientRect();
@@ -179,7 +176,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     }
   }, [activeItemInDisplay]);
 
-  // NEW: Auto-scroll to top when selected day changes
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -191,8 +187,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const renderDisplayItem = (item: DisplayItem) => {
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
-    // Safely check for isPastItem only on types that have an 'endTime'
-    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && item.endTime <= T_current; // NEW: Added time-off
+    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && item.endTime <= T_current;
 
     if (item.type === 'marker') {
       return (
@@ -204,7 +199,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           </div>
           <div className="relative flex items-center">
             <div className="h-px w-full bg-border" />
-            <div className="absolute right-0 h-2.5 w-2.5 rounded-full bg-border -mr-1.5" /> {/* Larger dot */}
+            <div className="absolute right-0 h-2.5 w-2.5 rounded-full bg-border -mr-1.5" />
           </div>
         </React.Fragment>
       );
@@ -217,23 +212,23 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         <React.Fragment key={freeTimeItem.id}>
           <div></div>
           <div 
-            ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
+            ref={isCurrentlyActive ? activeItemRef : null}
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
               isHighlightedByNowCard ? "opacity-50 border-border" :
               isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70",
-              isPastItem && "opacity-50 border-muted-foreground/30" // Faded for past items
+              isPastItem && "opacity-50 border-muted-foreground/30"
             )}
           >
             {freeTimeItem.message}
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress" // Increased height, removed pulse-glow
+                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress"
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Removed pulse-glow and border */}
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap">
                     {formatTime(T_current)}
                   </span>
                 </div>
@@ -246,24 +241,22 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const scheduledItem = item as ScheduledItem;
       const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
       const isHighlightedByNowCard = activeItemId === scheduledItem.id;
-      const isLocked = scheduledItem.isLocked; // Get lock status
-      const isFixed = !scheduledItem.isFlexible; // A task is fixed if it's not flexible
-      const isFixedOrLocked = isFixed || isLocked; // Condition for the strong border
-      const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current); // Missed if locked and time passed (not today)
+      const isLocked = scheduledItem.isLocked;
+      const isFixed = !scheduledItem.isFlexible;
+      const isFixedOrLocked = isFixed || isLocked;
+      const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current);
 
       if (scheduledItem.endTime < startOfTemplate) return null;
 
       const hue = getEmojiHue(scheduledItem.name);
-      const saturation = 50; // Increased saturation
-      const lightness = isLocked ? 25 : 35; // Darker shade for locked tasks
+      const saturation = 50;
+      const lightness = isLocked ? 25 : 35;
       const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
 
-      // Find the corresponding DBScheduledTask to pass to onRetireTask and onCompleteTask
-      // Use schedule.dbTasks which is the raw array from Supabase
       const dbTask = schedule?.dbTasks.find(t => t.id === scheduledItem.id);
 
-      const isTimeOff = scheduledItem.type === 'time-off'; // NEW: Check if it's a time-off item
-      const isBreak = scheduledItem.type === 'break'; // NEW: Check if it's a break item
+      const isTimeOff = scheduledItem.type === 'time-off';
+      const isBreak = scheduledItem.type === 'break';
 
       return (
         <React.Fragment key={scheduledItem.id}>
@@ -272,7 +265,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
               isHighlightedByNowCard ? "bg-primary text-primary-foreground" :
               isActive ? "bg-primary/20 text-primary" :
-              isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground", // Use isPastItem here
+              isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
             )}>
               {formatTime(scheduledItem.startTime)}
@@ -280,21 +273,23 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           </div>
 
           <div
-            ref={isCurrentlyActive ? activeItemRef : null} // Assign ref if active
+            ref={isCurrentlyActive ? activeItemRef : null}
             className={cn(
-              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden", // Changed shadow-sm to shadow-md
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden",
               "border-2", // Base border width
               isHighlightedByNowCard ? "opacity-50" :
-              isActive ? "border-live-progress animate-pulse-active-row" : // Active item border
-              isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border", // Default/past item border
-              isLocked && "bg-primary/10", // Subtle background for locked tasks (border handled below)
-              isMissed && "border-destructive/70 bg-destructive/10", // Red border and background for missed locked tasks
-              isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10", // Distinct styling for time-off
-              // NEW: Strong border for fixed or locked tasks
-              isFixedOrLocked && "border-live-progress", // Apply strong cyan border
-              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary" // Hover effects
+              isActive ? "border-live-progress animate-pulse-active-row" :
+              isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border",
+              isLocked && "bg-primary/10",
+              isMissed && "border-destructive/70 bg-destructive/10",
+              isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10",
+              // UI Improvement: Immutability Stroke for Fixed or Locked tasks
+              isFixedOrLocked && "border-[3px] border-live-progress", // 3px solid cyan border
+              // ADVANCED LOGIC: Critical Task Visual Enhancement
+              scheduledItem.isCritical && "border-logo-yellow/70 ring-2 ring-logo-yellow/50", // Stronger border/ring for critical tasks
+              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"
             )}
-            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }} // NEW: Don't apply ambient background for time-off
+            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }}
           >
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
               <span className="text-[10rem] opacity-10 select-none">
@@ -305,16 +300,16 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             <div className="relative z-10 flex items-center justify-between w-full">
               <span className={cn(
                 "text-sm flex-grow",
-                isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]" // NEW: Text color for time-off
+                isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
               )}>
-                <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span> {/* Made duration font-semibold */}
+                <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span>
               </span>
               <div className="flex items-center gap-1 ml-auto shrink-0">
                 {scheduledItem.isCritical && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                        <AlertCircle className="h-3 w-3" strokeWidth={2.5} />
+                        <Star className="h-3 w-3" strokeWidth={2.5} /> {/* Changed to Star icon */}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -327,7 +322,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     MISSED
                   </Badge>
                 )}
-                {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && ( // NEW: Display energy cost
+                {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className={cn(
@@ -344,11 +339,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 )}
                 <span className={cn(
                   "text-xs font-semibold font-mono",
-                  isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80" // NEW: Text color for time-off
+                  isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
                 )}>
                   {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
                 </span>
-                <div className="flex items-center gap-1 ml-2"> {/* Group buttons */}
+                <div className="flex items-center gap-1 ml-2">
                   {/* Lock/Unlock Button */}
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -370,14 +365,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     </TooltipContent>
                   </Tooltip>
 
-                  {dbTask && !isBreak && !isTimeOff && ( // Only show complete/retire buttons for actual tasks
+                  {dbTask && !isBreak && !isTimeOff && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           onClick={() => onCompleteTask(dbTask)} 
-                          disabled={isLocked} // Disable if locked
+                          disabled={isLocked}
                           className={cn(
                             "h-6 w-6 p-0 shrink-0",
                             isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
@@ -393,17 +388,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     </Tooltip>
                   )}
 
-                  {dbTask && ( // Only show retire button if it's a real DB task
+                  {dbTask && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           onClick={() => onRetireTask(dbTask)} 
-                          disabled={isLocked} // Disable if locked
+                          disabled={isLocked}
                           className={cn(
                             "h-6 w-6 p-0 shrink-0",
-                            isLocked ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10") // NEW: Text color for time-off
+                            isLocked ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                           )}
                         >
                           <Archive className="h-4 w-4" />
@@ -421,10 +416,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         variant="ghost" 
                         size="icon" 
                         onClick={() => onRemoveTask(scheduledItem.id)} 
-                        disabled={isLocked} // Disable if locked
+                        disabled={isLocked}
                         className={cn(
                           "h-6 w-6 p-0 shrink-0",
-                          isLocked ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10") // NEW: Text color for time-off
+                          isLocked ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                         )}
                       >
                         <Trash className="h-4 w-4" />
@@ -439,20 +434,20 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               </div>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
-              <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Using always-light-text with opacity
+              <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p>
             )}
-            {isTimeOff && ( // NEW: Description for time-off
+            {isTimeOff && (
               <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>This block is reserved for personal time.</p>
             )}
 
             {isActive && (
               <>
                 <div 
-                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress" // Increased height, removed pulse-glow
+                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress"
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Removed pulse-glow and border */}
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap">
                     {formatTime(T_current)}
                   </span>
                 </div>
@@ -464,20 +459,20 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     }
   };
 
-  const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current); // Corrected to use selectedDayString
+  const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current);
 
   return (
     <div className="space-y-4 animate-slide-in-up">
-      <Card className="animate-pop-in">
+      <Card className="animate-pop-in animate-hover-lift">
         <CardContent className="p-0">
           <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
             {/* Global "Now" Indicator */}
-            {isTodaySelected && firstItemStartTime && lastItemEndTime && ( // Always show if today is selected
+            {isTodaySelected && firstItemStartTime && lastItemEndTime && (
               <div 
-                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress" // Changed height to 2px
+                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress"
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
-                <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-live-progress z-20" /> {/* Small circle indicator */}
+                <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-live-progress z-20" />
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> 
                   <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> 
                     {formatTime(T_current)}
@@ -536,7 +531,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       </Card>
 
       {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
-        <Card className="animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
+        <Card className="animate-pop-in animate-hover-lift">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions

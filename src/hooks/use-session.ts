@@ -1,43 +1,42 @@
 import React, { useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 
-// Define a type for the user profile
 export interface UserProfile {
   id: string;
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
-  xp: number; // Added XP
-  level: number; // Added Level
-  daily_streak: number; // Added daily streak
-  last_streak_update: string | null; // Added last streak update timestamp
-  energy: number; // Added energy
-  last_daily_reward_claim: string | null; // Added last_daily_reward_claim
-  last_daily_reward_notification: string | null; // Added last_daily_reward_notification
-  last_low_energy_notification: string | null; // Added last_low_energy_notification
-  tasks_completed_today: number; // Added tasks_completed_today
-  enable_daily_challenge_notifications: boolean; // Added notification preference
-  enable_low_energy_notifications: boolean; // Added notification preference
-  daily_challenge_target: number; // Added daily challenge target
-  default_auto_schedule_start_time: string | null; // New: Default start time for auto-scheduler
-  default_auto_schedule_end_time: string | null;   // New: Default end time for auto-scheduler
+  xp: number;
+  level: number;
+  daily_streak: number;
+  last_streak_update: string | null;
+  energy: number;
+  last_daily_reward_claim: string | null;
+  last_daily_reward_notification: string | null;
+  last_low_energy_notification: string | null;
+  tasks_completed_today: number;
+  enable_daily_challenge_notifications: boolean;
+  enable_low_energy_notifications: boolean;
+  daily_challenge_target: number;
+  default_auto_schedule_start_time: string | null;
+  default_auto_schedule_end_time: string | null;
 }
 
 interface SessionContextType {
   session: Session | null;
   user: User | null;
-  profile: UserProfile | null; // Add profile to context
+  profile: UserProfile | null;
   isLoading: boolean;
-  refreshProfile: () => Promise<void>; // Add a function to refresh profile
-  rechargeEnergy: (amount?: number) => Promise<void>; // Added rechargeEnergy function
-  showLevelUp: boolean; // Added state for level up celebration
-  levelUpLevel: number; // Added state for the level achieved
-  triggerLevelUp: (level: number) => void; // Added function to trigger level up
-  resetLevelUp: () => void; // Added function to reset level up state
-  resetDailyStreak: () => Promise<void>; // Added resetDailyStreak function
-  claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>; // Added claimDailyReward function
-  updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>; // Added updateNotificationPreferences
-  updateProfile: (updates: Partial<UserProfile>) => Promise<void>; // NEW: Function to update profile fields
+  refreshProfile: () => Promise<void>;
+  rechargeEnergy: (amount?: number) => Promise<void>;
+  showLevelUp: boolean;
+  levelUpLevel: number;
+  triggerLevelUp: (level: number) => void;
+  resetLevelUp: () => void;
+  resetDailyStreak: () => Promise<void>;
+  claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>;
+  updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

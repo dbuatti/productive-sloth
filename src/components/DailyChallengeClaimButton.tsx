@@ -4,7 +4,7 @@ import { Trophy, Loader2 } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { isToday, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { DAILY_CHALLENGE_XP, DAILY_CHALLENGE_ENERGY, DAILY_CHALLENGE_TASKS_REQUIRED } from '@/lib/constants'; // Import constants
+import { DAILY_CHALLENGE_XP, DAILY_CHALLENGE_ENERGY, DAILY_CHALLENGE_TASKS_REQUIRED } from '@/lib/constants';
 
 const DailyChallengeClaimButton: React.FC = () => {
   const { profile, claimDailyReward } = useSession();
@@ -29,12 +29,12 @@ const DailyChallengeClaimButton: React.FC = () => {
       setIsClaiming(true);
       await claimDailyReward(DAILY_CHALLENGE_XP, DAILY_CHALLENGE_ENERGY);
       setIsClaiming(false);
-      setCanClaim(false); // Optimistically set to false after claiming
+      setCanClaim(false);
     }
   };
 
   if (!profile || !canClaim) {
-    return null; // Don't render if not logged in or challenge not ready/claimed
+    return null;
   }
 
   return (

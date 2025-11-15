@@ -1,29 +1,31 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, ChevronDown, ChevronUp } from 'lucide-react'; // Import Chevron icons
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, ChevronDown, ChevronUp, Zap, Star } from 'lucide-react'; // Import Chevron icons, Zap, Star
 import { RetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { Badge } from '@/components/ui/badge'; // Import Badge
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
   onRezoneTask: (task: RetiredTask) => void;
-  onRemoveRetiredTask: (taskId: string) => void; // For permanent deletion from sink
-  onAutoScheduleSink: () => void; // Handler for auto-scheduling all sink tasks
+  onRemoveRetiredTask: (taskId: string) => void;
+  onAutoScheduleSink: () => void;
   isLoading: boolean;
-  isProcessingCommand: boolean; // To disable button when other commands are running
-  isSinkOpen: boolean; // NEW: State for collapse/expand
-  onToggle: () => void; // NEW: Handler to toggle state
-  hideTitle?: boolean; // NEW: Prop to hide the card title
+  isProcessingCommand: boolean;
+  isSinkOpen: boolean;
+  onToggle: () => void;
+  hideTitle?: boolean;
+  profileEnergy: number; // NEW: Pass profile energy for critical task status
 }
 
-const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, isSinkOpen, onToggle, hideTitle = false }) => {
+const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, isSinkOpen, onToggle, hideTitle = false, profileEnergy }) => {
   const hasRetiredTasks = retiredTasks.length > 0;
-  const { toggleRetiredTaskLock } = useSchedulerTasks(''); // Pass empty string as selectedDate is not relevant here
+  const { toggleRetiredTaskLock } = useSchedulerTasks('');
 
   return (
     <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
@@ -55,7 +57,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               </TooltipContent>
             </Tooltip>
             
-            {/* NEW: Toggle Button */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -76,7 +77,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
       </CardHeader>
       )}
       
-      {/* Conditional Content Rendering */}
       {isSinkOpen && (
         <>
           {!hideTitle && <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />}
@@ -99,15 +99,17 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   const emoji = assignEmoji(task.name);
                   const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
                   const isLocked = task.is_locked;
+                  const isCriticalAwaitingEnergy = task.is_critical && profileEnergy < 80; // ADVANCED LOGIC: Critical Task Protection
 
                   return (
                     <div 
                       key={task.id} 
                       className={cn(
                         "flex items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out",
-                        isLocked ? "border-primary/70 bg-primary/10" : ""
+                        isLocked ? "border-primary/70 bg-primary/10" : "",
+                        isCriticalAwaitingEnergy && "border-logo-yellow/70 bg-logo-yellow/10" // Visual for awaiting energy
                       )}
-                      style={{ backgroundColor: isLocked ? undefined : ambientBackgroundColor }}
+                      style={{ backgroundColor: isLocked || isCriticalAwaitingEnergy ? undefined : ambientBackgroundColor }}
                     >
                       <div className="flex flex-col items-start flex-grow min-w-0">
                         <div className="flex items-center gap-1">
@@ -115,7 +117,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                                  <AlertCircle className="h-3 w-3" strokeWidth={2.5} />
+                                  <Star className="h-3 w-3" strokeWidth={2.5} /> {/* Changed to Star icon */}
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -126,10 +128,32 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                           <span className="text-base">{emoji}</span>
                           <span className={cn("font-semibold truncate", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
                           {task.duration && <span className={cn("text-xs", isLocked ? "text-primary/80" : "text-foreground/80")}>({task.duration} min)</span>}
+                          {task.energy_cost !== undefined && task.energy_cost > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className={cn(
+                                  "flex items-center gap-1 text-xs font-semibold font-mono",
+                                  isLocked ? "text-primary/80" : "text-foreground/80"
+                                )}>
+                                  {task.energy_cost} <Zap className="h-3 w-3" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Energy Cost</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
-                        <span className="text-xs italic text-muted-foreground mt-0.5">
-                          Originally for {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
-                        </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs italic text-muted-foreground">
+                            Originally for {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
+                          </span>
+                          {isCriticalAwaitingEnergy && ( // ADVANCED LOGIC: Critical Task Protection - Status Badge
+                            <Badge variant="outline" className="bg-logo-yellow/20 text-logo-yellow border-logo-yellow px-2 py-0.5 text-xs font-semibold">
+                              Awaiting ≥ 80⚡ Slot
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 ml-auto shrink-0">
                         {/* Lock/Unlock Button */}
@@ -159,10 +183,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               variant="secondary"
                               size="icon" 
                               onClick={() => onRezoneTask(task)}
-                              disabled={isLocked || isProcessingCommand}
+                              disabled={isLocked || isProcessingCommand || isCriticalAwaitingEnergy} // Disable if awaiting energy
                               className={cn(
                                 "h-7 w-7 text-primary hover:bg-primary/10",
-                                (isLocked || isProcessingCommand) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
+                                (isLocked || isProcessingCommand || isCriticalAwaitingEnergy) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
                             >
                               <RotateCcw className="h-4 w-4" />
@@ -170,7 +194,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{isLocked ? "Unlock to Re-zone" : "Re-zone to schedule"}</p>
+                            <p>{isLocked ? "Unlock to Re-zone" : (isCriticalAwaitingEnergy ? "Awaiting ≥ 80⚡ Slot" : "Re-zone to schedule")}</p>
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>

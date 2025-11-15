@@ -1394,6 +1394,12 @@ const SchedulerPage: React.FC = () => {
         isLoadingDatesWithTasks={isLoadingDatesWithTasks}
       />
 
+      {isSameDay(parseISO(selectedDay), T_current) && (
+        <div className="sticky top-[104px] z-50 bg-background pb-4"> {/* Sticky NowFocusCard */}
+          <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
+        </div>
+      )}
+
       <Card className="animate-pop-in animate-hover-lift">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -1533,10 +1539,6 @@ const SchedulerPage: React.FC = () => {
           </p>
         </CardContent>
       </Card>
-
-      {isSameDay(parseISO(selectedDay), T_current) && (
-        <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
-      )}
 
       <AetherSink 
         retiredTasks={retiredTasks} 

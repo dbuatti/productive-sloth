@@ -161,7 +161,7 @@ const SchedulerPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
-  const [isSinkOpen, setIsSinkOpen] = useState(false);
+  const [isSinkOpen, setIsSinkOpen] = useState(false); // NEW: State for Aether Sink collapse/expand
   const [activeTab, setActiveTab] = useState('vibe-schedule');
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false); // NEW: State for WorkdayWindowDialog
 
@@ -1498,9 +1498,9 @@ const SchedulerPage: React.FC = () => {
             onAutoScheduleSink={handleAutoScheduleSinkWrapper}
             isLoading={isLoadingRetiredTasks}
             isProcessingCommand={isProcessingCommand}
-            isSinkOpen={true}
-            onToggle={() => {}}
-            hideTitle={true}
+            isSinkOpen={isSinkOpen} // Use the new state variable
+            onToggle={() => setIsSinkOpen(prev => !prev)} // Pass the setter for the state
+            // Removed hideTitle={true} to make the header visible
             profileEnergy={profile?.energy || 0} // NEW: Pass profile energy for critical task status
           />
         </TabsContent>

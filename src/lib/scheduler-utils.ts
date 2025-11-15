@@ -186,6 +186,8 @@ interface ParsedTaskInput {
 }
 
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => {
+  input = input.trim(); // Trim input at the very beginning
+
   let isCritical = false;
   let shouldSink = false;
   let isFlexible = true; // Default to flexible, will be overridden for timed tasks
@@ -285,6 +287,8 @@ interface ParsedInjectionCommand {
 }
 
 export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
+  input = input.trim(); // Trim input at the very beginning
+
   let isCritical = false;
   let isFlexible = true; // Default to flexible
   let energyCost: number = DEFAULT_ENERGY_COST; // NEW: Initialize energyCost to default

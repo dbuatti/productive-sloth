@@ -1395,7 +1395,7 @@ const SchedulerPage: React.FC = () => {
       />
 
       {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="sticky top-[104px] z-50 bg-background pb-4"> {/* Sticky NowFocusCard */}
+        <div className="sticky top-[96px] z-50 bg-background pb-4"> {/* Adjusted top to 96px */}
           <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
         </div>
       )}

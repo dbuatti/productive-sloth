@@ -470,9 +470,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             {/* Global "Now" Indicator */}
             {isTodaySelected && firstItemStartTime && lastItemEndTime && ( // Always show if today is selected
               <div 
-                className="absolute left-0 right-0 h-[3px] bg-live-progress z-10 border-b-2 border-live-progress" // Slightly thicker line
+                className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress" // Changed height to 2px
                 style={{ top: `${globalProgressLineTopPercentage}%` }}
               >
+                <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-live-progress z-20" /> {/* Small circle indicator */}
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> 
                   <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> 
                     {formatTime(T_current)}

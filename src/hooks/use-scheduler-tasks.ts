@@ -1254,6 +1254,48 @@ export const useSchedulerTasks = (selectedDate: string) => {
     }
   });
 
+  const updateRetiredTaskDetailsMutation = useMutation({
+    mutationFn: async (task: Partial<RetiredTask> & { id: string }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log("useSchedulerTasks: Attempting to update retired task details:", task);
+      const { data, error } = await supabase
+        .from('retired_tasks')
+        .update({ ...task, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
+        .eq('id', task.id)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("useSchedulerTasks: Error updating retired task details:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully updated retired task details:", data);
+      return data as RetiredTask;
+    },
+    onMutate: async (updatedTask: Partial<RetiredTask> & { id: string }) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+        (old || []).map(task =>
+          task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+        )
+      );
+      return { previousRetiredTasks };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      showSuccess('Retired task details updated!');
+    },
+    onError: (e, _variables, context) => {
+      showError(`Failed to update retired task details: ${e.message}`);
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
+    }
+  });
+
   const clearXpGainAnimation = useCallback(() => {
     setXpGainAnimation(null);
   }, []);
@@ -1283,6 +1325,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
     completeScheduledTask: completeScheduledTaskMutation.mutate,
     updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutate, // Expose for other uses if needed
     updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutate, // NEW: Expose new mutation
+    updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutate, // NEW: Expose new mutation
     sortBy,
     setSortBy,
     xpGainAnimation,

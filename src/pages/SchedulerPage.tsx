@@ -942,14 +942,21 @@ const SchedulerPage: React.FC = () => {
         return;
     }
     setIsProcessingCommand(true);
+    console.log("handleAutoScheduleSink: Starting auto-schedule process.");
 
     try {
         // --- 1. Unification and Normalization ---
+        const existingFixedTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);
         const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
         const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
 
-        if (flexibleScheduledTasks.length === 0 && unlockedRetiredTasks.length === 0) {
-            showSuccess("No unlocked flexible tasks in schedule or Aether Sink to balance.");
+        console.log("handleAutoScheduleSink: Existing fixed tasks:", existingFixedTasks.map(t => t.name));
+        console.log("handleAutoScheduleSink: Flexible scheduled tasks to re-evaluate:", flexibleScheduledTasks.map(t => t.name));
+        console.log("handleAutoScheduleSink: Unlocked retired tasks to re-evaluate:", unlockedRetiredTasks.map(t => t.name));
+
+
+        if (flexibleScheduledTasks.length === 0 && unlockedRetiredTasks.length === 0 && existingFixedTasks.length === 0) {
+            showSuccess("No unlocked flexible tasks in schedule or Aether Sink to balance, and no fixed tasks to maintain.");
             setIsProcessingCommand(false);
             return;
         }
@@ -958,11 +965,11 @@ const SchedulerPage: React.FC = () => {
         const scheduledTaskIdsToDelete: string[] = [];
         const retiredTaskIdsToDelete: string[] = [];
 
-        // Add flexible scheduled tasks
+        // Add flexible scheduled tasks to unifiedPool and mark for deletion
         flexibleScheduledTasks.forEach(task => {
             const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
             unifiedPool.push({
-                id: task.id,
+                id: task.id, // Keep original ID for potential re-insertion
                 name: task.name,
                 duration: duration,
                 break_duration: task.break_duration,
@@ -975,10 +982,10 @@ const SchedulerPage: React.FC = () => {
             scheduledTaskIdsToDelete.push(task.id);
         });
 
-        // Add unlocked retired tasks
+        // Add unlocked retired tasks to unifiedPool and mark for deletion from sink
         unlockedRetiredTasks.forEach(task => {
             unifiedPool.push({
-                id: task.id,
+                id: task.id, // Keep original ID for potential re-insertion
                 name: task.name,
                 duration: task.duration || 30,
                 break_duration: task.break_duration,
@@ -991,6 +998,11 @@ const SchedulerPage: React.FC = () => {
             retiredTaskIdsToDelete.push(task.id);
         });
 
+        console.log("handleAutoScheduleSink: Unified pool of tasks to place:", unifiedPool.map(t => t.name));
+        console.log("handleAutoScheduleSink: Scheduled task IDs to delete:", scheduledTaskIdsToDelete);
+        console.log("handleAutoScheduleSink: Retired task IDs to delete:", retiredTaskIdsToDelete);
+
+
         // --- 2. Categorization and Interleaving (Default Sorting) ---
         let balancedQueue: UnifiedTask[] = [...unifiedPool].sort((a, b) => a.name.localeCompare(b.name)); // Default sort
 
@@ -998,10 +1010,10 @@ const SchedulerPage: React.FC = () => {
         const tasksToInsert: NewDBScheduledTask[] = [];
         const tasksToKeepInSink: NewRetiredTask[] = [];
         
-        const fixedTasks = dbScheduledTasks.filter(task => task.is_locked || !task.is_flexible);
-        
-        fixedTasks.forEach(task => {
+        // Initialize tasksToInsert with existing fixed tasks (including their IDs)
+        existingFixedTasks.forEach(task => {
             tasksToInsert.push({
+                id: task.id, // IMPORTANT: Include the ID for upsert to work correctly
                 name: task.name,
                 start_time: task.start_time,
                 end_time: task.end_time,
@@ -1011,10 +1023,13 @@ const SchedulerPage: React.FC = () => {
                 is_flexible: task.is_flexible,
                 is_locked: task.is_locked,
                 energy_cost: task.energy_cost,
+                is_completed: task.is_completed,
             });
         });
+        console.log("handleAutoScheduleSink: Initial tasksToInsert (fixed tasks):", tasksToInsert.map(t => t.name));
 
-        const fixedOccupiedBlocks = mergeOverlappingTimeBlocks(fixedTasks
+
+        const fixedOccupiedBlocks = mergeOverlappingTimeBlocks(existingFixedTasks
             .filter(task => task.start_time && task.end_time)
             .map(task => {
                 const start = setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm'));
@@ -1043,6 +1058,7 @@ const SchedulerPage: React.FC = () => {
                 is_locked: false, // Not locked in sink
                 energy_cost: task.energy_cost,
               });
+              console.log(`handleAutoScheduleSink: Critical task "${task.name}" skipped due to low energy, moved to sink.`);
               continue; // Skip placement for this critical task
             }
 
@@ -1065,6 +1081,7 @@ const SchedulerPage: React.FC = () => {
 
                     if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocks)) {
                         tasksToInsert.push({
+                            id: task.id, // IMPORTANT: Include the ID for upsert to work correctly
                             name: task.name,
                             start_time: proposedStartTime.toISOString(),
                             end_time: proposedEndTime.toISOString(),
@@ -1074,12 +1091,14 @@ const SchedulerPage: React.FC = () => {
                             is_flexible: true,
                             is_locked: false, // Changed from `task.is_critical ? true : false` to `false`
                             energy_cost: task.energy_cost,
+                            is_completed: false, // New tasks are not completed
                         });
 
                         currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
                         currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
                         currentPlacementTime = proposedEndTime;
                         placed = true;
+                        console.log(`handleAutoScheduleSink: Placed flexible task "${task.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
                         break;
                     }
                 }
@@ -1098,6 +1117,7 @@ const SchedulerPage: React.FC = () => {
                     is_locked: false,
                     energy_cost: task.energy_cost,
                 });
+                console.log(`handleAutoScheduleSink: Flexible task "${task.name}" could not be placed, moved to sink.`);
             }
         }
 
@@ -1110,6 +1130,14 @@ const SchedulerPage: React.FC = () => {
             selectedDate: formattedSelectedDay,
         };
 
+        console.log("handleAutoScheduleSink: Final payload for autoBalanceSchedule mutation:", {
+          scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
+          retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
+          tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
+          tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
+          selectedDate: payload.selectedDate,
+        });
+
         await autoBalanceSchedule(payload);
 
     } catch (error: any) {
@@ -1117,6 +1145,7 @@ const SchedulerPage: React.FC = () => {
         console.error("Auto-balance error:", error);
     } finally {
         setIsProcessingCommand(false);
+        console.log("handleAutoScheduleSink: Auto-schedule process finished.");
     }
   };
 
@@ -1173,6 +1202,7 @@ const SchedulerPage: React.FC = () => {
     } else if (newSortBy === 'TIME_LATEST_TO_EARLIEST') {
       sortedFlexibleTasks.sort((a, b) => {
         const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
+        // FIX: Corrected the missing parseISO and extra parenthesis
         const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
         return durationB - durationA;
       });

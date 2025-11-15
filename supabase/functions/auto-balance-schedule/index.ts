@@ -45,8 +45,8 @@ serve(async (req) => {
 
     let payload;
     try {
-      // Corrected: Pass the algorithm as an object
-      payload = await verify(token, secretKey, { name: "HMAC", hash: "SHA-256" }); 
+      // Corrected: Pass the algorithm as an object with 'alg' property
+      payload = await verify(token, secretKey, { alg: "HS256" }); 
     } catch (jwtError: any) {
       console.error("JWT Verification Error:", jwtError);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {

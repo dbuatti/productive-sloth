@@ -1080,7 +1080,7 @@ const SchedulerPage: React.FC = () => {
                             scheduled_date: formattedSelectedDay,
                             is_critical: task.is_critical,
                             is_flexible: true,
-                            is_locked: task.is_critical ? true : false, // ADVANCED LOGIC: Auto-Lock Critical Tasks
+                            is_locked: false, // Changed from `task.is_critical ? true : false` to `false`
                             energy_cost: task.energy_cost,
                         });
 

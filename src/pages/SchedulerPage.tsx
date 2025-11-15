@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Plus, Settings } from 'lucide-react'; // Added Plus, Settings icons
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap } from 'lucide-react'; // Added Globe icon, Zap
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload } from '@/types/scheduler';
@@ -49,8 +49,7 @@ import WeatherWidget from '@/components/WeatherWidget';
 import { TimeBlock } from '@/types/scheduler';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import WorkdaySettingsDialog from '@/components/WorkdaySettingsDialog'; // NEW: Import WorkdaySettingsDialog
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // NEW: Import Tabs components
 
 const deepCompare = (a: any, b: any) => {
   if (a === b) return true;
@@ -121,7 +120,7 @@ const INTERLEAVING_PATTERN = [
 
 
 const SchedulerPage: React.FC = () => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy } = useSession(); // NEW: Added rechargeEnergy
+  const { user, profile, isLoading: isSessionLoading } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const { 
     dbScheduledTasks,
@@ -163,7 +162,6 @@ const SchedulerPage: React.FC = () => {
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false); // Corrected typo
   const [isSinkOpen, setIsSinkOpen] = useState(false); // CHANGED: Set to false to be closed by default
   const [activeTab, setActiveTab] = useState('vibe-schedule'); // NEW: State for active tab
-  const [isWorkdaySettingsOpen, setIsWorkdaySettingsOpen] = useState(false); // NEW: State for WorkdaySettingsDialog
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -1335,21 +1333,6 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
-  const handleRefreshData = () => {
-    queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id] });
-    showSuccess("Scheduler data refreshed!");
-  };
-
-  const handleSelectSuggestion = (suggestion: { type: 'command' | 'task'; name: string; description?: string }) => {
-    if (suggestion.type === 'command') {
-      handleCommand(suggestion.name);
-    } else {
-      setInputValue(suggestion.name);
-    }
-  };
-
 
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -1378,7 +1361,6 @@ const SchedulerPage: React.FC = () => {
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
-  const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked);
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
@@ -1387,14 +1369,13 @@ const SchedulerPage: React.FC = () => {
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
 
-      {/* 2. Session Dashboard (Metrics + Zone 1: Global Management) */}
+      {/* 2. Session Dashboard */}
       <SchedulerDashboardPanel 
         scheduleSummary={currentSchedule?.summary || null} 
-        onCompactSchedule={() => handleCommand('compact')}
-        onAetherDump={() => handleCommand('aether dump')}
-        onRefreshData={handleRefreshData} // Pass refresh handler
+        onCompactSchedule={() => handleCommand('compact')} // Pass handler for compact
+        onAetherDump={() => aetherDump()} // Pass handler for aether dump
         isProcessingCommand={isProcessingCommand}
-        hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
+        hasFlexibleTasks={hasFlexibleTasksOnCurrentDay} // Pass prop to enable/disable buttons
       />
 
       {/* 3. Calendar Strip */}
@@ -1405,120 +1386,13 @@ const SchedulerPage: React.FC = () => {
         isLoadingDatesWithTasks={isLoadingDatesWithTasks}
       />
 
-      {/* 4. Schedule Your Day Input Bar (+ Zone 2: Input Footer buttons) */}
+      {/* 4. "Schedule Your Day" Input Bar */}
       <Card className="animate-pop-in animate-hover-lift">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
             <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <WeatherWidget />
-          <SchedulerInput 
-            isLoading={overallLoading} 
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            onSelectSuggestion={handleSelectSuggestion} // Pass suggestion handler
-            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump', 'aether dump mega')`}
-          />
-          {/* Zone 2: Input Footer */}
-          <div className="flex gap-2 w-full">
-            {/* Send/Add Task Button */}
-            <Button 
-              type="button" 
-              onClick={() => handleCommand(inputValue)} // Submit current input value
-              disabled={overallLoading || !inputValue.trim()} 
-              className="shrink-0 h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 animate-hover-lift flex-grow"
-            >
-              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              <span>Add Task / Send Command</span>
-            </Button>
-
-            {/* Quick Add Break Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  type="button" 
-                  onClick={() => handleCommand('break 15')} 
-                  disabled={overallLoading} 
-                  variant="outline"
-                  size="icon"
-                  className="shrink-0 h-10 w-10 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200 animate-hover-lift"
-                >
-                  <Coffee className="h-5 w-5" />
-                  <span className="sr-only">Add 15-min Break</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Add a 15-minute break</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Detailed Task Injector Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={handleAddTaskClick} // Opens the injection dialog
-                  disabled={overallLoading}
-                  className="shrink-0 h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200 animate-hover-lift"
-                >
-                  <Plus className="h-5 w-5" />
-                  <span className="sr-only">Detailed Task Injector</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Add a task with detailed options</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* 5. NOW FOCUS Card */}
-      {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="sticky top-[144px] z-50 bg-background pb-4"> {/* Adjusted top to 144px (AppHeader + ProgressBarHeader) */}
-          <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
-        </div>
-      )}
-      
-      {/* 6. "Tasks Outside Workday" Alert */}
-      {currentSchedule?.summary.unscheduledCount > 0 && (
-        <Card className="animate-pop-in animate-hover-lift">
-          <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 7. Tabbed Schedule Container */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[192px] z-20"> {/* Adjusted top to 192px (AppHeader + ProgressBarHeader + NowFocusCard) */}
-          <TabsTrigger 
-            value="vibe-schedule" 
-            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
-          >
-            <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Your Vibe Schedule
-          </TabsTrigger>
-          <TabsTrigger 
-            value="aether-sink" 
-            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
-          >
-            <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="vibe-schedule" className="space-y-4">
-          {/* Zone 3: Real-Time Utility (Task Control Bar) */}
-          <div className="flex items-center justify-between gap-2 animate-slide-in-up">
+          <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
@@ -1566,45 +1440,98 @@ const SchedulerPage: React.FC = () => {
               </TooltipContent>
             </Tooltip>
 
-            {/* Energy Recharge Button */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  onClick={() => rechargeEnergy(25)} // Recharge 25 energy
-                  disabled={overallLoading || (profile?.energy ?? 0) >= 100}
-                  className="h-8 w-8 text-logo-yellow hover:bg-logo-yellow/10 transition-all duration-200"
-                >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                  <span className="sr-only">Recharge Energy</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Recharge 25 Energy</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Workday Window Toggle Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={() => setIsWorkdaySettingsOpen(true)}
+                  onClick={handleAddTimeOffClick} 
                   disabled={overallLoading}
-                  className="h-8 w-8 text-muted-foreground hover:bg-muted/50 transition-all duration-200"
+                  className="h-8 w-8 text-logo-green hover:bg-logo-green/10 transition-all duration-200"
                 >
-                  <Settings className="h-4 w-4" />
-                  <span className="sr-only">Workday Window Settings</span>
+                  <CalendarOff className="h-4 w-4" />
+                  <span className="sr-only">Add Time Off</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Edit Workday Start/End Times</p>
+                <p>Block out a period as "Time Off"</p>
               </TooltipContent>
             </Tooltip>
-          </div>
 
+            {/* NEW: Aether Dump Mega Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => handleCommand('aether dump mega')} 
+                  disabled={overallLoading || !datesWithTasks.length} // Disable if no tasks on any day
+                  className="h-8 w-8 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                  <span className="sr-only">Aether Dump Mega</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Move ALL flexible, unlocked tasks from ALL days to Aether Sink</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <p className="text-sm text-muted-foreground">
+              Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <WeatherWidget />
+          <SchedulerInput 
+            onCommand={handleCommand} 
+            isLoading={overallLoading} 
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump', 'aether dump mega')`}
+          />
+          <p className="text-xs text-muted-foreground">
+            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 5. NOW FOCUS Card - UNSTICKY */}
+      {isSameDay(parseISO(selectedDay), T_current) && (
+        <div className="bg-background pb-4"> {/* Removed sticky, top, z-50 */}
+          <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
+        </div>
+      )}
+      
+      {/* 6. "Tasks Outside Workday" Alert */}
+      {currentSchedule?.summary.unscheduledCount > 0 && (
+        <Card className="animate-pop-in animate-hover-lift">
+          <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 7. Tabbed Schedule Container */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[32px] z-20"> {/* TabsList remains sticky */}
+          <TabsTrigger 
+            value="vibe-schedule" 
+            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
+          >
+            <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Your Vibe Schedule
+          </TabsTrigger>
+          <TabsTrigger 
+            value="aether-sink" 
+            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
+          >
+            <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="vibe-schedule" className="space-y-4">
           <Card className="animate-pop-in animate-hover-lift">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
@@ -1633,35 +1560,11 @@ const SchedulerPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="aether-sink" className="space-y-4">
-          {/* Auto Schedule Button - MOVED HERE */}
-          <div className="flex justify-end mb-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleAutoScheduleSinkWrapper}
-                  disabled={!hasUnlockedRetiredTasks || isLoadingRetiredTasks || isProcessingCommand} // Enabled if any unlocked retired tasks
-                  className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
-                >
-                  {isProcessingCommand ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                  <span>Auto Schedule</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Automatically re-zone all unlocked retired tasks into your current schedule.</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-
           <AetherSink 
             retiredTasks={retiredTasks} 
             onRezoneTask={handleRezoneFromSink} 
             onRemoveRetiredTask={handleRemoveRetiredTask}
+            onAutoScheduleSink={handleAutoScheduleSinkWrapper} // Use the wrapper function
             isLoading={isLoadingRetiredTasks}
             isProcessingCommand={isProcessingCommand}
             isSinkOpen={true} // Always open when in its tab
@@ -1767,12 +1670,6 @@ const SchedulerPage: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* NEW: Workday Settings Dialog */}
-      <WorkdaySettingsDialog 
-        isOpen={isWorkdaySettingsOpen} 
-        onOpenChange={setIsWorkdaySettingsOpen} 
-      />
     </div>
   );
 };

@@ -396,14 +396,14 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
     duration: Math.floor((parseISO(dbTask.end_time!).getTime() - parseISO(dbTask.start_time!).getTime()) / (1000 * 60)), // Derive duration
     breakDuration: dbTask.break_duration ?? undefined,
     isCritical: dbTask.is_critical, // Pass critical flag
-    energyCost: dbTask.energy_cost ?? undefined, // NEW: Pass energyCost
+    energyCost: dbTask.energy_cost, // NEW: Pass energyCost (now required)
   }));
 
   // Add a new scheduled task
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId }; 
+      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0 }; // Ensure energy_cost is always a number
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -438,7 +438,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
           is_critical: newTask.is_critical ?? false,
           is_flexible: newTask.is_flexible ?? true,
           is_locked: newTask.is_locked ?? false, // ADDED: is_locked property
-          energy_cost: newTask.energy_cost ?? null, // NEW: Add energy_cost
+          energy_cost: newTask.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
         };
         return [...(old || []), optimisticTask];
       });
@@ -464,7 +464,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
   const addRetiredTaskMutation = useMutation({
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString() };
+      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0 }; // Ensure energy_cost is always a number
       console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
       const { data, error } = await supabase.from('retired_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -490,7 +490,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
           retired_at: new Date().toISOString(),
           is_critical: newTask.is_critical ?? false,
           is_locked: newTask.is_locked ?? false, // ADDED: is_locked property
-          energy_cost: newTask.energy_cost ?? null, // NEW: Add energy_cost
+          energy_cost: newTask.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
         };
         return [optimisticTask, ...(old || [])];
       });
@@ -593,7 +593,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         original_scheduled_date: taskToRetire.scheduled_date,
         is_critical: taskToRetire.is_critical, // Pass critical flag
         is_locked: taskToRetire.is_locked, // Pass locked flag
-        energy_cost: taskToRetire.energy_cost, // NEW: Pass energy_cost
+        energy_cost: taskToRetire.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
       };
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -628,7 +628,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         retired_at: new Date().toISOString(),
         is_critical: taskToRetire.is_critical,
         is_locked: taskToRetire.is_locked, // ADDED: is_locked property
-        energy_cost: taskToRetire.energy_cost, // NEW: Add energy_cost
+        energy_cost: taskToRetire.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
       };
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
         [newRetiredTask, ...(old || [])]
@@ -714,7 +714,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         is_critical: task.is_critical, // Include is_critical
         is_flexible: task.is_flexible, // Include is_flexible
         is_locked: task.is_locked, // Include is_locked
-        energy_cost: task.energy_cost, // NEW: Include energy_cost
+        energy_cost: task.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
         updated_at: new Date().toISOString(),
       }));
 
@@ -835,7 +835,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
                 scheduled_date: selectedDate, // Ensure it's for the selected date
                 is_flexible: true, // Breaks are always flexible
                 is_locked: breakTask.is_locked, // Include is_locked
-                energy_cost: breakTask.energy_cost, // NEW: Include energy_cost
+                energy_cost: breakTask.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
                 updated_at: new Date().toISOString(),
               };
               placedBreaks.push(newBreakTask);
@@ -866,7 +866,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
           is_critical: task.is_critical,
           is_flexible: task.is_flexible,
           is_locked: task.is_locked,
-          energy_cost: task.energy_cost, // NEW: Include energy_cost
+          energy_cost: task.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
           updated_at: new Date().toISOString(),
         }));
         const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
@@ -953,7 +953,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
                 scheduled_date: selectedDate,
                 is_flexible: true,
                 is_locked: breakTask.is_locked,
-                energy_cost: breakTask.energy_cost, // NEW: Include energy_cost
+                energy_cost: breakTask.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
                 updated_at: new Date().toISOString(),
               };
               optimisticPlacedBreaks.push(newBreakTask);
@@ -1117,7 +1117,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         original_scheduled_date: task.scheduled_date,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
-        energy_cost: task.energy_cost, // NEW: Pass energy_cost
+        energy_cost: task.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
       }));
 
       // 4. Insert into retired_tasks
@@ -1159,7 +1159,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         retired_at: now,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
-        energy_cost: task.energy_cost, // NEW: Pass energy_cost
+        energy_cost: task.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
       }));
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
         [...optimisticRetiredTasks, ...(old || [])]
@@ -1216,7 +1216,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         original_scheduled_date: task.scheduled_date, // Keep original scheduled date
         is_critical: task.is_critical,
         is_locked: task.is_locked,
-        energy_cost: task.energy_cost, // NEW: Pass energy_cost
+        energy_cost: task.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
       }));
 
       // 3. Insert into retired_tasks
@@ -1262,7 +1262,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         retired_at: now,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
-        energy_cost: task.energy_cost, // NEW: Pass energy_cost
+        energy_cost: task.energy_cost ?? 0, // NEW: Ensure energy_cost is always a number
       }));
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
         [...optimisticRetiredTasks, ...(old || [])]
@@ -1317,7 +1317,7 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
 
       // 3. Insert newly timed tasks into scheduled_tasks
       if (tasksToInsert.length > 0) {
-        const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId }));
+        const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId, energy_cost: task.energy_cost ?? 0 })); // Ensure energy_cost is always a number
         const { error: insertScheduledError } = await supabase
           .from('scheduled_tasks')
           .insert(tasksToInsertWithUserId);
@@ -1329,7 +1329,8 @@ export const useSchedulerTasks = (selectedDate: string) => { // Changed to strin
         const tasksToKeepInSinkWithUserId = tasksToKeepInSink.map(task => ({ 
           ...task, 
           user_id: userId, 
-          retired_at: new Date().toISOString() // Ensure retired_at is updated
+          retired_at: new Date().toISOString(),
+          energy_cost: task.energy_cost ?? 0 // Ensure energy_cost is always a number
         }));
         const { error: reinsertRetiredError } = await supabase
           .from('retired_tasks')

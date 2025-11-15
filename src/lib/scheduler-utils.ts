@@ -181,14 +181,14 @@ interface ParsedTaskInput {
   isCritical: boolean;
   shouldSink?: boolean;
   isFlexible: boolean;
-  energyCost?: number; // NEW: Added energyCost
+  energyCost: number; // NEW: Made energyCost required
 }
 
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTaskInput | null => {
   let isCritical = false;
   let shouldSink = false;
   let isFlexible = true; // Default to flexible, will be overridden for timed tasks
-  let energyCost: number | undefined = undefined; // NEW: Initialize energyCost
+  let energyCost: number = 0; // NEW: Initialize energyCost to 0
 
   // Order of parsing flags matters: sink, then critical, then fixed
   if (input.endsWith(' sink')) {
@@ -273,13 +273,13 @@ interface ParsedInjectionCommand {
   endTime?: string;
   isCritical: boolean;
   isFlexible: boolean;
-  energyCost?: number; // NEW: Added energyCost
+  energyCost: number; // NEW: Made energyCost required
 }
 
 export const parseInjectionCommand = (input: string): ParsedInjectionCommand | null => {
   let isCritical = false;
   let isFlexible = true; // Default to flexible
-  let energyCost: number | undefined = undefined; // NEW: Initialize energyCost
+  let energyCost: number = 0; // NEW: Initialize energyCost to 0
 
   if (input.endsWith(' !')) {
     isCritical = true;
@@ -485,7 +485,7 @@ export const calculateSchedule = (
       isCritical: task.is_critical,
       isFlexible: task.is_flexible,
       isLocked: task.is_locked, // NEW: Pass is_locked status
-      energyCost: task.energy_cost ?? undefined, // NEW: Pass energy_cost
+      energyCost: task.energy_cost, // NEW: Pass energy_cost
     });
     
     if (!isMealTime && !isTimeOff) {

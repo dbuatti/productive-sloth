@@ -36,7 +36,7 @@ export interface RawTaskInput {
   breakDuration?: number; // in minutes
   isCritical?: boolean; // NEW: Critical Urgency Flag
   isFlexible?: boolean; // NEW: Added isFlexible to RawTaskInput
-  energyCost?: number; // NEW: Added energyCost to RawTaskInput
+  energyCost: number; // NEW: Made energyCost required
 }
 
 // Supabase-specific types for scheduled tasks
@@ -53,7 +53,7 @@ export interface DBScheduledTask {
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_flexible: boolean; // NEW: Flag for schedule compaction
   is_locked: boolean; // NEW: Task Immutability Flag
-  energy_cost: number | null; // NEW: Added energy_cost
+  energy_cost: number; // NEW: Made energy_cost required
 }
 
 export interface NewDBScheduledTask {
@@ -65,7 +65,7 @@ export interface NewDBScheduledTask {
   is_critical?: boolean; // NEW: Critical Urgency Flag
   is_flexible?: boolean; // NEW: Flag for schedule compaction
   is_locked?: boolean; // NEW: Task Immutability Flag
-  energy_cost?: number; // NEW: Added energy_cost
+  energy_cost: number; // NEW: Made energy_cost required
 }
 
 // New types for retired tasks (Aether Sink)
@@ -79,7 +79,7 @@ export interface RetiredTask {
   retired_at: string; // Timestamp when it was moved to the sink
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_locked: boolean; // NEW: Task Immutability Flag
-  energy_cost: number | null; // NEW: Added energy_cost
+  energy_cost: number; // NEW: Made energy_cost required
   // is_flexible: boolean; // REMOVED: Not present in retired_tasks table
 }
 
@@ -91,7 +91,7 @@ export interface NewRetiredTask {
   original_scheduled_date: string;
   is_critical?: boolean; // NEW: Critical Urgency Flag
   is_locked?: boolean; // NEW: Task Immutability Flag
-  energy_cost?: number; // NEW: Added energy_cost
+  energy_cost: number; // NEW: Made energy_cost required
   // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
 }
 
@@ -120,7 +120,7 @@ export interface ScheduledItem {
   isCritical?: boolean; // NEW: Critical Urgency Flag
   isFlexible?: boolean; // NEW: Flag for schedule compaction
   isLocked?: boolean; // NEW: Task Immutability Flag
-  energyCost?: number; // NEW: Added energyCost
+  energyCost: number; // NEW: Made energyCost required
 }
 
 export interface ScheduleSummary {

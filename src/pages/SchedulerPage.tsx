@@ -183,7 +183,7 @@ const SchedulerPage: React.FC = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setT_current(new Date());
-    }, 60 * 1000);
+    }, 1000); // Updated to 1000ms (1 second)
     return () => clearInterval(interval);
   }, []);
 

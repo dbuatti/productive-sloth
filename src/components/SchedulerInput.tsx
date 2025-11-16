@@ -16,12 +16,13 @@ interface Suggestion {
 interface SchedulerInputProps {
   onCommand: (command: string) => void;
   isLoading?: boolean;
+  placeholder?: string;
   inputValue: string;
   setInputValue: (value: string) => void;
   onDetailedInject: () => void; // NEW: Handler for detailed injector button
 }
 
-const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, inputValue, setInputValue, onDetailedInject }) => {
+const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject }) => {
   const { allTasks } = useTasks();
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);

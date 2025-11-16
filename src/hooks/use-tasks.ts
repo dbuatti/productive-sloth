@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO } from 'date-fns';
+import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday } from 'date-fns';
+import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants';
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
   const now = new Date();

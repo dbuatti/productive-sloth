@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSession } from '@/hooks/use-session';
+import { useTasks } from '@/hooks/use-tasks';
 import { CustomProgress } from './CustomProgress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sparkles, Zap, Trophy, BatteryCharging } from 'lucide-react';
@@ -13,6 +14,7 @@ import { calculateLevelInfo } from '@/lib/utils';
 
 const ProgressBarHeader: React.FC = () => {
   const { profile, rechargeEnergy } = useSession();
+  const { allTasks } = useTasks();
 
   if (!profile) {
     return null;

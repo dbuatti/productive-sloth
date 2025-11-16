@@ -375,7 +375,36 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 )}>
                   {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
                 </span>
-                <div className="flex items-center gap-1 ml-2">
+                
+                {/* Complete Button - Moved here */}
+                {dbTask && !isBreak && !isTimeOff && !isCompleted && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent parent onClick from firing
+                          onCompleteTask(dbTask);
+                        }}
+                        disabled={isLocked}
+                        className={cn(
+                          "h-6 w-6 p-0 shrink-0 ml-1", // Added ml-1 for spacing
+                          isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
+                        )}
+                        style={isLocked ? { pointerEvents: 'auto' } : undefined}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="sr-only">Complete task</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
+                <div className="flex items-center gap-1 ml-2"> {/* This div now only contains lock, archive, delete */}
                   {/* Lock/Unlock Button - Only for flexible tasks */}
                   {scheduledItem.isFlexible && (
                     <Tooltip>
@@ -399,33 +428,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {dbTask && !isBreak && !isTimeOff && !isCompleted && ( // Only show complete button if not completed
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent parent onClick from firing
-                            onCompleteTask(dbTask);
-                          }}
-                          disabled={isLocked}
-                          className={cn(
-                            "h-6 w-6 p-0 shrink-0",
-                            isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
-                          )}
-                          style={isLocked ? { pointerEvents: 'auto' } : undefined}
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          <span className="sr-only">Complete task</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
                       </TooltipContent>
                     </Tooltip>
                   )}

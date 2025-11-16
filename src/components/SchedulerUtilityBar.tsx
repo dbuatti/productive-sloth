@@ -28,6 +28,7 @@ interface SchedulerUtilityBarProps {
   sortBy: SortBy;
   onCompactSchedule: () => void;
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => void;
+  retiredTasksCount: number; // NEW: Add retiredTasksCount prop
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -41,10 +42,13 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   sortBy,
   onCompactSchedule,
   onQuickScheduleBlock,
+  retiredTasksCount, // NEW: Destructure retiredTasksCount
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
+  // NEW: Determine if there are any flexible tasks available for sorting (either in schedule or sink)
+  const hasSortableFlexibleTasks = hasFlexibleTasksOnCurrentDay || retiredTasksCount > 0;
 
   const quickBlockDurations = [30, 60, 90, 120];
 
@@ -129,12 +133,12 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    disabled={isProcessingCommand || !hasFlexibleTasksOnCurrentDay}
+                    disabled={isProcessingCommand || !hasSortableFlexibleTasks /* UPDATED: Enable if there are retired tasks */}
                     className={cn(
                       "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
-                      !hasFlexibleTasksOnCurrentDay && "text-muted-foreground/50 cursor-not-allowed"
+                      !hasSortableFlexibleTasks && "text-muted-foreground/50 cursor-not-allowed"
                     )}
-                    style={isProcessingCommand || !hasFlexibleTasksOnCurrentDay ? { pointerEvents: 'auto' } : undefined}
+                    style={isProcessingCommand || !hasSortableFlexibleTasks ? { pointerEvents: 'auto' } : undefined}
                   >
                     {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowDownWideNarrow className="h-5 w-5" />}
                     <span className="sr-only">Sort Flexible Tasks</span>

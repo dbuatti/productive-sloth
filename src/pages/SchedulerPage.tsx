@@ -1156,72 +1156,207 @@ const SchedulerPage: React.FC = () => {
 
 
   const handleSortFlexibleTasks = async (newSortBy: SortBy) => {
-    if (!user || !profile || !dbScheduledTasks) return;
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to sort tasks.");
+      return;
+    }
     setIsProcessingCommand(true);
 
-    const flexibleTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
-    if (flexibleTasks.length === 0) {
-      showSuccess("No unlocked flexible tasks to sort.");
+    // 1. Gather all unlocked flexible tasks from current schedule and Aether Sink
+    const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
+    const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
+
+    const unifiedPool: UnifiedTask[] = [];
+    const scheduledTaskIdsToDelete: string[] = [];
+    const retiredTaskIdsToDelete: string[] = [];
+
+    flexibleScheduledTasks.forEach(task => {
+      const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
+      unifiedPool.push({
+        id: task.id,
+        name: task.name,
+        duration: duration,
+        break_duration: task.break_duration,
+        is_critical: task.is_critical,
+        is_flexible: true,
+        energy_cost: task.energy_cost,
+        source: 'scheduled',
+        originalId: task.id,
+      });
+      scheduledTaskIdsToDelete.push(task.id); // Mark for deletion from schedule
+    });
+
+    unlockedRetiredTasks.forEach(task => {
+      unifiedPool.push({
+        id: task.id,
+        name: task.name,
+        duration: task.duration || 30, // Default to 30 if duration is null
+        break_duration: task.break_duration,
+        is_critical: task.is_critical,
+        is_flexible: true,
+        energy_cost: task.energy_cost,
+        source: 'retired',
+        originalId: task.id,
+      });
+      retiredTaskIdsToDelete.push(task.id); // Mark for deletion from sink
+    });
+
+    if (unifiedPool.length === 0) {
+      showSuccess("No unlocked flexible tasks in schedule or Aether Sink to sort.");
       setIsProcessingCommand(false);
       return;
     }
 
-    let sortedFlexibleTasks = [...flexibleTasks];
+    // 2. Sort the unified pool
+    let sortedUnifiedPool = [...unifiedPool];
 
     if (newSortBy === 'TIME_EARLIEST_TO_LATEST') {
-      sortedFlexibleTasks.sort((a, b) => {
-        const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
-        const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+      sortedUnifiedPool.sort((a, b) => {
+        const durationA = (a.duration || 0) + (a.break_duration || 0);
+        const durationB = (b.duration || 0) + (b.break_duration || 0);
         return durationA - durationB;
       });
     } else if (newSortBy === 'TIME_LATEST_TO_EARLIEST') {
-      sortedFlexibleTasks.sort((a, b) => {
-        const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
-        const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+      sortedUnifiedPool.sort((a, b) => {
+        const durationA = (a.duration || 0) + (a.break_duration || 0);
+        const durationB = (b.duration || 0) + (b.break_duration || 0);
         return durationB - durationA;
       });
     } else if (newSortBy === 'PRIORITY_HIGH_TO_LOW') {
       const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-      sortedFlexibleTasks.sort((a, b) => {
-        const priorityDiff = priorityOrder[a.is_critical ? 'HIGH' : 'MEDIUM'] - priorityOrder[b.is_critical ? 'HIGH' : 'MEDIUM'];
-        if (priorityDiff !== 0) return -priorityDiff;
-        const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
-        const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
-        return durationA - durationB;
+      sortedUnifiedPool.sort((a, b) => {
+        const priorityA = a.is_critical ? 'HIGH' : 'MEDIUM'; // Assuming non-critical flexible tasks are MEDIUM
+        const priorityB = b.is_critical ? 'HIGH' : 'MEDIUM';
+        const priorityDiff = priorityOrder[priorityB] - priorityOrder[priorityA]; // High to Low
+        if (priorityDiff !== 0) return priorityDiff;
+        // Secondary sort by duration (longest first) for stability within priority
+        const durationA = (a.duration || 0) + (a.break_duration || 0);
+        const durationB = (b.duration || 0) + (b.break_duration || 0);
+        return durationB - durationA;
       });
     } else if (newSortBy === 'PRIORITY_LOW_TO_HIGH') {
       const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-      sortedFlexibleTasks.sort((a, b) => {
-        const priorityDiff = priorityOrder[a.is_critical ? 'HIGH' : 'MEDIUM'] - priorityOrder[b.is_critical ? 'HIGH' : 'MEDIUM'];
+      sortedUnifiedPool.sort((a, b) => {
+        const priorityA = a.is_critical ? 'HIGH' : 'MEDIUM';
+        const priorityB = b.is_critical ? 'HIGH' : 'MEDIUM';
+        const priorityDiff = priorityOrder[priorityA] - priorityOrder[priorityB]; // Low to High
         if (priorityDiff !== 0) return priorityDiff;
-        const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
-        const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
+        // Secondary sort by duration (shortest first) for stability within priority
+        const durationA = (a.duration || 0) + (a.break_duration || 0);
+        const durationB = (b.duration || 0) + (b.break_duration || 0);
         return durationA - durationB;
       });
     } else if (newSortBy === 'EMOJI') {
-      sortedFlexibleTasks.sort((a, b) => {
+      sortedUnifiedPool.sort((a, b) => {
         const hueA = getEmojiHue(a.name);
         const hueB = getEmojiHue(b.name);
         return hueA - hueB;
       });
     }
 
+    // 3. Convert sorted UnifiedTasks to DBScheduledTask format for compactScheduleLogic
+    const sortedFlexibleTasksForCompaction: DBScheduledTask[] = sortedUnifiedPool.map(task => ({
+      id: task.id, // Use original ID for potential upsert
+      user_id: user.id!,
+      name: task.name,
+      break_duration: task.break_duration,
+      start_time: new Date().toISOString(), // Placeholder, will be overwritten
+      end_time: new Date().toISOString(),   // Placeholder, will be overwritten
+      scheduled_date: formattedSelectedDay,
+      created_at: new Date().toISOString(), // Placeholder
+      updated_at: new Date().toISOString(), // Placeholder
+      is_critical: task.is_critical,
+      is_flexible: true,
+      is_locked: false,
+      energy_cost: task.energy_cost,
+      is_completed: false,
+    }));
+
+    // 4. Get fixed/locked tasks that should remain in the schedule
+    const fixedAndLockedScheduledTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);
+
+    // 5. Compact the schedule with the newly sorted flexible tasks
     const reorganizedTasks = compactScheduleLogic(
-      dbScheduledTasks,
+      [...fixedAndLockedScheduledTasks, ...sortedFlexibleTasksForCompaction], // Pass all tasks to consider for compaction
       selectedDayAsDate,
       workdayStartTime,
       workdayEndTime,
       T_current,
-      sortedFlexibleTasks,
+      sortedFlexibleTasksForCompaction // These are the ones to actually place
     );
 
-    if (reorganizedTasks.length > 0) {
-      await compactScheduledTasks({ tasksToUpdate: reorganizedTasks });
-      showSuccess("Flexible tasks sorted!");
-      setSortBy(newSortBy);
-    } else {
-      showError("Could not sort flexible tasks or no space available.");
-    }
+    // 6. Construct AutoBalancePayload
+    const tasksToInsert: NewDBScheduledTask[] = [];
+    const tasksToKeepInSink: NewRetiredTask[] = [];
+
+    // Add fixed and locked tasks that were NOT part of the unified pool
+    // These are tasks that were already in dbScheduledTasks and are fixed/locked
+    fixedAndLockedScheduledTasks.forEach(task => {
+      tasksToInsert.push({
+        id: task.id,
+        name: task.name,
+        start_time: task.start_time,
+        end_time: task.end_time,
+        break_duration: task.break_duration,
+        scheduled_date: task.scheduled_date,
+        is_critical: task.is_critical,
+        is_flexible: task.is_flexible,
+        is_locked: task.is_locked,
+        energy_cost: task.energy_cost,
+        is_completed: task.is_completed,
+      });
+    });
+
+    // Add successfully placed flexible tasks from reorganizedTasks
+    reorganizedTasks.forEach(task => {
+      // Ensure we only add tasks that were actually placed and are flexible/unlocked
+      // (reorganizedTasks should only contain these, but a double check is good)
+      if (task.is_flexible && !task.is_locked) {
+        tasksToInsert.push({
+          id: task.id,
+          name: task.name,
+          start_time: task.start_time,
+          end_time: task.end_time,
+          break_duration: task.break_duration,
+          scheduled_date: task.scheduled_date,
+          is_critical: task.is_critical,
+          is_flexible: task.is_flexible,
+          is_locked: task.is_locked,
+          energy_cost: task.energy_cost,
+          is_completed: task.is_completed,
+        });
+      }
+    });
+
+    // Determine which tasks from the unified pool were NOT placed and should go back to sink
+    const placedTaskIds = new Set(reorganizedTasks.map(t => t.id));
+    unifiedPool.forEach(task => {
+      if (!placedTaskIds.has(task.id)) {
+        tasksToKeepInSink.push({
+          user_id: user.id,
+          name: task.name,
+          duration: task.duration,
+          break_duration: task.break_duration,
+          original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
+          is_critical: task.is_critical,
+          is_locked: false,
+          energy_cost: task.energy_cost,
+          is_completed: false,
+        });
+      }
+    });
+
+    const payload: AutoBalancePayload = {
+      scheduledTaskIdsToDelete: scheduledTaskIdsToDelete, // All flexible, unlocked tasks from original schedule
+      retiredTaskIdsToDelete: retiredTaskIdsToDelete,     // All unlocked tasks from original sink
+      tasksToInsert: tasksToInsert,                       // All tasks that should be in the schedule after this operation
+      tasksToKeepInSink: tasksToKeepInSink,               // All tasks that couldn't be placed and should remain in sink
+      selectedDate: formattedSelectedDay,
+    };
+
+    await autoBalanceSchedule(payload);
+    showSuccess("Flexible tasks sorted and schedule re-balanced!");
+    setSortBy(newSortBy); // Update the local sort state
     setIsProcessingCommand(false);
   };
 
@@ -1611,6 +1746,7 @@ const SchedulerPage: React.FC = () => {
         sortBy={sortBy}
         onCompactSchedule={handleCompactSchedule}
         onQuickScheduleBlock={handleQuickScheduleBlock}
+        retiredTasksCount={retiredTasks.length}
       />
 
       {isSameDay(parseISO(selectedDay), T_current) && (

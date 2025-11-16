@@ -54,6 +54,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SchedulerUtilityBar from '@/components/SchedulerUtilityBar';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
 import ScheduledTaskDetailSheet from '@/components/ScheduledTaskDetailSheet';
+import ImmersiveFocusMode from '@/components/ImmersiveFocusMode'; // NEW: Import ImmersiveFocusMode
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
@@ -145,6 +146,7 @@ const SchedulerPage: React.FC = () => {
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
   const [activeTab, setActiveTab] = useState('vibe-schedule');
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
+  const [isFocusModeActive, setIsFocusModeActive] = useState(false); // NEW: State for Immersive Focus Mode
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -1460,6 +1462,7 @@ const SchedulerPage: React.FC = () => {
     try {
       await completeScheduledTask(taskToComplete);
       showSuccess(`Task "${taskToComplete.name}" completed!`);
+      setIsFocusModeActive(false); // Exit focus mode on completion
     } catch (error: any) {
       showError(`Failed to complete task: ${error.message}`);
       console.error("Complete scheduled task error:", error);
@@ -1703,6 +1706,11 @@ const SchedulerPage: React.FC = () => {
     return null;
   }, [currentSchedule, T_current, selectedDay]);
 
+  const activeDbTask: DBScheduledTask | null = useMemo(() => {
+    if (!activeItem || !currentSchedule) return null;
+    return currentSchedule.dbTasks.find(task => task.id === activeItem.id) || null;
+  }, [activeItem, currentSchedule]);
+
   const nextItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !activeItem || !isSameDay(parseISO(selectedDay), T_current)) return null;
     const activeItemIndex = currentSchedule.items.findIndex(item => item.id === activeItem.id);
@@ -1727,133 +1735,151 @@ const SchedulerPage: React.FC = () => {
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
 
-      <SchedulerDashboardPanel 
-        scheduleSummary={currentSchedule?.summary || null} 
-        onAetherDump={() => aetherDump()}
-        isProcessingCommand={isProcessingCommand}
-        hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
-        onRefreshSchedule={handleRefreshSchedule}
-      />
-
-      <CalendarStrip 
-        selectedDay={selectedDay} 
-        setSelectedDay={setSelectedDay} 
-        datesWithTasks={datesWithTasks} 
-        isLoadingDatesWithTasks={isLoadingDatesWithTasks}
-      />
-
-      <Card className="animate-pop-in animate-hover-lift">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xl font-bold flex items-center gap-2">
-            <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <WeatherWidget />
-          <SchedulerInput 
-            onCommand={handleCommand} 
-            isLoading={overallLoading} 
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump', 'aether dump mega')`}
-            onDetailedInject={handleAddTaskClick}
+      {isFocusModeActive && activeItem && activeDbTask ? (
+        <ImmersiveFocusMode
+          activeItem={activeItem}
+          T_current={T_current}
+          onExit={() => setIsFocusModeActive(false)}
+          onComplete={handleCompleteScheduledTask}
+          onSkip={handleManualRetire}
+          dbTask={activeDbTask}
+        />
+      ) : (
+        <>
+          <SchedulerDashboardPanel 
+            scheduleSummary={currentSchedule?.summary || null} 
+            onAetherDump={() => aetherDump()}
+            isProcessingCommand={isProcessingCommand}
+            hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
+            onRefreshSchedule={handleRefreshSchedule}
           />
-          <p className="text-xs text-muted-foreground">
-            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-          </p>
-        </CardContent>
-      </Card>
 
-      <SchedulerUtilityBar 
-        isProcessingCommand={isProcessingCommand}
-        hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-        dbScheduledTasks={dbScheduledTasks}
-        onRechargeEnergy={() => rechargeEnergy()}
-        onRandomizeBreaks={handleRandomizeBreaks}
-        onSortFlexibleTasks={handleSortFlexibleTasks}
-        onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-        sortBy={sortBy}
-        onCompactSchedule={handleCompactSchedule}
-        onQuickScheduleBlock={handleQuickScheduleBlock}
-        retiredTasksCount={retiredTasks.length}
-      />
+          <CalendarStrip 
+            selectedDay={selectedDay} 
+            setSelectedDay={setSelectedDay} 
+            datesWithTasks={datesWithTasks} 
+            isLoadingDatesWithTasks={isLoadingDatesWithTasks}
+          />
 
-      {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="pb-4 animate-slide-in-up">
-          <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
-        </div>
-      )}
-      
-      {currentSchedule?.summary.unscheduledCount > 0 && (
-        <Card className="animate-pop-in animate-hover-lift">
-          <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
-          </CardContent>
-        </Card>
-      )}
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md">
-          <TabsTrigger 
-            value="vibe-schedule" 
-            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
-          >
-            <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Your Vibe Schedule
-          </TabsTrigger>
-          <TabsTrigger 
-            value="aether-sink" 
-            className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
-          >
-            <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="vibe-schedule" className="space-y-4">
           <Card className="animate-pop-in animate-hover-lift">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="flex items-center gap-2 text-xl">
-                <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
+                <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
               </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
+              </p>
             </CardHeader>
-            <CardContent>
-              {isSchedulerTasksLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <SchedulerDisplay 
-                  schedule={currentSchedule} 
-                  T_current={T_current} 
-                  onRemoveTask={removeScheduledTask} 
-                  onRetireTask={handleManualRetire}
-                  onCompleteTask={handleCompleteScheduledTask}
-                  activeItemId={activeItem?.id || null} 
-                  selectedDayString={selectedDay} 
-                  onAddTaskClick={handleAddTaskClick}
-                />
-              )}
+            <CardContent className="space-y-4">
+              <WeatherWidget />
+              <SchedulerInput 
+                onCommand={handleCommand} 
+                isLoading={overallLoading} 
+                inputValue={inputValue}
+                setInputValue={setInputValue}
+                placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump', 'aether dump mega')`}
+                onDetailedInject={handleAddTaskClick}
+              />
+              <p className="text-xs text-muted-foreground">
+                Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+              </p>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="aether-sink" className="space-y-4">
-          <AetherSink 
-            retiredTasks={retiredTasks} 
-            onRezoneTask={handleRezoneFromSink} 
-            onRemoveRetiredTask={handleRemoveRetiredTask}
-            onAutoScheduleSink={handleAutoScheduleSinkWrapper}
-            isLoading={isLoadingRetiredTasks}
+          <SchedulerUtilityBar 
             isProcessingCommand={isProcessingCommand}
-            profileEnergy={profile?.energy || 0}
-            retiredSortBy={retiredSortBy} // NEW: Pass retiredSortBy
-            setRetiredSortBy={setRetiredSortBy} // NEW: Pass setRetiredSortBy
+            hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
+            dbScheduledTasks={dbScheduledTasks}
+            onRechargeEnergy={() => rechargeEnergy()}
+            onRandomizeBreaks={handleRandomizeBreaks}
+            onSortFlexibleTasks={handleSortFlexibleTasks}
+            onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
+            sortBy={sortBy}
+            onCompactSchedule={handleCompactSchedule}
+            onQuickScheduleBlock={handleQuickScheduleBlock}
+            retiredTasksCount={retiredTasks.length}
           />
-        </TabsContent>
-      </Tabs>
+
+          {isSameDay(parseISO(selectedDay), T_current) && (
+            <div className="pb-4 animate-slide-in-up">
+              <NowFocusCard 
+                activeItem={activeItem} 
+                nextItem={nextItem} 
+                T_current={T_current} 
+                onEnterFocusMode={() => setIsFocusModeActive(true)} // NEW: Pass handler
+              />
+            </div>
+          )}
+          
+          {currentSchedule?.summary.unscheduledCount > 0 && (
+            <Card className="animate-pop-in animate-hover-lift">
+              <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
+              </CardContent>
+            </Card>
+          )}
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
+            <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md">
+              <TabsTrigger 
+                value="vibe-schedule" 
+                className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
+              >
+                <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Your Vibe Schedule
+              </TabsTrigger>
+              <TabsTrigger 
+                value="aether-sink" 
+                className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
+              >
+                <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="vibe-schedule" className="space-y-4">
+              <Card className="animate-pop-in animate-hover-lift">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isSchedulerTasksLoading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <SchedulerDisplay 
+                      schedule={currentSchedule} 
+                      T_current={T_current} 
+                      onRemoveTask={removeScheduledTask} 
+                      onRetireTask={handleManualRetire}
+                      onCompleteTask={handleCompleteScheduledTask}
+                      activeItemId={activeItem?.id || null} 
+                      selectedDayString={selectedDay} 
+                      onAddTaskClick={handleAddTaskClick}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="aether-sink" className="space-y-4">
+              <AetherSink 
+                retiredTasks={retiredTasks} 
+                onRezoneTask={handleRezoneFromSink} 
+                onRemoveRetiredTask={handleRemoveRetiredTask}
+                onAutoScheduleSink={handleAutoScheduleSinkWrapper}
+                isLoading={isLoadingRetiredTasks}
+                isProcessingCommand={isProcessingCommand}
+                profileEnergy={profile?.energy || 0}
+                retiredSortBy={retiredSortBy} // NEW: Pass retiredSortBy
+                setRetiredSortBy={setRetiredSortBy} // NEW: Pass setRetiredSortBy
+              />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
 
       <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>
         <DialogContent className="sm:max-w-[425px]">

@@ -10,9 +10,10 @@ interface NowFocusCardProps {
   activeItem: ScheduledItem | null;
   nextItem: ScheduledItem | null;
   T_current: Date;
+  onEnterFocusMode: () => void; // NEW: Prop to trigger focus mode
 }
 
-const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, T_current }) => {
+const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, T_current, onEnterFocusMode }) => {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,7 +64,10 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
   const textColor = isBreak ? 'text-logo-orange' : 'text-primary';
 
   return (
-    <Card className={cn("animate-pop-in border-2 animate-hover-lift", cardBorderColor, cardBgColor, activeItem && "animate-pulse-glow-subtle")}> {/* Added animate-pulse-glow-subtle */}
+    <Card 
+      className={cn("animate-pop-in border-2 animate-hover-lift cursor-pointer", cardBorderColor, cardBgColor, activeItem && "animate-pulse-glow-subtle")}
+      onClick={onEnterFocusMode} // NEW: Add onClick handler
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
           {statusIcon} NOW FOCUS

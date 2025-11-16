@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import { ScheduledItem } from '@/types/scheduler'; // Import ScheduledItem
 
 export interface UserProfile {
   id: string;
@@ -37,6 +38,9 @@ interface SessionContextType {
   claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>;
   updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  activeItemToday: ScheduledItem | null; // NEW: Active scheduled item for today
+  nextItemToday: ScheduledItem | null;   // NEW: Next scheduled item for today
+  T_current: Date; // NEW: Expose T_current
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

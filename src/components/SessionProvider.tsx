@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { dismissToast, showSuccess, showError } from '@/utils/toast';
-import { isToday, parseISO, isPast, addMinutes, startOfDay } from 'date-fns';
+import { isToday, parseISO, isPast, addMinutes, startOfDay, format, isBefore, addDays, addHours, setHours, setMinutes } from 'date-fns';
 import { 
   ENERGY_REGEN_AMOUNT, 
   ENERGY_REGEN_INTERVAL_MS, 
@@ -14,6 +14,9 @@ import {
   LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
   DAILY_CHALLENGE_TASKS_REQUIRED
 } from '@/lib/constants';
+import { useQuery } from '@tanstack/react-query';
+import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
+import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -22,7 +25,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isLoading, setIsLoading] = useState(true);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpLevel, setLevelUpLevel] = useState(0);
+  const [T_current, setT_current] = useState(new Date()); // Internal T_current for SessionProvider
   const navigate = useNavigate();
+
+  // Update T_current every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setT_current(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Stabilized fetchProfile function
   const fetchProfile = useCallback(async (userId: string) => {
@@ -368,6 +380,74 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   }, [user, profile, refreshProfile]);
 
+  // Fetch scheduled tasks for TODAY to determine active/next items
+  const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
+    queryKey: ['scheduledTasksToday', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const todayString = format(new Date(), 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('scheduled_date', todayString)
+        .order('start_time', { ascending: true });
+      if (error) {
+        console.error('Error fetching scheduled tasks for today:', error);
+        throw new Error(error.message);
+      }
+      return data as DBScheduledTask[];
+    },
+    enabled: !!user?.id && !!profile, // Only fetch if user and profile are loaded
+    staleTime: 1 * 60 * 1000, // 1 minute stale time
+    gcTime: 5 * 60 * 1000, // 5 minutes garbage collection time
+  });
+
+  const workdayStartTimeToday = useMemo(() => profile?.default_auto_schedule_start_time 
+    ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_start_time) 
+    : startOfDay(T_current), [profile?.default_auto_schedule_start_time, T_current]);
+  
+  let workdayEndTimeToday = useMemo(() => profile?.default_auto_schedule_end_time 
+    ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_end_time) 
+    : addHours(startOfDay(T_current), 17), [profile?.default_auto_schedule_end_time, T_current]);
+
+  workdayEndTimeToday = useMemo(() => {
+    if (isBefore(workdayEndTimeToday, workdayStartTimeToday)) {
+      return addDays(workdayEndTimeToday, 1);
+    }
+    return workdayEndTimeToday;
+  }, [workdayEndTimeToday, workdayStartTimeToday]);
+
+  const calculatedScheduleToday = useMemo(() => {
+    if (!profile || !dbScheduledTasksToday) return null;
+    const todayString = format(new Date(), 'yyyy-MM-dd');
+    return calculateSchedule(dbScheduledTasksToday, todayString, workdayStartTimeToday, workdayEndTimeToday);
+  }, [dbScheduledTasksToday, profile, workdayStartTimeToday, workdayEndTimeToday]);
+
+  const activeItemToday: ScheduledItem | null = useMemo(() => {
+    if (!calculatedScheduleToday) return null;
+    for (const item of calculatedScheduleToday.items) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
+        return item;
+      }
+    }
+    return null;
+  }, [calculatedScheduleToday, T_current]);
+
+  const nextItemToday: ScheduledItem | null = useMemo(() => {
+    if (!calculatedScheduleToday || !activeItemToday) return null;
+    const activeItemIndex = calculatedScheduleToday.items.findIndex(item => item.id === activeItemToday.id);
+    if (activeItemIndex !== -1 && activeItemIndex < calculatedScheduleToday.items.length - 1) {
+      for (let i = activeItemIndex + 1; i < calculatedScheduleToday.items.length; i++) {
+        const item = calculatedScheduleToday.items[i];
+        if (item.type === 'task' || item.type === 'break' || item.type === 'time-off') {
+          return item;
+        }
+      }
+    }
+    return null;
+  }, [calculatedScheduleToday, activeItemToday]);
+
 
   return (
     <SessionContext.Provider value={{ 
@@ -384,7 +464,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       resetDailyStreak,
       claimDailyReward,
       updateNotificationPreferences,
-      updateProfile
+      updateProfile,
+      activeItemToday, // NEW: Provide active item for today
+      nextItemToday,   // NEW: Provide next item for today
+      T_current,       // NEW: Provide T_current
     }}>
       {children}
     </SessionContext.Provider>

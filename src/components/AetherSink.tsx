@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays } from 'lucide-react'; // Added CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile } from 'lucide-react'; // Added Smile icon
 import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler'; // Import RetiredTaskSortBy
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -156,31 +156,35 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_FIRST')} className={cn(retiredSortBy === 'CRITICAL_FIRST' && 'bg-accent text-accent-foreground')}>
-                    <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Critical (First)
+                    <Star className="mr-2 h-4 w-4" /> Critical (First)
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_LAST')} className={cn(retiredSortBy === 'CRITICAL_LAST' && 'bg-accent text-accent-foreground')}>
-                    <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Critical (Last)
+                    <Star className="mr-2 h-4 w-4" /> Critical (Last)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_FIRST')} className={cn(retiredSortBy === 'LOCKED_FIRST' && 'bg-accent text-accent-foreground')}>
-                    <Lock className="mr-2 h-4 w-4 text-primary" /> Locked (First)
+                    <Lock className="mr-2 h-4 w-4" /> Locked (First)
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_LAST')} className={cn(retiredSortBy === 'LOCKED_LAST' && 'bg-accent text-accent-foreground')}>
-                    <Unlock className="mr-2 h-4 w-4 text-primary" /> Locked (Last)
+                    <Unlock className="mr-2 h-4 w-4" /> Locked (Last)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_DESC')} className={cn(retiredSortBy === 'ENERGY_DESC' && 'bg-accent text-accent-foreground')}>
-                    <Zap className="mr-2 h-4 w-4 text-logo-yellow" /> Energy (Highest)
+                    <Zap className="mr-2 h-4 w-4" /> Energy (Highest)
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_ASC')} className={cn(retiredSortBy === 'ENERGY_ASC' && 'bg-accent text-accent-foreground')}>
-                    <Zap className="mr-2 h-4 w-4 text-logo-yellow" /> Energy (Lowest)
+                    <Zap className="mr-2 h-4 w-4" /> Energy (Lowest)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_FIRST')} className={cn(retiredSortBy === 'COMPLETED_FIRST' && 'bg-accent text-accent-foreground')}>
-                    <CheckCircle className="mr-2 h-4 w-4 text-logo-green" /> Completed (First)
+                    <CheckCircle className="mr-2 h-4 w-4" /> Completed (First)
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_LAST')} className={cn(retiredSortBy === 'COMPLETED_LAST' && 'bg-accent text-accent-foreground')}>
-                    <CheckCircle className="mr-2 h-4 w-4 text-logo-green" /> Completed (Last)
+                    <CheckCircle className="mr-2 h-4 w-4" /> Completed (Last)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('EMOJI')} className={cn(retiredSortBy === 'EMOJI' && 'bg-accent text-accent-foreground')}>
+                    <Smile className="mr-2 h-4 w-4" /> Emoji
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

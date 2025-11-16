@@ -11,7 +11,8 @@ export type RetiredTaskSortBy =
   'LOCKED_FIRST' | 'LOCKED_LAST' |
   'ENERGY_ASC' | 'ENERGY_DESC' |
   'RETIRED_AT_NEWEST' | 'RETIRED_AT_OLDEST' |
-  'COMPLETED_FIRST' | 'COMPLETED_LAST';
+  'COMPLETED_FIRST' | 'COMPLETED_LAST' |
+  'EMOJI'; // Added EMOJI sort option
 
 export interface Task {
   id: string;

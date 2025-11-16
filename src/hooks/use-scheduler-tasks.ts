@@ -201,6 +201,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
         case 'COMPLETED_LAST':
           query = query.order('is_completed', { ascending: true }).order('retired_at', { ascending: false });
           break;
+        case 'EMOJI': // NEW: EMOJI sort
+          // Fetch all and sort client-side
+          query = query.order('retired_at', { ascending: false }); // Default DB sort
+          break;
         case 'RETIRED_AT_NEWEST': // Default or fallback
         default:
           query = query.order('retired_at', { ascending: false });
@@ -214,9 +218,20 @@ export const useSchedulerTasks = (selectedDate: string) => {
         throw new Error(error.message);
       }
       console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed })));
+      
+      // Client-side sorting for EMOJI
+      if (retiredSortBy === 'EMOJI') {
+        return (data as RetiredTask[]).sort((a, b) => {
+          const hueA = getEmojiHue(a.name);
+          const hueB = getEmojiHue(b.name);
+          return hueA - hueB;
+        });
+      }
+
       return data as RetiredTask[];
     },
     enabled: !!userId,
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching new data
   });
 
 

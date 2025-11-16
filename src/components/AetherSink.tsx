@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus } from 'lucide-react'; // Removed CheckboxIcon from lucide-react
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus } from 'lucide-react';
 import { RetiredTask, NewRetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils'; // Import parseSinkTaskInput
+import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import { Badge } from '@/components/ui/badge'; // Import Badge
-import { Input } from '@/components/ui/input'; // Import Input
-import { useSession } from '@/hooks/use-session'; // Import useSession
-import { showError } from '@/utils/toast'; // Import showError
-import InfoChip from './InfoChip'; // Import InfoChip
-import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; // Import RetiredTaskDetailSheet
-import { Checkbox } from '@/components/ui/checkbox'; // Import shadcn Checkbox
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { useSession } from '@/hooks/use-session';
+import { showError } from '@/utils/toast';
+import InfoChip from './InfoChip';
+import RetiredTaskDetailSheet from './RetiredTaskDetailSheet';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -24,16 +24,16 @@ interface AetherSinkProps {
   isLoading: boolean;
   isProcessingCommand: boolean;
   hideTitle?: boolean;
-  profileEnergy: number; // NEW: Pass profile energy for critical task status
+  profileEnergy: number;
 }
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy }) => {
-  const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked); // Check for unlocked tasks
+  const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked);
   const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
-  const { user } = useSession(); // Get user for adding tasks
+  const { user } = useSession();
   const [sinkInputValue, setSinkInputValue] = useState('');
 
-  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null); // State for hovered item
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
 
@@ -64,12 +64,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
     setIsSheetOpen(true);
   };
 
-  // Handle click on the task item itself
   const handleTaskItemClick = (event: React.MouseEvent, retiredTask: RetiredTask) => {
     console.log("AetherSink: Retired task item clicked for task:", retiredTask.name, "Event target:", event.target);
-    // Prevent opening the sheet if a child interactive element (like a button) was clicked
     const target = event.target as HTMLElement;
-    if (target.closest('button') || target.closest('a') || target.closest('input[type="checkbox"]')) { // Added checkbox to prevent sheet open
+    if (target.closest('button') || target.closest('a') || target.closest('input[type="checkbox"]')) {
       console.log("AetherSink: Click originated from an interactive child, preventing sheet open.");
       return;
     }
@@ -84,10 +82,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
       return;
     }
     if (task.is_completed) {
-      // If already completed, mark as incomplete
       await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
     } else {
-      // If not completed, mark as complete (triggers XP/Energy logic)
       await completeRetiredTask(task);
     }
   };
@@ -107,7 +103,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                     variant="secondary"
                     size="sm"
                     onClick={onAutoScheduleSink}
-                    disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand} // Disabled if no unlocked tasks
+                    disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
                     className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
                     style={(!hasUnlockedRetiredTasks || isLoading || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                   >
@@ -127,11 +123,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
           </CardHeader>
         )}
         
-        {/* Content is always open now */}
         <>
           {!hideTitle && <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />}
           <CardContent className="space-y-3">
-            {/* New: Add Task to Sink Input */}
             <form onSubmit={handleAddSinkTask} className="flex gap-2 w-full pt-2">
               <Input
                 type="text"
@@ -172,23 +166,23 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   const emoji = assignEmoji(task.name);
                   const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
                   const isLocked = task.is_locked;
-                  const isCriticalAwaitingEnergy = task.is_critical && profileEnergy < 80; // ADVANCED LOGIC: Critical Task Protection
+                  const isCriticalAwaitingEnergy = task.is_critical && profileEnergy < 80;
 
                   return (
                     <div 
                       key={task.id} 
                       className={cn(
-                        "relative flex items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out cursor-pointer", // Added cursor-pointer
+                        "relative flex items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out cursor-pointer",
                         isLocked ? "border-primary/70 bg-primary/10" : "",
-                        isCriticalAwaitingEnergy && "border-logo-yellow/70 bg-logo-yellow/10", // Visual for awaiting energy
-                        task.is_completed && "opacity-50 line-through" // NEW: Visual for completed tasks
+                        isCriticalAwaitingEnergy && "border-logo-yellow/70 bg-logo-yellow/10",
+                        task.is_completed && "opacity-50 line-through"
                       )}
                       style={{ backgroundColor: isLocked || isCriticalAwaitingEnergy ? undefined : ambientBackgroundColor }}
-                      onMouseEnter={() => setHoveredItemId(task.id)} // Set hovered item
-                      onMouseLeave={() => setHoveredItemId(null)} // Clear hovered item
-                      onClick={(e) => handleTaskItemClick(e, task)} // NEW: Added onClick handler
+                      onMouseEnter={() => setHoveredItemId(task.id)}
+                      onMouseLeave={() => setHoveredItemId(null)}
+                      onClick={(e) => handleTaskItemClick(e, task)}
                     >
-                      <div className="flex items-center space-x-3 flex-grow min-w-0"> {/* Added flex-grow and min-w-0 */}
+                      <div className="flex items-center space-x-3 flex-grow min-w-0">
                         <Checkbox
                           checked={task.is_completed}
                           onCheckedChange={() => handleToggleComplete(task)}
@@ -205,7 +199,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                                    <Star className="h-3 w-3" strokeWidth={2.5} /> {/* Changed to Star icon */}
+                                    <Star className="h-3 w-3" strokeWidth={2.5} />
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -236,7 +230,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             <span className="text-xs italic text-muted-foreground">
                               Originally for {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
                             </span>
-                            {isCriticalAwaitingEnergy && ( // ADVANCED LOGIC: Critical Task Protection - Status Badge
+                            {isCriticalAwaitingEnergy && (
                               <Badge variant="outline" className="bg-logo-yellow/20 text-logo-yellow border-logo-yellow px-2 py-0.5 text-xs font-semibold">
                                 Awaiting ≥ 80⚡ Slot
                               </Badge>
@@ -245,14 +239,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                         </label>
                       </div>
                       <div className="flex items-center gap-1 ml-auto shrink-0">
-                        {/* Lock/Unlock Button */}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
                               variant="ghost" 
                               size="icon" 
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevent parent onClick from firing
+                                e.stopPropagation();
                                 toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked });
                               }}
                               className={cn(
@@ -276,10 +269,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               variant="secondary"
                               size="icon" 
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevent parent onClick from firing
+                                e.stopPropagation();
                                 onRezoneTask(task);
                               }}
-                              disabled={isLocked || isProcessingCommand || isCriticalAwaitingEnergy || task.is_completed} // Disable if awaiting energy or completed
+                              disabled={isLocked || isProcessingCommand || isCriticalAwaitingEnergy || task.is_completed}
                               className={cn(
                                 "h-7 w-7 text-primary hover:bg-primary/10",
                                 (isLocked || isProcessingCommand || isCriticalAwaitingEnergy || task.is_completed) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
@@ -300,7 +293,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               variant="ghost" 
                               size="icon" 
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevent parent onClick from firing
+                                e.stopPropagation();
                                 onRemoveRetiredTask(task.id);
                               }}
                               disabled={isLocked || isProcessingCommand}
@@ -321,7 +314,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                       </div>
                       <InfoChip 
                         onClick={(e) => {
-                          e.stopPropagation(); // Prevent parent onClick from firing
+                          e.stopPropagation();
                           handleInfoChipClick(task);
                         }}
                         isHovered={hoveredItemId === task.id} 

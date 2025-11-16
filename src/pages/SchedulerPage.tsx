@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2 } from 'lucide-react'; // Removed Brain icon for Vibe Flow
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask } from '@/types/scheduler';
@@ -16,10 +16,9 @@ import {
   compactScheduleLogic,
   mergeOverlappingTimeBlocks,
   isSlotFree,
-  getFreeTimeBlocks, // Ensure getFreeTimeBlocks is imported
-  calculateEnergyCost, // NEW: Import calculateEnergyCost
-  getEmojiHue, // NEW: Import getEmojiHue for client-side sorting
-  // Removed sortTasksByVibeFlow
+  getFreeTimeBlocks,
+  calculateEnergyCost,
+  getEmojiHue,
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -52,10 +51,10 @@ import { TimeBlock } from '@/types/scheduler';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import SchedulerUtilityBar from '@/components/SchedulerUtilityBar'; // NEW: Import SchedulerUtilityBar
-import WorkdayWindowDialog from '@/components/WorkdayWindowDialog'; // NEW: Import WorkdayWindowDialog
-import ScheduledTaskDetailSheet from '@/components/ScheduledTaskDetailSheet'; // NEW: Import ScheduledTaskDetailSheet
-import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants'; // Import constants for energy
+import SchedulerUtilityBar from '@/components/SchedulerUtilityBar';
+import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
+import ScheduledTaskDetailSheet from '@/components/ScheduledTaskDetailSheet';
+import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 
 const deepCompare = (a: any, b: any) => {
   if (a === b) return true;
@@ -96,7 +95,6 @@ const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
 
 const INTERLEAVING_PATTERN = [
-  // Duration (min), Criticality (C/NC)
   { duration: 15, critical: true }, { duration: 15, critical: false },
   { duration: 60, critical: true }, { duration: 60, critical: false },
   { duration: 5, critical: true }, { duration: 5, critical: false },
@@ -107,8 +105,8 @@ const INTERLEAVING_PATTERN = [
   { duration: 30, critical: true }, { duration: 30, critical: false },
   { duration: 75, critical: true }, { duration: 75, critical: false },
   { duration: 25, critical: true }, { duration: 25, critical: false },
-  { duration: LONG_TASK_THRESHOLD + 1, critical: true }, // Represents 90+
-  { duration: LONG_TASK_THRESHOLD + 1, critical: false }, // Represents 90+
+  { duration: LONG_TASK_THRESHOLD + 1, critical: true },
+  { duration: LONG_TASK_THRESHOLD + 1, critical: false },
 ];
 
 interface InjectionPromptState {
@@ -116,7 +114,7 @@ interface InjectionPromptState {
   isOpen: boolean;
   isTimed?: boolean;
   duration?: number;
-  breakDuration?: number; // Added breakDuration
+  breakDuration?: number;
   startTime?: string;
   endTime?: string;
   isCritical?: boolean;
@@ -125,7 +123,7 @@ interface InjectionPromptState {
 }
 
 const SchedulerPage: React.FC = () => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy } = useSession(); // NEW: Added rechargeEnergy
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const { 
     dbScheduledTasks,
@@ -147,7 +145,7 @@ const SchedulerPage: React.FC = () => {
     aetherDumpMega,
     sortBy,
     setSortBy,
-    autoBalanceSchedule, // Now client-side
+    autoBalanceSchedule,
     completeScheduledTask,
   } = useSchedulerTasks(selectedDay);
 
@@ -156,7 +154,7 @@ const SchedulerPage: React.FC = () => {
   const [T_current, setT_current] = useState(new Date());
   
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
-  const [injectionPrompt, setInjectionPrompt] = useState<InjectionPromptState | null>(null); // Updated type
+  const [injectionPrompt, setInjectionPrompt] = useState<InjectionPromptState | null>(null);
   const [injectionDuration, setInjectionDuration] = useState('');
   const [injectionBreak, setInjectionBreak] = useState('');
   const [injectionStartTime, setInjectionStartTime] = useState('');
@@ -164,10 +162,8 @@ const SchedulerPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
-  // Removed isSinkOpen state
   const [activeTab, setActiveTab] = useState('vibe-schedule');
-  const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false); // NEW: State for WorkdayWindowDialog
-  // Removed isVibeFlowEnabled state
+  const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -223,7 +219,7 @@ const SchedulerPage: React.FC = () => {
         isCritical: isCritical,
         isFlexible: true,
         energyCost: calculateEnergyCost(duration, isCritical),
-        breakDuration: undefined, // Explicitly set as undefined if not provided by taskToSchedule
+        breakDuration: undefined,
       });
       setInjectionDuration(String(duration));
       navigate(location.pathname, { replace: true, state: {} }); 
@@ -293,12 +289,6 @@ const SchedulerPage: React.FC = () => {
   const calculatedSchedule = useDeepCompareMemoize(useMemo(() => {
     if (!profile) return null;
     const newSchedule = calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime);
-    
-    // The deepCompare logic is now handled by useDeepCompareMemoize wrapper
-    // if (deepCompare(newSchedule, previousCalculatedScheduleRef.current)) {
-    //   return previousCalculatedScheduleRef.current;
-    // }
-    // previousCalculatedScheduleRef.current = newSchedule;
     return newSchedule;
   }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]));
 
@@ -319,7 +309,6 @@ const SchedulerPage: React.FC = () => {
     if (isViewingToday && !hasMorningFixRunToday) {
       const tasksToRetire = dbScheduledTasks.filter(task => {
         if (!task.start_time || !task.end_time) return false;
-        // CRITICAL BUG FIX: Only retire if UNLOCKED AND FLEXIBLE
         if (task.is_locked) return false; 
         if (!task.is_flexible) return false; 
 
@@ -358,7 +347,6 @@ const SchedulerPage: React.FC = () => {
   ): Promise<{ proposedStartTime: Date | null, proposedEndTime: Date | null, message: string }> => {
     let proposedStartTime: Date | null = null;
     
-    // Filter out locked tasks from available slots
     const lockedTaskBlocks = dbScheduledTasks
       .filter(task => task.is_locked && task.start_time && task.end_time)
       .map(task => {
@@ -415,7 +403,6 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     
-    // Only clear unlocked tasks
     const unlockedTasks = dbScheduledTasks.filter(task => !task.is_locked);
     if (unlockedTasks.length === 0) {
       showSuccess("No unlocked tasks to clear.");
@@ -599,7 +586,7 @@ const SchedulerPage: React.FC = () => {
           isCritical: injectCommand.isCritical,
           isFlexible: injectCommand.isFlexible,
           energyCost: injectCommand.energyCost,
-          breakDuration: injectCommand.breakDuration, // Pass breakDuration
+          breakDuration: injectCommand.breakDuration,
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -615,7 +602,7 @@ const SchedulerPage: React.FC = () => {
           isCritical: injectCommand.isCritical,
           isFlexible: injectCommand.isFlexible,
           energyCost: injectCommand.energyCost,
-          breakDuration: injectCommand.breakDuration, // Pass breakDuration
+          breakDuration: injectCommand.breakDuration,
         });
         success = true;
       }
@@ -675,7 +662,6 @@ const SchedulerPage: React.FC = () => {
         case 'reorder':
           showError("Reordering is not yet implemented.");
           break;
-        // Removed 'compact' case from here, it will be handled by the new button in UtilityBar
         case 'timeoff':
           setInjectionPrompt({ 
             taskName: 'Time Off', 
@@ -686,7 +672,7 @@ const SchedulerPage: React.FC = () => {
             isCritical: false,
             isFlexible: false,
             energyCost: 0,
-            breakDuration: undefined, // Explicitly set as undefined
+            breakDuration: undefined,
           });
           setInjectionStartTime(format(T_current, 'h:mm a'));
           setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -695,7 +681,7 @@ const SchedulerPage: React.FC = () => {
           success = true;
           break;
         case 'aether dump':
-        case 'reset schedule': // 'reset schedule' now maps to 'aether dump'
+        case 'reset schedule':
           await aetherDump();
           success = true;
           break;
@@ -771,7 +757,7 @@ const SchedulerPage: React.FC = () => {
         name: injectionPrompt.taskName, 
         start_time: startTime.toISOString(), 
         end_time: endTime.toISOString(), 
-        break_duration: injectionPrompt.breakDuration, // Pass break duration
+        break_duration: injectionPrompt.breakDuration, 
         scheduled_date: taskScheduledDate, 
         is_critical: injectionPrompt.isCritical, 
         is_flexible: injectionPrompt.isFlexible, 
@@ -946,7 +932,6 @@ const SchedulerPage: React.FC = () => {
     console.log("handleAutoScheduleSink: Starting auto-schedule process.");
 
     try {
-        // --- 1. Unification and Normalization ---
         const existingFixedTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);
         const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
         const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
@@ -966,11 +951,10 @@ const SchedulerPage: React.FC = () => {
         const scheduledTaskIdsToDelete: string[] = [];
         const retiredTaskIdsToDelete: string[] = [];
 
-        // Add flexible scheduled tasks to unifiedPool and mark for deletion
         flexibleScheduledTasks.forEach(task => {
             const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
             unifiedPool.push({
-                id: task.id, // Keep original ID for potential re-insertion
+                id: task.id,
                 name: task.name,
                 duration: duration,
                 break_duration: task.break_duration,
@@ -983,10 +967,9 @@ const SchedulerPage: React.FC = () => {
             scheduledTaskIdsToDelete.push(task.id);
         });
 
-        // Add unlocked retired tasks to unifiedPool and mark for deletion from sink
         unlockedRetiredTasks.forEach(task => {
             unifiedPool.push({
-                id: task.id, // Keep original ID for potential re-insertion
+                id: task.id,
                 name: task.name,
                 duration: task.duration || 30,
                 break_duration: task.break_duration,
@@ -1004,17 +987,14 @@ const SchedulerPage: React.FC = () => {
         console.log("handleAutoScheduleSink: Retired task IDs to delete:", retiredTaskIdsToDelete);
 
 
-        // --- 2. Categorization and Interleaving (Default Sorting) ---
-        let balancedQueue: UnifiedTask[] = [...unifiedPool].sort((a, b) => a.name.localeCompare(b.name)); // Default sort
+        let balancedQueue: UnifiedTask[] = [...unifiedPool].sort((a, b) => a.name.localeCompare(b.name));
 
-        // --- 3. Re-Timing and Placement ---
         const tasksToInsert: NewDBScheduledTask[] = [];
         const tasksToKeepInSink: NewRetiredTask[] = [];
         
-        // Initialize tasksToInsert with existing fixed tasks (including their IDs)
         existingFixedTasks.forEach(task => {
             tasksToInsert.push({
-                id: task.id, // IMPORTANT: Include the ID for upsert to work correctly
+                id: task.id,
                 name: task.name,
                 start_time: task.start_time,
                 end_time: task.end_time,
@@ -1047,7 +1027,6 @@ const SchedulerPage: React.FC = () => {
             let placed = false;
             let searchTime = currentPlacementTime;
 
-            // ADVANCED LOGIC: Critical Task Protection (Focus Mode) - Placement Constraint
             if (task.is_critical && profile.energy < 80) {
               tasksToKeepInSink.push({
                 user_id: user.id,
@@ -1056,11 +1035,11 @@ const SchedulerPage: React.FC = () => {
                 break_duration: task.break_duration,
                 original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
                 is_critical: task.is_critical,
-                is_locked: false, // Not locked in sink
+                is_locked: false,
                 energy_cost: task.energy_cost,
               });
               console.log(`handleAutoScheduleSink: Critical task "${task.name}" skipped due to low energy, moved to sink.`);
-              continue; // Skip placement for this critical task
+              continue;
             }
 
             while (isBefore(searchTime, workdayEndTime)) {
@@ -1082,7 +1061,7 @@ const SchedulerPage: React.FC = () => {
 
                     if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocks)) {
                         tasksToInsert.push({
-                            id: task.id, // IMPORTANT: Include the ID for upsert to work correctly
+                            id: task.id,
                             name: task.name,
                             start_time: proposedStartTime.toISOString(),
                             end_time: proposedEndTime.toISOString(),
@@ -1090,9 +1069,9 @@ const SchedulerPage: React.FC = () => {
                             scheduled_date: formattedSelectedDay,
                             is_critical: task.is_critical,
                             is_flexible: true,
-                            is_locked: false, // Changed from `task.is_critical ? true : false` to `false`
+                            is_locked: false,
                             energy_cost: task.energy_cost,
-                            is_completed: false, // New tasks are not completed
+                            is_completed: false,
                         });
 
                         currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
@@ -1122,7 +1101,6 @@ const SchedulerPage: React.FC = () => {
             }
         }
 
-        // --- 4. Execute Atomic Database Synchronization ---
         const payload: AutoBalancePayload = {
             scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
             retiredTaskIdsToDelete: retiredTaskIdsToDelete,
@@ -1154,9 +1132,6 @@ const SchedulerPage: React.FC = () => {
     handleAutoScheduleSink();
   };
 
-  // Removed handleVibeSort function
-
-  // NEW: handleCompactSchedule function
   const handleCompactSchedule = async () => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
@@ -1167,12 +1142,11 @@ const SchedulerPage: React.FC = () => {
       workdayStartTime,
       workdayEndTime,
       T_current,
-      undefined, // preSortedFlexibleTasks
-      // Removed isVibeFlowEnabled parameter
+      undefined,
     );
 
     if (compactedTasks.length > 0) {
-      await compactScheduledTasks({ tasksToUpdate: compactedTasks }); // Removed isVibeFlowEnabled
+      await compactScheduledTasks({ tasksToUpdate: compactedTasks });
       showSuccess("Schedule compacted!");
     } else {
       showError("No flexible tasks to compact or no space available.");
@@ -1203,7 +1177,6 @@ const SchedulerPage: React.FC = () => {
     } else if (newSortBy === 'TIME_LATEST_TO_EARLIEST') {
       sortedFlexibleTasks.sort((a, b) => {
         const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
-        // FIX: Corrected the missing parseISO and extra parenthesis
         const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
         return durationB - durationA;
       });
@@ -1240,11 +1213,10 @@ const SchedulerPage: React.FC = () => {
       workdayEndTime,
       T_current,
       sortedFlexibleTasks,
-      // Removed isVibeFlowEnabled parameter
     );
 
     if (reorganizedTasks.length > 0) {
-      await compactScheduledTasks({ tasksToUpdate: reorganizedTasks }); // Removed isVibeFlowEnabled
+      await compactScheduledTasks({ tasksToUpdate: reorganizedTasks });
       showSuccess("Flexible tasks sorted!");
       setSortBy(newSortBy);
     } else {
@@ -1285,7 +1257,7 @@ const SchedulerPage: React.FC = () => {
       isCritical: false,
       isFlexible: true,
       energyCost: calculateEnergyCost(30, false),
-      breakDuration: undefined, // Explicitly set as undefined
+      breakDuration: undefined,
     });
     setInjectionDuration('30');
     setInjectionBreak('');
@@ -1304,7 +1276,7 @@ const SchedulerPage: React.FC = () => {
       isCritical: false,
       isFlexible: false,
       energyCost: 0,
-      breakDuration: undefined, // Explicitly set as undefined
+      breakDuration: undefined,
     });
     setInjectionStartTime(format(T_current, 'h:mm a'));
     setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -1341,48 +1313,207 @@ const SchedulerPage: React.FC = () => {
     showSuccess("Schedule refreshed!");
   };
 
-  // NEW: handleQuickScheduleBlock function
   const handleQuickScheduleBlock = async (duration: number) => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to quick schedule blocks.");
       return;
     }
     setIsProcessingCommand(true);
+    console.log(`handleQuickScheduleBlock: Attempting to schedule a ${duration}-minute block.`);
 
-    const taskName = "Focus Block";
-    const isCritical = profile.energy > (MAX_ENERGY * 0.7); // Make critical if energy is high
-    const energyCost = calculateEnergyCost(duration, isCritical);
+    try {
+      // 1. Gather all unlocked flexible tasks from current schedule and Aether Sink
+      const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
+      const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
 
-    const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-      taskName,
-      duration,
-      isCritical,
-      true, // Always flexible for quick blocks
-      energyCost,
-      [...occupiedBlocks], // Pass a copy of current occupied blocks
-      effectiveWorkdayStart,
-      workdayEndTime
-    );
+      const unifiedPool: UnifiedTask[] = [];
 
-    if (proposedStartTime && proposedEndTime) {
-      await addScheduledTask({
-        name: taskName,
-        start_time: proposedStartTime.toISOString(),
-        end_time: proposedEndTime.toISOString(),
-        break_duration: null,
-        scheduled_date: formattedSelectedDay,
-        is_critical: isCritical,
-        is_flexible: true,
-        energy_cost: energyCost,
+      flexibleScheduledTasks.forEach(task => {
+        const taskDuration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
+        unifiedPool.push({
+          id: task.id,
+          name: task.name,
+          duration: taskDuration,
+          break_duration: task.break_duration,
+          is_critical: task.is_critical,
+          is_flexible: true,
+          energy_cost: task.energy_cost,
+          source: 'scheduled',
+          originalId: task.id,
+        });
       });
-      showSuccess(`Scheduled a ${duration}-minute Focus Block from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
-    } else {
-      showError(message);
-    }
-    setIsProcessingCommand(false);
-  };
 
-  // Removed useEffect to trigger Vibe Sort when isVibeFlowEnabled changes
+      unlockedRetiredTasks.forEach(task => {
+        unifiedPool.push({
+          id: task.id,
+          name: task.name,
+          duration: task.duration || 30, // Default to 30 if duration is null
+          break_duration: task.break_duration,
+          is_critical: task.is_critical,
+          is_flexible: true,
+          energy_cost: task.energy_cost,
+          source: 'retired',
+          originalId: task.id,
+        });
+      });
+
+      if (unifiedPool.length === 0) {
+        showError("No flexible tasks available in your schedule or Aether Sink to fill this block.");
+        setIsProcessingCommand(false);
+        return;
+      }
+
+      // 2. Sort tasks: Critical first (if energy high), then longest duration first
+      const sortedUnifiedPool = [...unifiedPool].sort((a, b) => {
+        // Prioritize critical tasks if energy is high (e.g., > 70%)
+        const energyThresholdForCritical = MAX_ENERGY * 0.7;
+        const isProfileEnergyHigh = profile.energy > energyThresholdForCritical;
+
+        if (isProfileEnergyHigh) {
+          if (a.is_critical && !b.is_critical) return -1;
+          if (!a.is_critical && b.is_critical) return 1;
+        }
+        
+        // Then sort by duration (longest first)
+        return (b.duration || 0) - (a.duration || 0);
+      });
+
+      // 3. Select tasks to fill the block duration
+      let tasksForBlock: UnifiedTask[] = [];
+      let currentBlockDuration = 0;
+      const blockNameParts: string[] = [];
+
+      for (const task of sortedUnifiedPool) {
+        const taskTotalDuration = (task.duration || 0) + (task.break_duration || 0);
+        if (currentBlockDuration + taskTotalDuration <= duration + 15) { // Allow slight overflow for fitting
+          tasksForBlock.push(task);
+          currentBlockDuration += taskTotalDuration;
+          blockNameParts.push(task.name);
+        }
+        if (currentBlockDuration >= duration) break;
+      }
+
+      if (tasksForBlock.length === 0) {
+        showError(`Could not find enough flexible tasks to fill a ${duration}-minute block.`);
+        setIsProcessingCommand(false);
+        return;
+      }
+
+      // Adjust currentBlockDuration to be exactly the sum of selected tasks
+      currentBlockDuration = tasksForBlock.reduce((sum, task) => sum + (task.duration || 0) + (task.break_duration || 0), 0);
+
+      // 4. Find a free slot for the combined block
+      const combinedBlockName = blockNameParts.length > 0 ? blockNameParts.join(', ') : "Combined Focus Block";
+      const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+        combinedBlockName,
+        currentBlockDuration,
+        false, // The block itself is not critical, individual tasks might be
+        true,  // The block is flexible
+        0,     // Energy cost will be handled by individual task completion
+        [...occupiedBlocks],
+        effectiveWorkdayStart,
+        workdayEndTime
+      );
+
+      if (!proposedStartTime || !proposedEndTime) {
+        showError(message);
+        setIsProcessingCommand(false);
+        return;
+      }
+
+      // 5. Construct AutoBalancePayload for atomic update
+      const scheduledTaskIdsToDelete: string[] = [];
+      const retiredTaskIdsToDelete: string[] = [];
+      const tasksToInsert: NewDBScheduledTask[] = [];
+      const tasksToKeepInSink: NewRetiredTask[] = [];
+
+      // Keep existing fixed tasks
+      dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked).forEach(task => {
+        tasksToInsert.push({
+          id: task.id,
+          name: task.name,
+          start_time: task.start_time,
+          end_time: task.end_time,
+          break_duration: task.break_duration,
+          scheduled_date: task.scheduled_date,
+          is_critical: task.is_critical,
+          is_flexible: task.is_flexible,
+          is_locked: task.is_locked,
+          energy_cost: task.energy_cost,
+          is_completed: task.is_completed,
+        });
+      });
+
+      let currentSlotTime = proposedStartTime;
+      for (const task of tasksForBlock) {
+        const taskDuration = task.duration || 0;
+        const breakDuration = task.break_duration || 0;
+        const totalTaskDuration = taskDuration + breakDuration;
+        const taskEndTime = addMinutes(currentSlotTime, totalTaskDuration);
+
+        tasksToInsert.push({
+          id: task.id, // Use original ID for upsert
+          name: task.name,
+          start_time: currentSlotTime.toISOString(),
+          end_time: taskEndTime.toISOString(),
+          break_duration: task.break_duration,
+          scheduled_date: formattedSelectedDay,
+          is_critical: task.is_critical,
+          is_flexible: true, // These are now scheduled as flexible tasks
+          is_locked: false,
+          energy_cost: task.energy_cost,
+          is_completed: false,
+        });
+        currentSlotTime = taskEndTime;
+
+        if (task.source === 'scheduled') {
+          scheduledTaskIdsToDelete.push(task.originalId);
+        } else {
+          retiredTaskIdsToDelete.push(task.originalId);
+        }
+      }
+
+      // Any tasks from unifiedPool that were NOT selected for the block go back to sink
+      const unselectedTasks = unifiedPool.filter(task => !tasksForBlock.some(t => t.id === task.id));
+      unselectedTasks.forEach(task => {
+        tasksToKeepInSink.push({
+          user_id: user.id,
+          name: task.name,
+          duration: task.duration,
+          break_duration: task.break_duration,
+          original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
+          is_critical: task.is_critical,
+          is_locked: false,
+          energy_cost: task.energy_cost,
+          is_completed: false,
+        });
+        // Also mark for deletion from their original source if they were scheduled
+        if (task.source === 'scheduled') {
+          scheduledTaskIdsToDelete.push(task.originalId);
+        } else {
+          retiredTaskIdsToDelete.push(task.originalId);
+        }
+      });
+
+      const payload: AutoBalancePayload = {
+        scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
+        retiredTaskIdsToDelete: retiredTaskIdsToDelete,
+        tasksToInsert: tasksToInsert,
+        tasksToKeepInSink: tasksToKeepInSink,
+        selectedDate: formattedSelectedDay,
+      };
+
+      console.log("handleQuickScheduleBlock: Final payload for autoBalanceSchedule mutation:", payload);
+      await autoBalanceSchedule(payload);
+      showSuccess(`Quick scheduled a ${currentBlockDuration}-minute block with your tasks!`);
+
+    } catch (error: any) {
+      showError(`Failed to quick schedule block: ${error.message}`);
+      console.error("Quick schedule block error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
 
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
@@ -1414,22 +1545,18 @@ const SchedulerPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
-      {/* 1. Vibe Scheduler Title */}
       <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
 
-      {/* 2. Session Dashboard (Metrics + Zone 1: Global Management) */}
       <SchedulerDashboardPanel 
         scheduleSummary={currentSchedule?.summary || null} 
-        // Removed onVibeSort
         onAetherDump={() => aetherDump()}
         isProcessingCommand={isProcessingCommand}
         hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
-        onRefreshSchedule={handleRefreshSchedule} // NEW: Pass refresh handler
+        onRefreshSchedule={handleRefreshSchedule}
       />
 
-      {/* 3. Calendar Strip */}
       <CalendarStrip 
         selectedDay={selectedDay} 
         setSelectedDay={setSelectedDay} 
@@ -1437,7 +1564,6 @@ const SchedulerPage: React.FC = () => {
         isLoadingDatesWithTasks={isLoadingDatesWithTasks}
       />
 
-      {/* 4. "Schedule Your Day" Input Bar (+ Zone 2: Input Footer) */}
       <Card className="animate-pop-in animate-hover-lift">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -1455,7 +1581,7 @@ const SchedulerPage: React.FC = () => {
             inputValue={inputValue}
             setInputValue={setInputValue}
             placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump', 'aether dump mega')`}
-            onDetailedInject={handleAddTaskClick} // NEW: Pass handler for detailed injector button
+            onDetailedInject={handleAddTaskClick}
           />
           <p className="text-xs text-muted-foreground">
             Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
@@ -1463,7 +1589,6 @@ const SchedulerPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* 5. Zone 3: Real-Time Utility Bar */}
       <SchedulerUtilityBar 
         isProcessingCommand={isProcessingCommand}
         hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
@@ -1473,20 +1598,16 @@ const SchedulerPage: React.FC = () => {
         onSortFlexibleTasks={handleSortFlexibleTasks}
         onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
         sortBy={sortBy}
-        // Removed isVibeFlowEnabled
-        // Removed onToggleVibeFlow
-        onCompactSchedule={handleCompactSchedule} // Pass the new handler here
-        onQuickScheduleBlock={handleQuickScheduleBlock} // NEW: Pass the quick schedule block handler
+        onCompactSchedule={handleCompactSchedule}
+        onQuickScheduleBlock={handleQuickScheduleBlock}
       />
 
-      {/* 6. NOW FOCUS Card - STICKY */}
       {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="sticky top-16 z-40 bg-background pb-4 animate-slide-in-up"> {/* Added sticky, top-16, z-40 */}
+        <div className="sticky top-16 z-40 bg-background pb-4 animate-slide-in-up">
           <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
         </div>
       )}
       
-      {/* 7. "Tasks Outside Workday" Alert */}
       {currentSchedule?.summary.unscheduledCount > 0 && (
         <Card className="animate-pop-in animate-hover-lift">
           <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
@@ -1496,7 +1617,6 @@ const SchedulerPage: React.FC = () => {
         </Card>
       )}
 
-      {/* 8. Tabbed Schedule Container */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
         <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[32px] z-20">
           <TabsTrigger 
@@ -1549,7 +1669,7 @@ const SchedulerPage: React.FC = () => {
             onAutoScheduleSink={handleAutoScheduleSinkWrapper}
             isLoading={isLoadingRetiredTasks}
             isProcessingCommand={isProcessingCommand}
-            profileEnergy={profile?.energy || 0} // NEW: Pass profile energy for critical task status
+            profileEnergy={profile?.energy || 0}
           />
         </TabsContent>
       </Tabs>
@@ -1562,7 +1682,6 @@ const SchedulerPage: React.FC = () => {
               Please provide the details for this task.
             </DialogDescription>
           </DialogHeader>
-          {/* Removed the duplicate </DialogDescription> tag here */}
           <React.Fragment>
             <div className="grid gap-4 py-4">
               {injectionPrompt?.isTimed ? (

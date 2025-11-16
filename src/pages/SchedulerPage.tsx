@@ -1374,6 +1374,7 @@ const SchedulerPage: React.FC = () => {
           is_critical: task.is_critical,
           is_locked: false,
           energy_cost: task.energy_cost,
+          is_completed: false,
           is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
         // Also mark for deletion from their original source if they were scheduled
@@ -1796,7 +1797,7 @@ const SchedulerPage: React.FC = () => {
       />
 
       {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="sticky top-16 z-40 bg-background pb-4 animate-slide-in-up">
+        <div className="pb-4 animate-slide-in-up">
           <NowFocusCard activeItem={activeItem} nextItem={nextItem} T_current={T_current} />
         </div>
       )}

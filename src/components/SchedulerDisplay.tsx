@@ -46,9 +46,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
-    const allEvents: (ScheduledItem | TimeMarker)[] = []; 
-
-    allEvents.forEach(task => allEvents.push(task));
+    const allEvents: (ScheduledItem | TimeMarker)[] = [...scheduledTasks]; // Corrected: Initialize with scheduledTasks
 
     allEvents.push({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
     allEvents.push({ id: 'marker-24hr', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); 
@@ -325,7 +323,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               </span>
             </div>
 
-            <div className="relative z-10 flex items-center justify-between w-full">
+            <div className="relative z-10 flex items-center w-full"> {/* Removed justify-between to allow flex-grow on span */}
               {/* Complete Button - Moved to the far left */}
               {dbTask && !isBreak && !isTimeOff && !isCompleted && (
                 <Tooltip>
@@ -355,7 +353,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               )}
 
               <span className={cn(
-                "text-sm flex-grow",
+                "text-sm flex-grow", // Added flex-grow here
                 isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
               )}>
                 <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span>

@@ -3,15 +3,15 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star } from 'lucide-react'; // Import Archive icon, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import InfoChip from './InfoChip'; // Import InfoChip
-import ScheduledTaskDetailSheet from './ScheduledTaskDetailSheet'; // Import ScheduledTaskDetailSheet
+import InfoChip from './InfoChip';
+import ScheduledTaskDetailSheet from './ScheduledTaskDetailSheet';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -38,9 +38,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null);
   const activeItemRef = useRef<HTMLDivElement>(null);
-  const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString); // Added updateScheduledTaskStatus
+  const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString);
 
-  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null); // State for hovered item
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedScheduledTask, setSelectedScheduledTask] = useState<DBScheduledTask | null>(null);
 
@@ -48,7 +48,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     const scheduledTasks = schedule ? schedule.items : [];
     const allEvents: (ScheduledItem | TimeMarker)[] = []; 
 
-    scheduledTasks.forEach(task => allEvents.push(task));
+    allEvents.forEach(task => allEvents.push(task));
 
     allEvents.push({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
     allEvents.push({ id: 'marker-24hr', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); 
@@ -194,10 +194,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     setIsSheetOpen(true);
   };
 
-  // NEW: Handle click on the task item itself
   const handleTaskItemClick = (event: React.MouseEvent, dbTask: DBScheduledTask) => {
     console.log("SchedulerDisplay: Task item clicked for task:", dbTask.name, "Event target:", event.target);
-    // Prevent opening the sheet if a child interactive element (like a button) was clicked
     const target = event.target as HTMLElement;
     if (target.closest('button') || target.closest('a')) {
       console.log("SchedulerDisplay: Click originated from an interactive child, preventing sheet open.");
@@ -268,8 +266,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const isLocked = scheduledItem.isLocked;
       const isFixed = !scheduledItem.isFlexible;
       const isFixedOrLocked = isFixed || isLocked;
-      const isCompleted = scheduledItem.isCompleted; // NEW: Get completion status
-      const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current) && !isCompleted; // Only missed if not completed
+      const isCompleted = scheduledItem.isCompleted;
+      const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current) && !isCompleted;
 
       if (scheduledItem.endTime < startOfTemplate) return null;
 
@@ -300,24 +298,22 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div
             ref={isCurrentlyActive ? activeItemRef : null}
             className={cn(
-              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", // Added cursor-pointer
-              "border-2", // Base border width
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer",
+              "border-2",
               isHighlightedByNowCard ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" :
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border",
               isLocked && "bg-primary/10",
               isMissed && "border-destructive/70 bg-destructive/10",
               isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10",
-              // UI Improvement: Immutability Stroke for Fixed or Locked tasks
-              isFixedOrLocked && "border-[3px] border-live-progress", // 3px solid cyan border
-              // ADVANCED LOGIC: Critical Task Visual Enhancement
-              scheduledItem.isCritical && "border-logo-yellow/70 ring-2 ring-logo-yellow/50", // Stronger border/ring for critical tasks
-              isCompleted && "opacity-50 line-through", // NEW: Visual for completed tasks
+              isFixedOrLocked && "border-[3px] border-live-progress",
+              scheduledItem.isCritical && "border-logo-yellow/70 ring-2 ring-logo-yellow/50",
+              isCompleted && "opacity-50 line-through",
               "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }}
-            onMouseEnter={() => setHoveredItemId(scheduledItem.id)} // Set hovered item
-            onMouseLeave={() => setHoveredItemId(null)} // Clear hovered item
+            onMouseEnter={() => setHoveredItemId(scheduledItem.id)}
+            onMouseLeave={() => setHoveredItemId(null)}
             onClick={(e) => {
               console.log("SchedulerDisplay: Task item container clicked. Item ID:", scheduledItem.id);
               dbTask && handleTaskItemClick(e, dbTask);
@@ -330,6 +326,34 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             </div>
 
             <div className="relative z-10 flex items-center justify-between w-full">
+              {/* Complete Button - Moved to the far left */}
+              {dbTask && !isBreak && !isTimeOff && !isCompleted && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCompleteTask(dbTask);
+                      }}
+                      disabled={isLocked}
+                      className={cn(
+                        "h-6 w-6 p-0 shrink-0 mr-2", // Added mr-2 for spacing
+                        isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
+                      )}
+                      style={isLocked ? { pointerEvents: 'auto' } : undefined}
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="sr-only">Complete task</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
               <span className={cn(
                 "text-sm flex-grow",
                 isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
@@ -341,7 +365,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                        <Star className="h-3 w-3" strokeWidth={2.5} /> {/* Changed to Star icon */}
+                        <Star className="h-3 w-3" strokeWidth={2.5} />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -376,36 +400,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
                 </span>
                 
-                {/* Complete Button - Moved here */}
-                {dbTask && !isBreak && !isTimeOff && !isCompleted && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent parent onClick from firing
-                          onCompleteTask(dbTask);
-                        }}
-                        disabled={isLocked}
-                        className={cn(
-                          "h-6 w-6 p-0 shrink-0 ml-1", // Added ml-1 for spacing
-                          isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
-                        )}
-                        style={isLocked ? { pointerEvents: 'auto' } : undefined}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                        <span className="sr-only">Complete task</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-
-                <div className="flex items-center gap-1 ml-2"> {/* This div now only contains lock, archive, delete */}
-                  {/* Lock/Unlock Button - Only for flexible tasks */}
+                <div className="flex items-center gap-1 ml-2">
                   {scheduledItem.isFlexible && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -413,7 +408,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           variant="ghost" 
                           size="icon" 
                           onClick={(e) => {
-                            e.stopPropagation(); // Prevent parent onClick from firing
+                            e.stopPropagation();
                             toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked });
                           }}
                           className={cn(
@@ -439,7 +434,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           variant="ghost" 
                           size="icon" 
                           onClick={(e) => {
-                            e.stopPropagation(); // Prevent parent onClick from firing
+                            e.stopPropagation();
                             onRetireTask(dbTask);
                           }}
                           disabled={isLocked}
@@ -464,7 +459,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         variant="ghost" 
                         size="icon" 
                         onClick={(e) => {
-                          e.stopPropagation(); // Prevent parent onClick from firing
+                          e.stopPropagation();
                           onRemoveTask(scheduledItem.id);
                         }}
                         disabled={isLocked}
@@ -508,7 +503,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             {dbTask && (
               <InfoChip 
                 onClick={(e) => {
-                  e.stopPropagation(); // Prevent parent onClick from firing
+                  e.stopPropagation();
                   handleInfoChipClick(dbTask);
                 }}
                 isHovered={hoveredItemId === scheduledItem.id} 

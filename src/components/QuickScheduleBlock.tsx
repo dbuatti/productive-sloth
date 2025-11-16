@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowDownToLine, ArrowUpToLine } from 'lucide-react';
+import { Feather, Anchor } from 'lucide-react'; // UPDATED: Import Feather and Anchor icons
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -27,7 +27,7 @@ const QuickScheduleBlock: React.FC<QuickScheduleBlockProps> = ({
             disabled={isProcessingCommand}
             className="h-full w-10 rounded-full rounded-r-none text-primary hover:bg-primary/10"
           >
-            <ArrowUpToLine className="h-5 w-5" />
+            <Feather className="h-5 w-5" /> {/* UPDATED ICON */}
             <span className="sr-only">Schedule {duration} min (Shortest Tasks First)</span>
           </Button>
         </TooltipTrigger>
@@ -60,7 +60,7 @@ const QuickScheduleBlock: React.FC<QuickScheduleBlockProps> = ({
             disabled={isProcessingCommand}
             className="h-full w-10 rounded-full rounded-l-none text-primary hover:bg-primary/10"
           >
-            <ArrowDownToLine className="h-5 w-5" />
+            <Anchor className="h-5 w-5" /> {/* UPDATED ICON */}
             <span className="sr-only">Schedule {duration} min (Longest Tasks First)</span>
           </Button>
         </TooltipTrigger>

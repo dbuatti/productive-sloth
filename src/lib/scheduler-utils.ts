@@ -357,7 +357,7 @@ export const parseInjectionCommand = (input: string): {
   return null;
 };
 
-export const parseCommand = (input: string): { type: string; target?: string; index?: number } | null => {
+export const parseCommand = (input: string): { type: string; target?: string; index?: number; duration?: number } | null => {
   const lowerInput = input.toLowerCase().trim();
 
   if (lowerInput === 'clear') {
@@ -634,7 +634,7 @@ export const calculateSchedule = (
   let totalBreakTimeMinutes = 0;
   let sessionEnd = workdayStartTime;
   let extendsPastMidnight = false;
-  let midnightRolloverMessage: string | null = null;
+  let midnightRolloverMessage: string | null = null; // Corrected declaration
   let criticalTasksRemaining = 0;
 
   // Filter out tasks that are not for the selected day
@@ -662,7 +662,7 @@ export const calculateSchedule = (
     if (isBefore(localEnd, localStart)) {
       localEnd = addDays(localEnd, 1);
       extendsPastMidnight = true;
-      midnightRolloverMessage = "Your schedule extends past midnight.";
+      midnightRolloverMessage = "Your schedule extends past midnight."; // Corrected assignment
     }
 
     const duration = Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60));

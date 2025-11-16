@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import { useSession } from '@/hooks/use-session';
+import { useSession } '@/hooks/use-session';
 import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, addHours, subDays } from 'date-fns';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
@@ -702,132 +702,6 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
-  const handleInjectionSubmit = async () => {
-    if (!user || !profile || !injectionPrompt) {
-      showError("You must be logged in and your profile loaded to use the scheduler.");
-      return;
-    }
-    setIsProcessingCommand(true);
-
-    let success = false;
-    const taskScheduledDate = formattedSelectedDay;
-    const selectedDayAsDate = parseISO(selectedDay);
-    
-    let calculatedEnergyCost = 0;
-
-    let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
-
-
-    if (injectionPrompt.isTimed) {
-      if (!injectionStartTime || !injectionEndTime) {
-        showError("Start time and end time are required for timed injection.");
-        setIsProcessingCommand(false);
-        return;
-      }
-      const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayAsDate);
-      const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayAsDate);
-
-      let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempStartTime.getMinutes()), tempStartTime.getHours());
-      let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempEndTime.getMinutes()), tempEndTime.getHours());
-
-      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-        showError("Invalid time format for start/end times.");
-        setIsProcessingCommand(false);
-        return;
-      }
-
-      if (isSameDay(selectedDayAsDate, T_current) && isBefore(startTime, T_current)) {
-        startTime = addDays(startTime, 1);
-        endTime = addDays(endTime, 1);
-        showSuccess(`Scheduled "${injectionPrompt.taskName}" for tomorrow at ${formatTime(startTime)} as today's time has passed.`);
-      } else if (isBefore(endTime, startTime)) {
-        endTime = addDays(endTime, 1);
-      }
-
-      if (!isSlotFree(startTime, endTime, currentOccupiedBlocksForScheduling)) {
-        showError(`The time slot from ${formatTime(startTime)} to ${formatTime(endTime)} is already occupied.`);
-        setIsProcessingCommand(false);
-        return;
-      }
-
-      const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-      calculatedEnergyCost = calculateEnergyCost(duration, injectionPrompt.isCritical ?? false);
-
-      await addScheduledTask({ 
-        name: injectionPrompt.taskName, 
-        start_time: startTime.toISOString(), 
-        end_time: endTime.toISOString(), 
-        break_duration: injectionPrompt.breakDuration, 
-        scheduled_date: taskScheduledDate, 
-        is_critical: injectionPrompt.isCritical, 
-        is_flexible: injectionPrompt.isFlexible, 
-        energy_cost: calculatedEnergyCost
-      }); 
-      currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
-      currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-
-      showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(startTime)} to ${formatTime(endTime)}.`);
-      success = true;
-    } else {
-      if (!injectionDuration) {
-        showError("Duration is required for duration-based injection.");
-        setIsProcessingCommand(false);
-        return;
-      }
-      const injectedTaskDuration = parseInt(injectionDuration, 10);
-      const breakDuration = injectionBreak ? parseInt(injectionBreak, 10) : undefined;
-
-      if (isNaN(injectedTaskDuration) || injectedTaskDuration <= 0) {
-        showError("Duration must be a positive number.");
-        setIsProcessingCommand(false);
-        return;
-      }
-      
-      calculatedEnergyCost = calculateEnergyCost(injectedTaskDuration, injectionPrompt.isCritical ?? false);
-
-      const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-        injectionPrompt.taskName,
-        injectedTaskDuration,
-        injectionPrompt.isCritical,
-        injectionPrompt.isFlexible,
-        calculatedEnergyCost,
-        currentOccupiedBlocksForScheduling,
-        effectiveWorkdayStart,
-        workdayEndTime
-      );
-
-      if (proposedStartTime && proposedEndTime) {
-        await addScheduledTask({ 
-          name: injectionPrompt.taskName, 
-          start_time: proposedStartTime.toISOString(), 
-          end_time: proposedEndTime.toISOString(), 
-          break_duration: breakDuration, 
-          scheduled_date: taskScheduledDate,
-          is_critical: injectionPrompt.isCritical,
-          is_flexible: injectionPrompt.isFlexible,
-          energy_cost: calculatedEnergyCost,
-        });
-        currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
-        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
-
-        showSuccess(`Injected "${injectionPrompt.taskName}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
-        success = true;
-      } else {
-        showError(message);
-      }
-    }
-    
-    if (success) {
-      setInjectionPrompt(null);
-      setInjectionDuration('');
-      setInjectionBreak('');
-      setInjectionStartTime('');
-      setInjectionEndTime('');
-      setInputValue('');
-    }
-    setIsProcessingCommand(false);
-  };
-
   const handleRezoneFromSink = async (retiredTask: RetiredTask) => {
     if (!user) {
       showError("You must be logged in to rezone tasks.");
@@ -1370,18 +1244,18 @@ const SchedulerPage: React.FC = () => {
 
         // Primary sort: Critical tasks if energy is high
         if (isProfileEnergyHigh) {
-          if (a.is_critical && !b.is_critical) return -1;
-          if (!a.is_critical && b.is_critical) return 1;
+          if (a.is_critical && !b.is_critical) return -1; // Critical comes before non-critical
+          if (!a.is_critical && b.is_critical) return 1;  // Non-critical comes after critical
         }
         
         // Secondary sort: Duration based on preference
-        const durationA = a.duration || 0;
-        const durationB = b.duration || 0;
+        const durationA = (a.duration || 0) + (a.break_duration || 0);
+        const durationB = (b.duration || 0) + (b.break_duration || 0);
 
         if (sortPreference === 'longestFirst') {
-          return durationB - durationA;
+          return durationB - durationA; // Descending for longest first
         } else { // 'shortestFirst'
-          return durationA - durationB;
+          return durationA - durationB; // Ascending for shortest first
         }
       });
 
@@ -1392,12 +1266,16 @@ const SchedulerPage: React.FC = () => {
 
       for (const task of sortedUnifiedPool) {
         const taskTotalDuration = (task.duration || 0) + (task.break_duration || 0);
+        
+        // Only add if it fits within the target duration + buffer
         if (currentBlockDuration + taskTotalDuration <= duration + 15) { // Allow slight overflow for fitting
           tasksForBlock.push(task);
           currentBlockDuration += taskTotalDuration;
           blockNameParts.push(task.name);
         }
-        if (currentBlockDuration >= duration) break;
+        // Removed: if (currentBlockDuration >= duration) break;
+        // This allows it to continue adding smaller tasks even if the target duration is met,
+        // as long as it's within the +15 buffer, maximizing tasks.
       }
 
       if (tasksForBlock.length === 0) {

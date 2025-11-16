@@ -10,10 +10,10 @@ interface NowFocusCardProps {
   activeItem: ScheduledItem | null;
   nextItem: ScheduledItem | null;
   T_current: Date;
-  onEnterFocusMode: () => void; // NEW: Prop to trigger focus mode
+  onEnterFocusMode: () => void;
 }
 
-const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, T_current, onEnterFocusMode }) => {
+const NowFocusCard = React.forwardRef<HTMLDivElement, NowFocusCardProps>(({ activeItem, nextItem, T_current, onEnterFocusMode }, ref) => {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,16 +48,17 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
 
   if (!activeItem) {
     return (
-      <Card className="animate-pop-in border-dashed border-primary/50 bg-secondary/10 text-center p-6 flex flex-col items-center justify-center space-y-3 animate-hover-lift"> {/* Added animate-hover-lift */}
+      <Card ref={ref} className="animate-pop-in border-dashed border-primary/50 bg-secondary/10 text-center p-6 flex flex-col items-center justify-center space-y-3 animate-hover-lift">
         <Clock className="h-8 w-8 text-muted-foreground animate-pulse" />
         <CardTitle className="text-xl font-bold text-muted-foreground">No Active Task</CardTitle>
         <p className="text-sm text-muted-foreground">Your schedule is clear, or tasks start later.</p>
-        <p className="text-xs text-muted-foreground">Try adding a task using the input below!</p> {/* Added suggestion */}
+        <p className="text-xs text-muted-foreground">Try adding a task using the input below!</p>
       </Card>
     );
   }
 
   const isBreak = activeItem.type === 'break';
+  const isTimeOff = activeItem.type === 'time-off';
   const statusIcon = isBreak ? <Coffee className="h-8 w-8 text-logo-orange animate-pulse" /> : <Zap className="h-8 w-8 text-primary animate-pulse" />;
   const cardBorderColor = isBreak ? 'border-logo-orange/50' : 'border-primary/50';
   const cardBgColor = isBreak ? 'bg-logo-orange/10' : 'bg-primary/10';
@@ -65,8 +66,9 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
 
   return (
     <Card 
+      ref={ref}
       className={cn("animate-pop-in border-2 animate-hover-lift cursor-pointer", cardBorderColor, cardBgColor, activeItem && "animate-pulse-glow-subtle")}
-      onClick={onEnterFocusMode} // NEW: Add onClick handler
+      onClick={onEnterFocusMode}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">

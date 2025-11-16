@@ -35,7 +35,7 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent, // Added AlertDialogContent import
+  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -54,9 +54,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SchedulerUtilityBar from '@/components/SchedulerUtilityBar';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
 import ScheduledTaskDetailSheet from '@/components/ScheduledTaskDetailSheet';
-import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
+import ImmersiveFocusMode from '@/components/ImmersiveFocusMode'; // NEW: Import ImmersiveFocusMode
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
-import { useUIContext } from '@/contexts/UIContext'; // Corrected import path
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
 // function useDeepCompareMemoize<T>(value: T): T {
@@ -100,11 +99,11 @@ interface InjectionPromptState {
   isCritical?: boolean;
   isFlexible?: boolean;
   energyCost?: number;
-  isCustomEnergyCost?: boolean;
+  isCustomEnergyCost?: boolean; // NEW: Add to injection prompt state
 }
 
 const SchedulerPage: React.FC = () => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, activeItemToday, nextItemToday, T_current } = useSession();
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const { 
     dbScheduledTasks,
@@ -126,13 +125,15 @@ const SchedulerPage: React.FC = () => {
     aetherDumpMega,
     sortBy,
     setSortBy,
-    retiredSortBy,
-    setRetiredSortBy,
+    retiredSortBy, // NEW: Destructure retiredSortBy
+    setRetiredSortBy, // NEW: Destructure setRetiredSortBy
     autoBalanceSchedule,
     completeScheduledTask,
   } = useSchedulerTasks(selectedDay);
 
   const queryClient = useQueryClient();
+
+  const [T_current, setT_current] = useState(new Date());
   
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [injectionPrompt, setInjectionPrompt] = useState<InjectionPromptState | null>(null);
@@ -145,14 +146,11 @@ const SchedulerPage: React.FC = () => {
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
   const [activeTab, setActiveTab] = useState('vibe-schedule');
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
-  const [isFocusModeActive, setIsFocusModeActive] = useState(false);
-
-  const { setNowFocusCardVisible } = useUIContext(); // Use the UI context
-  const nowFocusCardRef = useRef<HTMLDivElement>(null); // Ref for NowFocusCard
+  const [isFocusModeActive, setIsFocusModeActive] = useState(false); // NEW: State for Immersive Focus Mode
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
-  const occupiedBlocks = useMemo(() => {
+  const occupiedBlocks = useMemo(() => { // Removed useDeepCompareMemoize
     if (!dbScheduledTasks) return [];
     const mappedTimes = dbScheduledTasks
       .filter(task => task.start_time && task.end_time)
@@ -185,6 +183,13 @@ const SchedulerPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      setT_current(new Date());
+    }, 1000); // Updated to 1000ms (1 second)
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     const taskToSchedule = (location.state as any)?.taskToSchedule;
     if (taskToSchedule) {
       const { name, duration, isCritical } = taskToSchedule;
@@ -198,7 +203,7 @@ const SchedulerPage: React.FC = () => {
         isFlexible: true,
         energyCost: calculateEnergyCost(duration, isCritical),
         breakDuration: undefined,
-        isCustomEnergyCost: false,
+        isCustomEnergyCost: false, // Default to false when scheduling from tasks
       });
       setInjectionDuration(String(duration));
       navigate(location.pathname, { replace: true, state: {} }); 
@@ -240,29 +245,6 @@ const SchedulerPage: React.FC = () => {
     };
   }, [selectedDay]);
 
-  // Intersection Observer for NowFocusCard
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setNowFocusCardVisible(entry.isIntersecting);
-      },
-      {
-        root: null, // viewport
-        rootMargin: '0px',
-        threshold: 0.1, // Trigger when 10% of the card is visible
-      }
-    );
-
-    if (nowFocusCardRef.current) {
-      observer.observe(nowFocusCardRef.current);
-    }
-
-    return () => {
-      if (nowFocusCardRef.current) {
-        observer.unobserve(nowFocusCardRef.current);
-      }
-    };
-  }, [nowFocusCardRef, setNowFocusCardVisible, activeItemToday]); // Re-observe if activeItemToday changes
 
   const workdayStartTime = useMemo(() => profile?.default_auto_schedule_start_time 
     ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
@@ -288,7 +270,7 @@ const SchedulerPage: React.FC = () => {
 
   const previousCalculatedScheduleRef = useRef<FormattedSchedule | null>(null);
 
-  const calculatedSchedule = useMemo(() => {
+  const calculatedSchedule = useMemo(() => { // Removed useDeepCompareMemoize
     if (!profile) return null;
     const newSchedule = calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime);
     return newSchedule;
@@ -462,7 +444,7 @@ const SchedulerPage: React.FC = () => {
           original_scheduled_date: taskScheduledDate,
           is_critical: parsedInput.isCritical,
           energy_cost: parsedInput.energyCost,
-          is_custom_energy_cost: false,
+          is_custom_energy_cost: false, // Default to false for quick add to sink
         };
         await addRetiredTask(newRetiredTask);
         success = true;
@@ -492,7 +474,7 @@ const SchedulerPage: React.FC = () => {
               is_flexible: parsedInput.isFlexible,
               scheduled_date: taskScheduledDate,
               energy_cost: parsedInput.energyCost,
-              is_custom_energy_cost: false,
+              is_custom_energy_cost: false, // Default to false for quick add
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -536,7 +518,7 @@ const SchedulerPage: React.FC = () => {
             is_critical: parsedInput.isCritical, 
             is_flexible: parsedInput.isFlexible, 
             energy_cost: parsedInput.energyCost,
-            is_custom_energy_cost: false,
+            is_custom_energy_cost: false, // Default to false for quick add
           }); 
           currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -571,7 +553,7 @@ const SchedulerPage: React.FC = () => {
             is_critical: injectCommand.isCritical,
             is_flexible: injectCommand.isFlexible,
             energy_cost: injectCommand.energyCost,
-            is_custom_energy_cost: false,
+            is_custom_energy_cost: false, // Default to false for quick add
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -593,7 +575,7 @@ const SchedulerPage: React.FC = () => {
           isFlexible: injectCommand.isFlexible,
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
-          isCustomEnergyCost: false,
+          isCustomEnergyCost: false, // Default to false for quick add
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -610,7 +592,7 @@ const SchedulerPage: React.FC = () => {
           isFlexible: injectCommand.isFlexible,
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
-          isCustomEnergyCost: false,
+          isCustomEnergyCost: false, // Default to false for quick add
         });
         success = true;
       }
@@ -681,7 +663,7 @@ const SchedulerPage: React.FC = () => {
             isFlexible: false,
             energyCost: 0,
             breakDuration: undefined,
-            isCustomEnergyCost: false,
+            isCustomEnergyCost: false, // Time Off has no custom energy cost
           });
           setInjectionStartTime(format(T_current, 'h:mm a'));
           setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -771,7 +753,7 @@ const SchedulerPage: React.FC = () => {
         is_critical: injectionPrompt.isCritical, 
         is_flexible: injectionPrompt.isFlexible, 
         energy_cost: calculatedEnergyCost,
-        is_custom_energy_cost: injectionPrompt.isCustomEnergyCost,
+        is_custom_energy_cost: injectionPrompt.isCustomEnergyCost, // NEW: Pass custom energy cost flag
       }); 
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -816,7 +798,7 @@ const SchedulerPage: React.FC = () => {
           is_critical: injectionPrompt.isCritical,
           is_flexible: injectionPrompt.isFlexible,
           energy_cost: calculatedEnergyCost,
-          is_custom_energy_cost: injectionPrompt.isCustomEnergyCost,
+          is_custom_energy_cost: injectionPrompt.isCustomEnergyCost, // NEW: Pass custom energy cost flag
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -880,7 +862,7 @@ const SchedulerPage: React.FC = () => {
           is_critical: retiredTask.is_critical,
           is_flexible: true,
           energy_cost: retiredTask.energy_cost,
-          is_custom_energy_cost: retiredTask.is_custom_energy_cost,
+          is_custom_energy_cost: retiredTask.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -982,7 +964,7 @@ const SchedulerPage: React.FC = () => {
                 energy_cost: task.energy_cost,
                 source: 'scheduled',
                 originalId: task.id,
-                is_custom_energy_cost: task.is_custom_energy_cost,
+                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
             });
             scheduledTaskIdsToDelete.push(task.id);
         });
@@ -998,7 +980,7 @@ const SchedulerPage: React.FC = () => {
                 energy_cost: task.energy_cost,
                 source: 'retired',
                 originalId: task.id,
-                is_custom_energy_cost: task.is_custom_energy_cost,
+                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
             });
             retiredTaskIdsToDelete.push(task.id);
         });
@@ -1026,7 +1008,7 @@ const SchedulerPage: React.FC = () => {
                 is_locked: task.is_locked,
                 energy_cost: task.energy_cost,
                 is_completed: task.is_completed,
-                is_custom_energy_cost: task.is_custom_energy_cost,
+                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
             });
         });
         console.log("handleAutoScheduleSink: Initial tasksToInsert (fixed tasks):", tasksToInsert.map(t => t.name));
@@ -1059,7 +1041,7 @@ const SchedulerPage: React.FC = () => {
                 is_critical: task.is_critical,
                 is_locked: false,
                 energy_cost: task.energy_cost,
-                is_custom_energy_cost: task.is_custom_energy_cost,
+                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
               });
               console.log(`handleAutoScheduleSink: Critical task "${task.name}" skipped due to low energy, moved to sink.`);
               continue;
@@ -1095,7 +1077,7 @@ const SchedulerPage: React.FC = () => {
                             is_locked: false,
                             energy_cost: task.energy_cost,
                             is_completed: false,
-                            is_custom_energy_cost: task.is_custom_energy_cost,
+                            is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
                         });
 
                         currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
@@ -1120,7 +1102,7 @@ const SchedulerPage: React.FC = () => {
                     is_critical: task.is_critical,
                     is_locked: false,
                     energy_cost: task.energy_cost,
-                    is_custom_energy_cost: task.is_custom_energy_cost,
+                    is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
                 });
                 console.log(`handleAutoScheduleSink: Flexible task "${task.name}" could not be placed, moved to sink.`);
             }
@@ -1207,25 +1189,25 @@ const SchedulerPage: React.FC = () => {
         energy_cost: task.energy_cost,
         source: 'scheduled',
         originalId: task.id,
-        is_custom_energy_cost: task.is_custom_energy_cost,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
-      scheduledTaskIdsToDelete.push(task.id);
+      scheduledTaskIdsToDelete.push(task.id); // Mark for deletion from schedule
     });
 
     unlockedRetiredTasks.forEach(task => {
       unifiedPool.push({
         id: task.id,
         name: task.name,
-        duration: task.duration || 30,
+        duration: task.duration || 30, // Default to 30 if duration is null
         break_duration: task.break_duration,
         is_critical: task.is_critical,
         is_flexible: true,
         energy_cost: task.energy_cost,
         source: 'retired',
         originalId: task.id,
-        is_custom_energy_cost: task.is_custom_energy_cost,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
-      retiredTaskIdsToDelete.push(task.id);
+      retiredTaskIdsToDelete.push(task.id); // Mark for deletion from sink
     });
 
     if (unifiedPool.length === 0) {
@@ -1252,9 +1234,9 @@ const SchedulerPage: React.FC = () => {
     } else if (newSortBy === 'PRIORITY_HIGH_TO_LOW') {
       const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
       sortedUnifiedPool.sort((a, b) => {
-        const priorityA = a.is_critical ? 'HIGH' : 'MEDIUM';
+        const priorityA = a.is_critical ? 'HIGH' : 'MEDIUM'; // Assuming non-critical flexible tasks are MEDIUM
         const priorityB = b.is_critical ? 'HIGH' : 'MEDIUM';
-        const priorityDiff = priorityOrder[priorityB] - priorityOrder[priorityA];
+        const priorityDiff = priorityOrder[priorityB] - priorityOrder[priorityA]; // High to Low
         if (priorityDiff !== 0) return priorityDiff;
         // Secondary sort by duration (longest first) for stability within priority
         const durationA = (a.duration || 0) + (a.break_duration || 0);
@@ -1266,7 +1248,7 @@ const SchedulerPage: React.FC = () => {
       sortedUnifiedPool.sort((a, b) => {
         const priorityA = a.is_critical ? 'HIGH' : 'MEDIUM';
         const priorityB = b.is_critical ? 'HIGH' : 'MEDIUM';
-        const priorityDiff = priorityOrder[priorityA] - priorityOrder[priorityB];
+        const priorityDiff = priorityOrder[priorityA] - priorityOrder[priorityB]; // Low to High
         if (priorityDiff !== 0) return priorityDiff;
         // Secondary sort by duration (shortest first) for stability within priority
         const durationA = (a.duration || 0) + (a.break_duration || 0);
@@ -1286,25 +1268,25 @@ const SchedulerPage: React.FC = () => {
       // Calculate start and end times based on duration for the purpose of compaction logic
       // These will be overwritten by compactScheduleLogic, but need to be valid for initial calculation
       const taskTotalDuration = (task.duration || 0) + (task.break_duration || 0);
-      const tempStartTime = workdayStartTime;
+      const tempStartTime = workdayStartTime; // Use workdayStartTime as a base
       const tempEndTime = addMinutes(tempStartTime, taskTotalDuration);
 
       return {
-        id: task.id,
+        id: task.id, // Use original ID for potential upsert
         user_id: user.id!,
         name: task.name,
         break_duration: task.break_duration,
-        start_time: tempStartTime.toISOString(),
-        end_time: tempEndTime.toISOString(),
+        start_time: tempStartTime.toISOString(), // Use calculated temp start time
+        end_time: tempEndTime.toISOString(),   // Use calculated temp end time
         scheduled_date: formattedSelectedDay,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: new Date().toISOString(), // Placeholder
+        updated_at: new Date().toISOString(), // Placeholder
         is_critical: task.is_critical,
         is_flexible: true,
         is_locked: false,
         energy_cost: task.energy_cost,
         is_completed: false,
-        is_custom_energy_cost: task.is_custom_energy_cost,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       };
     });
 
@@ -1313,12 +1295,12 @@ const SchedulerPage: React.FC = () => {
 
     // 5. Compact the schedule with the newly sorted flexible tasks
     const reorganizedTasks = compactScheduleLogic(
-      [...fixedAndLockedScheduledTasks, ...sortedFlexibleTasksForCompaction],
+      [...fixedAndLockedScheduledTasks, ...sortedFlexibleTasksForCompaction], // Pass all tasks to consider for compaction
       selectedDayAsDate,
       workdayStartTime,
       workdayEndTime,
       T_current,
-      sortedFlexibleTasksForCompaction
+      sortedFlexibleTasksForCompaction // These are the ones to actually place
     );
 
     // 6. Construct AutoBalancePayload
@@ -1340,7 +1322,7 @@ const SchedulerPage: React.FC = () => {
         is_locked: task.is_locked,
         energy_cost: task.energy_cost,
         is_completed: task.is_completed,
-        is_custom_energy_cost: task.is_custom_energy_cost,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
     });
 
@@ -1361,7 +1343,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: task.is_locked,
           energy_cost: task.energy_cost,
           is_completed: task.is_completed,
-          is_custom_energy_cost: task.is_custom_energy_cost,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       }
     });
@@ -1380,7 +1362,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: task.energy_cost,
           is_completed: false,
-          is_custom_energy_cost: task.is_custom_energy_cost,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
         // Also mark for deletion from their original source if they were scheduled
         if (task.source === 'scheduled') {
@@ -1392,16 +1374,16 @@ const SchedulerPage: React.FC = () => {
     });
 
     const payload: AutoBalancePayload = {
-      scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
-      retiredTaskIdsToDelete: retiredTaskIdsToDelete,
-      tasksToInsert: tasksToInsert,
-      tasksToKeepInSink: tasksToKeepInSink,
+      scheduledTaskIdsToDelete: scheduledTaskIdsToDelete, // All flexible, unlocked tasks from original schedule
+      retiredTaskIdsToDelete: retiredTaskIdsToDelete,     // All unlocked tasks from original sink
+      tasksToInsert: tasksToInsert,                       // All tasks that should be in the schedule after this operation
+      tasksToKeepInSink: tasksToKeepInSink,               // All tasks that couldn't be placed and should remain in sink
       selectedDate: formattedSelectedDay,
     };
 
     await autoBalanceSchedule(payload);
     showSuccess("Flexible tasks sorted and schedule re-balanced!");
-    setSortBy(newSortBy);
+    setSortBy(newSortBy); // Update the local sort state
     setIsProcessingCommand(false);
   };
 
@@ -1438,7 +1420,7 @@ const SchedulerPage: React.FC = () => {
       isFlexible: true,
       energyCost: calculateEnergyCost(30, false),
       breakDuration: undefined,
-      isCustomEnergyCost: false,
+      isCustomEnergyCost: false, // Default to false for new task
     });
     setInjectionDuration('30');
     setInjectionBreak('');
@@ -1458,7 +1440,7 @@ const SchedulerPage: React.FC = () => {
       isFlexible: false,
       energyCost: 0,
       breakDuration: undefined,
-      isCustomEnergyCost: false,
+      isCustomEnergyCost: false, // Time Off has no custom energy cost
     });
     setInjectionStartTime(format(T_current, 'h:mm a'));
     setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -1480,7 +1462,7 @@ const SchedulerPage: React.FC = () => {
     try {
       await completeScheduledTask(taskToComplete);
       showSuccess(`Task "${taskToComplete.name}" completed!`);
-      setIsFocusModeActive(false);
+      setIsFocusModeActive(false); // Exit focus mode on completion
     } catch (error: any) {
       showError(`Failed to complete task: ${error.message}`);
       console.error("Complete scheduled task error:", error);
@@ -1492,7 +1474,7 @@ const SchedulerPage: React.FC = () => {
   const handleRefreshSchedule = () => {
     queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user?.id, formattedSelectedDay, sortBy] });
     queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id, retiredSortBy] });
+    queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id, retiredSortBy] }); // NEW: Update queryKey
     showSuccess("Schedule refreshed!");
   };
 
@@ -1523,7 +1505,7 @@ const SchedulerPage: React.FC = () => {
           energy_cost: task.energy_cost,
           source: 'scheduled',
           originalId: task.id,
-          is_custom_energy_cost: task.is_custom_energy_cost,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       });
 
@@ -1531,14 +1513,14 @@ const SchedulerPage: React.FC = () => {
         unifiedPool.push({
           id: task.id,
           name: task.name,
-          duration: task.duration || 30,
+          duration: task.duration || 30, // Default to 30 if duration is null
           break_duration: task.break_duration,
           is_critical: task.is_critical,
           is_flexible: true,
           energy_cost: task.energy_cost,
           source: 'retired',
           originalId: task.id,
-          is_custom_energy_cost: task.is_custom_energy_cost,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       });
 
@@ -1555,8 +1537,8 @@ const SchedulerPage: React.FC = () => {
 
         // Primary sort: Critical tasks if energy is high
         if (isProfileEnergyHigh) {
-          if (a.is_critical && !b.is_critical) return -1;
-          if (!a.is_critical && b.is_critical) return 1;
+          if (a.is_critical && !b.is_critical) return -1; // Critical comes before non-critical
+          if (!a.is_critical && b.is_critical) return 1;  // Non-critical comes after critical
         }
         
         // Secondary sort: Duration based on preference
@@ -1564,9 +1546,9 @@ const SchedulerPage: React.FC = () => {
         const durationB = (b.duration || 0) + (b.break_duration || 0);
 
         if (sortPreference === 'longestFirst') {
-          return durationB - durationA;
+          return durationB - durationA; // Descending for longest first
         } else { // 'shortestFirst'
-          return durationA - durationB;
+          return durationA - durationB; // Ascending for shortest first
         }
       });
 
@@ -1579,11 +1561,14 @@ const SchedulerPage: React.FC = () => {
         const taskTotalDuration = (task.duration || 0) + (task.break_duration || 0);
         
         // Only add if it fits within the target duration + buffer
-        if (currentBlockDuration + taskTotalDuration <= duration + 15) {
+        if (currentBlockDuration + taskTotalDuration <= duration + 15) { // Allow slight overflow for fitting
           tasksForBlock.push(task);
           currentBlockDuration += taskTotalDuration;
           blockNameParts.push(task.name);
         }
+        // Removed: if (currentBlockDuration >= duration) break;
+        // This allows it to continue adding smaller tasks even if the target duration is met,
+        // as long as it's within the +15 buffer, maximizing tasks.
       }
 
       if (tasksForBlock.length === 0) {
@@ -1600,10 +1585,10 @@ const SchedulerPage: React.FC = () => {
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
         combinedBlockName,
         currentBlockDuration,
-        false,
-        true,
-        0,
-        [...occupiedBlocks],
+        false, // The block itself is not critical, individual tasks might be
+        true,  // The block is flexible
+        0,     // Energy cost will be handled by individual task completion
+        [...occupiedBlocks], // Pass a copy of current occupied blocks
         effectiveWorkdayStart,
         workdayEndTime
       );
@@ -1634,7 +1619,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: task.is_locked,
           energy_cost: task.energy_cost,
           is_completed: task.is_completed,
-          is_custom_energy_cost: task.is_custom_energy_cost,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       });
 
@@ -1646,18 +1631,18 @@ const SchedulerPage: React.FC = () => {
         const taskEndTime = addMinutes(currentSlotTime, totalTaskDuration);
 
         tasksToInsert.push({
-          id: task.id,
+          id: task.id, // Use original ID for upsert
           name: task.name,
           start_time: currentSlotTime.toISOString(),
           end_time: taskEndTime.toISOString(),
           break_duration: task.break_duration,
           scheduled_date: formattedSelectedDay,
           is_critical: task.is_critical,
-          is_flexible: true,
+          is_flexible: true, // These are now scheduled as flexible tasks
           is_locked: false,
           energy_cost: task.energy_cost,
           is_completed: false,
-          is_custom_energy_cost: task.is_custom_energy_cost,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
         currentSlotTime = taskEndTime;
 
@@ -1681,7 +1666,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: task.energy_cost,
           is_completed: false,
-          is_custom_energy_cost: task.is_custom_energy_cost,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
         // Also mark for deletion from their original source if they were scheduled
         if (task.source === 'scheduled') {
@@ -1711,14 +1696,38 @@ const SchedulerPage: React.FC = () => {
     }
   }, [user, profile, dbScheduledTasks, retiredTasks, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, formattedSelectedDay, selectedDayAsDate, autoBalanceSchedule]);
 
+  const activeItem: ScheduledItem | null = useMemo(() => {
+    if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
+    for (const item of currentSchedule.items) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
+        return item;
+      }
+    }
+    return null;
+  }, [currentSchedule, T_current, selectedDay]);
+
+  const activeDbTask: DBScheduledTask | null = useMemo(() => {
+    if (!activeItem || !currentSchedule) return null;
+    return currentSchedule.dbTasks.find(task => task.id === activeItem.id) || null;
+  }, [activeItem, currentSchedule]);
+
+  const nextItem: ScheduledItem | null = useMemo(() => {
+    if (!currentSchedule || !activeItem || !isSameDay(parseISO(selectedDay), T_current)) return null;
+    const activeItemIndex = currentSchedule.items.findIndex(item => item.id === activeItem.id);
+    if (activeItemIndex !== -1 && activeItemIndex < currentSchedule.items.length - 1) {
+      for (let i = activeItemIndex + 1; i < currentSchedule.items.length; i++) {
+        const item = currentSchedule.items[i];
+        if (item.type === 'task' || item.type === 'break' || item.type === 'time-off') {
+          return item;
+        }
+      }
+    }
+    return null;
+  }, [currentSchedule, activeItem, T_current, selectedDay]);
+
+
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
-
-  // Derive activeDbTask from dbScheduledTasks using activeItemToday's ID
-  const activeDbTask = useMemo(() => {
-    if (!activeItemToday || !dbScheduledTasks) return null;
-    return dbScheduledTasks.find(task => task.id === activeItemToday.id) || null;
-  }, [activeItemToday, dbScheduledTasks]);
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
@@ -1726,9 +1735,9 @@ const SchedulerPage: React.FC = () => {
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>
 
-      {isFocusModeActive && activeItemToday && activeDbTask ? (
+      {isFocusModeActive && activeItem && activeDbTask ? (
         <ImmersiveFocusMode
-          activeItem={activeItemToday}
+          activeItem={activeItem}
           T_current={T_current}
           onExit={() => setIsFocusModeActive(false)}
           onComplete={handleCompleteScheduledTask}
@@ -1794,11 +1803,10 @@ const SchedulerPage: React.FC = () => {
           {isSameDay(parseISO(selectedDay), T_current) && (
             <div className="pb-4 animate-slide-in-up">
               <NowFocusCard 
-                ref={nowFocusCardRef} // Pass the ref here
-                activeItem={activeItemToday} 
-                nextItem={nextItemToday} 
+                activeItem={activeItem} 
+                nextItem={nextItem} 
                 T_current={T_current} 
-                onEnterFocusMode={() => setIsFocusModeActive(true)}
+                onEnterFocusMode={() => setIsFocusModeActive(true)} // NEW: Pass handler
               />
             </div>
           )}
@@ -1847,7 +1855,7 @@ const SchedulerPage: React.FC = () => {
                       onRemoveTask={removeScheduledTask} 
                       onRetireTask={handleManualRetire}
                       onCompleteTask={handleCompleteScheduledTask}
-                      activeItemId={activeItemToday?.id || null} 
+                      activeItemId={activeItem?.id || null} 
                       selectedDayString={selectedDay} 
                       onAddTaskClick={handleAddTaskClick}
                     />
@@ -1865,8 +1873,8 @@ const SchedulerPage: React.FC = () => {
                 isLoading={isLoadingRetiredTasks}
                 isProcessingCommand={isProcessingCommand}
                 profileEnergy={profile?.energy || 0}
-                retiredSortBy={retiredSortBy}
-                setRetiredSortBy={setRetiredSortBy}
+                retiredSortBy={retiredSortBy} // NEW: Pass retiredSortBy
+                setRetiredSortBy={setRetiredSortBy} // NEW: Pass setRetiredSortBy
               />
             </TabsContent>
           </Tabs>

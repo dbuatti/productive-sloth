@@ -15,8 +15,7 @@ import AchievementsPage from "./pages/AchievementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SchedulerPage from "./pages/SchedulerPage";
-import DocumentationPage from "./pages/DocumentationPage";
-import { UIProvider } from "@/contexts/UIContext"; // Corrected import path
+import DocumentationPage from "./pages/DocumentationPage"; // Import DocumentationPage
 
 const queryClient = new QueryClient();
 
@@ -28,22 +27,20 @@ const App = () => (
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <SessionProvider>
-              <UIProvider>
-                <MainLayout>
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/tasks" element={<TasksPage />} />
-                    <Route path="/analytics" element={<AnalyticsPage />} />
-                    <Route path="/achievements" element={<AchievementsPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/scheduler" element={<SchedulerPage />} />
-                    <Route path="/documentation" element={<DocumentationPage />} />
-                    <Route path="/login" element={<Login />} />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </MainLayout>
-              </UIProvider>
+              <MainLayout>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/tasks" element={<TasksPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/achievements" element={<AchievementsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/scheduler" element={<SchedulerPage />} />
+                  <Route path="/documentation" element={<DocumentationPage />} /> {/* New route for documentation */}
+                  <Route path="/login" element={<Login />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </MainLayout>
             </SessionProvider>
           </BrowserRouter>
         </React.Fragment>

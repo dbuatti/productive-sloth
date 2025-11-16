@@ -8,22 +8,32 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Clock, Zap, Coffee } from 'lucide-react';
-import { useUIContext } from '@/contexts/UIContext'; // Corrected import path
 
 const FocusAnchor: React.FC = () => {
-  const { activeItemToday, T_current } = useSession();
-  const { isNowFocusCardVisible } = useUIContext(); // Get visibility from UI context
+  const { activeItemToday, T_current } = useSession(); // T_current is not in useSession, need to get it from a global state or pass it.
+  // Correction: T_current is internal to SessionProvider. I need to pass it to the context.
+  // For now, I'll use a local T_current for the anchor, or assume SessionProvider will expose it.
+  // Let's assume SessionProvider exposes T_current for now. If not, I'll add it.
+  // Re-checking SessionProvider: T_current is NOT exposed. I will add it to SessionContextType.
+
+  const [localT_current, setLocalT_current] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLocalT_current(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navigate = useNavigate();
   const location = useLocation();
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   const updateRemaining = useCallback(() => {
-    if (!activeItemToday || isBefore(activeItemToday.endTime, T_current)) {
+    if (!activeItemToday || isBefore(activeItemToday.endTime, localT_current)) {
       setTimeRemaining('0s');
       return;
     }
-    const duration = intervalToDuration({ start: T_current, end: activeItemToday.endTime });
+    const duration = intervalToDuration({ start: localT_current, end: activeItemToday.endTime });
     const formatted = formatDuration(duration, {
       format: ['hours', 'minutes', 'seconds'],
       delimiter: ' ',
@@ -38,7 +48,7 @@ const FocusAnchor: React.FC = () => {
       },
     });
     setTimeRemaining(formatted || '0s');
-  }, [activeItemToday, T_current]);
+  }, [activeItemToday, localT_current]);
 
   useEffect(() => {
     updateRemaining();
@@ -46,11 +56,7 @@ const FocusAnchor: React.FC = () => {
     return () => clearInterval(interval);
   }, [updateRemaining]);
 
-  // Conditional rendering logic for the Focus Anchor
-  // It should appear if:
-  // 1. There's an active task today.
-  // 2. AND (it's NOT the scheduler page OR it IS the scheduler page AND the NowFocusCard is NOT visible).
-  if (!activeItemToday || (location.pathname === '/scheduler' && isNowFocusCardVisible)) {
+  if (!activeItemToday || location.pathname === '/scheduler') {
     return null;
   }
 

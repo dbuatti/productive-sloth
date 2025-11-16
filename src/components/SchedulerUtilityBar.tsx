@@ -187,7 +187,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 <p>Quick Schedule a Focus Block</p>
               </TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="start" className="p-2 space-y-2"> {/* Added padding and space-y */}
+            <DropdownMenuContent className="p-2 space-y-2 w-max"> {/* Removed align="start" and added w-max */}
               <DropdownMenuLabel className="text-center">Schedule Focus Block</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {quickBlockDurations.map(duration => (

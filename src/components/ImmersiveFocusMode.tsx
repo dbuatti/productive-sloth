@@ -14,26 +14,24 @@ interface ImmersiveFocusModeProps {
   activeItem: ScheduledItem;
   T_current: Date;
   onExit: () => void;
-  onComplete: (task: DBScheduledTask, isEarlyCompletion: boolean) => void; // MODIFIED: Added isEarlyCompletion flag
-  onSkip: (task: DBScheduledTask) => void;
+  onAction: (action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'exitFocus', task: DBScheduledTask, isEarlyCompletion: boolean, remainingDurationMinutes?: number) => void; // MODIFIED: Centralized action handler
   dbTask: DBScheduledTask | null;
-  nextItem: ScheduledItem | null; // NEW: Pass nextItem to determine if "Start Next Task Now" is available
-  isProcessingCommand: boolean; // NEW: Pass processing state
+  nextItem: ScheduledItem | null; 
+  isProcessingCommand: boolean; 
 }
 
 const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   activeItem,
   T_current,
-  onExit,
-  onComplete,
-  onSkip,
+  onExit, // This is now specifically for the 'Exit Focus' button
+  onAction, // NEW: Centralized action handler
   dbTask,
-  nextItem, // NEW
-  isProcessingCommand, // NEW
+  nextItem, 
+  isProcessingCommand, 
 }) => {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
-  const [showEarlyCompletionModal, setShowEarlyCompletionModal] = useState(false); // NEW: State for modal
-  const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0); // NEW: State for remaining time
+  const [showEarlyCompletionModal, setShowEarlyCompletionModal] = useState(false); 
+  const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0); 
 
   const updateRemaining = useCallback(() => {
     if (!activeItem || isBefore(activeItem.endTime, T_current)) {
@@ -60,14 +58,19 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   useEffect(() => {
     updateRemaining(); // Initial update
     const interval = setInterval(updateRemaining, 1000); // Update every second
+
+    // If activeItem changes, reset early completion modal state
+    setShowEarlyCompletionModal(false);
+    setEarlyCompletionRemainingMinutes(0);
+
     return () => clearInterval(interval);
-  }, [updateRemaining]);
+  }, [updateRemaining, activeItem]); // Added activeItem to dependencies to reset modal state
 
   // Effect for Escape key to exit focus mode
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onExit();
+        onAction('exitFocus', dbTask!, false); // Use onAction to exit
       }
     };
 
@@ -75,7 +78,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onExit]);
+  }, [onAction, dbTask]);
 
   if (!activeItem || !dbTask) {
     return (
@@ -83,7 +86,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
         <div className="text-center text-muted-foreground">
           <Clock className="h-12 w-12 mx-auto mb-4 animate-pulse" />
           <p className="text-xl font-semibold">No active task to focus on.</p>
-          <Button onClick={onExit} className="mt-6">
+          <Button onClick={() => onAction('exitFocus', dbTask!, false)} className="mt-6"> {/* Use onAction to exit */}
             Back to Scheduler
           </Button>
         </div>
@@ -96,9 +99,8 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
     if (remainingMinutes > 0) {
       setEarlyCompletionRemainingMinutes(remainingMinutes);
       setShowEarlyCompletionModal(true);
-      onComplete(dbTask, true); // Notify parent that completion is early
     } else {
-      onComplete(dbTask, false); // On-time or late completion
+      onAction('complete', dbTask, false); // On-time or late completion
     }
   };
 
@@ -115,7 +117,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={onExit}
+            onClick={() => onAction('exitFocus', dbTask, false)} // Use onAction to exit
             className="absolute top-4 left-4 h-10 w-10 text-muted-foreground hover:text-primary hover:bg-secondary/50 transition-all duration-200"
           >
             <X className="h-6 w-6" />
@@ -158,7 +160,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={handleCompleteClick} // MODIFIED: Call new handler
+                onClick={handleCompleteClick} 
                 disabled={dbTask.is_locked || isProcessingCommand}
                 className={cn(
                   "h-12 px-6 text-lg font-semibold bg-logo-green text-primary-foreground hover:bg-logo-green/90 transition-all duration-200",
@@ -178,7 +180,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              onClick={() => onSkip(dbTask)}
+              onClick={() => onAction('skip', dbTask, false)} // Use onAction to skip
               disabled={dbTask.is_locked || isProcessingCommand}
               className={cn(
                 "h-12 px-6 text-lg font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-200",
@@ -202,8 +204,8 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
         onOpenChange={setShowEarlyCompletionModal}
         taskName={activeItem.name}
         remainingDurationMinutes={earlyCompletionRemainingMinutes}
-        onTakeBreak={() => onComplete(dbTask, false)} // When taking a break, the original task is fully completed (not early anymore)
-        onStartNextTask={() => onComplete(dbTask, false)} // When starting next task, original task is fully completed
+        onTakeBreak={() => onAction('takeBreak', dbTask, true, earlyCompletionRemainingMinutes)} // Use onAction for break
+        onStartNextTask={() => onAction('startNext', dbTask, true)} // Use onAction for next task
         isProcessingCommand={isProcessingCommand}
         hasNextTask={!!nextItem}
       />

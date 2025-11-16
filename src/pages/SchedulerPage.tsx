@@ -419,6 +419,7 @@ const SchedulerPage: React.FC = () => {
       showSuccess('Unlocked tasks cleared for today!');
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
     }
 
     setIsProcessingCommand(false);
@@ -626,6 +627,7 @@ const SchedulerPage: React.FC = () => {
                 !(block.start.getTime() === parseISO(taskToRemove.start_time!).getTime() && 
                   block.end.getTime() === parseISO(taskToRemove.end_time!).getTime())
               );
+              queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
               success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
@@ -647,6 +649,7 @@ const SchedulerPage: React.FC = () => {
                 );
               }
               showSuccess(`Removed tasks matching "${command.target}".`);
+              queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
               success = true;
             } else {
               showError(`No tasks found matching "${command.target}".`);
@@ -684,10 +687,12 @@ const SchedulerPage: React.FC = () => {
         case 'aether dump':
         case 'reset schedule':
           await aetherDump();
+          queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
           success = true;
           break;
         case 'aether dump mega':
           await aetherDumpMega();
+          queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
           success = true;
           break;
         default:
@@ -827,6 +832,7 @@ const SchedulerPage: React.FC = () => {
       setInjectionStartTime('');
       setInjectionEndTime('');
       setInputValue('');
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
     }
     setIsProcessingCommand(false);
   };
@@ -878,6 +884,7 @@ const SchedulerPage: React.FC = () => {
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
         showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
       } else {
         showError(message);
       }
@@ -900,8 +907,9 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     await retireTask(taskToRetire);
+    queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
     setIsProcessingCommand(false);
-    setIsFocusModeActive(false); // Exit focus mode on skip/retire
+    // setIsFocusModeActive(false); // REMOVED: Now handled by handleSchedulerAction
   };
 
   const handleRemoveRetiredTask = async (retiredTaskId: string) => {
@@ -1137,6 +1145,7 @@ const SchedulerPage: React.FC = () => {
         });
 
         await autoBalanceSchedule(payload);
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
 
     } catch (error: any) {
         showError(`Failed to auto-balance schedule: ${error.message}`);
@@ -1167,6 +1176,7 @@ const SchedulerPage: React.FC = () => {
     if (compactedTasks.length > 0) {
       await compactScheduledTasks({ tasksToUpdate: compactedTasks });
       showSuccess("Schedule compacted!");
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
     } else {
       showError("No flexible tasks to compact or no space available.");
     }
@@ -1294,8 +1304,8 @@ const SchedulerPage: React.FC = () => {
         created_at: new Date().toISOString(), // Placeholder
         updated_at: new Date().toISOString(), // Placeholder
         is_critical: task.is_critical,
-        is_flexible: true,
-        is_locked: false,
+        is_flexible: true, // These are always flexible for this operation
+        is_locked: false, // These are always unlocked for this operation
         energy_cost: task.energy_cost,
         is_completed: false,
         is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
@@ -1393,9 +1403,11 @@ const SchedulerPage: React.FC = () => {
       selectedDate: formattedSelectedDay,
     };
 
+    console.log("handleSortFlexibleTasks: Final payload for autoBalanceSchedule mutation:", payload);
     await autoBalanceSchedule(payload);
     showSuccess("Flexible tasks sorted and schedule re-balanced!");
     setSortBy(newSortBy); // Update the local sort state
+    queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
     setIsProcessingCommand(false);
   };
 
@@ -1417,6 +1429,7 @@ const SchedulerPage: React.FC = () => {
       currentDbTasks: dbScheduledTasks,
     });
 
+    queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
     setIsProcessingCommand(false);
   };
 
@@ -1461,128 +1474,116 @@ const SchedulerPage: React.FC = () => {
     setInputValue('');
   };
 
-  // MODIFIED: handleCompleteScheduledTask now takes an `isEarlyCompletion` flag
-  const handleCompleteScheduledTask = async (taskToComplete: DBScheduledTask, isEarlyCompletion: boolean) => {
+  // NEW: Centralized handler for all scheduler actions (complete, skip, take break, start next, exit focus)
+  const handleSchedulerAction = useCallback(async (
+    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'exitFocus',
+    task: DBScheduledTask,
+    isEarlyCompletion: boolean = false,
+    remainingDurationMinutes: number = 0, // Only relevant for 'takeBreak'
+  ) => {
     if (!user) {
-      showError("You must be logged in to complete tasks.");
+      showError("You must be logged in to perform this action.");
       return;
     }
-    if (taskToComplete.is_locked) {
-      showError(`Cannot complete locked task "${taskToComplete.name}". Unlock it first.`);
+    if (task.is_locked && action !== 'exitFocus') { // Allow exiting locked tasks
+      showError(`Cannot perform action on locked task "${task.name}". Unlock it first.`);
       return;
     }
     setIsProcessingCommand(true);
-    try {
-      await completeScheduledTaskMutation(taskToComplete); // This mutation handles XP/Energy/Profile updates
 
-      if (isEarlyCompletion) {
-        // If early, just update profile and show modal. Actual task removal/shifting happens via modal actions.
-        setEarlyCompletionTaskName(taskToComplete.name);
-        setEarlyCompletionRemainingMinutes(differenceInMinutes(parseISO(taskToComplete.end_time!), T_current));
-        setEarlyCompletionDbTask(taskToComplete);
-        setShowEarlyCompletionModal(true);
-      } else {
-        // If on-time/late, proceed with task removal/status update
-        if (taskToComplete.is_flexible) {
-          await removeScheduledTask(taskToComplete.id);
+    try {
+      if (action === 'complete') {
+        await completeScheduledTaskMutation(task); // Handles XP/Energy/Profile updates
+        if (task.is_flexible) {
+          await removeScheduledTask(task.id);
         } else {
-          await updateScheduledTaskStatus({ taskId: taskToComplete.id, isCompleted: true });
+          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
-        showSuccess(`Task "${taskToComplete.name}" completed!`);
-        setIsFocusModeActive(false); // Exit focus mode on completion
-      }
-    } catch (error: any) {
-      showError(`Failed to complete task: ${error.message}`);
-      console.error("Complete scheduled task error:", error);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  };
+        showSuccess(`Task "${task.name}" completed!`);
+        // DO NOT exit focus mode here, ImmersiveFocusMode will re-render with the new active task
+      } else if (action === 'skip') {
+        await handleManualRetire(task); // This already handles retiring
+        showSuccess(`Task "${task.name}" skipped and moved to Aether Sink.`);
+        setIsFocusModeActive(false); // Ensure exit
+      } else if (action === 'takeBreak') {
+        // Create break task
+        const breakDuration = remainingDurationMinutes;
+        const breakStartTime = T_current;
+        const breakEndTime = addMinutes(breakStartTime, breakDuration);
 
-  // NEW: Handler for "Take a Break" from EarlyCompletionModal
-  const handleTakeBreakAfterEarlyCompletion = async () => {
-    if (!user || !earlyCompletionDbTask) return;
-    setIsProcessingCommand(true);
-    try {
-      const breakDuration = earlyCompletionRemainingMinutes;
-      const breakStartTime = T_current;
-      const breakEndTime = addMinutes(breakStartTime, breakDuration);
+        await addScheduledTask({
+          name: 'Flow Break',
+          start_time: breakStartTime.toISOString(),
+          end_time: breakEndTime.toISOString(),
+          break_duration: breakDuration,
+          scheduled_date: formattedSelectedDay,
+          is_critical: false,
+          is_flexible: false, // Fixed break
+          is_locked: true, // Locked break
+          energy_cost: 0, // Breaks have no energy cost
+          is_custom_energy_cost: false,
+        });
 
-      await addScheduledTask({
-        name: 'Flow Break',
-        start_time: breakStartTime.toISOString(),
-        end_time: breakEndTime.toISOString(),
-        break_duration: breakDuration,
-        scheduled_date: formattedSelectedDay,
-        is_critical: false,
-        is_flexible: false, // Fixed break
-        is_locked: true, // Locked break
-        energy_cost: 0, // Breaks have no energy cost
-        is_custom_energy_cost: false,
-      });
+        // Now remove/update the original task
+        if (task.is_flexible) {
+          await removeScheduledTask(task.id);
+        } else {
+          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
+        }
+        showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
+        // DO NOT exit focus mode here, ImmersiveFocusMode will re-render with the new active break task
+      } else if (action === 'startNext') {
+        if (!nextItemToday) {
+          showError("No next task available to start early.");
+          return;
+        }
+        // 1. Update the next task's start/end times
+        const newNextTaskStartTime = T_current;
+        // FIX: nextItemToday.endTime and nextItemToday.startTime are already Date objects
+        const nextTaskDuration = differenceInMinutes(nextItemToday.endTime, nextItemToday.startTime);
+        const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextTaskDuration);
 
-      // Now remove/update the original task
-      if (earlyCompletionDbTask.is_flexible) {
-        await removeScheduledTask(earlyCompletionDbTask.id);
-      } else {
-        await updateScheduledTaskStatus({ taskId: earlyCompletionDbTask.id, isCompleted: true });
-      }
+        await updateScheduledTaskDetails({
+          id: nextItemToday.id,
+          start_time: newNextTaskStartTime.toISOString(),
+          end_time: newNextTaskEndTime.toISOString(),
+        });
 
-      showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
-      setShowEarlyCompletionModal(false);
-      setIsFocusModeActive(false);
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // Invalidate for SessionProvider
-    } catch (error: any) {
-      showError(`Failed to take a break: ${error.message}`);
-      console.error("Take break error:", error);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  };
+        // 2. Remove/update the original task
+        if (task.is_flexible) {
+          await removeScheduledTask(task.id);
+        } else {
+          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
+        }
 
-  // NEW: Handler for "Start Next Task Now" from EarlyCompletionModal
-  const handleStartNextTaskAfterEarlyCompletion = async () => {
-    if (!user || !earlyCompletionDbTask || !nextItemToday) return;
-    setIsProcessingCommand(true);
-    try {
-      // 1. Update the next task's start/end times
-      const newNextTaskStartTime = T_current;
-      const nextTaskDuration = differenceInMinutes(nextItemToday.endTime, nextItemToday.startTime);
-      const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextTaskDuration);
+        // 3. Re-compact the schedule to shift subsequent tasks
+        await handleCompactSchedule(); // Re-use existing compact logic
 
-      await updateScheduledTaskDetails({
-        id: nextItemToday.id,
-        start_time: newNextTaskStartTime.toISOString(),
-        end_time: newNextTaskEndTime.toISOString(),
-      });
-
-      // 2. Remove/update the original task
-      if (earlyCompletionDbTask.is_flexible) {
-        await removeScheduledTask(earlyCompletionDbTask.id);
-      } else {
-        await updateScheduledTaskStatus({ taskId: earlyCompletionDbTask.id, isCompleted: true });
+        showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
+        // DO NOT exit focus mode here, ImmersiveFocusMode will re-render with the new active next task
+      } else if (action === 'exitFocus') {
+        setIsFocusModeActive(false);
+        showSuccess("Exited focus mode.");
       }
 
-      // 3. Re-compact the schedule to shift subsequent tasks
-      await handleCompactSchedule(); // Re-use existing compact logic
-
-      showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
-      setShowEarlyCompletionModal(false);
-      setIsFocusModeActive(false);
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // Invalidate for SessionProvider
+      // Invalidate scheduledTasksToday to force SessionProvider to re-evaluate active/next items
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
-      showError(`Failed to start next task early: ${error.message}`);
-      console.error("Start next task early error:", error);
+      showError(`Failed to perform action: ${error.message}`);
+      console.error("Scheduler action error:", error);
     } finally {
       setIsProcessingCommand(false);
+      setShowEarlyCompletionModal(false); // Close modal after any action
+      setEarlyCompletionDbTask(null); // Clear task from modal state
     }
-  };
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient]);
 
 
   const handleRefreshSchedule = () => {
     queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user?.id, formattedSelectedDay, sortBy] });
     queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user?.id] });
     queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id, retiredSortBy] }); // NEW: Update queryKey
+    queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
     showSuccess("Schedule refreshed!");
   };
 
@@ -1795,6 +1796,7 @@ const SchedulerPage: React.FC = () => {
       console.log("handleQuickScheduleBlock: Final payload for autoBalanceSchedule mutation:", payload);
       await autoBalanceSchedule(payload);
       showSuccess(`Quick scheduled a ${currentBlockDuration}-minute block with your tasks!`);
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
 
     } catch (error: any) {
       showError(`Failed to quick schedule block: ${error.message}`);
@@ -1802,7 +1804,7 @@ const SchedulerPage: React.FC = () => {
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, dbScheduledTasks, retiredTasks, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, formattedSelectedDay, selectedDayAsDate, autoBalanceSchedule]);
+  }, [user, profile, dbScheduledTasks, retiredTasks, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, formattedSelectedDay, selectedDayAsDate, autoBalanceSchedule, handleCompactSchedule]);
 
   // REMOVED: activeItem and nextItem calculation, now from useSession
   // const activeItem: ScheduledItem | null = useMemo(() => {
@@ -1848,18 +1850,17 @@ const SchedulerPage: React.FC = () => {
         <ImmersiveFocusMode
           activeItem={activeItemToday}
           T_current={T_current}
-          onExit={() => setIsFocusModeActive(false)}
-          onComplete={handleCompleteScheduledTask}
-          onSkip={handleManualRetire}
+          onExit={() => handleSchedulerAction('exitFocus', currentSchedule.dbTasks.find(t => t.id === activeItemToday.id)!)}
+          onAction={handleSchedulerAction} // NEW: Pass the centralized action handler
           dbTask={currentSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null}
-          nextItem={nextItemToday} // NEW: Pass nextItemToday
-          isProcessingCommand={isProcessingCommand} // NEW: Pass processing state
+          nextItem={nextItemToday} 
+          isProcessingCommand={isProcessingCommand} 
         />
       ) : (
         <>
           <SchedulerDashboardPanel 
             scheduleSummary={currentSchedule?.summary || null} 
-            onAetherDump={() => aetherDump()}
+            onAetherDump={() => handleSchedulerAction('skip', activeItemToday ? currentSchedule?.dbTasks.find(t => t.id === activeItemToday.id)! : {} as DBScheduledTask)} // Dummy task if none active
             isProcessingCommand={isProcessingCommand}
             hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
             onRefreshSchedule={handleRefreshSchedule}
@@ -1963,9 +1964,9 @@ const SchedulerPage: React.FC = () => {
                     <SchedulerDisplay 
                       schedule={currentSchedule} 
                       T_current={T_current} 
-                      onRemoveTask={removeScheduledTask} 
-                      onRetireTask={handleManualRetire}
-                      onCompleteTask={(task) => handleCompleteScheduledTask(task, false)} // Pass false for on-time completion from display
+                      onRemoveTask={(taskId) => handleSchedulerAction('skip', dbScheduledTasks.find(t => t.id === taskId)!)} // Use skip action
+                      onRetireTask={(task) => handleSchedulerAction('skip', task)} // Use skip action
+                      onCompleteTask={(task) => handleSchedulerAction('complete', task, false)} // Use complete action
                       activeItemId={activeItemToday?.id || null} 
                       selectedDayString={selectedDay} 
                       onAddTaskClick={handleAddTaskClick}
@@ -1984,8 +1985,8 @@ const SchedulerPage: React.FC = () => {
                 isLoading={isLoadingRetiredTasks}
                 isProcessingCommand={isProcessingCommand}
                 profileEnergy={profile?.energy || 0}
-                retiredSortBy={retiredSortBy} // NEW: Pass retiredSortBy
-                setRetiredSortBy={setRetiredSortBy} // NEW: Pass setRetiredSortBy
+                retiredSortBy={retiredSortBy} 
+                setRetiredSortBy={setRetiredSortBy} 
               />
             </TabsContent>
           </Tabs>
@@ -2100,14 +2101,14 @@ const SchedulerPage: React.FC = () => {
           setShowEarlyCompletionModal(open);
           if (!open) {
             // If modal is closed without action, reset focus mode and task state
-            setIsFocusModeActive(false);
+            // setIsFocusModeActive(false); // REMOVED: Focus mode is now managed by actions
             setEarlyCompletionDbTask(null);
           }
         }}
         taskName={earlyCompletionTaskName}
         remainingDurationMinutes={earlyCompletionRemainingMinutes}
-        onTakeBreak={handleTakeBreakAfterEarlyCompletion}
-        onStartNextTask={handleStartNextTaskAfterEarlyCompletion}
+        onTakeBreak={() => handleSchedulerAction('takeBreak', earlyCompletionDbTask!, true, earlyCompletionRemainingMinutes)}
+        onStartNextTask={() => handleSchedulerAction('startNext', earlyCompletionDbTask!, true)}
         isProcessingCommand={isProcessingCommand}
         hasNextTask={!!nextItemToday}
       />

@@ -16,9 +16,9 @@ import ScheduledTaskDetailSheet from './ScheduledTaskDetailSheet';
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
-  onRemoveTask: (taskId: string) => void;
-  onRetireTask: (task: DBScheduledTask) => void;
-  onCompleteTask: (task: DBScheduledTask) => void;
+  onRemoveTask: (taskId: string) => void; // MODIFIED: This will now trigger the skip action
+  onRetireTask: (task: DBScheduledTask) => void; // MODIFIED: This will now trigger the skip action
+  onCompleteTask: (task: DBScheduledTask) => void; // MODIFIED: This will now trigger the complete action
   activeItemId: string | null;
   selectedDayString: string;
   onAddTaskClick: () => void;
@@ -138,7 +138,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
@@ -170,15 +170,18 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
 
   useEffect(() => {
-    if (activeItemRef.current && containerRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const activeItemRect = activeItemRef.current.getBoundingClientRect();
+    if (activeItemId && containerRef.current) {
+      const activeElement = document.getElementById(`scheduled-item-${activeItemId}`);
+      if (activeElement) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const activeItemRect = activeElement.getBoundingClientRect();
 
-      if (activeItemRect.top < containerRect.top || activeItemRect.bottom > containerRect.bottom) {
-        activeItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (activeItemRect.top < containerRect.top || activeItemRect.bottom > containerRect.bottom) {
+          activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
     }
-  }, [activeItemInDisplay]);
+  }, [activeItemId, finalDisplayItems]); // Re-run when activeItemId changes or display items update
 
   useEffect(() => {
     if (containerRef.current) {
@@ -208,6 +211,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const renderDisplayItem = (item: DisplayItem) => {
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
+    const isHighlightedBySession = activeItemId === item.id; // NEW: Highlight based on session's active item
     const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && item.endTime <= T_current;
 
     if (item.type === 'marker') {
@@ -232,7 +236,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         <React.Fragment key={freeTimeItem.id}>
           <div></div>
           <div 
-            ref={isCurrentlyActive ? activeItemRef : null}
+            id={`scheduled-item-${freeTimeItem.id}`} // NEW: Add ID for scrolling
+            ref={isHighlightedBySession ? activeItemRef : null} // Use isHighlightedBySession
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
               isHighlightedByNowCard ? "opacity-50 border-border" :
@@ -260,7 +265,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     } else {
       const scheduledItem = item as ScheduledItem;
       const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
-      const isHighlightedByNowCard = activeItemId === scheduledItem.id;
+      const isHighlightedBySession = activeItemId === scheduledItem.id; // NEW: Highlight based on session's active item
       const isLocked = scheduledItem.isLocked;
       const isFixed = !scheduledItem.isFlexible;
       const isFixedOrLocked = isFixed || isLocked;
@@ -284,7 +289,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div className="flex items-center justify-end pr-2">
             <span className={cn(
               "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
-              isHighlightedByNowCard ? "bg-primary text-primary-foreground" :
+              isHighlightedBySession ? "bg-primary text-primary-foreground" : // Use isHighlightedBySession
               isActive ? "bg-primary/20 text-primary" :
               isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
@@ -294,11 +299,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           </div>
 
           <div
-            ref={isCurrentlyActive ? activeItemRef : null}
+            id={`scheduled-item-${scheduledItem.id}`} // NEW: Add ID for scrolling
+            ref={isHighlightedBySession ? activeItemRef : null} // Use isHighlightedBySession
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer",
               "border-2",
-              isHighlightedByNowCard ? "opacity-50" :
+              isHighlightedBySession ? "opacity-50" : // Use isHighlightedBySession
               isActive ? "border-live-progress animate-pulse-active-row" :
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border",
               isLocked && "bg-primary/10",

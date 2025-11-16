@@ -14,7 +14,7 @@ import {
   LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
   DAILY_CHALLENGE_TASKS_REQUIRED
 } from '@/lib/constants';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // NEW: Import useQueryClient
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 
@@ -27,6 +27,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [levelUpLevel, setLevelUpLevel] = useState(0);
   const [T_current, setT_current] = useState(new Date()); // Internal T_current for SessionProvider
   const navigate = useNavigate();
+  const queryClient = useQueryClient(); // NEW: Initialize queryClient
 
   // Update T_current every second
   useEffect(() => {

@@ -1257,22 +1257,30 @@ const SchedulerPage: React.FC = () => {
     }
 
     // 3. Convert sorted UnifiedTasks to DBScheduledTask format for compactScheduleLogic
-    const sortedFlexibleTasksForCompaction: DBScheduledTask[] = sortedUnifiedPool.map(task => ({
-      id: task.id, // Use original ID for potential upsert
-      user_id: user.id!,
-      name: task.name,
-      break_duration: task.break_duration,
-      start_time: new Date().toISOString(), // Placeholder, will be overwritten
-      end_time: new Date().toISOString(),   // Placeholder, will be overwritten
-      scheduled_date: formattedSelectedDay,
-      created_at: new Date().toISOString(), // Placeholder
-      updated_at: new Date().toISOString(), // Placeholder
-      is_critical: task.is_critical,
-      is_flexible: true,
-      is_locked: false,
-      energy_cost: task.energy_cost,
-      is_completed: false,
-    }));
+    const sortedFlexibleTasksForCompaction: DBScheduledTask[] = sortedUnifiedPool.map(task => {
+      // Calculate start and end times based on duration for the purpose of compaction logic
+      // These will be overwritten by compactScheduleLogic, but need to be valid for initial calculation
+      const taskTotalDuration = (task.duration || 0) + (task.break_duration || 0);
+      const tempStartTime = workdayStartTime; // Use workdayStartTime as a base
+      const tempEndTime = addMinutes(tempStartTime, taskTotalDuration);
+
+      return {
+        id: task.id, // Use original ID for potential upsert
+        user_id: user.id!,
+        name: task.name,
+        break_duration: task.break_duration,
+        start_time: tempStartTime.toISOString(), // Use calculated temp start time
+        end_time: tempEndTime.toISOString(),   // Use calculated temp end time
+        scheduled_date: formattedSelectedDay,
+        created_at: new Date().toISOString(), // Placeholder
+        updated_at: new Date().toISOString(), // Placeholder
+        is_critical: task.is_critical,
+        is_flexible: true,
+        is_locked: false,
+        energy_cost: task.energy_cost,
+        is_completed: false,
+      };
+    });
 
     // 4. Get fixed/locked tasks that should remain in the schedule
     const fixedAndLockedScheduledTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);

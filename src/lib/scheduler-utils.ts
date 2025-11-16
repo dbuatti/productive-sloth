@@ -523,6 +523,7 @@ export const calculateSchedule = (
       isLocked: task.is_locked, // NEW: Pass is_locked status
       energyCost: task.energy_cost, // NEW: Pass energy_cost
       isCompleted: task.is_completed, // NEW: Pass is_completed status
+      isCustomEnergyCost: task.is_custom_energy_cost, // NEW: Pass is_custom_energy_cost status
     });
     
     if (!isMealTime && !isTimeOff) {
@@ -734,5 +735,6 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
     is_critical: isCritical,
     is_locked: false, // New tasks in sink are not locked by default
     energy_cost: energyCost,
+    is_custom_energy_cost: false, // Default to false for new sink tasks
   };
 };

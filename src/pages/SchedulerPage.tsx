@@ -120,6 +120,7 @@ interface InjectionPromptState {
   isCritical?: boolean;
   isFlexible?: boolean;
   energyCost?: number;
+  isCustomEnergyCost?: boolean; // NEW: Add to injection prompt state
 }
 
 const SchedulerPage: React.FC = () => {
@@ -222,6 +223,7 @@ const SchedulerPage: React.FC = () => {
         isFlexible: true,
         energyCost: calculateEnergyCost(duration, isCritical),
         breakDuration: undefined,
+        isCustomEnergyCost: false, // Default to false when scheduling from tasks
       });
       setInjectionDuration(String(duration));
       navigate(location.pathname, { replace: true, state: {} }); 
@@ -462,6 +464,7 @@ const SchedulerPage: React.FC = () => {
           original_scheduled_date: taskScheduledDate,
           is_critical: parsedInput.isCritical,
           energy_cost: parsedInput.energyCost,
+          is_custom_energy_cost: false, // Default to false for quick add to sink
         };
         await addRetiredTask(newRetiredTask);
         success = true;
@@ -491,6 +494,7 @@ const SchedulerPage: React.FC = () => {
               is_flexible: parsedInput.isFlexible,
               scheduled_date: taskScheduledDate,
               energy_cost: parsedInput.energyCost,
+              is_custom_energy_cost: false, // Default to false for quick add
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -533,7 +537,8 @@ const SchedulerPage: React.FC = () => {
             scheduled_date: taskScheduledDate, 
             is_critical: parsedInput.isCritical, 
             is_flexible: parsedInput.isFlexible, 
-            energy_cost: parsedInput.energyCost
+            energy_cost: parsedInput.energyCost,
+            is_custom_energy_cost: false, // Default to false for quick add
           }); 
           currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -568,6 +573,7 @@ const SchedulerPage: React.FC = () => {
             is_critical: injectCommand.isCritical,
             is_flexible: injectCommand.isFlexible,
             energy_cost: injectCommand.energyCost,
+            is_custom_energy_cost: false, // Default to false for quick add
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -589,6 +595,7 @@ const SchedulerPage: React.FC = () => {
           isFlexible: injectCommand.isFlexible,
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
+          isCustomEnergyCost: false, // Default to false for quick add
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -605,6 +612,7 @@ const SchedulerPage: React.FC = () => {
           isFlexible: injectCommand.isFlexible,
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
+          isCustomEnergyCost: false, // Default to false for quick add
         });
         success = true;
       }
@@ -675,6 +683,7 @@ const SchedulerPage: React.FC = () => {
             isFlexible: false,
             energyCost: 0,
             breakDuration: undefined,
+            isCustomEnergyCost: false, // Time Off has no custom energy cost
           });
           setInjectionStartTime(format(T_current, 'h:mm a'));
           setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -763,7 +772,8 @@ const SchedulerPage: React.FC = () => {
         scheduled_date: taskScheduledDate, 
         is_critical: injectionPrompt.isCritical, 
         is_flexible: injectionPrompt.isFlexible, 
-        energy_cost: calculatedEnergyCost
+        energy_cost: calculatedEnergyCost,
+        is_custom_energy_cost: injectionPrompt.isCustomEnergyCost, // NEW: Pass custom energy cost flag
       }); 
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -808,6 +818,7 @@ const SchedulerPage: React.FC = () => {
           is_critical: injectionPrompt.isCritical,
           is_flexible: injectionPrompt.isFlexible,
           energy_cost: calculatedEnergyCost,
+          is_custom_energy_cost: injectionPrompt.isCustomEnergyCost, // NEW: Pass custom energy cost flag
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -871,6 +882,7 @@ const SchedulerPage: React.FC = () => {
           is_critical: retiredTask.is_critical,
           is_flexible: true,
           energy_cost: retiredTask.energy_cost,
+          is_custom_energy_cost: retiredTask.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -965,6 +977,7 @@ const SchedulerPage: React.FC = () => {
                 energy_cost: task.energy_cost,
                 source: 'scheduled',
                 originalId: task.id,
+                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
             });
             scheduledTaskIdsToDelete.push(task.id);
         });
@@ -980,6 +993,7 @@ const SchedulerPage: React.FC = () => {
                 energy_cost: task.energy_cost,
                 source: 'retired',
                 originalId: task.id,
+                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
             });
             retiredTaskIdsToDelete.push(task.id);
         });
@@ -1007,6 +1021,7 @@ const SchedulerPage: React.FC = () => {
                 is_locked: task.is_locked,
                 energy_cost: task.energy_cost,
                 is_completed: task.is_completed,
+                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
             });
         });
         console.log("handleAutoScheduleSink: Initial tasksToInsert (fixed tasks):", tasksToInsert.map(t => t.name));
@@ -1039,6 +1054,7 @@ const SchedulerPage: React.FC = () => {
                 is_critical: task.is_critical,
                 is_locked: false,
                 energy_cost: task.energy_cost,
+                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
               });
               console.log(`handleAutoScheduleSink: Critical task "${task.name}" skipped due to low energy, moved to sink.`);
               continue;
@@ -1074,6 +1090,7 @@ const SchedulerPage: React.FC = () => {
                             is_locked: false,
                             energy_cost: task.energy_cost,
                             is_completed: false,
+                            is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
                         });
 
                         currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
@@ -1098,6 +1115,7 @@ const SchedulerPage: React.FC = () => {
                     is_critical: task.is_critical,
                     is_locked: false,
                     energy_cost: task.energy_cost,
+                    is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
                 });
                 console.log(`handleAutoScheduleSink: Flexible task "${task.name}" could not be placed, moved to sink.`);
             }
@@ -1184,6 +1202,7 @@ const SchedulerPage: React.FC = () => {
         energy_cost: task.energy_cost,
         source: 'scheduled',
         originalId: task.id,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
       scheduledTaskIdsToDelete.push(task.id); // Mark for deletion from schedule
     });
@@ -1199,6 +1218,7 @@ const SchedulerPage: React.FC = () => {
         energy_cost: task.energy_cost,
         source: 'retired',
         originalId: task.id,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
       retiredTaskIdsToDelete.push(task.id); // Mark for deletion from sink
     });
@@ -1279,6 +1299,7 @@ const SchedulerPage: React.FC = () => {
         is_locked: false,
         energy_cost: task.energy_cost,
         is_completed: false,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       };
     });
 
@@ -1314,6 +1335,7 @@ const SchedulerPage: React.FC = () => {
         is_locked: task.is_locked,
         energy_cost: task.energy_cost,
         is_completed: task.is_completed,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
     });
 
@@ -1334,6 +1356,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: task.is_locked,
           energy_cost: task.energy_cost,
           is_completed: task.is_completed,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       }
     });
@@ -1351,8 +1374,14 @@ const SchedulerPage: React.FC = () => {
           is_critical: task.is_critical,
           is_locked: false,
           energy_cost: task.energy_cost,
-          is_completed: false,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
+        // Also mark for deletion from their original source if they were scheduled
+        if (task.source === 'scheduled') {
+          scheduledTaskIdsToDelete.push(task.originalId);
+        } else {
+          retiredTaskIdsToDelete.push(task.originalId);
+        }
       }
     });
 
@@ -1403,6 +1432,7 @@ const SchedulerPage: React.FC = () => {
       isFlexible: true,
       energyCost: calculateEnergyCost(30, false),
       breakDuration: undefined,
+      isCustomEnergyCost: false, // Default to false for new task
     });
     setInjectionDuration('30');
     setInjectionBreak('');
@@ -1422,6 +1452,7 @@ const SchedulerPage: React.FC = () => {
       isFlexible: false,
       energyCost: 0,
       breakDuration: undefined,
+      isCustomEnergyCost: false, // Time Off has no custom energy cost
     });
     setInjectionStartTime(format(T_current, 'h:mm a'));
     setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -1485,6 +1516,7 @@ const SchedulerPage: React.FC = () => {
           energy_cost: task.energy_cost,
           source: 'scheduled',
           originalId: task.id,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       });
 
@@ -1499,6 +1531,7 @@ const SchedulerPage: React.FC = () => {
           energy_cost: task.energy_cost,
           source: 'retired',
           originalId: task.id,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       });
 
@@ -1597,6 +1630,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: task.is_locked,
           energy_cost: task.energy_cost,
           is_completed: task.is_completed,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       });
 
@@ -1619,6 +1653,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: task.energy_cost,
           is_completed: false,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
         currentSlotTime = taskEndTime;
 
@@ -1642,6 +1677,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: task.energy_cost,
           is_completed: false,
+          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
         // Also mark for deletion from their original source if they were scheduled
         if (task.source === 'scheduled') {

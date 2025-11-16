@@ -66,6 +66,7 @@ export interface DBScheduledTask {
   is_locked: boolean; // NEW: Task Immutability Flag
   energy_cost: number; // NEW: Made energyCost required
   is_completed: boolean; // NEW: Added is_completed for scheduled tasks
+  is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
 }
 
 export interface NewDBScheduledTask {
@@ -80,6 +81,7 @@ export interface NewDBScheduledTask {
   is_locked?: boolean; // NEW: Task Immutability Flag
   energy_cost: number; // NEW: Made energyCost required
   is_completed?: boolean; // NEW: Added is_completed for new scheduled tasks
+  is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
 }
 
 // New types for retired tasks (Aether Sink)
@@ -95,6 +97,7 @@ export interface RetiredTask {
   is_locked: boolean; // NEW: Task Immutability Flag
   energy_cost: number; // NEW: Made energyCost required
   is_completed: boolean; // NEW: Added is_completed
+  is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
   // is_flexible: boolean; // REMOVED: Not present in retired_tasks table
 }
 
@@ -108,6 +111,7 @@ export interface NewRetiredTask {
   is_locked?: boolean; // NEW: Task Immutability Flag
   energy_cost: number; // NEW: Made energyCost required
   is_completed?: boolean; // NEW: Added is_completed
+  is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
   // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
 }
 
@@ -138,6 +142,7 @@ export interface ScheduledItem {
   isLocked?: boolean; // NEW: Task Immutability Flag
   energyCost: number; // NEW: Made energyCost required
   isCompleted: boolean; // NEW: Added isCompleted for scheduled items
+  isCustomEnergyCost: boolean; // NEW: Flag for custom energy cost
 }
 
 export interface ScheduleSummary {
@@ -203,4 +208,5 @@ export interface UnifiedTask {
   energy_cost: number;
   source: 'scheduled' | 'retired';
   originalId: string; // ID in the source table
+  is_custom_energy_cost: boolean; // NEW: Add custom energy cost flag
 }

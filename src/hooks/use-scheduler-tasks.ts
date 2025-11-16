@@ -115,7 +115,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed })));
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost })));
       
       // Client-side sorting for EMOJI
       if (sortBy === 'EMOJI') {
@@ -217,7 +217,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed })));
+      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost })));
       
       // Client-side sorting for EMOJI
       if (retiredSortBy === 'EMOJI') {
@@ -246,7 +246,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false };
+      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false };
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -279,6 +279,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
           is_locked: newTask.is_locked ?? false,
           energy_cost: newTask.energy_cost ?? 0,
           is_completed: newTask.is_completed ?? false,
+          is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
         };
         return [...(old || []), optimisticTask];
       });
@@ -298,7 +299,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
   const addRetiredTaskMutation = useMutation({
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false };
+      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false };
       console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
       const { data, error } = await supabase.from('retired_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -429,6 +430,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_locked: taskToRetire.is_locked,
         energy_cost: taskToRetire.energy_cost ?? 0,
         is_completed: taskToRetire.is_completed ?? false, // Pass completion status
+        is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false, // Pass custom energy cost flag
       };
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -541,6 +543,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_locked: task.is_locked,
         energy_cost: task.energy_cost ?? 0,
         is_completed: task.is_completed ?? false,
+        is_custom_energy_cost: task.is_custom_energy_cost ?? false,
         updated_at: new Date().toISOString(),
       }));
 
@@ -649,6 +652,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
                 is_locked: breakTask.is_locked,
                 energy_cost: breakTask.energy_cost ?? 0,
                 is_completed: breakTask.is_completed ?? false,
+                is_custom_energy_cost: breakTask.is_custom_energy_cost ?? false,
                 updated_at: new Date().toISOString(),
               };
               placedBreaks.push(newBreakTask);
@@ -679,6 +683,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
           is_locked: task.is_locked,
           energy_cost: task.energy_cost ?? 0,
           is_completed: task.is_completed ?? false,
+          is_custom_energy_cost: task.is_custom_energy_cost ?? false,
           updated_at: new Date().toISOString(),
         }));
         const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
@@ -762,6 +767,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
                 is_locked: breakTask.is_locked,
                 energy_cost: breakTask.energy_cost ?? 0,
                 is_completed: breakTask.is_completed ?? false,
+                is_custom_energy_cost: breakTask.is_custom_energy_cost ?? false,
                 updated_at: new Date().toISOString(),
               };
               optimisticPlacedBreaks.push(newBreakTask);
@@ -918,6 +924,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_locked: task.is_locked,
         energy_cost: task.energy_cost ?? 0,
         is_completed: task.is_completed ?? false, // Pass completion status
+        is_custom_energy_cost: task.is_custom_energy_cost ?? false, // Pass custom energy cost flag
       }));
 
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
@@ -1012,6 +1019,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_locked: task.is_locked,
         energy_cost: task.energy_cost ?? 0,
         is_completed: task.is_completed ?? false, // Pass completion status
+        is_custom_energy_cost: task.is_custom_energy_cost ?? false, // Pass custom energy cost flag
       }));
 
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);

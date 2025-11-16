@@ -35,8 +35,9 @@ const formSchema = z.object({
   break_duration: z.coerce.number().min(0).optional().nullable(),
   is_critical: z.boolean().default(false),
   is_locked: z.boolean().default(false),
-  is_completed: z.boolean().default(false), // NEW: Added is_completed to schema
-  energy_cost: z.coerce.number().min(0).default(0), // Make energy_cost editable but with recalculation
+  is_completed: z.boolean().default(false),
+  energy_cost: z.coerce.number().min(0).default(0),
+  is_custom_energy_cost: z.boolean().default(false), // NEW: Add to schema
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -52,7 +53,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks(''); // Added completeRetiredTask and updateRetiredTaskStatus
+  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<RetiredTaskDetailFormValues>({
@@ -63,8 +64,9 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       break_duration: 0,
       is_critical: false,
       is_locked: false,
-      is_completed: false, // NEW: Default value
+      is_completed: false,
       energy_cost: 0,
+      is_custom_energy_cost: false, // NEW: Default value
     },
   });
 
@@ -77,19 +79,33 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         break_duration: task.break_duration ?? 0,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
-        is_completed: task.is_completed, // NEW: Set initial value
+        is_completed: task.is_completed,
         energy_cost: task.energy_cost,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial value
       });
-      setCalculatedEnergyCost(task.energy_cost);
+      // Set initial calculated cost, but only if not custom
+      if (!task.is_custom_energy_cost) {
+        setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical));
+      } else {
+        setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
+      }
     }
   }, [task, form]);
 
   // Effect to recalculate energy cost when duration or criticality changes
   useEffect(() => {
-    const subscription = form.watch((value, { name, type }) => {
-      if (name === 'duration' || name === 'is_critical') {
+    const subscription = form.watch((value, { name }) => {
+      // Only recalculate if custom energy cost is NOT enabled
+      if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical')) {
         const duration = value.duration ?? 0;
         const isCritical = value.is_critical;
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
+        setCalculatedEnergyCost(newEnergyCost);
+        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+      } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
+        // If custom energy cost is turned OFF, immediately recalculate and set
+        const duration = form.getValues('duration') ?? 0;
+        const isCritical = form.getValues('is_critical');
         const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
@@ -119,7 +135,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         break_duration: values.break_duration === 0 ? null : values.break_duration,
         is_critical: values.is_critical,
         is_locked: values.is_locked,
-        energy_cost: values.energy_cost, // Use the calculated/updated energy cost
+        energy_cost: values.energy_cost,
+        is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         // is_completed is handled by completeRetiredTask or updateRetiredTaskStatus
       });
       showSuccess("Retired task updated successfully!");
@@ -132,6 +149,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // Watch the custom energy cost toggle
 
   if (!task) return null;
 
@@ -276,20 +294,62 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* Energy Cost (Read-only, updated by logic) */}
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                <div className="space-y-0.5">
-                  <FormLabel>Energy Cost</FormLabel>
-                  <FormDescription>
-                    Energy consumed upon completion (recalculated based on duration/criticality).
-                  </FormDescription>
-                </div>
-                <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
-                  <Zap className="h-5 w-5" />
-                  <span>{calculatedEnergyCost}</span>
-                </div>
-                <Input type="hidden" {...form.register('energy_cost')} /> {/* Hidden input to keep value in form state */}
-              </FormItem>
+              {/* Custom Energy Cost Switch */}
+              <FormField
+                control={form.control}
+                name="is_custom_energy_cost"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Custom Energy Cost</FormLabel>
+                      <FormDescription>
+                        Manually set the energy cost instead of automatic calculation.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Energy Cost (Editable if custom, read-only if auto-calculated) */}
+              <FormField
+                control={form.control}
+                name="energy_cost"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Energy Cost</FormLabel>
+                      <FormDescription>
+                        Energy consumed upon completion.
+                      </FormDescription>
+                    </div>
+                    <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
+                      <Zap className="h-5 w-5" />
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          min="0" 
+                          className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                          readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
+                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
+                          onChange={(e) => {
+                            if (isCustomEnergyCostEnabled) {
+                              field.onChange(e);
+                            }
+                          }}
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
               
             {/* Save Button in Footer */}

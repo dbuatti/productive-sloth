@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
@@ -72,8 +72,22 @@ export const useSchedulerTasks = (selectedDate: string) => {
   const formattedSelectedDate = selectedDate;
 
   const [sortBy, setSortBy] = useState<SortBy>('TIME_EARLIEST_TO_LATEST');
-  const [retiredSortBy, setRetiredSortBy] = useState<RetiredTaskSortBy>('RETIRED_AT_NEWEST'); // NEW: State for retired tasks sorting
+  // Initialize retiredSortBy from localStorage or default
+  const [retiredSortBy, setRetiredSortBy] = useState<RetiredTaskSortBy>(() => {
+    if (typeof window !== 'undefined') {
+      const savedSortBy = localStorage.getItem('aetherSinkSortBy');
+      return savedSortBy ? (savedSortBy as RetiredTaskSortBy) : 'RETIRED_AT_NEWEST';
+    }
+    return 'RETIRED_AT_NEWEST';
+  });
   const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null);
+
+  // Effect to save retiredSortBy to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aetherSinkSortBy', retiredSortBy);
+    }
+  }, [retiredSortBy]);
 
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy],

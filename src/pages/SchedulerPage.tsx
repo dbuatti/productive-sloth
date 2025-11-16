@@ -56,40 +56,18 @@ import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
 import ScheduledTaskDetailSheet from '@/components/ScheduledTaskDetailSheet';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 
-const deepCompare = (a: any, b: any) => {
-  if (a === b) return true;
-  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false;
-  if (Array.isArray(a) !== Array.isArray(b)) return false;
+// Removed useDeepCompareMemoize to ensure immediate updates for task details
+// function useDeepCompareMemoize<T>(value: T): T {
+//   const ref = useRef<T>(value);
+//   const signalRef = useRef<number>(0);
 
-  if (a instanceof Date && b instanceof Date) {
-    return a.getTime() === b.getTime();
-  }
-  if (a instanceof Date || b instanceof Date) return false;
+//   if (!deepCompare(value, ref.current)) {
+//     ref.current = value;
+//     signalRef.current++;
+//   }
 
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
-
-  if (keysA.length !== keysB.length) return false;
-
-  for (const key of keysA) {
-    if (!keysB.includes(key) || !deepCompare(a[key], b[key])) {
-      return false;
-    }
-  }
-  return true;
-};
-
-function useDeepCompareMemoize<T>(value: T): T {
-  const ref = useRef<T>(value);
-  const signalRef = useRef<number>(0);
-
-  if (!deepCompare(value, ref.current)) {
-    ref.current = value;
-    signalRef.current++;
-  }
-
-  return useMemo(() => ref.current, [signalRef.current],);
-}
+//   return useMemo(() => ref.current, [signalRef.current],);
+// }
 
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
@@ -170,7 +148,7 @@ const SchedulerPage: React.FC = () => {
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
-  const occupiedBlocks = useDeepCompareMemoize(useMemo(() => {
+  const occupiedBlocks = useMemo(() => { // Removed useDeepCompareMemoize
     if (!dbScheduledTasks) return [];
     const mappedTimes = dbScheduledTasks
       .filter(task => task.start_time && task.end_time)
@@ -195,7 +173,7 @@ const SchedulerPage: React.FC = () => {
 
     const merged = mergeOverlappingTimeBlocks(mappedTimes);
     return merged;
-  }, [dbScheduledTasks, selectedDayAsDate]));
+  }, [dbScheduledTasks, selectedDayAsDate]);
 
 
   const formattedSelectedDay = selectedDay;
@@ -290,11 +268,11 @@ const SchedulerPage: React.FC = () => {
 
   const previousCalculatedScheduleRef = useRef<FormattedSchedule | null>(null);
 
-  const calculatedSchedule = useDeepCompareMemoize(useMemo(() => {
+  const calculatedSchedule = useMemo(() => { // Removed useDeepCompareMemoize
     if (!profile) return null;
     const newSchedule = calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime);
     return newSchedule;
-  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]));
+  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]);
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   useEffect(() => {
@@ -1812,7 +1790,7 @@ const SchedulerPage: React.FC = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md sticky top-[32px] z-20">
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md"> {/* Removed sticky classes */}
           <TabsTrigger 
             value="vibe-schedule" 
             className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"

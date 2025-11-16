@@ -164,7 +164,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost })));
+      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed })));
       return data as RetiredTask[];
     },
     enabled: !!userId,
@@ -234,7 +234,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
   const addRetiredTaskMutation = useMutation({
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0 };
+      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false };
       console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
       const { data, error } = await supabase.from('retired_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -364,6 +364,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_critical: taskToRetire.is_critical,
         is_locked: taskToRetire.is_locked,
         energy_cost: taskToRetire.energy_cost ?? 0,
+        is_completed: taskToRetire.is_completed ?? false, // Pass completion status
       };
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -852,6 +853,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_critical: task.is_critical,
         is_locked: task.is_locked,
         energy_cost: task.energy_cost ?? 0,
+        is_completed: task.is_completed ?? false, // Pass completion status
       }));
 
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
@@ -945,6 +947,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         is_critical: task.is_critical,
         is_locked: task.is_locked,
         energy_cost: task.energy_cost ?? 0,
+        is_completed: task.is_completed ?? false, // Pass completion status
       }));
 
       const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
@@ -1149,6 +1152,47 @@ export const useSchedulerTasks = (selectedDate: string) => {
     }
   });
 
+  const updateRetiredTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log(`useSchedulerTasks: Attempting to update completion status for retired task ID: ${taskId} to ${isCompleted}`);
+      const { data, error } = await supabase
+        .from('retired_tasks')
+        .update({ is_completed: isCompleted, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
+        .eq('id', taskId)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) {
+        console.error("useSchedulerTasks: Error updating retired task completion status:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully updated completion status for retired task:", data);
+      return data as RetiredTask;
+    },
+    onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+        (old || []).map(task =>
+          task.id === taskId ? { ...task, is_completed: isCompleted } : task
+        )
+      );
+      return { previousRetiredTasks };
+    },
+    onSuccess: (updatedTask) => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      showSuccess(`Retired task "${updatedTask.name}" marked as ${updatedTask.is_completed ? 'completed' : 'incomplete'}.`);
+    },
+    onError: (err, { taskId, isCompleted }, context) => {
+      showError(`Failed to update completion status for retired task: ${err.message}`);
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+      }
+    }
+  });
+
   const completeScheduledTaskMutation = useMutation({
     mutationFn: async (taskToComplete: DBScheduledTask) => {
       if (!userId || !profile) throw new Error("User not authenticated or profile not loaded.");
@@ -1223,6 +1267,75 @@ export const useSchedulerTasks = (selectedDate: string) => {
     onError: (err) => {
       if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats.") {
         showError(`Failed to complete scheduled task: ${err.message}`);
+      }
+    }
+  });
+
+  const completeRetiredTaskMutation = useMutation({
+    mutationFn: async (taskToComplete: RetiredTask) => {
+      if (!userId || !profile) throw new Error("User not authenticated or profile not loaded.");
+
+      if (profile.energy < taskToComplete.energy_cost) {
+        showError(`Not enough energy to complete retired task "${taskToComplete.name}". You need ${taskToComplete.energy_cost} energy, but have ${profile.energy}.`);
+        throw new Error("Insufficient energy.");
+      }
+
+      let xpGained = taskToComplete.energy_cost * 2;
+      // No critical task bonus for retired tasks as they are not "due today" in the same sense
+      
+      const newXp = profile.xp + xpGained;
+      const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
+      const newEnergy = Math.max(0, profile.energy - taskToComplete.energy_cost);
+      const newTasksCompletedToday = profile.tasks_completed_today + 1; // Still counts towards daily challenge
+
+      let newDailyStreak = profile.daily_streak;
+      let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
+      const now = new Date();
+      const today = startOfDay(now);
+
+      if (!newLastStreakUpdate || isYesterday(newLastStreakUpdate)) {
+        newDailyStreak += 1;
+      } else if (!isToday(newLastStreakUpdate)) {
+        newDailyStreak = 1;
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          xp: newXp, 
+          level: newLevel, 
+          daily_streak: newDailyStreak,
+          last_streak_update: today.toISOString(),
+          energy: newEnergy,
+          tasks_completed_today: newTasksCompletedToday,
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today) for retired task:", profileError.message);
+        showError("Failed to update profile stats for retired task.");
+        throw new Error("Failed to update profile stats for retired task.");
+      } else {
+        await refreshProfile();
+        
+        setXpGainAnimation({ taskId: taskToComplete.id, xpAmount: xpGained });
+
+        showSuccess(`Retired task completed! -${taskToComplete.energy_cost} Energy`);
+        if (newLevel > profile.level) {
+          showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
+          triggerLevelUp(newLevel);
+        }
+      }
+
+      await updateRetiredTaskStatusMutation.mutateAsync({ taskId: taskToComplete.id, isCompleted: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+    },
+    onError: (err) => {
+      if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats for retired task.") {
+        showError(`Failed to complete retired task: ${err.message}`);
       }
     }
   });
@@ -1339,7 +1452,9 @@ export const useSchedulerTasks = (selectedDate: string) => {
     aetherDumpMega: aetherDumpMegaMutation.mutate,
     autoBalanceSchedule: autoBalanceScheduleMutation.mutate,
     completeScheduledTask: completeScheduledTaskMutation.mutate,
+    completeRetiredTask: completeRetiredTaskMutation.mutate, // NEW: Expose completeRetiredTask
     updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutate, // Expose for other uses if needed
+    updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutate, // NEW: Expose updateRetiredTaskStatus
     updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutate, // NEW: Expose new mutation
     updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutate, // NEW: Expose new mutation
     sortBy,

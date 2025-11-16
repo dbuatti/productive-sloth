@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus } from 'lucide-react'; // Removed Chevron icons, added Plus
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus } from 'lucide-react'; // Removed CheckboxIcon from lucide-react
 import { RetiredTask, NewRetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -14,6 +14,7 @@ import { useSession } from '@/hooks/use-session'; // Import useSession
 import { showError } from '@/utils/toast'; // Import showError
 import InfoChip from './InfoChip'; // Import InfoChip
 import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; // Import RetiredTaskDetailSheet
+import { Checkbox } from '@/components/ui/checkbox'; // Import shadcn Checkbox
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -28,7 +29,7 @@ interface AetherSinkProps {
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy }) => {
   const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked); // Check for unlocked tasks
-  const { toggleRetiredTaskLock, addRetiredTask } = useSchedulerTasks('');
+  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
   const { user } = useSession(); // Get user for adding tasks
   const [sinkInputValue, setSinkInputValue] = useState('');
 
@@ -68,13 +69,27 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
     console.log("AetherSink: Retired task item clicked for task:", retiredTask.name, "Event target:", event.target);
     // Prevent opening the sheet if a child interactive element (like a button) was clicked
     const target = event.target as HTMLElement;
-    if (target.closest('button') || target.closest('a')) {
+    if (target.closest('button') || target.closest('a') || target.closest('input[type="checkbox"]')) { // Added checkbox to prevent sheet open
       console.log("AetherSink: Click originated from an interactive child, preventing sheet open.");
       return;
     }
     setSelectedRetiredTask(retiredTask);
     setIsSheetOpen(true);
     console.log("AetherSink: Setting isSheetOpen to true for retired task:", retiredTask.name);
+  };
+
+  const handleToggleComplete = async (task: RetiredTask) => {
+    if (task.is_locked) {
+      showError(`Cannot change completion status of locked task "${task.name}". Unlock it first.`);
+      return;
+    }
+    if (task.is_completed) {
+      // If already completed, mark as incomplete
+      await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
+    } else {
+      // If not completed, mark as complete (triggers XP/Energy logic)
+      await completeRetiredTask(task);
+    }
   };
 
   return (
@@ -165,56 +180,69 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                       className={cn(
                         "relative flex items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out cursor-pointer", // Added cursor-pointer
                         isLocked ? "border-primary/70 bg-primary/10" : "",
-                        isCriticalAwaitingEnergy && "border-logo-yellow/70 bg-logo-yellow/10" // Visual for awaiting energy
+                        isCriticalAwaitingEnergy && "border-logo-yellow/70 bg-logo-yellow/10", // Visual for awaiting energy
+                        task.is_completed && "opacity-50 line-through" // NEW: Visual for completed tasks
                       )}
                       style={{ backgroundColor: isLocked || isCriticalAwaitingEnergy ? undefined : ambientBackgroundColor }}
                       onMouseEnter={() => setHoveredItemId(task.id)} // Set hovered item
                       onMouseLeave={() => setHoveredItemId(null)} // Clear hovered item
                       onClick={(e) => handleTaskItemClick(e, task)} // NEW: Added onClick handler
                     >
-                      <div className="flex flex-col items-start flex-grow min-w-0">
-                        <div className="flex items-center gap-1">
-                          {task.is_critical && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                                  <Star className="h-3 w-3" strokeWidth={2.5} /> {/* Changed to Star icon */}
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Critical Task: Must be completed today!</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                          <span className="text-base">{emoji}</span>
-                          <span className={cn("font-semibold truncate", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
-                          {task.duration && <span className={cn("text-xs", isLocked ? "text-primary/80" : "text-foreground/80")}>({task.duration} min)</span>}
-                          {task.energy_cost !== undefined && task.energy_cost > 0 && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className={cn(
-                                  "flex items-center gap-1 text-xs font-semibold font-mono",
-                                  isLocked ? "text-primary/80" : "text-foreground/80"
-                                )}>
-                                  {task.energy_cost} <Zap className="h-3 w-3" />
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Energy Cost</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs italic text-muted-foreground">
-                            Originally for {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
-                          </span>
-                          {isCriticalAwaitingEnergy && ( // ADVANCED LOGIC: Critical Task Protection - Status Badge
-                            <Badge variant="outline" className="bg-logo-yellow/20 text-logo-yellow border-logo-yellow px-2 py-0.5 text-xs font-semibold">
-                              Awaiting ≥ 80⚡ Slot
-                            </Badge>
-                          )}
-                        </div>
+                      <div className="flex items-center space-x-3 flex-grow min-w-0"> {/* Added flex-grow and min-w-0 */}
+                        <Checkbox
+                          checked={task.is_completed}
+                          onCheckedChange={() => handleToggleComplete(task)}
+                          id={`retired-task-${task.id}`}
+                          className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-5 w-5"
+                          disabled={isLocked || isProcessingCommand}
+                        />
+                        <label
+                          htmlFor={`retired-task-${task.id}`}
+                          className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex flex-col items-start min-w-0 flex-grow`}
+                        >
+                          <div className="flex items-center gap-1 w-full">
+                            {task.is_critical && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
+                                    <Star className="h-3 w-3" strokeWidth={2.5} /> {/* Changed to Star icon */}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Critical Task: Must be completed today!</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            <span className="text-base">{emoji}</span>
+                            <span className={cn("font-semibold truncate", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
+                            {task.duration && <span className={cn("text-xs", isLocked ? "text-primary/80" : "text-foreground/80")}>({task.duration} min)</span>}
+                            {task.energy_cost !== undefined && task.energy_cost > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className={cn(
+                                    "flex items-center gap-1 text-xs font-semibold font-mono",
+                                    isLocked ? "text-primary/80" : "text-foreground/80"
+                                  )}>
+                                    {task.energy_cost} <Zap className="h-3 w-3" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Energy Cost</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs italic text-muted-foreground">
+                              Originally for {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
+                            </span>
+                            {isCriticalAwaitingEnergy && ( // ADVANCED LOGIC: Critical Task Protection - Status Badge
+                              <Badge variant="outline" className="bg-logo-yellow/20 text-logo-yellow border-logo-yellow px-2 py-0.5 text-xs font-semibold">
+                                Awaiting ≥ 80⚡ Slot
+                              </Badge>
+                            )}
+                          </div>
+                        </label>
                       </div>
                       <div className="flex items-center gap-1 ml-auto shrink-0">
                         {/* Lock/Unlock Button */}
@@ -251,19 +279,19 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 e.stopPropagation(); // Prevent parent onClick from firing
                                 onRezoneTask(task);
                               }}
-                              disabled={isLocked || isProcessingCommand || isCriticalAwaitingEnergy} // Disable if awaiting energy
+                              disabled={isLocked || isProcessingCommand || isCriticalAwaitingEnergy || task.is_completed} // Disable if awaiting energy or completed
                               className={cn(
                                 "h-7 w-7 text-primary hover:bg-primary/10",
-                                (isLocked || isProcessingCommand || isCriticalAwaitingEnergy) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
+                                (isLocked || isProcessingCommand || isCriticalAwaitingEnergy || task.is_completed) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
-                              style={(isLocked || isProcessingCommand || isCriticalAwaitingEnergy) ? { pointerEvents: 'auto' } : undefined}
+                              style={(isLocked || isProcessingCommand || isCriticalAwaitingEnergy || task.is_completed) ? { pointerEvents: 'auto' } : undefined}
                             >
                               <RotateCcw className="h-4 w-4" />
                               <span className="sr-only">Rezone</span>
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{isLocked ? "Unlock to Re-zone" : (isCriticalAwaitingEnergy ? "Awaiting ≥ 80⚡ Slot" : "Re-zone to schedule")}</p>
+                            <p>{isLocked ? "Unlock to Re-zone" : (isCriticalAwaitingEnergy ? "Awaiting ≥ 80⚡ Slot" : (task.is_completed ? "Task Completed" : "Re-zone to schedule"))}</p>
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>

@@ -53,7 +53,7 @@ export interface DBScheduledTask {
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_flexible: boolean; // NEW: Flag for schedule compaction
   is_locked: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energy_cost required
+  energy_cost: number; // NEW: Made energyCost required
   is_completed: boolean; // NEW: Added is_completed for scheduled tasks
 }
 
@@ -67,7 +67,7 @@ export interface NewDBScheduledTask {
   is_critical?: boolean; // NEW: Critical Urgency Flag
   is_flexible?: boolean; // NEW: Flag for schedule compaction
   is_locked?: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energy_cost required
+  energy_cost: number; // NEW: Made energyCost required
   is_completed?: boolean; // NEW: Added is_completed for new scheduled tasks
 }
 
@@ -82,7 +82,8 @@ export interface RetiredTask {
   retired_at: string; // Timestamp when it was moved to the sink
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_locked: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energy_cost required
+  energy_cost: number; // NEW: Made energyCost required
+  is_completed: boolean; // NEW: Added is_completed
   // is_flexible: boolean; // REMOVED: Not present in retired_tasks table
 }
 
@@ -95,6 +96,7 @@ export interface NewRetiredTask {
   is_critical?: boolean; // NEW: Critical Urgency Flag
   is_locked?: boolean; // NEW: Task Immutability Flag
   energy_cost: number; // NEW: Made energyCost required
+  is_completed?: boolean; // NEW: Added is_completed
   // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
 }
 

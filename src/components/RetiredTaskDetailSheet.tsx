@@ -35,6 +35,7 @@ const formSchema = z.object({
   break_duration: z.coerce.number().min(0).optional().nullable(),
   is_critical: z.boolean().default(false),
   is_locked: z.boolean().default(false),
+  is_completed: z.boolean().default(false), // NEW: Added is_completed to schema
   energy_cost: z.coerce.number().min(0).default(0), // Make energy_cost editable but with recalculation
 });
 
@@ -51,7 +52,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateRetiredTaskDetails } = useSchedulerTasks(''); // Pass empty string as selectedDate is not relevant here
+  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks(''); // Added completeRetiredTask and updateRetiredTaskStatus
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<RetiredTaskDetailFormValues>({
@@ -62,6 +63,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       break_duration: 0,
       is_critical: false,
       is_locked: false,
+      is_completed: false, // NEW: Default value
       energy_cost: 0,
     },
   });
@@ -75,6 +77,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         break_duration: task.break_duration ?? 0,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
+        is_completed: task.is_completed, // NEW: Set initial value
         energy_cost: task.energy_cost,
       });
       setCalculatedEnergyCost(task.energy_cost);
@@ -99,6 +102,16 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
     if (!task) return;
 
     try {
+      // Handle completion status separately to trigger XP/Energy logic
+      if (values.is_completed !== task.is_completed) {
+        if (values.is_completed) {
+          await completeRetiredTask(task); // This handles XP/Energy and sets is_completed to true
+        } else {
+          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }); // Only update status
+        }
+      }
+
+      // Update other details
       await updateRetiredTaskDetails({
         id: task.id,
         name: values.name,
@@ -107,6 +120,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         is_critical: values.is_critical,
         is_locked: values.is_locked,
         energy_cost: values.energy_cost, // Use the calculated/updated energy cost
+        // is_completed is handled by completeRetiredTask or updateRetiredTaskStatus
       });
       showSuccess("Retired task updated successfully!");
       onOpenChange(false);
@@ -210,6 +224,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={task.is_locked} // Disable if locked
                       />
                     </FormControl>
                   </FormItem>
@@ -232,6 +247,29 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Is Completed Switch */}
+              <FormField
+                control={form.control}
+                name="is_completed"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Completed</FormLabel>
+                      <FormDescription>
+                        Mark this task as completed.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={task.is_locked} // Disable if locked
                       />
                     </FormControl>
                   </FormItem>

@@ -4,9 +4,9 @@ import Sidebar from './Sidebar';
 import MobileSidebar from './MobileSidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import ProgressBarHeader from './ProgressBarHeader';
-import FocusAnchor from './FocusAnchor'; // Import FocusAnchor
-import { useLocation } from 'react-router-dom'; // Import useLocation
-import { useSession } from '@/hooks/use-session'; // Import useSession
+import FocusAnchor from './FocusAnchor';
+import { useLocation } from 'react-router-dom';
+import { useSession } from '@/hooks/use-session';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -14,8 +14,8 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
-  const location = useLocation(); // Get current location
-  const { activeItemToday } = useSession(); // Get active item from session
+  const location = useLocation();
+  const { activeItemToday } = useSession();
 
   // Attempt to read default layout from cookie
   const defaultLayout = React.useMemo(() => {
@@ -28,7 +28,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return undefined;
   }, []);
 
-  const shouldShowFocusAnchor = activeItemToday && location.pathname !== '/scheduler';
+  // The FocusAnchor will now show if there's an active task, regardless of the current page.
+  const shouldShowFocusAnchor = activeItemToday;
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -51,7 +52,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </div>
         </Sidebar>
       )}
-      {shouldShowFocusAnchor && <FocusAnchor />} {/* Render FocusAnchor conditionally */}
+      {shouldShowFocusAnchor && <FocusAnchor />}
     </div>
   );
 };

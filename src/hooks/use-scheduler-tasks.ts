@@ -172,7 +172,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
           query = query.order('duration', { ascending: true, nullsFirst: true });
           break;
         case 'DURATION_DESC':
-          query = query.order('duration', { ascending: false, nullsLast: true });
+          query = query.order('duration', { ascending: false }); // Removed nullsLast: true
           break;
         case 'CRITICAL_FIRST':
           query = query.order('is_critical', { ascending: false }).order('retired_at', { ascending: false });

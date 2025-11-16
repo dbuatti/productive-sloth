@@ -17,6 +17,7 @@ import { AvatarImage } from './ui/avatar';
 import DailyChallengeClaimButton from './DailyChallengeClaimButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { cn } from '@/lib/utils'; // Import cn for conditional classes
 
 interface AppHeaderProps {
   mobileNav?: React.ReactNode; // Add mobileNav prop
@@ -58,23 +59,24 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
         
         {user && (
           <div className="flex items-center space-x-2">
-            {/* Daily Challenge Claim Button */}
-            <DailyChallengeClaimButton />
+            {/* Daily Challenge Claim Button and Daily Streak Display - Hidden on mobile */}
+            <div className="hidden sm:flex items-center space-x-2">
+              <DailyChallengeClaimButton />
 
-            {/* Daily Streak Display */}
-            {profile && profile.daily_streak > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 text-sm font-semibold text-logo-orange"> {/* Removed animate-pulse-glow */}
-                    <Flame className="h-4 w-4" />
-                    <span>{profile.daily_streak}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Daily Streak: {profile.daily_streak} Day{profile.daily_streak !== 1 ? 's' : ''}</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
+              {profile && profile.daily_streak > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-sm font-semibold text-logo-orange">
+                      <Flame className="h-4 w-4" />
+                      <span>{profile.daily_streak}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Daily Streak: {profile.daily_streak} Day{profile.daily_streak !== 1 ? 's' : ''}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
 
             <span className="text-sm font-medium hidden sm:inline-block">
               {visibleFirstName}
@@ -86,8 +88,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 transition-transform duration-200 hover:scale-110" /* Added hover effect */
-                  onClick={handleGoToSettings} // Navigate to settings page
+                  className="h-8 w-8 transition-transform duration-200 hover:scale-110"
+                  onClick={handleGoToSettings}
                 >
                   <Settings className="h-4 w-4" />
                 </Button>
@@ -99,7 +101,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full transition-transform duration-200 hover:scale-110"> {/* Added hover effect */}
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full transition-transform duration-200 hover:scale-110">
                   <Avatar className="h-8 w-8">
                     {profile?.avatar_url ? (
                       <AvatarImage src={profile.avatar_url} alt={`${displayName}'s avatar`} />

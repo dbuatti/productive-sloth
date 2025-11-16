@@ -920,6 +920,13 @@ const SchedulerPage: React.FC = () => {
         showError("Please log in and ensure your profile is loaded to auto-schedule tasks.");
         return;
     }
+
+    const today = startOfDay(new Date());
+    if (isBefore(selectedDayAsDate, today)) {
+      showError("Cannot auto-schedule tasks for a past day. Please select today or a future day.");
+      return;
+    }
+
     setIsProcessingCommand(true);
     console.log("handleAutoScheduleSink: Starting auto-schedule process.");
 
@@ -1790,7 +1797,7 @@ const SchedulerPage: React.FC = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md"> {/* Removed sticky classes */}
+        <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md">
           <TabsTrigger 
             value="vibe-schedule" 
             className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"

@@ -115,6 +115,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'sync': 290, 'standup': 290, // Added back
   'tutorial': 60,
   // User-requested specific emoji mappings
+  'tv': 10, // Explicitly set for 'TV to Brad'
   'cobweb': 120, // Same as clean
   'cables': 210, // Tech-related
   'fold laundry': 130, // Same as laundry

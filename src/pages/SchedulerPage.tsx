@@ -1284,7 +1284,7 @@ const SchedulerPage: React.FC = () => {
     }
 
     // 3. Convert sorted UnifiedTasks to DBScheduledTask format for compactScheduleLogic
-    const sortedFlexibleTasksForCompaction: DBScheduledTask[] = sortedUnifiedPool.map(task => {
+    const sortedFlexibleTasksForCompaction: DBScheduledTask[] = unifiedPool.map(task => { // Changed from sortedUnifiedPool to unifiedPool
       // Calculate start and end times based on duration for the purpose of compaction logic
       // These will be overwritten by compactScheduleLogic, but need to be valid for initial calculation
       const taskTotalDuration = (task.duration || 0) + (task.break_duration || 0);

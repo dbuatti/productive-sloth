@@ -1,21 +1,24 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { intervalToDuration, formatDuration, isBefore } from 'date-fns';
+import { intervalToDuration, formatDuration, isBefore, differenceInMinutes } from 'date-fns';
 import { X, CheckCircle, Archive, Clock, Zap, Sparkles, Coffee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatTime, formatDayMonth } from '@/lib/scheduler-utils';
 import { ScheduledItem, DBScheduledTask } from '@/types/scheduler';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import EarlyCompletionModal from './EarlyCompletionModal'; // NEW: Import EarlyCompletionModal
 
 interface ImmersiveFocusModeProps {
   activeItem: ScheduledItem;
   T_current: Date;
   onExit: () => void;
-  onComplete: (task: DBScheduledTask) => void;
+  onComplete: (task: DBScheduledTask, isEarlyCompletion: boolean) => void; // MODIFIED: Added isEarlyCompletion flag
   onSkip: (task: DBScheduledTask) => void;
-  dbTask: DBScheduledTask | null; // The actual DB task for completion/skip
+  dbTask: DBScheduledTask | null;
+  nextItem: ScheduledItem | null; // NEW: Pass nextItem to determine if "Start Next Task Now" is available
+  isProcessingCommand: boolean; // NEW: Pass processing state
 }
 
 const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
@@ -25,8 +28,12 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   onComplete,
   onSkip,
   dbTask,
+  nextItem, // NEW
+  isProcessingCommand, // NEW
 }) => {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+  const [showEarlyCompletionModal, setShowEarlyCompletionModal] = useState(false); // NEW: State for modal
+  const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0); // NEW: State for remaining time
 
   const updateRemaining = useCallback(() => {
     if (!activeItem || isBefore(activeItem.endTime, T_current)) {
@@ -56,7 +63,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
     return () => clearInterval(interval);
   }, [updateRemaining]);
 
-  // NEW: Effect for Escape key to exit focus mode
+  // Effect for Escape key to exit focus mode
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -68,7 +75,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onExit]); // Dependency on onExit to ensure it's always the latest function
+  }, [onExit]);
 
   if (!activeItem || !dbTask) {
     return (
@@ -83,6 +90,17 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
       </div>
     );
   }
+
+  const handleCompleteClick = () => {
+    const remainingMinutes = differenceInMinutes(activeItem.endTime, T_current);
+    if (remainingMinutes > 0) {
+      setEarlyCompletionRemainingMinutes(remainingMinutes);
+      setShowEarlyCompletionModal(true);
+      onComplete(dbTask, true); // Notify parent that completion is early
+    } else {
+      onComplete(dbTask, false); // On-time or late completion
+    }
+  };
 
   const isBreak = activeItem.type === 'break';
   const isTimeOff = activeItem.type === 'time-off';
@@ -140,13 +158,13 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={() => onComplete(dbTask)}
-                disabled={dbTask.is_locked}
+                onClick={handleCompleteClick} // MODIFIED: Call new handler
+                disabled={dbTask.is_locked || isProcessingCommand}
                 className={cn(
                   "h-12 px-6 text-lg font-semibold bg-logo-green text-primary-foreground hover:bg-logo-green/90 transition-all duration-200",
-                  dbTask.is_locked && "opacity-50 cursor-not-allowed"
+                  (dbTask.is_locked || isProcessingCommand) && "opacity-50 cursor-not-allowed"
                 )}
-                style={dbTask.is_locked ? { pointerEvents: 'auto' } : undefined}
+                style={(dbTask.is_locked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
               >
                 <CheckCircle className="h-6 w-6 mr-2" />
                 Complete Task
@@ -161,12 +179,12 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
           <TooltipTrigger asChild>
             <Button
               onClick={() => onSkip(dbTask)}
-              disabled={dbTask.is_locked}
+              disabled={dbTask.is_locked || isProcessingCommand}
               className={cn(
                 "h-12 px-6 text-lg font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-200",
-                dbTask.is_locked && "opacity-50 cursor-not-allowed"
+                (dbTask.is_locked || isProcessingCommand) && "opacity-50 cursor-not-allowed"
               )}
-              style={dbTask.is_locked ? { pointerEvents: 'auto' } : undefined}
+              style={(dbTask.is_locked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
             >
               <Archive className="h-6 w-6 mr-2" />
               Skip / Retire
@@ -177,6 +195,18 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
           </TooltipContent>
         </Tooltip>
       </div>
+
+      {/* NEW: Early Completion Modal */}
+      <EarlyCompletionModal
+        isOpen={showEarlyCompletionModal}
+        onOpenChange={setShowEarlyCompletionModal}
+        taskName={activeItem.name}
+        remainingDurationMinutes={earlyCompletionRemainingMinutes}
+        onTakeBreak={() => onComplete(dbTask, false)} // When taking a break, the original task is fully completed (not early anymore)
+        onStartNextTask={() => onComplete(dbTask, false)} // When starting next task, original task is fully completed
+        isProcessingCommand={isProcessingCommand}
+        hasNextTask={!!nextItem}
+      />
     </div>
   );
 };

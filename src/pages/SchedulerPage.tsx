@@ -47,7 +47,7 @@ import AetherSink from '@/components/AetherSink';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import WeatherWidget from '@/components/WeatherWidget';
-import { TimeBlock } from '@/types/scheduler';
+import { TimeBlock } => '@/types/scheduler';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -1387,10 +1387,10 @@ const SchedulerPage: React.FC = () => {
     });
 
     const payload: AutoBalancePayload = {
-      scheduledTaskIdsToDelete: scheduledTaskIdsToDelete, // All flexible, unlocked tasks from original schedule
-      retiredTaskIdsToDelete: retiredTaskIdsToDelete,     // All unlocked tasks from original sink
-      tasksToInsert: tasksToInsert,                       // All tasks that should be in the schedule after this operation
-      tasksToKeepInSink: tasksToKeepInSink,               // All tasks that couldn't be placed and should remain in sink
+      scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
+      retiredTaskIdsToDelete: retiredTaskIdsToDelete,
+      tasksToInsert: tasksToInsert,
+      tasksToKeepInSink: tasksToKeepInSink,
       selectedDate: formattedSelectedDay,
     };
 
@@ -1532,6 +1532,7 @@ const SchedulerPage: React.FC = () => {
       showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
       setShowEarlyCompletionModal(false);
       setIsFocusModeActive(false);
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // Invalidate for SessionProvider
     } catch (error: any) {
       showError(`Failed to take a break: ${error.message}`);
       console.error("Take break error:", error);
@@ -1569,6 +1570,7 @@ const SchedulerPage: React.FC = () => {
       showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
       setShowEarlyCompletionModal(false);
       setIsFocusModeActive(false);
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // Invalidate for SessionProvider
     } catch (error: any) {
       showError(`Failed to start next task early: ${error.message}`);
       console.error("Start next task early error:", error);

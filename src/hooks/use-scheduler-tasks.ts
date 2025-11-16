@@ -1328,7 +1328,8 @@ export const useSchedulerTasks = (selectedDate: string) => {
         }
       }
 
-      await updateRetiredTaskStatusMutation.mutateAsync({ taskId: taskToComplete.id, isCompleted: true });
+      // After successful completion and profile update, remove the task from the sink
+      await rezoneTaskMutation.mutateAsync(taskToComplete.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });

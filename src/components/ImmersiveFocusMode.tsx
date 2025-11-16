@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { intervalToDuration, formatDuration, isPast, isToday, isBefore } from 'date-fns'; // Added isBefore
-import { X, CheckCircle, Archive, Clock, Zap, Sparkles, Coffee } from 'lucide-react'; // Imported Coffee
+import { intervalToDuration, formatDuration, isBefore } from 'date-fns';
+import { X, CheckCircle, Archive, Clock, Zap, Sparkles, Coffee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatTime, formatDayMonth } from '@/lib/scheduler-utils';
@@ -29,7 +29,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   const updateRemaining = useCallback(() => {
-    if (!activeItem || isBefore(activeItem.endTime, T_current)) { // Changed isPast to isBefore
+    if (!activeItem || isBefore(activeItem.endTime, T_current)) {
       setTimeRemaining('0s');
       return;
     }
@@ -55,6 +55,20 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
     const interval = setInterval(updateRemaining, 1000); // Update every second
     return () => clearInterval(interval);
   }, [updateRemaining]);
+
+  // NEW: Effect for Escape key to exit focus mode
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onExit();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onExit]); // Dependency on onExit to ensure it's always the latest function
 
   if (!activeItem || !dbTask) {
     return (

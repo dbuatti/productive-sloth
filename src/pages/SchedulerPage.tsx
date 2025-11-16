@@ -1196,15 +1196,15 @@ const SchedulerPage: React.FC = () => {
     const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
 
     const unifiedPool: UnifiedTask[] = [];
-    const scheduledTaskIdsToDelete: string[] = [];
-    const retiredTaskIdsToDelete: string[] = [];
+    const scheduledTaskIdsToDelete: string[] = []; // Declared here
+    const retiredTaskIdsToDelete: string[] = [];   // Declared here
 
     flexibleScheduledTasks.forEach(task => {
-      const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
+      const taskDuration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
       unifiedPool.push({
         id: task.id,
         name: task.name,
-        duration: duration,
+        duration: taskDuration,
         break_duration: task.break_duration,
         is_critical: task.is_critical,
         is_flexible: true,
@@ -1213,7 +1213,6 @@ const SchedulerPage: React.FC = () => {
         originalId: task.id,
         is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
-      scheduledTaskIdsToDelete.push(task.id); // Mark for deletion from schedule
     });
 
     unlockedRetiredTasks.forEach(task => {
@@ -1229,7 +1228,6 @@ const SchedulerPage: React.FC = () => {
         originalId: task.id,
         is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
-      retiredTaskIdsToDelete.push(task.id); // Mark for deletion from sink
     });
 
     if (unifiedPool.length === 0) {
@@ -1364,7 +1362,7 @@ const SchedulerPage: React.FC = () => {
           is_flexible: task.is_flexible,
           is_locked: task.is_locked,
           energy_cost: task.energy_cost,
-          is_completed: task.is_completed,
+          is_completed: false,
           is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
         });
       }
@@ -1547,6 +1545,8 @@ const SchedulerPage: React.FC = () => {
           id: nextItemToday.id,
           start_time: newNextTaskStartTime.toISOString(),
           end_time: newNextTaskEndTime.toISOString(),
+          is_flexible: false, // Mark as fixed
+          is_locked: true, // Mark as locked
         });
 
         // 2. Remove/update the original task

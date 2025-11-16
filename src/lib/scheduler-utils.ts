@@ -623,89 +623,123 @@ export const compactScheduleLogic = (
   workdayStartTime: Date,
   workdayEndTime: Date,
   T_current: Date,
-  preSortedFlexibleTasks?: DBScheduledTask[],
-  // Removed isVibeFlowEnabled parameter
+  preSortedFlexibleTasks?: DBScheduledTask[], // Optional: if tasks are already sorted for a specific purpose (e.g., auto-balance)
 ): DBScheduledTask[] => {
   const finalSchedule: DBScheduledTask[] = [];
 
-  const fixedTasks = allCurrentTasks.filter(task => !task.is_flexible || task.is_locked); // Treat locked tasks as fixed
-  let flexibleTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible && !task.is_locked); // Only place unlocked flexible tasks
+  // 1. Separate tasks into immovable (fixed or locked) and movable (flexible and unlocked)
+  const immovableTasks = allCurrentTasks.filter(task => !task.is_flexible || task.is_locked);
+  let movableTasksToPlace = preSortedFlexibleTasks || allCurrentTasks.filter(task => task.is_flexible && !task.is_locked);
 
-  // Default sorting if no preSortedFlexibleTasks are provided
-  if (!preSortedFlexibleTasks) {
-    flexibleTasksToPlace.sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime());
-  }
+  // 2. Sort immovable tasks by their start time to easily find the next boundary
+  immovableTasks.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
 
+  // 3. Add immovable tasks to the final schedule first. Their positions are fixed.
+  finalSchedule.push(...immovableTasks);
 
-  fixedTasks.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
-
-  finalSchedule.push(...fixedTasks);
-
-  let occupiedBlocks = mergeOverlappingTimeBlocks(fixedTasks.map(task => ({
+  // 4. Create occupied blocks from immovable tasks. These are the "no-go" zones.
+  let occupiedBlocks = mergeOverlappingTimeBlocks(immovableTasks.map(task => ({
     start: parseISO(task.start_time!),
     end: parseISO(task.end_time!),
     duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
   })));
 
-
-  let currentPlacementTime = isSameDay(selectedDate, T_current) && isAfter(T_current, workdayStartTime)
+  // 5. Determine the starting point for placing flexible tasks.
+  // If viewing today and current time is after workday start, start from now. Otherwise, start from workday start.
+  let currentPlacementCursor = isSameDay(selectedDate, T_current) && isAfter(T_current, workdayStartTime)
     ? T_current
     : workdayStartTime;
 
-
-  if (isAfter(currentPlacementTime, workdayEndTime)) {
-    return fixedTasks;
+  // If the current placement cursor is already past the workday end, no flexible tasks can be placed.
+  if (isAfter(currentPlacementCursor, workdayEndTime)) {
+    return finalSchedule; // Only immovable tasks remain
   }
 
-  for (const flexibleTask of flexibleTasksToPlace) {
-    const taskDuration = Math.floor((parseISO(flexibleTask.end_time!).getTime() - parseISO(flexibleTask.start_time!).getTime()) / (1000 * 60));
-    const taskBreakDuration = flexibleTask.break_duration || 0;
+  // 6. Sort movable tasks (default to creation order if not pre-sorted, or use preSortedFlexibleTasks order)
+  if (!preSortedFlexibleTasks) {
+    movableTasksToPlace.sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime());
+  }
+
+  // 7. Iterate through movable tasks and try to place them
+  for (const movableTask of movableTasksToPlace) {
+    const taskDuration = Math.floor((parseISO(movableTask.end_time!).getTime() - parseISO(movableTask.start_time!).getTime()) / (1000 * 60));
+    const taskBreakDuration = movableTask.break_duration || 0;
     const totalTaskDuration = taskDuration + taskBreakDuration;
 
-    let currentSearchTime = currentPlacementTime;
     let placed = false;
+    let currentSearchTime = currentPlacementCursor;
 
-    while (isBefore(currentSearchTime, workdayEndTime)) {
-      let potentialEndTime = addMinutes(currentSearchTime, totalTaskDuration);
-
-      if (isAfter(potentialEndTime, workdayEndTime)) {
+    // Find the next immovable boundary after the current search time.
+    // This is the start time of the first immovable task that begins after currentSearchTime.
+    // If no such task exists, the boundary is the workdayEndTime.
+    let nextImmovableBoundary = workdayEndTime;
+    for (const immovableTask of immovableTasks) {
+      const immovableStartTime = parseISO(immovableTask.start_time!);
+      if (isAfter(immovableStartTime, currentSearchTime)) {
+        nextImmovableBoundary = immovableStartTime;
         break;
       }
+    }
 
+    // Search for a slot for the movable task between currentSearchTime and nextImmovableBoundary
+    while (isBefore(currentSearchTime, nextImmovableBoundary) && isBefore(currentSearchTime, workdayEndTime)) {
+      let potentialEndTime = addMinutes(currentSearchTime, totalTaskDuration);
+
+      // Ensure potentialEndTime does not cross the immovable boundary or workday end
+      if (isAfter(potentialEndTime, nextImmovableBoundary)) {
+        break; // Cannot place this task before the next immovable boundary
+      }
+      if (isAfter(potentialEndTime, workdayEndTime)) {
+        break; // Cannot place this task within the workday
+      }
+
+      // Check if the proposed slot is free from all occupied blocks (including other immovable tasks)
       const isFree = isSlotFree(currentSearchTime, potentialEndTime, occupiedBlocks);
 
       if (isFree) {
+        // Place the task
         finalSchedule.push({
-          ...flexibleTask,
+          ...movableTask,
           start_time: currentSearchTime.toISOString(),
           end_time: potentialEndTime.toISOString(),
         });
+        // Add this newly placed task's block to occupiedBlocks for subsequent checks
         occupiedBlocks.push({
           start: currentSearchTime,
           end: potentialEndTime,
           duration: totalTaskDuration
         });
-        occupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks);
-        currentPlacementTime = potentialEndTime;
+        occupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks); // Re-merge to keep it clean
+        currentPlacementCursor = potentialEndTime; // Advance the cursor for the next movable task
         placed = true;
-        break;
+        break; // Move to the next movable task
       } else {
+        // If not free, advance currentSearchTime past the overlapping block
         let nextAvailableTime = currentSearchTime;
         for (const block of occupiedBlocks) {
-          if (isBefore(currentSearchTime, block.end) && isAfter(potentialEndTime, block.start)) {
-            if (isAfter(block.end, nextAvailableTime)) {
-              nextAvailableTime = block.end;
-            }
+          // If currentSearchTime is within an occupied block, jump past it
+          if (isBefore(currentSearchTime, block.end) && isAfter(block.end, nextAvailableTime)) {
+            nextAvailableTime = block.end;
           }
         }
-        currentSearchTime = nextAvailableTime;
+        // If nextAvailableTime is still currentSearchTime, it means there's no block to jump over,
+        // but the slot is not free. This might happen if the slot is too small.
+        // In this case, we should advance by a small increment or break if stuck.
+        if (nextAvailableTime.getTime() === currentSearchTime.getTime()) {
+          currentSearchTime = addMinutes(currentSearchTime, 1); // Smallest increment
+        } else {
+          currentSearchTime = nextAvailableTime;
+        }
       }
     }
     if (!placed) {
-      console.warn(`compactScheduleLogic: Flexible task "${flexibleTask.name}" could not be placed within the workday.`);
+      console.warn(`compactScheduleLogic: Movable task "${movableTask.name}" could not be placed within the available segment.`);
+      // If not placed, it means it couldn't fit before the next immovable boundary or workday end.
+      // It will not be added to finalSchedule, effectively "skipped" for this compaction run.
     }
   }
 
+  // 8. Sort the final schedule by start time before returning
   finalSchedule.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
   return finalSchedule;
 };

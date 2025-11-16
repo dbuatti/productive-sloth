@@ -7,7 +7,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Clock, Zap, Coffee } from 'lucide-react';
+import { Zap, Coffee } from 'lucide-react';
 import { useUIContext } from '@/contexts/UIContext'; // Corrected import path
 
 const FocusAnchor: React.FC = () => {
@@ -55,7 +55,6 @@ const FocusAnchor: React.FC = () => {
   }
 
   const isBreak = activeItemToday.type === 'break';
-  const isTimeOff = activeItemToday.type === 'time-off';
   const icon = isBreak ? <Coffee className="h-4 w-4" /> : <Zap className="h-4 w-4" />;
   const bgColor = isBreak ? 'bg-logo-orange/20' : 'bg-primary/20';
   const textColor = isBreak ? 'text-logo-orange' : 'text-primary';

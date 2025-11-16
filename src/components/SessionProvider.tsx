@@ -3,8 +3,8 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { SessionContext, UserProfile } from '@/hooks/use-session';
-import { dismissToast, showSuccess, showError } from '@/utils/toast';
-import { isToday, parseISO, isPast, addMinutes, startOfDay, format, isBefore, addDays, addHours, setHours, setMinutes } from 'date-fns';
+import { showSuccess, showError } from '@/utils/toast';
+import { isToday, parseISO, isPast, addMinutes, startOfDay, format, isBefore, addDays, addHours } from 'date-fns';
 import { 
   ENERGY_REGEN_AMOUNT, 
   ENERGY_REGEN_INTERVAL_MS, 
@@ -333,7 +333,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!user || !profile) return;
 
     const now = new Date();
-    const today = startOfDay(now);
+    const todayStart = startOfDay(now); // Renamed to avoid conflict with 'today' in isToday
 
     const lastRewardClaim = profile.last_daily_reward_claim ? parseISO(profile.last_daily_reward_claim) : null;
     const lastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;

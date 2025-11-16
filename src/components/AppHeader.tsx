@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { LogOut, Settings, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,8 +16,7 @@ import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import { AvatarImage } from './ui/avatar';
 import DailyChallengeClaimButton from './DailyChallengeClaimButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
-import { cn } from '@/lib/utils'; // Import cn for conditional classes
+import { useNavigate } from 'react-router-dom';
 
 interface AppHeaderProps {
   mobileNav?: React.ReactNode; // Add mobileNav prop

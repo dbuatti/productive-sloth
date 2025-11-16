@@ -26,7 +26,7 @@ const TasksPage: React.FC = () => {
   } = useTasks();
 
   const groupedTasks = PRIORITY_ORDER.reduce((acc, priority) => {
-    acc[priority] = tasks.filter(task => task.priority === priority);
+    acc[priority] = tasks.filter((task: { priority: TaskPriority; }) => task.priority === priority);
     return acc;
   }, {} as Record<TaskPriority, typeof tasks>);
 

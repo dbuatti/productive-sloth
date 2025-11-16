@@ -3,7 +3,6 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import Navigation from './Navigation';
-import { cn } from '@/lib/utils'; // Corrected: Removed '1' after 'cn'
 
 const MobileSidebar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);

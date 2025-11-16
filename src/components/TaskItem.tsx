@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash, CalendarDays, Clock, AlignLeft, AlertCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,6 @@ import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import XPGainAnimation from "./XPGainAnimation";
 import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks"; // Updated import
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';

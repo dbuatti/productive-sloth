@@ -1,5 +1,5 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
+import { format, addMinutes, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
+import { ScheduledItem, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, TimeBlock, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
 export const EMOJI_MAP: { [key: string]: string } = {
@@ -605,7 +605,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTime,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
+    midnightRolloverMessage: midnightRoloverMessage,
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
   };
@@ -706,7 +706,7 @@ export const compactScheduleLogic = (
     }
   }
 
-  finalSchedule.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.start_time!).getTime());
+  finalSchedule.sort((a, b) => parseISO(a.start_time!).getTime() - parseISO(b.end_time!).getTime());
   return finalSchedule;
 };
 

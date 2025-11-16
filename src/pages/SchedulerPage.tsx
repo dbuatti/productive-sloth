@@ -130,6 +130,7 @@ const SchedulerPage: React.FC = () => {
     setRetiredSortBy,
     autoBalanceSchedule,
     completeScheduledTask,
+    updateScheduledTaskDetails, // NEW: Import updateScheduledTaskDetails
   } = useSchedulerTasks(selectedDay);
 
   const queryClient = useQueryClient();
@@ -909,6 +910,7 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(true);
     await retireTask(taskToRetire);
     setIsProcessingCommand(false);
+    setIsFocusModeActive(false); // Exit focus mode if retiring from there
   };
 
   const handleRemoveRetiredTask = async (retiredTaskId: string) => {
@@ -923,7 +925,7 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     try {
-      const { error } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', user.id);
+      const { error } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user.id', user.id);
       if (error) throw new Error(error.message);
       showSuccess('Task permanently removed from Aether Sink.');
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });
@@ -1489,6 +1491,82 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
+  // NEW: Handler for "Take a Break" from EarlyCompletionModal
+  const handleTakeBreakAfterEarlyCompletion = async (remainingMinutes: number) => {
+    if (!user || !activeItemToday || !activeDbTask) {
+      showError("Cannot take a break: no active task or user not logged in.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      // 1. Complete the original task (handles XP/Energy)
+      await completeScheduledTask(activeDbTask);
+
+      // 2. Create a new "Flow Break" task for the remaining time
+      const breakStartTime = T_current;
+      const breakEndTime = addMinutes(breakStartTime, remainingMinutes);
+
+      await addScheduledTask({
+        name: 'Flow Break',
+        start_time: breakStartTime.toISOString(),
+        end_time: breakEndTime.toISOString(),
+        break_duration: remainingMinutes,
+        scheduled_date: formattedSelectedDay,
+        is_critical: false,
+        is_flexible: true, // Breaks are flexible
+        is_locked: false,
+        energy_cost: 0, // Breaks have no energy cost
+        is_custom_energy_cost: false,
+      });
+      showSuccess(`Enjoy your ${remainingMinutes}-minute Flow Break!`);
+      setIsFocusModeActive(false); // Exit focus mode
+    } catch (error: any) {
+      showError(`Failed to take a break: ${error.message}`);
+      console.error("Take break after early completion error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
+  // NEW: Handler for "Start Next Task Now" from EarlyCompletionModal
+  const handleStartNextTaskNowAfterEarlyCompletion = async () => {
+    if (!user || !activeItemToday || !activeDbTask || !nextItemToday) {
+      showError("Cannot start next task: no active/next task or user not logged in.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      // 1. Complete the original task (handles XP/Energy)
+      await completeScheduledTask(activeDbTask);
+
+      // 2. Update the next task's start_time to T_current
+      const nextDbTask = dbScheduledTasks.find(task => task.id === nextItemToday.id);
+      if (nextDbTask) {
+        const newNextTaskStartTime = T_current;
+        const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextItemToday.duration);
+
+        await updateScheduledTaskDetails({
+          id: nextDbTask.id,
+          start_time: newNextTaskStartTime.toISOString(),
+          end_time: newNextTaskEndTime.toISOString(),
+        });
+        showSuccess(`"${nextItemToday.name}" started early!`);
+      } else {
+        showError("Could not find the next task in the database to update.");
+      }
+
+      // 3. Run compacting to shift subsequent tasks
+      await handleCompactSchedule(); // This will re-arrange flexible tasks
+      
+      setIsFocusModeActive(false); // Exit focus mode
+    } catch (error: any) {
+      showError(`Failed to start next task early: ${error.message}`);
+      console.error("Start next task early error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
   const handleRefreshSchedule = () => {
     queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user?.id, formattedSelectedDay, sortBy] });
     queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user?.id] });
@@ -1729,11 +1807,15 @@ const SchedulerPage: React.FC = () => {
       {isFocusModeActive && activeItemToday && activeDbTask ? (
         <ImmersiveFocusMode
           activeItem={activeItemToday}
+          nextItem={nextItemToday} // NEW: Pass nextItemToday
           T_current={T_current}
           onExit={() => setIsFocusModeActive(false)}
           onComplete={handleCompleteScheduledTask}
           onSkip={handleManualRetire}
           dbTask={activeDbTask}
+          onTakeBreakAfterEarlyCompletion={handleTakeBreakAfterEarlyCompletion} // NEW
+          onStartNextTaskNowAfterEarlyCompletion={handleStartNextTaskNowAfterEarlyCompletion} // NEW
+          isProcessingCommand={isProcessingCommand} // NEW
         />
       ) : (
         <>

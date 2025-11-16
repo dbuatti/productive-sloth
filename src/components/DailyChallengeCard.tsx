@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, CheckCircle, Loader2, Zap, Sparkles } from 'lucide-react';
+import { Trophy, CheckCircle, Loader2, Sparkles } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { isToday, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { X, Save, Loader2, Zap, Sparkles, BatteryCharging } from "lucide-react";
+import { X, Save, Loader2 } from "lucide-react";
 
 import {
   Sheet,
@@ -30,7 +30,6 @@ import { Task, TaskPriority } from "@/types";
 import DatePicker from "./DatePicker";
 import { useTasks } from '@/hooks/use-tasks';
 import { showSuccess } from "@/utils/toast";
-import { useSession } from '@/hooks/use-session';
 import { Switch } from '@/components/ui/switch';
 
 const formSchema = z.object({
@@ -55,7 +54,6 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
   onOpenChange,
 }) => {
   const { updateTask } = useTasks();
-  const { profile } = useSession();
 
   const form = useForm<TaskDetailFormValues>({
     resolver: zodResolver(formSchema),
@@ -89,7 +87,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       await updateTask({
         id: task.id,
         title: values.title,
-        description: descriptionValue,
+        description: descriptionValue ?? undefined, // Convert null to undefined for optional string
         priority: values.priority,
         due_date: values.dueDate.toISOString(),
         is_critical: values.isCritical,

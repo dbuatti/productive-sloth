@@ -115,6 +115,21 @@ export interface NewRetiredTask {
   // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
 }
 
+// Helper type for unification (moved from SchedulerPage.tsx)
+export interface UnifiedTask {
+  id: string;
+  name: string;
+  duration: number;
+  break_duration: number | null;
+  is_critical: boolean;
+  is_flexible: boolean;
+  energy_cost: number;
+  source: 'scheduled' | 'retired';
+  originalId: string; // ID in the source table
+  is_custom_energy_cost: boolean; // NEW: Add custom energy cost flag
+  created_at: string; // NEW: Add created_at for age sorting
+}
+
 // NEW: Payload for the atomic auto-balance mutation
 export interface AutoBalancePayload {
   scheduledTaskIdsToDelete: string[];
@@ -195,18 +210,4 @@ export interface TimeBlock {
   start: Date;
   end: Date;
   duration: number; // in minutes
-}
-
-// Helper type for unification (moved from SchedulerPage.tsx)
-export interface UnifiedTask {
-  id: string;
-  name: string;
-  duration: number;
-  break_duration: number | null;
-  is_critical: boolean;
-  is_flexible: boolean;
-  energy_cost: number;
-  source: 'scheduled' | 'retired';
-  originalId: string; // ID in the source table
-  is_custom_energy_cost: boolean; // NEW: Add custom energy cost flag
 }

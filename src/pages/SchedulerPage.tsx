@@ -983,7 +983,8 @@ const SchedulerPage: React.FC = () => {
                 energy_cost: task.energy_cost,
                 source: 'scheduled',
                 originalId: task.id,
-                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+                is_custom_energy_cost: task.is_custom_energy_cost,
+                created_at: task.created_at, // <-- NEW: Map created_at
             });
             scheduledTaskIdsToDelete.push(task.id);
         });
@@ -999,7 +1000,8 @@ const SchedulerPage: React.FC = () => {
                 energy_cost: task.energy_cost,
                 source: 'retired',
                 originalId: task.id,
-                is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+                is_custom_energy_cost: task.is_custom_energy_cost,
+                created_at: task.retired_at, // <-- NEW: Map retired_at to created_at for age sorting
             });
             retiredTaskIdsToDelete.push(task.id);
         });
@@ -1009,7 +1011,34 @@ const SchedulerPage: React.FC = () => {
         console.log("handleAutoScheduleSink: Retired task IDs to delete:", retiredTaskIdsToDelete);
 
 
-        let balancedQueue: UnifiedTask[] = [...unifiedPool].sort((a, b) => a.name.localeCompare(b.name));
+        // ----------------------------------------------------------------
+        // NEW SORTING LOGIC: P1 Criticality, P2 Age, P3 Duration, P4 Alpha
+        // ----------------------------------------------------------------
+        let balancedQueue: UnifiedTask[] = [...unifiedPool].sort((a, b) => {
+          // P1: CRITICALITY FIRST (Critical tasks ALWAYS first)
+          if (a.is_critical !== b.is_critical) {
+            return a.is_critical ? -1 : 1; // Critical = -1 (comes first)
+          }
+
+          // P2: TASK AGE (Oldest First - SOLVES RECENCY BIAS)
+          const createdA = new Date(a.created_at).getTime();
+          const createdB = new Date(b.created_at).getTime();
+          if (createdA !== createdB) {
+            return createdA - createdB; // Older timestamp (smaller) comes first
+          }
+
+          // P3: DURATION (Smallest First - fills gaps efficiently)
+          const durationA = (a.duration || 30) + (a.break_duration || 0);
+          const durationB = (b.duration || 30) + (b.break_duration || 0);
+          if (durationA !== durationB) {
+            return durationA - durationB; // Smaller duration first
+          }
+
+          // P4: ALPHABETICAL (final tie-breaker only)
+          return a.name.localeCompare(b.name);
+        });
+        // ----------------------------------------------------------------
+
 
         const tasksToInsert: NewDBScheduledTask[] = [];
         const tasksToKeepInSink: NewRetiredTask[] = [];
@@ -1060,6 +1089,7 @@ const SchedulerPage: React.FC = () => {
                 is_critical: task.is_critical,
                 is_locked: false,
                 energy_cost: task.energy_cost,
+                is_completed: false,
                 is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
               });
               console.log(`handleAutoScheduleSink: Critical task "${task.name}" skipped due to low energy, moved to sink.`);
@@ -1212,6 +1242,7 @@ const SchedulerPage: React.FC = () => {
         source: 'scheduled',
         originalId: task.id,
         is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+        created_at: task.created_at, // <-- NEW
       });
     });
 
@@ -1227,6 +1258,7 @@ const SchedulerPage: React.FC = () => {
         source: 'retired',
         originalId: task.id,
         is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+        created_at: task.retired_at, // <-- NEW
       });
     });
 
@@ -1299,7 +1331,7 @@ const SchedulerPage: React.FC = () => {
         start_time: tempStartTime.toISOString(), // Use calculated temp start time
         end_time: tempEndTime.toISOString(),   // Use calculated temp end time
         scheduled_date: formattedSelectedDay,
-        created_at: new Date().toISOString(), // Placeholder
+        created_at: task.created_at, // Preserve original created_at
         updated_at: new Date().toISOString(), // Placeholder
         is_critical: task.is_critical,
         is_flexible: true, // These are always flexible for this operation
@@ -1615,6 +1647,7 @@ const SchedulerPage: React.FC = () => {
           source: 'scheduled',
           originalId: task.id,
           is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+          created_at: task.created_at, // <-- NEW
         });
       });
 
@@ -1630,6 +1663,7 @@ const SchedulerPage: React.FC = () => {
           source: 'retired',
           originalId: task.id,
           is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+          created_at: task.retired_at, // <-- NEW
         });
       });
 
@@ -1805,36 +1839,6 @@ const SchedulerPage: React.FC = () => {
       setIsProcessingCommand(false);
     }
   }, [user, profile, dbScheduledTasks, retiredTasks, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, formattedSelectedDay, selectedDayAsDate, autoBalanceSchedule, handleCompactSchedule]);
-
-  // REMOVED: activeItem and nextItem calculation, now from useSession
-  // const activeItem: ScheduledItem | null = useMemo(() => {
-  //   if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;
-  //   for (const item of currentSchedule.items) {
-  //     if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
-  //       return item;
-  //     }
-  //   }
-  //   return null;
-  // }, [currentSchedule, T_current, selectedDay]);
-
-  // const activeDbTask: DBScheduledTask | null = useMemo(() => {
-  //   if (!activeItem || !currentSchedule) return null;
-  //   return currentSchedule.dbTasks.find(task => task.id === activeItem.id) || null;
-  // }, [activeItem, currentSchedule]);
-
-  // const nextItem: ScheduledItem | null = useMemo(() => {
-  //   if (!currentSchedule || !activeItem || !isSameDay(parseISO(selectedDay), T_current)) return null;
-  //   const activeItemIndex = currentSchedule.items.findIndex(item => item.id === activeItem.id);
-  //   if (activeItemIndex !== -1 && activeItemIndex < currentSchedule.items.length - 1) {
-  //     for (let i = activeItemIndex + 1; i < currentSchedule.items.length; i++) {
-  //       const item = currentSchedule.items[i];
-  //       if (item.type === 'task' || item.type === 'break' || item.type === 'time-off') {
-  //         return item;
-  //       }
-  //     }
-  //   }
-  //   return null;
-  // }, [currentSchedule, activeItem, T_current, selectedDay]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;

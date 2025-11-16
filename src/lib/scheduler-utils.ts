@@ -83,7 +83,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40,
   'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350,
   'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
-  'gaming': 0, 'tv': 10, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150,
+  'gaming': 0, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150, // Removed duplicate 'tv' entry
   'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150,
   'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110,
   'piano': 270, 'music': 270, 'practice': 270,

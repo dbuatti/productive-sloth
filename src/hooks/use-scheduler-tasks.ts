@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
-import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask } from '@/types/scheduler';
+import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy } from '@/types/scheduler';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns';
@@ -72,6 +72,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
   const formattedSelectedDate = selectedDate;
 
   const [sortBy, setSortBy] = useState<SortBy>('TIME_EARLIEST_TO_LATEST');
+  const [retiredSortBy, setRetiredSortBy] = useState<RetiredTaskSortBy>('RETIRED_AT_NEWEST'); // NEW: State for retired tasks sorting
   const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null);
 
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
@@ -150,15 +151,63 @@ export const useSchedulerTasks = (selectedDate: string) => {
   });
 
   const { data: retiredTasks = [], isLoading: isLoadingRetiredTasks } = useQuery<RetiredTask[]>({
-    queryKey: ['retiredTasks', userId],
+    queryKey: ['retiredTasks', userId, retiredSortBy], // NEW: Add retiredSortBy to queryKey
     queryFn: async () => {
       if (!userId) return [];
-      console.log("useSchedulerTasks: Fetching retired tasks for user:", userId);
-      const { data, error } = await supabase
+      console.log("useSchedulerTasks: Fetching retired tasks for user:", userId, "sorted by:", retiredSortBy);
+      let query = supabase
         .from('retired_tasks')
         .select('*')
-        .eq('user_id', userId)
-        .order('retired_at', { ascending: false });
+        .eq('user_id', userId);
+
+      // Apply sorting based on retiredSortBy
+      switch (retiredSortBy) {
+        case 'NAME_ASC':
+          query = query.order('name', { ascending: true });
+          break;
+        case 'NAME_DESC':
+          query = query.order('name', { ascending: false });
+          break;
+        case 'DURATION_ASC':
+          query = query.order('duration', { ascending: true, nullsFirst: true });
+          break;
+        case 'DURATION_DESC':
+          query = query.order('duration', { ascending: false, nullsLast: true });
+          break;
+        case 'CRITICAL_FIRST':
+          query = query.order('is_critical', { ascending: false }).order('retired_at', { ascending: false });
+          break;
+        case 'CRITICAL_LAST':
+          query = query.order('is_critical', { ascending: true }).order('retired_at', { ascending: false });
+          break;
+        case 'LOCKED_FIRST':
+          query = query.order('is_locked', { ascending: false }).order('retired_at', { ascending: false });
+          break;
+        case 'LOCKED_LAST':
+          query = query.order('is_locked', { ascending: true }).order('retired_at', { ascending: false });
+          break;
+        case 'ENERGY_ASC':
+          query = query.order('energy_cost', { ascending: true });
+          break;
+        case 'ENERGY_DESC':
+          query = query.order('energy_cost', { ascending: false });
+          break;
+        case 'RETIRED_AT_OLDEST':
+          query = query.order('retired_at', { ascending: true });
+          break;
+        case 'COMPLETED_FIRST':
+          query = query.order('is_completed', { ascending: false }).order('retired_at', { ascending: false });
+          break;
+        case 'COMPLETED_LAST':
+          query = query.order('is_completed', { ascending: true }).order('retired_at', { ascending: false });
+          break;
+        case 'RETIRED_AT_NEWEST': // Default or fallback
+        default:
+          query = query.order('retired_at', { ascending: false });
+          break;
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
@@ -245,8 +294,8 @@ export const useSchedulerTasks = (selectedDate: string) => {
       return data as RetiredTask;
     },
     onMutate: async (newTask: NewRetiredTask) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
       // Removed optimistic update for retiredTasks to prevent duplicates
       // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) => {
@@ -268,7 +317,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
       return { previousRetiredTasks };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       showSuccess('Task sent directly to Aether Sink!');
     },
     onError: (err, newTask, context) => {
@@ -279,7 +328,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         showError(`Failed to send task to Aether Sink: ${err.message}`);
       }
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -374,10 +423,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
     },
     onMutate: async (taskToRetire: DBScheduledTask) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
 
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
         (old || []).filter(task => task.id !== taskToRetire.id)
@@ -406,7 +455,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Task moved to Aether Sink.');
     },
@@ -416,7 +465,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -429,22 +478,22 @@ export const useSchedulerTasks = (selectedDate: string) => {
       if (deleteError) throw new Error(`Failed to remove task from Aether Sink: ${deleteError.message}`);
     },
     onMutate: async (retiredTaskId: string) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
         (old || []).filter(task => task.id !== retiredTaskId)
       );
       return { previousRetiredTasks };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       showSuccess('Task removed from Aether Sink.');
     },
     onError: (err, retiredTaskId, context) => {
       showError(`Failed to remove task from Aether Sink: ${err.message}`);
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -801,10 +850,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
       return data as RetiredTask;
     },
     onMutate: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
         (old || []).map(task =>
           task.id === taskId ? { ...task, is_locked: isLocked } : task
         )
@@ -812,13 +861,13 @@ export const useSchedulerTasks = (selectedDate: string) => {
       return { previousRetiredTasks };
     },
     onSuccess: (updatedTask) => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       showSuccess(`Retired task "${updatedTask.name}" ${updatedTask.is_locked ? 'locked' : 'unlocked'}.`);
     },
     onError: (err, { taskId, isLocked }, context) => {
       showError(`Failed to toggle lock for retired task: ${err.message}`);
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -868,10 +917,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
 
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
       const tasksToDump = (previousScheduledTasks || []).filter(task => task.is_flexible && !task.is_locked);
       const remainingScheduledTasks = (previousScheduledTasks || []).filter(task => !task.is_flexible || task.is_locked);
@@ -902,7 +951,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Flexible tasks moved to Aether Sink!');
     },
@@ -912,7 +961,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -962,10 +1011,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
 
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
       // Removed optimistic update for retiredTasks to prevent duplicates
       // const currentScheduledTasksSnapshot = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
@@ -995,14 +1044,14 @@ export const useSchedulerTasks = (selectedDate: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('All flexible tasks from today and future moved to Aether Sink!');
     },
     onError: (err, _variables, context) => {
       showError(`Failed to perform Aether Dump Mega: ${err.message}`);
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -1074,16 +1123,16 @@ export const useSchedulerTasks = (selectedDate: string) => {
     },
     onMutate: async (payload: AutoBalancePayload) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
       
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy]);
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], (old) =>
         (old || []).filter(task => !payload.scheduledTaskIdsToDelete.includes(task.id))
       );
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
         (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id))
       );
 
@@ -1091,7 +1140,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
     },
     onSuccess: (result, payload) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       
       let message = `Schedule balanced! ${result.tasksPlaced} task(s) placed.`;
@@ -1106,7 +1155,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], context.previousScheduledTasks);
       }
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -1171,10 +1220,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
       return data as RetiredTask;
     },
     onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
         (old || []).map(task =>
           task.id === taskId ? { ...task, is_completed: isCompleted } : task
         )
@@ -1182,13 +1231,13 @@ export const useSchedulerTasks = (selectedDate: string) => {
       return { previousRetiredTasks };
     },
     onSuccess: (updatedTask) => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       showSuccess(`Retired task "${updatedTask.name}" marked as ${updatedTask.is_completed ? 'completed' : 'incomplete'}.`);
     },
     onError: (err, { taskId, isCompleted }, context) => {
       showError(`Failed to update completion status for retired task: ${err.message}`);
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -1332,7 +1381,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
       await rezoneTaskMutation.mutateAsync(taskToComplete.id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
     },
     onError: (err) => {
       if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats for retired task.") {
@@ -1404,10 +1453,10 @@ export const useSchedulerTasks = (selectedDate: string) => {
       return data as RetiredTask;
     },
     onMutate: async (updatedTask: Partial<RetiredTask> & { id: string }) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId] });
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId]);
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
         (old || []).map(task =>
           task.id === updatedTask.id ? { ...task, ...updatedTask } : task
         )
@@ -1415,13 +1464,13 @@ export const useSchedulerTasks = (selectedDate: string) => {
       return { previousRetiredTasks };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
       showSuccess('Retired task details updated!');
     },
     onError: (e, _variables, context) => {
       showError(`Failed to update retired task details: ${e.message}`);
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], context.previousRetiredTasks);
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
       }
     }
   });
@@ -1460,6 +1509,8 @@ export const useSchedulerTasks = (selectedDate: string) => {
     updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutate, // NEW: Expose new mutation
     sortBy,
     setSortBy,
+    retiredSortBy, // NEW: Expose retiredSortBy
+    setRetiredSortBy, // NEW: Expose setRetiredSortBy
     xpGainAnimation,
     clearXpGainAnimation,
   };

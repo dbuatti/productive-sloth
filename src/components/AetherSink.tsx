@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle } from 'lucide-react'; // Added CheckCircle
-import { RetiredTask, NewRetiredTask } from '@/types/scheduler';
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays } from 'lucide-react'; // Added CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays
+import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler'; // Import RetiredTaskSortBy
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
@@ -14,7 +14,14 @@ import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import InfoChip from './InfoChip';
 import RetiredTaskDetailSheet from './RetiredTaskDetailSheet';
-// Removed Checkbox import as it's no longer used for completion
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -25,9 +32,11 @@ interface AetherSinkProps {
   isProcessingCommand: boolean;
   hideTitle?: boolean;
   profileEnergy: number;
+  retiredSortBy: RetiredTaskSortBy; // NEW: Add retiredSortBy prop
+  setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void; // NEW: Add setRetiredSortBy prop
 }
 
-const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy }) => {
+const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy, retiredSortBy, setRetiredSortBy }) => {
   const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked);
   const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
   const { user } = useSession();
@@ -98,6 +107,85 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
             </CardTitle>
             <div className="flex items-center gap-2">
+              {/* Sort Button for Aether Sink */}
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        disabled={isProcessingCommand || retiredTasks.length === 0}
+                        className={cn(
+                          "h-8 w-8 text-muted-foreground hover:bg-muted/10 transition-all duration-200",
+                          (isProcessingCommand || retiredTasks.length === 0) && "text-muted-foreground/50 cursor-not-allowed"
+                        )}
+                        style={(isProcessingCommand || retiredTasks.length === 0) ? { pointerEvents: 'auto' } : undefined}
+                      >
+                        {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
+                        <span className="sr-only">Sort Aether Sink</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Sort Aether Sink Tasks</p>
+                  </TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort By</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_NEWEST')} className={cn(retiredSortBy === 'RETIRED_AT_NEWEST' && 'bg-accent text-accent-foreground')}>
+                    <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Newest)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_OLDEST')} className={cn(retiredSortBy === 'RETIRED_AT_OLDEST' && 'bg-accent text-accent-foreground')}>
+                    <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Oldest)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_ASC')} className={cn(retiredSortBy === 'NAME_ASC' && 'bg-accent text-accent-foreground')}>
+                    <SortAsc className="mr-2 h-4 w-4" /> Name (A-Z)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_DESC')} className={cn(retiredSortBy === 'NAME_DESC' && 'bg-accent text-accent-foreground')}>
+                    <SortDesc className="mr-2 h-4 w-4" /> Name (Z-A)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_DESC')} className={cn(retiredSortBy === 'DURATION_DESC' && 'bg-accent text-accent-foreground')}>
+                    <Clock className="mr-2 h-4 w-4" /> Duration (Longest)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_ASC')} className={cn(retiredSortBy === 'DURATION_ASC' && 'bg-accent text-accent-foreground')}>
+                    <Clock className="mr-2 h-4 w-4" /> Duration (Shortest)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_FIRST')} className={cn(retiredSortBy === 'CRITICAL_FIRST' && 'bg-accent text-accent-foreground')}>
+                    <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Critical (First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_LAST')} className={cn(retiredSortBy === 'CRITICAL_LAST' && 'bg-accent text-accent-foreground')}>
+                    <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Critical (Last)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_FIRST')} className={cn(retiredSortBy === 'LOCKED_FIRST' && 'bg-accent text-accent-foreground')}>
+                    <Lock className="mr-2 h-4 w-4 text-primary" /> Locked (First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_LAST')} className={cn(retiredSortBy === 'LOCKED_LAST' && 'bg-accent text-accent-foreground')}>
+                    <Unlock className="mr-2 h-4 w-4 text-primary" /> Locked (Last)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_DESC')} className={cn(retiredSortBy === 'ENERGY_DESC' && 'bg-accent text-accent-foreground')}>
+                    <Zap className="mr-2 h-4 w-4 text-logo-yellow" /> Energy (Highest)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_ASC')} className={cn(retiredSortBy === 'ENERGY_ASC' && 'bg-accent text-accent-foreground')}>
+                    <Zap className="mr-2 h-4 w-4 text-logo-yellow" /> Energy (Lowest)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_FIRST')} className={cn(retiredSortBy === 'COMPLETED_FIRST' && 'bg-accent text-accent-foreground')}>
+                    <CheckCircle className="mr-2 h-4 w-4 text-logo-green" /> Completed (First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_LAST')} className={cn(retiredSortBy === 'COMPLETED_LAST' && 'bg-accent text-accent-foreground')}>
+                    <CheckCircle className="mr-2 h-4 w-4 text-logo-green" /> Completed (Last)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Auto Schedule Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

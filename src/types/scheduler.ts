@@ -3,6 +3,16 @@ export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
 export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
 export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI'; // Updated SortBy
 
+// NEW: Type for sorting retired tasks
+export type RetiredTaskSortBy = 
+  'NAME_ASC' | 'NAME_DESC' |
+  'DURATION_ASC' | 'DURATION_DESC' |
+  'CRITICAL_FIRST' | 'CRITICAL_LAST' |
+  'LOCKED_FIRST' | 'LOCKED_LAST' |
+  'ENERGY_ASC' | 'ENERGY_DESC' |
+  'RETIRED_AT_NEWEST' | 'RETIRED_AT_OLDEST' |
+  'COMPLETED_FIRST' | 'COMPLETED_LAST';
+
 export interface Task {
   id: string;
   user_id: string;

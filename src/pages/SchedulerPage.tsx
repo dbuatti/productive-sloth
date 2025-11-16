@@ -145,6 +145,8 @@ const SchedulerPage: React.FC = () => {
     aetherDumpMega,
     sortBy,
     setSortBy,
+    retiredSortBy, // NEW: Destructure retiredSortBy
+    setRetiredSortBy, // NEW: Destructure setRetiredSortBy
     autoBalanceSchedule,
     completeScheduledTask,
   } = useSchedulerTasks(selectedDay);
@@ -1444,7 +1446,7 @@ const SchedulerPage: React.FC = () => {
   const handleRefreshSchedule = () => {
     queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user?.id, formattedSelectedDay, sortBy] });
     queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id, retiredSortBy] }); // NEW: Update queryKey
     showSuccess("Schedule refreshed!");
   };
 
@@ -1817,6 +1819,8 @@ const SchedulerPage: React.FC = () => {
             isLoading={isLoadingRetiredTasks}
             isProcessingCommand={isProcessingCommand}
             profileEnergy={profile?.energy || 0}
+            retiredSortBy={retiredSortBy} // NEW: Pass retiredSortBy
+            setRetiredSortBy={setRetiredSortBy} // NEW: Pass setRetiredSortBy
           />
         </TabsContent>
       </Tabs>

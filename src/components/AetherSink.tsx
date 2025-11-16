@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus } from 'lucide-react';
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle } from 'lucide-react'; // Added CheckCircle
 import { RetiredTask, NewRetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -14,7 +14,7 @@ import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import InfoChip from './InfoChip';
 import RetiredTaskDetailSheet from './RetiredTaskDetailSheet';
-import { Checkbox } from '@/components/ui/checkbox';
+// Removed Checkbox import as it's no longer used for completion
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -67,7 +67,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
   const handleTaskItemClick = (event: React.MouseEvent, retiredTask: RetiredTask) => {
     console.log("AetherSink: Retired task item clicked for task:", retiredTask.name, "Event target:", event.target);
     const target = event.target as HTMLElement;
-    if (target.closest('button') || target.closest('a') || target.closest('input[type="checkbox"]')) {
+    // Prevent opening the sheet if a child interactive element (like a button) was clicked
+    if (target.closest('button') || target.closest('a')) { // Removed checkbox from this condition
       console.log("AetherSink: Click originated from an interactive child, preventing sheet open.");
       return;
     }
@@ -183,16 +184,34 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                       onClick={(e) => handleTaskItemClick(e, task)}
                     >
                       <div className="flex items-center space-x-3 flex-grow min-w-0">
-                        <Checkbox
-                          checked={task.is_completed}
-                          onCheckedChange={() => handleToggleComplete(task)}
-                          id={`retired-task-${task.id}`}
-                          className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-5 w-5"
-                          disabled={isLocked || isProcessingCommand}
-                        />
-                        <label
-                          htmlFor={`retired-task-${task.id}`}
-                          className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex flex-col items-start min-w-0 flex-grow`}
+                        {/* Replaced Checkbox with Button containing CheckCircle */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent parent onClick from firing
+                                handleToggleComplete(task);
+                              }}
+                              disabled={isLocked || isProcessingCommand}
+                              className={cn(
+                                "h-6 w-6 p-0 shrink-0",
+                                isLocked || isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
+                              )}
+                              style={isLocked || isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              <span className="sr-only">{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        <div // This div replaces the old label element
+                          className={`flex flex-col items-start min-w-0 flex-grow`}
                         >
                           <div className="flex items-center gap-1 w-full">
                             {task.is_critical && (
@@ -236,7 +255,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               </Badge>
                             )}
                           </div>
-                        </label>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 ml-auto shrink-0">
                         <Tooltip>

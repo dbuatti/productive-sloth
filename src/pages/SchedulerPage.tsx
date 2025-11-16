@@ -55,6 +55,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SchedulerUtilityBar from '@/components/SchedulerUtilityBar'; // NEW: Import SchedulerUtilityBar
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog'; // NEW: Import WorkdayWindowDialog
 import ScheduledTaskDetailSheet from '@/components/ScheduledTaskDetailSheet'; // NEW: Import ScheduledTaskDetailSheet
+import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants'; // Import constants for energy
 
 const deepCompare = (a: any, b: any) => {
   if (a === b) return true;
@@ -1340,6 +1341,47 @@ const SchedulerPage: React.FC = () => {
     showSuccess("Schedule refreshed!");
   };
 
+  // NEW: handleQuickScheduleBlock function
+  const handleQuickScheduleBlock = async (duration: number) => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to quick schedule blocks.");
+      return;
+    }
+    setIsProcessingCommand(true);
+
+    const taskName = "Focus Block";
+    const isCritical = profile.energy > (MAX_ENERGY * 0.7); // Make critical if energy is high
+    const energyCost = calculateEnergyCost(duration, isCritical);
+
+    const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+      taskName,
+      duration,
+      isCritical,
+      true, // Always flexible for quick blocks
+      energyCost,
+      [...occupiedBlocks], // Pass a copy of current occupied blocks
+      effectiveWorkdayStart,
+      workdayEndTime
+    );
+
+    if (proposedStartTime && proposedEndTime) {
+      await addScheduledTask({
+        name: taskName,
+        start_time: proposedStartTime.toISOString(),
+        end_time: proposedEndTime.toISOString(),
+        break_duration: null,
+        scheduled_date: formattedSelectedDay,
+        is_critical: isCritical,
+        is_flexible: true,
+        energy_cost: energyCost,
+      });
+      showSuccess(`Scheduled a ${duration}-minute Focus Block from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+    } else {
+      showError(message);
+    }
+    setIsProcessingCommand(false);
+  };
+
   // Removed useEffect to trigger Vibe Sort when isVibeFlowEnabled changes
 
   const activeItem: ScheduledItem | null = useMemo(() => {
@@ -1434,6 +1476,7 @@ const SchedulerPage: React.FC = () => {
         // Removed isVibeFlowEnabled
         // Removed onToggleVibeFlow
         onCompactSchedule={handleCompactSchedule} // Pass the new handler here
+        onQuickScheduleBlock={handleQuickScheduleBlock} // NEW: Pass the quick schedule block handler
       />
 
       {/* 6. NOW FOCUS Card - STICKY */}

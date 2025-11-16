@@ -1,11 +1,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Zap, Shuffle, Settings2, Globe, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Smile } from 'lucide-react'; // Removed Brain icon for Vibe Flow, Added Smile icon
+import { Loader2, Zap, Shuffle, Settings2, Globe, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Smile, Hourglass } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 
@@ -18,7 +18,8 @@ interface SchedulerUtilityBarProps {
   onSortFlexibleTasks: (sortBy: SortBy) => void;
   onOpenWorkdayWindowDialog: () => void;
   sortBy: SortBy;
-  onCompactSchedule: () => void; // NEW: Add onCompactSchedule prop
+  onCompactSchedule: () => void;
+  onQuickScheduleBlock: (duration: number) => void; // NEW: Handler for quick schedule block
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -30,11 +31,14 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   onSortFlexibleTasks,
   onOpenWorkdayWindowDialog,
   sortBy,
-  onCompactSchedule, // NEW: Destructure prop
+  onCompactSchedule,
+  onQuickScheduleBlock, // NEW: Destructure prop
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
+
+  const quickBlockDurations = [30, 60, 90, 120]; // Durations for quick schedule blocks
 
   return (
     <Card className="animate-pop-in animate-hover-lift">
@@ -86,7 +90,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
             </TooltipContent>
           </Tooltip>
 
-          {/* Compacting Button (NEW LOCATION) */}
+          {/* Compacting Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
@@ -148,6 +152,38 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
               <DropdownMenuItem onClick={() => onSortFlexibleTasks('EMOJI')} className={cn(sortBy === 'EMOJI' && 'bg-accent text-accent-foreground')}>
                 <Smile className="mr-2 h-4 w-4" /> Emoji
               </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* NEW: Quick Schedule Block Button */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    disabled={isProcessingCommand}
+                    className="h-10 w-10 text-logo-green hover:bg-logo-green/10 transition-all duration-200"
+                    style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+                  >
+                    {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Hourglass className="h-5 w-5" />}
+                    <span className="sr-only">Quick Schedule Block</span>
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Quick Schedule a Focus Block</p>
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Schedule Focus Block</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {quickBlockDurations.map(duration => (
+                <DropdownMenuItem key={duration} onClick={() => onQuickScheduleBlock(duration)}>
+                  <Hourglass className="mr-2 h-4 w-4" /> {duration} Minutes
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

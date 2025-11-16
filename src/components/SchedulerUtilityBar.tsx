@@ -5,7 +5,17 @@ import { Loader2, Zap, Shuffle, Settings2, Globe, ChevronsUp, Star, ArrowDownWid
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger, 
+  DropdownMenuSeparator, 
+  DropdownMenuLabel,
+  DropdownMenuSub, // NEW: Import DropdownMenuSub
+  DropdownMenuSubContent, // NEW: Import DropdownMenuSubContent
+  DropdownMenuSubTrigger, // NEW: Import DropdownMenuSubTrigger
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 
@@ -19,7 +29,7 @@ interface SchedulerUtilityBarProps {
   onOpenWorkdayWindowDialog: () => void;
   sortBy: SortBy;
   onCompactSchedule: () => void;
-  onQuickScheduleBlock: (duration: number) => void; // NEW: Handler for quick schedule block
+  onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => void; // UPDATED: Added sortPreference
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -32,13 +42,13 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   onOpenWorkdayWindowDialog,
   sortBy,
   onCompactSchedule,
-  onQuickScheduleBlock, // NEW: Destructure prop
+  onQuickScheduleBlock,
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
 
-  const quickBlockDurations = [30, 60, 90, 120]; // Durations for quick schedule blocks
+  const quickBlockDurations = [30, 60, 90, 120];
 
   return (
     <Card className="animate-pop-in animate-hover-lift">
@@ -155,7 +165,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* NEW: Quick Schedule Block Button */}
+          {/* Quick Schedule Block Button with Sub-menus */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -180,9 +190,19 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
               <DropdownMenuLabel>Schedule Focus Block</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {quickBlockDurations.map(duration => (
-                <DropdownMenuItem key={duration} onClick={() => onQuickScheduleBlock(duration)}>
-                  <Hourglass className="mr-2 h-4 w-4" /> {duration} Minutes
-                </DropdownMenuItem>
+                <DropdownMenuSub key={duration}>
+                  <DropdownMenuSubTrigger>
+                    <Hourglass className="mr-2 h-4 w-4" /> {duration} Minutes
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => onQuickScheduleBlock(duration, 'shortestFirst')}>
+                      <ArrowUpWideNarrow className="mr-2 h-4 w-4" /> Shortest Tasks First
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onQuickScheduleBlock(duration, 'longestFirst')}>
+                      <ArrowDownWideNarrow className="mr-2 h-4 w-4" /> Longest Tasks First
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -200,7 +220,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 className="h-10 w-10 text-muted-foreground hover:bg-muted/10 transition-all duration-200"
                 style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
               >
-                <Settings2 className="h-5 w-5" />
+                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Settings2 className="h-5 w-5" />}
                 <span className="sr-only">Workday Window Settings</span>
               </Button>
             </TooltipTrigger>

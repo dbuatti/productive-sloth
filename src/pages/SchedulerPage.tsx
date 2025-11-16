@@ -1313,13 +1313,13 @@ const SchedulerPage: React.FC = () => {
     showSuccess("Schedule refreshed!");
   };
 
-  const handleQuickScheduleBlock = async (duration: number) => {
+  const handleQuickScheduleBlock = useCallback(async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to quick schedule blocks.");
       return;
     }
     setIsProcessingCommand(true);
-    console.log(`handleQuickScheduleBlock: Attempting to schedule a ${duration}-minute block.`);
+    console.log(`handleQuickScheduleBlock: Attempting to schedule a ${duration}-minute block with ${sortPreference} preference.`);
 
     try {
       // 1. Gather all unlocked flexible tasks from current schedule and Aether Sink
@@ -1363,19 +1363,26 @@ const SchedulerPage: React.FC = () => {
         return;
       }
 
-      // 2. Sort tasks: Critical first (if energy high), then longest duration first
+      // 2. Sort tasks: Critical first (if energy high), then duration based on preference
       const sortedUnifiedPool = [...unifiedPool].sort((a, b) => {
-        // Prioritize critical tasks if energy is high (e.g., > 70%)
         const energyThresholdForCritical = MAX_ENERGY * 0.7;
         const isProfileEnergyHigh = profile.energy > energyThresholdForCritical;
 
+        // Primary sort: Critical tasks if energy is high
         if (isProfileEnergyHigh) {
           if (a.is_critical && !b.is_critical) return -1;
           if (!a.is_critical && b.is_critical) return 1;
         }
         
-        // Then sort by duration (longest first)
-        return (b.duration || 0) - (a.duration || 0);
+        // Secondary sort: Duration based on preference
+        const durationA = a.duration || 0;
+        const durationB = b.duration || 0;
+
+        if (sortPreference === 'longestFirst') {
+          return durationB - durationA;
+        } else { // 'shortestFirst'
+          return durationA - durationB;
+        }
       });
 
       // 3. Select tasks to fill the block duration
@@ -1410,7 +1417,7 @@ const SchedulerPage: React.FC = () => {
         false, // The block itself is not critical, individual tasks might be
         true,  // The block is flexible
         0,     // Energy cost will be handled by individual task completion
-        [...occupiedBlocks],
+        [...occupiedBlocks], // Pass a copy of current occupied blocks
         effectiveWorkdayStart,
         workdayEndTime
       );
@@ -1513,7 +1520,7 @@ const SchedulerPage: React.FC = () => {
     } finally {
       setIsProcessingCommand(false);
     }
-  };
+  }, [user, profile, dbScheduledTasks, retiredTasks, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, formattedSelectedDay, selectedDayAsDate, autoBalanceSchedule]);
 
   const activeItem: ScheduledItem | null = useMemo(() => {
     if (!currentSchedule || !isSameDay(parseISO(selectedDay), T_current)) return null;

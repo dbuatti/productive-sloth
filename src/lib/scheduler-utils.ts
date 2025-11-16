@@ -7,11 +7,12 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'email': '📧', 'messages': '💬', 'calls': '📞', 'communication': '🗣️', 'admin': '⚙️', 'paperwork': '📄',
   'meeting': '💼', 'work': '💻', 'report': '📝', 'professional': '👔', 'project': '📊', 'coding': '💻', 'develop': '💻', 'code': '💻', 'bug': '🐛', 'fix': '🛠️',
   'design': '🎨', 'writing': '✍️', 'art': '🖼️', 'creative': '✨', 'draw': '✏️',
-  'study': '📚', 'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫', 'tutorial': '💡',
-  'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️', 'room': '🛋️',
+  'study': '📦', // Updated to '📦' for house organization context
+  'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫',
+  'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️',
   'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎',
   'brainstorm': '💡', 'strategy': '📈', 'review': '🔍', 'plan': '🗓️',
-  'gaming': '🎮', 'tv': '📺', 'hobbies': '🎲', 'leisure': '😌', 'movie': '🎬', 'relax': '🧘', 'chill': '🛋️',
+  'gaming': '🎮', 'hobbies': '🎲', 'leisure': '😌', 'movie': '🎬', 'relax': '🧘', 'chill': '🛋️',
   'meditation': '🧘', 'yoga': '🧘', 'self-care': '🛀', 'wellness': '🌸', 'mindfulness': '🧠', 'nap': '😴', 'rest': '🛌',
   'break': '☕️', 'coffee': '☕️', 'walk': '🚶', 'stretch': '🤸',
   'piano': '🎹', 'music': '🎶', 'practice': '🎼',
@@ -35,12 +36,41 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'washing': '👕', // For 'Load of washing'
   'money': '💰', 'transactions': '💰', // For 'Money transactions update'
   'mop': '🪣', 'floor': '🪣', // For 'Mop floor'
-  'quote': '📝', 'send quote': '📝', // For 'Send and create quote for Stephen', 'Send quote to Mama Alto'
+  'quote': '🧾', 'send quote': '🧾', 'generate quote': '🧾', // For 'Send and create quote for Stephen', 'Send quote to Mama Alto'
   'doctor': '🩺', 'medical': '🩺', // For 'Isabelle MD'
   'channel': '🧘', 'anxious': '🧘', // For 'Channel about what might be recycling me...'
   'recycling': '♻️', 'bin': '♻️', // For 'Bring in the new recycling bin'
   'milk': '🥛', 'cartons': '🥛', // For 'Empty the old milk cartons'
   'sync': '🤝', 'standup': '🤝', // Added back
+  'tutorial': '💡', // For 'tutorial'
+  // User-requested specific emoji mappings
+  'tv': '📺', // Explicitly set for 'TV to Brad'
+  'cobweb': '🕸️', // For 'Clean The Cobwebs'
+  'cables': '🔌', // For 'Clean up the cables'
+  'fold laundry': '🧺', // For 'Fold laundry'
+  'load of laundry': '🧺', // For 'Load of laundry'
+  'tidy': '📦', // For 'Big tidy around rooms', 'Tidy room'
+  'room': '📦', // For 'Big tidy around rooms', 'Tidy room'
+  'book': '📅', // For 'Book Nicholas In', 'Book Estelle In'
+  'waitress': '📅', // For 'Waitress Preparation'
+  'preparation': '📅', // For 'Waitress Preparation'
+  'lego': '🧩', // This is playful—makes sense
+  'organise': '👕', // For 'Organise white shirts'
+  'shirts': '👕', // For 'Organise white shirts'
+  'gigs': '👕', // For 'Organise white shirts'
+  'charge': '🔌', // For 'Charge The Vacuum'
+  'vacuum': '🔌', // For 'Charge The Vacuum'
+  'put away': '📦', // For 'Put away my new sheets'
+  'sheets': '📦', // For 'Put away my new sheets'
+  'pants': '📦', // For 'Put away my new pants'
+  'medication': '💊', // For 'Put medication next to toothbrush'
+  'toothbrush': '💊', // For 'Put medication next to toothbrush'
+  'return message': '💬', // For 'Return Message To Damien'
+  'voice deal': '🎤', // For 'Voice Deal for Lydia'
+  'find location': '📦', // For 'Find A Location For The Broom'
+  'broom': '📦', // For 'Find A Location For The Broom'
+  'practise': '🎹', // For 'Piano Practise'
+  'track': '🎹', // For 'PIANO TRACK'
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -48,8 +78,9 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
   'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40,
   'design': 320, 'writing': 320, 'art': 330, 'creative': 340, 'draw': 320,
-  'study': 260, 'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260, 'tutorial': 60,
-  'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40, 'room': 150,
+  'study': 150, // Updated hue for house organization context
+  'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260,
+  'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40,
   'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350,
   'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
   'gaming': 0, 'tv': 10, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150,
@@ -76,12 +107,40 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'washing': 200,
   'money': 60, 'transactions': 60,
   'mop': 120, 'floor': 120,
-  'quote': 230, 'send quote': 230,
+  'quote': 230, 'send quote': 230, 'generate quote': 230,
   'doctor': 300, 'medical': 300,
   'channel': 160, 'anxious': 160,
   'recycling': 140, 'bin': 140,
   'milk': 40, 'cartons': 40,
   'sync': 290, 'standup': 290, // Added back
+  'tutorial': 60,
+  // User-requested specific emoji mappings
+  'cobweb': 120, // Same as clean
+  'cables': 210, // Tech-related
+  'fold laundry': 130, // Same as laundry
+  'load of laundry': 130, // Same as laundry
+  'tidy': 140, // Same as organize
+  'room': 150, // Same as room
+  'book': 220, // General admin
+  'waitress': 220, // Same as book
+  'preparation': 220, // Same as book
+  'lego': 100, // Playful green
+  'organise': 200, // General organization
+  'shirts': 200, // Same as organise
+  'gigs': 200, // Same as organise
+  'charge': 210, // Tech-related
+  'vacuum': 210, // Same as charge
+  'put away': 140, // Same as organise
+  'sheets': 140, // Same as organise
+  'pants': 140, // Same as organise
+  'medication': 300, // Wellness
+  'toothbrush': 300, // Wellness
+  'return message': 245, // Same as message
+  'voice deal': 270, // Music/performance related
+  'find location': 140, // Same as organise
+  'broom': 120, // Same as clean
+  'practise': 270, // Same as piano
+  'track': 270, // Same as piano
 };
 
 const BREAK_DESCRIPTIONS: { [key: number]: string } = {
@@ -216,11 +275,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): ParsedTa
   if (hasFixedKeyword) {
     isFlexible = false;
     input = input.slice(0, -6).trim();
-  }
-
-  if (input.endsWith(' !')) {
-    isCritical = true;
-    input = input.slice(0, -2).trim();
   }
 
   // Enforce 'Time Off' as fixed, regardless of 'fixed' keyword presence

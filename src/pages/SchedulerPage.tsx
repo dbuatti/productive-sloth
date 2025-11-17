@@ -1611,6 +1611,9 @@ const SchedulerPage: React.FC = () => {
           setEarlyCompletionDbTask(task);
           setShowEarlyCompletionModal(true);
           modalOpened = true;
+          
+          // FIX: Reset processing command immediately so modal buttons are clickable
+          setIsProcessingCommand(false); 
           return; // Stop here, wait for modal action
         }
 
@@ -1716,7 +1719,10 @@ const SchedulerPage: React.FC = () => {
         console.error("Scheduler action error:", error);
       }
     } finally {
-      // Only reset processing command if the modal was NOT opened in this run.
+      // Reset processing command if we reached the end of the function without returning early
+      // (i.e., if we performed a full action like skip, takeBreak, startNext, or normal complete)
+      // If we returned early above, setIsProcessingCommand(false) was already called.
+      // If we didn't return early, we must reset it here.
       if (!modalOpened) {
         setIsProcessingCommand(false);
       }

@@ -10,7 +10,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Coffee, Rocket } from 'lucide-react';
+import { Coffee, Rocket, Check } from 'lucide-react'; // Added Check icon
 import { formatDuration, intervalToDuration } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +21,7 @@ interface EarlyCompletionModalProps {
   remainingDurationMinutes: number;
   onTakeBreak: () => void;
   onStartNextTask: () => void;
+  onJustFinish: () => void; // NEW: Handler for 'Just Finish'
   isProcessingCommand: boolean;
   hasNextTask: boolean;
 }
@@ -32,6 +33,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
   remainingDurationMinutes,
   onTakeBreak,
   onStartNextTask,
+  onJustFinish, // NEW: Destructure new prop
   isProcessingCommand,
   hasNextTask,
 }) => {
@@ -87,6 +89,19 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
           >
             <Rocket className="h-5 w-5" />
             Start Next Task Now
+          </Button>
+          {/* NEW: Just Finish Button */}
+          <Button
+            onClick={onJustFinish}
+            disabled={isProcessingCommand}
+            variant="outline" // Neutral styling
+            className={cn(
+              "w-full flex items-center gap-2 text-muted-foreground hover:bg-muted/50 transition-all duration-200",
+              isProcessingCommand && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            <Check className="h-5 w-5" />
+            Just Finish
           </Button>
         </DialogFooter>
       </DialogContent>

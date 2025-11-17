@@ -55,7 +55,7 @@ import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
 import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog';
 import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import EarlyCompletionModal from '@/components/EarlyCompletionModal';
-import DailyVibeRecapCard from '@/components/DailyVibeRecapCard'; // NEW: Import DailyVibeRecapCard
+import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
@@ -1617,7 +1617,7 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleSchedulerAction = useCallback(async (
-    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'exitFocus',
+    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus', // NEW: Added 'justFinish'
     task: DBScheduledTask,
     isEarlyCompletion: boolean = false,
     remainingDurationMinutes: number = 0,
@@ -1653,7 +1653,18 @@ const SchedulerPage: React.FC = () => {
         }
         
         if (isFutureTask || !shouldOpenEarlyCompletionModal) {
-            
+            // If it's a future task or no early completion, just complete it
+            await completeScheduledTaskMutation(task); 
+            if (task.is_flexible) {
+              await removeScheduledTask(task.id);
+            } else {
+              await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
+            }
+            if (isCurrentlyActive) {
+                if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
+                  setIsFocusModeActive(false);
+                }
+            }
         } else if (shouldOpenEarlyCompletionModal) {
             setEarlyCompletionTaskName(task.name);
             setEarlyCompletionRemainingMinutes(remainingMins);
@@ -1664,21 +1675,8 @@ const SchedulerPage: React.FC = () => {
             return;
         }
         
-        await completeScheduledTaskMutation(task); 
-        
-        if (task.is_flexible) {
-          await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-        }
         // showSuccess(`Task "${task.name}" completed!`); // Moved to onSettled in useSchedulerTasks
         
-        if (isCurrentlyActive) {
-            if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
-              setIsFocusModeActive(false);
-            }
-        }
-
       } else if (action === 'skip') {
         await handleManualRetire(task);
         showSuccess(`Task "${task.name}" skipped and moved to Aether Sink.`);
@@ -1770,6 +1768,17 @@ const SchedulerPage: React.FC = () => {
 
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
+      } else if (action === 'justFinish') { // NEW: Handle 'justFinish' action
+        await completeScheduledTaskMutation(task);
+        if (task.is_flexible) {
+          await removeScheduledTask(task.id);
+        } else {
+          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
+        }
+        showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
+        setShowEarlyCompletionModal(false);
+        setEarlyCompletionDbTask(null);
+        setIsFocusModeActive(false); // Ensure focus mode is exited
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
         showSuccess("Exited focus mode.");
@@ -1910,7 +1919,7 @@ const SchedulerPage: React.FC = () => {
           )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-            <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-muted rounded-md"> {/* Changed grid-cols-2 to grid-cols-3 */}
+            <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-muted rounded-md">
               <TabsTrigger 
                 value="vibe-schedule" 
                 className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
@@ -2100,6 +2109,7 @@ const SchedulerPage: React.FC = () => {
         remainingDurationMinutes={earlyCompletionRemainingMinutes}
         onTakeBreak={() => handleSchedulerAction('takeBreak', earlyCompletionDbTask!, true, earlyCompletionRemainingMinutes)}
         onStartNextTask={() => handleSchedulerAction('startNext', earlyCompletionDbTask!, true)}
+        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)} // NEW: Pass 'justFinish' handler
         isProcessingCommand={isProcessingCommand}
         hasNextTask={!!nextItemToday}
       />

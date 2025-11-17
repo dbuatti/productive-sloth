@@ -358,7 +358,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 e.stopPropagation();
                                 toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked });
                               }}
-                              disabled={isProcessingCommand}
                               className={cn(
                                 "h-7 w-7 p-0 shrink-0",
                                 isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20")

@@ -389,6 +389,62 @@ const SchedulerPage: React.FC = () => {
     }
   }, [workdayStartTime, workdayEndTime, dbScheduledTasks, selectedDayAsDate, effectiveWorkdayStart]);
 
+  const handleRefreshSchedule = () => {
+    if (user?.id) {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
+      showSuccess("Schedule data refreshed.");
+    }
+  };
+
+  const handleQuickScheduleBlock = async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to quick schedule.");
+      return;
+    }
+    setIsProcessingCommand(true);
+
+    const taskName = `Focus Block (${duration} min)`;
+    const energyCost = calculateEnergyCost(duration, false); // Not critical
+
+    try {
+      const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+        taskName,
+        duration,
+        false, // isCritical
+        true,  // isFlexible
+        energyCost,
+        occupiedBlocks,
+        effectiveWorkdayStart,
+        workdayEndTime
+      );
+
+      if (proposedStartTime && proposedEndTime) {
+        await addScheduledTask({
+          name: taskName,
+          start_time: proposedStartTime.toISOString(),
+          end_time: proposedEndTime.toISOString(),
+          break_duration: null,
+          scheduled_date: formattedSelectedDay,
+          is_critical: false,
+          is_flexible: true,
+          is_locked: false,
+          energy_cost: energyCost,
+          is_custom_energy_cost: false,
+        });
+        showSuccess(`Quick Scheduled ${duration} min focus block.`);
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+      } else {
+        showError(message);
+      }
+    } catch (error: any) {
+      showError(`Failed to quick schedule: ${error.message}`);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
 
   const handleClearSchedule = async () => {
     if (!user) {
@@ -1189,6 +1245,25 @@ const SchedulerPage: React.FC = () => {
   const handleAutoScheduleSinkWrapper = () => {
     handleAutoScheduleSink();
   };
+  
+  // NEW: Dedicated handler for the Aether Dump button
+  const handleAetherDumpButton = async () => {
+    if (!user) {
+      showError("You must be logged in to perform Aether Dump.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      await aetherDump();
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+    } catch (error: any) {
+      showError(`Failed to perform Aether Dump: ${error.message}`);
+      console.error("Aether Dump error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
 
   const handleCompactSchedule = async () => {
     if (!user || !profile || !dbScheduledTasks) return;
@@ -1611,236 +1686,6 @@ const SchedulerPage: React.FC = () => {
   }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient]);
 
 
-  const handleRefreshSchedule = () => {
-    queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user?.id, formattedSelectedDay, sortBy] });
-    queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id, retiredSortBy] }); // NEW: Update queryKey
-    queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
-    showSuccess("Schedule refreshed!");
-  };
-
-  const handleQuickScheduleBlock = useCallback(async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to quick schedule blocks.");
-      return;
-    }
-    setIsProcessingCommand(true);
-    console.log(`handleQuickScheduleBlock: Attempting to schedule a ${duration}-minute block with ${sortPreference} preference.`);
-
-    try {
-      // 1. Gather all unlocked flexible tasks from current schedule and Aether Sink
-      const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
-      const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
-
-      const unifiedPool: UnifiedTask[] = [];
-
-      flexibleScheduledTasks.forEach(task => {
-        const taskDuration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
-        unifiedPool.push({
-          id: task.id,
-          name: task.name,
-          duration: taskDuration,
-          break_duration: task.break_duration,
-          is_critical: task.is_critical,
-          is_flexible: true,
-          energy_cost: task.energy_cost,
-          source: 'scheduled',
-          originalId: task.id,
-          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
-          created_at: task.created_at, // <-- NEW
-        });
-      });
-
-      unlockedRetiredTasks.forEach(task => {
-        unifiedPool.push({
-          id: task.id,
-          name: task.name,
-          duration: task.duration || 30, // Default to 30 if duration is null
-          break_duration: task.break_duration,
-          is_critical: task.is_critical,
-          is_flexible: true,
-          energy_cost: task.energy_cost,
-          source: 'retired',
-          originalId: task.id,
-          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
-          created_at: task.retired_at, // <-- NEW
-        });
-      });
-
-      if (unifiedPool.length === 0) {
-        showError("No flexible tasks available in your schedule or Aether Sink to fill this block.");
-        setIsProcessingCommand(false);
-        return;
-      }
-
-      // 2. Sort tasks: Critical first (if energy high), then duration based on preference
-      const sortedUnifiedPool = [...unifiedPool].sort((a, b) => {
-        const energyThresholdForCritical = MAX_ENERGY * 0.7;
-        const isProfileEnergyHigh = profile.energy > energyThresholdForCritical;
-
-        // Primary sort: Critical tasks if energy is high
-        if (isProfileEnergyHigh) {
-          if (a.is_critical && !b.is_critical) return -1; // Critical comes before non-critical
-          if (!a.is_critical && b.is_critical) return 1;  // Non-critical comes after critical
-        }
-        
-        // Secondary sort: Duration based on preference
-        const durationA = (a.duration || 0) + (a.break_duration || 0);
-        const durationB = (b.duration || 0) + (b.break_duration || 0);
-
-        if (sortPreference === 'longestFirst') {
-          return durationB - durationA; // Descending for longest first
-        } else { // 'shortestFirst'
-          return durationA - durationB; // Ascending for shortest first
-        }
-      });
-
-      // 3. Select tasks to fill the block duration
-      let tasksForBlock: UnifiedTask[] = [];
-      let currentBlockDuration = 0;
-      const blockNameParts: string[] = [];
-
-      for (const task of sortedUnifiedPool) {
-        const taskTotalDuration = (task.duration || 0) + (task.break_duration || 0);
-        
-        // Only add if it fits within the target duration + buffer
-        if (currentBlockDuration + taskTotalDuration <= duration + 15) { // Allow slight overflow for fitting
-          tasksForBlock.push(task);
-          currentBlockDuration += taskTotalDuration;
-          blockNameParts.push(task.name);
-        }
-        // Removed: if (currentBlockDuration >= duration) break;
-        // This allows it to continue adding smaller tasks even if the target duration is met,
-        // as long as it's within the +15 buffer, maximizing tasks.
-      }
-
-      if (tasksForBlock.length === 0) {
-        showError(`Could not find enough flexible tasks to fill a ${duration}-minute block.`);
-        setIsProcessingCommand(false);
-        return;
-      }
-
-      // Adjust currentBlockDuration to be exactly the sum of selected tasks
-      currentBlockDuration = tasksForBlock.reduce((sum, task) => sum + (task.duration || 0) + (task.break_duration || 0), 0);
-
-      // 4. Find a free slot for the combined block
-      const combinedBlockName = blockNameParts.length > 0 ? blockNameParts.join(', ') : "Combined Focus Block";
-      const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-        combinedBlockName,
-        currentBlockDuration,
-        false, // The block itself is not critical, individual tasks might be
-        true,  // The block is flexible
-        0,     // Energy cost will be handled by individual task completion
-        [...occupiedBlocks], // Pass a copy of current occupied blocks
-        effectiveWorkdayStart,
-        workdayEndTime
-      );
-
-      if (!proposedStartTime || !proposedEndTime) {
-        showError(message);
-        setIsProcessingCommand(false);
-        return;
-      }
-
-      // 5. Construct AutoBalancePayload for atomic update
-      const scheduledTaskIdsToDelete: string[] = [];
-      const retiredTaskIdsToDelete: string[] = [];
-      const tasksToInsert: NewDBScheduledTask[] = [];
-      const tasksToKeepInSink: NewRetiredTask[] = [];
-
-      // Keep existing fixed tasks
-      dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked).forEach(task => {
-        tasksToInsert.push({
-          id: task.id,
-          name: task.name,
-          start_time: task.start_time,
-          end_time: task.end_time,
-          break_duration: task.break_duration,
-          scheduled_date: task.scheduled_date,
-          is_critical: task.is_critical,
-          is_flexible: task.is_flexible,
-          is_locked: task.is_locked,
-          energy_cost: task.energy_cost,
-          is_completed: task.is_completed,
-          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
-        });
-      });
-
-      let currentSlotTime = proposedStartTime;
-      for (const task of tasksForBlock) {
-        const taskDuration = task.duration || 0;
-        const breakDuration = task.break_duration || 0;
-        const totalTaskDuration = taskDuration + breakDuration;
-        const taskEndTime = addMinutes(currentSlotTime, totalTaskDuration);
-
-        tasksToInsert.push({
-          id: task.id, // Use original ID for upsert
-          name: task.name,
-          start_time: currentSlotTime.toISOString(),
-          end_time: taskEndTime.toISOString(),
-          break_duration: task.break_duration,
-          scheduled_date: formattedSelectedDay,
-          is_critical: task.is_critical,
-          is_flexible: true, // These are now scheduled as flexible tasks
-          is_locked: false,
-          energy_cost: task.energy_cost,
-          is_completed: false,
-          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
-        });
-        currentSlotTime = taskEndTime;
-
-        if (task.source === 'scheduled') {
-          scheduledTaskIdsToDelete.push(task.originalId);
-        } else {
-          retiredTaskIdsToDelete.push(task.originalId);
-        }
-      }
-
-      // Any tasks from unifiedPool that were NOT selected for the block go back to sink
-      const unselectedTasks = unifiedPool.filter(task => !tasksForBlock.some(t => t.id === task.id));
-      unselectedTasks.forEach(task => {
-        tasksToKeepInSink.push({
-          user_id: user.id,
-          name: task.name,
-          duration: task.duration,
-          break_duration: task.break_duration,
-          original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
-          is_critical: task.is_critical,
-          is_locked: false,
-          energy_cost: task.energy_cost,
-          is_completed: false,
-          is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Pass custom energy cost flag
-        });
-        // Also mark for deletion from their original source if they were scheduled
-        if (task.source === 'scheduled') {
-          scheduledTaskIdsToDelete.push(task.originalId);
-        } else {
-          retiredTaskIdsToDelete.push(task.originalId);
-        }
-      });
-
-      const payload: AutoBalancePayload = {
-        scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
-        retiredTaskIdsToDelete: retiredTaskIdsToDelete,
-        tasksToInsert: tasksToInsert,
-        tasksToKeepInSink: tasksToKeepInSink,
-        selectedDate: formattedSelectedDay,
-      };
-
-      console.log("handleQuickScheduleBlock: Final payload for autoBalanceSchedule mutation:", payload);
-      await autoBalanceSchedule(payload);
-      showSuccess(`Quick scheduled a ${currentBlockDuration}-minute block with your tasks!`);
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] }); // NEW: Invalidate for SessionProvider
-
-    } catch (error: any) {
-      showError(`Failed to quick schedule block: ${error.message}`);
-      console.error("Quick schedule block error:", error);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  }, [user, profile, dbScheduledTasks, retiredTasks, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, formattedSelectedDay, selectedDayAsDate, autoBalanceSchedule, handleCompactSchedule]);
-
-
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
 
@@ -1854,9 +1699,9 @@ const SchedulerPage: React.FC = () => {
         <ImmersiveFocusMode
           activeItem={activeItemToday}
           T_current={T_current}
-          onExit={() => handleSchedulerAction('exitFocus', currentSchedule.dbTasks.find(t => t.id === activeItemToday.id)!)}
+          onExit={() => handleSchedulerAction('exitFocus', currentSchedule?.dbTasks.find(t => t.id === activeItemToday.id)!)}
           onAction={handleSchedulerAction} // NEW: Pass the centralized action handler
-          dbTask={currentSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null}
+          dbTask={currentSchedule?.dbTasks.find(t => t.id === activeItemToday.id) || null}
           nextItem={nextItemToday} 
           isProcessingCommand={isProcessingCommand} 
         />
@@ -1864,7 +1709,7 @@ const SchedulerPage: React.FC = () => {
         <>
           <SchedulerDashboardPanel 
             scheduleSummary={currentSchedule?.summary || null} 
-            onAetherDump={() => handleSchedulerAction('skip', activeItemToday ? currentSchedule?.dbTasks.find(t => t.id === activeItemToday.id)! : {} as DBScheduledTask)} // Dummy task if none active
+            onAetherDump={handleAetherDumpButton}
             isProcessingCommand={isProcessingCommand}
             hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
             onRefreshSchedule={handleRefreshSchedule}

@@ -56,7 +56,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md animate-pop-in">
+      <DialogContent className="sm:max-w-lg animate-pop-in"> {/* Increased max-width to lg */}
         <DialogHeader>
           <DialogTitle className="text-3xl font-bold text-primary text-center">
             🎉 Task Completed Early!
@@ -67,12 +67,12 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             What would you like to do with this time?
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 sm:justify-end"> {/* Changed justify-center to sm:justify-end */}
+        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 sm:justify-end">
           <Button
             onClick={onTakeBreak}
             disabled={isProcessingCommand}
             className={cn(
-              "w-full sm:w-auto flex-1 sm:flex-none flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200", // Adjusted width for small screens
+              "w-full flex-1 flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200", // Removed sm:w-auto and sm:flex-none
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -83,24 +83,23 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onStartNextTask}
             disabled={isProcessingCommand || !hasNextTask}
             className={cn(
-              "w-full sm:w-auto flex-1 sm:flex-none flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200", // Adjusted width for small screens
+              "w-full flex-1 flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200", // Removed sm:w-auto and sm:flex-none
               (isProcessingCommand || !hasNextTask) && "opacity-70 cursor-not-allowed"
             )}
           >
             <Rocket className="h-5 w-5" />
             Start Next Task Now
           </Button>
-          {/* NEW: Just Finish Button - Styled as an outline button with primary checkmark */}
           <Button
             onClick={onJustFinish}
             disabled={isProcessingCommand}
-            variant="outline" // Changed to outline variant
+            variant="outline"
             className={cn(
-              "w-full sm:w-auto flex-1 sm:flex-none flex items-center gap-2 text-foreground hover:bg-secondary/80 transition-all duration-200", // Adjusted width and text color
+              "w-full flex-1 flex items-center gap-2 transition-all duration-200", // Removed sm:w-auto and sm:flex-none, removed conflicting background/text classes
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
-            <Check className="h-5 w-5 text-primary" /> {/* Checkmark in primary color */}
+            <Check className="h-5 w-5 text-primary" />
             Just Finish
           </Button>
         </DialogFooter>

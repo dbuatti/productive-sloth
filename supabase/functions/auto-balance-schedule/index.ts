@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 // @ts-ignore
-import * as jose from "https://esm.sh/jose@5.2.4"; // Using jose for robust JWT verification
+import { jwtVerify, importKey } from "https://esm.sh/jose@5.2.4"; // Directly import jwtVerify and importKey
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,11 +48,11 @@ serve(async (req) => {
 
     // Use jose.importKey for symmetric keys directly from Uint8Array
     const secretKey = new TextEncoder().encode(JWT_SECRET);
-    const cryptoKey = await jose.importKey(secretKey, { name: 'HMAC', hash: 'SHA-256' }); // Specify algorithm details
+    const cryptoKey = await importKey(secretKey, { name: 'HMAC', hash: 'SHA-256' }); // Use directly imported importKey
 
     let payload;
     try {
-      const { payload: verifiedPayload } = await jose.jwtVerify(token, cryptoKey);
+      const { payload: verifiedPayload } = await jwtVerify(token, cryptoKey); // Use directly imported jwtVerify
       payload = verifiedPayload;
     } catch (jwtError: any) {
       console.error("JWT Verification Error:", jwtError);

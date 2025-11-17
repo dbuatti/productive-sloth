@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, Zap, Lock, Unlock, PlusCircle, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Smile, RefreshCcw, AlertTriangle } from 'lucide-react';
-import { RetiredTask, RetiredTaskSortBy, UnifiedTask } from '@/types/scheduler';
+import { Loader2, Trash2, Zap, Lock, Unlock, PlusCircle, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Smile, RefreshCcw, AlertTriangle, Sparkles } from 'lucide-react';
+import { RetiredTask, RetiredTaskSortBy, UnifiedTask, NewDBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Fixed: Changed to default import
+import useSchedulerTasks from '@/hooks/use-scheduler-tasks';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import RetiredTaskDetailSheet from './RetiredTaskDetailSheet';
@@ -16,6 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
+import { showSuccess, showError } from '@/utils/toast';
+import { parseISO } from 'date-fns';
 
 interface AetherSinkProps {
   selectedDate: string;
@@ -26,7 +28,7 @@ interface AetherSinkProps {
 const AetherSink: React.FC<AetherSinkProps> = ({ selectedDate, onAutoBalance, isProcessingCommand }) => {
   const { 
     retiredTasks, 
-    isLoading: isLoadingRetired, 
+    isLoadingRetired, // Corrected destructuring from 'isLoading' to 'isLoadingRetired'
     deleteRetiredTask, 
     updateRetiredTask,
     retiredTaskSortBy,
@@ -43,7 +45,6 @@ const AetherSink: React.FC<AetherSinkProps> = ({ selectedDate, onAutoBalance, is
 
   const handleRezone = useCallback((task: RetiredTask) => {
     // Rezone logic: delete from sink, add to scheduled tasks for the selected day
-    // We need to calculate the duration from the task's energy cost if duration is null
     const duration = task.duration || 30; // Default to 30 min if duration is null
 
     const newTask: NewDBScheduledTask = {
@@ -160,7 +161,6 @@ const AetherSink: React.FC<AetherSinkProps> = ({ selectedDate, onAutoBalance, is
     if (window.confirm("Are you absolutely sure you want to permanently delete ALL unlocked tasks in the Aether Sink? This cannot be undone.")) {
       // Assuming useSchedulerTasks exposes a mutation for this
       // Since it doesn't, we'll rely on the user to implement it or use a placeholder.
-      // For now, we'll just show an error.
       showError("Permanent bulk deletion is not yet implemented.");
     }
   };

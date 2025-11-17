@@ -67,12 +67,12 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             What would you like to do with this time?
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4">
+        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 justify-center"> {/* Added justify-center */}
           <Button
             onClick={onTakeBreak}
             disabled={isProcessingCommand}
             className={cn(
-              "w-full flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200",
+              "w-full sm:w-auto flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200", // Adjusted width for small screens
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -83,7 +83,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onStartNextTask}
             disabled={isProcessingCommand || !hasNextTask}
             className={cn(
-              "w-full flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200",
+              "w-full sm:w-auto flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200", // Adjusted width for small screens
               (isProcessingCommand || !hasNextTask) && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -95,7 +95,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onJustFinish}
             disabled={isProcessingCommand}
             className={cn( // Changed to default button styling, then override for neutral look
-              "w-full flex items-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-200",
+              "w-full sm:w-auto flex items-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-200", // Adjusted width for small screens
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >

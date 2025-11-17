@@ -485,6 +485,83 @@ const SchedulerPage: React.FC = () => {
     setInputValue('');
   };
 
+  // --- NEW: Helper function to fill a time gap from the Aether Sink ---
+  const handleSinkFill = useCallback(async (
+    gapStart: Date,
+    gapEnd: Date,
+    maxDuration: number,
+    tasksToExclude: string[] = []
+  ): Promise<boolean> => {
+    if (!user || !profile) return false;
+
+    // 1. Find the best eligible task from the Aether Sink
+    const eligibleSinkTasks = retiredTasks
+        .filter(task => !task.is_locked && !task.is_completed && !tasksToExclude.includes(task.id))
+        .map(task => ({
+            ...task,
+            duration: task.duration || 30, // Default duration if null
+            totalDuration: (task.duration || 30) + (task.break_duration || 0),
+        }))
+        .filter(task => task.totalDuration <= maxDuration);
+
+    if (eligibleSinkTasks.length === 0) {
+        console.log("SinkFill: No eligible tasks found in Aether Sink for the gap.");
+        return false;
+    }
+
+    // Sort: Critical first, then longest duration first (to maximize use of the gap)
+    eligibleSinkTasks.sort((a, b) => {
+        if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
+        return b.totalDuration - a.totalDuration;
+    });
+
+    const taskToPlace = eligibleSinkTasks[0];
+    const taskDuration = taskToPlace.duration;
+    const breakDuration = taskToPlace.break_duration || 0;
+    const totalDuration = taskDuration + breakDuration;
+
+    // 2. Calculate placement times within the gap (centered placement)
+    const gapDuration = differenceInMinutes(gapEnd, gapStart);
+    const remainingGap = gapDuration - totalDuration;
+    
+    let proposedStartTime: Date;
+    if (remainingGap > 0) {
+        // Center the task in the remaining gap
+        proposedStartTime = addMinutes(gapStart, Math.floor(remainingGap / 2));
+    } else {
+        proposedStartTime = gapStart;
+    }
+    const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
+
+    // 3. Perform atomic DB operations (rezone + addScheduledTask)
+    try {
+        // A. Remove from retired_tasks (rezone)
+        await rezoneTask(taskToPlace.id);
+
+        // B. Add to scheduled_tasks
+        await addScheduledTask({
+            name: taskToPlace.name,
+            start_time: proposedStartTime.toISOString(),
+            end_time: proposedEndTime.toISOString(),
+            break_duration: taskToPlace.break_duration,
+            scheduled_date: formattedSelectedDay,
+            is_critical: taskToPlace.is_critical,
+            is_flexible: true, // Re-zoned tasks are flexible by default
+            is_locked: false,
+            energy_cost: taskToPlace.energy_cost,
+            is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
+        });
+
+        return true;
+    } catch (error: any) {
+        showError(`Failed to fill gap with sink task: ${error.message}`);
+        console.error("Sink Fill Error:", error);
+        return false;
+    }
+  }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay]);
+  // --- END NEW HELPER ---
+
+
   const handleCommand = async (input: string) => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to use the scheduler.");
@@ -1684,32 +1761,62 @@ const SchedulerPage: React.FC = () => {
             return;
         }
 
-        // 1. Update the next task's start/end times, PRESERVING FLEXIBILITY/LOCK STATUS (Task Property Corruption Fix)
-        const newNextTaskStartTime = T_current;
-        const nextTaskDuration = differenceInMinutes(nextItemToday.endTime, nextItemToday.startTime);
-        const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextTaskDuration);
-
-        await updateScheduledTaskDetails({
-          id: nextItemToday.id,
-          start_time: newNextTaskStartTime.toISOString(),
-          end_time: newNextTaskEndTime.toISOString(),
-          // CRITICAL FIX: Preserve original flexibility and lock status
-          is_flexible: originalNextTask.is_flexible, 
-          is_locked: originalNextTask.is_locked,     
-        });
-
-        // 2. Remove/update the original task
+        // --- NEW LOGIC START: Check if next task is fixed/locked ---
+        const originalNextTaskStartTime = originalNextTask.start_time ? parseISO(originalNextTask.start_time) : nextItemToday.startTime;
+        const isNextTaskImmovable = !originalNextTask.is_flexible || originalNextTask.is_locked;
+        const remainingMins = differenceInMinutes(originalNextTaskStartTime, T_current);
+        
+        // 1. Remove/update the original task (completed task)
         if (task.is_flexible) {
           await removeScheduledTask(task.id);
         } else {
           await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
 
-        // 3. Re-compact the schedule to shift subsequent tasks
-        await handleCompactSchedule(); // Re-use existing compact logic
+        if (isNextTaskImmovable) {
+          // Case B: Next task is fixed/locked. Fill the gap with a sink task.
+          if (remainingMins > 0) {
+            const gapStart = T_current;
+            const gapEnd = originalNextTaskStartTime;
+            
+            const filled = await handleSinkFill(gapStart, gapEnd, remainingMins);
 
-        showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
-        // Focus mode stays on, as the next task should become activeItemToday
+            if (filled) {
+              showSuccess(`Task completed! Fixed appointment protected. Filled ${remainingMins} min gap from Aether Sink.`);
+            } else {
+              showSuccess(`Task completed! Fixed appointment protected. ${remainingMins} min free time created before next fixed task.`);
+            }
+          } else {
+            showSuccess(`Task completed! Next task starts immediately.`);
+          }
+          
+          // Exit focus mode if the next item is fixed, as we don't want to focus on a fixed appointment
+          setIsFocusModeActive(false);
+
+        } else {
+          // Case A: Next task is flexible and unlocked. Move it up and compact.
+          
+          // 1. Update the next task's start/end times
+          const newNextTaskStartTime = T_current;
+          const nextTaskDuration = differenceInMinutes(nextItemToday.endTime, nextItemToday.startTime);
+          const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextTaskDuration);
+
+          await updateScheduledTaskDetails({
+            id: nextItemToday.id,
+            start_time: newNextTaskStartTime.toISOString(),
+            end_time: newNextTaskEndTime.toISOString(),
+            is_flexible: originalNextTask.is_flexible, 
+            is_locked: originalNextTask.is_locked,     
+          });
+
+          // 2. Re-compact the schedule to shift subsequent tasks
+          await handleCompactSchedule(); 
+
+          showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
+          // Focus mode stays on
+        }
+        // --- NEW LOGIC END ---
+
         setShowEarlyCompletionModal(false); // Close modal after action
         setEarlyCompletionDbTask(null);
       } else if (action === 'exitFocus') {
@@ -1736,7 +1843,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;

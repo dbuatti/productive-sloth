@@ -72,7 +72,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onTakeBreak}
             disabled={isProcessingCommand}
             className={cn(
-              "w-full flex-1 flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200", // Removed sm:w-auto and sm:flex-none
+              "w-full sm:w-auto flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200", // Removed sm:w-auto and sm:flex-none, removed flex-1
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -83,7 +83,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onStartNextTask}
             disabled={isProcessingCommand || !hasNextTask}
             className={cn(
-              "w-full flex-1 flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200", // Removed sm:w-auto and sm:flex-none
+              "w-full sm:w-auto flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200", // Removed sm:w-auto and sm:flex-none, removed flex-1
               (isProcessingCommand || !hasNextTask) && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -95,7 +95,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             disabled={isProcessingCommand}
             variant="outline"
             className={cn(
-              "w-full flex-1 flex items-center gap-2 transition-all duration-200", // Removed sm:w-auto and sm:flex-none, removed conflicting background/text classes
+              "w-full sm:w-auto flex items-center gap-2 transition-all duration-200", // Removed sm:w-auto and sm:flex-none, removed conflicting background/text classes, removed flex-1
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >

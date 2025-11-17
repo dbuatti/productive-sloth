@@ -970,7 +970,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const newScheduledTasks = [
         ...nonBreakTasks,
-        ...currentDbTasks.filter(task => task.name.toLowerCase() === 'break' && task.is_locked),
+        ...currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' && task.is_locked),
         ...optimisticPlacedBreaks
       ];
 
@@ -1379,7 +1379,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id))
       );
 
-      return { previousScheduledTasks, previousRetiredTop: previousScrollTop }; // Renamed previousScrollTop to previousRetiredTop
+      return { previousScheduledTasks, previousRetiredTasks, previousScrollTop }; // Corrected return type
     },
     onSuccess: (result, payload) => {
       // No toast here, moved to onSettled

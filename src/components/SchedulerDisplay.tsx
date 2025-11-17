@@ -37,7 +37,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null); // Refers to the inner schedule container
-  const activeItemRef = useRef<HTMLDivElement>(null);
+
   const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString);
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
@@ -169,16 +169,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   }, [T_current, firstItemStartTime, lastItemEndTime]);
 
 
-  // FIX: Scroll Instability (View Jump)
-  useEffect(() => {
-    if (activeItemId && activeItemRef.current) {
-      // Use requestAnimationFrame to ensure the element is rendered before scrolling
-      requestAnimationFrame(() => {
-        activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-    }
-  }, [activeItemId, finalDisplayItems]); // Re-run when activeItemId changes or display items update
-
+  // Scroll to top when day changes
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -233,7 +224,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div></div>
           <div 
             id={`scheduled-item-${freeTimeItem.id}`} // NEW: Add ID for scrolling
-            ref={isHighlightedBySession ? activeItemRef : null} // Use isHighlightedBySession
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
               isHighlightedByNowCard ? "opacity-50 border-border" :
@@ -296,7 +286,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
           <div
             id={`scheduled-item-${scheduledItem.id}`} // NEW: Add ID for scrolling
-            ref={isHighlightedBySession ? activeItemRef : null} // Use isHighlightedBySession
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer",
               "border-2",

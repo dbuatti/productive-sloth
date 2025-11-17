@@ -46,9 +46,17 @@ serve(async (req) => {
       });
     }
 
-    // Use jose.importKey for symmetric keys directly from Uint8Array
+    // Encode the JWT_SECRET string into a Uint8Array
     const secretKey = new TextEncoder().encode(JWT_SECRET);
-    const cryptoKey = await jose.importKey(secretKey, { name: 'HMAC', hash: 'SHA-256' }); // Access importKey from jose namespace
+    
+    // Use jose.importJWK to import the symmetric key
+    const cryptoKey = await jose.importJWK(
+      {
+        kty: 'oct', // Octet sequence key type for symmetric keys
+        k: jose.base64url.encode(secretKey), // Base64url encode the secret key
+      },
+      'HS256' // Algorithm used by Supabase for JWTs
+    );
 
     let payload;
     try {

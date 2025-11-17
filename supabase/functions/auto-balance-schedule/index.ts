@@ -49,21 +49,13 @@ serve(async (req) => {
     // Log a masked version of the secret to confirm it's loaded (for debugging only)
     console.log(`JWT_SECRET loaded: ${JWT_SECRET.substring(0, 5)}...${JWT_SECRET.substring(JWT_SECRET.length - 5)}`);
 
-    // Encode the JWT_SECRET string into a Uint8Array
+    // Use TextEncoder to convert the JWT_SECRET string into a Uint8Array
     const secretKey = new TextEncoder().encode(JWT_SECRET);
     
-    // Use jose.importJWK to import the symmetric key
-    const cryptoKey = await jose.importJWK(
-      {
-        kty: 'oct', // Octet sequence key type for symmetric keys
-        k: jose.base64url.encode(secretKey), // Base64url encode the secret key
-      },
-      'HS256' // Algorithm used by Supabase for JWTs
-    );
-
     let payload;
     try {
-      const { payload: verifiedPayload } = await jose.jwtVerify(token, cryptoKey); // Access jwtVerify from jose namespace
+      // Directly use the Uint8Array secretKey with jwtVerify for HS256
+      const { payload: verifiedPayload } = await jose.jwtVerify(token, secretKey); // Access jwtVerify from jose namespace
       payload = verifiedPayload;
     } catch (jwtError: any) {
       console.error("JWT Verification Error:", jwtError);

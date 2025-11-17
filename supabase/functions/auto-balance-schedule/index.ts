@@ -46,6 +46,9 @@ serve(async (req) => {
       });
     }
 
+    // Log a masked version of the secret to confirm it's loaded (for debugging only)
+    console.log(`JWT_SECRET loaded: ${JWT_SECRET.substring(0, 5)}...${JWT_SECRET.substring(JWT_SECRET.length - 5)}`);
+
     // Encode the JWT_SECRET string into a Uint8Array
     const secretKey = new TextEncoder().encode(JWT_SECRET);
     

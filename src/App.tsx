@@ -14,7 +14,7 @@ import TasksPage from "./pages/TasksPage";
 import AchievementsPage from "./pages/AchievementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
-import SchedulerPage from "./pages/SchedulerPage";
+import SchedulerPage from "./pages/SchedulerPage"; // Corrected: Assuming SchedulerPage is a default export
 import DocumentationPage from "./pages/DocumentationPage"; // Import DocumentationPage
 
 const queryClient = new QueryClient();

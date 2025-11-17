@@ -52,9 +52,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SchedulerUtilityBar from '@/components/SchedulerUtilityBar';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
-import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog'; // Changed from Sheet
+import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog';
 import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import EarlyCompletionModal from '@/components/EarlyCompletionModal';
+import DailyVibeRecapCard from '@/components/DailyVibeRecapCard'; // NEW: Import DailyVibeRecapCard
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
@@ -1791,6 +1792,27 @@ const SchedulerPage: React.FC = () => {
     }
   }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart]);
 
+  // NEW: Calculate tasks completed today and XP earned today for the recap card
+  const tasksCompletedToday = useMemo(() => {
+    if (!profile) return 0;
+    return profile.tasks_completed_today;
+  }, [profile]);
+
+  const xpEarnedToday = useMemo(() => {
+    if (!profile || !dbScheduledTasks) return 0;
+    const completedTasksOnSelectedDay = dbScheduledTasks.filter(task => 
+      task.is_completed && isSameDay(parseISO(task.scheduled_date), parseISO(selectedDay))
+    );
+    return completedTasksOnSelectedDay.reduce((sum, task) => sum + (task.energy_cost * 2), 0);
+  }, [profile, dbScheduledTasks, selectedDay]);
+
+  const criticalTasksCompletedToday = useMemo(() => {
+    if (!dbScheduledTasks) return 0;
+    return dbScheduledTasks.filter(task => 
+      task.is_critical && task.is_completed && isSameDay(parseISO(task.scheduled_date), parseISO(selectedDay))
+    ).length;
+  }, [dbScheduledTasks, selectedDay]);
+
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
@@ -1888,7 +1910,7 @@ const SchedulerPage: React.FC = () => {
           )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-            <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-md">
+            <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-muted rounded-md"> {/* Changed grid-cols-2 to grid-cols-3 */}
               <TabsTrigger 
                 value="vibe-schedule" 
                 className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
@@ -1900,6 +1922,12 @@ const SchedulerPage: React.FC = () => {
                 className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
               >
                 <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="daily-recap" 
+                className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
+              >
+                <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Daily Vibe Recap
               </TabsTrigger>
             </TabsList>
 
@@ -1942,6 +1970,17 @@ const SchedulerPage: React.FC = () => {
                 profileEnergy={profile?.energy || 0}
                 retiredSortBy={retiredSortBy} 
                 setRetiredSortBy={setRetiredSortBy} 
+              />
+            </TabsContent>
+
+            <TabsContent value="daily-recap" className="space-y-4">
+              <DailyVibeRecapCard
+                scheduleSummary={currentSchedule?.summary || null}
+                tasksCompletedToday={tasksCompletedToday}
+                xpEarnedToday={xpEarnedToday}
+                profileEnergy={profile?.energy || 0}
+                criticalTasksCompletedToday={criticalTasksCompletedToday}
+                selectedDayString={selectedDay}
               />
             </TabsContent>
           </Tabs>

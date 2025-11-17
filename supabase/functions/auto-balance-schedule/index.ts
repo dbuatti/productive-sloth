@@ -110,15 +110,15 @@ serve(async (req) => {
       console.log("Retired tasks deleted successfully.");
     }
 
-    // 3. Insert new scheduled tasks
+    // 3. Insert/Upsert new scheduled tasks
     if (tasksToInsert.length > 0) {
-      console.log("Inserting new scheduled tasks:", tasksToInsert.length);
+      console.log("Inserting/Upserting new scheduled tasks:", tasksToInsert.length);
       const tasksToInsertWithUserId = tasksToInsert.map(task => ({ ...task, user_id: userId }));
       const { error } = await supabaseClient
         .from('scheduled_tasks')
-        .insert(tasksToInsertWithUserId);
-      if (error) throw new Error(`Failed to insert new scheduled tasks: ${error.message}`);
-      console.log("New scheduled tasks inserted successfully.");
+        .upsert(tasksToInsertWithUserId, { onConflict: 'id' }); // Changed to upsert with onConflict
+      if (error) throw new Error(`Failed to insert/upsert new scheduled tasks: ${error.message}`);
+      console.log("New scheduled tasks inserted/upserted successfully.");
     }
 
     // 4. Insert tasks back into the sink (those that couldn't be placed)

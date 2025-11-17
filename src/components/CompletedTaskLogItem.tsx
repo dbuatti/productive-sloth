@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Zap, Sparkles, Clock } from 'lucide-react'; // Added Clock icon
+import { CheckCircle, Zap, Sparkles, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
@@ -7,7 +7,7 @@ import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CompletedTaskLogItemProps {
-  task: DBScheduledTask;
+  task: DBScheduledTask; // Note: This task is now mapped from completedtasks
 }
 
 const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => {
@@ -15,12 +15,14 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
   const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
   const accentBorderColor = `hsl(${hue} 70% 50%)`;
 
-  const timeUsedMinutes = task.start_time && task.end_time
-    ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time))
-    : task.break_duration || 0; // Fallback for breaks or if times are missing
-
+  // Since the task is mapped from completedtasks, we rely on the energy_cost and updated_at (completed_at)
   const xpEarned = task.energy_cost * 2;
   const completedTime = task.updated_at ? format(parseISO(task.updated_at), 'h:mm a') : 'N/A';
+  
+  // We don't have duration_used/scheduled directly here, but we can use a placeholder or assume duration_scheduled
+  // For simplicity in the UI, we'll display the energy cost and XP earned.
+  // If we need duration_used/scheduled, we need to update the DBScheduledTask type mapping in use-scheduler-tasks.ts
+  // For now, let's assume the energy cost implies the effort.
 
   return (
     <div
@@ -37,18 +39,8 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
         <span className="text-xs text-muted-foreground">({completedTime})</span>
       </div>
       <div className="flex items-center gap-3 ml-auto shrink-0">
-        {timeUsedMinutes > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 text-xs font-semibold font-mono text-foreground/80">
-                <Clock className="h-3 w-3" /> {timeUsedMinutes} min
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Time Used</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        {/* Removed timeUsedMinutes display as it's not reliably available in the mapped DBScheduledTask structure */}
+        
         {task.energy_cost > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>

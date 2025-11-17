@@ -10,7 +10,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Coffee, Rocket, Check } from 'lucide-react'; // Added Check icon
+import { Coffee, Rocket, Check } from 'lucide-react';
 import { formatDuration, intervalToDuration } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +21,7 @@ interface EarlyCompletionModalProps {
   remainingDurationMinutes: number;
   onTakeBreak: () => void;
   onStartNextTask: () => void;
-  onJustFinish: () => void; // NEW: Handler for 'Just Finish'
+  onJustFinish: () => void;
   isProcessingCommand: boolean;
   hasNextTask: boolean;
 }
@@ -33,7 +33,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
   remainingDurationMinutes,
   onTakeBreak,
   onStartNextTask,
-  onJustFinish, // NEW: Destructure new prop
+  onJustFinish,
   isProcessingCommand,
   hasNextTask,
 }) => {
@@ -56,7 +56,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl animate-pop-in"> {/* Changed sm:max-w-lg to sm:max-w-xl */}
+      <DialogContent className="sm:max-w-xl animate-pop-in">
         <DialogHeader>
           <DialogTitle className="text-3xl font-bold text-primary text-center">
             🎉 Task Completed Early!
@@ -67,12 +67,12 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             What would you like to do with this time?
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 sm:justify-end">
+        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 sm:justify-center"> {/* Centered buttons */}
           <Button
             onClick={onTakeBreak}
             disabled={isProcessingCommand}
             className={cn(
-              "w-full sm:w-auto flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200",
+              "w-full sm:w-1/3 flex items-center justify-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200",
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -83,7 +83,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onStartNextTask}
             disabled={isProcessingCommand || !hasNextTask}
             className={cn(
-              "w-full sm:w-auto flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200",
+              "w-full sm:w-1/3 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200",
               (isProcessingCommand || !hasNextTask) && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -95,7 +95,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             disabled={isProcessingCommand}
             variant="outline"
             className={cn(
-              "w-full sm:w-auto flex items-center gap-2 transition-all duration-200",
+              "w-full sm:w-1/3 flex items-center justify-center gap-2 transition-all duration-200",
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >

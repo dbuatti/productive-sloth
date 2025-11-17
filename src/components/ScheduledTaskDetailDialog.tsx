@@ -1,19 +1,19 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm } from "@hookform/resolvers/zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
 import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
 
 import {
-  Dialog, // Changed from Sheet
-  DialogContent, // Changed from SheetContent
-  DialogDescription, // Changed from SheetDescription
-  DialogHeader, // Changed from SheetHeader
-  DialogTitle, // Changed from SheetTitle
-} from "@/components/ui/dialog"; // Changed from sheet
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -48,14 +48,14 @@ const formSchema = z.object({
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
 
-interface ScheduledTaskDetailDialogProps { // Changed from SheetProps
+interface ScheduledTaskDetailDialogProps {
   task: DBScheduledTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDayString: string;
 }
 
-const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ // Changed from Sheet
+const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   task,
   open,
   onOpenChange,
@@ -195,16 +195,16 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
     : 'N/A';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}> {/* Changed from Sheet */}
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in"> {/* Changed from SheetContent, added styling */}
-        <DialogHeader className="border-b pb-4 mb-6"> {/* Changed from SheetHeader */}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in">
+        <DialogHeader className="border-b pb-4 mb-6">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle> {/* Changed from SheetTitle */}
+            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <DialogDescription className="text-sm text-muted-foreground"> {/* Changed from SheetDescription */}
+          <DialogDescription className="text-sm text-muted-foreground">
             Last updated: {formattedLastUpdated}
           </DialogDescription>
         </DialogHeader>
@@ -314,6 +314,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        // Disable if locked, as locked tasks are implicitly fixed in position
+                        disabled={task.is_locked} 
                       />
                     </FormControl>
                   </FormItem>

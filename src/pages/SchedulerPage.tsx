@@ -106,7 +106,7 @@ interface InjectionPromptState {
 const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const scheduleContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
+  const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
   const { 
     dbScheduledTasks,
@@ -119,8 +119,8 @@ const SchedulerPage: React.FC = () => {
     isLoadingDatesWithTasks,
     retiredTasks,
     isLoadingRetiredTasks,
-    completedTasksForSelectedDayList, // NEW: Import completedTasksForSelectedDayList
-    isLoadingCompletedTasksForSelectedDay, // NEW: Import loading state for completedTasksForSelectedDayList
+    completedTasksForSelectedDayList,
+    isLoadingCompletedTasksForSelectedDay,
     retireTask,
     rezoneTask,
     compactScheduledTasks,
@@ -136,7 +136,7 @@ const SchedulerPage: React.FC = () => {
     completeScheduledTask: completeScheduledTaskMutation,
     updateScheduledTaskDetails,
     updateScheduledTaskStatus,
-  } = useSchedulerTasks(selectedDay, scheduleContainerRef); // Pass the ref here
+  } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const queryClient = useQueryClient();
   
@@ -388,7 +388,7 @@ const SchedulerPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] }); // NEW: Invalidate completed tasks list for selected day
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] });
       showSuccess("Schedule data refreshed.");
     }
   };
@@ -457,11 +457,29 @@ const SchedulerPage: React.FC = () => {
       return;
     }
 
-    const { error } = await supabase.from('scheduled_tasks')
-      .delete()
-      .in('id', unlockedTasks.map(task => task.id))
-      .eq('user_id', user.id)
-      .eq('scheduled_date', formattedSelectedDay);
+    // *** FIX: Delete from both currentschedule and fixedappointments ***
+    const unlockedCurrentIds = unlockedTasks.filter(t => t.is_flexible).map(t => t.id);
+    const unlockedFixedIds = unlockedTasks.filter(t => !t.is_flexible).map(t => t.id);
+
+    let error: any = null;
+
+    if (unlockedCurrentIds.length > 0) {
+      const { error: currentError } = await supabase.from('currentschedule')
+        .delete()
+        .in('id', unlockedCurrentIds)
+        .eq('user_id', user.id)
+        .eq('scheduled_date', formattedSelectedDay);
+      if (currentError) error = currentError;
+    }
+
+    if (unlockedFixedIds.length > 0) {
+      const { error: fixedError } = await supabase.from('fixedappointments')
+        .delete()
+        .in('id', unlockedFixedIds)
+        .eq('user_id', user.id)
+        .eq('scheduled_date', formattedSelectedDay);
+      if (fixedError) error = fixedError;
+    }
 
     if (error) {
       showError(`Failed to clear schedule: ${error.message}`);
@@ -522,16 +540,17 @@ const SchedulerPage: React.FC = () => {
         await rezoneTask(taskToPlace.id);
 
         await addScheduledTask({
-            name: taskToPlace.name,
-            start_time: proposedStartTime.toISOString(),
-            end_time: proposedEndTime.toISOString(),
-            break_duration: taskToPlace.break_duration,
-            scheduled_date: formattedSelectedDay,
-            is_critical: taskToPlace.is_critical,
-            is_flexible: true,
-            is_locked: false,
-            energy_cost: taskToPlace.energy_cost,
-            is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
+          // *** FIX: Sink tasks are always flexible and go to currentschedule ***
+          name: taskToPlace.name,
+          start_time: proposedStartTime.toISOString(),
+          end_time: proposedEndTime.toISOString(),
+          break_duration: taskToPlace.break_duration,
+          scheduled_date: formattedSelectedDay,
+          is_critical: taskToPlace.is_critical,
+          is_flexible: true, // Always flexible when coming from sink
+          is_locked: false,
+          energy_cost: taskToPlace.energy_cost,
+          is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
         });
 
         return true;
@@ -993,6 +1012,7 @@ const SchedulerPage: React.FC = () => {
           scheduled_date: formattedSelectedDay,
           is_critical: retiredTask.is_critical,
           is_flexible: true,
+          is_locked: false,
           energy_cost: retiredTask.energy_cost,
           is_custom_energy_cost: retiredTask.is_custom_energy_cost,
         });
@@ -1039,7 +1059,8 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     try {
-      const { error } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', user.id);
+      // *** FIX: Delete from aethersink ***
+      const { error } = await supabase.from('aethersink').delete().eq('id', retiredTaskId).eq('user_id', user.id);
       if (error) throw new Error(error.message);
       showSuccess('Task permanently removed from Aether Sink.');
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });
@@ -1067,6 +1088,7 @@ const SchedulerPage: React.FC = () => {
     console.log("handleAutoScheduleSink: Starting auto-schedule process.");
 
     try {
+        // *** FIX: Fetch from correct tables ***
         const existingFixedTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);
         const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
         const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
@@ -1444,7 +1466,7 @@ const SchedulerPage: React.FC = () => {
       });
     }
 
-    const sortedFlexibleTasksForCompaction: DBScheduledTask[] = unifiedPool.map(task => {
+    const sortedFlexibleTasksForCompaction: DBScheduledTask[] = sortedUnifiedPool.map(task => {
       const taskTotalDuration = (task.duration || 0) + (task.break_duration || 0);
       const tempStartTime = workdayStartTime;
       const tempEndTime = addMinutes(tempStartTime, taskTotalDuration);
@@ -1621,7 +1643,7 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleSchedulerAction = useCallback(async (
-    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus', // NEW: Added 'justFinish'
+    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus',
     task: DBScheduledTask,
     isEarlyCompletion: boolean = false,
     remainingDurationMinutes: number = 0,
@@ -1649,7 +1671,7 @@ const SchedulerPage: React.FC = () => {
 
         if (isCurrentlyActive) {
             remainingMins = activeItem ? differenceInMinutes(activeItem.endTime, T_current) : 0;
-            if (remainingMins > 0) { // Only show modal if there's actual time remaining
+            if (remainingMins > 0) {
                 shouldOpenEarlyCompletionModal = true;
             }
         }
@@ -1665,11 +1687,12 @@ const SchedulerPage: React.FC = () => {
         } else {
             // If it's a future task, or active task completed exactly on time/past its end time
             await completeScheduledTaskMutation(task); 
-            if (task.is_flexible) {
-              await removeScheduledTask(task.id);
-            } else {
-              await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-            }
+            
+            // *** FIX: Delete from origin table after completion ***
+            const targetTable = task.is_flexible ? 'currentschedule' : 'fixedappointments';
+            const { error: deleteError } = await supabase.from(targetTable).delete().eq('id', task.id).eq('user_id', user.id);
+            if (deleteError) throw new Error(`Failed to delete task from ${targetTable}: ${deleteError.message}`);
+
             showSuccess(`Task "${task.name}" completed!`);
             if (isCurrentlyActive) {
                 if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
@@ -1694,20 +1717,24 @@ const SchedulerPage: React.FC = () => {
           break_duration: breakDuration,
           scheduled_date: formattedSelectedDay,
           is_critical: false,
-          is_flexible: false,
-          is_locked: true,
+          is_flexible: false, // Breaks added this way are fixed
+          is_locked: true, // Breaks added this way are locked
           energy_cost: 0,
           is_custom_energy_cost: false,
         });
 
-        if (task.is_flexible) {
-          await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-        }
+        // 1. Complete the original task (archives it)
+        await completeScheduledTaskMutation(task);
+
+        // 2. Delete the original task from its origin table
+        const targetTable = task.is_flexible ? 'currentschedule' : 'fixedappointments';
+        const { error: deleteError } = await supabase.from(targetTable).delete().eq('id', task.id).eq('user_id', user.id);
+        if (deleteError) throw new Error(`Failed to delete task from ${targetTable}: ${deleteError.message}`);
+
         showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
+        setIsFocusModeActive(false); // Exit focus mode after break is scheduled
       } else if (action === 'startNext') {
         if (!nextItemToday) {
           showError("No next task available to start early.");
@@ -1720,16 +1747,21 @@ const SchedulerPage: React.FC = () => {
             return;
         }
 
+        // 1. Complete the current task (archives it)
+        await completeScheduledTaskMutation(task);
+
+        // 2. Delete the current task from its origin table
+        const currentTargetTable = task.is_flexible ? 'currentschedule' : 'fixedappointments';
+        const { error: deleteCurrentError } = await supabase.from(currentTargetTable).delete().eq('id', task.id).eq('user_id', user.id);
+        if (deleteCurrentError) throw new Error(`Failed to delete current task from ${currentTargetTable}: ${deleteCurrentError.message}`);
+
+
         const originalNextTaskStartTime = originalNextTask.start_time ? parseISO(originalNextTask.start_time) : nextItemToday.startTime;
+        
+        // *** FIX: Check if next task is fixed or locked ***
         const isNextTaskImmovable = !originalNextTask.is_flexible || originalNextTask.is_locked;
         const remainingMins = differenceInMinutes(originalNextTaskStartTime, T_current);
         
-        if (task.is_flexible) {
-          await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-        }
-
         if (isNextTaskImmovable) {
           if (remainingMins > 0) {
             const gapStart = T_current;
@@ -1754,6 +1786,7 @@ const SchedulerPage: React.FC = () => {
           const nextTaskDuration = differenceInMinutes(nextItemToday.endTime, nextItemToday.startTime);
           const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextTaskDuration);
 
+          // Update the next task's start/end time (it must be in currentschedule)
           await updateScheduledTaskDetails({
             id: nextItemToday.id,
             start_time: newNextTaskStartTime.toISOString(),
@@ -1769,17 +1802,19 @@ const SchedulerPage: React.FC = () => {
 
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
-      } else if (action === 'justFinish') { // NEW: Handle 'justFinish' action
+      } else if (action === 'justFinish') {
+        // 1. Complete the current task (archives it)
         await completeScheduledTaskMutation(task);
-        if (task.is_flexible) {
-          await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-        }
+
+        // 2. Delete the current task from its origin table
+        const targetTable = task.is_flexible ? 'currentschedule' : 'fixedappointments';
+        const { error: deleteError } = await supabase.from(targetTable).delete().eq('id', task.id).eq('user_id', user.id);
+        if (deleteError) throw new Error(`Failed to delete task from ${targetTable}: ${deleteError.message}`);
+
         showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
-        setIsFocusModeActive(false); // Ensure focus mode is exited
+        setIsFocusModeActive(false);
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
         showSuccess("Exited focus mode.");
@@ -1822,7 +1857,7 @@ const SchedulerPage: React.FC = () => {
 
   // NEW: Filter completed scheduled tasks for the selected day
   const completedScheduledTasksForRecap = useMemo(() => {
-    return completedTasksForSelectedDayList; // Use the new combined list
+    return completedTasksForSelectedDayList;
   }, [completedTasksForSelectedDayList]);
 
 
@@ -1989,12 +2024,12 @@ const SchedulerPage: React.FC = () => {
             <TabsContent value="daily-recap" className="space-y-4">
               <DailyVibeRecapCard
                 scheduleSummary={currentSchedule?.summary || null}
-                tasksCompletedToday={tasksCompletedForSelectedDay} // NEW: Use tasksCompletedForSelectedDay
-                xpEarnedToday={xpEarnedForSelectedDay} // NEW: Use xpEarnedForSelectedDay
+                tasksCompletedToday={tasksCompletedForSelectedDay}
+                xpEarnedToday={xpEarnedForSelectedDay}
                 profileEnergy={profile?.energy || 0}
-                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay} // NEW: Use criticalTasksCompletedForSelectedDay
+                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
                 selectedDayString={selectedDay}
-                completedScheduledTasks={completedScheduledTasksForRecap} /* NEW: Pass completed tasks */
+                completedScheduledTasks={completedScheduledTasksForRecap}
               />
             </TabsContent>
           </Tabs>
@@ -2114,7 +2149,7 @@ const SchedulerPage: React.FC = () => {
         remainingDurationMinutes={earlyCompletionRemainingMinutes}
         onTakeBreak={() => handleSchedulerAction('takeBreak', earlyCompletionDbTask!, true, earlyCompletionRemainingMinutes)}
         onStartNextTask={() => handleSchedulerAction('startNext', earlyCompletionDbTask!, true)}
-        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)} // NEW: Pass 'justFinish' handler
+        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)}
         isProcessingCommand={isProcessingCommand}
         hasNextTask={!!nextItemToday}
       />

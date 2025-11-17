@@ -35,24 +35,25 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
+    
+    // --- NEW: Fetch JWKS and verify with ECC P-256 ---
     // @ts-ignore
-    const JWT_SECRET = Deno.env.get('JWT_SECRET'); 
-
-    if (!JWT_SECRET) {
-      console.error("Configuration Error: JWT secret is not set.");
-      return new Response(JSON.stringify({ error: 'Configuration Error: JWT secret is not set.' }), {
-        status: 500, // Changed to 500 as it's a server configuration issue
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    if (!SUPABASE_URL) {
+      console.error("Configuration Error: SUPABASE_URL is not set.");
+      return new Response(JSON.stringify({ error: 'Configuration Error: SUPABASE_URL is not set.' }), {
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Use TextEncoder to convert the JWT_SECRET string into a Uint8Array
-    const secretKey = new TextEncoder().encode(JWT_SECRET);
+    const JWKS = jose.createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`));
     
     let payload;
     try {
-      // Directly use the Uint8Array secretKey with jwtVerify for HS256
-      const { payload: verifiedPayload } = await jose.jwtVerify(token, secretKey); // Access jwtVerify from jose namespace
+      const { payload: verifiedPayload } = await jose.jwtVerify(token, JWKS, {
+        algorithms: ['ES256'], // Specify the algorithm for ECC P-256
+      });
       payload = verifiedPayload;
     } catch (jwtError: any) {
       console.error("JWT Verification Error:", jwtError);
@@ -61,6 +62,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    // --- END NEW: Fetch JWKS and verify with ECC P-256 ---
     
     const userId = payload.sub;
 
@@ -82,8 +84,6 @@ serve(async (req) => {
     );
 
     // Perform operations sequentially. If any step fails, the outer catch block will handle it.
-    // This is not a true ACID transaction across multiple tables, but it's a common and robust pattern
-    // for serverless functions where full database transactions might be complex or not directly supported.
     
     // 1. Delete scheduled tasks
     if (scheduledTaskIdsToDelete.length > 0) {

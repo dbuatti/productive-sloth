@@ -259,12 +259,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate], // Key includes selectedDate
     queryFn: async () => {
       if (!userId) return [];
-      const selectedDayStart = startOfDay(parseISO(formattedSelectedDate)).toISOString();
-      const selectedDayEnd = addDays(startOfDay(parseISO(formattedSelectedDate)), 1).toISOString();
+      
+      // Correctly calculate UTC start and end of the selected day
+      const selectedDayDate = parseISO(formattedSelectedDate);
+      const selectedDayStartUTC = new Date(Date.UTC(selectedDayDate.getFullYear(), selectedDayDate.getMonth(), selectedDayDate.getDate())).toISOString();
+      const selectedDayEndUTC = new Date(Date.UTC(selectedDayDate.getFullYear(), selectedDayDate.getMonth(), selectedDayDate.getDate() + 1)).toISOString();
 
       console.log("useSchedulerTasks: Fetching completed tasks for selected day. User ID:", userId, "Selected Day:", formattedSelectedDate);
-      console.log("useSchedulerTasks: Selected Day Start:", selectedDayStart);
-      console.log("useSchedulerTasks: Selected Day End:", selectedDayEnd);
+      console.log("useSchedulerTasks: Selected Day Start UTC:", selectedDayStartUTC);
+      console.log("useSchedulerTasks: Selected Day End UTC:", selectedDayEndUTC);
 
       // Fetch completed scheduled tasks for selected day
       const { data: scheduled, error: scheduledError } = await supabase
@@ -272,8 +275,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .select('*')
         .eq('user_id', userId)
         .eq('is_completed', true)
-        .gte('updated_at', selectedDayStart)
-        .lt('updated_at', selectedDayEnd);
+        .gte('updated_at', selectedDayStartUTC)
+        .lt('updated_at', selectedDayEndUTC);
 
       if (scheduledError) {
         console.error('useSchedulerTasks: Error fetching completed scheduled tasks for selected day:', scheduledError);
@@ -287,8 +290,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .select('*')
         .eq('user_id', userId)
         .eq('is_completed', true)
-        .gte('retired_at', selectedDayStart) // Use retired_at for completion time
-        .lt('retired_at', selectedDayEnd);
+        .gte('retired_at', selectedDayStartUTC) // Use retired_at for completion time
+        .lt('retired_at', selectedDayEndUTC);
 
       if (retiredError) {
         console.error('useSchedulerTasks: Error fetching completed retired tasks for selected day:', retiredError);
@@ -302,8 +305,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .select('*')
         .eq('user_id', userId)
         .eq('is_completed', true)
-        .gte('updated_at', selectedDayStart) // Use updated_at for completion time
-        .lt('updated_at', selectedDayEnd);
+        .gte('updated_at', selectedDayStartUTC) // Use updated_at for completion time
+        .lt('updated_at', selectedDayEndUTC);
 
       if (generalTasksError) {
         console.error('useSchedulerTasks: Error fetching completed general tasks for selected day:', generalTasksError);
@@ -1376,7 +1379,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id))
       );
 
-      return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
+      return { previousScheduledTasks, previousRetiredTop: previousScrollTop }; // Renamed previousScrollTop to previousRetiredTop
     },
     onSuccess: (result, payload) => {
       // No toast here, moved to onSettled

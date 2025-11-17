@@ -407,7 +407,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           start_time: newTask.start_time ?? now,
           end_time: newTask.end_time ?? now,
           scheduled_date: newTask.scheduled_date,
-          created_at: now, // Set created_at directly
+          created_at: now, // FIX 3: Directly set created_at
           updated_at: now,
           is_critical: newTask.is_critical ?? false,
           is_flexible: newTask.is_flexible ?? true,
@@ -1305,7 +1305,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   >({
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId) throw new Error("User not authenticated.");
-      if (!session?.access_token) throw new Error("User session token not available."); // Corrected access
+      if (!session?.access_token) throw new Error("User session token not available."); // FIX 1
 
       console.log("autoBalanceScheduleMutation: Payload received:", {
         scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
@@ -1318,7 +1318,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { data, error } = await supabase.functions.invoke('auto-balance-schedule', {
         body: payload,
         headers: {
-          'Authorization': `Bearer ${session.access_token}`, // Corrected access
+          'Authorization': `Bearer ${session.access_token}`, // FIX 2
         },
       });
 
@@ -1354,7 +1354,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           start_time: t.start_time ?? new Date().toISOString(), // Provide default if missing
           end_time: t.end_time ?? new Date().toISOString(),     // Provide default if missing
           scheduled_date: t.scheduled_date ?? formattedSelectedDate, // Provide default if missing
-          created_at: new Date().toISOString(), // Set created_at directly
+          created_at: new Date().toISOString(), // FIX 3: NewDBScheduledTask does not have created_at
           updated_at: new Date().toISOString(),
           is_critical: t.is_critical ?? false,
           is_flexible: t.is_flexible ?? true,
@@ -1369,13 +1369,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => {
         const remaining = (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id));
         const newSinkTasks: RetiredTask[] = payload.tasksToKeepInSink.map(t => ({
-          id: Math.random().toString(36).substring(2, 9), // Ensure ID is always present
+          id: Math.random().toString(36).substring(2, 9), // FIX 4: NewRetiredTask does not have id
           user_id: userId!,
           name: t.name,
           duration: t.duration ?? null,
           break_duration: t.break_duration ?? null,
           original_scheduled_date: t.original_scheduled_date ?? formattedSelectedDate, // Provide default if missing
-          retired_at: new Date().toISOString(), // Set retired_at directly
+          retired_at: new Date().toISOString(), // FIX 5: NewRetiredTask does not have retired_at
           is_critical: t.is_critical ?? false, // Ensure boolean
           is_locked: t.is_locked ?? false,     // Ensure boolean
           energy_cost: t.energy_cost ?? 0,

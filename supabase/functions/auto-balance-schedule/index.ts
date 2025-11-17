@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 // @ts-ignore
-import { verify } from 'https://deno.land/x/djwt@v2.8/mod.ts';
+import * as jose from "https://deno.land/x/jose@v1.2.0/index.ts"; // Using jose for robust JWT verification
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,12 +44,21 @@ serve(async (req) => {
     }
 
     // Encode the JWT_SECRET string into a Uint8Array
-    const secretKey = new TextEncoder().encode(JWT_SECRET);
+    const secretKeyUint8 = new TextEncoder().encode(JWT_SECRET);
+
+    // Import the secret as a CryptoKey for jose.jwtVerify
+    const cryptoKey = await jose.importJWK(
+      {
+        kty: 'oct', // Octet sequence key type for symmetric keys
+        k: jose.base64url.encode(secretKeyUint8),
+      },
+      'HS256' // Algorithm used by Supabase for JWTs
+    );
 
     let payload;
     try {
-      // Removed the explicit algorithm parameter, relying on the JWT header
-      payload = await verify(token, secretKey); 
+      const { payload: verifiedPayload } = await jose.jwtVerify(token, cryptoKey);
+      payload = verifiedPayload;
     } catch (jwtError: any) {
       console.error("JWT Verification Error:", jwtError);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {
@@ -98,7 +107,7 @@ serve(async (req) => {
     if (retiredTaskIdsToDelete.length > 0) {
       console.log("Deleting retired tasks:", retiredTaskIdsToDelete);
       const { error } = await supabaseClient
-        .from('aethersink') // CORRECTED
+        .from('aethersink')
         .delete()
         .in('id', retiredTaskIdsToDelete)
         .eq('user_id', userId);
@@ -126,7 +135,7 @@ serve(async (req) => {
         retired_at: new Date().toISOString() 
       }));
       const { error } = await supabaseClient
-        .from('aethersink') // CORRECTED
+        .from('aethersink')
         .insert(tasksToKeepInSinkWithUserId);
       if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
       console.log("Unscheduled tasks re-inserted into sink successfully.");

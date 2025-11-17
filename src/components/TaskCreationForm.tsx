@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,7 +12,8 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import CreateTaskDialog from './CreateTaskDialog';
 import { useSession } from '@/hooks/use-session';
-import { MAX_ENERGY } from '@/lib/constants';
+import { MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // NEW: Import default duration
+import { calculateEnergyCost } from '@/lib/scheduler-utils'; // NEW: Import calculateEnergyCost
 
 const QuickTaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
@@ -71,12 +72,17 @@ const TaskCreationForm: React.FC = () => {
       taskTitle = taskTitle.slice(0, -2).trim();
     }
 
+    // NEW: Calculate energy cost for quick add tasks
+    const energyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical);
+
     const newTask: NewTask = {
       title: taskTitle,
       description: undefined,
       priority: priority,
       due_date: dueDate.toISOString(),
       is_critical: isCritical,
+      energy_cost: energyCost, // NEW: Pass calculated energy cost
+      is_custom_energy_cost: false, // NEW: Quick add tasks are not custom energy cost
     };
 
     addTask(newTask);

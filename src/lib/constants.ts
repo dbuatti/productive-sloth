@@ -8,3 +8,4 @@ export const DAILY_CHALLENGE_ENERGY = 20;
 export const DAILY_CHALLENGE_TASKS_REQUIRED = 3;
 export const ENERGY_REGEN_AMOUNT = 5;
 export const ENERGY_REGEN_INTERVAL_MS = 60 * 1000; // 1 minute
+export const DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION = 30; // New: Default duration for energy calculation for general tasks

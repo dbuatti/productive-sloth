@@ -10,10 +10,13 @@ export interface Task {
   description?: string;
   is_completed: boolean;
   priority: TaskPriority;
+  metadata_xp: number;
+  energy_cost: number;
   due_date: string;
   created_at: string;
   updated_at: string;
   is_critical: boolean;
+  is_custom_energy_cost: boolean; // NEW: Added for custom energy cost
 }
 
 export interface NewTask {
@@ -22,4 +25,6 @@ export interface NewTask {
   due_date: string;
   description?: string;
   is_critical?: boolean;
+  energy_cost: number; // NEW: Made energy_cost required
+  is_custom_energy_cost?: boolean; // NEW: Added for custom energy cost
 }

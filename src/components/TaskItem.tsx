@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import XPGainAnimation from "./XPGainAnimation";
-import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks"; // Updated import
+import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -60,6 +60,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         taskToSchedule: {
           name: task.title,
           isCritical: task.is_critical,
+          // Assuming a default duration for tasks from the general list if not explicitly set
+          duration: 30, // Defaulting to 30 minutes for scheduling
         }
       } 
     });
@@ -159,6 +161,19 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                   <CalendarDays className="h-3 w-3" />
                   <span>{format(new Date(task.due_date), "MMM d")}</span>
                 </span>
+              )}
+              {/* NEW: Display energy cost */}
+              {task.energy_cost !== undefined && task.energy_cost > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1 text-xs font-semibold font-mono">
+                      {task.energy_cost} <Zap className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Energy Cost</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </label>

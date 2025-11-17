@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -32,6 +32,8 @@ import { useTasks } from '@/hooks/use-tasks';
 import { showSuccess } from "@/utils/toast";
 import { useSession } from '@/hooks/use-session';
 import { Switch } from '@/components/ui/switch';
+import { calculateEnergyCost } from '@/lib/scheduler-utils'; // NEW: Import calculateEnergyCost
+import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // NEW: Import default duration
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }).max(255),
@@ -39,6 +41,8 @@ const formSchema = z.object({
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
   dueDate: z.date({ required_error: "Due date is required." }), 
   isCritical: z.boolean().default(false),
+  energy_cost: z.coerce.number().min(0).default(0), // NEW: Add energy_cost to schema
+  is_custom_energy_cost: z.boolean().default(false), // NEW: Add custom energy cost flag
 });
 
 type TaskDetailFormValues = z.infer<typeof formSchema>;
@@ -56,6 +60,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
 }) => {
   const { updateTask } = useTasks();
   const { profile } = useSession();
+  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0); // NEW: State for calculated energy cost
 
   const form = useForm<TaskDetailFormValues>({
     resolver: zodResolver(formSchema),
@@ -65,6 +70,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       priority: "MEDIUM",
       dueDate: new Date(),
       isCritical: false,
+      energy_cost: 0, // Will be set by useEffect
+      is_custom_energy_cost: false, // Will be set by useEffect
     },
   });
 
@@ -76,9 +83,37 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         priority: task.priority,
         dueDate: task.due_date ? new Date(task.due_date) : new Date(), 
         isCritical: task.is_critical,
+        energy_cost: task.energy_cost, // NEW: Set initial energy cost
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial custom energy cost flag
       });
+      // NEW: Set initial calculated cost, but only if not custom
+      if (!task.is_custom_energy_cost) {
+        setCalculatedEnergyCost(calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, task.is_critical));
+      } else {
+        setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
+      }
     }
   }, [task, form]);
+
+  // NEW: Effect to recalculate energy cost when isCritical changes
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      // Only recalculate if custom energy cost is NOT enabled
+      if (!value.is_custom_energy_cost && name === 'isCritical') {
+        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, value.isCritical ?? false);
+        setCalculatedEnergyCost(newEnergyCost);
+        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+      } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
+        // If custom energy cost is turned OFF, immediately recalculate and set
+        const isCritical = form.getValues('isCritical');
+        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical ?? false);
+        setCalculatedEnergyCost(newEnergyCost);
+        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
 
   const handleSubmit = async (values: TaskDetailFormValues) => {
     if (!task) return;
@@ -93,6 +128,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         priority: values.priority,
         due_date: values.dueDate.toISOString(),
         is_critical: values.isCritical,
+        energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost, // NEW: Use custom or calculated
+        is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
       showSuccess("Task updated successfully!");
       onOpenChange(false);
@@ -103,6 +140,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // NEW: Watch the custom energy cost toggle
 
   if (!task) return null;
 
@@ -240,6 +278,63 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* NEW: Custom Energy Cost Switch */}
+              <FormField
+                control={form.control}
+                name="is_custom_energy_cost"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Custom Energy Cost</FormLabel>
+                      <FormDescription>
+                        Manually set the energy cost instead of automatic calculation.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* NEW: Energy Cost (Editable if custom, read-only if auto-calculated) */}
+              <FormField
+                control={form.control}
+                name="energy_cost"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Energy Cost</FormLabel>
+                      <FormDescription>
+                        Energy consumed upon completion.
+                      </FormDescription>
+                    </div>
+                    <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
+                      <Zap className="h-5 w-5" />
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          min="0" 
+                          className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                          readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
+                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
+                          onChange={(e) => {
+                            if (isCustomEnergyCostEnabled) {
+                              field.onChange(e);
+                            }
+                          }}
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage />
                   </FormItem>
                 )}
               />

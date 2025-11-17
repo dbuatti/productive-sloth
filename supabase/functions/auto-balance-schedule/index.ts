@@ -35,6 +35,7 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
+    console.log(`Incoming token (masked): ${token.substring(0, 10)}...${token.substring(token.length - 10)}`); // NEW LOG
     // @ts-ignore
     const JWT_SECRET = Deno.env.get('JWT_SECRET'); 
 

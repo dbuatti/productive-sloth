@@ -1315,6 +1315,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         selectedDate: payload.selectedDate,
       });
 
+      console.log(`autoBalanceScheduleMutation: Sending token (masked) to Edge Function: ${session.access_token.substring(0, 10)}...${session.access_token.substring(session.access_token.length - 10)}`); // NEW LOG
+
       const { data, error } = await supabase.functions.invoke('auto-balance-schedule', {
         body: payload,
         headers: {

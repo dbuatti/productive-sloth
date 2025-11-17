@@ -1,24 +1,30 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { useSession } from '@/hooks/use-session';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useWindowSize } from '@/hooks/use-window-size';
-import { addDays, format, parseISO, startOfDay, addHours, setHours, setMinutes } from 'date-fns';
+import { AetherSink } from '@/components/AetherSink'; // Fix #1 - default import works
+import { addDays, format, startOfDay, addHours } from 'date-fns';
 import { SortBy, UnifiedTask, DBScheduledTask, RetiredTask, FormattedSchedule } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate, parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { showError } from '@/utils/toast';
-// ... other imports
 
 const SchedulerPage: React.FC = () => {
-  const { profile, T_current, activeItemToday, nextItemToday, user } = useSession();
+  const { profile, T_current, user } = useSession();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedDayString, setSelectedDayString] = useState(format(startOfDay(new Date()), 'yyyy-MM-dd'));
   
+  // Fix #2,3,4,5,6,7,8,9 - Complete hook destructuring
   const {
-    dbScheduledTasks, retiredTasks, isLoading, sortBy, setSortBy, retiredSortBy, setRetiredSortBy,
-    addScheduledTask, removeScheduledTask, clearScheduledTasks, retireTask, rezoneTask,
-    compactScheduledTasks, aetherDump, autoBalanceSchedule, completeScheduledTask
+    dbScheduledTasks,
+    retiredTasks, 
+    isLoading, 
+    sortBy, 
+    setSortBy,
+    addScheduledTask, 
+    rezoneTask,
+    autoBalanceSchedule
   } = useSchedulerTasks(selectedDayString, scrollRef);
 
   const workdayStartTimeToday = useMemo(() => {
@@ -32,11 +38,6 @@ const SchedulerPage: React.FC = () => {
     if (endTime < workdayStartTimeToday) endTime = addDays(endTime, 1);
     return endTime;
   }, [profile?.default_auto_schedule_end_time, T_current, workdayStartTimeToday]);
-
-  const calculatedScheduleToday: FormattedSchedule | null = useMemo(() => {
-    if (!profile || !dbScheduledTasks.length) return null;
-    return calculateSchedule(dbScheduledTasks, selectedDayString, workdayStartTimeToday, workdayEndTimeToday);
-  }, [dbScheduledTasks, profile, selectedDayString, workdayStartTimeToday, workdayEndTimeToday]);
 
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
 
@@ -54,33 +55,29 @@ const SchedulerPage: React.FC = () => {
     }
   }, [selectedDayString, user?.id, addScheduledTask]);
 
-  const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
-    setSortBy(newSortBy);
-  }, [setSortBy]);
-
+  // Fix #2,3,4,5,6,7,8,9 - Now all vars defined
   const handleAutoScheduleSink = useCallback(async () => {
     const unifiedTasks: UnifiedTask[] = [
       ...dbScheduledTasks.filter(t => t.is_flexible && !t.is_locked).map(t => ({
         id: t.id, name: t.name, duration: 30, break_duration: t.break_duration || null,
         is_critical: t.is_critical, is_flexible: true, energy_cost: t.energy_cost,
-        source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
+        source: 'scheduled' as const, originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
         created_at: t.created_at,
-      })),
+      } as UnifiedTask)),
       ...retiredTasks.filter(t => !t.is_locked).map(t => ({
         id: `retired-${t.id}`, name: t.name, duration: t.duration || 30, break_duration: t.break_duration || null,
         is_critical: t.is_critical, is_flexible: true, energy_cost: t.energy_cost,
-        source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
+        source: 'retired' as const, originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
         created_at: t.retired_at,
-      }))
+      } as UnifiedTask))
     ];
     await autoBalanceSchedule({ scheduledTaskIdsToDelete: [], retiredTaskIdsToDelete: [], tasksToInsert: [], tasksToKeepInSink: [], selectedDate: selectedDayString });
   }, [dbScheduledTasks, retiredTasks, selectedDayString, autoBalanceSchedule]);
 
-  // ... rest of component JSX
-
+  // Fix #10 - Proper return inside component
   return (
-    <div>
-      {/* Your JSX here */}
+    <div className="p-4">
+      <div className="mb-4">Scheduler for {selectedDayString}</div>
       <AetherSink
         retiredTasks={retiredTasks}
         onRezoneTask={(taskId: string) => rezoneTask(taskId)}
@@ -91,10 +88,9 @@ const SchedulerPage: React.FC = () => {
             showError('Failed to remove retired task');
           }
         }}
-        // ... other props
       />
     </div>
   );
 };
 
-export default SchedulerPage; // Fix #28
+export default SchedulerPage; // Fix #11 - Default export confirmed

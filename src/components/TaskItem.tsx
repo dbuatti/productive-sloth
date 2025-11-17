@@ -9,10 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Task } from "@/types";
+import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import XPGainAnimation from "./XPGainAnimation";
+import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -24,18 +26,15 @@ interface TaskItemProps {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const { updateTask, deleteTask } = useTasks(); 
   const navigate = useNavigate();
 
-  const handleScheduleNow = () => {
-    navigate('/scheduler', { 
-      state: { 
-        taskToSchedule: {
-          name: task.name,
-          isCritical: task.is_critical,
-          duration: task.duration || 30,
-        }
-      } 
-    });
+  const handleToggleComplete = async () => {
+    try {
+      await updateTask({ id: task.id, is_completed: !task.is_completed });
+    } catch (error) {
+      console.error("Failed to update task status:", error);
+    }
   };
 
   const handleEditClick = () => {
@@ -43,16 +42,55 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     setIsSheetOpen(true);
   };
 
-  const handleDeleteClick = () => {
-    toast.success(`Task "${task.name}" deleted.`);
+  const handleDeleteClick = async () => {
+    if (window.confirm(`Are you sure you want to delete "${task.title}"?`)) {
+      try {
+        await deleteTask(task.id);
+        toast.success(`Task "${task.title}" deleted.`);
+      } catch (error) {
+        toast.error("Failed to delete task.");
+        console.error("Failed to delete task:", error);
+      }
+    }
   };
 
-  const getPriorityBadgeClasses = (isCritical: boolean) => {
-    return isCritical ? 'bg-destructive text-destructive-foreground border-destructive' : 'bg-muted text-muted-foreground border-border';
+  const handleScheduleNow = () => {
+    navigate('/scheduler', { 
+      state: { 
+        taskToSchedule: {
+          name: task.title,
+          isCritical: task.is_critical,
+          // Assuming a default duration for tasks from the general list if not explicitly set
+          duration: 30, // Defaulting to 30 minutes for scheduling
+        }
+      } 
+    });
   };
 
-  const getPriorityBorderColor = (isCritical: boolean) => {
-    return isCritical ? 'border-destructive/50 hover:border-destructive' : 'border-border';
+  const getPriorityBadgeClasses = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'HIGH':
+        return 'bg-destructive text-destructive-foreground border-destructive';
+      case 'MEDIUM':
+        return 'bg-logo-orange/20 text-logo-orange border-logo-orange';
+      case 'LOW':
+        return 'bg-logo-green/20 text-logo-green border-logo-green';
+      default:
+        return 'bg-muted text-muted-foreground border-border';
+    }
+  };
+
+  const getPriorityBorderColor = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'HIGH':
+        return 'border-destructive/50 hover:border-destructive';
+      case 'MEDIUM':
+        return 'border-logo-orange/50 hover:border-logo-orange';
+      case 'LOW':
+        return 'border-logo-green/50 hover:border-logo-green';
+      default:
+        return 'border-border';
+    }
   };
 
   return (
@@ -61,7 +99,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         className={cn(
           "relative flex items-center justify-between p-4 border-l-4 transition-all duration-300 rounded-md shadow-sm",
           "bg-card hover:bg-secondary/50 animate-hover-lift",
-          getPriorityBorderColor(task.is_critical),
+          getPriorityBorderColor(task.priority),
           task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
           "hover:shadow-lg hover:shadow-primary/10",
           "border-b border-dashed border-border/50 last:border-b-0"
@@ -70,6 +108,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         <div className="flex items-center space-x-3 flex-grow min-w-0">
           <Checkbox
             checked={task.is_completed}
+            onCheckedChange={handleToggleComplete}
             id={`task-${task.id}`}
             className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-5 w-5"
           />
@@ -94,37 +133,36 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 variant="outline"
                 className={cn(
                   "capitalize px-2 py-0.5 text-xs font-semibold", 
-                  getPriorityBadgeClasses(task.is_critical)
+                  getPriorityBadgeClasses(task.priority)
                 )}
               >
-                {task.is_critical ? 'critical' : 'general'}
+                {task.priority.toLowerCase()}
               </Badge>
               <span className={cn(
                 "truncate flex-grow",
                 task.is_completed ? "line-through text-muted-foreground italic" : "text-foreground"
               )}>
-                {task.name}
+                {task.title}
               </span>
-            </div>
-            <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground">
-              {task.original_scheduled_date && (
-                <span className="flex items-center gap-1">
-                  <CalendarDays className="h-3 w-3" />
-                  <span>{format(new Date(task.original_scheduled_date), "MMM d")}</span>
-                </span>
-              )}
-              {task.duration && task.duration > 0 && (
+              {task.description && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="flex items-center gap-1 text-xs font-semibold font-mono">
-                      {task.duration} min <Clock className="h-3 w-3" />
-                    </span>
+                    <AlignLeft className="h-3 w-3 text-muted-foreground shrink-0" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Estimated Duration</p>
+                    <p>Has description</p>
                   </TooltipContent>
                 </Tooltip>
               )}
+            </div>
+            <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground">
+              {task.due_date && (
+                <span className="flex items-center gap-1">
+                  <CalendarDays className="h-3 w-3" />
+                  <span>{format(new Date(task.due_date), "MMM d")}</span>
+                </span>
+              )}
+              {/* NEW: Display energy cost */}
               {task.energy_cost !== undefined && task.energy_cost > 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -161,6 +199,15 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <TaskDetailSheetForTasks
+        task={selectedTask}
+        open={isSheetOpen && selectedTask?.id === task.id}
+        onOpenChange={(open) => {
+          setIsSheetOpen(open);
+          if (!open) setSelectedTask(null);
+        }}
+      />
     </>
   );
 };

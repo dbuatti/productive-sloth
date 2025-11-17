@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,12 +8,12 @@ import { format, parseISO } from "date-fns";
 import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
 
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -37,18 +39,18 @@ const formSchema = z.object({
   is_locked: z.boolean().default(false),
   is_completed: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
-  is_custom_energy_cost: z.boolean().default(false), // NEW: Add to schema
+  is_custom_energy_cost: z.boolean().default(false),
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
 
-interface RetiredTaskDetailSheetProps {
+interface RetiredTaskDetailDialogProps {
   task: RetiredTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
+const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
   task,
   open,
   onOpenChange,
@@ -66,11 +68,10 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       is_locked: false,
       is_completed: false,
       energy_cost: 0,
-      is_custom_energy_cost: false, // NEW: Default value
+      is_custom_energy_cost: false,
     },
   });
 
-  // Effect to update form values when task prop changes
   useEffect(() => {
     if (task) {
       form.reset({
@@ -81,21 +82,18 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         is_locked: task.is_locked,
         is_completed: task.is_completed,
         energy_cost: task.energy_cost,
-        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial value
+        is_custom_energy_cost: task.is_custom_energy_cost,
       });
-      // Set initial calculated cost, but only if not custom
       if (!task.is_custom_energy_cost) {
         setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical));
       } else {
-        setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
+        setCalculatedEnergyCost(task.energy_cost);
       }
     }
   }, [task, form]);
 
-  // Effect to recalculate energy cost when duration or criticality changes
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      // Only recalculate if custom energy cost is NOT enabled
       if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical')) {
         const duration = value.duration ?? 0;
         const isCritical = value.is_critical;
@@ -103,7 +101,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
-        // If custom energy cost is turned OFF, immediately recalculate and set
         const duration = form.getValues('duration') ?? 0;
         const isCritical = form.getValues('is_critical');
         const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
@@ -118,16 +115,14 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
     if (!task) return;
 
     try {
-      // Handle completion status separately to trigger XP/Energy logic
       if (values.is_completed !== task.is_completed) {
         if (values.is_completed) {
-          await completeRetiredTask(task); // This handles XP/Energy and sets is_completed to true
+          await completeRetiredTask(task);
         } else {
-          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }); // Only update status
+          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
         }
       }
 
-      // Update other details
       await updateRetiredTaskDetails({
         id: task.id,
         name: values.name,
@@ -136,8 +131,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         is_critical: values.is_critical,
         is_locked: values.is_locked,
         energy_cost: values.energy_cost,
-        is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
-        // is_completed is handled by completeRetiredTask or updateRetiredTaskStatus
+        is_custom_energy_cost: values.is_custom_energy_cost,
       });
       showSuccess("Retired task updated successfully!");
       onOpenChange(false);
@@ -149,7 +143,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
-  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // Watch the custom energy cost toggle
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
 
   if (!task) return null;
 
@@ -157,25 +151,23 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   const formattedOriginalDate = task.original_scheduled_date ? format(parseISO(task.original_scheduled_date), 'MMM d, yyyy') : 'N/A';
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-80 flex flex-col p-6 space-y-6 animate-slide-in-right">
-        <SheetHeader className="border-b pb-4">
-          <SheetTitle className="text-2xl font-bold flex items-center justify-between">
-            Retired Task Details
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6">
+        <DialogHeader className="border-b pb-4 mb-6">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-bold">Retired Task Details</DialogTitle>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
-          </SheetTitle>
-          <SheetDescription className="text-sm text-muted-foreground">
+          </div>
+          <DialogDescription className="text-sm text-muted-foreground">
             Retired: {formattedRetiredAt} | Original Date: {formattedOriginalDate}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
-            
-            <div className="flex-grow overflow-y-auto space-y-6 pb-8">
-              {/* Name */}
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            <div className="space-y-6">
               <FormField
                 control={form.control}
                 name="name"
@@ -190,7 +182,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* Duration & Break Duration */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -201,9 +192,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       <FormControl>
                         <Input type="number" {...field} min="1" />
                       </FormControl>
-                      <FormDescription>
-                        Estimated time to complete.
-                      </FormDescription>
+                      <FormDescription>Estimated time to complete.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -217,16 +206,13 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       <FormControl>
                         <Input type="number" {...field} min="0" />
                       </FormControl>
-                      <FormDescription>
-                        Break associated with this task.
-                      </FormDescription>
+                      <FormDescription>Break associated with this task.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              {/* Is Critical Switch */}
               <FormField
                 control={form.control}
                 name="is_critical"
@@ -234,22 +220,15 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel>Critical Task</FormLabel>
-                      <FormDescription>
-                        Mark this task as critical (higher priority).
-                      </FormDescription>
+                      <FormDescription>Mark this task as critical (higher priority).</FormDescription>
                     </div>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={task.is_locked} // Disable if locked
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} disabled={task.is_locked} />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              {/* Is Locked Switch */}
               <FormField
                 control={form.control}
                 name="is_locked"
@@ -257,21 +236,15 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel>Locked Task</FormLabel>
-                      <FormDescription>
-                        Prevent re-zoning or deletion from Aether Sink.
-                      </FormDescription>
+                      <FormDescription>Prevent re-zoning or deletion from Aether Sink.</FormDescription>
                     </div>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              {/* Is Completed Switch */}
               <FormField
                 control={form.control}
                 name="is_completed"
@@ -279,22 +252,15 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel>Completed</FormLabel>
-                      <FormDescription>
-                        Mark this task as completed.
-                      </FormDescription>
+                      <FormDescription>Mark this task as completed.</FormDescription>
                     </div>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={task.is_locked} // Disable if locked
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} disabled={task.is_locked} />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              {/* Custom Energy Cost Switch */}
               <FormField
                 control={form.control}
                 name="is_custom_energy_cost"
@@ -302,21 +268,15 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel>Custom Energy Cost</FormLabel>
-                      <FormDescription>
-                        Manually set the energy cost instead of automatic calculation.
-                      </FormDescription>
+                      <FormDescription>Manually set the energy cost instead of automatic calculation.</FormDescription>
                     </div>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              {/* Energy Cost (Editable if custom, read-only if auto-calculated) */}
               <FormField
                 control={form.control}
                 name="energy_cost"
@@ -324,9 +284,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel>Energy Cost</FormLabel>
-                      <FormDescription>
-                        Energy consumed upon completion.
-                      </FormDescription>
+                      <FormDescription>Energy consumed upon completion.</FormDescription>
                     </div>
                     <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
                       <Zap className="h-5 w-5" />
@@ -336,8 +294,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                           {...field} 
                           min="0" 
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
-                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
+                          readOnly={!isCustomEnergyCostEnabled}
+                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
                           onChange={(e) => {
                             if (isCustomEnergyCostEnabled) {
                               field.onChange(e);
@@ -352,7 +310,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
               />
             </div>
               
-            {/* Save Button in Footer */}
             <div className="sticky bottom-0 bg-card pt-4 border-t shrink-0">
               <Button 
                 type="submit" 
@@ -369,9 +326,9 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
             </div>
           </form>
         </Form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 };
 
-export default RetiredTaskDetailSheet;
+export default RetiredTaskDetailDialog;

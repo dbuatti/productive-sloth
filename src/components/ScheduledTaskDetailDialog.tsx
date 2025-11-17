@@ -1,17 +1,19 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
 import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
 
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog, // Changed from Sheet
+  DialogContent, // Changed from SheetContent
+  DialogDescription, // Changed from SheetDescription
+  DialogHeader, // Changed from SheetHeader
+  DialogTitle, // Changed from SheetTitle
+} from "@/components/ui/dialog"; // Changed from sheet
 import {
   Form,
   FormControl,
@@ -23,153 +25,189 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Switch } from '@/components/ui/switch';
-import { RetiredTask } from "@/types/scheduler";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { DBScheduledTask } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
-import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { Switch } from '@/components/ui/switch';
+import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
-  duration: z.coerce.number().min(1, "Duration must be at least 1 minute.").optional().nullable(),
+  start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
+  end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
   break_duration: z.coerce.number().min(0).optional().nullable(),
   is_critical: z.boolean().default(false),
+  is_flexible: z.boolean().default(true),
   is_locked: z.boolean().default(false),
-  is_completed: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
-  is_custom_energy_cost: z.boolean().default(false), // NEW: Add to schema
+  is_custom_energy_cost: z.boolean().default(false),
 });
 
-type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
+type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
 
-interface RetiredTaskDetailSheetProps {
-  task: RetiredTask | null;
+interface ScheduledTaskDetailDialogProps { // Changed from SheetProps
+  task: DBScheduledTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  selectedDayString: string;
 }
 
-const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
+const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ // Changed from Sheet
   task,
   open,
   onOpenChange,
+  selectedDayString,
 }) => {
-  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
+  const { updateScheduledTaskDetails } = useSchedulerTasks(selectedDayString);
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
-  const form = useForm<RetiredTaskDetailFormValues>({
+  const form = useForm<ScheduledTaskDetailFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      duration: 30,
+      start_time: "09:00",
+      end_time: "10:00",
       break_duration: 0,
       is_critical: false,
+      is_flexible: true,
       is_locked: false,
-      is_completed: false,
       energy_cost: 0,
-      is_custom_energy_cost: false, // NEW: Default value
+      is_custom_energy_cost: false,
     },
   });
 
-  // Effect to update form values when task prop changes
   useEffect(() => {
     if (task) {
+      const startTime = task.start_time ? format(parseISO(task.start_time), 'HH:mm') : '09:00';
+      const endTime = task.end_time ? format(parseISO(task.end_time), 'HH:mm') : '10:00';
       form.reset({
         name: task.name,
-        duration: task.duration ?? 30,
+        start_time: startTime,
+        end_time: endTime,
         break_duration: task.break_duration ?? 0,
         is_critical: task.is_critical,
+        is_flexible: task.is_flexible,
         is_locked: task.is_locked,
-        is_completed: task.is_completed,
         energy_cost: task.energy_cost,
-        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial value
+        is_custom_energy_cost: task.is_custom_energy_cost,
       });
-      // Set initial calculated cost, but only if not custom
       if (!task.is_custom_energy_cost) {
-        setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical));
+        const selectedDayDate = parseISO(selectedDayString);
+        let sTime = setTimeOnDate(selectedDayDate, startTime);
+        let eTime = setTimeOnDate(selectedDayDate, endTime);
+        if (isBefore(eTime, sTime)) eTime = addDays(eTime, 1);
+        const duration = Math.floor((eTime.getTime() - sTime.getTime()) / (1000 * 60));
+        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical));
       } else {
-        setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
+        setCalculatedEnergyCost(task.energy_cost);
       }
     }
-  }, [task, form]);
+  }, [task, form, selectedDayString]);
 
-  // Effect to recalculate energy cost when duration or criticality changes
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      // Only recalculate if custom energy cost is NOT enabled
-      if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical')) {
-        const duration = value.duration ?? 0;
+      if (!value.is_custom_energy_cost && (name === 'start_time' || name === 'end_time' || name === 'is_critical')) {
+        const startTimeStr = value.start_time;
+        const endTimeStr = value.end_time;
         const isCritical = value.is_critical;
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
-        setCalculatedEnergyCost(newEnergyCost);
-        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+
+        if (startTimeStr && endTimeStr) {
+          const selectedDayDate = parseISO(selectedDayString);
+          let startTime = setTimeOnDate(selectedDayDate, startTimeStr);
+          let endTime = setTimeOnDate(selectedDayDate, endTimeStr);
+
+          if (isBefore(endTime, startTime)) {
+            endTime = addDays(endTime, 1);
+          }
+          const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
+          setCalculatedEnergyCost(newEnergyCost);
+          form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+        }
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
-        // If custom energy cost is turned OFF, immediately recalculate and set
-        const duration = form.getValues('duration') ?? 0;
+        const startTimeStr = form.getValues('start_time');
+        const endTimeStr = form.getValues('end_time');
         const isCritical = form.getValues('is_critical');
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
-        setCalculatedEnergyCost(newEnergyCost);
-        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+
+        if (startTimeStr && endTimeStr) {
+          const selectedDayDate = parseISO(selectedDayString);
+          let startTime = setTimeOnDate(selectedDayDate, startTimeStr);
+          let endTime = setTimeOnDate(selectedDayDate, endTimeStr);
+
+          if (isBefore(endTime, startTime)) {
+            endTime = addDays(endTime, 1);
+          }
+          const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
+          setCalculatedEnergyCost(newEnergyCost);
+          form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+        }
       }
     });
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [form, selectedDayString]);
 
-  const handleSubmit = async (values: RetiredTaskDetailFormValues) => {
+
+  const handleSubmit = async (values: ScheduledTaskDetailFormValues) => {
     if (!task) return;
 
-    try {
-      // Handle completion status separately to trigger XP/Energy logic
-      if (values.is_completed !== task.is_completed) {
-        if (values.is_completed) {
-          await completeRetiredTask(task); // This handles XP/Energy and sets is_completed to true
-        } else {
-          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }); // Only update status
-        }
-      }
+    const selectedDayDate = parseISO(selectedDayString);
+    let startTime = setTimeOnDate(selectedDayDate, values.start_time);
+    let endTime = setTimeOnDate(selectedDayDate, values.end_time);
 
-      // Update other details
-      await updateRetiredTaskDetails({
+    if (isBefore(endTime, startTime)) {
+      endTime = addDays(endTime, 1);
+    }
+
+    try {
+      await updateScheduledTaskDetails({
         id: task.id,
         name: values.name,
-        duration: values.duration === 0 ? null : values.duration,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
         break_duration: values.break_duration === 0 ? null : values.break_duration,
         is_critical: values.is_critical,
+        is_flexible: values.is_flexible,
         is_locked: values.is_locked,
         energy_cost: values.energy_cost,
-        is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
-        // is_completed is handled by completeRetiredTask or updateRetiredTaskStatus
+        is_custom_energy_cost: values.is_custom_energy_cost,
       });
-      showSuccess("Retired task updated successfully!");
+      showSuccess("Scheduled task updated successfully!");
       onOpenChange(false);
     } catch (error) {
-      showError("Failed to save retired task.");
-      console.error("Failed to save retired task:", error);
+      showError("Failed to save scheduled task.");
+      console.error("Failed to save scheduled task:", error);
     }
   };
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
-  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // Watch the custom energy cost toggle
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
 
   if (!task) return null;
 
-  const formattedRetiredAt = task.retired_at ? format(parseISO(task.retired_at), 'MMM d, yyyy HH:mm') : 'N/A';
-  const formattedOriginalDate = task.original_scheduled_date ? format(parseISO(task.original_scheduled_date), 'MMM d, yyyy') : 'N/A';
+  const lastUpdatedDate = task.updated_at ? parseISO(task.updated_at) : null;
+  const formattedLastUpdated = lastUpdatedDate && !isNaN(lastUpdatedDate.getTime()) 
+    ? format(lastUpdatedDate, 'MMM d, yyyy HH:mm') 
+    : 'N/A';
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-80 flex flex-col p-6 space-y-6 animate-slide-in-right">
-        <SheetHeader className="border-b pb-4">
-          <SheetTitle className="text-2xl font-bold flex items-center justify-between">
-            Retired Task Details
+    <Dialog open={open} onOpenChange={onOpenChange}> {/* Changed from Sheet */}
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in"> {/* Changed from SheetContent, added styling */}
+        <DialogHeader className="border-b pb-4 mb-6"> {/* Changed from SheetHeader */}
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle> {/* Changed from SheetTitle */}
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
-          </SheetTitle>
-          <SheetDescription className="text-sm text-muted-foreground">
-            Retired: {formattedRetiredAt} | Original Date: {formattedOriginalDate}
-          </SheetDescription>
-        </SheetHeader>
+          </div>
+          <DialogDescription className="text-sm text-muted-foreground"> {/* Changed from SheetDescription */}
+            Last updated: {formattedLastUpdated}
+          </DialogDescription>
+        </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
@@ -190,41 +228,53 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* Duration & Break Duration */}
+              {/* Start Time & End Time */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="duration"
+                  name="start_time"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Duration (min)</FormLabel>
+                      <FormLabel>Start Time</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} min="1" />
+                        <Input type="time" {...field} />
                       </FormControl>
-                      <FormDescription>
-                        Estimated time to complete.
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
-                  name="break_duration"
+                  name="end_time"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Break Duration (min)</FormLabel>
+                      <FormLabel>End Time</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} min="0" />
+                        <Input type="time" {...field} />
                       </FormControl>
-                      <FormDescription>
-                        Break associated with this task.
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
+
+              {/* Break Duration */}
+              <FormField
+                control={form.control}
+                name="break_duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Break Duration (min)</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} min="0" />
+                    </FormControl>
+                    <FormDescription>
+                      Break duration associated with this task.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Is Critical Switch */}
               <FormField
@@ -242,7 +292,28 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                        disabled={task.is_locked} // Disable if locked
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Is Flexible Switch */}
+              <FormField
+                control={form.control}
+                name="is_flexible"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Flexible Task</FormLabel>
+                      <FormDescription>
+                        Can the scheduler automatically move this task?
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
                       />
                     </FormControl>
                   </FormItem>
@@ -258,36 +329,13 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                     <div className="space-y-0.5">
                       <FormLabel>Locked Task</FormLabel>
                       <FormDescription>
-                        Prevent re-zoning or deletion from Aether Sink.
+                        Prevent the scheduler from moving or removing this task.
                       </FormDescription>
                     </div>
                     <FormControl>
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* Is Completed Switch */}
-              <FormField
-                control={form.control}
-                name="is_completed"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Completed</FormLabel>
-                      <FormDescription>
-                        Mark this task as completed.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={task.is_locked} // Disable if locked
                       />
                     </FormControl>
                   </FormItem>
@@ -336,8 +384,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                           {...field} 
                           min="0" 
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
-                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
+                          readOnly={!isCustomEnergyCostEnabled}
+                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
                           onChange={(e) => {
                             if (isCustomEnergyCostEnabled) {
                               field.onChange(e);
@@ -352,7 +400,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
               />
             </div>
               
-            {/* Save Button in Footer */}
             <div className="sticky bottom-0 bg-card pt-4 border-t shrink-0">
               <Button 
                 type="submit" 
@@ -369,9 +416,9 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
             </div>
           </form>
         </Form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 };
 
-export default RetiredTaskDetailSheet;
+export default ScheduledTaskDetailDialog;

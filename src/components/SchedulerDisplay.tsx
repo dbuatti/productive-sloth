@@ -11,14 +11,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import InfoChip from './InfoChip';
-import ScheduledTaskDetailSheet from './ScheduledTaskDetailSheet';
+import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Changed from Sheet
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
-  onRemoveTask: (taskId: string) => void; // MODIFIED: This will now trigger the skip action
-  onRetireTask: (task: DBScheduledTask) => void; // MODIFIED: This will now trigger the skip action
-  onCompleteTask: (task: DBScheduledTask) => void; // MODIFIED: This will now trigger the complete action
+  onRemoveTask: (taskId: string) => void;
+  onRetireTask: (task: DBScheduledTask) => void;
+  onCompleteTask: (task: DBScheduledTask) => void;
   activeItemId: string | null;
   selectedDayString: string;
   onAddTaskClick: () => void;
@@ -36,17 +36,17 @@ const getBubbleHeightStyle = (duration: number) => {
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
-  const containerRef = useRef<HTMLDivElement>(null); // Refers to the inner schedule container
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString);
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false); // Changed from isSheetOpen
   const [selectedScheduledTask, setSelectedScheduledTask] = useState<DBScheduledTask | null>(null);
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
-    const allEvents: (ScheduledItem | TimeMarker)[] = [...scheduledTasks]; // Corrected: Initialize with scheduledTasks
+    const allEvents: (ScheduledItem | TimeMarker)[] = [...scheduledTasks];
 
     allEvents.push({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
     allEvents.push({ id: 'marker-24hr', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); 
@@ -179,32 +179,32 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const handleInfoChipClick = (dbTask: DBScheduledTask) => {
     console.log("SchedulerDisplay: InfoChip clicked for task:", dbTask.name);
     setSelectedScheduledTask(dbTask);
-    setIsSheetOpen(true);
+    setIsDialogOpen(true); // Changed from setIsSheetOpen
   };
 
   const handleTaskItemClick = (event: React.MouseEvent, dbTask: DBScheduledTask) => {
     console.log("SchedulerDisplay: Task item clicked for task:", dbTask.name, "Event target:", event.target);
     const target = event.target as HTMLElement;
     if (target.closest('button') || target.closest('a')) {
-      console.log("SchedulerDisplay: Click originated from an interactive child, preventing sheet open.");
+      console.log("SchedulerDisplay: Click originated from an interactive child, preventing dialog open.");
       return;
     }
     setSelectedScheduledTask(dbTask);
-    setIsSheetOpen(true);
-    console.log("SchedulerDisplay: Setting isSheetOpen to true for task:", dbTask.name);
+    setIsDialogOpen(true); // Changed from setIsSheetOpen
+    console.log("SchedulerDisplay: Setting isDialogOpen to true for task:", dbTask.name); // Changed from isSheetOpen
   };
 
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
 
   const renderDisplayItem = (item: DisplayItem) => {
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
-    const isHighlightedBySession = activeItemId === item.id; // NEW: Highlight based on session's active item
+    const isHighlightedBySession = activeItemId === item.id;
     const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && item.endTime <= T_current;
 
     if (item.type === 'marker') {
       return (
         <React.Fragment key={item.id}>
-          <div></div> {/* Empty div to align with the grid */}
+          <div></div>
           <div className="relative flex items-center">
             <div className="h-px w-full bg-border" />
             <div className="absolute right-0 h-2.5 w-2.5 rounded-full bg-border -mr-1.5" />
@@ -223,7 +223,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         <React.Fragment key={freeTimeItem.id}>
           <div></div>
           <div 
-            id={`scheduled-item-${freeTimeItem.id}`} // NEW: Add ID for scrolling
+            id={`scheduled-item-${freeTimeItem.id}`}
             className={cn(
               "relative flex items-center justify-center text-muted-foreground italic text-sm h-[20px] rounded-lg shadow-sm transition-all duration-200 ease-in-out",
               isHighlightedByNowCard ? "opacity-50 border-border" :
@@ -251,7 +251,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     } else {
       const scheduledItem = item as ScheduledItem;
       const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
-      const isHighlightedBySession = activeItemId === scheduledItem.id; // NEW: Highlight based on session's active item
+      const isHighlightedBySession = activeItemId === scheduledItem.id;
       const isLocked = scheduledItem.isLocked;
       const isFixed = !scheduledItem.isFlexible;
       const isFixedOrLocked = isFixed || isLocked;
@@ -275,7 +275,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div className="flex items-center justify-end pr-2">
             <span className={cn(
               "px-2 py-1 rounded-md text-xs font-mono transition-colors duration-200",
-              isHighlightedBySession ? "bg-primary text-primary-foreground" : // Use isHighlightedBySession
+              isHighlightedBySession ? "bg-primary text-primary-foreground" :
               isActive ? "bg-primary/20 text-primary" :
               isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
               "hover:scale-105"
@@ -285,11 +285,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           </div>
 
           <div
-            id={`scheduled-item-${scheduledItem.id}`} // NEW: Add ID for scrolling
+            id={`scheduled-item-${scheduledItem.id}`}
             className={cn(
               "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer",
               "border-2",
-              isHighlightedBySession ? "opacity-50" : // Use isHighlightedBySession
+              isHighlightedBySession ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" :
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border",
               isLocked && "bg-primary/10",
@@ -314,7 +314,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               </span>
             </div>
 
-            <div className="relative z-10 flex items-center w-full"> {/* Removed justify-between to allow flex-grow on span */}
+            <div className="relative z-10 flex items-center w-full">
               {/* Complete Button - Moved to the far left */}
               {dbTask && !isBreak && !isTimeOff && !isCompleted && (
                 <Tooltip>
@@ -328,7 +328,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       }}
                       disabled={isLocked}
                       className={cn(
-                        "h-6 w-6 p-0 shrink-0 mr-2", // Added mr-2 for spacing
+                        "h-6 w-6 p-0 shrink-0 mr-2",
                         isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                       )}
                       style={isLocked ? { pointerEvents: 'auto' } : undefined}
@@ -344,7 +344,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               )}
 
               <span className={cn(
-                "text-sm flex-grow", // Added flex-grow here
+                "text-sm flex-grow",
                 isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
               )}>
                 <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span>
@@ -602,12 +602,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           </Card>
         )}
       </div>
-      <ScheduledTaskDetailSheet
+      <ScheduledTaskDetailDialog // Changed from Sheet
         task={selectedScheduledTask}
-        open={isSheetOpen}
+        open={isDialogOpen} // Changed from isSheetOpen
         onOpenChange={(open) => {
-          console.log("SchedulerDisplay: Sheet onOpenChange. New state:", open);
-          setIsSheetOpen(open);
+          console.log("SchedulerDisplay: Dialog onOpenChange. New state:", open); // Changed from Sheet
+          setIsDialogOpen(open); // Changed from setIsSheetOpen
           if (!open) setSelectedScheduledTask(null);
         }}
         selectedDayString={selectedDayString}

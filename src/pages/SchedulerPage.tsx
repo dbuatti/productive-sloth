@@ -1594,18 +1594,42 @@ const SchedulerPage: React.FC = () => {
       showError(`Cannot perform action on locked task "${task.name}". Unlock it first.`);
       return;
     }
+    
+    // Set processing command immediately, but only reset it in the finally block
     setIsProcessingCommand(true);
 
     try {
       if (action === 'complete') {
+        // 1. Check for early completion and open modal if needed
+        const activeItem = currentSchedule?.items.find(item => item.id === task.id);
+        const remainingMins = activeItem ? differenceInMinutes(activeItem.endTime, T_current) : 0;
+
+        if (!isEarlyCompletion && remainingMins > 0) {
+          setEarlyCompletionTaskName(task.name);
+          setEarlyCompletionRemainingMinutes(remainingMins);
+          setEarlyCompletionDbTask(task);
+          setShowEarlyCompletionModal(true);
+          setIsProcessingCommand(false); // Release processing lock while modal is open
+          return; // Stop here, wait for modal action
+        }
+
+        // 2. If not early completion, or if action is confirmed from modal:
         await completeScheduledTaskMutation(task); // Handles XP/Energy/Profile updates
+        
         if (task.is_flexible) {
           await removeScheduledTask(task.id);
         } else {
           await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
         showSuccess(`Task "${task.name}" completed!`);
-        // DO NOT exit focus mode here, ImmersiveFocusMode will re-render with the new active task
+        
+        // If we completed the task, we should check if we need to exit focus mode
+        // If the next item is immediately active, focus mode stays on.
+        // If there is no next item, or the next item is far away, exit focus mode.
+        if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
+          setIsFocusModeActive(false);
+        }
+
       } else if (action === 'skip') {
         await handleManualRetire(task); // This already handles retiring
         showSuccess(`Task "${task.name}" skipped and moved to Aether Sink.`);
@@ -1636,7 +1660,7 @@ const SchedulerPage: React.FC = () => {
           await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
         showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
-        // DO NOT exit focus mode here, ImmersiveFocusMode will re-render with the new active break task
+        // Focus mode stays on, as the new break task should become activeItemToday
       } else if (action === 'startNext') {
         if (!nextItemToday) {
           showError("No next task available to start early.");
@@ -1667,7 +1691,7 @@ const SchedulerPage: React.FC = () => {
         await handleCompactSchedule(); // Re-use existing compact logic
 
         showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
-        // DO NOT exit focus mode here, ImmersiveFocusMode will re-render with the new active next task
+        // Focus mode stays on, as the next task should become activeItemToday
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
         showSuccess("Exited focus mode.");
@@ -1676,14 +1700,23 @@ const SchedulerPage: React.FC = () => {
       // Invalidate scheduledTasksToday to force SessionProvider to re-evaluate active/next items
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
-      showError(`Failed to perform action: ${error.message}`);
-      console.error("Scheduler action error:", error);
+      // If an error occurred, and the modal was open, close it.
+      if (showEarlyCompletionModal) {
+        setShowEarlyCompletionModal(false);
+        setEarlyCompletionDbTask(null);
+      }
+      // If the error was "Insufficient energy.", the error toast was already shown.
+      if (error.message !== "Insufficient energy.") {
+        showError(`Failed to perform action: ${error.message}`);
+        console.error("Scheduler action error:", error);
+      }
     } finally {
-      setIsProcessingCommand(false);
-      setShowEarlyCompletionModal(false); // Close modal after any action
-      setEarlyCompletionDbTask(null); // Clear task from modal state
+      // Only reset processing command if the modal is NOT open.
+      if (!showEarlyCompletionModal) {
+        setIsProcessingCommand(false);
+      }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, showEarlyCompletionModal]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;
@@ -1947,10 +1980,9 @@ const SchedulerPage: React.FC = () => {
       <EarlyCompletionModal
         isOpen={showEarlyCompletionModal}
         onOpenChange={(open) => {
-          setShowEarlyCompletionModal(open);
-          if (!open) {
-            // If modal is closed without action, reset focus mode and task state
-            // setIsFocusModeActive(false); // REMOVED: Focus mode is now managed by actions
+          // Only allow closing if not processing an action triggered by the modal
+          if (!open && !isProcessingCommand) {
+            setShowEarlyCompletionModal(false);
             setEarlyCompletionDbTask(null);
           }
         }}

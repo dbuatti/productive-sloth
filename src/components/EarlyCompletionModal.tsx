@@ -56,7 +56,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg animate-pop-in"> {/* Increased max-width to lg */}
+      <DialogContent className="sm:max-w-xl animate-pop-in"> {/* Changed sm:max-w-lg to sm:max-w-xl */}
         <DialogHeader>
           <DialogTitle className="text-3xl font-bold text-primary text-center">
             🎉 Task Completed Early!
@@ -72,7 +72,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onTakeBreak}
             disabled={isProcessingCommand}
             className={cn(
-              "w-full sm:w-auto flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200", // Removed sm:w-auto and sm:flex-none, removed flex-1
+              "w-full sm:w-auto flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200",
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -83,7 +83,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onStartNextTask}
             disabled={isProcessingCommand || !hasNextTask}
             className={cn(
-              "w-full sm:w-auto flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200", // Removed sm:w-auto and sm:flex-none, removed flex-1
+              "w-full sm:w-auto flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200",
               (isProcessingCommand || !hasNextTask) && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -95,7 +95,7 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             disabled={isProcessingCommand}
             variant="outline"
             className={cn(
-              "w-full sm:w-auto flex items-center gap-2 transition-all duration-200", // Removed sm:w-auto and sm:flex-none, removed conflicting background/text classes, removed flex-1
+              "w-full sm:w-auto flex items-center gap-2 transition-all duration-200",
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >

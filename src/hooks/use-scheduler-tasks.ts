@@ -1298,7 +1298,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   });
 
-  const autoBalanceScheduleMutation = useMutation({
+  const autoBalanceScheduleMutation = useMutation<
+    { tasksPlaced: number; tasksKeptInSink: number },
+    Error,
+    AutoBalancePayload
+  >({
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId) throw new Error("User not authenticated.");
 
@@ -1310,357 +1314,149 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         selectedDate: payload.selectedDate,
       });
 
-      // 1. Delete scheduled tasks
-      if (payload.scheduledTaskIdsToDelete.length > 0) {
-        console.log("autoBalanceScheduleMutation: Deleting scheduled tasks with IDs:", payload.scheduledTaskIdsToDelete);
-        const { error } = await supabase
-          .from('scheduled_tasks')
-          .delete()
-          .in('id', payload.scheduledTaskIdsToDelete)
-          .eq('user_id', userId)
-          .eq('scheduled_date', payload.selectedDate);
-        if (error) throw new Error(`Failed to delete old scheduled tasks: ${error.message}`);
-        console.log("autoBalanceScheduleMutation: Scheduled tasks deleted successfully.");
+      const { data, error } = await supabase.functions.invoke('auto-balance-schedule', {
+        body: payload,
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+        },
+      });
+
+      if (error) {
+        console.error("autoBalanceScheduleMutation: Error invoking Edge Function:", error);
+        throw new Error(error.message);
       }
 
-      // 2. Delete retired tasks
-      if (payload.retiredTaskIdsToDelete.length > 0) {
-        console.log("autoBalanceScheduleMutation: Deleting retired tasks with IDs:", payload.retiredTaskIdsToDelete);
-        const { error } = await supabase
-          .from('aethersink') // CORRECTED
-          .delete()
-          .in('id', payload.retiredTaskIdsToDelete)
-          .eq('user_id', userId);
-        if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
-        console.log("Retired tasks deleted successfully.");
+      if (data.error) {
+        console.error("autoBalanceScheduleMutation: Edge Function returned error:", data.error);
+        throw new Error(data.error);
       }
 
-      // 3. Upsert new scheduled tasks (including fixed tasks that were not deleted)
-      if (payload.tasksToInsert.length > 0) {
-        const tasksToInsertWithUserId = payload.tasksToInsert.map(task => ({ ...task, user_id: userId }));
-        console.log("autoBalanceScheduleMutation: Upserting new scheduled tasks:", tasksToInsertWithUserId.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })));
-        const { error } = await supabase
-          .from('scheduled_tasks')
-          .upsert(tasksToInsertWithUserId, { onConflict: 'id' }); // Changed from insert to upsert
-        if (error) throw new Error(`Failed to upsert new scheduled tasks: ${error.message}`);
-        console.log("autoBalanceScheduleMutation: New scheduled tasks upserted successfully.");
-      }
-
-      // 4. Insert tasks back into the sink (those that couldn't be placed)
-      if (payload.tasksToKeepInSink.length > 0) {
-        const tasksToKeepInSinkWithUserId = payload.tasksToKeepInSink.map(task => ({ 
-          ...task, 
-          user_id: userId, 
-          retired_at: new Date().toISOString() 
-        }));
-        console.log("autoBalanceScheduleMutation: Re-inserting tasks into sink:", tasksToKeepInSinkWithUserId.map(t => ({ name: t.name })));
-        const { error } = await supabase
-          .from('aethersink') // CORRECTED
-          .insert(tasksToKeepInSinkWithUserId);
-        if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
-        console.log("Unscheduled tasks re-inserted into sink successfully.");
-      }
-
-      return { tasksPlaced: payload.tasksToInsert.length, tasksKeptInSink: payload.tasksToKeepInSink.length };
+      return data as { tasksPlaced: number; tasksKeptInSink: number };
     },
     onMutate: async (payload: AutoBalancePayload) => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
       await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
-      
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy]);
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], (old) =>
-        (old || []).filter(task => !payload.scheduledTaskIdsToDelete.includes(task.id))
-      );
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
-        (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id))
-      );
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      return { previousScheduledTasks, previousRetiredTasks, previousScrollTop }; // Corrected return type
+      // Optimistic update: Remove tasks that are being deleted or moved to sink
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
+        const remaining = (old || []).filter(task => !payload.scheduledTaskIdsToDelete.includes(task.id));
+        const newTasks = payload.tasksToInsert.map(t => ({
+          ...t,
+          user_id: userId!,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          is_completed: t.is_completed ?? false,
+          is_custom_energy_cost: t.is_custom_energy_cost ?? false,
+        }));
+        return [...remaining, ...newTasks];
+      });
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => {
+        const remaining = (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id));
+        const newSinkTasks = payload.tasksToKeepInSink.map(t => ({
+          ...t,
+          user_id: userId!,
+          id: Math.random().toString(36).substring(2, 9), // Temp ID for optimistic update
+          retired_at: new Date().toISOString(),
+          is_completed: t.is_completed ?? false,
+          is_custom_energy_cost: t.is_custom_energy_cost ?? false,
+        }));
+        return [...remaining, ...newSinkTasks];
+      });
+
+      return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
     },
-    onSuccess: (result, payload) => {
-      // No toast here, moved to onSettled
+    onSuccess: (data) => {
+      showSuccess(`Schedule auto-balanced! Placed ${data.tasksPlaced} tasks, ${data.tasksKeptInSink} returned to Aether Sink.`);
     },
-    onSettled: (result, _error, payload, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
-      
-      let message = `Schedule balanced! ${result?.tasksPlaced} task(s) placed.`;
-      if (result?.tasksKeptInSink && result.tasksKeptInSink > 0) {
-        message += ` ${result.tasksKeptInSink} task${result.tasksKeptInSink > 1 ? 's' : ''} returned to Aether Sink.`;
-      }
-      showSuccess(message);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
-    onError: (err, payload, context) => {
+    onError: (err, _variables, context) => {
       showError(`Failed to auto-balance schedule: ${err.message}`);
       if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], context.previousScheduledTasks);
+        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
       if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks);
       }
     }
   });
 
   const completeScheduledTaskMutation = useMutation({
-    mutationFn: async (taskToComplete: DBScheduledTask) => {
-      if (!userId || !profile) throw new Error("User not authenticated or profile not loaded.");
-
-      if (profile.energy < taskToComplete.energy_cost) {
-        showError(`Not enough energy to complete "${taskToComplete.name}". You need ${taskToComplete.energy_cost} energy, but have ${profile.energy}.`);
-        throw new Error("Insufficient energy.");
-      }
-
-      let xpGained = taskToComplete.energy_cost * 2;
-      if (taskToComplete.is_critical && isToday(parseISO(taskToComplete.scheduled_date))) {
-        xpGained += 5;
-        showSuccess(`Critical task bonus! +5 XP`);
-      }
-
-      const newXp = profile.xp + xpGained;
-      const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
-      const newEnergy = Math.max(0, profile.energy - taskToComplete.energy_cost);
-      const newTasksCompletedToday = profile.tasks_completed_today + 1;
-
-      let newDailyStreak = profile.daily_streak;
-      let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
-      const now = new Date();
-      const today = startOfDay(now);
-
-      if (!newLastStreakUpdate || isYesterday(newLastStreakUpdate)) {
-        newDailyStreak += 1;
-      } else if (!isToday(newLastStreakUpdate)) {
-        newDailyStreak = 1;
-      }
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ 
-          xp: newXp, 
-          level: newLevel, 
-          daily_streak: newDailyStreak,
-          last_streak_update: today.toISOString(),
-          energy: newEnergy,
-          tasks_completed_today: newTasksCompletedToday,
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', user.id);
-
-      if (profileError) {
-        console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today):", profileError.message);
-        showError("Failed to update profile stats.");
-        throw new Error("Failed to update profile stats.");
-      } else {
-        await refreshProfile();
-        
-        setXpGainAnimation({ taskId: taskToComplete.id, xpAmount: xpGained });
-
-        // Removed showSuccess toast here. It will be handled in SchedulerPage.tsx
-        if (newLevel > profile.level) {
-          showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
-          triggerLevelUp(newLevel);
-        }
-      }
-      // This mutation now only handles the XP/Energy/Profile updates.
-      // The actual task removal/status update is handled in SchedulerPage based on the isEarlyCompletion flag.
-    },
-    onSuccess: () => {
-      // Invalidate queries to reflect potential profile changes (XP, energy, streak)
-      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
-      // Task list queries will be invalidated by the calling component (SchedulerPage)
-      // after deciding whether to remove or update the task.
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      // No scroll restoration here, as this mutation only updates profile.
-      // The subsequent task removal/status update will handle scroll.
-    },
-    onError: (err) => {
-      if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats.") {
-        showError(`Failed to complete scheduled task: ${err.message}`);
-      }
-    }
-  });
-
-  const completeRetiredTaskMutation = useMutation({
-    mutationFn: async (taskToComplete: RetiredTask) => {
-      if (!userId || !profile) throw new Error("User not authenticated or profile not loaded.");
-
-      if (profile.energy < taskToComplete.energy_cost) {
-        showError(`Not enough energy to complete retired task "${taskToComplete.name}". You need ${taskToComplete.energy_cost} energy, but have ${profile.energy}.`);
-        throw new Error("Insufficient energy.");
-      }
-
-      let xpGained = taskToComplete.energy_cost * 2;
-      // No critical task bonus for retired tasks as they are not "due today" in the same sense
-      
-      const newXp = profile.xp + xpGained;
-      const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
-      const newEnergy = Math.min(MAX_ENERGY, profile.energy - taskToComplete.energy_cost);
-      const newTasksCompletedToday = profile.tasks_completed_today + 1; // Still counts towards daily challenge
-
-      let newDailyStreak = profile.daily_streak;
-      let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
-      const now = new Date();
-      const today = startOfDay(now);
-
-      if (!newLastStreakUpdate || isYesterday(newLastStreakUpdate)) {
-        newDailyStreak += 1;
-      } else if (!isToday(newLastStreakUpdate)) {
-        newDailyStreak = 1;
-      }
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ 
-          xp: newXp, 
-          level: newLevel, 
-          daily_streak: newDailyStreak,
-          last_streak_update: today.toISOString(),
-          energy: newEnergy,
-          tasks_completed_today: newTasksCompletedToday,
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', user.id);
-
-      if (profileError) {
-        console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today) for retired task:", profileError.message);
-        showError("Failed to update profile stats for retired task.");
-        throw new Error("Failed to update profile stats for retired task.");
-      } else {
-        await refreshProfile();
-        
-        setXpGainAnimation({ taskId: taskToComplete.id, xpAmount: xpGained });
-
-        showSuccess(`Retired task completed! -${taskToComplete.energy_cost} Energy`);
-        if (newLevel > profile.level) {
-          showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
-          triggerLevelUp(newLevel);
-        }
-      }
-
-      // After successful completion and profile update, remove the task from the sink
-      await rezoneTaskMutation.mutateAsync(taskToComplete.id);
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
-      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
-        scrollRef.current.scrollTop = context.previousScrollTop;
-      }
-    },
-    onError: (err) => {
-      if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats for retired task.") {
-        showError(`Failed to complete retired task: ${err.message}`);
-      }
-    }
-  });
-
-  const updateScheduledTaskStatusMutation = useMutation({
-    mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+    mutationFn: async (task: DBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to update completion status for scheduled task ID: ${taskId} to ${isCompleted}`);
-      const { data, error } = await supabase
+      if (!profile) throw new Error("User profile not loaded.");
+      if (profile.energy < task.energy_cost) {
+        throw new Error("Insufficient energy.");
+      }
+
+      const newXp = profile.xp + (task.energy_cost * 2);
+      const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
+      const newEnergy = profile.energy - task.energy_cost;
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          xp: newXp,
+          level: newLevel,
+          energy: newEnergy,
+          tasks_completed_today: profile.tasks_completed_today + 1,
+          daily_streak: isToday(parseISO(profile.last_streak_update || new Date().toISOString())) ? profile.daily_streak : profile.daily_streak + 1,
+          last_streak_update: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (profileError) throw new Error(`Failed to update profile: ${profileError.message}`);
+
+      // Mark task as completed in scheduled_tasks
+      const { error: taskError } = await supabase
         .from('scheduled_tasks')
-        .update({ is_completed: isCompleted, updated_at: new Date().toISOString() })
-        .eq('id', taskId)
-        .eq('user_id', userId)
-        .select()
-        .single();
-      if (error) {
-        console.error("useSchedulerTasks: Error updating scheduled task status:", error.message);
-        throw new Error(error.message);
-      }
-      console.log("useSchedulerTasks: Successfully updated scheduled task status:", data);
-      return data as DBScheduledTask;
-    },
-    onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+        .update({ is_completed: true, updated_at: new Date().toISOString() })
+        .eq('id', task.id)
+        .eq('user_id', userId);
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
-        (old || []).map(task =>
-          task.id === taskId ? { ...task, is_completed: isCompleted } : task
-        )
-      );
-      return { previousScheduledTasks, previousScrollTop };
-    },
-    onSuccess: (updatedTask) => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
-      showSuccess(`Scheduled task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
-      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
-        scrollRef.current.scrollTop = context.previousScrollTop;
-      }
-    },
-    onError: (err, { taskId, isCompleted }, context) => {
-      showError(`Failed to update scheduled task status: ${err.message}`);
-      if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
-      }
-    }
-  });
+      if (taskError) throw new Error(`Failed to mark scheduled task as completed: ${taskError.message}`);
 
-  const updateRetiredTaskStatusMutation = useMutation({
-    mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
-      if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to update completion status for retired task ID: ${taskId} to ${isCompleted}`);
-      const { data, error } = await supabase
-        .from('aethersink') // CORRECTED
-        .update({ is_completed: isCompleted, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
-        .eq('id', taskId)
-        .eq('user_id', userId)
-        .select()
-        .single();
-      if (error) {
-        console.error("useSchedulerTasks: Error updating retired task status:", error.message);
-        throw new Error(error.message);
-      }
-      console.log("useSchedulerTasks: Successfully updated retired task status:", data);
-      return data as RetiredTask;
-    },
-    onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      // Add to completedtasks log
+      const { error: completedLogError } = await supabase
+        .from('completedtasks')
+        .insert({
+          user_id: userId,
+          task_name: task.name,
+          original_id: task.id,
+          duration_scheduled: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+          duration_used: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)), // For now, assume scheduled duration
+          xp_earned: task.energy_cost * 2,
+          energy_cost: task.energy_cost,
+          is_critical: task.is_critical,
+          original_source: 'scheduled_tasks',
+          original_scheduled_date: task.scheduled_date,
+        });
+      if (completedLogError) console.error("Failed to log completed task:", completedLogError.message);
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
-        (old || []).map(task =>
-          task.id === taskId ? { ...task, is_completed: isCompleted } : task
-        )
-      );
-      return { previousRetiredTasks, previousScrollTop };
+      return { newXp, newLevel, newEnergy };
     },
-    onSuccess: (updatedTask) => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
-      showSuccess(`Retired task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
-      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
-        scrollRef.current.scrollTop = context.previousScrollTop;
+    onSuccess: async ({ newXp, newLevel, newEnergy }) => {
+      await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      if (profile && newLevel > profile.level) {
+        triggerLevelUp(newLevel);
       }
     },
-    onError: (err, { taskId, isCompleted }, context) => {
-      showError(`Failed to update retired task status: ${err.message}`);
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
-      }
+    onError: (e) => {
+      showError(`Failed to complete task: ${e.message}`);
     }
   });
 
@@ -1675,7 +1471,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .eq('user_id', userId)
         .select()
         .single();
-      
       if (error) {
         console.error("useSchedulerTasks: Error updating scheduled task details:", error.message);
         throw new Error(error.message);
@@ -1683,34 +1478,61 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log("useSchedulerTasks: Successfully updated scheduled task details:", data);
       return data as DBScheduledTask;
     },
-    onMutate: async (updatedTask: Partial<DBScheduledTask> & { id: string }) => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      showSuccess('Scheduled task details updated.');
+    },
+    onError: (e) => {
+      showError(`Failed to update scheduled task details: ${e.message}`);
+    }
+  });
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
-        (old || []).map(task =>
-          task.id === updatedTask.id ? { ...task, ...updatedTask } : task
-        )
-      );
-      return { previousScheduledTasks, previousScrollTop };
+  const updateScheduledTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log(`useSchedulerTasks: Attempting to update completion status for scheduled task ID: ${taskId} to ${isCompleted}`);
+
+      const { data: currentTask, error: fetchError } = await supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('id', taskId)
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError) throw new Error(`Failed to fetch task for status update: ${fetchError.message}`);
+      if (!currentTask) throw new Error("Task not found.");
+
+      if (isCompleted && !currentTask.is_completed) {
+        // If marking as complete, trigger the full completion logic
+        await completeScheduledTaskMutation.mutateAsync(currentTask);
+      } else if (!isCompleted && currentTask.is_completed) {
+        // If marking as incomplete, only update the task status and profile (reverse XP/Energy if needed)
+        // For simplicity, we'll just update the task status here. Reversing XP/Energy is more complex
+        // and usually handled by a dedicated "undo" or "uncomplete" feature.
+        const { error } = await supabase
+          .from('scheduled_tasks')
+          .update({ is_completed: isCompleted, updated_at: new Date().toISOString() })
+          .eq('id', taskId)
+          .eq('user_id', userId);
+        if (error) throw new Error(`Failed to update scheduled task completion status: ${error.message}`);
+        await refreshProfile(); // Refresh profile to reflect potential changes
+      } else {
+        // No change needed if status is already as requested
+        return currentTask;
+      }
+      
+      return currentTask; // Return the task (or updated task)
     },
     onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
-      showSuccess('Scheduled task details updated!');
-      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
-        scrollRef.current.scrollTop = context.previousScrollTop;
-      }
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
+      showSuccess('Scheduled task status updated.');
     },
-    onError: (e, _variables, context) => {
-      showError(`Failed to update scheduled task details: ${e.message}`);
-      if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
-      }
+    onError: (e) => {
+      showError(`Failed to update scheduled task status: ${e.message}`);
     }
   });
 
@@ -1719,7 +1541,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
       console.log("useSchedulerTasks: Attempting to update retired task details:", task);
       const { data, error } = await supabase
-        .from('aethersink') // CORRECTED
+        .from('aethersink')
         .update({ ...task, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
         .eq('id', task.id)
         .eq('user_id', userId)
@@ -1732,75 +1554,160 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log("useSchedulerTasks: Successfully updated retired task details:", data);
       return data as RetiredTask;
     },
-    onMutate: async (updatedTask: Partial<RetiredTask> & { id: string }) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
-
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
-        (old || []).map(task =>
-          task.id === updatedTask.id ? { ...task, ...updatedTask } : task
-        )
-      );
-      return { previousRetiredTasks, previousScrollTop };
-    },
     onSuccess: () => {
-      // No toast here, moved to onSettled
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      showSuccess('Retired task details updated.');
     },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      showSuccess('Retired task details updated!');
-      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
-        scrollRef.current.scrollTop = context.previousScrollTop;
-      }
-    },
-    onError: (e, _variables, context) => {
+    onError: (e) => {
       showError(`Failed to update retired task details: ${e.message}`);
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
-      }
     }
   });
 
-  const clearXpGainAnimation = useCallback(() => {
-    setXpGainAnimation(null);
-  }, []);
+  const updateRetiredTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log(`useSchedulerTasks: Attempting to update completion status for retired task ID: ${taskId} to ${isCompleted}`);
+
+      const { data: currentTask, error: fetchError } = await supabase
+        .from('aethersink')
+        .select('*')
+        .eq('id', taskId)
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError) throw new Error(`Failed to fetch retired task for status update: ${fetchError.message}`);
+      if (!currentTask) throw new Error("Retired task not found.");
+
+      if (isCompleted && !currentTask.is_completed) {
+        // If marking as complete, trigger the full completion logic for retired tasks
+        await completeRetiredTaskMutation.mutateAsync(currentTask);
+      } else if (!isCompleted && currentTask.is_completed) {
+        // If marking as incomplete, only update the task status
+        const { error } = await supabase
+          .from('aethersink')
+          .update({ is_completed: isCompleted, retired_at: new Date().toISOString() })
+          .eq('id', taskId)
+          .eq('user_id', userId);
+        if (error) throw new Error(`Failed to update retired task completion status: ${error.message}`);
+        await refreshProfile(); // Refresh profile to reflect potential changes
+      } else {
+        // No change needed if status is already as requested
+        return currentTask;
+      }
+      
+      return currentTask; // Return the task (or updated task)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      showSuccess('Retired task status updated.');
+    },
+    onError: (e) => {
+      showError(`Failed to update retired task status: ${e.message}`);
+    }
+  });
+
+  const completeRetiredTaskMutation = useMutation({
+    mutationFn: async (task: RetiredTask) => {
+      if (!userId) throw new Error("User not authenticated.");
+      if (!profile) throw new Error("User profile not loaded.");
+      if (profile.energy < task.energy_cost) {
+        throw new Error("Insufficient energy.");
+      }
+
+      const newXp = profile.xp + (task.energy_cost * 2);
+      const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
+      const newEnergy = profile.energy - task.energy_cost;
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          xp: newXp,
+          level: newLevel,
+          energy: newEnergy,
+          tasks_completed_today: profile.tasks_completed_today + 1,
+          daily_streak: isToday(parseISO(profile.last_streak_update || new Date().toISOString())) ? profile.daily_streak : profile.daily_streak + 1,
+          last_streak_update: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (profileError) throw new Error(`Failed to update profile: ${profileError.message}`);
+
+      // Mark task as completed in aethersink
+      const { error: taskError } = await supabase
+        .from('aethersink')
+        .update({ is_completed: true, retired_at: new Date().toISOString() })
+        .eq('id', task.id)
+        .eq('user_id', userId);
+
+      if (taskError) throw new Error(`Failed to mark retired task as completed: ${taskError.message}`);
+
+      // Add to completedtasks log
+      const { error: completedLogError } = await supabase
+        .from('completedtasks')
+        .insert({
+          user_id: userId,
+          task_name: task.name,
+          original_id: task.id,
+          duration_scheduled: task.duration,
+          duration_used: task.duration, // For now, assume scheduled duration
+          xp_earned: task.energy_cost * 2,
+          energy_cost: task.energy_cost,
+          is_critical: task.is_critical,
+          original_source: 'aethersink',
+          original_scheduled_date: task.original_scheduled_date,
+        });
+      if (completedLogError) console.error("Failed to log completed retired task:", completedLogError.message);
+
+      return { newXp, newLevel, newEnergy };
+    },
+    onSuccess: async ({ newXp, newLevel, newEnergy }) => {
+      await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      if (profile && newLevel > profile.level) {
+        triggerLevelUp(newLevel);
+      }
+    },
+    onError: (e) => {
+      showError(`Failed to complete retired task: ${e.message}`);
+    }
+  });
 
 
   return {
     dbScheduledTasks,
-    rawTasks,
-    isLoading,
+    isLoading: isLoading || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay,
+    addScheduledTask: addScheduledTaskMutation.mutateAsync,
+    addRetiredTask: addRetiredTaskMutation.mutateAsync,
+    removeScheduledTask: removeScheduledTaskMutation.mutateAsync,
+    clearScheduledTasks: clearScheduledTasksMutation.mutateAsync,
     datesWithTasks,
     isLoadingDatesWithTasks,
     retiredTasks,
     isLoadingRetiredTasks,
-    completedTasksForSelectedDayList, // NEW: Expose the new query data
-    isLoadingCompletedTasksForSelectedDay, // NEW: Expose loading state for the new query
-    addScheduledTask: addScheduledTaskMutation.mutate,
-    addRetiredTask: addRetiredTaskMutation.mutate,
-    removeScheduledTask: removeScheduledTaskMutation.mutate,
-    clearScheduledTasks: clearScheduledTasksMutation.mutate,
-    retireTask: retireTaskMutation.mutate,
+    completedTasksForSelectedDayList,
+    isLoadingCompletedTasksForSelectedDay,
+    retireTask: retireTaskMutation.mutateAsync,
     rezoneTask: rezoneTaskMutation.mutateAsync,
-    compactScheduledTasks: compactScheduledTasksMutation.mutate,
-    randomizeBreaks: randomizeBreaksMutation.mutate,
-    toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutate,
-    toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutate, // NEW: Expose toggleRetiredTaskLock
-    aetherDump: aetherDumpMutation.mutate,
-    aetherDumpMega: aetherDumpMegaMutation.mutate,
-    autoBalanceSchedule: autoBalanceScheduleMutation.mutate,
-    completeScheduledTask: completeScheduledTaskMutation.mutate,
-    completeRetiredTask: completeRetiredTaskMutation.mutate, // NEW: Expose completeRetiredTask
-    updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutate, // Expose for other uses if needed
-    updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutate, // NEW: Expose updateRetiredTaskStatus
-    updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutate, // NEW: Expose new mutation
-    updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutate, // NEW: Expose new mutation
+    compactScheduledTasks: compactScheduledTasksMutation.mutateAsync,
+    randomizeBreaks: randomizeBreaksMutation.mutateAsync,
+    toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutateAsync,
+    toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutateAsync,
+    aetherDump: aetherDumpMutation.mutateAsync,
+    aetherDumpMega: aetherDumpMegaMutation.mutateAsync,
     sortBy,
     setSortBy,
-    retiredSortBy, // NEW: Expose retiredSortBy
-    setRetiredSortBy, // NEW: Expose setRetiredSortBy
-    xpGainAnimation,
-    clearXpGainAnimation,
+    retiredSortBy,
+    setRetiredSortBy,
+    autoBalanceSchedule: autoBalanceScheduleMutation.mutateAsync,
+    completeScheduledTask: completeScheduledTaskMutation.mutateAsync,
+    updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutateAsync,
+    updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutateAsync,
+    updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutateAsync,
+    updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutateAsync,
+    completeRetiredTask: completeRetiredTaskMutation.mutateAsync,
   };
 };

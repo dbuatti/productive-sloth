@@ -347,12 +347,7 @@ const SchedulerPage: React.FC = () => {
         if (isBefore(localEnd, localStart)) {
           localEnd = addDays(localEnd, 1);
         }
-        const block = {
-          start: localStart,
-          end: localEnd,
-          duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)),
-        };
-        return block;
+        return { start: localStart, end: localEnd, duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)) };
       });
 
     const allOccupiedBlocks = mergeOverlappingTimeBlocks([...existingOccupiedBlocks, ...lockedTaskBlocks]);
@@ -1039,7 +1034,7 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     try {
-      const { error } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', user.id);
+      const { error } = await supabase.from('aethersink').delete().eq('id', retiredTaskId).eq('user_id', user.id);
       if (error) throw new Error(error.message);
       showSuccess('Task permanently removed from Aether Sink.');
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });

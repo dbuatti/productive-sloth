@@ -1369,22 +1369,25 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       });
 
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => {
-        const remaining = (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id));
+        // Filter out retired tasks that were successfully placed in the schedule
+        const remainingRetired = (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id));
+        
+        // Add tasks that were flexible scheduled tasks but couldn't be placed (now moved to sink)
         const newSinkTasks: RetiredTask[] = payload.tasksToKeepInSink.map(t => ({
-          id: Math.random().toString(36).substring(2, 9), // FIX 4: NewRetiredTask does not have id
+          id: Math.random().toString(36).substring(2, 9), // Generate new ID for tasks moved from schedule to sink
           user_id: userId!,
           name: t.name,
           duration: t.duration ?? null,
           break_duration: t.break_duration ?? null,
-          original_scheduled_date: t.original_scheduled_date ?? formattedSelectedDate, // Provide default if missing
-          retired_at: new Date().toISOString(), // FIX 5: NewRetiredTask does not have retired_at
-          is_critical: t.is_critical ?? false, // Ensure boolean
-          is_locked: t.is_locked ?? false,     // Ensure boolean
+          original_scheduled_date: t.original_scheduled_date ?? formattedSelectedDate,
+          retired_at: new Date().toISOString(),
+          is_critical: t.is_critical ?? false,
+          is_locked: t.is_locked ?? false,
           energy_cost: t.energy_cost ?? 0,
           is_completed: t.is_completed ?? false,
           is_custom_energy_cost: t.is_custom_energy_cost ?? false,
         }));
-        return [...remaining, ...newSinkTasks];
+        return [...remainingRetired, ...newSinkTasks];
       });
 
       return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };

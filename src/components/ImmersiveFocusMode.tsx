@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { formatTime, formatDayMonth } from '@/lib/scheduler-utils';
 import { ScheduledItem, DBScheduledTask } from '@/types/scheduler';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import EarlyCompletionModal from './EarlyCompletionModal'; // NEW: Import EarlyCompletionModal
 
 interface ImmersiveFocusModeProps {
   activeItem: ScheduledItem;
@@ -30,8 +29,8 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   isProcessingCommand, 
 }) => {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
-  const [showEarlyCompletionModal, setShowEarlyCompletionModal] = useState(false); 
-  const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0); 
+  // Removed: const [showEarlyCompletionModal, setShowEarlyCompletionModal] = useState(false); 
+  // Removed: const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0); 
 
   const updateRemaining = useCallback(() => {
     if (!activeItem || isBefore(activeItem.endTime, T_current)) {
@@ -59,12 +58,8 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
     updateRemaining(); // Initial update
     const interval = setInterval(updateRemaining, 1000); // Update every second
 
-    // If activeItem changes, reset early completion modal state
-    setShowEarlyCompletionModal(false);
-    setEarlyCompletionRemainingMinutes(0);
-
     return () => clearInterval(interval);
-  }, [updateRemaining, activeItem]); // Added activeItem to dependencies to reset modal state
+  }, [updateRemaining, activeItem]);
 
   // Effect for Escape key to exit focus mode
   useEffect(() => {
@@ -95,13 +90,8 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   }
 
   const handleCompleteClick = () => {
-    const remainingMinutes = differenceInMinutes(activeItem.endTime, T_current);
-    if (remainingMinutes > 0) {
-      setEarlyCompletionRemainingMinutes(remainingMinutes);
-      setShowEarlyCompletionModal(true);
-    } else {
-      onAction('complete', dbTask, false); // On-time or late completion
-    }
+    // Always delegate the completion check (including early completion) to the parent via onAction
+    onAction('complete', dbTask, false); 
   };
 
   const isBreak = activeItem.type === 'break';
@@ -197,18 +187,6 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
           </TooltipContent>
         </Tooltip>
       </div>
-
-      {/* NEW: Early Completion Modal */}
-      <EarlyCompletionModal
-        isOpen={showEarlyCompletionModal}
-        onOpenChange={setShowEarlyCompletionModal}
-        taskName={activeItem.name}
-        remainingDurationMinutes={earlyCompletionRemainingMinutes}
-        onTakeBreak={() => onAction('takeBreak', dbTask, true, earlyCompletionRemainingMinutes)} // Use onAction for break
-        onStartNextTask={() => onAction('startNext', dbTask, true)} // Use onAction for next task
-        isProcessingCommand={isProcessingCommand}
-        hasNextTask={!!nextItem}
-      />
     </div>
   );
 };

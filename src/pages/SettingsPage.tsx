@@ -29,12 +29,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink } from 'lucide-react'; // Added Code and ExternalLink icons
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2 } from 'lucide-react'; // Added Code and ExternalLink icons, and Loader2
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
-import { Loader2 } from '@/components/ui/loader'; // Corrected import path
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),

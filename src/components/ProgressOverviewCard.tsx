@@ -30,7 +30,7 @@ const ProgressOverviewCard: React.FC = () => {
       <div className={cn(
         "absolute top-4 right-4 z-10",
         "bg-background px-3 py-1 rounded-md",
-        "text-base font-extrabold font-mono flex items-center gap-1 text-primary" {/* Changed text-lg to text-base */}
+        "text-base font-extrabold font-mono flex items-center gap-1 text-primary" /* Changed text-lg to text-base */
       )}>
         <Sparkles className="h-5 w-5 animate-bounce" />
         Lvl {level}

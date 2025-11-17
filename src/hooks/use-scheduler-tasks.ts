@@ -254,57 +254,64 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     placeholderData: (previousData) => previousData, // Keep previous data while fetching new data
   });
 
-  // NEW: Query to fetch all tasks completed today for the Daily Vibe Recap
-  const { data: completedTasksTodayList = [], isLoading: isLoadingCompletedTasksToday } = useQuery<DBScheduledTask[]>({
-    queryKey: ['completedTasksTodayList', userId],
+  // Renamed from completedTasksTodayList to completedTasksForSelectedDayList
+  const { data: completedTasksForSelectedDayList = [], isLoading: isLoadingCompletedTasksForSelectedDay } = useQuery<DBScheduledTask[]>({
+    queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate], // Key includes selectedDate
     queryFn: async () => {
       if (!userId) return [];
-      const todayStart = startOfDay(new Date()).toISOString();
-      const tomorrowStart = addDays(startOfDay(new Date()), 1).toISOString();
+      const selectedDayStart = startOfDay(parseISO(formattedSelectedDate)).toISOString();
+      const selectedDayEnd = addDays(startOfDay(parseISO(formattedSelectedDate)), 1).toISOString();
 
-      // Fetch completed scheduled tasks for today
+      console.log("useSchedulerTasks: Fetching completed tasks for selected day. User ID:", userId, "Selected Day:", formattedSelectedDate);
+      console.log("useSchedulerTasks: Selected Day Start:", selectedDayStart);
+      console.log("useSchedulerTasks: Selected Day End:", selectedDayEnd);
+
+      // Fetch completed scheduled tasks for selected day
       const { data: scheduled, error: scheduledError } = await supabase
         .from('scheduled_tasks')
         .select('*')
         .eq('user_id', userId)
         .eq('is_completed', true)
-        .gte('updated_at', todayStart)
-        .lt('updated_at', tomorrowStart);
+        .gte('updated_at', selectedDayStart)
+        .lt('updated_at', selectedDayEnd);
 
       if (scheduledError) {
-        console.error('Error fetching completed scheduled tasks for today:', scheduledError);
-        throw new Error(scheduledError.message); // Fixed typo here
+        console.error('useSchedulerTasks: Error fetching completed scheduled tasks for selected day:', scheduledError);
+        throw new Error(scheduledError.message);
       }
+      console.log("useSchedulerTasks: Completed Scheduled Tasks for selected day:", scheduled);
 
-      // Fetch completed retired tasks for today
+      // Fetch completed retired tasks for selected day
       const { data: retired, error: retiredError } = await supabase
         .from('retired_tasks')
         .select('*')
         .eq('user_id', userId)
         .eq('is_completed', true)
-        .gte('retired_at', todayStart)
-        .lt('retired_at', tomorrowStart);
+        .gte('retired_at', selectedDayStart) // Use retired_at for completion time
+        .lt('retired_at', selectedDayEnd);
 
       if (retiredError) {
-        console.error('Error fetching completed retired tasks for today:', retiredError);
+        console.error('useSchedulerTasks: Error fetching completed retired tasks for selected day:', retiredError);
         throw new Error(retiredError.message);
       }
+      console.log("useSchedulerTasks: Completed Retired Tasks for selected day:", retired);
 
-      // NEW: Fetch completed general tasks for today
+      // Fetch completed general tasks for selected day
       const { data: generalTasks, error: generalTasksError } = await supabase
         .from('tasks')
         .select('*')
         .eq('user_id', userId)
         .eq('is_completed', true)
-        .gte('updated_at', todayStart)
-        .lt('updated_at', tomorrowStart);
+        .gte('updated_at', selectedDayStart) // Use updated_at for completion time
+        .lt('updated_at', selectedDayEnd);
 
       if (generalTasksError) {
-        console.error('Error fetching completed general tasks for today:', generalTasksError);
+        console.error('useSchedulerTasks: Error fetching completed general tasks for selected day:', generalTasksError);
         throw new Error(generalTasksError.message);
       }
+      console.log("useSchedulerTasks: Completed General Tasks for selected day:", generalTasks);
 
-      // Combine and map retired tasks to DBScheduledTask-like structure for display consistency
+      // Combine and map tasks
       const combinedTasks: DBScheduledTask[] = [
         ...(scheduled || []),
         ...(retired || []).map(rt => ({
@@ -312,19 +319,18 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           user_id: rt.user_id,
           name: rt.name,
           break_duration: rt.break_duration,
-          start_time: null, // Retired tasks don't have start/end times in schedule
+          start_time: null,
           end_time: null,
-          scheduled_date: rt.original_scheduled_date, // Use original_scheduled_date for context
-          created_at: rt.retired_at, // Use retired_at as creation for sorting
-          updated_at: rt.retired_at, // Use retired_at as updated for sorting
+          scheduled_date: rt.original_scheduled_date,
+          created_at: rt.retired_at,
+          updated_at: rt.retired_at,
           is_critical: rt.is_critical,
-          is_flexible: false, // Retired tasks are not flexible in the schedule
+          is_flexible: false,
           is_locked: rt.is_locked,
           energy_cost: rt.energy_cost,
           is_completed: rt.is_completed,
           is_custom_energy_cost: rt.is_custom_energy_cost,
         })),
-        // NEW: Map general tasks to DBScheduledTask-like structure
         ...(generalTasks || []).map(gt => ({
           id: gt.id,
           user_id: gt.user_id,
@@ -332,28 +338,31 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           break_duration: null,
           start_time: null,
           end_time: null,
-          scheduled_date: format(parseISO(gt.updated_at), 'yyyy-MM-dd'), // Use updated_at for the date it was completed
+          scheduled_date: format(parseISO(gt.updated_at), 'yyyy-MM-dd'),
           created_at: gt.created_at,
           updated_at: gt.updated_at,
           is_critical: gt.is_critical,
-          is_flexible: false, // General tasks are not flexible in the scheduler context
-          is_locked: false, // General tasks don't have this concept
+          is_flexible: false,
+          is_locked: false,
           energy_cost: gt.energy_cost,
           is_completed: gt.is_completed,
           is_custom_energy_cost: gt.is_custom_energy_cost,
         })),
       ];
 
+      console.log("useSchedulerTasks: Combined Tasks for selected day (before sorting):", combinedTasks);
+      combinedTasks.forEach(task => console.log(`useSchedulerTasks: Task: ${task.name}, Energy Cost: ${task.energy_cost}, Is Completed: ${task.is_completed}`));
+
       // Sort by updated_at/retired_at descending (most recent first)
       return combinedTasks.sort((a, b) => {
-        const timeA = parseISO(a.updated_at || a.created_at).getTime(); // Fallback to created_at if updated_at is null
+        const timeA = parseISO(a.updated_at || a.created_at).getTime();
         const timeB = parseISO(b.updated_at || b.created_at).getTime();
         return timeB - timeA;
       });
     },
-    enabled: !!userId && isToday(parseISO(selectedDate)), // Only fetch if selected day is today
-    staleTime: 1 * 60 * 1000, // 1 minute stale time
-    gcTime: 5 * 60 * 1000, // 5 minutes garbage collection time
+    enabled: !!userId && !!formattedSelectedDate, // Always enabled if userId and selectedDate are present
+    staleTime: 1 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 
 
@@ -1462,7 +1471,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     onSuccess: () => {
       // Invalidate queries to reflect potential profile changes (XP, energy, streak)
       queryClient.invalidateQueries({ queryKey: ['profile', userId] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', userId] }); // NEW: Invalidate completed tasks list
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
       // Task list queries will be invalidated by the calling component (SchedulerPage)
       // after deciding whether to remove or update the task.
     },
@@ -1542,7 +1551,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', userId] }); // NEW: Invalidate completed tasks list
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
@@ -1589,7 +1598,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', userId] }); // NEW: Invalidate completed tasks list
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
       showSuccess(`Scheduled task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
@@ -1638,7 +1647,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', userId] }); // NEW: Invalidate completed tasks list
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
       showSuccess(`Retired task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
@@ -1763,8 +1772,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     isLoadingDatesWithTasks,
     retiredTasks,
     isLoadingRetiredTasks,
-    completedTasksTodayList, // NEW: Expose the new query data
-    isLoadingCompletedTasksToday, // NEW: Expose loading state for the new query
+    completedTasksForSelectedDayList, // NEW: Expose the new query data
+    isLoadingCompletedTasksForSelectedDay, // NEW: Expose loading state for the new query
     addScheduledTask: addScheduledTaskMutation.mutate,
     addRetiredTask: addRetiredTaskMutation.mutate,
     removeScheduledTask: removeScheduledTaskMutation.mutate,

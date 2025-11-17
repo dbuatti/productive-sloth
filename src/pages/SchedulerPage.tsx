@@ -119,8 +119,8 @@ const SchedulerPage: React.FC = () => {
     isLoadingDatesWithTasks,
     retiredTasks,
     isLoadingRetiredTasks,
-    completedTasksTodayList, // NEW: Import completedTasksTodayList
-    isLoadingCompletedTasksToday, // NEW: Import loading state for completedTasksTodayList
+    completedTasksForSelectedDayList, // NEW: Import completedTasksForSelectedDayList
+    isLoadingCompletedTasksForSelectedDay, // NEW: Import loading state for completedTasksForSelectedDayList
     retireTask,
     rezoneTask,
     compactScheduledTasks,
@@ -388,7 +388,7 @@ const SchedulerPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', user.id] }); // NEW: Invalidate completed tasks list
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] }); // NEW: Invalidate completed tasks list for selected day
       showSuccess("Schedule data refreshed.");
     }
   };
@@ -1803,30 +1803,31 @@ const SchedulerPage: React.FC = () => {
   }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart]);
 
   // NEW: Calculate tasks completed today and XP earned today for the recap card
-  const tasksCompletedToday = useMemo(() => {
-    if (!profile) return 0;
-    return profile.tasks_completed_today;
-  }, [profile]);
+  const tasksCompletedForSelectedDay = useMemo(() => {
+    if (!completedTasksForSelectedDayList) return 0;
+    return completedTasksForSelectedDayList.length;
+  }, [completedTasksForSelectedDayList]);
 
-  const xpEarnedToday = useMemo(() => {
-    if (!profile || !completedTasksTodayList) return 0;
-    return completedTasksTodayList.reduce((sum, task) => sum + (task.energy_cost * 2), 0);
-  }, [profile, completedTasksTodayList]);
+  const xpEarnedForSelectedDay = useMemo(() => {
+    if (!completedTasksForSelectedDayList) return 0;
+    return completedTasksForSelectedDayList.reduce((sum, task) => sum + (task.energy_cost * 2), 0);
+  }, [completedTasksForSelectedDayList]);
 
-  const criticalTasksCompletedToday = useMemo(() => {
-    if (!completedTasksTodayList) return 0;
-    return completedTasksTodayList.filter(task => 
+  const criticalTasksCompletedForSelectedDay = useMemo(() => {
+    if (!completedTasksForSelectedDayList) return 0;
+    return completedTasksForSelectedDayList.filter(task => 
       task.is_critical && task.is_completed
     ).length;
-  }, [completedTasksTodayList]);
+  }, [completedTasksForSelectedDayList]);
 
   // NEW: Filter completed scheduled tasks for the selected day
   const completedScheduledTasksForRecap = useMemo(() => {
-    return completedTasksTodayList; // Use the new combined list
-  }, [completedTasksTodayList]);
+    return completedTasksForSelectedDayList; // Use the new combined list
+  }, [completedTasksForSelectedDayList]);
 
 
-  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksToday;
+  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
+
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
 
   return (
@@ -1988,12 +1989,12 @@ const SchedulerPage: React.FC = () => {
             <TabsContent value="daily-recap" className="space-y-4">
               <DailyVibeRecapCard
                 scheduleSummary={currentSchedule?.summary || null}
-                tasksCompletedToday={tasksCompletedToday}
-                xpEarnedToday={xpEarnedToday}
+                tasksCompletedToday={tasksCompletedForSelectedDay} // NEW: Use tasksCompletedForSelectedDay
+                xpEarnedToday={xpEarnedForSelectedDay} // NEW: Use xpEarnedForSelectedDay
                 profileEnergy={profile?.energy || 0}
-                criticalTasksCompletedToday={criticalTasksCompletedToday}
+                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay} // NEW: Use criticalTasksCompletedForSelectedDay
                 selectedDayString={selectedDay}
-                completedScheduledTasks={completedTasksTodayList} /* NEW: Pass completed tasks */
+                completedScheduledTasks={completedScheduledTasksForRecap} /* NEW: Pass completed tasks */
               />
             </TabsContent>
           </Tabs>

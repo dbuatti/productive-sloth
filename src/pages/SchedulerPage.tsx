@@ -351,7 +351,7 @@ const SchedulerPage: React.FC = () => {
       });
 
     const allOccupiedBlocks = mergeOverlappingTimeBlocks([...existingOccupiedBlocks, ...lockedTaskBlocks]);
-    const freeBlocks = getFreeTimeBlocks(allOccupOccupiedBlocks, effectiveWorkdayStart, workdayEndTime);
+    const freeBlocks = getFreeTimeBlocks(allOccupiedBlocks, effectiveWorkdayStart, workdayEndTime);
 
     if (isCritical) {
       for (const block of freeBlocks) {
@@ -2080,7 +2080,7 @@ const SchedulerPage: React.FC = () => {
                 profileEnergy={profile?.energy || 0}
                 criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay} // NEW: Use criticalTasksCompletedForSelectedDay
                 selectedDayString={selectedDay}
-                completedScheduledTasks={completedCompletedTasksForRecap} /* NEW: Pass completed tasks */
+                completedScheduledTasks={completedScheduledTasksForRecap} /* NEW: Pass completed tasks */
               />
             </TabsContent>
           </Tabs>
@@ -2179,7 +2179,7 @@ const SchedulerPage: React.FC = () => {
             <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
               Clear Schedule
             </AlertDialogAction>
-          </DialogFooter>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 

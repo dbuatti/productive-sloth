@@ -1672,6 +1672,14 @@ const SchedulerPage: React.FC = () => {
           showError("No next task available to start early.");
           return;
         }
+        
+        // Find the original DBScheduledTask to inherit properties
+        const originalNextTask = dbScheduledTasks.find(t => t.id === nextItemToday.id);
+        if (!originalNextTask) {
+            showError("Error: Could not find original task details for next item.");
+            return;
+        }
+
         // 1. Update the next task's start/end times
         const newNextTaskStartTime = T_current;
         // FIX: nextItemToday.endTime and nextItemToday.startTime are already Date objects
@@ -1682,8 +1690,9 @@ const SchedulerPage: React.FC = () => {
           id: nextItemToday.id,
           start_time: newNextTaskStartTime.toISOString(),
           end_time: newNextTaskEndTime.toISOString(),
-          is_flexible: false, // Mark as fixed
-          is_locked: true, // Mark as locked
+          // INHERIT ORIGINAL PROPERTIES as requested by user
+          is_flexible: originalNextTask.is_flexible, 
+          is_locked: originalNextTask.is_locked,     
         });
 
         // 2. Remove/update the original task
@@ -1727,7 +1736,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;

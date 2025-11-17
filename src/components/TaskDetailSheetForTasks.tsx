@@ -127,7 +127,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-6 space-y-6 animate-slide-in-right">
+      <SheetContent side="right" className="w-full sm:max-w-sm flex flex-col p-6 space-y-6 animate-slide-in-right">
         <SheetHeader className="border-b pb-4">
           <SheetTitle className="text-2xl font-bold flex items-center justify-between">
             Task Details

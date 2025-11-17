@@ -16,6 +16,7 @@ import TasksPage from "./pages/TasksPage";
 import AchievementsPage from "./pages/AchievementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import DocumentationPage from "./pages/DocumentationPage";
+import SchedulerPage from "./pages/SchedulerPage"; // Add this import
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,8 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/tasks" element={<TasksPage />} />
+                  <Route path="/scheduler" element={<SchedulerPage />} /> {/* Add this route */}
+                  <Route path="/analytics" element={<AchievementsPage />} />
                   <Route path="/achievements" element={<AchievementsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/documentation" element={<DocumentationPage />} />

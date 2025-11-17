@@ -105,6 +105,8 @@ interface InjectionPromptState {
 const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const scheduleContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
+
   const { 
     dbScheduledTasks,
     isLoading: isSchedulerTasksLoading, 
@@ -131,7 +133,7 @@ const SchedulerPage: React.FC = () => {
     completeScheduledTask: completeScheduledTaskMutation,
     updateScheduledTaskDetails,
     updateScheduledTaskStatus,
-  } = useSchedulerTasks(selectedDay);
+  } = useSchedulerTasks(selectedDay, scheduleContainerRef); // Pass the ref here
 
   const queryClient = useQueryClient();
   
@@ -153,7 +155,6 @@ const SchedulerPage: React.FC = () => {
   const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0);
   const [earlyCompletionDbTask, setEarlyCompletionDbTask] = useState<DBScheduledTask | null>(null);
 
-  const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -462,10 +463,7 @@ const SchedulerPage: React.FC = () => {
       showError(`Failed to clear schedule: ${error.message}`);
       console.error("Clear schedule error:", error);
     } else {
-      showSuccess('Unlocked tasks cleared for today!');
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+      // Success toast and query invalidation are now handled in useSchedulerTasks' onSettled
     }
 
     setIsProcessingCommand(false);
@@ -1672,7 +1670,7 @@ const SchedulerPage: React.FC = () => {
         } else {
           await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
-        showSuccess(`Task "${task.name}" completed!`);
+        // showSuccess(`Task "${task.name}" completed!`); // Moved to onSettled in useSchedulerTasks
         
         if (isCurrentlyActive) {
             if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {

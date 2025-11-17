@@ -1796,7 +1796,7 @@ const SchedulerPage: React.FC = () => {
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
 
   return (
-    <div className="container mx-auto p-4 max-w-3xl space-y-6">
+    <div className="container mx-auto p-4 max-w-4xl space-y-6">
       <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
       </h1>

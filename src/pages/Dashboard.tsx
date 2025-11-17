@@ -47,7 +47,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-3xl space-y-6">
+    <div className="container mx-auto p-4 max-w-4xl space-y-6">
       {/* Daily Challenge Card */}
       <div className="grid grid-cols-1 gap-4 animate-slide-in-up">
         <DailyChallengeCard />

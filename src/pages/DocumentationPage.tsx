@@ -15,7 +15,7 @@ const DocumentationPage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="container mx-auto p-4 max-w-3xl space-y-6 text-center text-muted-foreground">
+      <div className="container mx-auto p-4 max-w-4xl space-y-6 text-center text-muted-foreground">
         <h1 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up"> {/* Changed text-3xl to text-2xl */}
           <BookOpen className="h-7 w-7 text-primary" /> App Documentation
         </h1>

@@ -65,7 +65,7 @@ const AnalyticsPage: React.FC = () => {
   const xpToNextLevel = XP_PER_LEVEL - (profile.xp % XP_PER_LEVEL);
 
   return (
-    <div className="container mx-auto p-4 max-w-5xl space-y-8 animate-slide-in-up">
+    <div className="container mx-auto p-4 max-w-4xl space-y-8 animate-slide-in-up">
       <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"> {/* Changed text-3xl to text-2xl */}
         <TrendingUp className="h-7 w-7 text-primary" /> Gamification Analytics
       </h1>

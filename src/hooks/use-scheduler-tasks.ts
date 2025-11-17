@@ -290,6 +290,20 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         throw new Error(retiredError.message);
       }
 
+      // NEW: Fetch completed general tasks for today
+      const { data: generalTasks, error: generalTasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_completed', true)
+        .gte('updated_at', todayStart)
+        .lt('updated_at', tomorrowStart);
+
+      if (generalTasksError) {
+        console.error('Error fetching completed general tasks for today:', generalTasksError);
+        throw new Error(generalTasksError.message);
+      }
+
       // Combine and map retired tasks to DBScheduledTask-like structure for display consistency
       const combinedTasks: DBScheduledTask[] = [
         ...(scheduled || []),
@@ -309,6 +323,24 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           energy_cost: rt.energy_cost,
           is_completed: rt.is_completed,
           is_custom_energy_cost: rt.is_custom_energy_cost,
+        })),
+        // NEW: Map general tasks to DBScheduledTask-like structure
+        ...(generalTasks || []).map(gt => ({
+          id: gt.id,
+          user_id: gt.user_id,
+          name: gt.title,
+          break_duration: null,
+          start_time: null,
+          end_time: null,
+          scheduled_date: format(parseISO(gt.updated_at), 'yyyy-MM-dd'), // Use updated_at for the date it was completed
+          created_at: gt.created_at,
+          updated_at: gt.updated_at,
+          is_critical: gt.is_critical,
+          is_flexible: false, // General tasks are not flexible in the scheduler context
+          is_locked: false, // General tasks don't have this concept
+          energy_cost: gt.energy_cost,
+          is_completed: gt.is_completed,
+          is_custom_energy_cost: gt.is_custom_energy_cost,
         })),
       ];
 

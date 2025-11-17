@@ -1595,8 +1595,9 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     
-    // Set processing command immediately, but only reset it in the finally block
+    // Set processing command immediately
     setIsProcessingCommand(true);
+    let modalOpened = false;
 
     try {
       if (action === 'complete') {
@@ -1609,7 +1610,7 @@ const SchedulerPage: React.FC = () => {
           setEarlyCompletionRemainingMinutes(remainingMins);
           setEarlyCompletionDbTask(task);
           setShowEarlyCompletionModal(true);
-          setIsProcessingCommand(false); // Release processing lock while modal is open
+          modalOpened = true;
           return; // Stop here, wait for modal action
         }
 
@@ -1661,6 +1662,8 @@ const SchedulerPage: React.FC = () => {
         }
         showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
         // Focus mode stays on, as the new break task should become activeItemToday
+        setShowEarlyCompletionModal(false); // Close modal after action
+        setEarlyCompletionDbTask(null);
       } else if (action === 'startNext') {
         if (!nextItemToday) {
           showError("No next task available to start early.");
@@ -1692,6 +1695,8 @@ const SchedulerPage: React.FC = () => {
 
         showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
         // Focus mode stays on, as the next task should become activeItemToday
+        setShowEarlyCompletionModal(false); // Close modal after action
+        setEarlyCompletionDbTask(null);
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
         showSuccess("Exited focus mode.");
@@ -1701,7 +1706,7 @@ const SchedulerPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
       // If an error occurred, and the modal was open, close it.
-      if (showEarlyCompletionModal) {
+      if (modalOpened) {
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
       }
@@ -1711,12 +1716,12 @@ const SchedulerPage: React.FC = () => {
         console.error("Scheduler action error:", error);
       }
     } finally {
-      // Only reset processing command if the modal is NOT open.
-      if (!showEarlyCompletionModal) {
+      // Only reset processing command if the modal was NOT opened in this run.
+      if (!modalOpened) {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, showEarlyCompletionModal]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;

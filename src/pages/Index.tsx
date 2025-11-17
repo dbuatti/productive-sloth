@@ -1,8 +1,57 @@
-const groupedTasks = PRIORITY_ORDER.reduce((acc, priority) => {
-  if (priority === 'HIGH') {
-    acc[priority] = tasks.filter(task => task.is_critical);
-  } else {
-    acc[priority] = tasks.filter(task => !task.is_critical);
+import { TemporalFilterTabs } from '@/components/TemporalFilterTabs';
+import TaskCreationForm from '@/components/TaskCreationForm';
+import TaskControlBar from '@/components/TaskControlBar';
+import PrioritySection from '@/components/PrioritySection';
+import { MadeWithDyad } from '@/components/made-with-dyad';
+import { Loader2, ClipboardList } from 'lucide-react';
+import { useSession } from '@/hooks/use-session';
+import { Card } from '@/components/ui/card';
+import LevelUpCelebration from '@/components/LevelUpCelebration';
+import { Accordion } from '@/components/ui/accordion';
+import DailyChallengeCard from '@/components/DailyChallengeCard';
+
+const Dashboard = () => {
+  const { isLoading: isSessionLoading, user } = useSession();
+
+  if (isSessionLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
-  return acc;
-}, {} as Record<TaskPriority, typeof tasks>);
+  
+  if (!user) {
+    return null; 
+  }
+
+  return (
+    <div className="container mx-auto p-4 max-w-3xl space-y-6">
+      <div className="grid grid-cols-1 gap-4 animate-slide-in-up">
+        <DailyChallengeCard />
+      </div>
+
+      <Card className="p-4 space-y-4 animate-slide-in-up">
+        <TemporalFilterTabs currentFilter="TODAY" setFilter={() => {}} />
+        <TaskCreationForm />
+        <TaskControlBar 
+          statusFilter="ALL" 
+          setStatusFilter={() => {}}
+          sortBy="PRIORITY_HIGH_TO_LOW" 
+          setSortBy={() => {}}
+        />
+      </Card>
+
+      <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
+        <ClipboardList className="h-12 w-12 text-muted-foreground" />
+        <p className="text-base font-semibold">No tasks found!</p>
+        <p>Start by adding a new task above to get organized.</p>
+      </Card>
+      
+      <MadeWithDyad />
+      <LevelUpCelebration />
+    </div>
+  );
+};
+
+export default Dashboard;

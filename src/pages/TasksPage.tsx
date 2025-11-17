@@ -1,42 +1,16 @@
 import React from 'react';
-import { useTasks } from '@/hooks/use-tasks';
-import { TaskPriority } from '@/types';
-import TemporalFilterTabs from '@/components/TemporalFilterTabs';
+import { TemporalFilterTabs } from '@/components/TemporalFilterTabs';
 import TaskCreationForm from '@/components/TaskCreationForm';
 import TaskControlBar from '@/components/TaskControlBar';
-import PrioritySection from '@/components/PrioritySection';
 import { Loader2, ClipboardList } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
 
-const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
-
 const TasksPage: React.FC = () => {
   const { isLoading: isSessionLoading, user } = useSession();
-  const { 
-    tasks, 
-    isLoading: isTasksLoading, 
-    temporalFilter, 
-    setTemporalFilter, 
-    statusFilter, 
-    setStatusFilter, 
-    sortBy, 
-    setSortBy 
-  } = useTasks();
 
-  const groupedTasks = PRIORITY_ORDER.reduce((acc, priority) => {
-    if (priority === 'HIGH') {
-      acc[priority] = tasks.filter(task => task.is_critical);
-    } else {
-      acc[priority] = tasks.filter(task => !task.is_critical);
-    }
-    return acc;
-  }, {} as Record<TaskPriority, typeof tasks>);
-
-  const hasTasks = tasks.length > 0;
-
-  if (isSessionLoading || isTasksLoading) {
+  if (isSessionLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -53,42 +27,21 @@ const TasksPage: React.FC = () => {
       <h1 className="text-2xl font-bold text-foreground animate-slide-in-up">My Tasks</h1>
 
       <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
-        <TemporalFilterTabs 
-          currentFilter={temporalFilter} 
-          setFilter={setTemporalFilter} 
-        />
+        <TemporalFilterTabs currentFilter="TODAY" setFilter={() => {}} />
         <TaskCreationForm />
         <TaskControlBar 
-          statusFilter={statusFilter} 
-          setStatusFilter={setStatusFilter} 
-          sortBy={sortBy} 
-          setSortBy={setSortBy}
+          statusFilter="ALL" 
+          setStatusFilter={() => {}}
+          sortBy="PRIORITY_HIGH_TO_LOW" 
+          setSortBy={() => {}}
         />
       </Card>
 
-      {hasTasks ? (
-        <Accordion 
-          type="multiple" 
-          className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={['HIGH', 'MEDIUM']}
-        >
-          {PRIORITY_ORDER.map(priority => (
-            groupedTasks[priority].length > 0 && (
-              <PrioritySection 
-                key={priority}
-                priority={priority}
-                tasks={groupedTasks[priority]}
-              />
-            )
-          ))}
-        </Accordion>
-      ) : (
-        <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
-          <ClipboardList className="h-12 w-12 text-muted-foreground" />
-          <p className="text-base font-semibold">No tasks found!</p>
-          <p>Start by adding a new task above to get organized.</p>
-        </Card>
-      )}
+      <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
+        <ClipboardList className="h-12 w-12 text-muted-foreground" />
+        <p className="text-base font-semibold">No tasks found!</p>
+        <p>Start by adding a new task above to get organized.</p>
+      </Card>
     </div>
   );
 };

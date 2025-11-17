@@ -14,9 +14,7 @@ import {
   LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
   DAILY_CHALLENGE_TASKS_REQUIRED
 } from '@/lib/constants';
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // NEW: Import useQueryClient
-import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
-import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -25,11 +23,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isLoading, setIsLoading] = useState(true);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpLevel, setLevelUpLevel] = useState(0);
-  const [T_current, setT_current] = useState(new Date()); // Internal T_current for SessionProvider
+  const [T_current, setT_current] = useState(new Date());
   const navigate = useNavigate();
-  const queryClient = useQueryClient(); // NEW: Initialize queryClient
+  const queryClient = useQueryClient();
 
-  // Update T_current every second
   useEffect(() => {
     const interval = setInterval(() => {
       setT_current(new Date());
@@ -37,13 +34,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearInterval(interval);
   }, []);
 
-  // Stabilized fetchProfile function
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time')
       .eq('id', userId)
-      .single(); // Added .single() for robustness
+      .single();
 
     if (error) {
       console.error('Error fetching profile:', error);
@@ -53,14 +49,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } else {
       setProfile(null);
     }
-  }, []); // No dependencies, as supabase and setProfile are stable
+  }, []);
 
-  // Refined refreshProfile function
   const refreshProfile = useCallback(async () => {
     if (user?.id) {
       await fetchProfile(user.id);
     }
-  }, [user?.id, fetchProfile]); // Depends on user.id and stable fetchProfile
+  }, [user?.id, fetchProfile]);
 
   const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
     if (!user || !profile) {
@@ -217,15 +212,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, refreshProfile]);
 
-  // Main useEffect for auth state changes and initial session load
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
-      // Only update session if its access token or user ID has changed
       if (session?.access_token !== currentSession?.access_token || session?.user?.id !== currentSession?.user?.id) {
         setSession(currentSession);
       }
 
-      // Only update user if the ID changes or if the user presence changes
       if (user?.id !== currentSession?.user?.id) {
         setUser(currentSession?.user ?? null);
       }
@@ -245,12 +237,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         
-        // Only update session if its access token or user ID has changed
         if (session?.access_token !== initialSession?.access_token || session?.user?.id !== initialSession?.user?.id) {
           setSession(initialSession);
         }
 
-        // Only update user if the ID changes or if the user presence changes
         if (user?.id !== initialSession?.user?.id) {
           setUser(initialSession?.user ?? null);
         }
@@ -264,7 +254,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.error("Error during initial session load:", error);
         setSession(null);
         setUser(null);
-        setProfile(null); // Ensure profile is cleared on error
+        setProfile(null);
         if (window.location.pathname !== '/login') {
           navigate('/login');
         }
@@ -278,18 +268,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, session, user]); // Added session and user to dependencies for comparison logic
+  }, [navigate, session, user]);
 
-  // Separate useEffect to fetch/refresh profile when user changes
   useEffect(() => {
     if (user?.id) {
       refreshProfile();
     } else {
-      setProfile(null); // Clear profile if user logs out
+      setProfile(null);
     }
-  }, [user?.id, refreshProfile]); // Depends on user.id and stable refreshProfile
+  }, [user?.id, refreshProfile]);
 
-  // Energy Regeneration Effect
   useEffect(() => {
     let regenInterval: NodeJS.Timeout;
 
@@ -329,7 +317,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [user, profile, refreshProfile]);
 
-  // Daily Reset for tasks_completed_today and Daily Reward Notification
   useEffect(() => {
     if (!user || !profile) return;
 
@@ -381,75 +368,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   }, [user, profile, refreshProfile]);
 
-  // Fetch scheduled tasks for TODAY to determine active/next items
-  const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
-    queryKey: ['scheduledTasksToday', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const todayString = format(new Date(), 'yyyy-MM-dd');
-      const { data, error } = await supabase
-        .from('scheduled_tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('scheduled_date', todayString)
-        .order('start_time', { ascending: true });
-      if (error) {
-        console.error('Error fetching scheduled tasks for today:', error);
-        throw new Error(error.message);
-      }
-      return data as DBScheduledTask[];
-    },
-    enabled: !!user?.id && !!profile, // Only fetch if user and profile are loaded
-    staleTime: 1 * 60 * 1000, // 1 minute stale time
-    gcTime: 5 * 60 * 1000, // 5 minutes garbage collection time
-  });
-
-  const workdayStartTimeToday = useMemo(() => profile?.default_auto_schedule_start_time 
-    ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_start_time) 
-    : startOfDay(T_current), [profile?.default_auto_schedule_start_time, T_current]);
-  
-  let workdayEndTimeToday = useMemo(() => profile?.default_auto_schedule_end_time 
-    ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_end_time) 
-    : addHours(startOfDay(T_current), 17), [profile?.default_auto_schedule_end_time, T_current]);
-
-  workdayEndTimeToday = useMemo(() => {
-    if (isBefore(workdayEndTimeToday, workdayStartTimeToday)) {
-      return addDays(workdayEndTimeToday, 1);
-    }
-    return workdayEndTimeToday;
-  }, [workdayEndTimeToday, workdayStartTimeToday]);
-
-  const calculatedScheduleToday = useMemo(() => {
-    if (!profile || !dbScheduledTasksToday) return null;
-    const todayString = format(new Date(), 'yyyy-MM-dd');
-    return calculateSchedule(dbScheduledTasksToday, todayString, workdayStartTimeToday, workdayEndTimeToday);
-  }, [dbScheduledTasksToday, profile, workdayStartTimeToday, workdayEndTimeToday]);
-
-  const activeItemToday: ScheduledItem | null = useMemo(() => {
-    if (!calculatedScheduleToday) return null;
-    for (const item of calculatedScheduleToday.items) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
-        return item;
-      }
-    }
-    return null;
-  }, [calculatedScheduleToday, T_current]);
-
-  const nextItemToday: ScheduledItem | null = useMemo(() => {
-    if (!calculatedScheduleToday || !activeItemToday) return null;
-    const activeItemIndex = calculatedScheduleToday.items.findIndex(item => item.id === activeItemToday.id);
-    if (activeItemIndex !== -1 && activeItemIndex < calculatedScheduleToday.items.length - 1) {
-      for (let i = activeItemIndex + 1; i < calculatedScheduleToday.items.length; i++) {
-        const item = calculatedScheduleToday.items[i];
-        if (item.type === 'task' || item.type === 'break' || item.type === 'time-off') {
-          return item;
-        }
-      }
-    }
-    return null;
-  }, [calculatedScheduleToday, activeItemToday]);
-
-
   return (
     <SessionContext.Provider value={{ 
       session, 
@@ -466,9 +384,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       claimDailyReward,
       updateNotificationPreferences,
       updateProfile,
-      activeItemToday, // NEW: Provide active item for today
-      nextItemToday,   // NEW: Provide next item for today
-      T_current,       // NEW: Provide T_current
+      activeItemToday: null,
+      nextItemToday: null,
+      T_current,
     }}>
       {children}
     </SessionContext.Provider>

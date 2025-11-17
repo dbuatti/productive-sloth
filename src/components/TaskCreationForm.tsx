@@ -1,96 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TaskPriority, NewTask } from '@/types';
-import { useTasks } from '@/hooks/use-tasks';
-import { Plus } from 'lucide-react';
-import DatePicker from './DatePicker';
+"use client";
+
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import CreateTaskDialog from './CreateTaskDialog';
+import DatePicker from './DatePicker';
 import { useSession } from '@/hooks/use-session';
 import { MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
-import { calculateEnergyCost } from '@/lib/scheduler-utils';
-import { format } from 'date-fns'; // Import format
 
 const QuickTaskCreationSchema = z.object({
-  name: z.string().min(1, { message: "Task name cannot be empty." }).max(255), // Renamed from title to name
+  name: z.string().min(1, { message: "Task name cannot be empty." }).max(255),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
 });
 
 type QuickTaskCreationFormValues = z.infer<typeof QuickTaskCreationSchema>;
 
-const getAdaptiveDefaultPriority = (energy: number | undefined): TaskPriority => {
-  if (energy === undefined) return 'MEDIUM';
-  
-  const energyPercentage = (energy / MAX_ENERGY) * 100;
-
-  if (energyPercentage < 30) {
-    return 'LOW';
-  } else if (energyPercentage <= 70) {
-    return 'MEDIUM';
-  } else {
-    return 'HIGH';
-  }
-};
-
 const TaskCreationForm: React.FC = () => {
-  const { addTask } = useTasks();
   const { profile } = useSession();
-  
-  const defaultPriority = getAdaptiveDefaultPriority(profile?.energy);
   
   const form = useForm<QuickTaskCreationFormValues>({
     resolver: zodResolver(QuickTaskCreationSchema),
     defaultValues: {
-      name: '', // Renamed from title to name
-      priority: defaultPriority,
+      name: '',
+      priority: 'MEDIUM',
       dueDate: new Date(),
     },
     mode: 'onChange',
   });
 
-  React.useEffect(() => {
-    const newDefaultPriority = getAdaptiveDefaultPriority(profile?.energy);
-    if (form.getValues('priority') !== newDefaultPriority) {
-      form.setValue('priority', newDefaultPriority);
-    }
-  }, [profile?.energy, form]);
-
-
   const onQuickSubmit = (values: QuickTaskCreationFormValues) => {
-    const { name, priority, dueDate } = values; // Renamed from title to name
-
-    let taskName = name.trim(); // Renamed from taskTitle to taskName
-    let isCritical = false;
-
-    if (taskName.endsWith(' !')) {
-      isCritical = true;
-      taskName = taskName.slice(0, -2).trim();
-    }
-
-    const energyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical);
-
-    const newTask: NewTask = {
-      name: taskName,
-      duration: DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, // Default duration for quick add
-      break_duration: null,
-      original_scheduled_date: format(dueDate, 'yyyy-MM-dd'), // Use original_scheduled_date
-      is_critical: isCritical,
-      energy_cost: energyCost,
-      is_custom_energy_cost: false,
-      is_locked: false,
-      is_completed: false,
-    };
-
-    addTask(newTask);
-    
     form.reset({
-      name: '', // Renamed from title to name
+      name: '',
       priority: values.priority, 
       dueDate: values.dueDate, 
     });
@@ -102,10 +47,9 @@ const TaskCreationForm: React.FC = () => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onQuickSubmit)} className="flex flex-col sm:flex-row gap-2 animate-slide-in-up">
-        
         <FormField
           control={form.control}
-          name="name" // Renamed from title to name
+          name="name"
           render={({ field }) => (
             <FormItem className="flex-grow min-w-[150px]">
               <FormControl>
@@ -158,18 +102,12 @@ const TaskCreationForm: React.FC = () => {
           )}
         />
         
-        <CreateTaskDialog 
-          defaultPriority={form.getValues('priority')}
-          defaultDueDate={form.getValues('dueDate')}
-          onTaskCreated={() => form.reset({ name: '', priority: form.getValues('priority'), dueDate: form.getValues('dueDate') })}
-        />
-
         <Button 
           type="submit" 
           disabled={isSubmitting || !isValid} 
           className="shrink-0 w-full sm:w-auto h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 animate-hover-lift"
         >
-          <Plus className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Quick Add</span>
+          Add Task
         </Button>
       </form>
     </Form>

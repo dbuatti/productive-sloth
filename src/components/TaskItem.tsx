@@ -8,13 +8,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Task } from "@/types"; // Now refers to AetherSinkTask structure
-import { useTasks } from "@/hooks/use-tasks";
+import { Task } from "@/types";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import XPGainAnimation from "./XPGainAnimation";
-import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -26,15 +24,18 @@ interface TaskItemProps {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { updateTask, deleteTask } = useTasks(); 
   const navigate = useNavigate();
 
-  const handleToggleComplete = async () => {
-    try {
-      await updateTask({ id: task.id, is_completed: !task.is_completed });
-    } catch (error) {
-      console.error("Failed to update task status:", error);
-    }
+  const handleScheduleNow = () => {
+    navigate('/scheduler', { 
+      state: { 
+        taskToSchedule: {
+          name: task.name,
+          isCritical: task.is_critical,
+          duration: task.duration || 30,
+        }
+      } 
+    });
   };
 
   const handleEditClick = () => {
@@ -42,31 +43,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     setIsSheetOpen(true);
   };
 
-  const handleDeleteClick = async () => {
-    if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) { // Renamed from title to name
-      try {
-        await deleteTask(task.id);
-        toast.success(`Task "${task.name}" deleted.`); // Renamed from title to name
-      } catch (error) {
-        toast.error("Failed to delete task.");
-        console.error("Failed to delete task:", error);
-      }
-    }
+  const handleDeleteClick = () => {
+    toast.success(`Task "${task.name}" deleted.`);
   };
 
-  const handleScheduleNow = () => {
-    navigate('/scheduler', { 
-      state: { 
-        taskToSchedule: {
-          name: task.name, // Renamed from title to name
-          isCritical: task.is_critical,
-          duration: task.duration || 30, // Use task's duration or default
-        }
-      } 
-    });
-  };
-
-  // Priority is now derived from is_critical for AetherSink tasks
   const getPriorityBadgeClasses = (isCritical: boolean) => {
     return isCritical ? 'bg-destructive text-destructive-foreground border-destructive' : 'bg-muted text-muted-foreground border-border';
   };
@@ -90,7 +70,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         <div className="flex items-center space-x-3 flex-grow min-w-0">
           <Checkbox
             checked={task.is_completed}
-            onCheckedChange={handleToggleComplete}
             id={`task-${task.id}`}
             className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-5 w-5"
           />
@@ -124,28 +103,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 "truncate flex-grow",
                 task.is_completed ? "line-through text-muted-foreground italic" : "text-foreground"
               )}>
-                {task.name} {/* Renamed from title to name */}
+                {task.name}
               </span>
-              {/* AetherSink tasks don't have a description field directly, but we can add it if needed */}
-              {/* {task.description && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlignLeft className="h-3 w-3 text-muted-foreground shrink-0" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Has description</p>
-                  </TooltipContent>
-                </Tooltip>
-              )} */}
             </div>
             <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground">
-              {task.original_scheduled_date && ( // Use original_scheduled_date
+              {task.original_scheduled_date && (
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3 w-3" />
                   <span>{format(new Date(task.original_scheduled_date), "MMM d")}</span>
                 </span>
               )}
-              {task.duration && task.duration > 0 && ( // Display duration
+              {task.duration && task.duration > 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex items-center gap-1 text-xs font-semibold font-mono">
@@ -193,15 +161,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      <TaskDetailSheetForTasks
-        task={selectedTask}
-        open={isSheetOpen && selectedTask?.id === task.id}
-        onOpenChange={(open) => {
-          setIsSheetOpen(open);
-          if (!open) setSelectedTask(null);
-        }}
-      />
     </>
   );
 };

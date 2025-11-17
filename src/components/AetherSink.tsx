@@ -1,1 +1,0 @@
-await completeAetherSinkTask({taskToComplete: task, durationUsed: task.duration || 0});

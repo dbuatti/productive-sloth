@@ -10,7 +10,6 @@ import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
 
-// Priority is now derived from is_critical for AetherSink tasks
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 const TasksPage: React.FC = () => {
@@ -26,14 +25,11 @@ const TasksPage: React.FC = () => {
     setSortBy 
   } = useTasks();
 
-  // Group tasks by derived priority (is_critical)
   const groupedTasks = PRIORITY_ORDER.reduce((acc, priority) => {
     if (priority === 'HIGH') {
       acc[priority] = tasks.filter(task => task.is_critical);
-    } else if (priority === 'MEDIUM') {
+    } else {
       acc[priority] = tasks.filter(task => !task.is_critical);
-    } else { // LOW priority tasks are not explicitly supported by is_critical, so this will be empty
-      acc[priority] = [];
     }
     return acc;
   }, {} as Record<TaskPriority, typeof tasks>);
@@ -74,17 +70,16 @@ const TasksPage: React.FC = () => {
         <Accordion 
           type="multiple" 
           className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={['HIGH', 'MEDIUM']} {/* Only show HIGH and MEDIUM by default */}
+          defaultValue={['HIGH', 'MEDIUM']}
         >
           {PRIORITY_ORDER.map(priority => (
-            // Only render sections that actually have tasks
-            groupedTasks[priority].length > 0 ? (
+            groupedTasks[priority].length > 0 && (
               <PrioritySection 
                 key={priority}
                 priority={priority}
                 tasks={groupedTasks[priority]}
               />
-            ) : null
+            )
           ))}
         </Accordion>
       ) : (

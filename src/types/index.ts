@@ -7,13 +7,13 @@ export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EAR
 export interface Task {
   id: string;
   user_id: string;
-  name: string; // Renamed from title to name to match AetherSink
-  duration: number | null; // Added duration
-  break_duration: number | null; // Added break_duration
-  original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
-  retired_at: string; // Timestamp when it was moved to the sink (used as created_at for general tasks)
+  name: string;
+  duration: number | null;
+  break_duration: number | null;
+  original_scheduled_date: string;
+  retired_at: string;
   is_critical: boolean;
-  is_locked: boolean; // Tasks in AetherSink can be locked
+  is_locked: boolean;
   energy_cost: number;
   is_completed: boolean;
   is_custom_energy_cost: boolean;
@@ -21,10 +21,11 @@ export interface Task {
 
 // NewTask interface for adding tasks to AetherSink
 export interface NewTask {
-  name: string; // Renamed from title to name
-  duration: number | null; // Added duration
-  break_duration?: number; // Added break_duration
-  original_scheduled_date?: string; // Optional, defaults to today
+  user_id: string;
+  name: string;
+  duration: number | null;
+  break_duration?: number;
+  original_scheduled_date?: string;
   is_critical?: boolean;
   is_locked?: boolean;
   energy_cost: number;

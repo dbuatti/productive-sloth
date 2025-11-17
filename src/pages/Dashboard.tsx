@@ -12,7 +12,6 @@ import LevelUpCelebration from '@/components/LevelUpCelebration';
 import { Accordion } from '@/components/ui/accordion';
 import DailyChallengeCard from '@/components/DailyChallengeCard';
 
-// Priority is now derived from is_critical for AetherSink tasks
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 const Dashboard = () => {
@@ -28,14 +27,11 @@ const Dashboard = () => {
     setSortBy 
   } = useTasks();
 
-  // Group tasks by derived priority (is_critical)
   const groupedTasks = PRIORITY_ORDER.reduce((acc, priority) => {
     if (priority === 'HIGH') {
       acc[priority] = tasks.filter(task => task.is_critical);
-    } else if (priority === 'MEDIUM') {
+    } else {
       acc[priority] = tasks.filter(task => !task.is_critical);
-    } else { // LOW priority tasks are not explicitly supported by is_critical, so this will be empty
-      acc[priority] = [];
     }
     return acc;
   }, {} as Record<TaskPriority, typeof tasks>);
@@ -55,24 +51,19 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl space-y-6">
-      {/* Daily Challenge Card */}
+    <div className="container mx-auto p-4 max-w-3xl space-y-6">
       <div className="grid grid-cols-1 gap-4 animate-slide-in-up">
         <DailyChallengeCard />
       </div>
 
-      {/* Input & Controls Layer - Now wrapped in a Card */}
-      <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
-        {/* 1. Temporal Filter Tabs */}
+      <Card className="p-4 space-y-4 animate-slide-in-up">
         <TemporalFilterTabs 
           currentFilter={temporalFilter} 
           setFilter={setTemporalFilter} 
         />
 
-        {/* 2. Task Creation Component */}
         <TaskCreationForm />
 
-        {/* 3. Control Bar */}
         <TaskControlBar 
           statusFilter={statusFilter} 
           setStatusFilter={setStatusFilter} 
@@ -81,22 +72,20 @@ const Dashboard = () => {
         />
       </Card>
 
-      {/* Task List Layer (Priority Sections) or Empty State */}
       {hasTasks ? (
         <Accordion 
           type="multiple" 
           className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={['HIGH', 'MEDIUM']} {/* Only show HIGH and MEDIUM by default */}
+          defaultValue={['HIGH', 'MEDIUM']}
         >
           {PRIORITY_ORDER.map(priority => (
-            // Only render sections that actually have tasks
-            groupedTasks[priority].length > 0 ? (
+            groupedTasks[priority].length > 0 && (
               <PrioritySection 
                 key={priority}
                 priority={priority}
                 tasks={groupedTasks[priority]}
               />
-            ) : null
+            )
           ))}
         </Accordion>
       ) : (

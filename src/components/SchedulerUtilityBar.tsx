@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
-import { DBScheduledTask, SortBy, TaskPriority, AetherSinkSortBy } from '@/types/scheduler'; // Import AetherSinkSortBy
+import { DBScheduledTask, SortBy, TaskPriority, AetherSinkSortBy } from '@/types/scheduler';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -28,7 +28,7 @@ interface SchedulerUtilityBarProps {
   sortBy: SortBy;
   onCompactSchedule: () => void;
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => void;
-  aetherSinkTasksCount: number; // Renamed from retiredTasksCount
+  aetherSinkTasksCount: number;
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -42,12 +42,12 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   sortBy,
   onCompactSchedule,
   onQuickScheduleBlock,
-  aetherSinkTasksCount, // Renamed
+  aetherSinkTasksCount,
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
-  const hasSortableFlexibleTasks = hasFlexibleTasksOnCurrentDay || aetherSinkTasksCount > 0; // Renamed
+  const hasSortableFlexibleTasks = hasFlexibleTasksOnCurrentDay || aetherSinkTasksCount > 0;
 
   const quickBlockDurations = [30, 60, 90, 120];
 
@@ -186,10 +186,10 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent className="z-[60]">
+              <TooltipContent>
                 <p>Quick Schedule a Focus Block</p>
               </TooltipContent>
-            </DropdownMenuContent>
+            </Tooltip>
             <DropdownMenuContent className="p-2 space-y-2 w-max">
               <DropdownMenuLabel className="text-center">Schedule Focus Block</DropdownMenuLabel>
               <DropdownMenuSeparator />

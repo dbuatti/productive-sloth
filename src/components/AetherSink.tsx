@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import InfoChip from './InfoChip';
-import RetiredTaskDetailSheet from './RetiredTaskDetailSheet';
+import RetiredTaskDetailDialog from './RetiredTaskDetailDialog'; // UPDATED: Import Dialog
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +43,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
   const [sinkInputValue, setSinkInputValue] = useState('');
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false); // UPDATED: Dialog state
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
 
   const handleAddSinkTask = async (e: React.FormEvent) => {
@@ -70,20 +70,19 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
   const handleInfoChipClick = (retiredTask: RetiredTask) => {
     console.log("AetherSink: InfoChip clicked for retired task:", retiredTask.name);
     setSelectedRetiredTask(retiredTask);
-    setIsSheetOpen(true);
+    setIsDialogOpen(true); // UPDATED: Open Dialog
   };
 
   const handleTaskItemClick = (event: React.MouseEvent, retiredTask: RetiredTask) => {
     console.log("AetherSink: Retired task item clicked for task:", retiredTask.name, "Event target:", event.target);
     const target = event.target as HTMLElement;
-    // Prevent opening the sheet if a child interactive element (like a button) was clicked
-    if (target.closest('button') || target.closest('a')) { // Removed checkbox from this condition
-      console.log("AetherSink: Click originated from an interactive child, preventing sheet open.");
+    if (target.closest('button') || target.closest('a')) {
+      console.log("AetherSink: Click originated from an interactive child, preventing dialog open.");
       return;
     }
     setSelectedRetiredTask(retiredTask);
-    setIsSheetOpen(true);
-    console.log("AetherSink: Setting isSheetOpen to true for retired task:", retiredTask.name);
+    setIsDialogOpen(true); // UPDATED: Open Dialog
+    console.log("AetherSink: Setting isDialogOpen to true for retired task:", retiredTask.name);
   };
 
   const handleToggleComplete = async (task: RetiredTask) => {
@@ -438,12 +437,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
           </CardContent>
         </>
       </Card>
-      <RetiredTaskDetailSheet
+      <RetiredTaskDetailDialog // UPDATED: Use Dialog
         task={selectedRetiredTask}
-        open={isSheetOpen}
+        open={isDialogOpen} // UPDATED: Use Dialog state
         onOpenChange={(open) => {
-          console.log("AetherSink: Sheet onOpenChange. New state:", open);
-          setIsSheetOpen(open);
+          console.log("AetherSink: Dialog onOpenChange. New state:", open);
+          setIsDialogOpen(open); // UPDATED: Update Dialog state
           if (!open) setSelectedRetiredTask(null);
         }}
       />

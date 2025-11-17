@@ -67,12 +67,12 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             What would you like to do with this time?
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 justify-center"> {/* Added justify-center */}
+        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 sm:justify-end"> {/* Changed justify-center to sm:justify-end */}
           <Button
             onClick={onTakeBreak}
             disabled={isProcessingCommand}
             className={cn(
-              "w-full sm:w-auto flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200", // Adjusted width for small screens
+              "w-full sm:w-auto flex-1 sm:flex-none flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200", // Adjusted width for small screens
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
@@ -83,19 +83,20 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             onClick={onStartNextTask}
             disabled={isProcessingCommand || !hasNextTask}
             className={cn(
-              "w-full sm:w-auto flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200", // Adjusted width for small screens
+              "w-full sm:w-auto flex-1 sm:flex-none flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200", // Adjusted width for small screens
               (isProcessingCommand || !hasNextTask) && "opacity-70 cursor-not-allowed"
             )}
           >
             <Rocket className="h-5 w-5" />
             Start Next Task Now
           </Button>
-          {/* NEW: Just Finish Button - Styled as a primary action */}
+          {/* NEW: Just Finish Button - Styled as an outline button with primary checkmark */}
           <Button
             onClick={onJustFinish}
             disabled={isProcessingCommand}
-            className={cn( // Changed to default button styling, then override for neutral look
-              "w-full sm:w-auto flex items-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-200", // Adjusted width for small screens
+            variant="outline" // Changed to outline variant
+            className={cn(
+              "w-full sm:w-auto flex-1 sm:flex-none flex items-center gap-2 text-foreground hover:bg-secondary/80 transition-all duration-200", // Adjusted width and text color
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >

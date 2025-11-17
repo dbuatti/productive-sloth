@@ -1305,6 +1305,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   >({
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId) throw new Error("User not authenticated.");
+      if (!user?.session?.access_token) throw new Error("User session token not available.");
 
       console.log("autoBalanceScheduleMutation: Payload received:", {
         scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
@@ -1317,7 +1318,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { data, error } = await supabase.functions.invoke('auto-balance-schedule', {
         body: payload,
         headers: {
-          'Authorization': `Bearer ${user.token}`,
+          'Authorization': `Bearer ${user.session.access_token}`,
         },
       });
 
@@ -1345,11 +1346,20 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       // Optimistic update: Remove tasks that are being deleted or moved to sink
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
         const remaining = (old || []).filter(task => !payload.scheduledTaskIdsToDelete.includes(task.id));
-        const newTasks = payload.tasksToInsert.map(t => ({
-          ...t,
+        const newTasks: DBScheduledTask[] = payload.tasksToInsert.map(t => ({
+          id: t.id || Math.random().toString(36).substring(2, 9), // Ensure ID is always present
           user_id: userId!,
-          created_at: new Date().toISOString(),
+          name: t.name,
+          break_duration: t.break_duration ?? null,
+          start_time: t.start_time ?? new Date().toISOString(), // Provide default if missing
+          end_time: t.end_time ?? new Date().toISOString(),     // Provide default if missing
+          scheduled_date: t.scheduled_date ?? formattedSelectedDate, // Provide default if missing
+          created_at: t.created_at ?? new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          is_critical: t.is_critical ?? false,
+          is_flexible: t.is_flexible ?? true,
+          is_locked: t.is_locked ?? false,
+          energy_cost: t.energy_cost ?? 0,
           is_completed: t.is_completed ?? false,
           is_custom_energy_cost: t.is_custom_energy_cost ?? false,
         }));
@@ -1358,11 +1368,17 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => {
         const remaining = (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id));
-        const newSinkTasks = payload.tasksToKeepInSink.map(t => ({
-          ...t,
+        const newSinkTasks: RetiredTask[] = payload.tasksToKeepInSink.map(t => ({
+          id: t.id || Math.random().toString(36).substring(2, 9), // Ensure ID is always present
           user_id: userId!,
-          id: Math.random().toString(36).substring(2, 9), // Temp ID for optimistic update
-          retired_at: new Date().toISOString(),
+          name: t.name,
+          duration: t.duration ?? null,
+          break_duration: t.break_duration ?? null,
+          original_scheduled_date: t.original_scheduled_date ?? formattedSelectedDate, // Provide default if missing
+          retired_at: t.retired_at ?? new Date().toISOString(),
+          is_critical: t.is_critical ?? false, // Ensure boolean
+          is_locked: t.is_locked ?? false,     // Ensure boolean
+          energy_cost: t.energy_cost ?? 0,
           is_completed: t.is_completed ?? false,
           is_custom_energy_cost: t.is_custom_energy_cost ?? false,
         }));
@@ -1382,7 +1398,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
-    onError: (err, _variables, context) => {
+    onError: (err, _variables, context: MutationContext | undefined) => { // Explicitly type context
       showError(`Failed to auto-balance schedule: ${err.message}`);
       if (context?.previousScheduledTasks) {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);

@@ -35,8 +35,6 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    // WARNING: TEMPORARY DEBUGGING LOG - REMOVE IN PRODUCTION
-    console.log(`DEBUG: Full Incoming token: ${token}`); 
     // @ts-ignore
     const JWT_SECRET = Deno.env.get('JWT_SECRET'); 
 
@@ -47,9 +45,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    // WARNING: TEMPORARY DEBUGGING LOG - REMOVE IN PRODUCTION
-    console.log(`DEBUG: Full JWT_SECRET loaded: ${JWT_SECRET}`);
 
     // Use TextEncoder to convert the JWT_SECRET string into a Uint8Array
     const secretKey = new TextEncoder().encode(JWT_SECRET);

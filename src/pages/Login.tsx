@@ -8,7 +8,7 @@ function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Daily Task Manager</CardTitle>
+          <CardTitle className="text-xl text-center">Daily Task Manager</CardTitle> {/* Changed text-2xl to text-xl */}
         </CardHeader>
         <CardContent>
           <Auth

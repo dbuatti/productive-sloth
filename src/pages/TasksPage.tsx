@@ -46,7 +46,7 @@ const TasksPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-6">
-      <h1 className="text-3xl font-bold text-foreground animate-slide-in-up">My Tasks</h1>
+      <h1 className="text-2xl font-bold text-foreground animate-slide-in-up">My Tasks</h1> {/* Changed text-3xl to text-2xl */}
 
       <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
         <TemporalFilterTabs 
@@ -79,7 +79,7 @@ const TasksPage: React.FC = () => {
       ) : (
         <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
           <ClipboardList className="h-12 w-12 text-muted-foreground" />
-          <p className="text-lg font-semibold">No tasks found!</p>
+          <p className="text-base font-semibold">No tasks found!</p> {/* Changed text-lg to text-base */}
           <p>Start by adding a new task above to get organized.</p>
         </Card>
       )}

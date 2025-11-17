@@ -30,14 +30,14 @@ const ProgressOverviewCard: React.FC = () => {
       <div className={cn(
         "absolute top-4 right-4 z-10",
         "bg-background px-3 py-1 rounded-md",
-        "text-lg font-extrabold font-mono flex items-center gap-1 text-primary"
+        "text-base font-extrabold font-mono flex items-center gap-1 text-primary" {/* Changed text-lg to text-base */}
       )}>
         <Sparkles className="h-5 w-5 animate-bounce" />
         Lvl {level}
       </div>
 
       <CardHeader className="flex flex-col sm:flex-row items-center sm:justify-between space-y-2 sm:space-y-0 pt-8 pb-2 pr-24">
-        <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
+        <CardTitle className="text-lg font-bold flex items-center gap-2 text-foreground"> {/* Changed text-xl to text-lg */}
           <Trophy className="h-6 w-6 text-logo-yellow" />
           Your Progress
         </CardTitle>
@@ -46,18 +46,18 @@ const ProgressOverviewCard: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="p-5 rounded-md bg-card border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
             <p className="text-base text-foreground mb-1">Total XP</p>
-            <p className="text-6xl font-extrabold font-mono text-primary mb-2 leading-none animate-pop-in">{profile.xp}</p>
+            <p className="text-5xl font-extrabold font-mono text-primary mb-2 leading-none animate-pop-in">{profile.xp}</p> {/* Changed text-6xl to text-5xl */}
             <p className="text-sm text-muted-foreground">
               <span className="font-semibold text-foreground font-mono">{xpNeededForNextLevel - xpTowardsNextLevel}</span> XP to next level!
             </p>
           </div>
 
           <div className="border-t border-dashed border-border/50 sm:border-t-0 sm:border-l p-5 rounded-md bg-card border border-dashed border-border/50 flex flex-col justify-center items-center text-center">
-            <div className="text-xl font-bold flex items-center gap-2 text-foreground">
+            <div className="text-lg font-bold flex items-center gap-2 text-foreground"> {/* Changed text-xl to text-lg */}
               <CheckCircle className="h-6 w-6 text-primary" />
               Today's Summary
             </div>
-            <p className="text-6xl font-extrabold font-mono text-primary mb-2 leading-none animate-pop-in">
+            <p className="text-5xl font-extrabold font-mono text-primary mb-2 leading-none animate-pop-in"> {/* Changed text-6xl to text-5xl */}
               {profile.tasks_completed_today} Tasks
             </p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">

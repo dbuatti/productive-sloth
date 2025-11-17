@@ -57,7 +57,7 @@ const DailyChallengeCard: React.FC = () => {
   return (
     <Card className={cardClasses}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-bold flex items-center gap-2">
+        <CardTitle className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
           <Trophy className={cn("h-6 w-6", isComplete ? "text-accent" : "text-muted-foreground")} />
           Daily Challenge
         </CardTitle>
@@ -67,7 +67,7 @@ const DailyChallengeCard: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-2xl font-extrabold font-mono text-foreground">
+          <p className="text-xl font-extrabold font-mono text-foreground"> {/* Changed text-2xl to text-xl */}
             {tasksCompleted} / {target} Tasks
           </p>
           {hasClaimed ? (

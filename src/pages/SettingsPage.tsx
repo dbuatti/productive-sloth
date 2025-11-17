@@ -34,7 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '@/components/ui/loader'; // Corrected import path
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
@@ -238,7 +238,7 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-3xl space-y-8 animate-slide-in-up">
-      <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"> {/* Changed text-3xl to text-2xl */}
         <Settings className="h-7 w-7 text-primary" /> Settings
       </h1>
       
@@ -247,7 +247,7 @@ const SettingsPage: React.FC = () => {
           {/* Personal Information Card */}
           <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
+              <CardTitle className="flex items-center gap-2 text-lg"> {/* Changed text-xl to text-lg */}
                 <User className="h-5 w-5 text-primary" /> Profile
               </CardTitle>
             </CardHeader>
@@ -304,7 +304,7 @@ const SettingsPage: React.FC = () => {
           {/* Game Stats & Actions Card */}
           <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
+              <CardTitle className="flex items-center gap-2 text-lg"> {/* Changed text-xl to text-lg */}
                 <Gamepad2 className="h-5 w-5 text-logo-yellow" /> Game & Energy
               </CardTitle>
             </CardHeader>
@@ -364,7 +364,7 @@ const SettingsPage: React.FC = () => {
           {/* App Preferences Card */}
           <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
+              <CardTitle className="flex items-center gap-2 text-lg"> {/* Changed text-xl to text-lg */}
                 <Settings className="h-5 w-5 text-primary" /> Preferences
               </CardTitle>
             </CardHeader>
@@ -479,7 +479,7 @@ const SettingsPage: React.FC = () => {
           {/* Developer Tools Card */}
           <Card className="animate-hover-lift">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
+              <CardTitle className="flex items-center gap-2 text-lg"> {/* Changed text-xl to text-lg */}
                 <Code className="h-5 w-5 text-secondary-foreground" /> Developer Tools
               </CardTitle>
             </CardHeader>
@@ -501,7 +501,7 @@ const SettingsPage: React.FC = () => {
           {/* Danger Zone Card */}
           <Card className="border-destructive/50 animate-hover-lift"> {/* Added animate-hover-lift */}
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl text-destructive">
+              <CardTitle className="flex items-center gap-2 text-lg text-destructive"> {/* Changed text-xl to text-lg */}
                 <Trash2 className="h-5 w-5" /> Danger Zone
               </CardTitle>
             </CardHeader>

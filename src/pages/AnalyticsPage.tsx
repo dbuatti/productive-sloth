@@ -66,7 +66,7 @@ const AnalyticsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-5xl space-y-8 animate-slide-in-up">
-      <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"> {/* Changed text-3xl to text-2xl */}
         <TrendingUp className="h-7 w-7 text-primary" /> Gamification Analytics
       </h1>
 
@@ -77,7 +77,7 @@ const AnalyticsPage: React.FC = () => {
             <Sparkles className="h-4 w-4 text-logo-yellow" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentLevel}</div>
+            <div className="text-xl font-bold">{currentLevel}</div> {/* Changed text-2xl to text-xl */}
             <p className="text-xs text-muted-foreground">
               {xpToNextLevel} XP to Level {currentLevel + 1}
             </p>
@@ -89,7 +89,7 @@ const AnalyticsPage: React.FC = () => {
             <Sparkles className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{profile.xp}</div>
+            <div className="text-xl font-bold">{profile.xp}</div> {/* Changed text-2xl to text-xl */}
             <p className="text-xs text-muted-foreground">
               Lifetime experience points earned
             </p>
@@ -101,7 +101,7 @@ const AnalyticsPage: React.FC = () => {
             <CheckCircle className="h-4 w-4 text-logo-green" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{profile.daily_streak} Days</div>
+            <div className="text-xl font-bold">{profile.daily_streak} Days</div> {/* Changed text-2xl to text-xl */}
             <p className="text-xs text-muted-foreground">
               Consecutive days completing tasks
             </p>
@@ -111,7 +111,7 @@ const AnalyticsPage: React.FC = () => {
 
       <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.3s' }}>
         <CardHeader>
-          <CardTitle className="text-xl">Tasks Completed Trend (Last 7 Days)</CardTitle>
+          <CardTitle className="text-lg">Tasks Completed Trend (Last 7 Days)</CardTitle> {/* Changed text-xl to text-lg */}
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">
@@ -149,7 +149,7 @@ const AnalyticsPage: React.FC = () => {
 
       <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.4s' }}>
         <CardHeader>
-          <CardTitle className="text-xl">Tasks Completed (Last 7 Days)</CardTitle>
+          <CardTitle className="text-lg">Tasks Completed (Last 7 Days)</CardTitle> {/* Changed text-xl to text-lg */}
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">

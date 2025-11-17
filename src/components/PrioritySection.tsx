@@ -12,7 +12,7 @@ interface PrioritySectionProps {
 const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) => {
   return (
     <AccordionItem value={priority}>
-      <AccordionTrigger className="text-lg font-semibold capitalize">
+      <AccordionTrigger className="text-base font-semibold capitalize"> {/* Changed text-lg to text-base */}
         {priority} Priority ({tasks.length})
       </AccordionTrigger>
       <AccordionContent>

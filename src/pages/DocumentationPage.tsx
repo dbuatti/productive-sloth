@@ -16,10 +16,10 @@ const DocumentationPage: React.FC = () => {
   if (!user) {
     return (
       <div className="container mx-auto p-4 max-w-3xl space-y-6 text-center text-muted-foreground">
-        <h1 className="text-3xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up">
+        <h1 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up"> {/* Changed text-3xl to text-2xl */}
           <BookOpen className="h-7 w-7 text-primary" /> App Documentation
         </h1>
-        <p className="text-lg">Please log in to view the app documentation.</p>
+        <p className="text-base">Please log in to view the app documentation.</p> {/* Changed text-lg to text-base */}
       </div>
     );
   }
@@ -28,17 +28,17 @@ const DocumentationPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl space-y-8 animate-slide-in-up">
-      <h1 className="text-4xl font-bold text-foreground flex items-center gap-3">
+      <h1 className="text-3xl font-bold text-foreground flex items-center gap-3"> {/* Changed text-4xl to text-3xl */}
         <BookOpen className="h-9 w-9 text-primary" /> AetherFlow App Documentation
       </h1>
-      <p className="text-lg text-muted-foreground">
+      <p className="text-base text-muted-foreground"> {/* Changed text-lg to text-base */}
         Your comprehensive guide to mastering AetherFlow, the gamified productivity and scheduling app.
       </p>
 
       <Accordion type="multiple" defaultValue={['overview']} className="w-full space-y-4">
         {/* App Overview */}
         <AccordionItem value="overview">
-          <AccordionTrigger className="text-2xl font-semibold flex items-center gap-2">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
             <Sparkles className="h-6 w-6 text-logo-yellow" /> App Overview
           </AccordionTrigger>
           <AccordionContent>
@@ -59,12 +59,12 @@ const DocumentationPage: React.FC = () => {
 
         {/* Core Concepts */}
         <AccordionItem value="core-concepts">
-          <AccordionTrigger className="text-2xl font-semibold flex items-center gap-2">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
             <Palette className="h-6 w-6 text-primary" /> Core Concepts
           </AccordionTrigger>
           <AccordionContent>
             <Card className="p-6 space-y-6">
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Gamepad className="h-5 w-5 text-logo-yellow" /> Gamification
               </h3>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground">
@@ -90,7 +90,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <ListTodo className="h-5 w-5 text-primary" /> Task Management
               </h3>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground">
@@ -110,7 +110,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Clock className="h-5 w-5 text-primary" /> Vibe Scheduler
               </h3>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground">
@@ -148,12 +148,12 @@ const DocumentationPage: React.FC = () => {
 
         {/* Features Breakdown */}
         <AccordionItem value="features">
-          <AccordionTrigger className="text-2xl font-semibold flex items-center gap-2">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
             <ListTodo className="h-6 w-6 text-logo-green" /> Features Breakdown
           </AccordionTrigger>
           <AccordionContent>
             <Card className="p-6 space-y-6">
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Sparkles className="h-5 w-5 text-logo-yellow" /> Dashboard
               </h3>
               <p className="text-muted-foreground">
@@ -164,7 +164,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <ListTodo className="h-5 w-5 text-primary" /> My Tasks
               </h3>
               <p className="text-muted-foreground">
@@ -174,7 +174,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Clock className="h-5 w-5 text-primary" /> Vibe Scheduler
               </h3>
               <p className="text-muted-foreground">
@@ -185,7 +185,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <TrendingUp className="h-5 w-5 text-primary" /> Analytics
               </h3>
               <p className="text-muted-foreground">
@@ -195,7 +195,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Trophy className="h-5 w-5 text-logo-yellow" /> Achievements
               </h3>
               <p className="text-muted-foreground">
@@ -204,7 +204,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Trash2 className="h-5 w-5 text-muted-foreground" /> Aether Sink
               </h3>
               <p className="text-muted-foreground">
@@ -214,7 +214,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-xl font-bold flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Settings className="h-5 w-5 text-primary" /> Settings
               </h3>
               <p className="text-muted-foreground">
@@ -228,7 +228,7 @@ const DocumentationPage: React.FC = () => {
 
         {/* Emoji Guide */}
         <AccordionItem value="emoji-guide">
-          <AccordionTrigger className="text-2xl font-semibold flex items-center gap-2">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
             <Palette className="h-6 w-6 text-logo-orange" /> Emoji & Color Guide
           </AccordionTrigger>
           <AccordionContent>
@@ -259,7 +259,7 @@ const DocumentationPage: React.FC = () => {
 
         {/* Scheduler Commands */}
         <AccordionItem value="scheduler-commands">
-          <AccordionTrigger className="text-2xl font-semibold flex items-center gap-2">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
             <Command className="h-6 w-6 text-logo-green" /> Vibe Scheduler Commands
           </AccordionTrigger>
           <AccordionContent>
@@ -333,7 +333,7 @@ const DocumentationPage: React.FC = () => {
 
         {/* Technical Details */}
         <AccordionItem value="technical-details">
-          <AccordionTrigger className="text-2xl font-semibold flex items-center gap-2">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
             <Code className="h-6 w-6 text-secondary-foreground" /> Technical Details
           </AccordionTrigger>
           <AccordionContent>

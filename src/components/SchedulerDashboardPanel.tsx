@@ -32,7 +32,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
     <div className="space-y-4 animate-slide-in-up">
       <Card className="animate-pop-in animate-hover-lift">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <p className="text-3xl font-extrabold font-mono text-foreground">{scheduleSummary.totalTasks}</p>
+                  <p className="text-2xl font-extrabold font-mono text-foreground">{scheduleSummary.totalTasks}</p> {/* Changed text-3xl to text-2xl */}
                 </CardContent>
               </Card>
 
@@ -134,7 +134,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <p className="text-3xl font-extrabold font-mono text-primary">
+                  <p className="text-2xl font-extrabold font-mono text-primary"> {/* Changed text-3xl to text-2xl */}
                     {scheduleSummary.activeTime.hours}h {scheduleSummary.activeTime.minutes}m
                   </p>
                 </CardContent>
@@ -148,7 +148,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <p className="text-3xl font-extrabold font-mono text-logo-orange">{scheduleSummary.breakTime} min</p>
+                  <p className="text-2xl font-extrabold font-mono text-logo-orange">{scheduleSummary.breakTime} min</p> {/* Changed text-3xl to text-2xl */}
                 </CardContent>
               </Card>
 
@@ -160,7 +160,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <p className="text-3xl font-extrabold font-mono text-foreground">{formatTime(scheduleSummary.sessionEnd)}</p>
+                  <p className="text-2xl font-extrabold font-mono text-foreground">{formatTime(scheduleSummary.sessionEnd)}</p> {/* Changed text-3xl to text-2xl */}
                 </CardContent>
               </Card>
             </div>

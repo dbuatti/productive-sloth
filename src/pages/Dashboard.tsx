@@ -91,7 +91,7 @@ const Dashboard = () => {
       ) : (
         <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
           <ClipboardList className="h-12 w-12 text-muted-foreground" />
-          <p className="text-lg font-semibold">No tasks found!</p>
+          <p className="text-base font-semibold">No tasks found!</p> {/* Changed text-lg to text-base */}
           <p>Start by adding a new task above to get organized.</p>
         </Card>
       )}

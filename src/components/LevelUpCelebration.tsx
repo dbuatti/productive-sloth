@@ -19,12 +19,12 @@ const LevelUpCelebration: React.FC = () => {
       <Dialog open={showLevelUp} onOpenChange={resetLevelUp}>
         <DialogContent className="sm:max-w-md text-center animate-pop-in"> {/* Added animate-pop-in */}
           <DialogHeader>
-            <DialogTitle className="text-5xl font-extrabold text-primary flex items-center justify-center gap-2 animate-pulse-glow"> {/* Larger font, added animate-pulse-glow */}
-              <Sparkles className="h-12 w-12 animate-bounce text-logo-yellow" /> {/* Larger icon, added text-logo-yellow */}
+            <DialogTitle className="text-4xl font-extrabold text-primary flex items-center justify-center gap-2 animate-pulse-glow"> {/* Changed text-5xl to text-4xl */}
+              <Sparkles className="h-10 w-10 animate-bounce text-logo-yellow" /> {/* Changed h-12 w-12 to h-10 w-10 */}
               LEVEL UP!
-              <Sparkles className="h-12 w-12 animate-bounce text-logo-yellow" /> {/* Larger icon, added text-logo-yellow */}
+              <Sparkles className="h-10 w-10 animate-bounce text-logo-yellow" /> {/* Changed h-12 w-12 to h-10 w-10 */}
             </DialogTitle>
-            <DialogDescription className="text-xl mt-4 text-foreground"> {/* Ensured text-foreground */}
+            <DialogDescription className="text-lg mt-4 text-foreground"> {/* Changed text-xl to text-lg */}
               Congratulations! You've reached Level {levelUpLevel}!
             </DialogDescription>
           </DialogHeader>

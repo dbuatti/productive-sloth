@@ -53,7 +53,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({ selectedDay, s
         )}
       >
         <span className="text-xs font-semibold">{format(day, 'EEE')}</span> {/* Day of week (Mon, Tue) */}
-        <span className="text-lg font-bold">{format(day, 'd')}</span> {/* Day number (1, 2) */}
+        <span className="text-base font-bold">{format(day, 'd')}</span> {/* Changed text-lg to text-base */}
       </Button>
     );
   });

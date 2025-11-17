@@ -5,7 +5,7 @@ import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
 import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy } from '@/types/scheduler';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter } from 'date-fns';
+import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants';
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue } from '@/lib/scheduler-utils'; // Removed sortTasksByVibeFlow
 import { useTasks } from './use-tasks';
@@ -252,6 +252,76 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     enabled: !!userId,
     placeholderData: (previousData) => previousData, // Keep previous data while fetching new data
+  });
+
+  // NEW: Query to fetch all tasks completed today for the Daily Vibe Recap
+  const { data: completedTasksTodayList = [], isLoading: isLoadingCompletedTasksToday } = useQuery<DBScheduledTask[]>({
+    queryKey: ['completedTasksTodayList', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const todayStart = startOfDay(new Date()).toISOString();
+      const tomorrowStart = addDays(startOfDay(new Date()), 1).toISOString();
+
+      // Fetch completed scheduled tasks for today
+      const { data: scheduled, error: scheduledError } = await supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_completed', true)
+        .gte('updated_at', todayStart)
+        .lt('updated_at', tomorrowStart);
+
+      if (scheduledError) {
+        console.error('Error fetching completed scheduled tasks for today:', scheduledError);
+        throw new Error(scheduledError.message); // Fixed typo here
+      }
+
+      // Fetch completed retired tasks for today
+      const { data: retired, error: retiredError } = await supabase
+        .from('retired_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_completed', true)
+        .gte('retired_at', todayStart)
+        .lt('retired_at', tomorrowStart);
+
+      if (retiredError) {
+        console.error('Error fetching completed retired tasks for today:', retiredError);
+        throw new Error(retiredError.message);
+      }
+
+      // Combine and map retired tasks to DBScheduledTask-like structure for display consistency
+      const combinedTasks: DBScheduledTask[] = [
+        ...(scheduled || []),
+        ...(retired || []).map(rt => ({
+          id: rt.id,
+          user_id: rt.user_id,
+          name: rt.name,
+          break_duration: rt.break_duration,
+          start_time: null, // Retired tasks don't have start/end times in schedule
+          end_time: null,
+          scheduled_date: rt.original_scheduled_date, // Use original_scheduled_date for context
+          created_at: rt.retired_at, // Use retired_at as creation for sorting
+          updated_at: rt.retired_at, // Use retired_at as updated for sorting
+          is_critical: rt.is_critical,
+          is_flexible: false, // Retired tasks are not flexible in the schedule
+          is_locked: rt.is_locked,
+          energy_cost: rt.energy_cost,
+          is_completed: rt.is_completed,
+          is_custom_energy_cost: rt.is_custom_energy_cost,
+        })),
+      ];
+
+      // Sort by updated_at/retired_at descending (most recent first)
+      return combinedTasks.sort((a, b) => {
+        const timeA = parseISO(a.updated_at || a.created_at).getTime(); // Fallback to created_at if updated_at is null
+        const timeB = parseISO(b.updated_at || b.created_at).getTime();
+        return timeB - timeA;
+      });
+    },
+    enabled: !!userId && isToday(parseISO(selectedDate)), // Only fetch if selected day is today
+    staleTime: 1 * 60 * 1000, // 1 minute stale time
+    gcTime: 5 * 60 * 1000, // 5 minutes garbage collection time
   });
 
 
@@ -1360,6 +1430,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     onSuccess: () => {
       // Invalidate queries to reflect potential profile changes (XP, energy, streak)
       queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', userId] }); // NEW: Invalidate completed tasks list
       // Task list queries will be invalidated by the calling component (SchedulerPage)
       // after deciding whether to remove or update the task.
     },
@@ -1439,6 +1510,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', userId] }); // NEW: Invalidate completed tasks list
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
@@ -1485,6 +1557,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', userId] }); // NEW: Invalidate completed tasks list
       showSuccess(`Scheduled task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
@@ -1533,6 +1606,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      queryClient.invalidateQueries({ queryKey: ['completedTasksTodayList', userId] }); // NEW: Invalidate completed tasks list
       showSuccess(`Retired task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
@@ -1657,6 +1731,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     isLoadingDatesWithTasks,
     retiredTasks,
     isLoadingRetiredTasks,
+    completedTasksTodayList, // NEW: Expose the new query data
+    isLoadingCompletedTasksToday, // NEW: Expose loading state for the new query
     addScheduledTask: addScheduledTaskMutation.mutate,
     addRetiredTask: addRetiredTaskMutation.mutate,
     removeScheduledTask: removeScheduledTaskMutation.mutate,

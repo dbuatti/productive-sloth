@@ -12,10 +12,9 @@ serve(async (req) => {
 
   try {
     const { city, lat, lon } = await req.json();
-    // Replace Deno.env.get with a placeholder string for local TS compilation
-    const OPENWEATHER_API_KEY = (globalThis as any).Deno?.env.get('OPENWEATHER_API_KEY') || 'PLACEHOLDER_OPENWEATHER_API_KEY';
+    const OPENWEATHER_API_KEY = Deno.env.get('OPENWEATHER_API_KEY');
 
-    if (!OPENWEATHER_API_KEY || OPENWEATHER_API_KEY === 'PLACEHOLDER_OPENWEATHER_API_KEY') {
+    if (!OPENWEATHER_API_KEY) {
       throw new Error("OpenWeatherMap API key is not set in Supabase secrets.");
     }
 

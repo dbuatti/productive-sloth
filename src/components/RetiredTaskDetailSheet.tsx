@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Trash2, Lock, Unlock, PlusCircle } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
 
 import {
   Sheet,
@@ -23,24 +23,21 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from '@/components/ui/switch';
-import { cn } from "@/lib/utils";
 import { RetiredTask } from "@/types/scheduler";
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Fixed: Changed to default import
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
-import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
-  duration: z.coerce.number().min(1, "Duration must be at least 1 minute.").nullable(),
-  break_duration: z.coerce.number().min(0).nullable(),
+  duration: z.coerce.number().min(1, "Duration must be at least 1 minute.").optional().nullable(),
+  break_duration: z.coerce.number().min(0).optional().nullable(),
   is_critical: z.boolean().default(false),
   is_locked: z.boolean().default(false),
+  is_completed: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
-  is_custom_energy_cost: z.boolean().default(false),
+  is_custom_energy_cost: z.boolean().default(false), // NEW: Add to schema
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -56,7 +53,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateRetiredTask, deleteRetiredTask } = useSchedulerTasks();
+  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<RetiredTaskDetailFormValues>({
@@ -67,45 +64,49 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       break_duration: 0,
       is_critical: false,
       is_locked: false,
+      is_completed: false,
       energy_cost: 0,
-      is_custom_energy_cost: false,
+      is_custom_energy_cost: false, // NEW: Default value
     },
   });
 
-  const durationMinutes = form.watch('duration') || DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION;
-
+  // Effect to update form values when task prop changes
   useEffect(() => {
     if (task) {
       form.reset({
         name: task.name,
-        duration: task.duration || 30,
-        break_duration: task.break_duration || 0,
+        duration: task.duration ?? 30,
+        break_duration: task.break_duration ?? 0,
         is_critical: task.is_critical,
         is_locked: task.is_locked,
+        is_completed: task.is_completed,
         energy_cost: task.energy_cost,
-        is_custom_energy_cost: task.is_custom_energy_cost,
+        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial value
       });
-      
+      // Set initial calculated cost, but only if not custom
       if (!task.is_custom_energy_cost) {
         setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical));
       } else {
-        setCalculatedEnergyCost(task.energy_cost);
+        setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
       }
     }
   }, [task, form]);
 
-  // Effect to recalculate energy cost when duration or is_critical changes
+  // Effect to recalculate energy cost when duration or criticality changes
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      const currentDuration = value.duration || DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION;
-      const currentIsCritical = value.is_critical ?? false;
-
+      // Only recalculate if custom energy cost is NOT enabled
       if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical')) {
-        const newEnergyCost = calculateEnergyCost(currentDuration, currentIsCritical);
+        const duration = value.duration ?? 0;
+        const isCritical = value.is_critical;
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
-        const newEnergyCost = calculateEnergyCost(currentDuration, currentIsCritical);
+        // If custom energy cost is turned OFF, immediately recalculate and set
+        const duration = form.getValues('duration') ?? 0;
+        const isCritical = form.getValues('is_critical');
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }
@@ -113,61 +114,60 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
     return () => subscription.unsubscribe();
   }, [form]);
 
-
   const handleSubmit = async (values: RetiredTaskDetailFormValues) => {
     if (!task) return;
 
     try {
-      await updateRetiredTask({
+      // Handle completion status separately to trigger XP/Energy logic
+      if (values.is_completed !== task.is_completed) {
+        if (values.is_completed) {
+          await completeRetiredTask(task); // This handles XP/Energy and sets is_completed to true
+        } else {
+          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }); // Only update status
+        }
+      }
+
+      // Update other details
+      await updateRetiredTaskDetails({
         id: task.id,
         name: values.name,
-        duration: values.duration,
-        break_duration: values.break_duration,
+        duration: values.duration === 0 ? null : values.duration,
+        break_duration: values.break_duration === 0 ? null : values.break_duration,
         is_critical: values.is_critical,
         is_locked: values.is_locked,
-        energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost,
-        is_custom_energy_cost: values.is_custom_energy_cost,
+        energy_cost: values.energy_cost,
+        is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+        // is_completed is handled by completeRetiredTask or updateRetiredTaskStatus
       });
-      showSuccess("Aether Sink task updated successfully!");
+      showSuccess("Retired task updated successfully!");
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to save retired task:", error);
       showError("Failed to save retired task.");
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!task) return;
-    if (window.confirm(`Are you sure you want to permanently delete the Aether Sink task "${task.name}"?`)) {
-      try {
-        await deleteRetiredTask(task.id);
-        showSuccess("Aether Sink task permanently deleted.");
-        onOpenChange(false);
-      } catch (error) {
-        console.error("Failed to delete retired task:", error);
-        showError("Failed to delete retired task.");
-      }
+      console.error("Failed to save retired task:", error);
     }
   };
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
-  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // Watch the custom energy cost toggle
 
   if (!task) return null;
+
+  const formattedRetiredAt = task.retired_at ? format(parseISO(task.retired_at), 'MMM d, yyyy HH:mm') : 'N/A';
+  const formattedOriginalDate = task.original_scheduled_date ? format(parseISO(task.original_scheduled_date), 'MMM d, yyyy') : 'N/A';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:w-80 flex flex-col p-6 space-y-6 animate-slide-in-right">
         <SheetHeader className="border-b pb-4">
           <SheetTitle className="text-2xl font-bold flex items-center justify-between">
-            Aether Sink Details
+            Retired Task Details
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
-            Retired at: {format(parseISO(task.retired_at), 'MMM d, yyyy HH:mm')}
+            Retired: {formattedRetiredAt} | Original Date: {formattedOriginalDate}
           </SheetDescription>
         </SheetHeader>
 
@@ -181,7 +181,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Task Name</FormLabel>
                     <FormControl>
                       <Input placeholder="Task name" {...field} className="text-lg font-semibold" />
                     </FormControl>
@@ -199,8 +199,11 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                     <FormItem>
                       <FormLabel>Duration (min)</FormLabel>
                       <FormControl>
-                        <Input type="number" min="1" placeholder="30" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
+                        <Input type="number" {...field} min="1" />
                       </FormControl>
+                      <FormDescription>
+                        Estimated time to complete.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -210,10 +213,13 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   name="break_duration"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Break (min)</FormLabel>
+                      <FormLabel>Break Duration (min)</FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} />
+                        <Input type="number" {...field} min="0" />
                       </FormControl>
+                      <FormDescription>
+                        Break associated with this task.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -229,13 +235,14 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                     <div className="space-y-0.5">
                       <FormLabel>Critical Task</FormLabel>
                       <FormDescription>
-                        Mark this task as critical.
+                        Mark this task as critical (higher priority).
                       </FormDescription>
                     </div>
                     <FormControl>
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={task.is_locked} // Disable if locked
                       />
                     </FormControl>
                   </FormItem>
@@ -249,9 +256,9 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
-                      <FormLabel>Lock Task in Sink</FormLabel>
+                      <FormLabel>Locked Task</FormLabel>
                       <FormDescription>
-                        Prevents accidental re-zoning or deletion.
+                        Prevent re-zoning or deletion from Aether Sink.
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -264,7 +271,30 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* Energy Cost Controls */}
+              {/* Is Completed Switch */}
+              <FormField
+                control={form.control}
+                name="is_completed"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Completed</FormLabel>
+                      <FormDescription>
+                        Mark this task as completed.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={task.is_locked} // Disable if locked
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Custom Energy Cost Switch */}
               <FormField
                 control={form.control}
                 name="is_custom_energy_cost"
@@ -285,6 +315,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   </FormItem>
                 )}
               />
+
+              {/* Energy Cost (Editable if custom, read-only if auto-calculated) */}
               <FormField
                 control={form.control}
                 name="energy_cost"
@@ -304,8 +336,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                           {...field} 
                           min="0" 
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          readOnly={!isCustomEnergyCostEnabled}
-                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
+                          readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
+                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
                           onChange={(e) => {
                             if (isCustomEnergyCostEnabled) {
                               field.onChange(e);
@@ -322,38 +354,18 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
               
             {/* Save Button in Footer */}
             <div className="sticky bottom-0 bg-card pt-4 border-t shrink-0">
-              <div className="flex justify-between gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      type="button" 
-                      variant="destructive" 
-                      onClick={handleDelete}
-                      disabled={task.is_locked || isSubmitting}
-                      className="w-full sm:w-auto flex items-center gap-2"
-                      style={task.is_locked ? { pointerEvents: 'auto' } : undefined}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete Permanently
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{task.is_locked ? "Unlock to Delete" : "Permanently delete this task"}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting || !isValid} 
-                  className="w-full sm:w-auto flex items-center gap-2 bg-primary hover:bg-primary/90"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  Save Changes
-                </Button>
-              </div>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || !isValid} 
+                className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save Changes
+              </Button>
             </div>
           </form>
         </Form>

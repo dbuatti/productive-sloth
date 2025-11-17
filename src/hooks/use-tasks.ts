@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,8 +5,8 @@ import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy }
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday } from 'date-fns';
-import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
-import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // NEW: Import default duration
+import { calculateEnergyCost } from '@/lib/scheduler-utils'; // NEW: Import calculateEnergyCost
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
   const now = new Date();
@@ -67,7 +65,6 @@ export const useTasks = () => {
   const fetchTasks = useCallback(async (currentTemporalFilter: TemporalFilter, currentSortBy: SortBy): Promise<Task[]> => {
     if (!userId) return [];
     
-    // *** FIX: Use 'tasks' table ***
     let query = supabase
       .from('tasks')
       .select('*')
@@ -121,6 +118,7 @@ export const useTasks = () => {
     mutationFn: async (newTask: NewTask) => {
       if (!userId) throw new Error("User not authenticated.");
       
+      // NEW: Ensure energy_cost and metadata_xp are set
       const energyCost = newTask.energy_cost ?? calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, newTask.is_critical ?? false);
       const metadataXp = energyCost * 2;
 
@@ -129,9 +127,8 @@ export const useTasks = () => {
         user_id: userId, 
         energy_cost: energyCost,
         metadata_xp: metadataXp,
-        is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
+        is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, // NEW: Pass custom energy cost flag
       };
-      // *** FIX: Use 'tasks' table ***
       const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
       if (error) throw new Error(error.message);
       return data as Task;
@@ -147,28 +144,33 @@ export const useTasks = () => {
 
   const updateTaskMutation = useMutation({
     mutationFn: async (task: Partial<Task> & { id: string }) => {
+      // NEW: Recalculate energy_cost and metadata_xp if not custom and critical status changes
       let updatedEnergyCost = task.energy_cost;
       let updatedMetadataXp = task.metadata_xp;
 
       if (task.is_custom_energy_cost === false && (task.is_critical !== undefined || task.energy_cost === undefined)) {
+        // If is_custom_energy_cost is explicitly false, or energy_cost is not provided (meaning it should be calculated)
+        // We need to fetch the current task to get its is_critical status if not provided in the update
         const currentTask = queryClient.getQueryData<Task[]>(['tasks', userId, temporalFilter, sortBy])?.find(t => t.id === task.id);
         const effectiveIsCritical = task.is_critical !== undefined ? task.is_critical : (currentTask?.is_critical ?? false);
         
         updatedEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, effectiveIsCritical);
         updatedMetadataXp = updatedEnergyCost * 2;
       } else if (task.is_custom_energy_cost === true && task.energy_cost !== undefined) {
+        // If custom energy cost is enabled and provided, update metadata_xp based on it
         updatedMetadataXp = task.energy_cost * 2;
       } else if (task.energy_cost !== undefined) {
+        // If energy_cost is provided (and custom might be true or false), update metadata_xp
         updatedMetadataXp = task.energy_cost * 2;
       }
 
-      // *** FIX: Use 'tasks' table ***
+
       const { data, error } = await supabase
         .from('tasks')
         .update({ 
           ...task, 
-          energy_cost: updatedEnergyCost,
-          metadata_xp: updatedMetadataXp,
+          energy_cost: updatedEnergyCost, // NEW: Use updated energy cost
+          metadata_xp: updatedMetadataXp, // NEW: Use updated metadata XP
           updated_at: new Date().toISOString(),
         })
         .eq('id', task.id)
@@ -192,7 +194,6 @@ export const useTasks = () => {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (id: string) => {
-      // *** FIX: Use 'tasks' table ***
       const { error } = await supabase.from('tasks').delete().eq('id', id);
       if (error) throw new Error(error.message);
     },

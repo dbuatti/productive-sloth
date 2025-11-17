@@ -12,8 +12,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 interface ImmersiveFocusModeProps {
   activeItem: ScheduledItem;
   T_current: Date;
-  onExit: () => void; // Kept for legacy, but actions should use onAction
-  onAction: (action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus', task: DBScheduledTask, isEarlyCompletion: boolean, remainingDurationMinutes?: number) => void;
+  onExit: () => void;
+  onAction: (action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'exitFocus', task: DBScheduledTask, isEarlyCompletion: boolean, remainingDurationMinutes?: number) => void; // MODIFIED: Centralized action handler
   dbTask: DBScheduledTask | null;
   nextItem: ScheduledItem | null; 
   isProcessingCommand: boolean; 
@@ -22,13 +22,15 @@ interface ImmersiveFocusModeProps {
 const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   activeItem,
   T_current,
-  onExit, // Not used internally for actions, only for the prop signature
-  onAction,
+  onExit, // This is now specifically for the 'Exit Focus' button
+  onAction, // NEW: Centralized action handler
   dbTask,
   nextItem, 
   isProcessingCommand, 
 }) => {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+  // Removed: const [showEarlyCompletionModal, setShowEarlyCompletionModal] = useState(false); 
+  // Removed: const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0); 
 
   const updateRemaining = useCallback(() => {
     if (!activeItem || isBefore(activeItem.endTime, T_current)) {
@@ -53,8 +55,8 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   }, [activeItem, T_current]);
 
   useEffect(() => {
-    updateRemaining();
-    const interval = setInterval(updateRemaining, 1000);
+    updateRemaining(); // Initial update
+    const interval = setInterval(updateRemaining, 1000); // Update every second
 
     return () => clearInterval(interval);
   }, [updateRemaining, activeItem]);
@@ -63,9 +65,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (dbTask) {
-          onAction('exitFocus', dbTask, false);
-        }
+        onAction('exitFocus', dbTask!, false); // Use onAction to exit
       }
     };
 
@@ -81,7 +81,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
         <div className="text-center text-muted-foreground">
           <Clock className="h-12 w-12 mx-auto mb-4 animate-pulse" />
           <p className="text-xl font-semibold">No active task to focus on.</p>
-          <Button onClick={() => onAction('exitFocus', dbTask!, false)} className="mt-6">
+          <Button onClick={() => onAction('exitFocus', dbTask!, false)} className="mt-6"> {/* Use onAction to exit */}
             Back to Scheduler
           </Button>
         </div>
@@ -90,7 +90,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   }
 
   const handleCompleteClick = () => {
-    // Delegate completion logic (including early completion check) to parent via onAction
+    // Always delegate the completion check (including early completion) to the parent via onAction
     onAction('complete', dbTask, false); 
   };
 
@@ -107,7 +107,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => onAction('exitFocus', dbTask, false)}
+            onClick={() => onAction('exitFocus', dbTask, false)} // Use onAction to exit
             className="absolute top-4 left-4 h-10 w-10 text-muted-foreground hover:text-primary hover:bg-secondary/50 transition-all duration-200"
           >
             <X className="h-6 w-6" />
@@ -170,7 +170,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              onClick={() => onAction('skip', dbTask, false)}
+              onClick={() => onAction('skip', dbTask, false)} // Use onAction to skip
               disabled={dbTask.is_locked || isProcessingCommand}
               className={cn(
                 "h-12 px-6 text-lg font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-200",

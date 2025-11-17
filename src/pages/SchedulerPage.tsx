@@ -1639,34 +1639,19 @@ const SchedulerPage: React.FC = () => {
       if (action === 'complete') {
         const activeItem = currentSchedule?.items.find(item => item.id === task.id);
         
-        const isCurrentlyActive = activeItem && T_current >= activeItem.startTime && T_current < activeItem.endTime;
-        
-        const isFutureTask = activeItem && isBefore(T_current, activeItem.startTime);
+        const isCurrentlyActive = activeItem && isSameDay(activeItem.startTime, T_current) && T_current >= activeItem.startTime && T_current < activeItem.endTime;
         
         let shouldOpenEarlyCompletionModal = false;
         let remainingMins = 0;
 
         if (isCurrentlyActive) {
             remainingMins = activeItem ? differenceInMinutes(activeItem.endTime, T_current) : 0;
-            if (!isEarlyCompletion && remainingMins > 0) {
+            if (remainingMins > 0) { // Only show modal if there's actual time remaining
                 shouldOpenEarlyCompletionModal = true;
             }
         }
         
-        if (isFutureTask || !shouldOpenEarlyCompletionModal) {
-            // If it's a future task or no early completion, just complete it
-            await completeScheduledTaskMutation(task); 
-            if (task.is_flexible) {
-              await removeScheduledTask(task.id);
-            } else {
-              await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-            }
-            if (isCurrentlyActive) {
-                if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
-                  setIsFocusModeActive(false);
-                }
-            }
-        } else if (shouldOpenEarlyCompletionModal) {
+        if (shouldOpenEarlyCompletionModal) {
             setEarlyCompletionTaskName(task.name);
             setEarlyCompletionRemainingMinutes(remainingMins);
             setEarlyCompletionDbTask(task);
@@ -1674,9 +1659,21 @@ const SchedulerPage: React.FC = () => {
             modalOpened = true;
             setIsProcessingCommand(false); 
             return;
+        } else {
+            // If it's a future task, or active task completed exactly on time/past its end time
+            await completeScheduledTaskMutation(task); 
+            if (task.is_flexible) {
+              await removeScheduledTask(task.id);
+            } else {
+              await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
+            }
+            showSuccess(`Task "${task.name}" completed!`);
+            if (isCurrentlyActive) {
+                if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
+                  setIsFocusModeActive(false);
+                }
+            }
         }
-        
-        // showSuccess(`Task "${task.name}" completed!`); // Moved to onSettled in useSchedulerTasks
         
       } else if (action === 'skip') {
         await handleManualRetire(task);

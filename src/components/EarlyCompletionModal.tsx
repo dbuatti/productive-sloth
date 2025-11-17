@@ -90,17 +90,16 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
             <Rocket className="h-5 w-5" />
             Start Next Task Now
           </Button>
-          {/* NEW: Just Finish Button */}
+          {/* NEW: Just Finish Button - Styled as a primary action */}
           <Button
             onClick={onJustFinish}
             disabled={isProcessingCommand}
-            variant="outline" // Neutral styling
-            className={cn(
-              "w-full flex items-center gap-2 text-muted-foreground hover:bg-muted/50 transition-all duration-200",
+            className={cn( // Changed to default button styling, then override for neutral look
+              "w-full flex items-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all duration-200",
               isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
-            <Check className="h-5 w-5" />
+            <Check className="h-5 w-5 text-primary" /> {/* Checkmark in primary color */}
             Just Finish
           </Button>
         </DialogFooter>

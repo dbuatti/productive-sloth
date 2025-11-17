@@ -1348,7 +1348,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         
         setXpGainAnimation({ taskId: taskToComplete.id, xpAmount: xpGained });
 
-        showSuccess(`Task completed! -${taskToComplete.energy_cost} Energy`);
+        // Removed showSuccess toast here. It will be handled in SchedulerPage.tsx
         if (newLevel > profile.level) {
           showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
           triggerLevelUp(newLevel);

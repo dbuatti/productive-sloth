@@ -156,6 +156,8 @@ const SchedulerPage: React.FC = () => {
   const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0);
   const [earlyCompletionDbTask, setEarlyCompletionDbTask] = useState<DBScheduledTask | null>(null);
 
+  // NEW: Ref for scroll position management
+  const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
 
@@ -1627,12 +1629,14 @@ const SchedulerPage: React.FC = () => {
         }
         showSuccess(`Task "${task.name}" completed!`);
         
-        // If we completed the task, we should check if we need to exit focus mode
-        // If the next item is immediately active, focus mode stays on.
+        // 3. Zen Mode Persistence Check (Flow Disruption Fix)
         // If there is no next item, or the next item is far away, exit focus mode.
+        // If nextItemToday is null OR the next item starts more than 5 minutes from now, exit.
         if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
           setIsFocusModeActive(false);
         }
+        // If focus mode remains active, the next task will automatically become activeItemToday
+        // and the SchedulerDisplay will scroll to it.
 
       } else if (action === 'skip') {
         await handleManualRetire(task); // This already handles retiring
@@ -1680,9 +1684,8 @@ const SchedulerPage: React.FC = () => {
             return;
         }
 
-        // 1. Update the next task's start/end times
+        // 1. Update the next task's start/end times, PRESERVING FLEXIBILITY/LOCK STATUS (Task Property Corruption Fix)
         const newNextTaskStartTime = T_current;
-        // FIX: nextItemToday.endTime and nextItemToday.startTime are already Date objects
         const nextTaskDuration = differenceInMinutes(nextItemToday.endTime, nextItemToday.startTime);
         const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextTaskDuration);
 
@@ -1690,7 +1693,7 @@ const SchedulerPage: React.FC = () => {
           id: nextItemToday.id,
           start_time: newNextTaskStartTime.toISOString(),
           end_time: newNextTaskEndTime.toISOString(),
-          // INHERIT ORIGINAL PROPERTIES as requested by user
+          // CRITICAL FIX: Preserve original flexibility and lock status
           is_flexible: originalNextTask.is_flexible, 
           is_locked: originalNextTask.is_locked,     
         });
@@ -1729,9 +1732,6 @@ const SchedulerPage: React.FC = () => {
       }
     } finally {
       // Reset processing command if we reached the end of the function without returning early
-      // (i.e., if we performed a full action like skip, takeBreak, startNext, or normal complete)
-      // If we returned early above, setIsProcessingCommand(false) was already called.
-      // If we didn't return early, we must reset it here.
       if (!modalOpened) {
         setIsProcessingCommand(false);
       }
@@ -1857,7 +1857,7 @@ const SchedulerPage: React.FC = () => {
                     <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent ref={scheduleContainerRef}> {/* Added ref here */}
                   {isSchedulerTasksLoading ? (
                     <div className="flex items-center justify-center h-32">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />

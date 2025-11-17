@@ -36,7 +36,7 @@ const getBubbleHeightStyle = (duration: number) => {
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null); // Refers to the inner schedule container
   const activeItemRef = useRef<HTMLDivElement>(null);
   const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString);
 
@@ -169,17 +169,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   }, [T_current, firstItemStartTime, lastItemEndTime]);
 
 
+  // FIX: Scroll Instability (View Jump)
   useEffect(() => {
-    if (activeItemId && containerRef.current) {
-      const activeElement = document.getElementById(`scheduled-item-${activeItemId}`);
-      if (activeElement) {
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const activeItemRect = activeElement.getBoundingClientRect();
-
-        if (activeItemRect.top < containerRect.top || activeItemRect.bottom > containerRect.bottom) {
-          activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
+    if (activeItemId && activeItemRef.current) {
+      // Use requestAnimationFrame to ensure the element is rendered before scrolling
+      requestAnimationFrame(() => {
+        activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     }
   }, [activeItemId, finalDisplayItems]); // Re-run when activeItemId changes or display items update
 

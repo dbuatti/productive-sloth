@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Task } from "@/types";
+import { Task } from "@/types"; // Now refers to AetherSinkTask structure
 import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -43,10 +43,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   };
 
   const handleDeleteClick = async () => {
-    if (window.confirm(`Are you sure you want to delete "${task.title}"?`)) {
+    if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) { // Renamed from title to name
       try {
         await deleteTask(task.id);
-        toast.success(`Task "${task.title}" deleted.`);
+        toast.success(`Task "${task.name}" deleted.`); // Renamed from title to name
       } catch (error) {
         toast.error("Failed to delete task.");
         console.error("Failed to delete task:", error);
@@ -58,39 +58,21 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     navigate('/scheduler', { 
       state: { 
         taskToSchedule: {
-          name: task.title,
+          name: task.name, // Renamed from title to name
           isCritical: task.is_critical,
-          // Assuming a default duration for tasks from the general list if not explicitly set
-          duration: 30, // Defaulting to 30 minutes for scheduling
+          duration: task.duration || 30, // Use task's duration or default
         }
       } 
     });
   };
 
-  const getPriorityBadgeClasses = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'bg-destructive text-destructive-foreground border-destructive';
-      case 'MEDIUM':
-        return 'bg-logo-orange/20 text-logo-orange border-logo-orange';
-      case 'LOW':
-        return 'bg-logo-green/20 text-logo-green border-logo-green';
-      default:
-        return 'bg-muted text-muted-foreground border-border';
-    }
+  // Priority is now derived from is_critical for AetherSink tasks
+  const getPriorityBadgeClasses = (isCritical: boolean) => {
+    return isCritical ? 'bg-destructive text-destructive-foreground border-destructive' : 'bg-muted text-muted-foreground border-border';
   };
 
-  const getPriorityBorderColor = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'border-destructive/50 hover:border-destructive';
-      case 'MEDIUM':
-        return 'border-logo-orange/50 hover:border-logo-orange';
-      case 'LOW':
-        return 'border-logo-green/50 hover:border-logo-green';
-      default:
-        return 'border-border';
-    }
+  const getPriorityBorderColor = (isCritical: boolean) => {
+    return isCritical ? 'border-destructive/50 hover:border-destructive' : 'border-border';
   };
 
   return (
@@ -99,7 +81,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
         className={cn(
           "relative flex items-center justify-between p-4 border-l-4 transition-all duration-300 rounded-md shadow-sm",
           "bg-card hover:bg-secondary/50 animate-hover-lift",
-          getPriorityBorderColor(task.priority),
+          getPriorityBorderColor(task.is_critical),
           task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
           "hover:shadow-lg hover:shadow-primary/10",
           "border-b border-dashed border-border/50 last:border-b-0"
@@ -133,18 +115,19 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 variant="outline"
                 className={cn(
                   "capitalize px-2 py-0.5 text-xs font-semibold", 
-                  getPriorityBadgeClasses(task.priority)
+                  getPriorityBadgeClasses(task.is_critical)
                 )}
               >
-                {task.priority.toLowerCase()}
+                {task.is_critical ? 'critical' : 'general'}
               </Badge>
               <span className={cn(
                 "truncate flex-grow",
                 task.is_completed ? "line-through text-muted-foreground italic" : "text-foreground"
               )}>
-                {task.title}
+                {task.name} {/* Renamed from title to name */}
               </span>
-              {task.description && (
+              {/* AetherSink tasks don't have a description field directly, but we can add it if needed */}
+              {/* {task.description && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <AlignLeft className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -153,16 +136,27 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                     <p>Has description</p>
                   </TooltipContent>
                 </Tooltip>
-              )}
+              )} */}
             </div>
             <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground">
-              {task.due_date && (
+              {task.original_scheduled_date && ( // Use original_scheduled_date
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3 w-3" />
-                  <span>{format(new Date(task.due_date), "MMM d")}</span>
+                  <span>{format(new Date(task.original_scheduled_date), "MMM d")}</span>
                 </span>
               )}
-              {/* NEW: Display energy cost */}
+              {task.duration && task.duration > 0 && ( // Display duration
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1 text-xs font-semibold font-mono">
+                      {task.duration} min <Clock className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Estimated Duration</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {task.energy_cost !== undefined && task.energy_cost > 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>

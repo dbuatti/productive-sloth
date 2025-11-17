@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
-import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
+import { DBScheduledTask, SortBy, TaskPriority, AetherSinkSortBy } from '@/types/scheduler'; // Import AetherSinkSortBy
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
-import QuickScheduleBlock from './QuickScheduleBlock'; // Import QuickScheduleBlock
+import QuickScheduleBlock from './QuickScheduleBlock';
 
 interface SchedulerUtilityBarProps {
   isProcessingCommand: boolean;
@@ -28,7 +28,7 @@ interface SchedulerUtilityBarProps {
   sortBy: SortBy;
   onCompactSchedule: () => void;
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => void;
-  retiredTasksCount: number; // NEW: Add retiredTasksCount prop
+  aetherSinkTasksCount: number; // Renamed from retiredTasksCount
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -42,13 +42,12 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   sortBy,
   onCompactSchedule,
   onQuickScheduleBlock,
-  retiredTasksCount, // NEW: Destructure retiredTasksCount
+  aetherSinkTasksCount, // Renamed
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
-  // NEW: Determine if there are any flexible tasks available for sorting (either in schedule or sink)
-  const hasSortableFlexibleTasks = hasFlexibleTasksOnCurrentDay || retiredTasksCount > 0;
+  const hasSortableFlexibleTasks = hasFlexibleTasksOnCurrentDay || aetherSinkTasksCount > 0; // Renamed
 
   const quickBlockDurations = [30, 60, 90, 120];
 
@@ -133,7 +132,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    disabled={isProcessingCommand || !hasSortableFlexibleTasks /* UPDATED: Enable if there are retired tasks */}
+                    disabled={isProcessingCommand || !hasSortableFlexibleTasks}
                     className={cn(
                       "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
                       !hasSortableFlexibleTasks && "text-muted-foreground/50 cursor-not-allowed"
@@ -187,10 +186,10 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent className="z-[60]"> {/* Added z-[60] to ensure it sits above the dropdown */}
+              <TooltipContent className="z-[60]">
                 <p>Quick Schedule a Focus Block</p>
               </TooltipContent>
-            </Tooltip>
+            </DropdownMenuContent>
             <DropdownMenuContent className="p-2 space-y-2 w-max">
               <DropdownMenuLabel className="text-center">Schedule Focus Block</DropdownMenuLabel>
               <DropdownMenuSeparator />

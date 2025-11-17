@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile } from 'lucide-react'; // Added Smile icon
-import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler'; // Import RetiredTaskSortBy
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile } from 'lucide-react';
+import { AetherSinkTask, NewAetherSinkTask, AetherSinkSortBy } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import InfoChip from './InfoChip';
-import RetiredTaskDetailDialog from './RetiredTaskDetailDialog'; // UPDATED: Import Dialog
+import AetherSinkTaskDetailDialog from './AetherSinkTaskDetailDialog'; // UPDATED: Import Dialog
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,27 +24,27 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface AetherSinkProps {
-  retiredTasks: RetiredTask[];
-  onRezoneTask: (task: RetiredTask) => void;
-  onRemoveRetiredTask: (taskId: string) => void;
+  aetherSinkTasks: AetherSinkTask[]; // Renamed from retiredTasks
+  onRezoneTask: (task: AetherSinkTask) => void; // Updated type
+  onRemoveAetherSinkTask: (taskId: string) => void; // Renamed from onRemoveRetiredTask
   onAutoScheduleSink: () => void;
   isLoading: boolean;
   isProcessingCommand: boolean;
   hideTitle?: boolean;
   profileEnergy: number;
-  retiredSortBy: RetiredTaskSortBy; // NEW: Add retiredSortBy prop
-  setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void; // NEW: Add setRetiredSortBy prop
+  aetherSinkSortBy: AetherSinkSortBy; // Renamed from retiredSortBy
+  setAetherSinkSortBy: (sortBy: AetherSinkSortBy) => void; // Renamed from setRetiredSortBy
 }
 
-const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy, retiredSortBy, setRetiredSortBy }) => {
-  const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked);
-  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
+const AetherSink: React.FC<AetherSinkProps> = React.memo(({ aetherSinkTasks, onRezoneTask, onRemoveAetherSinkTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy, aetherSinkSortBy, setAetherSinkSortBy }) => {
+  const hasUnlockedAetherSinkTasks = aetherSinkTasks.some(task => !task.is_locked); // Renamed
+  const { toggleAetherSinkTaskLock, addAetherSinkTask, completeAetherSinkTask, updateAetherSinkTaskStatus } = useSchedulerTasks(''); // Updated mutations
   const { user } = useSession();
   const [sinkInputValue, setSinkInputValue] = useState('');
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // UPDATED: Dialog state
-  const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedAetherSinkTask, setSelectedAetherSinkTask] = useState<AetherSinkTask | null>(null); // Updated type
 
   const handleAddSinkTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,40 +60,40 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
     const parsedTask = parseSinkTaskInput(sinkInputValue, user.id);
 
     if (parsedTask) {
-      await addRetiredTask(parsedTask);
+      await addAetherSinkTask(parsedTask); // Updated mutation
       setSinkInputValue('');
     } else {
       showError("Invalid task format. Use 'Task Name [Duration] [!]'.");
     }
   };
 
-  const handleInfoChipClick = (retiredTask: RetiredTask) => {
-    console.log("AetherSink: InfoChip clicked for retired task:", retiredTask.name);
-    setSelectedRetiredTask(retiredTask);
-    setIsDialogOpen(true); // UPDATED: Open Dialog
+  const handleInfoChipClick = (aetherSinkTask: AetherSinkTask) => { // Updated type
+    console.log("AetherSink: InfoChip clicked for AetherSink task:", aetherSinkTask.name);
+    setSelectedAetherSinkTask(aetherSinkTask);
+    setIsDialogOpen(true);
   };
 
-  const handleTaskItemClick = (event: React.MouseEvent, retiredTask: RetiredTask) => {
-    console.log("AetherSink: Retired task item clicked for task:", retiredTask.name, "Event target:", event.target);
+  const handleTaskItemClick = (event: React.MouseEvent, aetherSinkTask: AetherSinkTask) => { // Updated type
+    console.log("AetherSink: AetherSink task item clicked for task:", aetherSinkTask.name, "Event target:", event.target);
     const target = event.target as HTMLElement;
     if (target.closest('button') || target.closest('a')) {
       console.log("AetherSink: Click originated from an interactive child, preventing dialog open.");
       return;
     }
-    setSelectedRetiredTask(retiredTask);
-    setIsDialogOpen(true); // UPDATED: Open Dialog
-    console.log("AetherSink: Setting isDialogOpen to true for retired task:", retiredTask.name);
+    setSelectedAetherSinkTask(aetherSinkTask);
+    setIsDialogOpen(true);
+    console.log("AetherSink: Setting isDialogOpen to true for AetherSink task:", aetherSinkTask.name);
   };
 
-  const handleToggleComplete = async (task: RetiredTask) => {
+  const handleToggleComplete = async (task: AetherSinkTask) => { // Updated type
     if (task.is_locked) {
       showError(`Cannot change completion status of locked task "${task.name}". Unlock it first.`);
       return;
     }
     if (task.is_completed) {
-      await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
+      await updateAetherSinkTaskStatus({ taskId: task.id, isCompleted: false }); // Updated mutation
     } else {
-      await completeRetiredTask(task);
+      await completeAetherSinkTask(task, task.duration || 0); // Updated mutation, pass durationUsed
     }
   };
 
@@ -103,7 +103,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
         {!hideTitle && (
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
-              <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
+              <Trash2 className="h-5 w-5" /> The Aether Sink ({aetherSinkTasks.length} Retired Task{aetherSinkTasks.length !== 1 ? 's' : ''})
             </CardTitle>
             <div className="flex items-center gap-2">
               {/* Sort Button for Aether Sink */}
@@ -114,12 +114,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                       <Button 
                         variant="outline" 
                         size="icon" 
-                        disabled={isProcessingCommand || retiredTasks.length === 0}
+                        disabled={isProcessingCommand || aetherSinkTasks.length === 0}
                         className={cn(
                           "h-8 w-8 text-muted-foreground hover:bg-muted/10 transition-all duration-200",
-                          (isProcessingCommand || retiredTasks.length === 0) && "text-muted-foreground/50 cursor-not-allowed"
+                          (isProcessingCommand || aetherSinkTasks.length === 0) && "text-muted-foreground/50 cursor-not-allowed"
                         )}
-                        style={(isProcessingCommand || retiredTasks.length === 0) ? { pointerEvents: 'auto' } : undefined}
+                        style={(isProcessingCommand || aetherSinkTasks.length === 0) ? { pointerEvents: 'auto' } : undefined}
                       >
                         {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
                         <span className="sr-only">Sort Aether Sink</span>
@@ -133,56 +133,56 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Sort By</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_NEWEST')} className={cn(retiredSortBy === 'RETIRED_AT_NEWEST' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('RETIRED_AT_NEWEST')} className={cn(aetherSinkSortBy === 'RETIRED_AT_NEWEST' && 'bg-accent text-accent-foreground')}>
                     <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Newest)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_OLDEST')} className={cn(retiredSortBy === 'RETIRED_AT_OLDEST' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('RETIRED_AT_OLDEST')} className={cn(aetherSinkSortBy === 'RETIRED_AT_OLDEST' && 'bg-accent text-accent-foreground')}>
                     <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Oldest)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_ASC')} className={cn(retiredSortBy === 'NAME_ASC' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('NAME_ASC')} className={cn(aetherSinkSortBy === 'NAME_ASC' && 'bg-accent text-accent-foreground')}>
                     <SortAsc className="mr-2 h-4 w-4" /> Name (A-Z)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_DESC')} className={cn(retiredSortBy === 'NAME_DESC' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('NAME_DESC')} className={cn(aetherSinkSortBy === 'NAME_DESC' && 'bg-accent text-accent-foreground')}>
                     <SortDesc className="mr-2 h-4 w-4" /> Name (Z-A)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_DESC')} className={cn(retiredSortBy === 'DURATION_DESC' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('DURATION_DESC')} className={cn(aetherSinkSortBy === 'DURATION_DESC' && 'bg-accent text-accent-foreground')}>
                     <Clock className="mr-2 h-4 w-4" /> Duration (Longest)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_ASC')} className={cn(retiredSortBy === 'DURATION_ASC' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('DURATION_ASC')} className={cn(aetherSinkSortBy === 'DURATION_ASC' && 'bg-accent text-accent-foreground')}>
                     <Clock className="mr-2 h-4 w-4" /> Duration (Shortest)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_FIRST')} className={cn(retiredSortBy === 'CRITICAL_FIRST' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('CRITICAL_FIRST')} className={cn(aetherSinkSortBy === 'CRITICAL_FIRST' && 'bg-accent text-accent-foreground')}>
                     <Star className="mr-2 h-4 w-4" /> Critical (First)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_LAST')} className={cn(retiredSortBy === 'CRITICAL_LAST' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('CRITICAL_LAST')} className={cn(aetherSinkSortBy === 'CRITICAL_LAST' && 'bg-accent text-accent-foreground')}>
                     <Star className="mr-2 h-4 w-4" /> Critical (Last)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_FIRST')} className={cn(retiredSortBy === 'LOCKED_FIRST' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('LOCKED_FIRST')} className={cn(aetherSinkSortBy === 'LOCKED_FIRST' && 'bg-accent text-accent-foreground')}>
                     <Lock className="mr-2 h-4 w-4" /> Locked (First)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_LAST')} className={cn(retiredSortBy === 'LOCKED_LAST' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('LOCKED_LAST')} className={cn(aetherSinkSortBy === 'LOCKED_LAST' && 'bg-accent text-accent-foreground')}>
                     <Unlock className="mr-2 h-4 w-4" /> Locked (Last)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_DESC')} className={cn(retiredSortBy === 'ENERGY_DESC' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('ENERGY_DESC')} className={cn(aetherSinkSortBy === 'ENERGY_DESC' && 'bg-accent text-accent-foreground')}>
                     <Zap className="mr-2 h-4 w-4" /> Energy (Highest)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_ASC')} className={cn(retiredSortBy === 'ENERGY_ASC' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('ENERGY_ASC')} className={cn(aetherSinkSortBy === 'ENERGY_ASC' && 'bg-accent text-accent-foreground')}>
                     <Zap className="mr-2 h-4 w-4" /> Energy (Lowest)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_FIRST')} className={cn(retiredSortBy === 'COMPLETED_FIRST' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('COMPLETED_FIRST')} className={cn(aetherSinkSortBy === 'COMPLETED_FIRST' && 'bg-accent text-accent-foreground')}>
                     <CheckCircle className="mr-2 h-4 w-4" /> Completed (First)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_LAST')} className={cn(retiredSortBy === 'COMPLETED_LAST' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('COMPLETED_LAST')} className={cn(aetherSinkSortBy === 'COMPLETED_LAST' && 'bg-accent text-accent-foreground')}>
                     <CheckCircle className="mr-2 h-4 w-4" /> Completed (Last)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('EMOJI')} className={cn(retiredSortBy === 'EMOJI' && 'bg-accent text-accent-foreground')}>
+                  <DropdownMenuItem onClick={() => setAetherSinkSortBy('EMOJI')} className={cn(aetherSinkSortBy === 'EMOJI' && 'bg-accent text-accent-foreground')}>
                     <Smile className="mr-2 h-4 w-4" /> Emoji
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -195,9 +195,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                     variant="secondary"
                     size="sm"
                     onClick={onAutoScheduleSink}
-                    disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
+                    disabled={!hasUnlockedAetherSinkTasks || isLoading || isProcessingCommand}
                     className="flex items-center gap-1 h-8 px-3 text-sm font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
-                    style={(!hasUnlockedRetiredTasks || isLoading || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
+                    style={(!hasUnlockedAetherSinkTasks || isLoading || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                   >
                     {isProcessingCommand ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -245,7 +245,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                 <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading Aether Sink" />
                 <span className="ml-2 text-muted-foreground">Loading Aether Sink...</span>
               </div>
-            ) : retiredTasks.length === 0 ? (
+            ) : aetherSinkTasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-sm space-y-2">
                 <Ghost className="h-8 w-8" />
                 <p className="text-base font-semibold">Aether Sink is empty!</p>
@@ -253,7 +253,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               </div>
             ) : (
               <div className="space-y-2">
-                {retiredTasks.map((task) => {
+                {aetherSinkTasks.map((task) => {
                   const hue = getEmojiHue(task.name);
                   const emoji = assignEmoji(task.name);
                   const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
@@ -275,14 +275,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                       onClick={(e) => handleTaskItemClick(e, task)}
                     >
                       <div className="flex items-center space-x-3 flex-grow min-w-0">
-                        {/* Replaced Checkbox with Button containing CheckCircle */}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
                               variant="ghost" 
                               size="icon" 
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevent parent onClick from firing
+                                e.stopPropagation();
                                 handleToggleComplete(task);
                               }}
                               disabled={isLocked || isProcessingCommand}
@@ -301,7 +300,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                           </TooltipContent>
                         </Tooltip>
 
-                        <div // This div replaces the old label element
+                        <div
                           className={`flex flex-col items-start min-w-0 flex-grow`}
                         >
                           <div className="flex items-center gap-1 w-full">
@@ -356,7 +355,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               size="icon" 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked });
+                                toggleAetherSinkTaskLock({ taskId: task.id, isLocked: !isLocked });
                               }}
                               className={cn(
                                 "h-7 w-7 p-0 shrink-0",
@@ -404,7 +403,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               size="icon" 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onRemoveRetiredTask(task.id);
+                                onRemoveAetherSinkTask(task.id);
                               }}
                               disabled={isLocked || isProcessingCommand}
                               className={cn(
@@ -437,13 +436,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
           </CardContent>
         </>
       </Card>
-      <RetiredTaskDetailDialog // UPDATED: Use Dialog
-        task={selectedRetiredTask}
-        open={isDialogOpen} // UPDATED: Use Dialog state
+      <AetherSinkTaskDetailDialog
+        task={selectedAetherSinkTask}
+        open={isDialogOpen}
         onOpenChange={(open) => {
           console.log("AetherSink: Dialog onOpenChange. New state:", open);
-          setIsDialogOpen(open); // UPDATED: Update Dialog state
-          if (!open) setSelectedRetiredTask(null);
+          setIsDialogOpen(open);
+          if (!open) setSelectedAetherSinkTask(null);
         }}
       />
     </>

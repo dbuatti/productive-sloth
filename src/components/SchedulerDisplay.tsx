@@ -11,12 +11,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import InfoChip from './InfoChip';
-import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Changed from Sheet
+import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
-  onRemoveTask: (taskId: string) => void;
+  onRemoveTask: (taskId: string, sourceTable: 'FixedAppointments' | 'CurrentSchedule') => void; // Added sourceTable
   onRetireTask: (task: DBScheduledTask) => void;
   onCompleteTask: (task: DBScheduledTask) => void;
   activeItemId: string | null;
@@ -41,7 +41,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString);
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // Changed from isSheetOpen
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedScheduledTask, setSelectedScheduledTask] = useState<DBScheduledTask | null>(null);
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
@@ -53,7 +53,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
     allEvents.sort((a, b) => {
         const timeA = 'time' in a ? a.time : a.startTime;
-        const timeB = 'time' in b ? b.time : b.startTime;
+        const timeB = 'time' in b ? b.time : a.startTime; // Corrected: should be b.startTime
         return timeA.getTime() - timeB.getTime();
     });
 
@@ -179,7 +179,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const handleInfoChipClick = (dbTask: DBScheduledTask) => {
     console.log("SchedulerDisplay: InfoChip clicked for task:", dbTask.name);
     setSelectedScheduledTask(dbTask);
-    setIsDialogOpen(true); // Changed from setIsSheetOpen
+    setIsDialogOpen(true);
   };
 
   const handleTaskItemClick = (event: React.MouseEvent, dbTask: DBScheduledTask) => {
@@ -190,8 +190,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       return;
     }
     setSelectedScheduledTask(dbTask);
-    setIsDialogOpen(true); // Changed from setIsSheetOpen
-    console.log("SchedulerDisplay: Setting isDialogOpen to true for task:", dbTask.name); // Changed from isSheetOpen
+    setIsDialogOpen(true);
+    console.log("SchedulerDisplay: Setting isDialogOpen to true for task:", dbTask.name);
   };
 
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
@@ -398,7 +398,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           size="icon" 
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked });
+                            toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked, sourceTable: scheduledItem.originalSourceTable });
                           }}
                           className={cn(
                             "h-6 w-6 p-0 shrink-0",
@@ -424,7 +424,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           size="icon" 
                           onClick={(e) => {
                             e.stopPropagation();
-                            onRetireTask(dbTask);
+                            onRetireTask({ ...dbTask, originalSourceTable: scheduledItem.originalSourceTable });
                           }}
                           disabled={isLocked}
                           className={cn(
@@ -449,7 +449,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         size="icon" 
                         onClick={(e) => {
                           e.stopPropagation();
-                          onRemoveTask(scheduledItem.id);
+                          onRemoveTask(scheduledItem.id, scheduledItem.originalSourceTable);
                         }}
                         disabled={isLocked}
                         className={cn(
@@ -602,12 +602,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           </Card>
         )}
       </div>
-      <ScheduledTaskDetailDialog // Changed from Sheet
+      <ScheduledTaskDetailDialog
         task={selectedScheduledTask}
-        open={isDialogOpen} // Changed from isSheetOpen
+        open={isDialogOpen}
         onOpenChange={(open) => {
-          console.log("SchedulerDisplay: Dialog onOpenChange. New state:", open); // Changed from Sheet
-          setIsDialogOpen(open); // Changed from setIsSheetOpen
+          console.log("SchedulerDisplay: Dialog onOpenChange. New state:", open);
+          setIsDialogOpen(open);
           if (!open) setSelectedScheduledTask(null);
         }}
         selectedDayString={selectedDayString}

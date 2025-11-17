@@ -3,7 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock } from '@/types/scheduler';
+import {
+  FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, AetherSinkTask, NewAetherSinkTask,
+  SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock
+} from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -58,19 +61,6 @@ import EarlyCompletionModal from '@/components/EarlyCompletionModal';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 
-// Removed useDeepCompareMemoize to ensure immediate updates for task details
-// function useDeepCompareMemoize<T>(value: T): T {
-//   const ref = useRef<T>(value);
-//   const signalRef = useRef<number>(0);
-
-//   if (!deepCompare(value, ref.current)) {
-//     ref.current = value;
-//     signalRef.current++;
-//   }
-
-//   return useMemo(() => ref.current, [signalRef.current],);
-// }
-
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
 
@@ -106,21 +96,21 @@ interface InjectionPromptState {
 const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const scheduleContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
+  const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
   const { 
     dbScheduledTasks,
     isLoading: isSchedulerTasksLoading, 
     addScheduledTask, 
-    addRetiredTask,
+    addAetherSinkTask, // Renamed from addRetiredTask
     removeScheduledTask, 
     clearScheduledTasks,
     datesWithTasks,
     isLoadingDatesWithTasks,
-    retiredTasks,
-    isLoadingRetiredTasks,
-    completedTasksForSelectedDayList, // NEW: Import completedTasksForSelectedDayList
-    isLoadingCompletedTasksForSelectedDay, // NEW: Import loading state for completedTasksForSelectedDayList
+    aetherSinkTasks, // Renamed from retiredTasks
+    isLoadingAetherSinkTasks, // Renamed from isLoadingRetiredTasks
+    completedTasksForSelectedDayList,
+    isLoadingCompletedTasksForSelectedDay,
     retireTask,
     rezoneTask,
     compactScheduledTasks,
@@ -130,13 +120,13 @@ const SchedulerPage: React.FC = () => {
     aetherDumpMega,
     sortBy,
     setSortBy,
-    retiredSortBy,
-    setRetiredSortBy,
+    aetherSinkSortBy, // Renamed from retiredSortBy
+    setAetherSinkSortBy, // Renamed from setRetiredSortBy
     autoBalanceSchedule,
-    completeScheduledTask: completeScheduledTaskMutation,
+    completeScheduledTask, // Renamed from completeScheduledTaskMutation
     updateScheduledTaskDetails,
     updateScheduledTaskStatus,
-  } = useSchedulerTasks(selectedDay, scheduleContainerRef); // Pass the ref here
+  } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const queryClient = useQueryClient();
   
@@ -312,7 +302,7 @@ const SchedulerPage: React.FC = () => {
       if (tasksToRetire.length > 0) {
         console.log(`SchedulerPage: Automatically retiring ${tasksToRetire.length} past-due tasks from before workday start.`);
         tasksToRetire.forEach(task => {
-          retireTask(task);
+          retireTask({ ...task, originalSourceTable: 'CurrentSchedule' }); // Specify source table
         });
         setHasMorningFixRunToday(true);
       } else {
@@ -388,7 +378,7 @@ const SchedulerPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] }); // NEW: Invalidate completed tasks list for selected day
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] });
       showSuccess("Schedule data refreshed.");
     }
   };
@@ -427,6 +417,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: energyCost,
           is_custom_energy_cost: false,
+          sourceTable: 'CurrentSchedule', // Specify source table
         });
         showSuccess(`Quick Scheduled ${duration} min focus block.`);
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
@@ -448,8 +439,10 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     
-    const unlockedTasks = dbScheduledTasks.filter(task => !task.is_locked);
-    if (unlockedTasks.length === 0) {
+    const unlockedFixedTasks = dbScheduledTasks.filter(task => !task.is_flexible && !task.is_locked);
+    const unlockedCurrentScheduleTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
+
+    if (unlockedFixedTasks.length === 0 && unlockedCurrentScheduleTasks.length === 0) {
       showSuccess("No unlocked tasks to clear.");
       setIsProcessingCommand(false);
       setShowClearConfirmation(false);
@@ -457,22 +450,32 @@ const SchedulerPage: React.FC = () => {
       return;
     }
 
-    const { error } = await supabase.from('scheduled_tasks')
-      .delete()
-      .in('id', unlockedTasks.map(task => task.id))
-      .eq('user_id', user.id)
-      .eq('scheduled_date', formattedSelectedDay);
+    try {
+      if (unlockedFixedTasks.length > 0) {
+        const { error: fixedError } = await supabase.from('FixedAppointments')
+          .delete()
+          .in('id', unlockedFixedTasks.map(task => task.id))
+          .eq('user_id', user.id)
+          .eq('scheduled_date', formattedSelectedDay);
+        if (fixedError) throw new Error(fixedError.message);
+      }
 
-    if (error) {
+      if (unlockedCurrentScheduleTasks.length > 0) {
+        const { error: currentScheduleError } = await supabase.from('CurrentSchedule')
+          .delete()
+          .in('id', unlockedCurrentScheduleTasks.map(task => task.id))
+          .eq('user_id', user.id)
+          .eq('scheduled_date', formattedSelectedDay);
+        if (currentScheduleError) throw new Error(currentScheduleError.message);
+      }
+    } catch (error: any) {
       showError(`Failed to clear schedule: ${error.message}`);
       console.error("Clear schedule error:", error);
-    } else {
-      // Success toast and query invalidation are now handled in useSchedulerTasks' onSettled
+    } finally {
+      setIsProcessingCommand(false);
+      setShowClearConfirmation(false);
+      setInputValue('');
     }
-
-    setIsProcessingCommand(false);
-    setShowClearConfirmation(false);
-    setInputValue('');
   };
 
   const handleSinkFill = useCallback(async (
@@ -483,7 +486,7 @@ const SchedulerPage: React.FC = () => {
   ): Promise<boolean> => {
     if (!user || !profile) return false;
 
-    const eligibleSinkTasks = retiredTasks
+    const eligibleSinkTasks = aetherSinkTasks // Renamed from retiredTasks
         .filter(task => !task.is_locked && !task.is_completed && !tasksToExclude.includes(task.id))
         .map(task => ({
             ...task,
@@ -522,16 +525,17 @@ const SchedulerPage: React.FC = () => {
         await rezoneTask(taskToPlace.id);
 
         await addScheduledTask({
-            name: taskToPlace.name,
-            start_time: proposedStartTime.toISOString(),
-            end_time: proposedEndTime.toISOString(),
-            break_duration: taskToPlace.break_duration,
-            scheduled_date: formattedSelectedDay,
-            is_critical: taskToPlace.is_critical,
-            is_flexible: true,
-            is_locked: false,
-            energy_cost: taskToPlace.energy_cost,
-            is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
+          name: taskToPlace.name,
+          start_time: proposedStartTime.toISOString(),
+          end_time: proposedEndTime.toISOString(),
+          break_duration: taskToPlace.break_duration,
+          scheduled_date: formattedSelectedDay,
+          is_critical: taskToPlace.is_critical,
+          is_flexible: true,
+          is_locked: false,
+          energy_cost: taskToPlace.energy_cost,
+          is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
+          sourceTable: 'CurrentSchedule', // Specify source table
         });
 
         return true;
@@ -540,7 +544,7 @@ const SchedulerPage: React.FC = () => {
         console.error("Sink Fill Error:", error);
         return false;
     }
-  }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay]);
+  }, [user, profile, aetherSinkTasks, rezoneTask, addScheduledTask, formattedSelectedDay]);
 
   const handleCommand = async (input: string) => {
     if (!user || !profile) {
@@ -562,7 +566,7 @@ const SchedulerPage: React.FC = () => {
 
     if (parsedInput) {
       if (parsedInput.shouldSink) {
-        const newRetiredTask: NewRetiredTask = {
+        const newAetherSinkTask: NewAetherSinkTask = { // Renamed from NewRetiredTask
           user_id: user.id,
           name: parsedInput.name,
           duration: parsedInput.duration || null,
@@ -572,7 +576,7 @@ const SchedulerPage: React.FC = () => {
           energy_cost: parsedInput.energyCost,
           is_custom_energy_cost: false,
         };
-        await addRetiredTask(newRetiredTask);
+        await addAetherSinkTask(newAetherSinkTask); // Renamed mutation
         success = true;
       } else {
         const isAdHocTask = 'duration' in parsedInput;
@@ -601,6 +605,7 @@ const SchedulerPage: React.FC = () => {
               scheduled_date: taskScheduledDate,
               energy_cost: parsedInput.energyCost,
               is_custom_energy_cost: false,
+              sourceTable: parsedInput.isFlexible ? 'CurrentSchedule' : 'FixedAppointments', // Determine source table
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -646,6 +651,7 @@ const SchedulerPage: React.FC = () => {
             is_flexible: parsedInput.isFlexible, 
             energy_cost: parsedInput.energyCost,
             is_custom_energy_cost: false,
+            sourceTable: parsedInput.isFlexible ? 'CurrentSchedule' : 'FixedAppointments', // Determine source table
           }); 
           currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -681,6 +687,7 @@ const SchedulerPage: React.FC = () => {
             is_flexible: injectCommand.isFlexible,
             energy_cost: injectCommand.energyCost,
             is_custom_energy_cost: false,
+            sourceTable: injectCommand.isFlexible ? 'CurrentSchedule' : 'FixedAppointments', // Determine source table
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -738,7 +745,7 @@ const SchedulerPage: React.FC = () => {
                 setIsProcessingCommand(false);
                 return;
               }
-              await removeScheduledTask(taskToRemove.id);
+              await removeScheduledTask({ taskId: taskToRemove.id, sourceTable: taskToRemove.is_flexible ? 'CurrentSchedule' : 'FixedAppointments' });
               currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
                 !(block.start.getTime() === parseISO(taskToRemove.start_time!).getTime() && 
                   block.end.getTime() === parseISO(taskToRemove.end_time!).getTime())
@@ -758,7 +765,7 @@ const SchedulerPage: React.FC = () => {
                 return;
               }
               for (const task of tasksToRemove) {
-                await removeScheduledTask(task.id);
+                await removeScheduledTask({ taskId: task.id, sourceTable: task.is_flexible ? 'CurrentSchedule' : 'FixedAppointments' });
                 currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
                   !(block.start.getTime() === parseISO(task.start_time!).getTime() && 
                     block.end.getTime() === parseISO(task.end_time!).getTime())
@@ -885,6 +892,7 @@ const SchedulerPage: React.FC = () => {
         is_flexible: injectionPrompt.isFlexible, 
         energy_cost: calculatedEnergyCost,
         is_custom_energy_cost: injectionPrompt.isCustomEnergyCost,
+        sourceTable: injectionPrompt.isFlexible ? 'CurrentSchedule' : 'FixedAppointments', // Determine source table
       }); 
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -930,6 +938,7 @@ const SchedulerPage: React.FC = () => {
           is_flexible: injectionPrompt.isFlexible,
           energy_cost: calculatedEnergyCost,
           is_custom_energy_cost: false,
+          sourceTable: injectionPrompt.isFlexible ? 'CurrentSchedule' : 'FixedAppointments', // Determine source table
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -953,53 +962,55 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(false);
   };
 
-  const handleRezoneFromSink = async (retiredTask: RetiredTask) => {
+  const handleRezoneFromSink = async (aetherSinkTask: AetherSinkTask) => { // Renamed from retiredTask
     if (!user) {
       showError("You must be logged in to rezone tasks.");
       return;
     }
-    if (retiredTask.is_locked) {
-      showError(`Cannot re-zone locked task "${retiredTask.name}". Unlock it first.`);
+    if (aetherSinkTask.is_locked) {
+      showError(`Cannot re-zone locked task "${aetherSinkTask.name}". Unlock it first.`);
       return;
     }
     setIsProcessingCommand(true);
 
     try {
-      const taskDuration = retiredTask.duration || 30;
+      const taskDuration = aetherSinkTask.duration || 30;
       const selectedDayAsDate = parseISO(selectedDay);
 
       let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
 
 
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-        retiredTask.name,
+        aetherSinkTask.name,
         taskDuration,
-        retiredTask.is_critical,
+        aetherSinkTask.is_critical,
         true,
-        retiredTask.energy_cost,
+        aetherSinkTask.energy_cost,
         currentOccupiedBlocksForScheduling,
         effectiveWorkdayStart,
         workdayEndTime
       );
 
       if (proposedStartTime && proposedEndTime) {
-        await rezoneTask(retiredTask.id);
+        await rezoneTask(aetherSinkTask.id);
 
         await addScheduledTask({
-          name: retiredTask.name,
+          name: aetherSinkTask.name,
           start_time: proposedStartTime.toISOString(),
           end_time: proposedEndTime.toISOString(),
-          break_duration: retiredTask.break_duration,
+          break_duration: aetherSinkTask.break_duration,
           scheduled_date: formattedSelectedDay,
-          is_critical: retiredTask.is_critical,
+          is_critical: aetherSinkTask.is_critical,
           is_flexible: true,
-          energy_cost: retiredTask.energy_cost,
-          is_custom_energy_cost: retiredTask.is_custom_energy_cost,
+          is_locked: false,
+          energy_cost: aetherSinkTask.energy_cost,
+          is_custom_energy_cost: aetherSinkTask.is_custom_energy_cost,
+          sourceTable: 'CurrentSchedule', // Specify source table
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
-        showSuccess(`Re-zoned "${retiredTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
+        showSuccess(`Re-zoned "${aetherSinkTask.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       } else {
         showError(message);
@@ -1022,30 +1033,30 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
-    await retireTask(taskToRetire);
+    await retireTask({ ...taskToRetire, originalSourceTable: taskToRetire.is_flexible ? 'CurrentSchedule' : 'FixedAppointments' }); // Specify source table
     queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     setIsProcessingCommand(false);
   };
 
-  const handleRemoveRetiredTask = async (retiredTaskId: string) => {
+  const handleRemoveAetherSinkTask = async (aetherSinkTaskId: string) => { // Renamed from handleRemoveRetiredTask
     if (!user) {
-      showError("You must be logged in to remove retired tasks.");
+      showError("You must be logged in to remove AetherSink tasks.");
       return;
     }
-    const task = retiredTasks.find(t => t.id === retiredTaskId);
+    const task = aetherSinkTasks.find(t => t.id === aetherSinkTaskId); // Renamed from retiredTasks
     if (task?.is_locked) {
-      showError(`Cannot delete locked retired task "${task.name}". Unlock it first.`);
+      showError(`Cannot delete locked AetherSink task "${task.name}". Unlock it first.`);
       return;
     }
     setIsProcessingCommand(true);
     try {
-      const { error } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', user.id);
+      const { error } = await supabase.from('AetherSink').delete().eq('id', aetherSinkTaskId).eq('user_id', user.id);
       if (error) throw new Error(error.message);
       showSuccess('Task permanently removed from Aether Sink.');
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', user.id] }); // Renamed queryKey
     } catch (error: any) {
-      showError(`Failed to remove retired task: ${error.message}`);
-      console.error("Remove retired task error:", error);
+      showError(`Failed to remove AetherSink task: ${error.message}`);
+      console.error("Remove AetherSink task error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -1069,22 +1080,42 @@ const SchedulerPage: React.FC = () => {
     try {
         const existingFixedTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);
         const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
-        const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
+        const unlockedAetherSinkTasks = aetherSinkTasks.filter(task => !task.is_locked); // Renamed
 
         console.log("handleAutoScheduleSink: Existing fixed tasks:", existingFixedTasks.map(t => t.name));
         console.log("handleAutoScheduleSink: Flexible scheduled tasks to re-evaluate:", flexibleScheduledTasks.map(t => t.name));
-        console.log("handleAutoScheduleSink: Unlocked retired tasks to re-evaluate:", unlockedRetiredTasks.map(t => t.name));
+        console.log("handleAutoScheduleSink: Unlocked AetherSink tasks to re-evaluate:", unlockedAetherSinkTasks.map(t => t.name));
 
 
-        if (flexibleScheduledTasks.length === 0 && unlockedRetiredTasks.length === 0 && existingFixedTasks.length === 0) {
+        if (flexibleScheduledTasks.length === 0 && unlockedAetherSinkTasks.length === 0 && existingFixedTasks.length === 0) {
             showSuccess("No unlocked flexible tasks in schedule or Aether Sink to balance, and no fixed tasks to maintain.");
             setIsProcessingCommand(false);
             return;
         }
 
         const unifiedPool: UnifiedTask[] = [];
-        const scheduledTaskIdsToDelete: string[] = [];
-        const retiredTaskIdsToDelete: string[] = [];
+        const fixedAppointmentIdsToDelete: string[] = [];
+        const currentScheduleIdsToDelete: string[] = [];
+        const aetherSinkIdsToDelete: string[] = [];
+
+        // Add existing fixed tasks to the pool (they will be re-inserted)
+        existingFixedTasks.forEach(task => {
+          const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
+          unifiedPool.push({
+              id: task.id,
+              name: task.name,
+              duration: duration,
+              break_duration: task.break_duration,
+              is_critical: task.is_critical,
+              is_flexible: task.is_flexible,
+              energy_cost: task.energy_cost,
+              source: 'FixedAppointments',
+              originalId: task.id,
+              is_custom_energy_cost: task.is_custom_energy_cost,
+              created_at: task.created_at,
+          });
+          // Fixed tasks are not deleted, they are re-inserted.
+        });
 
         flexibleScheduledTasks.forEach(task => {
             const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
@@ -1096,15 +1127,15 @@ const SchedulerPage: React.FC = () => {
                 is_critical: task.is_critical,
                 is_flexible: true,
                 energy_cost: task.energy_cost,
-                source: 'scheduled',
+                source: 'CurrentSchedule',
                 originalId: task.id,
                 is_custom_energy_cost: task.is_custom_energy_cost,
                 created_at: task.created_at,
             });
-            scheduledTaskIdsToDelete.push(task.id);
+            currentScheduleIdsToDelete.push(task.id);
         });
 
-        unlockedRetiredTasks.forEach(task => {
+        unlockedAetherSinkTasks.forEach(task => { // Renamed
             unifiedPool.push({
                 id: task.id,
                 name: task.name,
@@ -1113,17 +1144,18 @@ const SchedulerPage: React.FC = () => {
                 is_critical: task.is_critical,
                 is_flexible: true,
                 energy_cost: task.energy_cost,
-                source: 'retired',
+                source: 'AetherSink',
                 originalId: task.id,
                 is_custom_energy_cost: task.is_custom_energy_cost,
                 created_at: task.retired_at,
             });
-            retiredTaskIdsToDelete.push(task.id);
+            aetherSinkIdsToDelete.push(task.id); // Renamed
         });
 
         console.log("handleAutoScheduleSink: Unified pool of tasks to place:", unifiedPool.map(t => t.name));
-        console.log("handleAutoScheduleSink: Scheduled task IDs to delete:", scheduledTaskIdsToDelete);
-        console.log("handleAutoScheduleSink: Retired task IDs to delete:", retiredTaskIdsToDelete);
+        console.log("handleAutoScheduleSink: FixedAppointment IDs to delete:", fixedAppointmentIdsToDelete);
+        console.log("handleAutoScheduleSink: CurrentSchedule IDs to delete:", currentScheduleIdsToDelete);
+        console.log("handleAutoScheduleSink: AetherSink IDs to delete:", aetherSinkIdsToDelete);
 
 
         // ----------------------------------------------------------------
@@ -1155,26 +1187,28 @@ const SchedulerPage: React.FC = () => {
         // ----------------------------------------------------------------
 
 
-        const tasksToInsert: NewDBScheduledTask[] = [];
-        const tasksToKeepInSink: NewRetiredTask[] = [];
-        
+        const tasksToInsertIntoFixedAppointments: NewDBScheduledTask[] = [];
+        const tasksToInsertIntoCurrentSchedule: NewDBScheduledTask[] = [];
+        const tasksToKeepInAetherSink: NewAetherSinkTask[] = []; // Renamed
+
+        // Re-insert existing fixed tasks first
         existingFixedTasks.forEach(task => {
-            tasksToInsert.push({
-                id: task.id,
-                name: task.name,
-                start_time: task.start_time,
-                end_time: task.end_time,
-                break_duration: task.break_duration,
-                scheduled_date: task.scheduled_date,
-                is_critical: task.is_critical,
-                is_flexible: task.is_flexible,
-                is_locked: task.is_locked,
-                energy_cost: task.energy_cost,
-                is_completed: task.is_completed,
-                is_custom_energy_cost: task.is_custom_energy_cost,
-            });
+          tasksToInsertIntoFixedAppointments.push({
+            id: task.id,
+            name: task.name,
+            start_time: task.start_time,
+            end_time: task.end_time,
+            break_duration: task.break_duration,
+            scheduled_date: task.scheduled_date,
+            is_critical: task.is_critical,
+            is_flexible: task.is_flexible,
+            is_locked: task.is_locked,
+            energy_cost: task.energy_cost,
+            is_completed: task.is_completed,
+            is_custom_energy_cost: task.is_custom_energy_cost,
+          });
         });
-        console.log("handleAutoScheduleSink: Initial tasksToInsert (fixed tasks):", tasksToInsert.map(t => t.name));
+        console.log("handleAutoScheduleSink: Initial tasksToInsertIntoFixedAppointments (fixed tasks):", tasksToInsertIntoFixedAppointments.map(t => t.name));
 
 
         const fixedOccupiedBlocks = mergeOverlappingTimeBlocks(existingFixedTasks
@@ -1191,16 +1225,19 @@ const SchedulerPage: React.FC = () => {
         let currentPlacementTime = effectiveWorkdayStart;
 
         for (const task of balancedQueue) {
+            // Skip fixed tasks from the unified pool, as they are already handled
+            if (task.source === 'FixedAppointments') continue;
+
             let placed = false;
             let searchTime = currentPlacementTime;
 
             if (task.is_critical && profile.energy < 80) {
-              tasksToKeepInSink.push({
+              tasksToKeepInAetherSink.push({ // Renamed
                 user_id: user.id,
                 name: task.name,
                 duration: task.duration,
                 break_duration: task.break_duration,
-                original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
+                original_scheduled_date: task.source === 'AetherSink' ? aetherSinkTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay, // Renamed
                 is_critical: task.is_critical,
                 is_locked: false,
                 energy_cost: task.energy_cost,
@@ -1229,7 +1266,7 @@ const SchedulerPage: React.FC = () => {
                     const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
 
                     if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocks)) {
-                        tasksToInsert.push({
+                        tasksToInsertIntoCurrentSchedule.push({ // Insert into CurrentSchedule
                             id: task.id,
                             name: task.name,
                             start_time: proposedStartTime.toISOString(),
@@ -1257,12 +1294,12 @@ const SchedulerPage: React.FC = () => {
             }
 
             if (!placed) {
-                tasksToKeepInSink.push({
+                tasksToKeepInAetherSink.push({ // Renamed
                     user_id: user.id,
                     name: task.name,
                     duration: task.duration,
                     break_duration: task.break_duration,
-                    original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
+                    original_scheduled_date: task.source === 'AetherSink' ? aetherSinkTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay, // Renamed
                     is_critical: task.is_critical,
                     is_locked: false,
                     energy_cost: task.energy_cost,
@@ -1274,18 +1311,22 @@ const SchedulerPage: React.FC = () => {
         }
 
         const payload: AutoBalancePayload = {
-            scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
-            retiredTaskIdsToDelete: retiredTaskIdsToDelete,
-            tasksToInsert: tasksToInsert,
-            tasksToKeepInSink: tasksToKeepInSink,
+            fixedAppointmentIdsToDelete: fixedAppointmentIdsToDelete,
+            currentScheduleIdsToDelete: currentScheduleIdsToDelete,
+            aetherSinkIdsToDelete: aetherSinkIdsToDelete,
+            tasksToInsertIntoFixedAppointments: tasksToInsertIntoFixedAppointments,
+            tasksToInsertIntoCurrentSchedule: tasksToInsertIntoCurrentSchedule,
+            tasksToKeepInAetherSink: tasksToKeepInAetherSink,
             selectedDate: formattedSelectedDay,
         };
 
         console.log("handleAutoScheduleSink: Final payload for autoBalanceSchedule mutation:", {
-          scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
-          retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
-          tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
-          tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
+          fixedAppointmentIdsToDelete: payload.fixedAppointmentIdsToDelete,
+          currentScheduleIdsToDelete: payload.currentScheduleIdsToDelete,
+          aetherSinkIdsToDelete: payload.aetherSinkIdsToDelete,
+          tasksToInsertIntoFixedAppointments: payload.tasksToInsertIntoFixedAppointments.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
+          tasksToInsertIntoCurrentSchedule: payload.tasksToInsertIntoCurrentSchedule.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
+          tasksToKeepInAetherSink: payload.tasksToKeepInAetherSink.map(t => ({ name: t.name })),
           selectedDate: payload.selectedDate,
         });
 
@@ -1355,11 +1396,12 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(true);
 
     const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
-    const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
+    const unlockedAetherSinkTasks = aetherSinkTasks.filter(task => !task.is_locked); // Renamed
 
     const unifiedPool: UnifiedTask[] = [];
-    const scheduledTaskIdsToDelete: string[] = [];
-    const retiredTaskIdsToDelete: string[] = [];
+    const fixedAppointmentIdsToDelete: string[] = [];
+    const currentScheduleIdsToDelete: string[] = [];
+    const aetherSinkIdsToDelete: string[] = [];
 
     flexibleScheduledTasks.forEach(task => {
       const taskDuration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
@@ -1371,14 +1413,14 @@ const SchedulerPage: React.FC = () => {
         is_critical: task.is_critical,
         is_flexible: true,
         energy_cost: task.energy_cost,
-        source: 'scheduled',
+        source: 'CurrentSchedule',
         originalId: task.id,
         is_custom_energy_cost: task.is_custom_energy_cost,
         created_at: task.created_at,
       });
     });
 
-    unlockedRetiredTasks.forEach(task => {
+    unlockedAetherSinkTasks.forEach(task => { // Renamed
       unifiedPool.push({
         id: task.id,
         name: task.name,
@@ -1387,7 +1429,7 @@ const SchedulerPage: React.FC = () => {
         is_critical: task.is_critical,
         is_flexible: true,
         energy_cost: task.energy_cost,
-        source: 'retired',
+        source: 'AetherSink',
         originalId: task.id,
         is_custom_energy_cost: task.is_custom_energy_cost,
         created_at: task.retired_at,
@@ -1479,11 +1521,12 @@ const SchedulerPage: React.FC = () => {
       sortedFlexibleTasksForCompaction
     );
 
-    const tasksToInsert: NewDBScheduledTask[] = [];
-    const tasksToKeepInSink: NewRetiredTask[] = [];
+    const tasksToInsertIntoFixedAppointments: NewDBScheduledTask[] = [];
+    const tasksToInsertIntoCurrentSchedule: NewDBScheduledTask[] = [];
+    const tasksToKeepInAetherSink: NewAetherSinkTask[] = [];
 
     fixedAndLockedScheduledTasks.forEach(task => {
-      tasksToInsert.push({
+      tasksToInsertIntoFixedAppointments.push({
         id: task.id,
         name: task.name,
         start_time: task.start_time,
@@ -1501,7 +1544,7 @@ const SchedulerPage: React.FC = () => {
 
     reorganizedTasks.forEach(task => {
       if (task.is_flexible && !task.is_locked) {
-        tasksToInsert.push({
+        tasksToInsertIntoCurrentSchedule.push({
           id: task.id,
           name: task.name,
           start_time: task.start_time,
@@ -1521,31 +1564,33 @@ const SchedulerPage: React.FC = () => {
     const placedTaskIds = new Set(reorganizedTasks.map(t => t.id));
     unifiedPool.forEach(task => {
       if (!placedTaskIds.has(task.id)) {
-        tasksToKeepInSink.push({
+        tasksToKeepInAetherSink.push({
           user_id: user.id,
           name: task.name,
           duration: task.duration,
           break_duration: task.break_duration,
-          original_scheduled_date: task.source === 'retired' ? retiredTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
+          original_scheduled_date: task.source === 'AetherSink' ? aetherSinkTasks.find(t => t.id === task.originalId)?.original_scheduled_date || formattedSelectedDay : formattedSelectedDay,
           is_critical: task.is_critical,
           is_locked: false,
           energy_cost: task.energy_cost,
           is_completed: false,
           is_custom_energy_cost: task.is_custom_energy_cost,
         });
-        if (task.source === 'scheduled') {
-          scheduledTaskIdsToDelete.push(task.originalId);
-        } else {
-          retiredTaskIdsToDelete.push(task.originalId);
+        if (task.source === 'CurrentSchedule') {
+          currentScheduleIdsToDelete.push(task.originalId);
+        } else if (task.source === 'AetherSink') {
+          aetherSinkIdsToDelete.push(task.originalId);
         }
       }
     });
 
     const payload: AutoBalancePayload = {
-      scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
-      retiredTaskIdsToDelete: retiredTaskIdsToDelete,
-      tasksToInsert: tasksToInsert,
-      tasksToKeepInSink: tasksToKeepInSink,
+      fixedAppointmentIdsToDelete: fixedAppointmentIdsToDelete,
+      currentScheduleIdsToDelete: currentScheduleIdsToDelete,
+      aetherSinkIdsToDelete: aetherSinkIdsToDelete,
+      tasksToInsertIntoFixedAppointments: tasksToInsertIntoFixedAppointments,
+      tasksToInsertIntoCurrentSchedule: tasksToInsertIntoCurrentSchedule,
+      tasksToKeepInAetherSink: tasksToKeepInAetherSink,
       selectedDate: formattedSelectedDay,
     };
 
@@ -1621,7 +1666,7 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleSchedulerAction = useCallback(async (
-    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus', // NEW: Added 'justFinish'
+    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus',
     task: DBScheduledTask,
     isEarlyCompletion: boolean = false,
     remainingDurationMinutes: number = 0,
@@ -1639,6 +1684,8 @@ const SchedulerPage: React.FC = () => {
     let modalOpened = false;
 
     try {
+      const originalSourceTable = task.is_flexible ? 'CurrentSchedule' : 'FixedAppointments';
+
       if (action === 'complete') {
         const activeItem = currentSchedule?.items.find(item => item.id === task.id);
         
@@ -1649,7 +1696,7 @@ const SchedulerPage: React.FC = () => {
 
         if (isCurrentlyActive) {
             remainingMins = activeItem ? differenceInMinutes(activeItem.endTime, T_current) : 0;
-            if (remainingMins > 0) { // Only show modal if there's actual time remaining
+            if (remainingMins > 0) {
                 shouldOpenEarlyCompletionModal = true;
             }
         }
@@ -1663,13 +1710,7 @@ const SchedulerPage: React.FC = () => {
             setIsProcessingCommand(false); 
             return;
         } else {
-            // If it's a future task, or active task completed exactly on time/past its end time
-            await completeScheduledTaskMutation(task); 
-            if (task.is_flexible) {
-              await removeScheduledTask(task.id);
-            } else {
-              await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-            }
+            await completeScheduledTask({ ...task, originalSourceTable: originalSourceTable }, task.duration || 0);
             showSuccess(`Task "${task.name}" completed!`);
             if (isCurrentlyActive) {
                 if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
@@ -1698,13 +1739,10 @@ const SchedulerPage: React.FC = () => {
           is_locked: true,
           energy_cost: 0,
           is_custom_energy_cost: false,
+          sourceTable: 'FixedAppointments', // Breaks are fixed appointments
         });
 
-        if (task.is_flexible) {
-          await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-        }
+        await completeScheduledTask({ ...task, originalSourceTable: originalSourceTable }, task.duration || 0);
         showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
@@ -1724,11 +1762,7 @@ const SchedulerPage: React.FC = () => {
         const isNextTaskImmovable = !originalNextTask.is_flexible || originalNextTask.is_locked;
         const remainingMins = differenceInMinutes(originalNextTaskStartTime, T_current);
         
-        if (task.is_flexible) {
-          await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-        }
+        await completeScheduledTask({ ...task, originalSourceTable: originalSourceTable }, task.duration || 0);
 
         if (isNextTaskImmovable) {
           if (remainingMins > 0) {
@@ -1759,7 +1793,8 @@ const SchedulerPage: React.FC = () => {
             start_time: newNextTaskStartTime.toISOString(),
             end_time: newNextTaskEndTime.toISOString(),
             is_flexible: originalNextTask.is_flexible, 
-            is_locked: originalNextTask.is_locked,     
+            is_locked: originalNextTask.is_locked,
+            originalSourceTable: originalNextTask.is_flexible ? 'CurrentSchedule' : 'FixedAppointments',
           });
 
           await handleCompactSchedule(); 
@@ -1769,17 +1804,12 @@ const SchedulerPage: React.FC = () => {
 
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
-      } else if (action === 'justFinish') { // NEW: Handle 'justFinish' action
-        await completeScheduledTaskMutation(task);
-        if (task.is_flexible) {
-          await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-        }
+      } else if (action === 'justFinish') {
+        await completeScheduledTask({ ...task, originalSourceTable: originalSourceTable }, task.duration || 0);
         showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
-        setIsFocusModeActive(false); // Ensure focus mode is exited
+        setIsFocusModeActive(false);
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
         showSuccess("Exited focus mode.");
@@ -1800,9 +1830,8 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTask, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart]);
 
-  // NEW: Calculate tasks completed today and XP earned today for the recap card
   const tasksCompletedForSelectedDay = useMemo(() => {
     if (!completedTasksForSelectedDayList) return 0;
     return completedTasksForSelectedDayList.length;
@@ -1810,23 +1839,22 @@ const SchedulerPage: React.FC = () => {
 
   const xpEarnedForSelectedDay = useMemo(() => {
     if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.reduce((sum, task) => sum + (task.energy_cost * 2), 0);
+    return completedTasksForSelectedDayList.reduce((sum, task) => sum + (task.xp_earned || 0), 0);
   }, [completedTasksForSelectedDayList]);
 
   const criticalTasksCompletedForSelectedDay = useMemo(() => {
     if (!completedTasksForSelectedDayList) return 0;
     return completedTasksForSelectedDayList.filter(task => 
-      task.is_critical && task.is_completed
+      task.is_critical
     ).length;
   }, [completedTasksForSelectedDayList]);
 
-  // NEW: Filter completed scheduled tasks for the selected day
   const completedScheduledTasksForRecap = useMemo(() => {
-    return completedTasksForSelectedDayList; // Use the new combined list
+    return completedTasksForSelectedDayList;
   }, [completedTasksForSelectedDayList]);
 
 
-  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
+  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingAetherSinkTasks || isLoadingCompletedTasksForSelectedDay;
 
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
 
@@ -1899,7 +1927,7 @@ const SchedulerPage: React.FC = () => {
             sortBy={sortBy}
             onCompactSchedule={handleCompactSchedule}
             onQuickScheduleBlock={handleQuickScheduleBlock}
-            retiredTasksCount={retiredTasks.length}
+            aetherSinkTasksCount={aetherSinkTasks.length} // Renamed
           />
 
           {isSameDay(parseISO(selectedDay), T_current) && (
@@ -1934,7 +1962,7 @@ const SchedulerPage: React.FC = () => {
                 value="aether-sink" 
                 className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
               >
-                <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
+                <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({aetherSinkTasks.length})
               </TabsTrigger>
               <TabsTrigger 
                 value="daily-recap" 
@@ -1960,7 +1988,7 @@ const SchedulerPage: React.FC = () => {
                     <SchedulerDisplay 
                       schedule={currentSchedule} 
                       T_current={T_current} 
-                      onRemoveTask={(taskId) => handleSchedulerAction('skip', dbScheduledTasks.find(t => t.id === taskId)!)}
+                      onRemoveTask={(taskId, sourceTable) => handleSchedulerAction('skip', dbScheduledTasks.find(t => t.id === taskId && (t.is_flexible ? 'CurrentSchedule' : 'FixedAppointments') === sourceTable)!)}
                       onRetireTask={(task) => handleSchedulerAction('skip', task)}
                       onCompleteTask={(task) => handleSchedulerAction('complete', task, false)}
                       activeItemId={activeItemToday?.id || null} 
@@ -1974,27 +2002,27 @@ const SchedulerPage: React.FC = () => {
 
             <TabsContent value="aether-sink" className="space-y-4">
               <AetherSink 
-                retiredTasks={retiredTasks} 
+                aetherSinkTasks={aetherSinkTasks} // Renamed
                 onRezoneTask={handleRezoneFromSink} 
-                onRemoveRetiredTask={handleRemoveRetiredTask}
+                onRemoveAetherSinkTask={handleRemoveAetherSinkTask} // Renamed
                 onAutoScheduleSink={handleAutoScheduleSinkWrapper}
-                isLoading={isLoadingRetiredTasks}
+                isLoading={isLoadingAetherSinkTasks} // Renamed
                 isProcessingCommand={isProcessingCommand}
                 profileEnergy={profile?.energy || 0}
-                retiredSortBy={retiredSortBy} 
-                setRetiredSortBy={setRetiredSortBy} 
+                aetherSinkSortBy={aetherSinkSortBy} // Renamed
+                setAetherSinkSortBy={setAetherSinkSortBy} // Renamed
               />
             </TabsContent>
 
             <TabsContent value="daily-recap" className="space-y-4">
               <DailyVibeRecapCard
                 scheduleSummary={currentSchedule?.summary || null}
-                tasksCompletedToday={tasksCompletedForSelectedDay} // NEW: Use tasksCompletedForSelectedDay
-                xpEarnedToday={xpEarnedForSelectedDay} // NEW: Use xpEarnedForSelectedDay
+                tasksCompletedToday={tasksCompletedForSelectedDay}
+                xpEarnedToday={xpEarnedForSelectedDay}
                 profileEnergy={profile?.energy || 0}
-                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay} // NEW: Use criticalTasksCompletedForSelectedDay
+                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
                 selectedDayString={selectedDay}
-                completedScheduledTasks={completedScheduledTasksForRecap} /* NEW: Pass completed tasks */
+                completedScheduledTasks={completedScheduledTasksForRecap}
               />
             </TabsContent>
           </Tabs>
@@ -2114,7 +2142,7 @@ const SchedulerPage: React.FC = () => {
         remainingDurationMinutes={earlyCompletionRemainingMinutes}
         onTakeBreak={() => handleSchedulerAction('takeBreak', earlyCompletionDbTask!, true, earlyCompletionRemainingMinutes)}
         onStartNextTask={() => handleSchedulerAction('startNext', earlyCompletionDbTask!, true)}
-        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)} // NEW: Pass 'justFinish' handler
+        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)}
         isProcessingCommand={isProcessingCommand}
         hasNextTask={!!nextItemToday}
       />

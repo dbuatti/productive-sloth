@@ -1,72 +1,20 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
-import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy } from '@/types/scheduler';
+import {
+  DBScheduledTask, NewDBScheduledTask, AetherSinkTask, NewAetherSinkTask,
+  SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, AetherSinkSortBy, CompletedTask
+} from '@/types/scheduler';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays } from 'date-fns';
-import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants';
-import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue } from '@/lib/scheduler-utils'; // Removed sortTasksByVibeFlow
-import { useTasks } from './use-tasks';
-
-const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
-  const now = new Date();
-  const startOfToday = startOfDay(now);
-  
-  let startDate: Date;
-  let endDate: Date;
-
-  switch (filter) {
-    case 'TODAY':
-      startDate = new Date(0);
-      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
-      break;
-    case 'YESTERDAY':
-      startDate = subDays(startOfToday, 1);
-      endDate = startOfToday;
-      break;
-    case 'LAST_7_DAYS':
-      startDate = subDays(startOfToday, 7);
-      endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
-      break;
-    default:
-      return null;
-  }
-
-  return {
-    start: formatISO(startDate),
-    end: formatISO(endDate),
-  };
-};
-
-const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
-  const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-
-  return [...tasks].sort((a, b) => {
-    if (sortBy === 'PRIORITY_HIGH_TO_LOW') {
-      const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
-      if (priorityDiff !== 0) return priorityDiff;
-    } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
-      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
-      if (priorityDiff !== 0) return priorityDiff;
-    }
-    return 0; 
-  });
-};
-
-const calculateLevelAndRemainingXp = (totalXp: number) => {
-  const level = Math.floor(totalXp / XP_PER_LEVEL) + 1;
-  const xpForCurrentLevel = (level - 1) * XP_PER_LEVEL;
-  const xpTowardsNextLevel = totalXp - xpForCurrentLevel;
-  const xpRemainingForNextLevel = XP_PER_LEVEL - xpTowardsNextLevel;
-  return { level, xpTowardsNextLevel, xpRemainingForNextLevel };
-};
+import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes } from 'date-fns';
+import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
+import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue } from '@/lib/scheduler-utils';
 
 // Define a common interface for mutation context
 interface MutationContext {
   previousScheduledTasks?: DBScheduledTask[];
-  previousRetiredTasks?: RetiredTask[];
+  previousAetherSinkTasks?: AetherSinkTask[];
   previousScrollTop?: number;
 }
 
@@ -78,75 +26,95 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const formattedSelectedDate = selectedDate;
 
   const [sortBy, setSortBy] = useState<SortBy>('TIME_EARLIEST_TO_LATEST');
-  // Initialize retiredSortBy from localStorage or default
-  const [retiredSortBy, setRetiredSortBy] = useState<RetiredTaskSortBy>(() => {
+  const [aetherSinkSortBy, setAetherSinkSortBy] = useState<AetherSinkSortBy>(() => {
     if (typeof window !== 'undefined') {
       const savedSortBy = localStorage.getItem('aetherSinkSortBy');
-      return savedSortBy ? (savedSortBy as RetiredTaskSortBy) : 'RETIRED_AT_NEWEST';
+      return savedSortBy ? (savedSortBy as AetherSinkSortBy) : 'RETIRED_AT_NEWEST';
     }
     return 'RETIRED_AT_NEWEST';
   });
   const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null);
 
-  // Effect to save retiredSortBy to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('aetherSinkSortBy', retiredSortBy);
+      localStorage.setItem('aetherSinkSortBy', aetherSinkSortBy);
     }
-  }, [retiredSortBy]);
+  }, [aetherSinkSortBy]);
 
+  // Fetch scheduled tasks from FixedAppointments and CurrentSchedule
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy],
     queryFn: async () => {
-      if (!userId) {
-        console.log("useSchedulerTasks: No user ID, returning empty array.");
-        return [];
-      }
-      if (!formattedSelectedDate) {
-        console.log("useSchedulerTasks: No selected date, returning empty array.");
-        return [];
-      }
+      if (!userId) return [];
+      if (!formattedSelectedDate) return [];
+
       console.log("useSchedulerTasks: Fetching scheduled tasks for user:", userId, "on date:", formattedSelectedDate, "sorted by:", sortBy);
-      let query = supabase
-        .from('scheduled_tasks')
+
+      // Fetch from FixedAppointments
+      let fixedQuery = supabase
+        .from('FixedAppointments')
         .select('*')
         .eq('user_id', userId)
         .eq('scheduled_date', formattedSelectedDate);
 
+      // Fetch from CurrentSchedule
+      let currentScheduleQuery = supabase
+        .from('CurrentSchedule')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('scheduled_date', formattedSelectedDate);
+
+      // Apply sorting to both queries if applicable
       if (sortBy === 'TIME_EARLIEST_TO_LATEST') {
-        query = query.order('start_time', { ascending: true });
+        fixedQuery = fixedQuery.order('start_time', { ascending: true });
+        currentScheduleQuery = currentScheduleQuery.order('start_time', { ascending: true });
       } else if (sortBy === 'TIME_LATEST_TO_EARLIEST') {
-        query = query.order('start_time', { ascending: false });
+        fixedQuery = fixedQuery.order('start_time', { ascending: false });
+        currentScheduleQuery = currentScheduleQuery.order('start_time', { ascending: false });
       } else if (sortBy === 'PRIORITY_HIGH_TO_LOW') {
-        query = query.order('is_critical', { ascending: false }).order('start_time', { ascending: true });
+        fixedQuery = fixedQuery.order('is_critical', { ascending: false }).order('start_time', { ascending: true });
+        currentScheduleQuery = currentScheduleQuery.order('is_critical', { ascending: false }).order('start_time', { ascending: true });
       } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
-        query = query.order('is_critical', { ascending: true }).order('start_time', { ascending: true });
-      } else if (sortBy === 'EMOJI') {
-        // EMOJI sorting is client-side as it depends on task name parsing
-        // We'll fetch by creation time and sort client-side
-        query = query.order('created_at', { ascending: true });
+        fixedQuery = fixedQuery.order('is_critical', { ascending: true }).order('start_time', { ascending: true });
+        currentScheduleQuery = currentScheduleQuery.order('is_critical', { ascending: true }).order('start_time', { ascending: true });
       } else {
-        query = query.order('created_at', { ascending: true });
+        // Default sort by creation time if no specific time/priority sort
+        fixedQuery = fixedQuery.order('created_at', { ascending: true });
+        currentScheduleQuery = currentScheduleQuery.order('created_at', { ascending: true });
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
-        throw new Error(error.message);
+      const { data: fixedData, error: fixedError } = await fixedQuery;
+      if (fixedError) {
+        console.error("useSchedulerTasks: Error fetching FixedAppointments:", fixedError.message);
+        throw new Error(fixedError.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost })));
-      
-      // Client-side sorting for EMOJI
+
+      const { data: currentScheduleData, error: currentScheduleError } = await currentScheduleQuery;
+      if (currentScheduleError) {
+        console.error("useSchedulerTasks: Error fetching CurrentSchedule:", currentScheduleError.message);
+        throw new Error(currentScheduleError.message);
+      }
+
+      let combinedTasks = [...(fixedData || []), ...(currentScheduleData || [])] as DBScheduledTask[];
+
+      // Client-side sorting for EMOJI or if combined sort is needed after fetching
       if (sortBy === 'EMOJI') {
-        return (data as DBScheduledTask[]).sort((a, b) => {
+        combinedTasks = combinedTasks.sort((a, b) => {
           const hueA = getEmojiHue(a.name);
           const hueB = getEmojiHue(b.name);
           return hueA - hueB;
         });
+      } else if (!sortBy.startsWith('TIME') && !sortBy.startsWith('PRIORITY')) {
+        // If not sorted by time or priority in DB, sort by start_time client-side
+        combinedTasks = combinedTasks.sort((a, b) => {
+          const startTimeA = a.start_time ? parseISO(a.start_time).getTime() : 0;
+          const startTimeB = b.start_time ? parseISO(b.start_time).getTime() : 0;
+          return startTimeA - startTimeB;
+        });
       }
 
-      return data as DBScheduledTask[];
+      console.log("useSchedulerTasks: Successfully fetched combined scheduled tasks:", combinedTasks.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost })));
+      return combinedTasks;
     },
     enabled: !!userId && !!formattedSelectedDate,
   });
@@ -155,33 +123,40 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     queryKey: ['datesWithTasks', userId],
     queryFn: async () => {
       if (!userId) return [];
-      const { data, error } = await supabase
-        .from('scheduled_tasks')
+      
+      const { data: fixedDates, error: fixedError } = await supabase
+        .from('FixedAppointments')
         .select('scheduled_date')
         .eq('user_id', userId);
+      if (fixedError) console.error("Error fetching fixed appointment dates:", fixedError.message);
 
-      if (error) {
-        console.error("useSchedulerTasks: Error fetching dates with tasks:", error.message);
-        throw new Error(error.message);
-      }
-      const uniqueDates = Array.from(new Set(data.map(item => format(parseISO(item.scheduled_date), 'yyyy-MM-dd'))));
+      const { data: currentScheduleDates, error: currentScheduleError } = await supabase
+        .from('CurrentSchedule')
+        .select('scheduled_date')
+        .eq('user_id', userId);
+      if (currentScheduleError) console.error("Error fetching current schedule dates:", currentScheduleError.message);
+
+      const allDates = [
+        ...(fixedDates || []).map(item => format(parseISO(item.scheduled_date), 'yyyy-MM-dd')),
+        ...(currentScheduleDates || []).map(item => format(parseISO(item.scheduled_date), 'yyyy-MM-dd'))
+      ];
+      const uniqueDates = Array.from(new Set(allDates));
       return uniqueDates;
     },
     enabled: !!userId,
   });
 
-  const { data: retiredTasks = [], isLoading: isLoadingRetiredTasks } = useQuery<RetiredTask[]>({
-    queryKey: ['retiredTasks', userId, retiredSortBy], // NEW: Add retiredSortBy to queryKey
+  const { data: aetherSinkTasks = [], isLoading: isLoadingAetherSinkTasks } = useQuery<AetherSinkTask[]>({
+    queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy],
     queryFn: async () => {
       if (!userId) return [];
-      console.log("useSchedulerTasks: Fetching retired tasks for user:", userId, "sorted by:", retiredSortBy);
+      console.log("useSchedulerTasks: Fetching AetherSink tasks for user:", userId, "sorted by:", aetherSinkSortBy);
       let query = supabase
-        .from('retired_tasks')
+        .from('AetherSink')
         .select('*')
         .eq('user_id', userId);
 
-      // Apply sorting based on retiredSortBy
-      switch (retiredSortBy) {
+      switch (aetherSinkSortBy) {
         case 'NAME_ASC':
           query = query.order('name', { ascending: true });
           break;
@@ -192,7 +167,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           query = query.order('duration', { ascending: true, nullsFirst: true });
           break;
         case 'DURATION_DESC':
-          query = query.order('duration', { ascending: false }); // Removed nullsLast: true
+          query = query.order('duration', { ascending: false });
           break;
         case 'CRITICAL_FIRST':
           query = query.order('is_critical', { ascending: false }).order('retired_at', { ascending: false });
@@ -221,11 +196,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         case 'COMPLETED_LAST':
           query = query.order('is_completed', { ascending: true }).order('retired_at', { ascending: false });
           break;
-        case 'EMOJI': // NEW: EMOJI sort
-          // Fetch all and sort client-side
-          query = query.order('retired_at', { ascending: false }); // Default DB sort
+        case 'EMOJI':
+          query = query.order('retired_at', { ascending: false });
           break;
-        case 'RETIRED_AT_NEWEST': // Default or fallback
+        case 'RETIRED_AT_NEWEST':
         default:
           query = query.order('retired_at', { ascending: false });
           break;
@@ -234,33 +208,30 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { data, error } = await query;
 
       if (error) {
-        console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
+        console.error("useSchedulerTasks: Error fetching AetherSink tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost })));
+      console.log("useSchedulerTasks: Successfully fetched AetherSink tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost })));
       
-      // Client-side sorting for EMOJI
-      if (retiredSortBy === 'EMOJI') {
-        return (data as RetiredTask[]).sort((a, b) => {
+      if (aetherSinkSortBy === 'EMOJI') {
+        return (data as AetherSinkTask[]).sort((a, b) => {
           const hueA = getEmojiHue(a.name);
           const hueB = getEmojiHue(b.name);
           return hueA - hueB;
         });
       }
 
-      return data as RetiredTask[];
+      return data as AetherSinkTask[];
     },
     enabled: !!userId,
-    placeholderData: (previousData) => previousData, // Keep previous data while fetching new data
+    placeholderData: (previousData) => previousData,
   });
 
-  // Renamed from completedTasksTodayList to completedTasksForSelectedDayList
-  const { data: completedTasksForSelectedDayList = [], isLoading: isLoadingCompletedTasksForSelectedDay } = useQuery<DBScheduledTask[]>({
-    queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate], // Key includes selectedDate
+  const { data: completedTasksForSelectedDayList = [], isLoading: isLoadingCompletedTasksForSelectedDay } = useQuery<CompletedTask[]>({
+    queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate],
     queryFn: async () => {
       if (!userId) return [];
       
-      // Correctly calculate UTC start and end of the selected day
       const selectedDayDate = parseISO(formattedSelectedDate);
       const selectedDayStartUTC = new Date(Date.UTC(selectedDayDate.getFullYear(), selectedDayDate.getMonth(), selectedDayDate.getDate())).toISOString();
       const selectedDayEndUTC = new Date(Date.UTC(selectedDayDate.getFullYear(), selectedDayDate.getMonth(), selectedDayDate.getDate() + 1)).toISOString();
@@ -269,132 +240,46 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log("useSchedulerTasks: Selected Day Start UTC:", selectedDayStartUTC);
       console.log("useSchedulerTasks: Selected Day End UTC:", selectedDayEndUTC);
 
-      // Fetch completed scheduled tasks for selected day
-      const { data: scheduled, error: scheduledError } = await supabase
-        .from('scheduled_tasks')
+      const { data, error } = await supabase
+        .from('CompletedTasks')
         .select('*')
         .eq('user_id', userId)
-        .eq('is_completed', true)
-        .gte('updated_at', selectedDayStartUTC)
-        .lt('updated_at', selectedDayEndUTC);
+        .gte('completed_at', selectedDayStartUTC)
+        .lt('completed_at', selectedDayEndUTC)
+        .order('completed_at', { ascending: false });
 
-      if (scheduledError) {
-        console.error('useSchedulerTasks: Error fetching completed scheduled tasks for selected day:', scheduledError);
-        throw new Error(scheduledError.message);
+      if (error) {
+        console.error('useSchedulerTasks: Error fetching completed tasks for selected day:', error);
+        throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Completed Scheduled Tasks for selected day:", scheduled);
-
-      // Fetch completed retired tasks for selected day
-      const { data: retired, error: retiredError } = await supabase
-        .from('retired_tasks')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_completed', true)
-        .gte('retired_at', selectedDayStartUTC) // Use retired_at for completion time
-        .lt('retired_at', selectedDayEndUTC);
-
-      if (retiredError) {
-        console.error('useSchedulerTasks: Error fetching completed retired tasks for selected day:', retiredError);
-        throw new Error(retiredError.message);
-      }
-      console.log("useSchedulerTasks: Completed Retired Tasks for selected day:", retired);
-
-      // Fetch completed general tasks for selected day
-      const { data: generalTasks, error: generalTasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_completed', true)
-        .gte('updated_at', selectedDayStartUTC) // Use updated_at for completion time
-        .lt('updated_at', selectedDayEndUTC);
-
-      if (generalTasksError) {
-        console.error('useSchedulerTasks: Error fetching completed general tasks for selected day:', generalTasksError);
-        throw new Error(generalTasksError.message);
-      }
-      console.log("useSchedulerTasks: Completed General Tasks for selected day:", generalTasks);
-
-      // Combine and map tasks
-      const combinedTasks: DBScheduledTask[] = [
-        ...(scheduled || []),
-        ...(retired || []).map(rt => ({
-          id: rt.id,
-          user_id: rt.user_id,
-          name: rt.name,
-          break_duration: rt.break_duration,
-          start_time: null,
-          end_time: null,
-          scheduled_date: rt.original_scheduled_date,
-          created_at: rt.retired_at,
-          updated_at: rt.retired_at,
-          is_critical: rt.is_critical,
-          is_flexible: false,
-          is_locked: rt.is_locked,
-          energy_cost: rt.energy_cost,
-          is_completed: rt.is_completed,
-          is_custom_energy_cost: rt.is_custom_energy_cost,
-        })),
-        ...(generalTasks || []).map(gt => ({
-          id: gt.id,
-          user_id: gt.user_id,
-          name: gt.title,
-          break_duration: null,
-          start_time: null,
-          end_time: null,
-          scheduled_date: format(parseISO(gt.updated_at), 'yyyy-MM-dd'),
-          created_at: gt.created_at,
-          updated_at: gt.updated_at,
-          is_critical: gt.is_critical,
-          is_flexible: false,
-          is_locked: false,
-          energy_cost: gt.energy_cost,
-          is_completed: gt.is_completed,
-          is_custom_energy_cost: gt.is_custom_energy_cost,
-        })),
-      ];
-
-      console.log("useSchedulerTasks: Combined Tasks for selected day (before sorting):", combinedTasks);
-      combinedTasks.forEach(task => console.log(`useSchedulerTasks: Task: ${task.name}, Energy Cost: ${task.energy_cost}, Is Completed: ${task.is_completed}`));
-
-      // Sort by updated_at/retired_at descending (most recent first)
-      return combinedTasks.sort((a, b) => {
-        const timeA = parseISO(a.updated_at || a.created_at).getTime();
-        const timeB = parseISO(b.updated_at || b.created_at).getTime();
-        return timeB - timeA;
-      });
+      console.log("useSchedulerTasks: Completed Tasks for selected day:", data);
+      return data as CompletedTask[];
     },
-    enabled: !!userId && !!formattedSelectedDate, // Always enabled if userId and selectedDate are present
+    enabled: !!userId && !!formattedSelectedDate,
     staleTime: 1 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });
 
 
-  const rawTasks: RawTaskInput[] = dbScheduledTasks.map(dbTask => ({
-    name: dbTask.name,
-    duration: Math.floor((parseISO(dbTask.end_time!).getTime() - parseISO(dbTask.start_time!).getTime()) / (1000 * 60)),
-    breakDuration: dbTask.break_duration ?? undefined,
-    isCritical: dbTask.is_critical,
-    energyCost: dbTask.energy_cost,
-  }));
-
   const addScheduledTaskMutation = useMutation({
-    mutationFn: async (newTask: NewDBScheduledTask) => {
+    mutationFn: async (newTask: NewDBScheduledTask & { sourceTable: 'FixedAppointments' | 'CurrentSchedule' }) => {
       if (!userId) throw new Error("User not authenticated.");
       const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false };
-      console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
-      const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
+      
+      console.log(`useSchedulerTasks: Attempting to insert new task into ${newTask.sourceTable}:`, taskToInsert);
+      const { data, error } = await supabase.from(newTask.sourceTable).insert(taskToInsert).select().single();
       if (error) {
-        console.error("useSchedulerTasks: Error inserting task:", error.message);
+        console.error(`useSchedulerTasks: Error inserting task into ${newTask.sourceTable}:`, error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully inserted task:", data);
+      console.log(`useSchedulerTasks: Successfully inserted task into ${newTask.sourceTable}:`, data);
       return data as DBScheduledTask;
     },
-    onMutate: async (newTask: NewDBScheduledTask) => {
+    onMutate: async (newTask) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
 
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
         const tempId = Math.random().toString(36).substring(2, 9);
@@ -421,9 +306,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
@@ -437,100 +319,76 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   });
 
-  const addRetiredTaskMutation = useMutation({
-    mutationFn: async (newTask: NewRetiredTask) => {
+  const addAetherSinkTaskMutation = useMutation({
+    mutationFn: async (newTask: NewAetherSinkTask) => {
       if (!userId) throw new Error("User not authenticated.");
       const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false };
-      console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
-      const { data, error } = await supabase.from('retired_tasks').insert(taskToInsert).select().single();
+      console.log("useSchedulerTasks: Attempting to insert new AetherSink task:", taskToInsert);
+      const { data, error } = await supabase.from('AetherSink').insert(taskToInsert).select().single();
       if (error) {
-        console.error("useSchedulerTasks: Error inserting retired task:", error.message);
+        console.error("useSchedulerTasks: Error inserting AetherSink task:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully inserted retired task:", data);
-      return data as RetiredTask;
+      console.log("useSchedulerTasks: Successfully inserted AetherSink task:", data);
+      return data as AetherSinkTask;
     },
-    onMutate: async (newTask: NewRetiredTask) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+    onMutate: async (newTask: NewAetherSinkTask) => {
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      // Removed optimistic update for retiredTasks to prevent duplicates
-      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) => {
-      //   const tempId = Math.random().toString(36).substring(2, 9);
-      //   const optimisticTask: RetiredTask = {
-      //     id: tempId,
-      //     user_id: userId!,
-      //     name: newTask.name,
-      //     duration: newTask.duration ?? null,
-      //     break_duration: newTask.break_duration ?? null,
-      //     original_scheduled_date: newTask.original_scheduled_date,
-      //     retired_at: new Date().toISOString(),
-      //     is_critical: newTask.is_critical ?? false,
-      //     is_locked: newTask.is_locked ?? false,
-      //     energy_cost: newTask.energy_cost ?? 0,
-      //   };
-      //   return [optimisticTask, ...(old || [])];
-      // });
-      return { previousRetiredTasks, previousScrollTop };
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
+      return { previousAetherSinkTasks, previousScrollTop };
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
       showSuccess('Task sent directly to Aether Sink!');
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
     onError: (err, newTask, context) => {
-      // Check if the error message indicates a unique constraint violation (409 Conflict)
       if (err instanceof Error && err.message.includes('409 (Conflict)')) {
         showError(`A task named "${newTask.name}" for the original date ${format(parseISO(newTask.original_scheduled_date), 'MMM d, yyyy')} already exists in the Aether Sink. If you wish to add it again, consider modifying its name slightly.`);
       } else {
         showError(`Failed to send task to Aether Sink: ${err.message}`);
       }
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
 
 
   const removeScheduledTaskMutation = useMutation({
-    mutationFn: async (taskId: string) => {
+    mutationFn: async ({ taskId, sourceTable }: { taskId: string; sourceTable: 'FixedAppointments' | 'CurrentSchedule' }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Attempting to remove task ID:", taskId);
-      const { error } = await supabase.from('scheduled_tasks').delete().eq('id', taskId).eq('user_id', userId);
+      console.log(`useSchedulerTasks: Attempting to remove task ID: ${taskId} from ${sourceTable}`);
+      const { error } = await supabase.from(sourceTable).delete().eq('id', taskId).eq('user_id', userId);
       if (error) {
-        console.error("useSchedulerTasks: Error removing task:", error.message);
+        console.error(`useSchedulerTasks: Error removing task from ${sourceTable}:`, error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully removed task ID:", taskId);
+      console.log(`useSchedulerTasks: Successfully removed task ID: ${taskId} from ${sourceTable}`);
     },
-    onMutate: async (taskId: string) => {
+    onMutate: async ({ taskId, sourceTable }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
         (old || []).filter(task => task.id !== taskId)
       );
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Task removed from schedule.');
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
-        scrollRef.current.scrollTop = context.previousScrollTop; // Restore scroll position
+        scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
-    onError: (e, taskId, context) => {
+    onError: (e, { taskId, sourceTable }, context) => {
       showError(`Failed to remove task from schedule: ${e.message}`);
       if (context?.previousScheduledTasks) {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
@@ -542,23 +400,24 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async () => {
       if (!userId) throw new Error("User not authenticated.");
       console.log("useSchedulerTasks: Attempting to clear all scheduled tasks for user:", userId);
-      const { error } = await supabase.from('scheduled_tasks').delete().eq('user_id', userId).eq('scheduled_date', formattedSelectedDate);
-      if (error) {
-        console.error("useSchedulerTasks: Error clearing scheduled tasks:", error.message);
-        throw new Error(error.message);
-      }
+
+      // Delete from FixedAppointments
+      const { error: fixedError } = await supabase.from('FixedAppointments').delete().eq('user_id', userId).eq('scheduled_date', formattedSelectedDate);
+      if (fixedError) throw new Error(`Failed to clear FixedAppointments: ${fixedError.message}`);
+
+      // Delete from CurrentSchedule
+      const { error: currentScheduleError } = await supabase.from('CurrentSchedule').delete().eq('user_id', userId).eq('scheduled_date', formattedSelectedDate);
+      if (currentScheduleError) throw new Error(`Failed to clear CurrentSchedule: ${currentScheduleError.message}`);
+      
       console.log("useSchedulerTasks: Successfully cleared all scheduled tasks for user:", userId, "on date:", formattedSelectedDate);
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], []);
       return { previousScheduledTasks, previousScrollTop };
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
@@ -577,10 +436,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   });
 
   const retireTaskMutation = useMutation({
-    mutationFn: async (taskToRetire: DBScheduledTask) => {
+    mutationFn: async (taskToRetire: DBScheduledTask & { originalSourceTable: 'FixedAppointments' | 'CurrentSchedule' }) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const newRetiredTask: NewRetiredTask = {
+      const newAetherSinkTask: NewAetherSinkTask = {
         user_id: userId,
         name: taskToRetire.name,
         duration: (taskToRetire.start_time && taskToRetire.end_time) 
@@ -591,54 +450,32 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_critical: taskToRetire.is_critical,
         is_locked: taskToRetire.is_locked,
         energy_cost: taskToRetire.energy_cost ?? 0,
-        is_completed: taskToRetire.is_completed ?? false, // Pass completion status
-        is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false, // Pass custom energy cost flag
+        is_completed: taskToRetire.is_completed ?? false,
+        is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false,
       };
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
+      const { error: insertError } = await supabase.from('AetherSink').insert(newAetherSinkTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
 
-      const { error: deleteError } = await supabase.from('scheduled_tasks').delete().eq('id', taskToRetire.id).eq('user_id', userId);
+      const { error: deleteError } = await supabase.from(taskToRetire.originalSourceTable).delete().eq('id', taskToRetire.id).eq('user_id', userId);
       if (deleteError) throw new Error(`Failed to remove task from schedule: ${deleteError.message}`);
     },
-    onMutate: async (taskToRetire: DBScheduledTask) => {
+    onMutate: async (taskToRetire) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
 
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
         (old || []).filter(task => task.id !== taskToRetire.id)
       );
 
-      // Removed optimistic update for retiredTasks to prevent duplicates
-      // const newRetiredTask: RetiredTask = {
-      //   id: taskToRetire.id,
-      //   user_id: userId!,
-      //   name: taskToRetire.name,
-      //   duration: (taskToRetire.start_time && taskToRetire.end_time) 
-      //             ? Math.floor((parseISO(taskToRetire.end_time).getTime() - parseISO(taskToRetire.start_time).getTime()) / (1000 * 60)) 
-      //             : null,
-      //   break_duration: taskToRetire.break_duration,
-      //   original_scheduled_date: taskToRetire.scheduled_date,
-      //   retired_at: new Date().toISOString(),
-      //   is_critical: taskToRetire.is_critical, 
-      //   is_locked: taskToRetire.is_locked,
-      //   energy_cost: taskToRetire.energy_cost ?? 0,
-      // };
-      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-      //   [newRetiredTask, ...(old || [])]
-      // );
-
-      return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
+      return { previousScheduledTasks, previousAetherSinkTasks, previousScrollTop };
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Task moved to Aether Sink.');
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
@@ -650,103 +487,86 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (context?.previousScheduledTasks) {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
 
   const rezoneTaskMutation = useMutation({
-    mutationFn: async (retiredTaskId: string) => {
+    mutationFn: async (aetherSinkTaskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const { error: deleteError } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', userId);
+      const { error: deleteError } = await supabase.from('AetherSink').delete().eq('id', aetherSinkTaskId).eq('user_id', userId);
       if (deleteError) throw new Error(`Failed to remove task from Aether Sink: ${deleteError.message}`);
     },
-    onMutate: async (retiredTaskId: string) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+    onMutate: async (aetherSinkTaskId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
-        (old || []).filter(task => task.id !== retiredTaskId)
+      queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], (old) =>
+        (old || []).filter(task => task.id !== aetherSinkTaskId)
       );
-      return { previousRetiredTasks, previousScrollTop };
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
+      return { previousAetherSinkTasks, previousScrollTop };
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
       showSuccess('Task removed from Aether Sink.');
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
-    onError: (err, retiredTaskId, context) => {
+    onError: (err, aetherSinkTaskId, context) => {
       showError(`Failed to remove task from Aether Sink: ${err.message}`);
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
 
   const compactScheduledTasksMutation = useMutation({
-    mutationFn: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => { // Removed isVibeFlowEnabled
+    mutationFn: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const updatableTasks = tasksToUpdate.filter(task => task.is_flexible && !task.is_locked);
-      const nonUpdatableTasks = tasksToUpdate.filter(task => !task.is_flexible || task.is_locked);
-
-      if (updatableTasks.length === 0 && nonUpdatableTasks.length > 0) {
-        showSuccess("No flexible tasks to compact, fixed/locked tasks were skipped.");
-        return;
-      } else if (updatableTasks.length === 0) {
-        showSuccess("No flexible tasks to compact.");
-        return;
-      }
-
-      const updates = updatableTasks.map(task => ({
-        id: task.id,
-        user_id: userId,
-        name: task.name,
-        break_duration: task.break_duration,
-        start_time: task.start_time,
-        end_time: task.end_time,
-        scheduled_date: task.scheduled_date,
-        is_critical: task.is_critical,
-        is_flexible: task.is_flexible,
-        is_locked: task.is_locked,
-        energy_cost: task.energy_cost ?? 0,
-        is_completed: task.is_completed ?? false,
-        is_custom_energy_cost: task.is_custom_energy_cost ?? false,
-        updated_at: new Date().toISOString(),
+      const updatesFixed = tasksToUpdate.filter(task => !task.is_flexible || task.is_locked).map(task => ({
+        id: task.id, user_id: userId, name: task.name, break_duration: task.break_duration,
+        start_time: task.start_time, end_time: task.end_time, scheduled_date: task.scheduled_date,
+        is_critical: task.is_critical, is_flexible: false, is_locked: task.is_locked,
+        energy_cost: task.energy_cost ?? 0, is_completed: task.is_completed ?? false,
+        is_custom_energy_cost: task.is_custom_energy_cost ?? false, updated_at: new Date().toISOString(),
       }));
 
-      const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
+      const updatesCurrentSchedule = tasksToUpdate.filter(task => task.is_flexible && !task.is_locked).map(task => ({
+        id: task.id, user_id: userId, name: task.name, break_duration: task.break_duration,
+        start_time: task.start_time, end_time: task.end_time, scheduled_date: task.scheduled_date,
+        is_critical: task.is_critical, is_flexible: true, is_locked: task.is_locked,
+        energy_cost: task.energy_cost ?? 0, is_completed: task.is_completed ?? false,
+        is_custom_energy_cost: task.is_custom_energy_cost ?? false, updated_at: new Date().toISOString(),
+      }));
 
-      if (error) {
-        console.error("useSchedulerTasks: Error compacting tasks:", error.message);
-        throw new Error(error.message);
+      if (updatesFixed.length > 0) {
+        const { error } = await supabase.from('FixedAppointments').upsert(updatesFixed, { onConflict: 'id' });
+        if (error) throw new Error(`Failed to update FixedAppointments during compaction: ${error.message}`);
       }
-      console.log("useSchedulerTasks: Successfully compacted tasks.");
+      if (updatesCurrentSchedule.length > 0) {
+        const { error } = await supabase.from('CurrentSchedule').upsert(updatesCurrentSchedule, { onConflict: 'id' });
+        if (error) throw new Error(`Failed to update CurrentSchedule during compaction: ${error.message}`);
+      }
     },
-    onMutate: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => { // Removed isVibeFlowEnabled
+    onMutate: async ({ tasksToUpdate }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
         const updatedTasks = (old || []).map(oldTask => {
           const newTask = tasksToUpdate.find(t => t.id === oldTask.id);
-          return newTask && newTask.is_flexible && !newTask.is_locked ? newTask : oldTask;
+          return newTask ? newTask : oldTask;
         });
         return updatedTasks;
       });
       return { previousScheduledTasks, previousScrollTop };
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
@@ -869,13 +689,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           is_custom_energy_cost: task.is_custom_energy_cost ?? false,
           updated_at: new Date().toISOString(),
         }));
-        const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
+        const { error } = await supabase.from('CurrentSchedule').upsert(updates, { onConflict: 'id' });
         if (error) throw new Error(`Failed to update placed breaks: ${error.message}`);
       }
 
       if (failedToPlaceBreaks.length > 0) {
         const { error: deleteError } = await supabase
-          .from('scheduled_tasks')
+          .from('CurrentSchedule')
           .delete()
           .in('id', failedToPlaceBreaks.map(task => task.id))
           .eq('user_id', userId);
@@ -887,7 +707,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     onMutate: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, selectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break');
       let breakTasksToRandomize = currentDbTasks.filter(task => task.name.toLowerCase() === 'break' && !task.is_locked);
@@ -978,10 +798,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: ({ placedBreaks, failedToPlaceBreaks }) => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (data, _error, _variables, context: MutationContext | undefined) => { // Destructure data here
+    onSettled: (data, _error, _variables, context: MutationContext | undefined) => {
       const { placedBreaks, failedToPlaceBreaks } = data || { placedBreaks: [], failedToPlaceBreaks: [] };
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       if (placedBreaks.length > 0) {
@@ -1003,27 +820,27 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   });
 
   const toggleScheduledTaskLockMutation = useMutation({
-    mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
+    mutationFn: async ({ taskId, isLocked, sourceTable }: { taskId: string; isLocked: boolean; sourceTable: 'FixedAppointments' | 'CurrentSchedule' }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to toggle lock for task ID: ${taskId} to ${isLocked}`);
+      console.log(`useSchedulerTasks: Attempting to toggle lock for task ID: ${taskId} in ${sourceTable} to ${isLocked}`);
       const { data, error } = await supabase
-        .from('scheduled_tasks')
+        .from(sourceTable)
         .update({ is_locked: isLocked, updated_at: new Date().toISOString() })
         .eq('id', taskId)
         .eq('user_id', userId)
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error toggling task lock:", error.message);
+        console.error(`useSchedulerTasks: Error toggling task lock in ${sourceTable}:`, error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully toggled lock for task:", data);
+      console.log(`useSchedulerTasks: Successfully toggled lock for task in ${sourceTable}:`, data);
       return data as DBScheduledTask;
     },
-    onMutate: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
+    onMutate: async ({ taskId, isLocked, sourceTable }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
         (old || []).map(task =>
@@ -1032,9 +849,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       );
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: (updatedTask) => {
-      // No toast here, moved to onSettled
-    },
     onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       showSuccess(`Task "${updatedTask?.name}" ${updatedTask?.is_locked ? 'locked' : 'unlocked'}.`);
@@ -1042,58 +856,55 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
-    onError: (err, { taskId, isLocked }, context) => {
-      showError(`Failed to toggle lock for task: ${err.message}`);
+    onError: (err, { taskId, isLocked, sourceTable }, context) => {
+      showError(`Failed to toggle lock for task in ${sourceTable}: ${err.message}`);
       if (context?.previousScheduledTasks) {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
     }
   });
 
-  const toggleRetiredTaskLockMutation = useMutation({
+  const toggleAetherSinkTaskLockMutation = useMutation({
     mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to toggle lock for retired task ID: ${taskId} to ${isLocked}`);
+      console.log(`useSchedulerTasks: Attempting to toggle lock for AetherSink task ID: ${taskId} to ${isLocked}`);
       const { data, error } = await supabase
-        .from('retired_tasks')
-        .update({ is_locked: isLocked, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
+        .from('AetherSink')
+        .update({ is_locked: isLocked, retired_at: new Date().toISOString() })
         .eq('id', taskId)
         .eq('user_id', userId)
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error toggling retired task lock:", error.message);
+        console.error("useSchedulerTasks: Error toggling AetherSink task lock:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully toggled lock for retired task:", data);
-      return data as RetiredTask;
+      console.log("useSchedulerTasks: Successfully toggled lock for AetherSink task:", data);
+      return data as AetherSinkTask;
     },
     onMutate: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
+      queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], (old) =>
         (old || []).map(task =>
           task.id === taskId ? { ...task, is_locked: isLocked } : task
         )
       );
-      return { previousRetiredTasks, previousScrollTop };
+      return { previousAetherSinkTasks, previousScrollTop };
     },
-    onSuccess: (updatedTask) => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      showSuccess(`Retired task "${updatedTask?.name}" ${updatedTask?.is_locked ? 'locked' : 'unlocked'}.`);
+    onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      showSuccess(`AetherSink task "${updatedTask?.name}" ${updatedTask?.is_locked ? 'locked' : 'unlocked'}.`);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
     onError: (err, { taskId, isLocked }, context) => {
-      showError(`Failed to toggle lock for retired task: ${err.message}`);
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      showError(`Failed to toggle lock for AetherSink task: ${err.message}`);
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
@@ -1102,22 +913,22 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async () => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const { data: currentScheduledTasks, error: fetchError } = await supabase
-        .from('scheduled_tasks')
+      // Fetch from CurrentSchedule
+      const { data: currentScheduleTasks, error: fetchCurrentScheduleError } = await supabase
+        .from('CurrentSchedule')
         .select('*')
         .eq('user_id', userId)
         .eq('scheduled_date', formattedSelectedDate);
+      if (fetchCurrentScheduleError) throw new Error(`Failed to fetch CurrentSchedule tasks for Aether Dump: ${fetchCurrentScheduleError.message}`);
 
-      if (fetchError) throw new Error(`Failed to fetch scheduled tasks for Aether Dump: ${fetchError.message}`);
-
-      const tasksToDump = currentScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
+      const tasksToDump = currentScheduleTasks.filter(task => task.is_flexible && !task.is_locked);
 
       if (tasksToDump.length === 0) {
         showSuccess("No flexible, unlocked tasks to dump to Aether Sink for today.");
         return;
       }
 
-      const newRetiredTasks: NewRetiredTask[] = tasksToDump.map(task => ({
+      const newAetherSinkTasks: NewAetherSinkTask[] = tasksToDump.map(task => ({
         user_id: userId,
         name: task.name,
         duration: (task.start_time && task.end_time) 
@@ -1128,61 +939,38 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_critical: task.is_critical,
         is_locked: task.is_locked,
         energy_cost: task.energy_cost ?? 0,
-        is_completed: task.is_completed ?? false, // Pass completion status
-        is_custom_energy_cost: task.is_custom_energy_cost ?? false, // Pass custom energy cost flag
+        is_completed: task.is_completed ?? false,
+        is_custom_energy_cost: task.is_custom_energy_cost ?? false,
       }));
 
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
+      const { error: insertError } = await supabase.from('AetherSink').insert(newAetherSinkTasks);
       if (insertError) throw new Error(`Failed to move tasks to Aether Sink: ${insertError.message}`);
 
       const { error: deleteError } = await supabase
-        .from('scheduled_tasks')
+        .from('CurrentSchedule')
         .delete()
         .in('id', tasksToDump.map(task => task.id))
         .eq('user_id', userId);
-      if (deleteError) throw new Error(`Failed to remove tasks from schedule: ${deleteError.message}`);
+      if (deleteError) throw new Error(`Failed to remove tasks from CurrentSchedule: ${deleteError.message}`);
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
 
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       const tasksToDump = (previousScheduledTasks || []).filter(task => task.is_flexible && !task.is_locked);
       const remainingScheduledTasks = (previousScheduledTasks || []).filter(task => !task.is_flexible || task.is_locked);
       
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], remainingScheduledTasks);
 
-      // Removed optimistic update for retiredTasks to prevent duplicates
-      // const now = new Date().toISOString();
-      // const optimisticRetiredTasks: RetiredTask[] = tasksToDump.map(task => ({
-      //   id: task.id,
-      //   user_id: userId!,
-      //   name: task.name,
-      //   duration: (task.start_time && task.end_time) 
-      //             ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
-      //             : null,
-      //   break_duration: task.break_duration,
-      //   original_scheduled_date: task.scheduled_date,
-      //   retired_at: now,
-      //   is_critical: task.is_critical,
-      //   is_locked: task.is_locked,
-      //   energy_cost: task.energy_cost ?? 0,
-      // }));
-      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-      //   [...optimisticRetiredTasks, ...(old || [])]
-      // );
-
-      return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
+      return { previousScheduledTasks, previousAetherSinkTasks, previousScrollTop };
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Flexible tasks moved to Aether Sink!');
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
@@ -1194,8 +982,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (context?.previousScheduledTasks) {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
@@ -1205,7 +993,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
 
       const { data: allFlexibleScheduledTasks, error: fetchError } = await supabase
-        .from('scheduled_tasks')
+        .from('CurrentSchedule') // Only dump from CurrentSchedule
         .select('*')
         .eq('user_id', userId)
         .eq('is_flexible', true)
@@ -1219,7 +1007,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         return;
       }
 
-      const newRetiredTasks: NewRetiredTask[] = allFlexibleScheduledTasks.map(task => ({
+      const newAetherSinkTasks: NewAetherSinkTask[] = allFlexibleScheduledTasks.map(task => ({
         user_id: userId,
         name: task.name,
         duration: (task.start_time && task.end_time) 
@@ -1230,60 +1018,33 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_critical: task.is_critical,
         is_locked: task.is_locked,
         energy_cost: task.energy_cost ?? 0,
-        is_completed: task.is_completed ?? false, // Pass completion status
-        is_custom_energy_cost: task.is_custom_energy_cost ?? false, // Pass custom energy cost flag
+        is_completed: task.is_completed ?? false,
+        is_custom_energy_cost: task.is_custom_energy_cost ?? false,
       }));
 
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
+      const { error: insertError } = await supabase.from('AetherSink').insert(newAetherSinkTasks);
       if (insertError) throw new Error(`Failed to move tasks to Aether Sink (Mega): ${insertError.message}`);
 
       const { error: deleteError } = await supabase
-        .from('scheduled_tasks')
+        .from('CurrentSchedule')
         .delete()
         .in('id', allFlexibleScheduledTasks.map(task => task.id))
         .eq('user_id', userId);
-      if (deleteError) throw new Error(`Failed to remove tasks from schedule (Mega): ${deleteError.message}`);
+      if (deleteError) throw new Error(`Failed to remove tasks from CurrentSchedule (Mega): ${deleteError.message}`);
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
       await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
 
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      // Removed optimistic update for retiredTasks to prevent duplicates
-      // const currentScheduledTasksSnapshot = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
-      //   .flatMap(([_key, data]) => data || [])
-      //   .filter(task => task.is_flexible && !task.is_locked && isAfter(parseISO(task.scheduled_date), subDays(startOfDay(new Date()), 1)));
-
-      // const now = new Date().toISOString();
-      // const optimisticRetiredTasks: RetiredTask[] = currentScheduledTasksSnapshot.map(task => ({
-      //   id: task.id,
-      //   user_id: userId!,
-      //   name: task.name,
-      //   duration: (task.start_time && task.end_time) 
-      //             ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
-      //             : null,
-      //   break_duration: task.break_duration,
-      //   original_scheduled_date: task.scheduled_date,
-      //   retired_at: now,
-      //   is_critical: task.is_critical,
-      //   is_locked: task.is_locked,
-      //   energy_cost: task.energy_cost ?? 0,
-      // }));
-      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-      //   [...optimisticRetiredTasks, ...(old || [])]
-      // );
-
-      return { previousRetiredTasks, previousScrollTop };
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
+      return { previousAetherSinkTasks, previousScrollTop };
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('All flexible tasks from today and future moved to Aether Sink!');
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
@@ -1292,8 +1053,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onError: (err, _variables, context) => {
       showError(`Failed to perform Aether Dump Mega: ${err.message}`);
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
@@ -1303,95 +1064,125 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
 
       console.log("autoBalanceScheduleMutation: Payload received:", {
-        scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
-        retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
-        tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
-        tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
+        fixedAppointmentIdsToDelete: payload.fixedAppointmentIdsToDelete,
+        currentScheduleIdsToDelete: payload.currentScheduleIdsToDelete,
+        aetherSinkIdsToDelete: payload.aetherSinkIdsToDelete,
+        tasksToInsertIntoFixedAppointments: payload.tasksToInsertIntoFixedAppointments.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
+        tasksToInsertIntoCurrentSchedule: payload.tasksToInsertIntoCurrentSchedule.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
+        tasksToKeepInAetherSink: payload.tasksToKeepInAetherSink.map(t => ({ name: t.name })),
         selectedDate: payload.selectedDate,
       });
 
-      // 1. Delete scheduled tasks
-      if (payload.scheduledTaskIdsToDelete.length > 0) {
-        console.log("autoBalanceScheduleMutation: Deleting scheduled tasks with IDs:", payload.scheduledTaskIdsToDelete);
+      // 1. Delete from FixedAppointments
+      if (payload.fixedAppointmentIdsToDelete.length > 0) {
+        console.log("autoBalanceScheduleMutation: Deleting FixedAppointments with IDs:", payload.fixedAppointmentIdsToDelete);
         const { error } = await supabase
-          .from('scheduled_tasks')
+          .from('FixedAppointments')
           .delete()
-          .in('id', payload.scheduledTaskIdsToDelete)
+          .in('id', payload.fixedAppointmentIdsToDelete)
           .eq('user_id', userId)
           .eq('scheduled_date', payload.selectedDate);
-        if (error) throw new Error(`Failed to delete old scheduled tasks: ${error.message}`);
-        console.log("autoBalanceScheduleMutation: Scheduled tasks deleted successfully.");
+        if (error) throw new Error(`Failed to delete old FixedAppointments: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: FixedAppointments deleted successfully.");
       }
 
-      // 2. Delete retired tasks
-      if (payload.retiredTaskIdsToDelete.length > 0) {
-        console.log("autoBalanceScheduleMutation: Deleting retired tasks with IDs:", payload.retiredTaskIdsToDelete);
+      // 2. Delete from CurrentSchedule
+      if (payload.currentScheduleIdsToDelete.length > 0) {
+        console.log("autoBalanceScheduleMutation: Deleting CurrentSchedule tasks with IDs:", payload.currentScheduleIdsToDelete);
         const { error } = await supabase
-          .from('retired_tasks')
+          .from('CurrentSchedule')
           .delete()
-          .in('id', payload.retiredTaskIdsToDelete)
-          .eq('user_id', userId);
-        if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
-        console.log("autoBalanceScheduleMutation: Retired tasks deleted successfully.");
+          .in('id', payload.currentScheduleIdsToDelete)
+          .eq('user_id', userId)
+          .eq('scheduled_date', payload.selectedDate);
+        if (error) throw new Error(`Failed to delete old CurrentSchedule tasks: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: CurrentSchedule tasks deleted successfully.");
       }
 
-      // 3. Upsert new scheduled tasks (including fixed tasks that were not deleted)
-      if (payload.tasksToInsert.length > 0) {
-        const tasksToInsertWithUserId = payload.tasksToInsert.map(task => ({ ...task, user_id: userId }));
-        console.log("autoBalanceScheduleMutation: Upserting new scheduled tasks:", tasksToInsertWithUserId.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })));
+      // 3. Delete from AetherSink
+      if (payload.aetherSinkIdsToDelete.length > 0) {
+        console.log("autoBalanceScheduleMutation: Deleting AetherSink tasks with IDs:", payload.aetherSinkIdsToDelete);
         const { error } = await supabase
-          .from('scheduled_tasks')
-          .upsert(tasksToInsertWithUserId, { onConflict: 'id' }); // Changed from insert to upsert
-        if (error) throw new Error(`Failed to upsert new scheduled tasks: ${error.message}`);
-        console.log("autoBalanceScheduleMutation: New scheduled tasks upserted successfully.");
+          .from('AetherSink')
+          .delete()
+          .in('id', payload.aetherSinkIdsToDelete)
+          .eq('user_id', userId);
+        if (error) throw new Error(`Failed to delete old AetherSink tasks: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: AetherSink tasks deleted successfully.");
       }
 
-      // 4. Insert tasks back into the sink (those that couldn't be placed)
-      if (payload.tasksToKeepInSink.length > 0) {
-        const tasksToKeepInSinkWithUserId = payload.tasksToKeepInSink.map(task => ({ 
+      // 4. Upsert new FixedAppointments
+      if (payload.tasksToInsertIntoFixedAppointments.length > 0) {
+        const tasksToInsertWithUserId = payload.tasksToInsertIntoFixedAppointments.map(task => ({ ...task, user_id: userId }));
+        console.log("autoBalanceScheduleMutation: Upserting new FixedAppointments:", tasksToInsertWithUserId.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })));
+        const { error } = await supabase
+          .from('FixedAppointments')
+          .upsert(tasksToInsertWithUserId, { onConflict: 'id' });
+        if (error) throw new Error(`Failed to upsert new FixedAppointments: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: New FixedAppointments upserted successfully.");
+      }
+
+      // 5. Upsert new CurrentSchedule tasks
+      if (payload.tasksToInsertIntoCurrentSchedule.length > 0) {
+        const tasksToInsertWithUserId = payload.tasksToInsertIntoCurrentSchedule.map(task => ({ ...task, user_id: userId }));
+        console.log("autoBalanceScheduleMutation: Upserting new CurrentSchedule tasks:", tasksToInsertWithUserId.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })));
+        const { error } = await supabase
+          .from('CurrentSchedule')
+          .upsert(tasksToInsertWithUserId, { onConflict: 'id' });
+        if (error) throw new Error(`Failed to upsert new CurrentSchedule tasks: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: New CurrentSchedule tasks upserted successfully.");
+      }
+
+      // 6. Insert tasks back into AetherSink (those that couldn't be placed)
+      if (payload.tasksToKeepInAetherSink.length > 0) {
+        const tasksToKeepInAetherSinkWithUserId = payload.tasksToKeepInAetherSink.map(task => ({ 
           ...task, 
           user_id: userId, 
           retired_at: new Date().toISOString() 
         }));
-        console.log("autoBalanceScheduleMutation: Re-inserting tasks into sink:", tasksToKeepInSinkWithUserId.map(t => ({ name: t.name })));
+        console.log("autoBalanceScheduleMutation: Re-inserting tasks into AetherSink:", tasksToKeepInAetherSinkWithUserId.map(t => ({ name: t.name })));
         const { error } = await supabase
-          .from('retired_tasks')
-          .insert(tasksToKeepInSinkWithUserId);
-        if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
-        console.log("autoBalanceScheduleMutation: Unscheduled tasks re-inserted into sink successfully.");
+          .from('AetherSink')
+          .insert(tasksToKeepInAetherSinkWithUserId);
+        if (error) throw new Error(`Failed to re-insert unscheduled tasks into AetherSink: ${error.message}`);
+        console.log("autoBalanceScheduleMutation: Unscheduled tasks re-inserted into AetherSink successfully.");
       }
 
-      return { tasksPlaced: payload.tasksToInsert.length, tasksKeptInSink: payload.tasksToKeepInSink.length };
+      return {
+        tasksPlacedFixed: payload.tasksToInsertIntoFixedAppointments.length,
+        tasksPlacedCurrentSchedule: payload.tasksToInsertIntoCurrentSchedule.length,
+        tasksKeptInAetherSink: payload.tasksToKeepInAetherSink.length
+      };
     },
     onMutate: async (payload: AutoBalancePayload) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
       await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
       
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy]);
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], (old) =>
-        (old || []).filter(task => !payload.scheduledTaskIdsToDelete.includes(task.id))
+        (old || []).filter(task => 
+          !payload.fixedAppointmentIdsToDelete.includes(task.id) && 
+          !payload.currentScheduleIdsToDelete.includes(task.id)
+        )
       );
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
-        (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id))
+      queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], (old) =>
+        (old || []).filter(task => !payload.aetherSinkIdsToDelete.includes(task.id))
       );
 
-      return { previousScheduledTasks, previousRetiredTasks, previousScrollTop }; // Corrected return type
-    },
-    onSuccess: (result, payload) => {
-      // No toast here, moved to onSettled
+      return { previousScheduledTasks, previousAetherSinkTasks, previousScrollTop };
     },
     onSettled: (result, _error, payload, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       
-      let message = `Schedule balanced! ${result?.tasksPlaced} task(s) placed.`;
-      if (result?.tasksKeptInSink && result.tasksKeptInSink > 0) {
-        message += ` ${result.tasksKeptInSink} task${result.tasksKeptInSink > 1 ? 's' : ''} returned to Aether Sink.`;
+      let message = `Schedule balanced! ${result?.tasksPlacedFixed + result?.tasksPlacedCurrentSchedule} task(s) placed.`;
+      if (result?.tasksKeptInAetherSink && result.tasksKeptInAetherSink > 0) {
+        message += ` ${result.tasksKeptInAetherSink} task${result.tasksKeptInAetherSink > 1 ? 's' : ''} returned to Aether Sink.`;
       }
       showSuccess(message);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
@@ -1403,14 +1194,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (context?.previousScheduledTasks) {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], context.previousScheduledTasks);
       }
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
 
   const completeScheduledTaskMutation = useMutation({
-    mutationFn: async (taskToComplete: DBScheduledTask) => {
+    mutationFn: async (taskToComplete: DBScheduledTask & { originalSourceTable: 'FixedAppointments' | 'CurrentSchedule' }, durationUsed: number) => {
       if (!userId || !profile) throw new Error("User not authenticated or profile not loaded.");
 
       if (profile.energy < taskToComplete.energy_cost) {
@@ -1462,25 +1253,50 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         
         setXpGainAnimation({ taskId: taskToComplete.id, xpAmount: xpGained });
 
-        // Removed showSuccess toast here. It will be handled in SchedulerPage.tsx
         if (newLevel > profile.level) {
           showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
           triggerLevelUp(newLevel);
         }
       }
-      // This mutation now only handles the XP/Energy/Profile updates.
-      // The actual task removal/status update is handled in SchedulerPage based on the isEarlyCompletion flag.
+
+      // Insert into CompletedTasks
+      const durationScheduled = taskToComplete.start_time && taskToComplete.end_time
+        ? differenceInMinutes(parseISO(taskToComplete.end_time), parseISO(taskToComplete.start_time))
+        : null;
+
+      const completedTaskRecord: Omit<CompletedTask, 'id' | 'created_at'> = {
+        user_id: userId,
+        task_name: taskToComplete.name,
+        original_id: taskToComplete.id,
+        duration_scheduled: durationScheduled,
+        duration_used: durationUsed,
+        completed_at: new Date().toISOString(),
+        xp_earned: xpGained,
+        energy_cost: taskToComplete.energy_cost,
+        is_critical: taskToComplete.is_critical,
+        original_source: taskToComplete.originalSourceTable,
+        original_scheduled_date: taskToComplete.scheduled_date,
+      };
+      const { error: completedInsertError } = await supabase.from('CompletedTasks').insert(completedTaskRecord);
+      if (completedInsertError) {
+        console.error("Failed to insert into CompletedTasks:", completedInsertError.message);
+        showError("Failed to record task completion.");
+        throw new Error("Failed to record task completion.");
+      }
+
+      // Delete from origin table
+      const { error: deleteError } = await supabase.from(taskToComplete.originalSourceTable).delete().eq('id', taskToComplete.id).eq('user_id', userId);
+      if (deleteError) {
+        console.error(`Failed to delete task from ${taskToComplete.originalSourceTable}:`, deleteError.message);
+        showError("Failed to remove task from schedule.");
+        throw new Error("Failed to remove task from schedule.");
+      }
     },
     onSuccess: () => {
-      // Invalidate queries to reflect potential profile changes (XP, energy, streak)
       queryClient.invalidateQueries({ queryKey: ['profile', userId] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
-      // Task list queries will be invalidated by the calling component (SchedulerPage)
-      // after deciding whether to remove or update the task.
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      // No scroll restoration here, as this mutation only updates profile.
-      // The subsequent task removal/status update will handle scroll.
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
     },
     onError: (err) => {
       if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats.") {
@@ -1489,22 +1305,21 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   });
 
-  const completeRetiredTaskMutation = useMutation({
-    mutationFn: async (taskToComplete: RetiredTask) => {
+  const completeAetherSinkTaskMutation = useMutation({
+    mutationFn: async (taskToComplete: AetherSinkTask, durationUsed: number) => {
       if (!userId || !profile) throw new Error("User not authenticated or profile not loaded.");
 
       if (profile.energy < taskToComplete.energy_cost) {
-        showError(`Not enough energy to complete retired task "${taskToComplete.name}". You need ${taskToComplete.energy_cost} energy, but have ${profile.energy}.`);
+        showError(`Not enough energy to complete AetherSink task "${taskToComplete.name}". You need ${taskToComplete.energy_cost} energy, but have ${profile.energy}.`);
         throw new Error("Insufficient energy.");
       }
 
       let xpGained = taskToComplete.energy_cost * 2;
-      // No critical task bonus for retired tasks as they are not "due today" in the same sense
       
       const newXp = profile.xp + xpGained;
       const { level: newLevel } = calculateLevelAndRemainingXp(newXp);
-      const newEnergy = Math.min(MAX_ENERGY, profile.energy - taskToComplete.energy_cost);
-      const newTasksCompletedToday = profile.tasks_completed_today + 1; // Still counts towards daily challenge
+      const newEnergy = Math.max(0, profile.energy - taskToComplete.energy_cost);
+      const newTasksCompletedToday = profile.tasks_completed_today + 1;
 
       let newDailyStreak = profile.daily_streak;
       let newLastStreakUpdate = profile.last_streak_update ? parseISO(profile.last_streak_update) : null;
@@ -1531,63 +1346,84 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .eq('id', user.id);
 
       if (profileError) {
-        console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today) for retired task:", profileError.message);
-        showError("Failed to update profile stats for retired task.");
-        throw new Error("Failed to update profile stats for retired task.");
+        console.error("Failed to update user profile (XP, streak, energy, tasks_completed_today) for AetherSink task:", profileError.message);
+        showError("Failed to update profile stats for AetherSink task.");
+        throw new Error("Failed to update profile stats for AetherSink task.");
       } else {
         await refreshProfile();
         
         setXpGainAnimation({ taskId: taskToComplete.id, xpAmount: xpGained });
 
-        showSuccess(`Retired task completed! -${taskToComplete.energy_cost} Energy`);
+        showSuccess(`AetherSink task completed! -${taskToComplete.energy_cost} Energy`);
         if (newLevel > profile.level) {
           showSuccess(`🎉 Level Up! You reached Level ${newLevel}!`);
           triggerLevelUp(newLevel);
         }
       }
 
-      // After successful completion and profile update, remove the task from the sink
-      await rezoneTaskMutation.mutateAsync(taskToComplete.id);
-    },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
-      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
-        scrollRef.current.scrollTop = context.previousScrollTop;
+      // Insert into CompletedTasks
+      const completedTaskRecord: Omit<CompletedTask, 'id' | 'created_at'> = {
+        user_id: userId,
+        task_name: taskToComplete.name,
+        original_id: taskToComplete.id,
+        duration_scheduled: taskToComplete.duration,
+        duration_used: durationUsed,
+        completed_at: new Date().toISOString(),
+        xp_earned: xpGained,
+        energy_cost: taskToComplete.energy_cost,
+        is_critical: taskToComplete.is_critical,
+        original_source: 'AetherSink',
+        original_scheduled_date: taskToComplete.original_scheduled_date,
+      };
+      const { error: completedInsertError } = await supabase.from('CompletedTasks').insert(completedTaskRecord);
+      if (completedInsertError) {
+        console.error("Failed to insert into CompletedTasks from AetherSink:", completedInsertError.message);
+        showError("Failed to record task completion from AetherSink.");
+        throw new Error("Failed to record task completion from AetherSink.");
+      }
+
+      // Delete from AetherSink
+      const { error: deleteError } = await supabase.from('AetherSink').delete().eq('id', taskToComplete.id).eq('user_id', userId);
+      if (deleteError) {
+        console.error("Failed to delete task from AetherSink:", deleteError.message);
+        showError("Failed to remove task from AetherSink.");
+        throw new Error("Failed to remove task from AetherSink.");
       }
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+    },
     onError: (err) => {
-      if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats for retired task.") {
-        showError(`Failed to complete retired task: ${err.message}`);
+      if (err.message !== "Insufficient energy." && err.message !== "Failed to update profile stats for AetherSink task.") {
+        showError(`Failed to complete AetherSink task: ${err.message}`);
       }
     }
   });
 
   const updateScheduledTaskStatusMutation = useMutation({
-    mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+    mutationFn: async ({ taskId, isCompleted, sourceTable }: { taskId: string; isCompleted: boolean; sourceTable: 'FixedAppointments' | 'CurrentSchedule' }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to update completion status for scheduled task ID: ${taskId} to ${isCompleted}`);
+      console.log(`useSchedulerTasks: Attempting to update completion status for scheduled task ID: ${taskId} in ${sourceTable} to ${isCompleted}`);
       const { data, error } = await supabase
-        .from('scheduled_tasks')
+        .from(sourceTable)
         .update({ is_completed: isCompleted, updated_at: new Date().toISOString() })
         .eq('id', taskId)
         .eq('user_id', userId)
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error updating scheduled task status:", error.message);
+        console.error(`useSchedulerTasks: Error updating scheduled task status in ${sourceTable}:`, error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully updated scheduled task status:", data);
+      console.log(`useSchedulerTasks: Successfully updated scheduled task status in ${sourceTable}:`, data);
       return data as DBScheduledTask;
     },
-    onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+    onMutate: async ({ taskId, isCompleted, sourceTable }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
         (old || []).map(task =>
@@ -1596,80 +1432,74 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       );
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: (updatedTask) => {
-      // No toast here, moved to onSettled
-    },
     onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
       showSuccess(`Scheduled task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
-    onError: (err, { taskId, isCompleted }, context) => {
-      showError(`Failed to update scheduled task status: ${err.message}`);
+    onError: (err, { taskId, isCompleted, sourceTable }, context) => {
+      showError(`Failed to update scheduled task status in ${sourceTable}: ${err.message}`);
       if (context?.previousScheduledTasks) {
         queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
       }
     }
   });
 
-  const updateRetiredTaskStatusMutation = useMutation({
+  const updateAetherSinkTaskStatusMutation = useMutation({
     mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to update completion status for retired task ID: ${taskId} to ${isCompleted}`);
+      console.log(`useSchedulerTasks: Attempting to update completion status for AetherSink task ID: ${taskId} to ${isCompleted}`);
       const { data, error } = await supabase
-        .from('retired_tasks')
-        .update({ is_completed: isCompleted, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
+        .from('AetherSink')
+        .update({ is_completed: isCompleted, retired_at: new Date().toISOString() })
         .eq('id', taskId)
         .eq('user_id', userId)
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error updating retired task status:", error.message);
+        console.error("useSchedulerTasks: Error updating AetherSink task status:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully updated retired task status:", data);
-      return data as RetiredTask;
+      console.log("useSchedulerTasks: Successfully updated AetherSink task status:", data);
+      return data as AetherSinkTask;
     },
     onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
+      queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], (old) =>
         (old || []).map(task =>
           task.id === taskId ? { ...task, is_completed: isCompleted } : task
         )
       );
-      return { previousRetiredTasks, previousScrollTop };
+      return { previousAetherSinkTasks, previousScrollTop };
     },
-    onSuccess: (updatedTask) => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] }); // NEW: Invalidate completed tasks list for selected day
-      showSuccess(`Retired task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
+    onSettled: (updatedTask, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      showSuccess(`AetherSink task "${updatedTask?.name}" marked as ${updatedTask?.is_completed ? 'completed' : 'incomplete'}.`);
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
     onError: (err, { taskId, isCompleted }, context) => {
-      showError(`Failed to update retired task status: ${err.message}`);
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      showError(`Failed to update AetherSink task status: ${err.message}`);
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
 
   const updateScheduledTaskDetailsMutation = useMutation({
-    mutationFn: async (task: Partial<DBScheduledTask> & { id: string }) => {
+    mutationFn: async (task: Partial<DBScheduledTask> & { id: string; originalSourceTable: 'FixedAppointments' | 'CurrentSchedule' }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Attempting to update scheduled task details:", task);
+      console.log(`useSchedulerTasks: Attempting to update scheduled task details in ${task.originalSourceTable}:`, task);
       const { data, error } = await supabase
-        .from('scheduled_tasks')
+        .from(task.originalSourceTable)
         .update({ ...task, updated_at: new Date().toISOString() })
         .eq('id', task.id)
         .eq('user_id', userId)
@@ -1677,16 +1507,16 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .single();
       
       if (error) {
-        console.error("useSchedulerTasks: Error updating scheduled task details:", error.message);
+        console.error(`useSchedulerTasks: Error updating scheduled task details in ${task.originalSourceTable}:`, error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully updated scheduled task details:", data);
+      console.log(`useSchedulerTasks: Successfully updated scheduled task details in ${task.originalSourceTable}:`, data);
       return data as DBScheduledTask;
     },
-    onMutate: async (updatedTask: Partial<DBScheduledTask> & { id: string }) => {
+    onMutate: async (updatedTask) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
         (old || []).map(task =>
@@ -1695,10 +1525,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       );
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Scheduled task details updated!');
@@ -1714,50 +1541,47 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   });
 
-  const updateRetiredTaskDetailsMutation = useMutation({
-    mutationFn: async (task: Partial<RetiredTask> & { id: string }) => {
+  const updateAetherSinkTaskDetailsMutation = useMutation({
+    mutationFn: async (task: Partial<AetherSinkTask> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Attempting to update retired task details:", task);
+      console.log("useSchedulerTasks: Attempting to update AetherSink task details:", task);
       const { data, error } = await supabase
-        .from('retired_tasks')
-        .update({ ...task, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
+        .from('AetherSink')
+        .update({ ...task, retired_at: new Date().toISOString() })
         .eq('id', task.id)
         .eq('user_id', userId)
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error updating retired task details:", error.message);
+        console.error("useSchedulerTasks: Error updating AetherSink task details:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully updated retired task details:", data);
-      return data as RetiredTask;
+      console.log("useSchedulerTasks: Successfully updated AetherSink task details:", data);
+      return data as AetherSinkTask;
     },
-    onMutate: async (updatedTask: Partial<RetiredTask> & { id: string }) => {
-      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]); // NEW: Update queryKey
-      const previousScrollTop = scrollRef?.current?.scrollTop; // Capture scroll position
+    onMutate: async (updatedTask) => {
+      await queryClient.cancelQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      const previousAetherSinkTasks = queryClient.getQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => // NEW: Update queryKey
+      queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], (old) =>
         (old || []).map(task =>
           task.id === updatedTask.id ? { ...task, ...updatedTask } : task
         )
       );
-      return { previousRetiredTasks, previousScrollTop };
+      return { previousAetherSinkTasks, previousScrollTop };
     },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => { // Explicitly type context
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] }); // NEW: Update queryKey
-      showSuccess('Retired task details updated!');
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkTasks', userId, aetherSinkSortBy] });
+      showSuccess('AetherSink task details updated!');
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
     onError: (e, _variables, context) => {
-      showError(`Failed to update retired task details: ${e.message}`);
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks); // NEW: Update queryKey
+      showError(`Failed to update AetherSink task details: ${e.message}`);
+      if (context?.previousAetherSinkTasks) {
+        queryClient.setQueryData<AetherSinkTask[]>(['aetherSinkTasks', userId, aetherSinkSortBy], context.previousAetherSinkTasks);
       }
     }
   });
@@ -1769,16 +1593,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
   return {
     dbScheduledTasks,
-    rawTasks,
     isLoading,
     datesWithTasks,
     isLoadingDatesWithTasks,
-    retiredTasks,
-    isLoadingRetiredTasks,
-    completedTasksForSelectedDayList, // NEW: Expose the new query data
-    isLoadingCompletedTasksForSelectedDay, // NEW: Expose loading state for the new query
+    aetherSinkTasks,
+    isLoadingAetherSinkTasks,
+    completedTasksForSelectedDayList,
+    isLoadingCompletedTasksForSelectedDay,
     addScheduledTask: addScheduledTaskMutation.mutate,
-    addRetiredTask: addRetiredTaskMutation.mutate,
+    addAetherSinkTask: addAetherSinkTaskMutation.mutate,
     removeScheduledTask: removeScheduledTaskMutation.mutate,
     clearScheduledTasks: clearScheduledTasksMutation.mutate,
     retireTask: retireTaskMutation.mutate,
@@ -1786,20 +1609,20 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     compactScheduledTasks: compactScheduledTasksMutation.mutate,
     randomizeBreaks: randomizeBreaksMutation.mutate,
     toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutate,
-    toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutate, // NEW: Expose toggleRetiredTaskLock
+    toggleAetherSinkTaskLock: toggleAetherSinkTaskLockMutation.mutate,
     aetherDump: aetherDumpMutation.mutate,
     aetherDumpMega: aetherDumpMegaMutation.mutate,
     autoBalanceSchedule: autoBalanceScheduleMutation.mutate,
     completeScheduledTask: completeScheduledTaskMutation.mutate,
-    completeRetiredTask: completeRetiredTaskMutation.mutate, // NEW: Expose completeRetiredTask
-    updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutate, // Expose for other uses if needed
-    updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutate, // NEW: Expose updateRetiredTaskStatus
-    updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutate, // NEW: Expose new mutation
-    updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutate, // NEW: Expose new mutation
+    completeAetherSinkTask: completeAetherSinkTaskMutation.mutate,
+    updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutate,
+    updateAetherSinkTaskStatus: updateAetherSinkTaskStatusMutation.mutate,
+    updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutate,
+    updateAetherSinkTaskDetails: updateAetherSinkTaskDetailsMutation.mutate,
     sortBy,
     setSortBy,
-    retiredSortBy, // NEW: Expose retiredSortBy
-    setRetiredSortBy, // NEW: Expose setRetiredSortBy
+    aetherSinkSortBy,
+    setAetherSinkSortBy,
     xpGainAnimation,
     clearXpGainAnimation,
   };

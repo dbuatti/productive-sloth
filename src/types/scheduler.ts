@@ -1,10 +1,10 @@
 export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
 export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
-export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI'; // Updated SortBy
+export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI';
 
-// NEW: Type for sorting retired tasks
-export type RetiredTaskSortBy = 
+// Type for sorting AetherSink tasks
+export type AetherSinkSortBy =
   'NAME_ASC' | 'NAME_DESC' |
   'DURATION_ASC' | 'DURATION_DESC' |
   'CRITICAL_FIRST' | 'CRITICAL_LAST' |
@@ -12,32 +12,7 @@ export type RetiredTaskSortBy =
   'ENERGY_ASC' | 'ENERGY_DESC' |
   'RETIRED_AT_NEWEST' | 'RETIRED_AT_OLDEST' |
   'COMPLETED_FIRST' | 'COMPLETED_LAST' |
-  'EMOJI'; // Added EMOJI sort option
-
-export interface Task {
-  id: string;
-  user_id: string;
-  title: string;
-  description?: string; // Added description
-  is_completed: boolean;
-  priority: TaskPriority;
-  metadata_xp: number;
-  energy_cost: number; // Added energy_cost
-  due_date: string; // ISO date string
-  created_at: string;
-  updated_at: string; // Added updated_at
-  is_critical: boolean; // NEW: Critical Urgency Flag
-}
-
-export interface NewTask {
-  title: string;
-  priority: TaskPriority;
-  metadata_xp: number;
-  energy_cost: number; // Added energy_cost to NewTask
-  due_date: string;
-  description?: string; // Added description to NewTask
-  is_critical?: boolean; // NEW: Critical Urgency Flag
-}
+  'EMOJI';
 
 // --- Scheduler Types ---
 
@@ -45,77 +20,76 @@ export interface RawTaskInput {
   name: string;
   duration: number; // in minutes
   breakDuration?: number; // in minutes
-  isCritical?: boolean; // NEW: Critical Urgency Flag
-  isFlexible?: boolean; // NEW: Added isFlexible to RawTaskInput
-  energyCost: number; // NEW: Made energyCost required
+  isCritical?: boolean;
+  isFlexible: boolean; // Now explicitly required for RawTaskInput
+  energyCost: number;
 }
 
-// Supabase-specific types for scheduled tasks
+// Supabase-specific types for FixedAppointments and CurrentSchedule
+// They share a common structure for scheduled items
 export interface DBScheduledTask {
   id: string;
   user_id: string;
   name: string;
   break_duration: number | null;
-  start_time: string | null; // New: ISO date string for timed events
-  end_time: string | null;   // New: ISO date string for timed events
-  scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
+  start_time: string | null;
+  end_time: string | null;
+  scheduled_date: string;
   created_at: string;
-  updated_at: string; // NEW: Added updated_at column
-  is_critical: boolean; // NEW: Critical Urgency Flag
-  is_flexible: boolean; // NEW: Flag for schedule compaction
-  is_locked: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energyCost required
-  is_completed: boolean; // NEW: Added is_completed for scheduled tasks
-  is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
+  updated_at: string;
+  is_critical: boolean;
+  is_flexible: boolean; // Will be FALSE for FixedAppointments, TRUE for CurrentSchedule
+  is_locked: boolean;
+  energy_cost: number;
+  is_completed: boolean;
+  is_custom_energy_cost: boolean;
 }
 
 export interface NewDBScheduledTask {
-  id?: string; // NEW: Added optional ID for upsert operations
+  id?: string;
   name: string;
   break_duration?: number;
-  start_time?: string; // Optional for duration-based tasks
-  end_time?: string;   // Optional for duration-based tasks
-  scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
-  is_critical?: boolean; // NEW: Critical Urgency Flag
-  is_flexible?: boolean; // NEW: Flag for schedule compaction
-  is_locked?: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energyCost required
-  is_completed?: boolean; // NEW: Added is_completed for new scheduled tasks
-  is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
+  start_time?: string;
+  end_time?: string;
+  scheduled_date: string;
+  is_critical?: boolean;
+  is_flexible?: boolean;
+  is_locked?: boolean;
+  energy_cost: number;
+  is_completed?: boolean;
+  is_custom_energy_cost?: boolean;
 }
 
-// New types for retired tasks (Aether Sink)
-export interface RetiredTask {
+// Type for AetherSink tasks (formerly RetiredTask)
+export interface AetherSinkTask {
   id: string;
-  user_id: string;
-  name: string;
-  duration: number | null; // Duration in minutes (retained for re-zoning)
-  break_duration: number | null; // Break duration in minutes (retained for re-zoning)
-  original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
-  retired_at: string; // Timestamp when it was moved to the sink
-  is_critical: boolean; // NEW: Critical Urgency Flag
-  is_locked: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energyCost required
-  is_completed: boolean; // NEW: Added is_completed
-  is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
-  // is_flexible: boolean; // REMOVED: Not present in retired_tasks table
-}
-
-export interface NewRetiredTask {
   user_id: string;
   name: string;
   duration: number | null;
   break_duration: number | null;
   original_scheduled_date: string;
-  is_critical?: boolean; // NEW: Critical Urgency Flag
-  is_locked?: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energyCost required
-  is_completed?: boolean; // NEW: Added is_completed
-  is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
-  // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
+  retired_at: string; // Timestamp when it was moved to the sink (used as created_at for general tasks)
+  is_critical: boolean;
+  is_locked: boolean;
+  energy_cost: number;
+  is_completed: boolean;
+  is_custom_energy_cost: boolean;
 }
 
-// Helper type for unification (moved from SchedulerPage.tsx)
+export interface NewAetherSinkTask {
+  user_id: string;
+  name: string;
+  duration: number | null;
+  break_duration: number | null;
+  original_scheduled_date: string;
+  is_critical?: boolean;
+  is_locked?: boolean;
+  energy_cost: number;
+  is_completed?: boolean;
+  is_custom_energy_cost?: boolean;
+}
+
+// Helper type for unification (used in auto-balance)
 export interface UnifiedTask {
   id: string;
   name: string;
@@ -124,51 +98,54 @@ export interface UnifiedTask {
   is_critical: boolean;
   is_flexible: boolean;
   energy_cost: number;
-  source: 'scheduled' | 'retired';
-  originalId: string; // ID in the source table
-  is_custom_energy_cost: boolean; // NEW: Add custom energy cost flag
-  created_at: string; // NEW: Add created_at for age sorting
+  source: 'FixedAppointments' | 'CurrentSchedule' | 'AetherSink'; // Updated sources
+  originalId: string;
+  is_custom_energy_cost: boolean;
+  created_at: string;
 }
 
-// NEW: Payload for the atomic auto-balance mutation
+// Payload for the atomic auto-balance mutation
 export interface AutoBalancePayload {
-  scheduledTaskIdsToDelete: string[];
-  retiredTaskIdsToDelete: string[];
-  tasksToInsert: NewDBScheduledTask[];
-  tasksToKeepInSink: NewRetiredTask[];
+  fixedAppointmentIdsToDelete: string[]; // NEW: For FixedAppointments
+  currentScheduleIdsToDelete: string[]; // NEW: For CurrentSchedule
+  aetherSinkIdsToDelete: string[]; // NEW: For AetherSink
+  tasksToInsertIntoFixedAppointments: NewDBScheduledTask[]; // NEW: For FixedAppointments
+  tasksToInsertIntoCurrentSchedule: NewDBScheduledTask[]; // NEW: For CurrentSchedule
+  tasksToKeepInAetherSink: NewAetherSinkTask[]; // NEW: For AetherSink
   selectedDate: string;
 }
 
-export type ScheduledItemType = 'task' | 'break' | 'time-off'; // NEW: Added 'time-off'
+export type ScheduledItemType = 'task' | 'break' | 'time-off';
 
 export interface ScheduledItem {
-  id: string; // Unique ID for React keys
+  id: string;
   type: ScheduledItemType;
-  name: string; // Task name or "BREAK"
-  duration: number; // in minutes (calculated for timed events)
+  name: string;
+  duration: number;
   startTime: Date;
   endTime: Date;
   emoji: string;
-  description?: string; // For breaks
-  isTimedEvent: boolean; // New: Flag to differentiate
-  color?: string; // New: For custom colors (e.g., Tailwind class like 'bg-blue-500')
-  isCritical?: boolean; // NEW: Critical Urgency Flag
-  isFlexible?: boolean; // NEW: Flag for schedule compaction
-  isLocked?: boolean; // NEW: Task Immutability Flag
-  energyCost: number; // NEW: Made energyCost required
-  isCompleted: boolean; // NEW: Added isCompleted for scheduled items
-  isCustomEnergyCost: boolean; // NEW: Flag for custom energy cost
+  description?: string;
+  isTimedEvent: boolean;
+  color?: string;
+  isCritical?: boolean;
+  isFlexible?: boolean;
+  isLocked?: boolean;
+  energyCost: number;
+  isCompleted: boolean;
+  isCustomEnergyCost: boolean;
+  originalSourceTable: 'FixedAppointments' | 'CurrentSchedule'; // NEW: Track original source table
 }
 
 export interface ScheduleSummary {
   totalTasks: number;
   activeTime: { hours: number; minutes: number };
-  breakTime: number; // in minutes
+  breakTime: number;
   sessionEnd: Date;
   extendsPastMidnight: boolean;
   midnightRolloverMessage: string | null;
-  unscheduledCount: number; // New: Count of tasks that couldn't fit within the workday window
-  criticalTasksRemaining: number; // NEW: Count of critical tasks not yet completed
+  unscheduledCount: number;
+  criticalTasksRemaining: number;
 }
 
 // New type for fixed time markers
@@ -200,14 +177,31 @@ export interface CurrentTimeMarker {
 export interface FormattedSchedule {
   items: ScheduledItem[];
   summary: ScheduleSummary;
-  dbTasks: DBScheduledTask[]; // Added for type safety in SchedulerDisplay
+  dbTasks: DBScheduledTask[]; // Combined tasks from FixedAppointments and CurrentSchedule
 }
 
-export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker; // Added CurrentTimeMarker
+export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker;
 
 // NEW: TimeBlock interface for scheduler utility functions
 export interface TimeBlock {
   start: Date;
   end: Date;
   duration: number; // in minutes
+}
+
+// NEW: CompletedTask interface for the new CompletedTasks table
+export interface CompletedTask {
+  id: string;
+  user_id: string;
+  task_name: string;
+  original_id: string | null;
+  duration_scheduled: number | null;
+  duration_used: number | null;
+  completed_at: string;
+  xp_earned: number;
+  energy_cost: number;
+  is_critical: boolean;
+  original_source: 'FixedAppointments' | 'CurrentSchedule' | 'AetherSink';
+  original_scheduled_date: string | null;
+  created_at: string;
 }

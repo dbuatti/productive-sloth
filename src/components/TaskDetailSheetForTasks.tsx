@@ -26,23 +26,24 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Task, TaskPriority } from "@/types";
+import { Task, TaskPriority } from "@/types"; // Now refers to AetherSinkTask structure
 import DatePicker from "./DatePicker";
 import { useTasks } from '@/hooks/use-tasks';
 import { showSuccess } from "@/utils/toast";
 import { useSession } from '@/hooks/use-session';
 import { Switch } from '@/components/ui/switch';
-import { calculateEnergyCost } from '@/lib/scheduler-utils'; // NEW: Import calculateEnergyCost
-import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // NEW: Import default duration
+import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
 
 const formSchema = z.object({
-  title: z.string().min(1, { message: "Title is required." }).max(255),
-  description: z.string().optional(),
-  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
-  dueDate: z.date({ required_error: "Due date is required." }), 
+  name: z.string().min(1, { message: "Name is required." }).max(255), // Renamed from title to name
+  description: z.string().optional(), // AetherSink doesn't have description, but keeping for consistency if needed
+  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'), // Priority is derived from isCritical for AetherSink
+  dueDate: z.date({ required_error: "Original Scheduled Date is required." }), // Renamed from dueDate to original_scheduled_date
   isCritical: z.boolean().default(false),
-  energy_cost: z.coerce.number().min(0).default(0), // NEW: Add energy_cost to schema
-  is_custom_energy_cost: z.boolean().default(false), // NEW: Add custom energy cost flag
+  energy_cost: z.coerce.number().min(0).default(0),
+  is_custom_energy_cost: z.boolean().default(false),
+  duration: z.coerce.number().min(1, "Duration must be at least 1 minute.").default(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION), // Added duration
 });
 
 type TaskDetailFormValues = z.infer<typeof formSchema>;
@@ -60,53 +61,52 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
 }) => {
   const { updateTask } = useTasks();
   const { profile } = useSession();
-  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0); // NEW: State for calculated energy cost
+  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<TaskDetailFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
+      name: "", // Renamed from title to name
       description: "",
-      priority: "MEDIUM",
+      priority: "MEDIUM", // Default, but derived from isCritical
       dueDate: new Date(),
       isCritical: false,
-      energy_cost: 0, // Will be set by useEffect
-      is_custom_energy_cost: false, // Will be set by useEffect
+      duration: DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION,
+      energy_cost: 0,
+      is_custom_energy_cost: false,
     },
   });
 
   useEffect(() => {
     if (task) {
       form.reset({
-        title: task.title,
-        description: task.description || "",
-        priority: task.priority,
-        dueDate: task.due_date ? new Date(task.due_date) : new Date(), 
+        name: task.name, // Renamed from title to name
+        description: "", // AetherSink doesn't have description
+        priority: task.is_critical ? 'HIGH' : 'MEDIUM', // Derive priority from is_critical
+        dueDate: task.original_scheduled_date ? new Date(task.original_scheduled_date) : new Date(), // Use original_scheduled_date
         isCritical: task.is_critical,
-        energy_cost: task.energy_cost, // NEW: Set initial energy cost
-        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial custom energy cost flag
+        duration: task.duration ?? DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION,
+        energy_cost: task.energy_cost,
+        is_custom_energy_cost: task.is_custom_energy_cost,
       });
-      // NEW: Set initial calculated cost, but only if not custom
       if (!task.is_custom_energy_cost) {
-        setCalculatedEnergyCost(calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, task.is_critical));
+        setCalculatedEnergyCost(calculateEnergyCost(task.duration || DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, task.is_critical));
       } else {
-        setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
+        setCalculatedEnergyCost(task.energy_cost);
       }
     }
   }, [task, form]);
 
-  // NEW: Effect to recalculate energy cost when isCritical changes
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      // Only recalculate if custom energy cost is NOT enabled
-      if (!value.is_custom_energy_cost && name === 'isCritical') {
-        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, value.isCritical ?? false);
+      if (!value.is_custom_energy_cost && (name === 'isCritical' || name === 'duration')) {
+        const newEnergyCost = calculateEnergyCost(value.duration ?? DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, value.isCritical ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
-        // If custom energy cost is turned OFF, immediately recalculate and set
         const isCritical = form.getValues('isCritical');
-        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical ?? false);
+        const duration = form.getValues('duration');
+        const newEnergyCost = calculateEnergyCost(duration ?? DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }
@@ -118,18 +118,17 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
   const handleSubmit = async (values: TaskDetailFormValues) => {
     if (!task) return;
 
-    const descriptionValue = values.description?.trim() === '' ? null : values.description;
-
+    // AetherSink tasks don't have a description field
+    // Priority is derived from is_critical, so we don't update it directly
     try {
       await updateTask({
         id: task.id,
-        title: values.title,
-        description: descriptionValue,
-        priority: values.priority,
-        due_date: values.dueDate.toISOString(),
+        name: values.name, // Renamed from title to name
+        duration: values.duration,
+        original_scheduled_date: values.dueDate.toISOString().split('T')[0], // Use original_scheduled_date
         is_critical: values.isCritical,
-        energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost, // NEW: Use custom or calculated
-        is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+        energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost,
+        is_custom_energy_cost: values.is_custom_energy_cost,
       });
       showSuccess("Task updated successfully!");
       onOpenChange(false);
@@ -140,24 +139,11 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
-  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // NEW: Watch the custom energy cost toggle
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
 
   if (!task) return null;
 
-  const getPriorityColor = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'text-destructive';
-      case 'MEDIUM':
-        return 'text-logo-orange';
-      case 'LOW':
-        return 'text-logo-green';
-      default:
-        return 'text-muted-foreground';
-    }
-  };
-  
-  const lastUpdatedDate = task.updated_at ? new Date(task.updated_at) : null;
+  const lastUpdatedDate = task.retired_at ? new Date(task.retired_at) : null; // Use retired_at as updated_at
   const formattedLastUpdated = lastUpdatedDate && !isNaN(lastUpdatedDate.getTime()) 
     ? format(lastUpdatedDate, 'MMM d, yyyy HH:mm') 
     : 'N/A';
@@ -182,34 +168,36 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
             
             <div className="flex-grow overflow-y-auto space-y-6 pb-8">
-              {/* Title */}
+              {/* Name */}
               <FormField
                 control={form.control}
-                name="title"
+                name="name" // Renamed from title to name
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Title</FormLabel>
+                    <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Task title" {...field} className="text-lg font-semibold" />
+                      <Input placeholder="Task name" {...field} className="text-lg font-semibold" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Description */}
+              {/* Description - Removed as AetherSink doesn't have it */}
+              {/* Priority - Removed as it's derived from isCritical */}
+
+              {/* Original Scheduled Date */}
               <FormField
                 control={form.control}
-                name="description"
+                name="dueDate" // Renamed from dueDate
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Original Scheduled Date</FormLabel>
                     <FormControl>
-                      <Textarea 
-                        placeholder="Add detailed notes or context here..." 
-                        {...field} 
-                        value={field.value || ''}
-                        rows={4}
+                      <DatePicker 
+                        date={field.value} 
+                        setDate={field.onChange} 
+                        placeholder="Pick a date"
                       />
                     </FormControl>
                     <FormMessage />
@@ -217,48 +205,23 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* Priority & Due Date */}
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className={cn("capitalize", getPriorityColor(field.value as TaskPriority))}>
-                            <SelectValue placeholder="Select priority" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="HIGH">High</SelectItem>
-                          <SelectItem value="MEDIUM">Medium</SelectItem>
-                          <SelectItem value="LOW">Low</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <DatePicker 
-                          date={field.value} 
-                          setDate={field.onChange} 
-                          placeholder="Pick a date"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {/* Duration */}
+              <FormField
+                control={form.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estimated Duration (min)</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} min="1" />
+                    </FormControl>
+                    <FormDescription>
+                      Estimated time to complete this task.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Is Critical Switch */}
               <FormField
@@ -269,7 +232,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                     <div className="space-y-0.5">
                       <FormLabel>Critical Task</FormLabel>
                       <FormDescription>
-                        Mark this task as critical (must be completed today).
+                        Mark this task as critical (higher priority).
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -282,7 +245,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* NEW: Custom Energy Cost Switch */}
+              {/* Custom Energy Cost Switch */}
               <FormField
                 control={form.control}
                 name="is_custom_energy_cost"
@@ -304,7 +267,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* NEW: Energy Cost (Editable if custom, read-only if auto-calculated) */}
+              {/* Energy Cost (Editable if custom, read-only if auto-calculated) */}
               <FormField
                 control={form.control}
                 name="energy_cost"
@@ -324,8 +287,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                           {...field} 
                           min="0" 
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
-                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
+                          readOnly={!isCustomEnergyCostEnabled}
+                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
                           onChange={(e) => {
                             if (isCustomEnergyCostEnabled) {
                               field.onChange(e);

@@ -12,6 +12,7 @@ import LevelUpCelebration from '@/components/LevelUpCelebration';
 import { Accordion } from '@/components/ui/accordion';
 import DailyChallengeCard from '@/components/DailyChallengeCard';
 
+// Priority is now derived from is_critical for AetherSink tasks
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 const Dashboard = () => {
@@ -27,8 +28,15 @@ const Dashboard = () => {
     setSortBy 
   } = useTasks();
 
+  // Group tasks by derived priority (is_critical)
   const groupedTasks = PRIORITY_ORDER.reduce((acc, priority) => {
-    acc[priority] = tasks.filter(task => task.priority === priority);
+    if (priority === 'HIGH') {
+      acc[priority] = tasks.filter(task => task.is_critical);
+    } else if (priority === 'MEDIUM') {
+      acc[priority] = tasks.filter(task => !task.is_critical);
+    } else { // LOW priority tasks are not explicitly supported by is_critical, so this will be empty
+      acc[priority] = [];
+    }
     return acc;
   }, {} as Record<TaskPriority, typeof tasks>);
 
@@ -78,20 +86,23 @@ const Dashboard = () => {
         <Accordion 
           type="multiple" 
           className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={PRIORITY_ORDER}
+          defaultValue={['HIGH', 'MEDIUM']} {/* Only show HIGH and MEDIUM by default */}
         >
           {PRIORITY_ORDER.map(priority => (
-            <PrioritySection 
-              key={priority}
-              priority={priority}
-              tasks={groupedTasks[priority]}
-            />
+            // Only render sections that actually have tasks
+            groupedTasks[priority].length > 0 ? (
+              <PrioritySection 
+                key={priority}
+                priority={priority}
+                tasks={groupedTasks[priority]}
+              />
+            ) : null
           ))}
         </Accordion>
       ) : (
         <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
           <ClipboardList className="h-12 w-12 text-muted-foreground" />
-          <p className="text-base font-semibold">No tasks found!</p> {/* Changed text-lg to text-base */}
+          <p className="text-base font-semibold">No tasks found!</p>
           <p>Start by adding a new task above to get organized.</p>
         </Card>
       )}

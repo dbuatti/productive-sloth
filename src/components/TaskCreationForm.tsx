@@ -12,11 +12,12 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import CreateTaskDialog from './CreateTaskDialog';
 import { useSession } from '@/hooks/use-session';
-import { MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // NEW: Import default duration
-import { calculateEnergyCost } from '@/lib/scheduler-utils'; // NEW: Import calculateEnergyCost
+import { MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
+import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { format } from 'date-fns'; // Import format
 
 const QuickTaskCreationSchema = z.object({
-  title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
+  name: z.string().min(1, { message: "Task name cannot be empty." }).max(255), // Renamed from title to name
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
 });
@@ -46,7 +47,7 @@ const TaskCreationForm: React.FC = () => {
   const form = useForm<QuickTaskCreationFormValues>({
     resolver: zodResolver(QuickTaskCreationSchema),
     defaultValues: {
-      title: '',
+      name: '', // Renamed from title to name
       priority: defaultPriority,
       dueDate: new Date(),
     },
@@ -62,33 +63,34 @@ const TaskCreationForm: React.FC = () => {
 
 
   const onQuickSubmit = (values: QuickTaskCreationFormValues) => {
-    const { title, priority, dueDate } = values;
+    const { name, priority, dueDate } = values; // Renamed from title to name
 
-    let taskTitle = title.trim();
+    let taskName = name.trim(); // Renamed from taskTitle to taskName
     let isCritical = false;
 
-    if (taskTitle.endsWith(' !')) {
+    if (taskName.endsWith(' !')) {
       isCritical = true;
-      taskTitle = taskTitle.slice(0, -2).trim();
+      taskName = taskName.slice(0, -2).trim();
     }
 
-    // NEW: Calculate energy cost for quick add tasks
     const energyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical);
 
     const newTask: NewTask = {
-      title: taskTitle,
-      description: undefined,
-      priority: priority,
-      due_date: dueDate.toISOString(),
+      name: taskName,
+      duration: DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, // Default duration for quick add
+      break_duration: null,
+      original_scheduled_date: format(dueDate, 'yyyy-MM-dd'), // Use original_scheduled_date
       is_critical: isCritical,
-      energy_cost: energyCost, // NEW: Pass calculated energy cost
-      is_custom_energy_cost: false, // NEW: Quick add tasks are not custom energy cost
+      energy_cost: energyCost,
+      is_custom_energy_cost: false,
+      is_locked: false,
+      is_completed: false,
     };
 
     addTask(newTask);
     
     form.reset({
-      title: '',
+      name: '', // Renamed from title to name
       priority: values.priority, 
       dueDate: values.dueDate, 
     });
@@ -103,7 +105,7 @@ const TaskCreationForm: React.FC = () => {
         
         <FormField
           control={form.control}
-          name="title"
+          name="name" // Renamed from title to name
           render={({ field }) => (
             <FormItem className="flex-grow min-w-[150px]">
               <FormControl>
@@ -159,7 +161,7 @@ const TaskCreationForm: React.FC = () => {
         <CreateTaskDialog 
           defaultPriority={form.getValues('priority')}
           defaultDueDate={form.getValues('dueDate')}
-          onTaskCreated={() => form.reset({ title: '', priority: form.getValues('priority'), dueDate: form.getValues('dueDate') })}
+          onTaskCreated={() => form.reset({ name: '', priority: form.getValues('priority'), dueDate: form.getValues('dueDate') })}
         />
 
         <Button 

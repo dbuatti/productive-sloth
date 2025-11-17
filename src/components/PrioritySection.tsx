@@ -1,8 +1,8 @@
 import React from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import TaskItem from './TaskItem';
-import { Task } from '@/types'; // Updated import to use the consolidated Task type
-import { ClipboardList } from 'lucide-react'; // Import ClipboardList
+import { Task } from '@/types'; // Now refers to AetherSinkTask structure
+import { ClipboardList } from 'lucide-react';
 
 interface PrioritySectionProps {
   priority: string;
@@ -12,7 +12,7 @@ interface PrioritySectionProps {
 const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) => {
   return (
     <AccordionItem value={priority}>
-      <AccordionTrigger className="text-base font-semibold capitalize"> {/* Changed text-lg to text-base */}
+      <AccordionTrigger className="text-base font-semibold capitalize">
         {priority} Priority ({tasks.length})
       </AccordionTrigger>
       <AccordionContent>

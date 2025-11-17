@@ -4,9 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday } from 'date-fns';
-import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // NEW: Import default duration
-import { calculateEnergyCost } from '@/lib/scheduler-utils'; // NEW: Import calculateEnergyCost
+import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format } from 'date-fns';
+import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
+import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { AetherSinkTask } from '@/types/scheduler'; // Import AetherSinkTask
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
   const now = new Date();
@@ -17,7 +18,7 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
 
   switch (filter) {
     case 'TODAY':
-      startDate = new Date(0);
+      startDate = startOfToday;
       endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
       break;
     case 'YESTERDAY':
@@ -39,17 +40,23 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
 };
 
 const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
+  // For AetherSink tasks, priority is derived from is_critical
+  // We'll map is_critical to a pseudo-priority for sorting
+  const getPseudoPriority = (task: Task) => task.is_critical ? 'HIGH' : 'MEDIUM';
   const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
   return [...tasks].sort((a, b) => {
     if (sortBy === 'PRIORITY_HIGH_TO_LOW') {
-      const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+      const priorityDiff = priorityOrder[getPseudoPriority(b)] - priorityOrder[getPseudoPriority(a)];
       if (priorityDiff !== 0) return priorityDiff;
     } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
-      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+      const priorityDiff = priorityOrder[getPseudoPriority(a)] - priorityOrder[getPseudoPriority(b)];
       if (priorityDiff !== 0) return priorityDiff;
     }
-    return 0; 
+    // Fallback to retired_at (creation time) for consistent ordering
+    const dateA = parseISO(a.retired_at).getTime();
+    const dateB = parseISO(b.retired_at).getTime();
+    return dateB - dateA; // Newest first by default
   });
 };
 
@@ -66,7 +73,7 @@ export const useTasks = () => {
     if (!userId) return [];
     
     let query = supabase
-      .from('tasks')
+      .from('AetherSink') // Querying AetherSink for general tasks
       .select('*')
       .eq('user_id', userId);
 
@@ -74,16 +81,17 @@ export const useTasks = () => {
 
     if (dateRange) {
       query = query
-        .lte('due_date', dateRange.end)
-        .gte('due_date', dateRange.start);
+        .lte('original_scheduled_date', dateRange.end)
+        .gte('original_scheduled_date', dateRange.start);
     }
     
+    // AetherSink doesn't have 'due_date', using 'original_scheduled_date'
     if (currentSortBy === 'TIME_EARLIEST_TO_LATEST') {
-      query = query.order('due_date', { ascending: true });
+      query = query.order('original_scheduled_date', { ascending: true });
     } else if (currentSortBy === 'TIME_LATEST_TO_EARLIEST') {
-      query = query.order('due_date', { ascending: false });
+      query = query.order('original_scheduled_date', { ascending: false });
     } else {
-      query = query.order('created_at', { ascending: false });
+      query = query.order('retired_at', { ascending: false }); // Default sort by creation/retired time
     }
 
     const { data, error } = await query;
@@ -118,24 +126,25 @@ export const useTasks = () => {
     mutationFn: async (newTask: NewTask) => {
       if (!userId) throw new Error("User not authenticated.");
       
-      // NEW: Ensure energy_cost and metadata_xp are set
-      const energyCost = newTask.energy_cost ?? calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, newTask.is_critical ?? false);
-      const metadataXp = energyCost * 2;
+      const energyCost = newTask.energy_cost ?? calculateEnergyCost(newTask.duration || DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, newTask.is_critical ?? false);
 
-      const taskToInsert = { 
+      const taskToInsert: NewTask = { 
         ...newTask, 
         user_id: userId, 
         energy_cost: energyCost,
-        metadata_xp: metadataXp,
-        is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, // NEW: Pass custom energy cost flag
+        is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
+        original_scheduled_date: newTask.original_scheduled_date ?? format(new Date(), 'yyyy-MM-dd'), // Default to today
+        retired_at: new Date().toISOString(), // Set retired_at as creation time for AetherSink
+        is_locked: newTask.is_locked ?? false,
+        is_completed: newTask.is_completed ?? false,
       };
-      const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
+      const { data, error } = await supabase.from('AetherSink').insert(taskToInsert).select().single();
       if (error) throw new Error(error.message);
       return data as Task;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      showSuccess('Task added successfully!');
+      showSuccess('Task added to Aether Sink!');
     },
     onError: (e) => {
       showError(`Failed to add task: ${e.message}`);
@@ -144,34 +153,25 @@ export const useTasks = () => {
 
   const updateTaskMutation = useMutation({
     mutationFn: async (task: Partial<Task> & { id: string }) => {
-      // NEW: Recalculate energy_cost and metadata_xp if not custom and critical status changes
+      // Recalculate energy_cost if not custom and critical status or duration changes
       let updatedEnergyCost = task.energy_cost;
-      let updatedMetadataXp = task.metadata_xp;
 
-      if (task.is_custom_energy_cost === false && (task.is_critical !== undefined || task.energy_cost === undefined)) {
-        // If is_custom_energy_cost is explicitly false, or energy_cost is not provided (meaning it should be calculated)
-        // We need to fetch the current task to get its is_critical status if not provided in the update
+      if (task.is_custom_energy_cost === false && (task.is_critical !== undefined || task.duration !== undefined || task.energy_cost === undefined)) {
         const currentTask = queryClient.getQueryData<Task[]>(['tasks', userId, temporalFilter, sortBy])?.find(t => t.id === task.id);
         const effectiveIsCritical = task.is_critical !== undefined ? task.is_critical : (currentTask?.is_critical ?? false);
+        const effectiveDuration = task.duration !== undefined ? task.duration : (currentTask?.duration ?? DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION);
         
-        updatedEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, effectiveIsCritical);
-        updatedMetadataXp = updatedEnergyCost * 2;
+        updatedEnergyCost = calculateEnergyCost(effectiveDuration || DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, effectiveIsCritical);
       } else if (task.is_custom_energy_cost === true && task.energy_cost !== undefined) {
-        // If custom energy cost is enabled and provided, update metadata_xp based on it
-        updatedMetadataXp = task.energy_cost * 2;
-      } else if (task.energy_cost !== undefined) {
-        // If energy_cost is provided (and custom might be true or false), update metadata_xp
-        updatedMetadataXp = task.energy_cost * 2;
+        updatedEnergyCost = task.energy_cost;
       }
 
-
       const { data, error } = await supabase
-        .from('tasks')
+        .from('AetherSink')
         .update({ 
           ...task, 
-          energy_cost: updatedEnergyCost, // NEW: Use updated energy cost
-          metadata_xp: updatedMetadataXp, // NEW: Use updated metadata XP
-          updated_at: new Date().toISOString(),
+          energy_cost: updatedEnergyCost,
+          retired_at: new Date().toISOString(), // Update retired_at to reflect modification
         })
         .eq('id', task.id)
         .select()
@@ -194,7 +194,7 @@ export const useTasks = () => {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      const { error } = await supabase.from('AetherSink').delete().eq('id', id);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {

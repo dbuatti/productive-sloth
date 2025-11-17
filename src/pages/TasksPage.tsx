@@ -10,6 +10,7 @@ import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
 
+// Priority is now derived from is_critical for AetherSink tasks
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 const TasksPage: React.FC = () => {
@@ -25,8 +26,15 @@ const TasksPage: React.FC = () => {
     setSortBy 
   } = useTasks();
 
+  // Group tasks by derived priority (is_critical)
   const groupedTasks = PRIORITY_ORDER.reduce((acc, priority) => {
-    acc[priority] = tasks.filter(task => task.priority === priority);
+    if (priority === 'HIGH') {
+      acc[priority] = tasks.filter(task => task.is_critical);
+    } else if (priority === 'MEDIUM') {
+      acc[priority] = tasks.filter(task => !task.is_critical);
+    } else { // LOW priority tasks are not explicitly supported by is_critical, so this will be empty
+      acc[priority] = [];
+    }
     return acc;
   }, {} as Record<TaskPriority, typeof tasks>);
 
@@ -46,7 +54,7 @@ const TasksPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold text-foreground animate-slide-in-up">My Tasks</h1> {/* Changed text-3xl to text-2xl */}
+      <h1 className="text-2xl font-bold text-foreground animate-slide-in-up">My Tasks</h1>
 
       <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
         <TemporalFilterTabs 
@@ -66,20 +74,23 @@ const TasksPage: React.FC = () => {
         <Accordion 
           type="multiple" 
           className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={PRIORITY_ORDER}
+          defaultValue={['HIGH', 'MEDIUM']} {/* Only show HIGH and MEDIUM by default */}
         >
           {PRIORITY_ORDER.map(priority => (
-            <PrioritySection 
-              key={priority}
-              priority={priority}
-              tasks={groupedTasks[priority]}
-            />
+            // Only render sections that actually have tasks
+            groupedTasks[priority].length > 0 ? (
+              <PrioritySection 
+                key={priority}
+                priority={priority}
+                tasks={groupedTasks[priority]}
+              />
+            ) : null
           ))}
         </Accordion>
       ) : (
         <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
           <ClipboardList className="h-12 w-12 text-muted-foreground" />
-          <p className="text-base font-semibold">No tasks found!</p> {/* Changed text-lg to text-base */}
+          <p className="text-base font-semibold">No tasks found!</p>
           <p>Start by adding a new task above to get organized.</p>
         </Card>
       )}

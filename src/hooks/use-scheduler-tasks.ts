@@ -176,7 +176,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) return [];
       console.log("useSchedulerTasks: Fetching retired tasks for user:", userId, "sorted by:", retiredSortBy);
       let query = supabase
-        .from('retired_tasks')
+        .from('aethersink') // CORRECTED: Use 'aethersink'
         .select('*')
         .eq('user_id', userId);
 
@@ -286,7 +286,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       // Fetch completed retired tasks for selected day
       const { data: retired, error: retiredError } = await supabase
-        .from('retired_tasks')
+        .from('aethersink') // CORRECTED: Use 'aethersink'
         .select('*')
         .eq('user_id', userId)
         .eq('is_completed', true)
@@ -442,7 +442,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
       const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false };
       console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
-      const { data, error } = await supabase.from('retired_tasks').insert(taskToInsert).select().single();
+      const { data, error } = await supabase.from('aethersink').insert(taskToInsert).select().single(); // CORRECTED
       if (error) {
         console.error("useSchedulerTasks: Error inserting retired task:", error.message);
         throw new Error(error.message);
@@ -594,7 +594,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_completed: taskToRetire.is_completed ?? false, // Pass completion status
         is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false, // Pass custom energy cost flag
       };
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTask);
+      const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTask); // CORRECTED
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
 
       const { error: deleteError } = await supabase.from('scheduled_tasks').delete().eq('id', taskToRetire.id).eq('user_id', userId);
@@ -660,7 +660,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (retiredTaskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const { error: deleteError } = await supabase.from('retired_tasks').delete().eq('id', retiredTaskId).eq('user_id', userId);
+      const { error: deleteError } = await supabase.from('aethersink').delete().eq('id', retiredTaskId).eq('user_id', userId); // CORRECTED
       if (deleteError) throw new Error(`Failed to remove task from Aether Sink: ${deleteError.message}`);
     },
     onMutate: async (retiredTaskId: string) => {
@@ -1055,7 +1055,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
       console.log(`useSchedulerTasks: Attempting to toggle lock for retired task ID: ${taskId} to ${isLocked}`);
       const { data, error } = await supabase
-        .from('retired_tasks')
+        .from('aethersink') // CORRECTED
         .update({ is_locked: isLocked, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
         .eq('id', taskId)
         .eq('user_id', userId)
@@ -1132,7 +1132,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_custom_energy_cost: task.is_custom_energy_cost ?? false, // Pass custom energy cost flag
       }));
 
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
+      const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTasks); // CORRECTED
       if (insertError) throw new Error(`Failed to move tasks to Aether Sink: ${insertError.message}`);
 
       const { error: deleteError } = await supabase
@@ -1234,7 +1234,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_custom_energy_cost: task.is_custom_energy_cost ?? false, // Pass custom energy cost flag
       }));
 
-      const { error: insertError } = await supabase.from('retired_tasks').insert(newRetiredTasks);
+      const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTasks); // CORRECTED
       if (insertError) throw new Error(`Failed to move tasks to Aether Sink (Mega): ${insertError.message}`);
 
       const { error: deleteError } = await supabase
@@ -1327,12 +1327,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (payload.retiredTaskIdsToDelete.length > 0) {
         console.log("autoBalanceScheduleMutation: Deleting retired tasks with IDs:", payload.retiredTaskIdsToDelete);
         const { error } = await supabase
-          .from('retired_tasks')
+          .from('aethersink') // CORRECTED
           .delete()
           .in('id', payload.retiredTaskIdsToDelete)
           .eq('user_id', userId);
         if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
-        console.log("autoBalanceScheduleMutation: Retired tasks deleted successfully.");
+        console.log("Retired tasks deleted successfully.");
       }
 
       // 3. Upsert new scheduled tasks (including fixed tasks that were not deleted)
@@ -1355,10 +1355,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }));
         console.log("autoBalanceScheduleMutation: Re-inserting tasks into sink:", tasksToKeepInSinkWithUserId.map(t => ({ name: t.name })));
         const { error } = await supabase
-          .from('retired_tasks')
+          .from('aethersink') // CORRECTED
           .insert(tasksToKeepInSinkWithUserId);
         if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
-        console.log("autoBalanceScheduleMutation: Unscheduled tasks re-inserted into sink successfully.");
+        console.log("Unscheduled tasks re-inserted into sink successfully.");
       }
 
       return { tasksPlaced: payload.tasksToInsert.length, tasksKeptInSink: payload.tasksToKeepInSink.length };
@@ -1620,7 +1620,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
       console.log(`useSchedulerTasks: Attempting to update completion status for retired task ID: ${taskId} to ${isCompleted}`);
       const { data, error } = await supabase
-        .from('retired_tasks')
+        .from('aethersink') // CORRECTED
         .update({ is_completed: isCompleted, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
         .eq('id', taskId)
         .eq('user_id', userId)
@@ -1719,7 +1719,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
       console.log("useSchedulerTasks: Attempting to update retired task details:", task);
       const { data, error } = await supabase
-        .from('retired_tasks')
+        .from('aethersink') // CORRECTED
         .update({ ...task, retired_at: new Date().toISOString() }) // Update retired_at to reflect modification
         .eq('id', task.id)
         .eq('user_id', userId)

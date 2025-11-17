@@ -1,7 +1,8 @@
-/// <reference lib="deno.ns" />
-/// <reference lib="deno.unstable" />
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+// @ts-ignore
 import { verify } from 'https://deno.land/x/djwt@v2.8/mod.ts';
 
 const corsHeaders = {
@@ -34,6 +35,7 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
+    // @ts-ignore
     const JWT_SECRET = Deno.env.get('JWT_SECRET'); 
 
     if (!JWT_SECRET) {
@@ -69,7 +71,9 @@ serve(async (req) => {
     const { scheduledTaskIdsToDelete, retiredTaskIdsToDelete, tasksToInsert, tasksToKeepInSink, selectedDate }: AutoBalancePayload = await req.json();
 
     const supabaseClient = createClient(
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
@@ -94,7 +98,7 @@ serve(async (req) => {
     if (retiredTaskIdsToDelete.length > 0) {
       console.log("Deleting retired tasks:", retiredTaskIdsToDelete);
       const { error } = await supabaseClient
-        .from('retired_tasks')
+        .from('aethersink') // CORRECTED
         .delete()
         .in('id', retiredTaskIdsToDelete)
         .eq('user_id', userId);
@@ -122,7 +126,7 @@ serve(async (req) => {
         retired_at: new Date().toISOString() 
       }));
       const { error } = await supabaseClient
-        .from('retired_tasks')
+        .from('aethersink') // CORRECTED
         .insert(tasksToKeepInSinkWithUserId);
       if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
       console.log("Unscheduled tasks re-inserted into sink successfully.");

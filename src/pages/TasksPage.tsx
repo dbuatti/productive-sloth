@@ -1,5 +1,5 @@
 import React from 'react';
-import { TemporalFilterTabs } from '@/components/TemporalFilterTabs';
+import TemporalFilterTabs from '@/components/TemporalFilterTabs';
 import TaskCreationForm from '@/components/TaskCreationForm';
 import TaskControlBar from '@/components/TaskControlBar';
 import { Loader2, ClipboardList } from 'lucide-react';

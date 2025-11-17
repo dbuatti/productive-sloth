@@ -1,4 +1,4 @@
-import { TemporalFilterTabs } from '@/components/TemporalFilterTabs';
+import TemporalFilterTabs from '@/components/TemporalFilterTabs';
 import TaskCreationForm from '@/components/TaskCreationForm';
 import TaskControlBar from '@/components/TaskControlBar';
 import PrioritySection from '@/components/PrioritySection';

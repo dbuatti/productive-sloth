@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, CheckCircle, Clock, Zap, MessageSquare, Lightbulb, Smile, Coffee } from 'lucide-react';
-import { ScheduleSummary } from '@/types/scheduler';
+import { ScheduleSummary, DBScheduledTask } from '@/types/scheduler'; // Import DBScheduledTask
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'; // Import Accordion components
+import CompletedTaskLogItem from './CompletedTaskLogItem'; // Import the new component
 
 interface DailyVibeRecapCardProps {
   scheduleSummary: ScheduleSummary | null;
@@ -12,6 +14,7 @@ interface DailyVibeRecapCardProps {
   profileEnergy: number;
   criticalTasksCompletedToday: number;
   selectedDayString: string;
+  completedScheduledTasks: DBScheduledTask[]; // NEW: Prop for completed tasks
 }
 
 const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
@@ -21,6 +24,7 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
   profileEnergy,
   criticalTasksCompletedToday,
   selectedDayString,
+  completedScheduledTasks, // NEW: Destructure prop
 }) => {
   const totalActiveTimeMinutes = scheduleSummary ? (scheduleSummary.activeTime.hours * 60 + scheduleSummary.activeTime.minutes) : 0;
   const totalBreakTimeMinutes = scheduleSummary ? scheduleSummary.breakTime : 0;
@@ -112,6 +116,22 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
             ))}
           </ul>
         </div>
+
+        {/* NEW: Collapsible Completed Task Log */}
+        {completedScheduledTasks.length > 0 && (
+          <Accordion type="single" collapsible className="w-full pt-4">
+            <AccordionItem value="completed-tasks-log" className="border-b-0">
+              <AccordionTrigger className="text-base font-semibold flex items-center gap-2 text-primary hover:no-underline">
+                <CheckCircle className="h-5 w-5 text-logo-green" /> View {completedScheduledTasks.length} Completed Task{completedScheduledTasks.length !== 1 ? 's' : ''}
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2 pt-2">
+                {completedScheduledTasks.map(task => (
+                  <CompletedTaskLogItem key={task.id} task={task} />
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
       </CardContent>
     </Card>
   );

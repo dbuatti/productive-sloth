@@ -637,6 +637,7 @@ const SchedulerPage: React.FC = () => {
             name: parsedInput.name, 
             start_time: startTime.toISOString(), 
             end_time: endTime.toISOString(), 
+            break_duration: parsedInput.breakDuration, 
             scheduled_date: taskScheduledDate, 
             is_critical: parsedInput.isCritical, 
             is_flexible: parsedInput.isFlexible, 
@@ -1822,6 +1823,18 @@ const SchedulerPage: React.FC = () => {
     ).length;
   }, [dbScheduledTasks, selectedDay]);
 
+  // NEW: Filter completed scheduled tasks for the selected day
+  const completedScheduledTasksForRecap = useMemo(() => {
+    return dbScheduledTasks.filter(task => 
+      task.is_completed && isSameDay(parseISO(task.scheduled_date), parseISO(selectedDay))
+    ).sort((a, b) => {
+      // Sort by completion time (updated_at) descending
+      const timeA = a.updated_at ? parseISO(a.updated_at).getTime() : 0;
+      const timeB = b.updated_at ? parseISO(b.updated_at).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [dbScheduledTasks, selectedDay]);
+
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
@@ -1990,6 +2003,7 @@ const SchedulerPage: React.FC = () => {
                 profileEnergy={profile?.energy || 0}
                 criticalTasksCompletedToday={criticalTasksCompletedToday}
                 selectedDayString={selectedDay}
+                completedScheduledTasks={completedScheduledTasksForRecap} /* NEW: Pass completed tasks */
               />
             </TabsContent>
           </Tabs>

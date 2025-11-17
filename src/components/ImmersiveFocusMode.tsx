@@ -100,7 +100,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   const textColor = isBreak ? 'text-logo-orange' : 'text-primary';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-lg p-4 text-foreground animate-fade-in">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-lg p-4 text-foreground animate-fade-in">
       {/* Exit Button */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -120,7 +120,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
       </Tooltip>
 
       {/* Main Content */}
-      <div className="flex flex-col items-center text-center space-y-6 max-w-2xl w-full">
+      <div className="flex flex-col items-center justify-center flex-grow text-center space-y-6 max-w-2xl w-full mx-auto overflow-y-auto py-8">
         <div className="flex items-center gap-3 text-5xl font-extrabold text-foreground animate-pulse-glow-subtle">
           {statusIcon}
           <span className={cn("text-5xl font-extrabold leading-tight", textColor)}>
@@ -145,7 +145,7 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="absolute bottom-8 flex space-x-4">
+      <div className="flex justify-center space-x-4 pb-4 pt-4 shrink-0">
         {!isBreak && !isTimeOff && !activeItem.isCompleted && (
           <Tooltip>
             <TooltipTrigger asChild>

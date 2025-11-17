@@ -394,7 +394,7 @@ const SchedulerPage: React.FC = () => {
   const handleRefreshSchedule = () => {
     if (user?.id) {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
       showSuccess("Schedule data refreshed.");
     }
@@ -1128,7 +1128,7 @@ const SchedulerPage: React.FC = () => {
             unifiedPool.push({
                 id: task.id,
                 name: task.name,
-                duration: task.duration || 30,
+                duration: task.duration || 30, // Default duration if null
                 break_duration: task.break_duration,
                 is_critical: task.is_critical,
                 is_flexible: true,
@@ -1680,25 +1680,45 @@ const SchedulerPage: React.FC = () => {
 
     try {
       if (action === 'complete') {
-        // 1. Check for early completion and open modal if needed
         const activeItem = currentSchedule?.items.find(item => item.id === task.id);
-        const remainingMins = activeItem ? differenceInMinutes(activeItem.endTime, T_current) : 0;
-
-        if (!isEarlyCompletion && remainingMins > 0) {
-          setEarlyCompletionTaskName(task.name);
-          setEarlyCompletionRemainingMinutes(remainingMins);
-          setEarlyCompletionDbTask(task);
-          setShowEarlyCompletionModal(true);
-          modalOpened = true;
-          
-          // FIX: Reset processing command immediately so modal buttons are clickable
-          setIsProcessingCommand(false); 
-          return; // Stop here, wait for modal action
-        }
-
-        // 2. If not early completion, or if action is confirmed from modal:
-        await completeScheduledTaskMutation(task); // Handles XP/Energy/Profile updates
         
+        // Determine if the task is currently active (T_current is within its time slot)
+        const isCurrentlyActive = activeItem && T_current >= activeItem.startTime && T_current < activeItem.endTime;
+        
+        // Determine if the task is in the future (T_current is before its start time)
+        const isFutureTask = activeItem && isBefore(T_current, activeItem.startTime);
+        
+        let shouldOpenEarlyCompletionModal = false;
+        let remainingMins = 0;
+
+        if (isCurrentlyActive) {
+            remainingMins = activeItem ? differenceInMinutes(activeItem.endTime, T_current) : 0;
+            // Only open modal if it's the active task AND we are not already in the modal flow (isEarlyCompletion=false) AND there is time remaining
+            if (!isEarlyCompletion && remainingMins > 0) {
+                shouldOpenEarlyCompletionModal = true;
+            }
+        }
+        
+        // If it's a future task, or if it's the active task and modal check passed (or was skipped):
+        if (isFutureTask || !shouldOpenEarlyCompletionModal) {
+            // Proceed directly to completion logic
+        } else if (shouldOpenEarlyCompletionModal) {
+            // 1. Open modal if currently active and completed early
+            setEarlyCompletionTaskName(task.name);
+            setEarlyCompletionRemainingMinutes(remainingMins);
+            setEarlyCompletionDbTask(task);
+            setShowEarlyCompletionModal(true);
+            modalOpened = true;
+            setIsProcessingCommand(false); 
+            return; // Stop here, wait for modal action
+        }
+        
+        // --- Core Completion Logic (Runs if future task OR active task completed on time/via modal) ---
+        
+        // 2. Run XP/Energy/Profile update
+        await completeScheduledTaskMutation(task); 
+        
+        // 3. Remove/Update task status
         if (task.is_flexible) {
           await removeScheduledTask(task.id);
         } else {
@@ -1706,14 +1726,13 @@ const SchedulerPage: React.FC = () => {
         }
         showSuccess(`Task "${task.name}" completed!`);
         
-        // 3. Zen Mode Persistence Check (Flow Disruption Fix)
-        // If there is no next item, or the next item is far away, exit focus mode.
-        // If nextItemToday is null OR the next item starts more than 5 minutes from now, exit.
-        if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
-          setIsFocusModeActive(false);
+        // 4. Zen Mode Persistence Check (Only relevant if it was the active task)
+        if (isCurrentlyActive) {
+            if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
+              setIsFocusModeActive(false);
+            }
         }
-        // If focus mode remains active, the next task will automatically become activeItemToday
-        // and the SchedulerDisplay will scroll to it.
+        // --- END Core Completion Logic ---
 
       } else if (action === 'skip') {
         await handleManualRetire(task); // This already handles retiring
@@ -1843,7 +1862,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart]);
 
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks;

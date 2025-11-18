@@ -511,6 +511,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         throw new Error(error.message);
       }
       console.log("useSchedulerTasks: Successfully removed task ID:", taskId);
+      return taskId; // Return the ID of the deleted task
     },
     onMutate: async (taskId: string) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
@@ -526,9 +527,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       // No toast here, moved to onSettled
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
-      showSuccess('Task removed from schedule.');
+      // REMOVE invalidateQueries here. The caller will handle it.
+      // queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      // queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      // showSuccess('Task removed from schedule.'); // Moved to caller
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
@@ -743,10 +745,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       if (updatableTasks.length === 0 && nonUpdatableTasks.length > 0) {
         showSuccess("No flexible tasks to compact, fixed/locked tasks were skipped.");
-        return;
+        return []; // Return empty array if nothing to update
       } else if (updatableTasks.length === 0) {
         showSuccess("No flexible tasks to compact.");
-        return;
+        return []; // Return empty array if nothing to update
       }
 
       const updates = updatableTasks.map(task => ({
@@ -767,34 +769,34 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         updated_at: new Date().toISOString(),
       }));
 
-      const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
+      const { data, error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' }).select('*'); // Select all to get updated data
 
       if (error) {
         console.error("useSchedulerTasks: Error compacting tasks:", error.message);
         throw new Error(error.message);
       }
       console.log("useSchedulerTasks: Successfully compacted tasks.");
+      return data as DBScheduledTask[]; // Return the updated tasks
     },
     onMutate: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
+      // Optimistically update the cache with the new positions
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
-        const updatedTasks = (old || []).map(oldTask => {
-          const newTask = tasksToUpdate.find(t => t.id === oldTask.id);
-          return newTask && newTask.is_flexible && !newTask.is_locked ? newTask : oldTask;
-        });
-        return updatedTasks;
+        const updatedTasksMap = new Map(tasksToUpdate.map(task => [task.id, task]));
+        return (old || []).map(oldTask => updatedTasksMap.get(oldTask.id) || oldTask);
       });
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
+    onSuccess: (data, _variables, context) => {
+      // The actual cache update is done in onMutate, so here we just ensure consistency
+      // queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], data);
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
-      showSuccess('Schedule compacted!');
+      // Remove invalidateQueries here. The caller will handle it.
+      // showSuccess('Schedule compacted!'); // Moved to caller
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }

@@ -930,82 +930,19 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       return { placedBreaks, failedToPlaceBreaks };
     },
-    onMutate: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }) => {
+    onMutate: async ({ selectedDate, currentDbTasks }) => { // Removed unused workdayStartTime, workdayEndTime
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, selectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      const nonBreakTasks = currentDbTasks.filter(task => task.name.toLowerCase() !== 'break');
-      let breakTasksToRandomize = currentDbTasks.filter(task => task.name.toLowerCase() === 'break' && !task.is_locked);
-
-      if (breakTasksToRandomize.length === 0) {
-        return { previousScheduledTasks, previousScrollTop };
-      }
-
-      const optimisticPlacedBreaks: DBScheduledTask[] = [];
-      const optimisticFailedToPlaceBreaks: DBScheduledTask[] = [];
-
-      for (let i = freeBlocks.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [freeBlocks[i], freeBlocks[j]] = [freeBlocks[j], freeBlocks[i]];
-        }
-
-        for (const freeBlock of freeBlocks) {
-          if (breakDuration <= freeBlock.duration) {
-            let proposedStartTime: Date;
-            const remainingFreeTime = freeBlock.duration - breakDuration;
-            const MIN_BUFFER_FOR_CENTERING = 30;
-
-            if (remainingFreeTime >= MIN_BUFFER_FOR_CENTERING * 2) {
-              proposedStartTime = addMinutes(freeBlock.start, Math.floor(remainingFreeTime / 2));
-            } else {
-              proposedStartTime = freeBlock.start;
-            }
-            
-            let proposedEndTime = addMinutes(proposedStartTime, breakDuration);
-
-            if (isBefore(proposedStartTime, freeBlock.start)) proposedStartTime = freeBlock.start;
-            if (isAfter(proposedEndTime, freeBlock.end)) proposedEndTime = freeBlock.end;
-
-            if (isSlotFree(proposedStartTime, proposedEndTime, optimisticOccupiedBlocks)) {
-              const newBreakTask: DBScheduledTask = {
-                ...breakTask,
-                start_time: proposedStartTime.toISOString(),
-                end_time: proposedEndTime.toISOString(),
-                scheduled_date: selectedDate,
-                is_flexible: true,
-                is_locked: breakTask.is_locked,
-                energy_cost: breakTask.energy_cost ?? 0,
-                is_completed: breakTask.is_completed ?? false,
-                is_custom_energy_cost: breakTask.is_custom_energy_cost ?? false,
-                task_environment: breakTask.task_environment,
-                updated_at: new Date().toISOString(),
-              };
-              optimisticPlacedBreaks.push(newBreakTask);
-              optimisticOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: breakDuration });
-              optimisticOccupiedBlocks = mergeOverlappingTimeBlocks(optimisticOccupiedBlocks);
-              placed = true;
-              break;
-            }
-          }
-        }
-
-        if (!placed) {
-          optimisticFailedToPlaceBreaks.push(breakTask);
-        }
-      }
-
-      const newScheduledTasks = [
-        ...nonBreakTasks,
-        ...currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' && task.is_locked),
-        ...optimisticPlacedBreaks
-      ];
-
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy], newScheduledTasks);
+      // Optimistically remove flexible breaks
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy], (old) => {
+        return (old || []).filter(task => !(task.name.toLowerCase() === 'break' && !task.is_locked));
+      });
 
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: ({ placedBreaks, failedToPlaceBreaks }) => {
+    onSuccess: () => {
       // No toast here, moved to onSettled
     },
     onSettled: (data, _error, _variables, context: MutationContext | undefined) => {
@@ -1178,29 +1115,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
+      // Optimistically remove flexible, unlocked tasks from the current day's schedule
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
-        (old || []).filter(task => task.id !== taskToDump.id)
+        (old || []).filter(task => !(task.is_flexible && !task.is_locked))
       );
 
-      // Removed optimistic update for retiredTasks to prevent duplicates
-      // const now = new Date().toISOString();
-      // const optimisticRetiredTasks: RetiredTask[] = tasksToDump.map(task => ({
-      //   id: task.id,
-      //   user_id: userId!,
-      //   name: task.name,
-      //   duration: (task.start_time && task.end_time) 
-      //             ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
-      //             : null,
-      //   break_duration: task.break_duration,
-      //   original_scheduled_date: task.scheduled_date,
-      //   retired_at: now,
-      //   is_critical: task.is_critical,
-      //   is_locked: task.is_locked,
-      //   energy_cost: task.energy_cost ?? 0,
-      // }));
-      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-      //   [...optimisticRetiredTasks, ...(old || [])]
-      // );
+      // No optimistic update for retiredTasks here, as it's complex to predict the exact new state.
+      // Let onSettled handle the invalidation and refetch.
 
       return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
     },
@@ -1273,38 +1194,31 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (deleteError) throw new Error(`Failed to remove tasks from schedule (Mega): ${deleteError.message}`);
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId] });
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId] }); // Cancel all scheduled tasks queries
       await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
       await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
 
+      const previousScheduledTasks = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
+        .flatMap(([_key, data]) => data || []); // Get all scheduled tasks across all query keys
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      // Removed optimistic update for retiredTasks to prevent duplicates
-      // const currentScheduledTasksSnapshot = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
-      //   .flatMap(([_key, data]) => data || [])
-      //   .filter(task => task.is_flexible && !task.is_locked && isAfter(parseISO(task.scheduled_date), subDays(startOfDay(new Date()), 1)));
+      // Optimistically remove all flexible, unlocked tasks from today and future days
+      queryClient.setQueriesData<DBScheduledTask[]>(
+        { queryKey: ['scheduledTasks', userId] }, // Target all scheduledTasks queries for this user
+        (old) => {
+          if (!old) return [];
+          const now = startOfDay(new Date());
+          return old.filter(task => 
+            !(task.is_flexible && !task.is_locked && isAfter(parseISO(task.scheduled_date), subDays(now, 1)))
+          );
+        }
+      );
 
-      // const now = new Date().toISOString();
-      // const optimisticRetiredTasks: RetiredTask[] = currentScheduledTasksSnapshot.map(task => ({
-      //   id: task.id,
-      //   user_id: userId!,
-      //   name: task.name,
-      //   duration: (task.start_time && task.end_time) 
-      //             ? Math.floor((parseISO(task.end_time).getTime() - parseISO(task.start_time).getTime()) / (1000 * 60)) 
-      //             : null,
-      //   break_duration: task.break_duration,
-      //   original_scheduled_date: task.scheduled_date,
-      //   retired_at: now,
-      //   is_critical: task.is_critical,
-      //   is_locked: task.is_locked,
-      //   energy_cost: task.energy_cost ?? 0,
-      // }));
-      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-      //   [...optimisticRetiredTasks, ...(old || [])]
-      // );
+      // No optimistic update for retiredTasks here, as it's complex to predict the exact new state.
+      // Let onSettled handle the invalidation and refetch.
 
-      return { previousRetiredTasks, previousScrollTop };
+      return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
     },
     onSuccess: () => {
       // No toast here, moved to onSettled

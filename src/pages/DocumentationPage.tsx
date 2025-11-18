@@ -67,81 +67,87 @@ const DocumentationPage: React.FC = () => {
               <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Gamepad className="h-5 w-5 text-logo-yellow" /> Gamification
               </h3>
-              <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                <li>
-                  <span className="font-semibold text-foreground">XP (Experience Points):</span> Earned by completing tasks. Higher priority tasks yield more XP.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Levels:</span> Progress through levels by accumulating XP. Each level requires {XP_PER_LEVEL} XP.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Energy:</span> Consumed when completing tasks. Tasks have an energy cost. Energy regenerates over time (5 energy every minute) up to a maximum of {MAX_ENERGY}. You can also manually recharge {RECHARGE_BUTTON_AMOUNT} energy.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Daily Streak:</span> Maintained by completing at least one task each day. Resets if no tasks are completed.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Daily Challenge:</span> Complete {DAILY_CHALLENGE_TASKS_REQUIRED} tasks per day to earn a bonus of +{DAILY_CHALLENGE_XP} XP and +{DAILY_CHALLENGE_ENERGY} Energy.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Notifications:</span> Customizable alerts for low energy (below {LOW_ENERGY_THRESHOLD}%) and daily challenge status.
-                </li>
-              </ul>
+              <div className="space-y-2 text-muted-foreground"> {/* Changed p to div */}
+                <ul className="list-disc list-inside space-y-2">
+                  <li>
+                    <span className="font-semibold text-foreground">XP (Experience Points):</span> Earned by completing tasks. Higher priority tasks yield more XP.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Levels:</span> Progress through levels by accumulating XP. Each level requires {XP_PER_LEVEL} XP.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Energy:</span> Consumed when completing tasks. Tasks have an energy cost. Energy regenerates over time (5 energy every minute) up to a maximum of {MAX_ENERGY}. You can also manually recharge {RECHARGE_BUTTON_AMOUNT} energy.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Daily Streak:</span> Maintained by completing at least one task each day. Resets if no tasks are completed.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Daily Challenge:</span> Complete {DAILY_CHALLENGE_TASKS_REQUIRED} tasks per day to earn a bonus of +{DAILY_CHALLENGE_XP} XP and +{DAILY_CHALLENGE_ENERGY} Energy.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Notifications:</span> Customizable alerts for low energy (below {LOW_ENERGY_THRESHOLD}%) and daily challenge status.
+                  </li>
+                </ul>
+              </div> {/* Closed div */}
 
               <Separator />
 
               <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <ListTodo className="h-5 w-5 text-primary" /> Task Management
               </h3>
-              <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                <li>
-                  <span className="font-semibold text-foreground">Priorities (High, Medium, Low):</span> Categorize tasks by importance. Higher priority tasks give more XP and cost more energy.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Due Dates:</span> Assign deadlines to your tasks for better organization.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Critical Tasks:</span> Mark tasks as critical (append ` !` to the title in quick add, or use the switch in detailed forms). Critical tasks are highlighted and give bonus XP if completed on their due date.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Descriptions:</span> Add detailed notes to your tasks using the detailed task creation dialog or the task detail sheet.
-                </li>
-              </ul>
+              <div className="space-y-2 text-muted-foreground"> {/* Changed p to div */}
+                <ul className="list-disc list-inside space-y-2">
+                  <li>
+                    <span className="font-semibold text-foreground">Priorities (High, Medium, Low):</span> Categorize tasks by importance. Higher priority tasks give more XP and cost more energy.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Due Dates:</span> Assign deadlines to your tasks for better organization.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Critical Tasks:</span> Mark tasks as critical (append ` !` to the title in quick add, or use the switch in detailed forms). Critical tasks are highlighted and give bonus XP if completed on their due date.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Descriptions:</span> Add detailed notes to your tasks using the detailed task creation dialog or the task detail sheet.
+                  </li>
+                </ul>
+              </div> {/* Closed div */}
 
               <Separator />
 
               <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Clock className="h-5 w-5 text-primary" /> Vibe Scheduler
               </h3>
-              <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                <li>
-                  <span className="font-semibold text-foreground">Flexible Tasks:</span> Tasks that the scheduler can automatically place into available time slots.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Fixed Tasks:</span> Tasks with specific start and end times that the scheduler will not move (e.g., "Meeting 10am-11am", or tasks explicitly marked `fixed`). "Time Off" blocks are always fixed.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Locked Tasks:</span> Any scheduled task can be locked to prevent the scheduler from moving or removing it. Locked tasks are visually distinct.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Compacting:</span> Rearranges flexible tasks to fill gaps and minimize free time within your workday window.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Randomizing Breaks:</span> Shuffles the placement of unlocked break tasks within your schedule.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Aether Dump:</span> Moves all *flexible, unlocked* tasks from the *current day's schedule* to the Aether Sink.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Aether Dump Mega:</span> Moves all *flexible, unlocked* tasks from *all future and current days' schedules* to the Aether Sink.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Auto-Balance:</span> A comprehensive process (triggered by "Auto Schedule" in Aether Sink) that unifies all flexible tasks from the current schedule and the Aether Sink, sorts them using a default pattern, and then attempts to re-place them into the current day's schedule. Tasks that cannot be placed are returned to the Aether Sink.
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Time Off:</span> Dedicated blocks in your schedule for personal time, always treated as fixed.
-                </li>
-              </ul>
+              <div className="space-y-2 text-muted-foreground"> {/* Changed p to div */}
+                <ul className="list-disc list-inside space-y-2">
+                  <li>
+                    <span className="font-semibold text-foreground">Flexible Tasks:</span> Tasks that the scheduler can automatically place into available time slots.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Fixed Tasks:</span> Tasks with specific start and end times that the scheduler will not move (e.g., "Meeting 10am-11am", or tasks explicitly marked `fixed`). "Time Off" blocks are always fixed.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Locked Tasks:</span> Any scheduled task can be locked to prevent the scheduler from moving or removing it. Locked tasks are visually distinct.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Compacting:</span> Rearranges flexible tasks to fill gaps and minimize free time within your workday window.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Randomizing Breaks:</span> Shuffles the placement of unlocked break tasks within your schedule.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Aether Dump:</span> Moves all *flexible, unlocked* tasks from the *current day's schedule* to the Aether Sink.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Aether Dump Mega:</span> Moves all *flexible, unlocked* tasks from *all future and current days' schedules* to the Aether Sink.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Auto-Balance:</span> A comprehensive process (triggered by "Auto Schedule" in Aether Sink) that unifies all flexible tasks from the current schedule and the Aether Sink, sorts them using a default pattern, and then attempts to re-place them into the current day's schedule. Tasks that cannot be placed are returned to the Aether Sink.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Time Off:</span> Dedicated blocks in your schedule for personal time, always treated as fixed.
+                  </li>
+                </ul>
+              </div> {/* Closed div */}
             </Card>
           </AccordionContent>
         </AccordionItem>
@@ -267,57 +273,59 @@ const DocumentationPage: React.FC = () => {
               <p className="text-muted-foreground">
                 The Vibe Scheduler input field understands natural language and specific commands to help you manage your schedule efficiently.
               </p>
-              <ul className="list-disc list-inside space-y-3 text-muted-foreground">
-                <li>
-                  <span className="font-semibold text-foreground">Add a duration-based task:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">Task Name 60 [BreakDuration] [!] [sink]</code>
-                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">Gym 60</code> (60 min task, calculated energy cost), <code className="font-mono">Read Book 30 10</code> (30 min task, 10 min break, calculated energy cost), <code className="font-mono">Critical Task 45 !</code> (45 min task, critical, calculated energy cost), <code className="font-mono">Old Task 20 sink</code> (20 min task, sent to sink, calculated energy cost)</p>
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Add a fixed-time task:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">Task Name HH:MM AM/PM - HH:MM AM/PM [!] [fixed]</code>
-                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">Meeting 10am-11am</code> (calculated energy cost), <code className="font-mono">Doctor Appt 2:30pm-3pm fixed !</code> (critical, calculated energy cost)</p>
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Add "Time Off":</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">Time Off HH:MM AM/PM - HH:MM AM/PM</code>
-                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">Time Off 1pm-2pm</code> (always fixed, 0 energy cost)</p>
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Quick Add 15-min Break:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">Click the <Coffee className="inline-block h-4 w-4 align-text-bottom" /> button next to the input field.</code>
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Inject a task (detailed dialog):</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">inject "Task Name" [Duration] [BreakDuration] [from HH:MM AM/PM to HH:MM AM/PM] [!] [fixed]</code>
-                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">inject "Project X" 30</code>, <code className="font-mono">inject "Client Call" from 3pm to 3:30pm fixed</code>. The dialog will automatically calculate energy cost based on duration and criticality.</p>
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Remove a task:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">remove "Task Name"</code> or <code className="font-mono">remove index [number]</code>
-                  <p className="text-sm italic ml-4">e.g., <code className="font-mono">remove "Gym"</code>, <code className="font-mono">remove index 1</code> (removes the first task)</p>
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Clear all unlocked tasks for today:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">clear</code>
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Compact flexible tasks:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">compact</code> (or click <ChevronsUp className="inline-block h-4 w-4 align-text-bottom" />)
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Randomize unlocked breaks:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">Click the <Shuffle className="inline-block h-4 w-4 align-text-bottom" /> button.</code>
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Move all flexible, unlocked tasks from CURRENT day to Aether Sink:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">aether dump</code> (or click <RefreshCcw className="inline-block h-4 w-4 align-text-bottom" />)
-                </li>
-                <li>
-                  <span className="font-semibold text-foreground">Move ALL flexible, unlocked tasks from ALL days to Aether Sink:</span>
-                  <code className="block bg-muted p-2 rounded-md mt-1">aether dump mega</code> (or click <Globe className="inline-block h-4 w-4 align-text-bottom" />)
-                </li>
-              </ul>
+              <div className="space-y-3 text-muted-foreground"> {/* Changed p to div */}
+                <ul className="list-disc list-inside space-y-3">
+                  <li>
+                    <span className="font-semibold text-foreground">Add a duration-based task:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">Task Name 60 [BreakDuration] [!] [sink]</code>
+                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">Gym 60</code> (60 min task, calculated energy cost), <code className="font-mono">Read Book 30 10</code> (30 min task, 10 min break, calculated energy cost), <code className="font-mono">Critical Task 45 !</code> (45 min task, critical, calculated energy cost), <code className="font-mono">Old Task 20 sink</code> (20 min task, sent to sink, calculated energy cost)</p>
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Add a fixed-time task:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">Task Name HH:MM AM/PM - HH:MM AM/PM [!] [fixed]</code>
+                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">Meeting 10am-11am</code> (calculated energy cost), <code className="font-mono">Doctor Appt 2:30pm-3pm fixed !</code> (critical, calculated energy cost)</p>
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Add "Time Off":</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">Time Off HH:MM AM/PM - HH:MM AM/PM</code>
+                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">Time Off 1pm-2pm</code> (always fixed, 0 energy cost)</p>
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Quick Add 15-min Break:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">Click the <Coffee className="inline-block h-4 w-4 align-text-bottom" /> button next to the input field.</code>
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Inject a task (detailed dialog):</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">inject "Task Name" [Duration] [BreakDuration] [from HH:MM AM/PM to HH:MM AM/PM] [!] [fixed]</code>
+                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">inject "Project X" 30</code>, <code className="font-mono">inject "Client Call" from 3pm to 3:30pm fixed</code>. The dialog will automatically calculate energy cost based on duration and criticality.</p>
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Remove a task:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">remove "Task Name"</code> or <code className="font-mono">remove index [number]</code>
+                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">remove "Gym"</code>, <code className="font-mono">remove index 1</code> (removes the first task)</p>
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Clear all unlocked tasks for today:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">clear</code>
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Compact flexible tasks:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">compact</code> (or click <ChevronsUp className="inline-block h-4 w-4 align-text-bottom" />)
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Randomize unlocked breaks:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">Click the <Shuffle className="inline-block h-4 w-4 align-text-bottom" /> button.</code>
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Move all flexible, unlocked tasks from CURRENT day to Aether Sink:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">aether dump</code> (or click <RefreshCcw className="inline-block h-4 w-4 align-text-bottom" />)
+                  </li>
+                  <li>
+                    <span className="font-semibold text-foreground">Move ALL flexible, unlocked tasks from ALL days to Aether Sink:</span>
+                    <code className="block bg-muted p-2 rounded-md mt-1">aether dump mega</code> (or click <Globe className="inline-block h-4 w-4 align-text-bottom" />)
+                  </li>
+                </ul>
+              </div> {/* Closed div */}
               <p className="text-sm text-muted-foreground mt-4">
                 <span className="font-semibold">Flags:</span>
                 <ul className="list-disc list-inside ml-4">

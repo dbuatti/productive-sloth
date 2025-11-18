@@ -71,6 +71,21 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'broom': '📦', // For 'Find A Location For The Broom'
   'practise': '🎹', // For 'Piano Practise'
   'track': '🎹', // For 'PIANO TRACK'
+  // NEW EMOJIS
+  'catch up': '🤝',
+  'trim': '💅',
+  'cuticle': '💅',
+  'payment': '💸',
+  'link': '💸',
+  'send': '🎤', // Can be used for sending voice notes, payment links, etc.
+  'voice notes': '🎤',
+  'job notes': '📝',
+  'process': '📝',
+  'usb': '🔌',
+  'cable': '🔌',
+  'coil': '🔌',
+  'write up': '✍️',
+  'notes': '✍️',
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -142,6 +157,21 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'broom': 120, // For 'Find A Location For The Broom'
   'practise': 270, // For 'Piano Practise'
   'track': 270, // For 'PIANO TRACK'
+  // NEW EMOJIS
+  'catch up': 290,
+  'trim': 330,
+  'cuticle': 330,
+  'payment': 60,
+  'link': 60,
+  'send': 270,
+  'voice notes': 270,
+  'job notes': 230,
+  'process': 230,
+  'usb': 210,
+  'cable': 210,
+  'coil': 210,
+  'write up': 320,
+  'notes': 320,
 };
 
 // --- Utility Functions ---
@@ -740,7 +770,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTimeMinutes,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
+    midnightRolloverMessage: midnightRoloverMessage,
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
   };

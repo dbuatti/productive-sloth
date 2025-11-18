@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music } from 'lucide-react'; // Added Music icon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
-import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns';
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
@@ -70,8 +70,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     const scheduledTasks = schedule ? schedule.items : [];
     const allEvents: (ScheduledItem | TimeMarker)[] = [...scheduledTasks];
 
-    allEvents.push({ id: 'marker-0', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
-    allEvents.push({ id: 'marker-24hr', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); 
+    // Ensure unique IDs for markers
+    allEvents.push({ id: `marker-start-${format(startOfTemplate, 'HHmm')}`, type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
+    allEvents.push({ id: `marker-end-${format(endOfTemplate, 'HHmm')}`, type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); 
 
     allEvents.sort((a, b) => {
         const timeA = 'time' in a ? a.time : a.startTime;
@@ -91,6 +92,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
             if (freeDurationMinutes > 0) {
                 processedItems.push({
+                    // Ensure FreeTimeItem ID is unique
                     id: `free-${currentCursor.toISOString()}-${eventStartTime.toISOString()}`,
                     type: 'free-time',
                     startTime: currentCursor,
@@ -132,11 +134,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
     const hasStartMarker = filteredItems.some(item => ('startTime' in item ? item.startTime : item.time).getTime() === startOfTemplate.getTime());
     if (!hasStartMarker) {
-        filteredItems.unshift({ id: 'marker-0-final', type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
+        filteredItems.unshift({ id: `marker-start-final-${format(startOfTemplate, 'HHmm')}`, type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
     }
     const hasEndMarker = filteredItems.some(item => ('endTime' in item ? item.endTime : item.time).getTime() === endOfTemplate.getTime());
     if (!hasEndMarker) {
-        filteredItems.push({ id: 'marker-24hr-final', type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) });
+        filteredItems.push({ id: `marker-end-final-${format(endOfTemplate, 'HHmm')}`, type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) });
     }
 
     filteredItems.sort((a, b) => {

@@ -449,6 +449,60 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
+  // FIX 6: Define handleCompactSchedule
+  const handleCompactSchedule = useCallback(async () => {
+    if (!user || !profile) {
+        showError("Please log in and ensure your profile is loaded to compact the schedule.");
+        return;
+    }
+    if (!dbScheduledTasks.some(task => task.is_flexible && !task.is_locked)) {
+        showSuccess("No flexible tasks to compact.");
+        return;
+    }
+
+    setIsProcessingCommand(true);
+    try {
+        const compactedTasks = compactScheduleLogic(
+            dbScheduledTasks,
+            selectedDayAsDate,
+            workdayStartTime,
+            workdayEndTime,
+            T_current
+        );
+
+        // Filter out tasks that were not placed (i.e., still have null times or are outside the window)
+        const tasksToUpdate = compactedTasks.filter(task => task.start_time && task.end_time);
+
+        if (tasksToUpdate.length > 0) {
+            await compactScheduledTasks({ tasksToUpdate });
+            showSuccess("Schedule compacted successfully!");
+            queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+        } else {
+            showError("Compaction failed: No tasks could be placed within the workday window.");
+        }
+    } catch (error: any) {
+        showError(`Failed to compact schedule: ${error.message}`);
+        console.error("Compact schedule error:", error);
+    } finally {
+        setIsProcessingCommand(false);
+    }
+  }, [user, profile, dbScheduledTasks, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, queryClient]);
+
+  // FIX 5: Define handleSortFlexibleTasks
+  const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
+    if (!user || !profile) {
+        showError("Please log in and ensure your profile is loaded to sort tasks.");
+        return;
+    }
+    
+    // This function only sets the sort state, which triggers a re-fetch of scheduled tasks.
+    // The actual re-placement/re-balancing logic is handled by handleZoneFocus/AutoBalance.
+    // For simple sorting of the current schedule view, we just update the state.
+    setSortBy(newSortBy);
+    showSuccess(`Schedule sorted by ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
+  }, [user, profile, setSortBy]);
+
+
   // FIX 2: Define handleAetherDumpButton
   const handleAetherDumpButton = async () => {
     if (!user) {
@@ -456,6 +510,7 @@ const SchedulerPage: React.FC = () => {
       return;
     }
     setIsProcessingCommand(true);
+
     try {
       await aetherDump();
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
@@ -565,17 +620,17 @@ const SchedulerPage: React.FC = () => {
         await rezoneTask(taskToPlace.id);
 
         await addScheduledTask({
-            name: taskToPlace.name,
-            start_time: proposedStartTime.toISOString(),
-            end_time: proposedEndTime.toISOString(),
-            break_duration: taskToPlace.break_duration,
-            scheduled_date: formattedSelectedDay,
-            is_critical: taskToPlace.is_critical,
-            is_flexible: true,
-            is_locked: false,
-            energy_cost: taskToPlace.energy_cost,
-            is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
-            task_environment: taskToPlace.task_environment, // NEW: Add environment
+          name: taskToPlace.name,
+          start_time: proposedStartTime.toISOString(),
+          end_time: proposedEndTime.toISOString(),
+          break_duration: taskToPlace.break_duration,
+          scheduled_date: formattedSelectedDay,
+          is_critical: taskToPlace.is_critical,
+          is_flexible: true,
+          is_locked: false,
+          energy_cost: taskToPlace.energy_cost,
+          is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
+          task_environment: taskToPlace.task_environment, // NEW: Add environment
         });
 
         return true;
@@ -1386,7 +1441,7 @@ const SchedulerPage: React.FC = () => {
 
         await autoBalanceSchedule(payload);
         showSuccess("Flexible tasks sorted and schedule re-balanced!");
-        setSortBy(newSortBy);
+        setSortBy('TIME_EARLIEST_TO_LATEST'); // FIX 2: Set sort to default time sort after re-balancing
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
         setIsProcessingCommand(false);
     } catch (error: any) {
@@ -1607,7 +1662,7 @@ const SchedulerPage: React.FC = () => {
             task_environment: originalNextTask.task_environment, // NEW: Preserve environment
           });
 
-          await handleCompactSchedule(); 
+          await handleCompactSchedule(); // FIX 3: Call the defined handleCompactSchedule
 
           showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
         }
@@ -1644,7 +1699,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement]); // FIX 4: Added handleCompactSchedule to dependencies
 
   // NEW: Calculate tasks completed today and XP earned today for the recap card
   const tasksCompletedForSelectedDay = useMemo(() => {
@@ -1743,10 +1798,10 @@ const SchedulerPage: React.FC = () => {
             dbScheduledTasks={dbScheduledTasks}
             onRechargeEnergy={() => rechargeEnergy()}
             onRandomizeBreaks={handleRandomizeBreaks}
-            onSortFlexibleTasks={handleSortFlexibleTasks}
+            onSortFlexibleTasks={handleSortFlexibleTasks} // FIX 5: Use defined handler
             onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
             sortBy={sortBy}
-            onCompactSchedule={handleCompactSchedule}
+            onCompactSchedule={handleCompactSchedule} // FIX 6: Use defined handler
             onQuickScheduleBlock={handleQuickScheduleBlock}
             retiredTasksCount={retiredTasks.length}
             onZoneFocus={handleZoneFocus} // NEW: Pass handler

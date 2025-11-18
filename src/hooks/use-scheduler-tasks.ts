@@ -541,6 +541,45 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   });
 
+  const removeRetiredTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log("useSchedulerTasks: Attempting to remove retired task ID:", taskId);
+      const { error } = await supabase.from('aethersink').delete().eq('id', taskId).eq('user_id', userId);
+      if (error) {
+        console.error("useSchedulerTasks: Error removing retired task:", error.message);
+        throw new Error(error.message);
+      }
+      console.log("useSchedulerTasks: Successfully removed retired task ID:", taskId);
+    },
+    onMutate: async (taskId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) =>
+        (old || []).filter(task => task.id !== taskId)
+      );
+      return { previousRetiredTasks, previousScrollTop };
+    },
+    onSuccess: () => {
+      // No toast here, moved to onSettled
+    },
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      showSuccess('Retired task permanently deleted.');
+      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
+        scrollRef.current.scrollTop = context.previousScrollTop;
+      }
+    },
+    onError: (e, taskId, context) => {
+      showError(`Failed to remove retired task: ${e.message}`);
+      if (context?.previousRetiredTasks) {
+        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks);
+      }
+    }
+  });
+
   const clearScheduledTasksMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User not authenticated.");
@@ -1761,5 +1800,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutateAsync,
     updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutateAsync,
     completeRetiredTask: completeRetiredTaskMutation.mutateAsync,
+    removeRetiredTask: removeRetiredTaskMutation.mutateAsync, // ADDED: Export removeRetiredTask
   };
 };

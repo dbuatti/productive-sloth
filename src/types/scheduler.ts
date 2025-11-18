@@ -130,8 +130,6 @@ export interface UnifiedTask {
   break_duration: number | null;
   is_critical: boolean;
   is_flexible: boolean;
-  is_locked: boolean; // NEW: Added is_locked
-  is_completed: boolean; // NEW: Added is_completed
   energy_cost: number;
   source: 'scheduled' | 'retired';
   originalId: string; // ID in the source table

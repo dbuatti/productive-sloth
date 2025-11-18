@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile } from 'lucide-react';
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile, Database } from 'lucide-react'; // NEW: Added Database icon
 import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -26,7 +26,7 @@ import {
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
   onRezoneTask: (task: RetiredTask) => void;
-  onRemoveRetiredTask: (taskId: string, taskName: string) => void; // Changed signature
+  onRemoveRetiredTask: (taskId: string, taskName: string) => void;
   onAutoScheduleSink: () => void;
   isLoading: boolean;
   isProcessingCommand: boolean;
@@ -38,8 +38,8 @@ interface AetherSinkProps {
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy, retiredSortBy, setRetiredSortBy }) => {
   const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked);
-  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
-  const { user } = useSession();
+  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup } = useSchedulerTasks(''); // NEW: Destructure triggerAetherSinkBackup
+  const { user, profile } = useSession(); // NEW: Get profile to check enable_aethersink_backup
   const [sinkInputValue, setSinkInputValue] = useState('');
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
@@ -97,6 +97,19 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
     }
   };
 
+  // NEW: Handle manual Aether Sink backup
+  const handleManualAetherSinkBackup = async () => {
+    if (!user || !profile) {
+      showError("You must be logged in and your profile loaded to create a backup.");
+      return;
+    }
+    if (!profile.enable_aethersink_backup) {
+      showError("Daily Aether Sink backup is disabled in settings. Please enable it to use this feature.");
+      return;
+    }
+    await triggerAetherSinkBackup();
+  };
+
   return (
     <>
       <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
@@ -106,6 +119,31 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
             </CardTitle>
             <div className="flex items-center gap-2">
+              {/* NEW: Backup Now Button */}
+              {profile?.enable_aethersink_backup && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleManualAetherSinkBackup} 
+                      disabled={isProcessingCommand}
+                      className={cn(
+                        "h-8 w-8 text-primary hover:bg-primary/10 transition-all duration-200",
+                        isProcessingCommand && "text-muted-foreground/50 cursor-not-allowed"
+                      )}
+                      style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+                    >
+                      {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                      <span className="sr-only">Backup Now</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Create an immediate backup of your Aether Sink</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
               {/* Sort Button for Aether Sink */}
               <DropdownMenu>
                 <Tooltip>
@@ -405,7 +443,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               size="icon" 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onRemoveRetiredTask(task.id, task.name); // Pass task name
+                                onRemoveRetiredTask(task.id, task.name);
                               }}
                               disabled={isLocked || isProcessingCommand}
                               className={cn(

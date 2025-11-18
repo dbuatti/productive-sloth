@@ -21,7 +21,8 @@ export interface UserProfile {
   daily_challenge_target: number;
   default_auto_schedule_start_time: string | null;
   default_auto_schedule_end_time: string | null;
-  enable_delete_hotkeys: boolean; // NEW: Added for delete hotkey preference
+  enable_delete_hotkeys: boolean;
+  enable_aethersink_backup: boolean; // NEW: Added for Aether Sink backup preference
 }
 
 interface SessionContextType {
@@ -39,10 +40,10 @@ interface SessionContextType {
   claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>;
   updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
-  updateSettings: (updates: Partial<UserProfile>) => Promise<void>; // NEW: Generic update for settings
-  activeItemToday: ScheduledItem | null; // NEW: Active scheduled item for today
-  nextItemToday: ScheduledItem | null;   // NEW: Next scheduled item for today
-  T_current: Date; // NEW: Expose T_current
+  updateSettings: (updates: Partial<UserProfile>) => Promise<void>;
+  activeItemToday: ScheduledItem | null;
+  nextItemToday: ScheduledItem | null;
+  T_current: Date;
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

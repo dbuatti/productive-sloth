@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard } from 'lucide-react'; // Added Keyboard icon, and Loader2
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -51,7 +51,8 @@ const SettingsPage: React.FC = () => {
 
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
-  const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true); // NEW: State for delete hotkeys
+  const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
+  const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
 
 
   const form = useForm<ProfileFormValues>({
@@ -77,7 +78,8 @@ const SettingsPage: React.FC = () => {
       });
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
-      setEnableDeleteHotkeys(profile.enable_delete_hotkeys); // NEW: Set initial state for delete hotkeys
+      setEnableDeleteHotkeys(profile.enable_delete_hotkeys);
+      setEnableAetherSinkBackup(profile.enable_aethersink_backup);
     }
   }, [profile, form]);
 
@@ -123,7 +125,8 @@ const SettingsPage: React.FC = () => {
           last_low_energy_notification: null,
           enable_daily_challenge_notifications: true,
           enable_low_energy_notifications: true,
-          enable_delete_hotkeys: true, // NEW: Reset delete hotkeys to true
+          enable_delete_hotkeys: true,
+          enable_aethersink_backup: true,
           default_auto_schedule_start_time: '09:00',
           default_auto_schedule_end_time: '17:00',
           updated_at: new Date().toISOString(),
@@ -159,10 +162,11 @@ const SettingsPage: React.FC = () => {
     }
 
     try {
-      await updateSettings({ // NEW: Use updateSettings for multiple updates
+      await updateSettings({
         enable_daily_challenge_notifications: true,
         enable_low_energy_notifications: true,
-        enable_delete_hotkeys: true, // NEW: Reset delete hotkeys to true
+        enable_delete_hotkeys: true,
+        enable_aethersink_backup: true,
         default_auto_schedule_start_time: '09:00',
         default_auto_schedule_end_time: '17:00',
       });
@@ -171,7 +175,8 @@ const SettingsPage: React.FC = () => {
       
       setDailyChallengeNotifications(true);
       setLowEnergyNotifications(true);
-      setEnableDeleteHotkeys(true); // NEW: Update local state
+      setEnableDeleteHotkeys(true);
+      setEnableAetherSinkBackup(true);
 
       showSuccess("App settings reset to default!");
     } catch (error: any) {
@@ -190,10 +195,14 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  // NEW: Handler for delete hotkeys switch
   const handleDeleteHotkeysChange = async (checked: boolean) => {
     setEnableDeleteHotkeys(checked);
     await updateSettings({ enable_delete_hotkeys: checked });
+  };
+
+  const handleAetherSinkBackupChange = async (checked: boolean) => {
+    setEnableAetherSinkBackup(checked);
+    await updateSettings({ enable_aethersink_backup: checked });
   };
 
   const handleDeleteAccount = async () => {
@@ -226,16 +235,16 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl space-y-8 animate-slide-in-up">
-      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"> {/* Changed text-3xl to text-2xl */}
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
         <Settings className="h-7 w-7 text-primary" /> Settings
       </h1>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information Card */}
-          <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
+          <Card className="animate-hover-lift">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg"> {/* Changed text-xl to text-lg */}
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="h-5 w-5 text-primary" /> Profile
               </CardTitle>
             </CardHeader>
@@ -259,7 +268,7 @@ const SettingsPage: React.FC = () => {
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Last Name</FormLabel> {/* Corrected: Changed <Label> to <FormLabel> and added closing tag */}
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -290,9 +299,9 @@ const SettingsPage: React.FC = () => {
           </Card>
 
           {/* Game Stats & Actions Card */}
-          <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
+          <Card className="animate-hover-lift">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg"> {/* Changed text-xl to text-lg */}
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Gamepad2 className="h-5 w-5 text-logo-yellow" /> Game & Energy
               </CardTitle>
             </CardHeader>
@@ -350,9 +359,9 @@ const SettingsPage: React.FC = () => {
           </Card>
 
           {/* App Preferences Card */}
-          <Card className="animate-hover-lift"> {/* Added animate-hover-lift */}
+          <Card className="animate-hover-lift">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg"> {/* Changed text-xl to text-lg */}
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Settings className="h-5 w-5 text-primary" /> Preferences
               </CardTitle>
             </CardHeader>
@@ -390,7 +399,7 @@ const SettingsPage: React.FC = () => {
                 />
               </div>
 
-              {/* NEW: Enable Delete Hotkeys */}
+              {/* Enable Delete Hotkeys */}
               <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                 <div className="space-y-0.5">
                   <Label className="flex items-center gap-2">
@@ -403,6 +412,22 @@ const SettingsPage: React.FC = () => {
                 <Switch
                   checked={enableDeleteHotkeys}
                   onCheckedChange={handleDeleteHotkeysChange}
+                />
+              </div>
+
+              {/* NEW: Enable Aether Sink Backup */}
+              <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label className="flex items-center gap-2">
+                    <Database className="h-4 w-4" /> Enable Daily Aether Sink Backup
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically back up your Aether Sink to Supabase daily.
+                  </p>
+                </div>
+                <Switch
+                  checked={enableAetherSinkBackup}
+                  onCheckedChange={handleAetherSinkBackupChange}
                 />
               </div>
 
@@ -483,7 +508,7 @@ const SettingsPage: React.FC = () => {
       {/* Developer Tools Card */}
       <Card className="animate-hover-lift">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg"> {/* Changed text-xl to text-lg */}
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Code className="h-5 w-5 text-secondary-foreground" /> Developer Tools
           </CardTitle>
         </CardHeader>
@@ -503,9 +528,9 @@ const SettingsPage: React.FC = () => {
       </Card>
 
       {/* Danger Zone Card */}
-      <Card className="border-destructive/50 animate-hover-lift"> {/* Added animate-hover-lift */}
+      <Card className="border-destructive/50 animate-hover-lift">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg text-destructive"> {/* Changed text-xl to text-lg */}
+          <CardTitle className="flex items-center gap-2 text-lg text-destructive">
             <Trash2 className="h-5 w-5" /> Danger Zone
           </CardTitle>
         </CardHeader>

@@ -29,7 +29,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [T_current, setT_current] = useState(new Date()); // Internal T_current for SessionProvider
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { selectedEnvironments } = useEnvironmentContext(); // UPDATED: Get selected environments array
+  const { selectedEnvironments } = useEnvironmentContext();
 
   // Update T_current every second
   useEffect(() => {
@@ -43,9 +43,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys') // NEW: Select enable_delete_hotkeys
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup') // NEW: Select enable_aethersink_backup
       .eq('id', userId)
-      .single(); // Added .single() for robustness
+      .single();
 
     if (error) {
       console.error('Error fetching profile:', error);
@@ -55,14 +55,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } else {
       setProfile(null);
     }
-  }, []); // No dependencies, as supabase and setProfile are stable
+  }, []);
 
   // Refined refreshProfile function
   const refreshProfile = useCallback(async () => {
     if (user?.id) {
       await fetchProfile(user.id);
     }
-  }, [user?.id, fetchProfile]); // Depends on user.id and stable fetchProfile
+  }, [user?.id, fetchProfile]);
 
   const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
     if (!user || !profile) {
@@ -305,7 +305,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, session, user]); // Added session and user to dependencies for comparison logic
+  }, [navigate, session, user]);
 
   // Separate useEffect to fetch/refresh profile when user changes
   useEffect(() => {
@@ -314,7 +314,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } else {
       setProfile(null); // Clear profile if user logs out
     }
-  }, [user?.id, refreshProfile]); // Depends on user.id and stable refreshProfile
+  }, [user?.id, refreshProfile]);
 
   // Energy Regeneration Effect
   useEffect(() => {
@@ -509,10 +509,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       claimDailyReward,
       updateNotificationPreferences,
       updateProfile,
-      updateSettings, // NEW: Provide updateSettings
-      activeItemToday, // NEW: Provide active item for today
-      nextItemToday,   // NEW: Provide next item for today
-      T_current,       // NEW: Provide T_current
+      updateSettings,
+      activeItemToday,
+      nextItemToday,
+      T_current,
     }}>
       {children}
     </SessionContext.Provider>

@@ -4,7 +4,7 @@ export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
 export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI'; // Updated SortBy
 
 // NEW: Type for task environment
-export type TaskEnvironment = 'home' | 'laptop' | 'away';
+export type TaskEnvironment = 'home' | 'laptop' | 'away' | 'piano' | 'laptop_piano';
 
 // NEW: Type for sorting retired tasks
 export type RetiredTaskSortBy = 

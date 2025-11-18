@@ -16,6 +16,10 @@ const EnvironmentToggle: React.FC = () => {
         return 'bg-primary/20 text-primary border-primary/50 hover:bg-primary/30';
       case 'away':
         return 'bg-logo-orange/20 text-logo-orange border-logo-orange/50 hover:bg-logo-orange/30';
+      case 'piano':
+        return 'bg-accent/20 text-accent border-accent/50 hover:bg-accent/30';
+      case 'laptop_piano':
+        return 'bg-primary/20 text-primary border-primary/50 hover:bg-primary/30';
       default:
         return 'bg-secondary text-secondary-foreground border-border';
     }

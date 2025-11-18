@@ -3,7 +3,7 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe } from 'lucide-react'; // Added Home, Laptop, Globe icons
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music } from 'lucide-react'; // Added Music icon
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns';
@@ -41,6 +41,15 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
       return <Laptop className="h-4 w-4 text-primary" />;
     case 'away':
       return <Globe className="h-4 w-4 text-logo-orange" />;
+    case 'piano':
+      return <Music className="h-4 w-4 text-accent" />;
+    case 'laptop_piano':
+      return (
+        <div className="relative">
+          <Laptop className="h-4 w-4 text-primary" />
+          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5 text-accent" />
+        </div>
+      );
     default:
       return null;
   }
@@ -192,7 +201,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const handleInfoChipClick = (dbTask: DBScheduledTask) => {
     console.log("SchedulerDisplay: InfoChip clicked for task:", dbTask.name);
     setSelectedScheduledTask(dbTask);
-    setIsDialogOpen(true); // Changed from setIsSheetOpen
+    setIsDialogOpen(true); // Changed from isSheetOpen
   };
 
   const handleTaskItemClick = (event: React.MouseEvent, dbTask: DBScheduledTask) => {
@@ -203,7 +212,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       return;
     }
     setSelectedScheduledTask(dbTask);
-    setIsDialogOpen(true); // Changed from setIsSheetOpen
+    setIsDialogOpen(true); // Changed from isSheetOpen
     console.log("SchedulerDisplay: Setting isDialogOpen to true for task:", dbTask.name); // Changed from isSheetOpen
   };
 

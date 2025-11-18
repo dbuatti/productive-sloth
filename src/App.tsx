@@ -15,6 +15,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
+import EnvironmentProvider from "./components/EnvironmentProvider";
 
 const queryClient = new QueryClient();
 
@@ -25,21 +26,23 @@ const App = () => (
         <React.Fragment>
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <SessionProvider>
-              <MainLayout>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/tasks" element={<TasksPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
-                  <Route path="/achievements" element={<AchievementsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/scheduler" element={<SchedulerPage />} />
-                  <Route path="/documentation" element={<DocumentationPage />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </MainLayout>
-            </SessionProvider>
+            <EnvironmentProvider>
+              <SessionProvider>
+                <MainLayout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/tasks" element={<TasksPage />} />
+                    <Route path="/analytics" element={<AnalyticsPage />} />
+                    <Route path="/achievements" element={<AchievementsPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/scheduler" element={<SchedulerPage />} />
+                    <Route path="/documentation" element={<DocumentationPage />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </MainLayout>
+              </SessionProvider>
+            </EnvironmentProvider>
           </BrowserRouter>
         </React.Fragment>
       </TooltipProvider>

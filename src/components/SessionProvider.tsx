@@ -14,9 +14,10 @@ import {
   LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
   DAILY_CHALLENGE_TASKS_REQUIRED
 } from '@/lib/constants';
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // NEW: Import useQueryClient
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
+import { useEnvironmentContext } from '@/hooks/use-environment-context';
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -27,7 +28,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [levelUpLevel, setLevelUpLevel] = useState(0);
   const [T_current, setT_current] = useState(new Date()); // Internal T_current for SessionProvider
   const navigate = useNavigate();
-  const queryClient = useQueryClient(); // NEW: Initialize queryClient
+  const queryClient = useQueryClient();
+  const { currentEnvironment } = useEnvironmentContext(); // NEW: Get current environment
 
   // Update T_current every second
   useEffect(() => {
@@ -436,18 +438,54 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [calculatedScheduleToday, T_current]);
 
   const nextItemToday: ScheduledItem | null = useMemo(() => {
-    if (!calculatedScheduleToday || !activeItemToday) return null;
-    const activeItemIndex = calculatedScheduleToday.items.findIndex(item => item.id === activeItemToday.id);
-    if (activeItemIndex !== -1 && activeItemIndex < calculatedScheduleToday.items.length - 1) {
-      for (let i = activeItemIndex + 1; i < calculatedScheduleToday.items.length; i++) {
-        const item = calculatedScheduleToday.items[i];
-        if (item.type === 'task' || item.type === 'break' || item.type === 'time-off') {
-          return item;
+    if (!calculatedScheduleToday) return null;
+    
+    const startIndex = calculatedScheduleToday.items.findIndex(item => item.startTime > T_current);
+    if (startIndex === -1) return null;
+
+    const potentialNextItems = calculatedScheduleToday.items.slice(startIndex);
+
+    // 1. Determine if we should prioritize environment matching
+    const isCurrentlyInTask = activeItemToday?.type === 'task';
+    
+    if (isCurrentlyInTask) {
+        // If currently in a task, the next item is simply the next scheduled item, regardless of environment.
+        const activeItemIndex = calculatedScheduleToday.items.findIndex(item => item.id === activeItemToday.id);
+        if (activeItemIndex !== -1 && activeItemIndex < calculatedScheduleToday.items.length - 1) {
+            for (let i = activeItemIndex + 1; i < calculatedScheduleToday.items.length; i++) {
+                const item = calculatedScheduleToday.items[i];
+                if (item.type === 'task' || item.type === 'break' || item.type === 'time-off') {
+                    return item;
+                }
+            }
         }
-      }
+        return null;
+    } else {
+        // If currently in a break, time-off, or free time (activeItemToday is null), 
+        // prioritize the next item that matches the current environment.
+        
+        // Filter for tasks that match the current environment, or any break/time-off item
+        const environmentFilteredItems = potentialNextItems.filter(item => 
+            (item.type === 'task' && item.taskEnvironment === currentEnvironment) || 
+            item.type === 'break' || 
+            item.type === 'time-off'
+        );
+
+        // Find the first item in the environment-filtered list
+        const nextMatchingItem = environmentFilteredItems.find(item => 
+            item.type === 'task' || item.type === 'break' || item.type === 'time-off'
+        );
+
+        if (nextMatchingItem) {
+            return nextMatchingItem;
+        }
+
+        // Fallback: If no matching task or break/time-off was found in the filtered list, 
+        // return the very next scheduled item regardless of environment.
+        const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off');
+        return nextAnyItem || null;
     }
-    return null;
-  }, [calculatedScheduleToday, activeItemToday]);
+  }, [calculatedScheduleToday, T_current, activeItemToday, currentEnvironment]);
 
 
   return (

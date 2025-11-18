@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe } from "lucide-react"; // Added Home, Laptop, Globe icons
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react"; // Added Music icon
 
 import {
   Dialog, // Changed from Sheet
@@ -33,6 +33,7 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
+import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -44,7 +45,7 @@ const formSchema = z.object({
   is_locked: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.enum(['home', 'laptop', 'away']).default('laptop'), // NEW: Add task_environment
+  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'), // UPDATED: Add new environments
 });
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -55,12 +56,6 @@ interface ScheduledTaskDetailDialogProps { // Changed from SheetProps
   onOpenChange: (open: boolean) => void;
   selectedDayString: string;
 }
-
-const environmentOptions: { value: TaskEnvironment, label: string, icon: React.ElementType }[] = [
-  { value: 'home', label: '🏠 At Home', icon: Home },
-  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
-  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
-];
 
 const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ // Changed from Sheet
   task,

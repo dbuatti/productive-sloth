@@ -555,7 +555,10 @@ const SchedulerPage: React.FC = () => {
         showError("Please log in and ensure your profile is loaded to compact the schedule.");
         return;
     }
-    if (!dbScheduledTasks.some(task => task.is_flexible && !task.is_locked)) {
+    // Use the current dbScheduledTasks from the query cache directly
+    const currentDbTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+
+    if (!currentDbTasks.some(task => task.is_flexible && !task.is_locked)) {
         showSuccess("No flexible tasks to compact.");
         return;
     }
@@ -563,7 +566,7 @@ const SchedulerPage: React.FC = () => {
     setIsProcessingCommand(true);
     try {
         const compactedTasks = compactScheduleLogic(
-            dbScheduledTasks,
+            currentDbTasks, // Pass the current tasks
             selectedDayAsDate,
             workdayStartTime,
             workdayEndTime,
@@ -585,7 +588,7 @@ const SchedulerPage: React.FC = () => {
     } finally {
         setIsProcessingCommand(false);
     }
-  }, [user, profile, dbScheduledTasks, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, queryClient]);
+  }, [user, profile, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, queryClient, formattedSelectedDay, sortBy]);
 
   const confirmPermanentDeleteScheduledTask = useCallback(async () => {
     if (!scheduledTaskToDeleteId || !user || scheduledTaskToDeleteIndex === null) return; // Check index
@@ -597,8 +600,23 @@ const SchedulerPage: React.FC = () => {
 
       // Then attempt compaction
       try {
-        await handleCompactSchedule();
-        showSuccess("Schedule compacted after deletion."); // Separate success for compaction
+        // Fetch the *latest* scheduled tasks after deletion for compaction
+        const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+        const compactedTasks = compactScheduleLogic(
+            latestDbScheduledTasks, // Pass the latest tasks
+            selectedDayAsDate,
+            workdayStartTime,
+            workdayEndTime,
+            T_current
+        );
+        const tasksToUpdate = compactedTasks.filter(task => task.start_time && task.end_time);
+
+        if (tasksToUpdate.length > 0) {
+            await compactScheduledTasks({ tasksToUpdate });
+            showSuccess("Schedule compacted after deletion."); // Separate success for compaction
+        } else {
+            showSuccess("No flexible tasks to compact after deletion.");
+        }
       } catch (compactionError: any) {
         showError(`Failed to compact schedule after deletion: ${compactionError.message}`); // Separate error for compaction
         console.error("Compaction after deletion error:", compactionError);
@@ -628,7 +646,7 @@ const SchedulerPage: React.FC = () => {
       setScheduledTaskToDeleteName(null);
       setScheduledTaskToDeleteIndex(null); // Reset index
     }
-  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, handleCompactSchedule, currentSchedule?.items, queryClient, handleScrollToItem]);
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, handleCompactSchedule, currentSchedule?.items, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
 
   // Confirmation handler for retired task permanent deletion
   const confirmPermanentDeleteRetiredTask = useCallback(async () => {
@@ -758,6 +776,10 @@ const SchedulerPage: React.FC = () => {
           is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
           task_environment: taskToPlace.task_environment,
         });
+        // Declare currentOccupiedBlocksForScheduling locally within this function
+        let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+        currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
+        currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
         return true;
     } catch (error: any) {
@@ -765,7 +787,7 @@ const SchedulerPage: React.FC = () => {
         console.error("Sink Fill Error:", error);
         return false;
     }
-  }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay]);
+  }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime]);
 
   // NEW: Generic auto-schedule and sort function
   const handleAutoScheduleAndSort = useCallback(async (

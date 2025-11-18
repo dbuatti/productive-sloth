@@ -192,21 +192,25 @@ export const calculateEnergyCost = (duration: number, isCritical: boolean): numb
 
 export const parseFlexibleTime = (timeString: string, baseDate: Date): Date => {
   const lowerCaseTimeString = timeString.toLowerCase();
-  const now = new Date();
   let parsedDate: Date;
 
-  // Try parsing with AM/PM
+  // Try parsing with h:mma (e.g., "12:15pm", "1am")
+  parsedDate = parse(lowerCaseTimeString, 'h:mma', baseDate);
+  if (!isNaN(parsedDate.getTime())) return parsedDate;
+
+  // Try parsing with h:mm a (e.g., "12:15 pm", "1 am")
   parsedDate = parse(lowerCaseTimeString, 'h:mm a', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
 
+  // Try parsing with ha (e.g., "12pm", "1am")
   parsedDate = parse(lowerCaseTimeString, 'ha', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
 
-  // Try parsing 24-hour format
+  // Try parsing 24-hour format (e.g., "13:00", "09:30")
   parsedDate = parse(lowerCaseTimeString, 'HH:mm', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
 
-  // Handle simple hour inputs (e.g., "9", "14")
+  // Try parsing simple hour inputs (e.g., "9", "14")
   const hourMatch = lowerCaseTimeString.match(/^(\d{1,2})$/);
   if (hourMatch) {
     const hour = parseInt(hourMatch[1], 10);
@@ -215,8 +219,9 @@ export const parseFlexibleTime = (timeString: string, baseDate: Date): Date => {
     }
   }
 
-  // Fallback to current time if parsing fails
-  return now;
+  // If all parsing attempts fail, log an error and return the baseDate
+  console.error(`Failed to parse time string "${timeString}". Returning baseDate.`);
+  return baseDate; // Fallback to baseDate, not current time
 };
 
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): {

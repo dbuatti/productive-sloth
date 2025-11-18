@@ -78,7 +78,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'payment': '💸',
   'link': '💸',
   'send': '🎤', // Can be used for sending voice notes, payment links, etc.
-  'voice notes': '🎤',
+  'voice notes': '✍️',
   'job notes': '📝',
   'process': '📝',
   'usb': '🔌',
@@ -164,7 +164,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'payment': 60,
   'link': 60,
   'send': 270,
-  'voice notes': 270,
+  'voice notes': 320,
   'job notes': 230,
   'process': 230,
   'usb': 210,
@@ -770,7 +770,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTimeMinutes,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRoloverMessage,
+    midnightRolloverMessage: midnightRolloverMessage,
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
   };

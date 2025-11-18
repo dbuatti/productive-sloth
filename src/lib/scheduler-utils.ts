@@ -230,7 +230,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   shouldSink: boolean;
   energyCost: number;
 } | null => {
-  const lowerInput = input.toLowerCase().trim();
+  let lowerInput = input.toLowerCase().trim();
   let isCritical = false;
   let shouldSink = false;
   let isFlexible = true; // Default to flexible
@@ -238,18 +238,21 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   // Check for critical flag
   if (lowerInput.endsWith(' !')) {
     isCritical = true;
+    lowerInput = lowerInput.slice(0, -2).trim();
     input = input.slice(0, -2).trim();
   }
 
   // Check for sink flag
   if (lowerInput.endsWith(' sink')) {
     shouldSink = true;
+    lowerInput = lowerInput.slice(0, -5).trim();
     input = input.slice(0, -5).trim();
   }
 
   // Check for fixed flag (only applies to duration-based tasks, timed tasks are implicitly fixed)
   if (lowerInput.endsWith(' fixed')) {
     isFlexible = false;
+    lowerInput = lowerInput.slice(0, -6).trim();
     input = input.slice(0, -6).trim();
   }
 
@@ -278,20 +281,8 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     };
   }
 
-  // Duration-based task: "Task Name 60 [10] [!] [sink] [fixed]"
-  const durationMatch = input.match(/^(.*?)\s+(\d+)(?:\s+(\d+))?$/);
-  if (durationMatch) {
-    const name = durationMatch[1].trim();
-    const duration = parseInt(durationMatch[2], 10);
-    const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
-
-    if (name && duration > 0) {
-      const energyCost = calculateEnergyCost(duration, isCritical);
-      return { name, duration, breakDuration, isCritical, isFlexible, shouldSink, energyCost };
-    }
-  }
-
   // Timed task: "Task Name 10am-11am [!] [fixed]"
+  // Regex updated to be more permissive on the task name part (.*?)
   const timeRangeMatch = input.match(/^(.*?)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeRangeMatch) {
     const name = timeRangeMatch[1].trim();
@@ -305,6 +296,19 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       const energyCost = calculateEnergyCost(duration, isCritical);
       return { name, startTime, endTime, isCritical, isFlexible: false, shouldSink, energyCost }; // Timed tasks are implicitly fixed
+    }
+  }
+
+  // Duration-based task: "Task Name 60 [10] [!] [sink] [fixed]"
+  const durationMatch = input.match(/^(.*?)\s+(\d+)(?:\s+(\d+))?$/);
+  if (durationMatch) {
+    const name = durationMatch[1].trim();
+    const duration = parseInt(durationMatch[2], 10);
+    const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
+
+    if (name && duration > 0) {
+      const energyCost = calculateEnergyCost(duration, isCritical);
+      return { name, duration, breakDuration, isCritical, isFlexible, shouldSink, energyCost };
     }
   }
 
@@ -382,7 +386,7 @@ export const parseCommand = (input: string): { type: string; target?: string; in
   if (lowerInput === 'reorder') {
     return { type: 'reorder' };
   }
-  if (lowerInput.startsWith('time off')) {
+  if (lowerInput === 'time off') {
     return { type: 'timeoff' };
   }
   if (lowerInput === 'compact') {

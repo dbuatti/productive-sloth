@@ -398,29 +398,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
-        const tempId = Math.random().toString(36).substring(2, 9);
-        const now = new Date().toISOString();
-        const optimisticTask: DBScheduledTask = {
-          id: tempId,
-          user_id: userId!,
-          name: newTask.name,
-          break_duration: newTask.break_duration ?? null,
-          start_time: newTask.start_time ?? now,
-          end_time: newTask.end_time ?? now,
-          scheduled_date: newTask.scheduled_date,
-          created_at: now,
-          updated_at: now,
-          is_critical: newTask.is_critical ?? false,
-          is_flexible: newTask.is_flexible ?? true,
-          is_locked: newTask.is_locked ?? false,
-          energy_cost: newTask.energy_cost ?? 0,
-          is_completed: newTask.is_completed ?? false,
-          is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
-          task_environment: newTask.task_environment ?? 'laptop',
-        };
-        return [...(old || []), optimisticTask];
-      });
+      // Removed optimistic update for simplicity and to avoid temporary ID issues with scroll restoration.
+      // The onSettled will invalidate and refetch, then restore scroll.
 
       return { previousScheduledTasks, previousScrollTop };
     },
@@ -458,23 +437,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      // Removed optimistic update for retiredTasks to prevent duplicates
-      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) => {
-      //   const tempId = Math.random().toString(36).substring(2, 9);
-      //   const optimisticTask: RetiredTask = {
-      //     id: tempId,
-      //     user_id: userId!,
-      //     name: newTask.name,
-      //     duration: newTask.duration ?? null,
-      //     break_duration: newTask.break_duration ?? null,
-      //     original_scheduled_date: newTask.original_scheduled_date,
-      //     retired_at: new Date().toISOString(),
-      //     is_critical: newTask.is_critical ?? false,
-      //     is_locked: newTask.is_locked ?? false,
-      //     energy_cost: newTask.energy_cost ?? 0,
-      //   };
-      //   return [optimisticTask, ...(old || [])];
-      // });
+      // Removed optimistic update for simplicity and to avoid temporary ID issues with scroll restoration.
+      // The onSettled will invalidate and refetch, then restore scroll.
       return { previousRetiredTasks, previousScrollTop };
     },
     onSuccess: () => {
@@ -649,24 +613,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         (old || []).filter(task => task.id !== taskToRetire.id)
       );
 
-      // Removed optimistic update for retiredTasks to prevent duplicates
-      // const newRetiredTask: RetiredTask = {
-      //   id: taskToRetire.id,
-      //   user_id: userId!,
-      //   name: taskToRetire.name,
-      //   duration: (taskToRetire.start_time && taskToRetire.end_time) 
-      //             ? Math.floor((parseISO(taskToRetire.end_time).getTime() - parseISO(taskToRetire.start_time).getTime()) / (1000 * 60)) 
-      //             : null,
-      //   break_duration: taskToRetire.break_duration,
-      //   original_scheduled_date: taskToRetire.scheduled_date,
-      //   retired_at: new Date().toISOString(),
-      //   is_critical: taskToRetire.is_critical, 
-      //   is_locked: taskToRetire.is_locked,
-      //   energy_cost: taskToRetire.energy_cost ?? 0,
-      // };
-      // queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId], (old) =>
-      //   [newRetiredTask, ...(old || [])]
-      // );
+      // No optimistic update for retiredTasks here, as it's complex to predict the exact new state.
+      // Let onSettled handle the invalidation and refetch.
 
       return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
     },
@@ -1427,11 +1375,30 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       return { newXp, newLevel, newEnergy };
     },
+    onMutate: async (task: DBScheduledTask) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
+        (old || []).map(t =>
+          t.id === task.id ? { ...t, is_completed: true } : t
+        )
+      );
+      return { previousScheduledTasks, previousScrollTop };
+    },
     onSuccess: async ({ newXp, newLevel, newEnergy }) => {
       await refreshProfile();
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
       if (profile && newLevel > profile.level) {
         triggerLevelUp(newLevel);
+      }
+    },
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
+      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
+        scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
     onError: (e) => {
@@ -1457,11 +1424,31 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log("useSchedulerTasks: Successfully updated scheduled task details:", data);
       return data as DBScheduledTask;
     },
+    onMutate: async (task: Partial<DBScheduledTask> & { id: string }) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
+        (old || []).map(t =>
+          t.id === task.id ? { ...t, ...task } : t
+        )
+      );
+      return { previousScheduledTasks, previousScrollTop };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       showSuccess('Scheduled task details updated.');
+    },
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
+      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
+        scrollRef.current.scrollTop = context.previousScrollTop;
+      }
     },
     onError: (e) => {
       showError(`Failed to update scheduled task details: ${e.message}`);
@@ -1504,11 +1491,31 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       
       return currentTask;
     },
+    onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
+
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
+        (old || []).map(t =>
+          t.id === taskId ? { ...t, is_completed: isCompleted } : t
+        )
+      );
+      return { previousScheduledTasks, previousScrollTop };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
       showSuccess('Scheduled task status updated.');
+    },
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
+      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
+        scrollRef.current.scrollTop = context.previousScrollTop;
+      }
     },
     onError: (e) => {
       showError(`Failed to update scheduled task status: ${e.message}`);
@@ -1533,10 +1540,29 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log("useSchedulerTasks: Successfully updated retired task details:", data);
       return data as RetiredTask;
     },
+    onMutate: async (task: Partial<RetiredTask> & { id: string }) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) =>
+        (old || []).map(t =>
+          t.id === task.id ? { ...t, ...task } : t
+        )
+      );
+      return { previousRetiredTasks, previousScrollTop };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
       showSuccess('Retired task details updated.');
+    },
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
+        scrollRef.current.scrollTop = context.previousScrollTop;
+      }
     },
     onError: (e) => {
       showError(`Failed to update retired task details: ${e.message}`);
@@ -1577,10 +1603,29 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       
       return currentTask;
     },
+    onMutate: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) =>
+        (old || []).map(t =>
+          t.id === taskId ? { ...t, is_completed: isCompleted } : t
+        )
+      );
+      return { previousRetiredTasks, previousScrollTop };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
       showSuccess('Retired task status updated.');
+    },
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
+        scrollRef.current.scrollTop = context.previousScrollTop;
+      }
     },
     onError: (e) => {
       showError(`Failed to update retired task status: ${e.message}`);
@@ -1642,12 +1687,31 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       return { newXp, newLevel, newEnergy };
     },
+    onMutate: async (task: RetiredTask) => {
+      await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
+      const previousScrollTop = scrollRef?.current?.scrollTop;
+
+      queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) =>
+        (old || []).map(t =>
+          t.id === task.id ? { ...t, is_completed: true } : t
+        )
+      );
+      return { previousRetiredTasks, previousScrollTop };
+    },
     onSuccess: async ({ newXp, newLevel, newEnergy }) => {
       await refreshProfile();
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
       if (profile && newLevel > profile.level) {
         triggerLevelUp(newLevel);
+      }
+    },
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate] });
+      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
+        scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
     onError: (e) => {
@@ -1668,8 +1732,17 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log("useSchedulerTasks: Successfully triggered Aether Sink backup.");
       return data;
     },
+    onMutate: async () => {
+      const previousScrollTop = scrollRef?.current?.scrollTop;
+      return { previousScrollTop };
+    },
     onSuccess: () => {
       showSuccess('Aether Sink backup created successfully!');
+    },
+    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+      if (scrollRef?.current && context?.previousScrollTop !== undefined) {
+        scrollRef.current.scrollTop = context.previousScrollTop;
+      }
     },
     onError: (e) => {
       showError(`Failed to create Aether Sink backup: ${e.message}`);

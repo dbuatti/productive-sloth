@@ -142,7 +142,7 @@ const SchedulerPage: React.FC = () => {
     updateScheduledTaskDetails,
     updateScheduledTaskStatus,
     removeRetiredTask,
-  } = useSchedulerTasks(selectedDay, scheduleContainerRef);
+  } = useSchedulerTasks(selectedDay, scheduleContainerRef); // Pass scheduleContainerRef to the hook
 
   const queryClient = useQueryClient();
   
@@ -1200,6 +1200,7 @@ const SchedulerPage: React.FC = () => {
 
       if (isAdHocInjection) {
         const injectedTaskDuration = injectCommand.duration || 30;
+        const breakDuration = injectCommand.breakDuration;
         const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
           injectCommand.taskName,
           injectedTaskDuration,
@@ -1216,7 +1217,7 @@ const SchedulerPage: React.FC = () => {
             name: injectCommand.taskName, 
             start_time: proposedStartTime.toISOString(), 
             end_time: proposedEndTime.toISOString(), 
-            break_duration: injectCommand.breakDuration, 
+            break_duration: breakDuration, 
             scheduled_date: taskScheduledDate,
             is_critical: injectCommand.isCritical,
             is_flexible: injectCommand.isFlexible,

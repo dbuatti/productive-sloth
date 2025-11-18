@@ -267,6 +267,18 @@ const SchedulerPage: React.FC = () => {
     };
   }, [selectedDay]);
 
+  const handleScrollToItem = useCallback((itemId: string) => {
+    const element = document.getElementById(`scheduled-item-${itemId}`);
+    if (element && scheduleContainerRef.current) {
+      const containerRect = scheduleContainerRef.current.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      // Calculate scroll offset to bring the element into view,
+      // ideally centered or near the top, but not completely at the top.
+      const scrollOffset = elementRect.top - containerRect.top - containerRect.height / 4; 
+      scheduleContainerRef.current.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+    }
+  }, []);
+
   // New handler for permanent deletion of scheduled tasks
   const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string, index: number) => { // Added index
     setScheduledTaskToDeleteId(taskId);
@@ -575,14 +587,22 @@ const SchedulerPage: React.FC = () => {
     }
   }, [user, profile, dbScheduledTasks, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, queryClient]);
 
-  // Confirmation handler for scheduled task permanent deletion
   const confirmPermanentDeleteScheduledTask = useCallback(async () => {
     if (!scheduledTaskToDeleteId || !user || scheduledTaskToDeleteIndex === null) return; // Check index
     setIsProcessingCommand(true);
     try {
+      // Perform deletion first
       await removeScheduledTask(scheduledTaskToDeleteId);
-      await handleCompactSchedule(); // Run compaction after deletion
-      showSuccess(`Task "${scheduledTaskToDeleteName}" permanently deleted.`);
+      showSuccess(`Task "${scheduledTaskToDeleteName}" permanently deleted.`); // Show success for deletion immediately
+
+      // Then attempt compaction
+      try {
+        await handleCompactSchedule();
+        showSuccess("Schedule compacted after deletion."); // Separate success for compaction
+      } catch (compactionError: any) {
+        showError(`Failed to compact schedule after deletion: ${compactionError.message}`); // Separate error for compaction
+        console.error("Compaction after deletion error:", compactionError);
+      }
 
       // Scroll to the next item if it exists
       if (currentSchedule?.items && scheduledTaskToDeleteIndex < currentSchedule.items.length) {
@@ -599,7 +619,7 @@ const SchedulerPage: React.FC = () => {
       }
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
-      showError(`Failed to delete task: ${error.message}`);
+      showError(`Failed to delete task: ${error.message}`); // This will catch errors from removeScheduledTask
       console.error("Permanent delete scheduled task error:", error);
     } finally {
       setIsProcessingCommand(false);
@@ -608,7 +628,7 @@ const SchedulerPage: React.FC = () => {
       setScheduledTaskToDeleteName(null);
       setScheduledTaskToDeleteIndex(null); // Reset index
     }
-  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, handleCompactSchedule, currentSchedule?.items, queryClient]);
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, handleCompactSchedule, currentSchedule?.items, queryClient, handleScrollToItem]);
 
   // Confirmation handler for retired task permanent deletion
   const confirmPermanentDeleteRetiredTask = useCallback(async () => {
@@ -1634,18 +1654,6 @@ const SchedulerPage: React.FC = () => {
     setInjectionBreak('');
     setInputValue('');
   };
-
-  const handleScrollToItem = useCallback((itemId: string) => {
-    const element = document.getElementById(`scheduled-item-${itemId}`);
-    if (element && scheduleContainerRef.current) {
-      const containerRect = scheduleContainerRef.current.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
-      // Calculate scroll offset to bring the element into view,
-      // ideally centered or near the top, but not completely at the top.
-      const scrollOffset = elementRect.top - containerRect.top - containerRect.height / 4; 
-      scheduleContainerRef.current.scrollBy({ top: scrollOffset, behavior: 'smooth' });
-    }
-  }, []);
 
   const handleSchedulerAction = useCallback(async (
     action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus',

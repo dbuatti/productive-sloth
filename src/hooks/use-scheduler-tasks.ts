@@ -504,13 +504,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const removeScheduledTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Attempting to remove task ID:", taskId);
+      console.log(`[DEBUG] Attempting to delete scheduled task with ID: ${taskId} for user: ${userId}`);
       const { error } = await supabase.from('scheduled_tasks').delete().eq('id', taskId).eq('user_id', userId);
       if (error) {
-        console.error("useSchedulerTasks: Error removing task:", error.message);
+        console.error(`[DEBUG] Error deleting scheduled task ${taskId}:`, error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully removed task ID:", taskId);
+      console.log(`[DEBUG] Successfully deleted scheduled task with ID: ${taskId}`);
     },
     onMutate: async (taskId: string) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
@@ -522,35 +522,32 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       );
       return { previousScheduledTasks, previousScrollTop };
     },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+    onSettled: (_data, error, variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
-      showSuccess('Task removed from schedule.');
+      if (error) {
+        showError(`Failed to remove task from schedule: ${error.message}`);
+        console.error(`[DEBUG] removeScheduledTaskMutation onSettled with error for task ID: ${variables}:`, error);
+      } else {
+        // Success message is now handled in SchedulerPage.tsx after compaction attempt
+        console.log(`[DEBUG] removeScheduledTaskMutation onSettled success for task ID: ${variables}`);
+      }
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
-    onError: (e, taskId, context) => {
-      showError(`Failed to remove task from schedule: ${e.message}`);
-      if (context?.previousScheduledTasks) {
-        queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], context.previousScheduledTasks);
-      }
-    }
   });
 
   const removeRetiredTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Attempting to remove retired task ID:", taskId);
+      console.log(`[DEBUG] Attempting to delete retired task with ID: ${taskId} for user: ${userId}`);
       const { error } = await supabase.from('aethersink').delete().eq('id', taskId).eq('user_id', userId);
       if (error) {
-        console.error("useSchedulerTasks: Error removing retired task:", error.message);
+        console.error(`[DEBUG] Error deleting retired task ${taskId}:`, error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully removed retired task ID:", taskId);
+      console.log(`[DEBUG] Successfully deleted retired task with ID: ${taskId}`);
     },
     onMutate: async (taskId: string) => {
       await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
@@ -562,22 +559,19 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       );
       return { previousRetiredTasks, previousScrollTop };
     },
-    onSuccess: () => {
-      // No toast here, moved to onSettled
-    },
-    onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
+    onSettled: (_data, error, variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
-      showSuccess('Retired task permanently deleted.');
+      if (error) {
+        showError(`Failed to remove retired task: ${error.message}`);
+        console.error(`[DEBUG] removeRetiredTaskMutation onSettled with error for task ID: ${variables}:`, error);
+      } else {
+        showSuccess('Retired task permanently deleted.');
+        console.log(`[DEBUG] removeRetiredTaskMutation onSettled success for task ID: ${variables}`);
+      }
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
       }
     },
-    onError: (e, taskId, context) => {
-      showError(`Failed to remove retired task: ${e.message}`);
-      if (context?.previousRetiredTasks) {
-        queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], context.previousRetiredTasks);
-      }
-    }
   });
 
   const clearScheduledTasksMutation = useMutation({

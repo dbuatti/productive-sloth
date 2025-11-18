@@ -1355,36 +1355,54 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
-      // Optimistic update: Remove tasks that are being deleted or moved to sink
+      // 1. Identify the IDs of the fixed/locked tasks that were NOT deleted (i.e., they are kept)
+      // These are tasks that are either fixed OR locked, and are NOT in the list of tasks to be deleted.
+      const remainingFixedTasks = (previousScheduledTasks || []).filter(task => 
+        (!task.is_flexible || task.is_locked) && !payload.scheduledTaskIdsToDelete.includes(task.id)
+      );
+      const remainingFixedIds = remainingFixedTasks.map(t => t.id);
+
+      // 2. Identify the newly placed tasks from the payload (these are the ones that were NOT fixed/locked before)
+      // We filter tasksToInsert to exclude fixed/locked tasks, as they are already in remainingFixedTasks.
+      const newlyPlacedFlexibleTasks = payload.tasksToInsert.filter(t => !remainingFixedIds.includes(t.id));
+      
+      // 3. Construct the new optimistic scheduled state: fixed tasks + newly placed tasks
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
-        const remaining = (old || []).filter(task => !payload.scheduledTaskIdsToDelete.includes(task.id));
-        const newTasks: DBScheduledTask[] = payload.tasksToInsert.map(t => ({ // <-- FIX 3: Add task_environment
-          id: t.id || Math.random().toString(36).substring(2, 9), // Ensure ID is always present
-          user_id: userId!,
-          name: t.name,
-          break_duration: t.break_duration ?? null,
-          start_time: t.start_time ?? new Date().toISOString(), // Provide default if missing
-          end_time: t.end_time ?? new Date().toISOString(),     // Provide default if missing
-          scheduled_date: t.scheduled_date ?? formattedSelectedDate, // Provide default if missing
-          created_at: new Date().toISOString(), // FIX 3: NewDBScheduledTask does not have created_at
-          updated_at: new Date().toISOString(),
-          is_critical: t.is_critical ?? false,
-          is_flexible: t.is_flexible ?? true,
-          is_locked: t.is_locked ?? false,
-          energy_cost: t.energy_cost ?? 0,
-          is_completed: t.is_completed ?? false,
-          is_custom_energy_cost: t.is_custom_energy_cost ?? false,
-          task_environment: t.task_environment ?? 'laptop', // <-- FIX 3: Added task_environment
-        }));
-        return [...remaining, ...newTasks];
+        
+        const newTasks: DBScheduledTask[] = newlyPlacedFlexibleTasks.map(t => {
+          // Find the original task (if it was a flexible scheduled task being replaced) to preserve created_at
+          const originalTask = (old || []).find(oldT => oldT.id === t.id);
+          
+          return { 
+            id: t.id || Math.random().toString(36).substring(2, 9), 
+            user_id: userId!,
+            name: t.name,
+            break_duration: t.break_duration ?? null,
+            start_time: t.start_time ?? new Date().toISOString(), 
+            end_time: t.end_time ?? new Date().toISOString(),     
+            scheduled_date: t.scheduled_date ?? formattedSelectedDate, 
+            created_at: originalTask?.created_at ?? new Date().toISOString(), // Preserve created_at if possible
+            updated_at: new Date().toISOString(),
+            is_critical: t.is_critical ?? false,
+            is_flexible: t.is_flexible ?? true,
+            is_locked: t.is_locked ?? false,
+            energy_cost: t.energy_cost ?? 0,
+            is_completed: t.is_completed ?? false,
+            is_custom_energy_cost: t.is_custom_energy_cost ?? false,
+            task_environment: t.task_environment ?? 'laptop',
+          };
+        });
+        
+        return [...remainingFixedTasks, ...newTasks];
       });
 
+      // Optimistic update for retired tasks (remove placed tasks, add retired scheduled tasks)
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) => {
-        // Filter out retired tasks that were successfully placed in the schedule
+        // Filter out retired tasks that were successfully placed in the schedule (retiredTaskIdsToDelete)
         const remainingRetired = (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id));
         
         // Add tasks that were flexible scheduled tasks but couldn't be placed (now moved to sink)
-        const newSinkTasks: RetiredTask[] = payload.tasksToKeepInSink.map(t => ({ // <-- FIX 4: Add task_environment
+        const newSinkTasks: RetiredTask[] = payload.tasksToKeepInSink.map(t => ({ 
           id: Math.random().toString(36).substring(2, 9), // Generate new ID for tasks moved from schedule to sink
           user_id: userId!,
           name: t.name,
@@ -1397,10 +1415,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           energy_cost: t.energy_cost ?? 0,
           is_completed: t.is_completed ?? false,
           is_custom_energy_cost: t.is_custom_energy_cost ?? false,
-          task_environment: t.task_environment ?? 'laptop', // <-- FIX 4: Added task_environment
+          task_environment: t.task_environment ?? 'laptop',
         }));
         return [...remainingRetired, ...newSinkTasks];
       });
+
 
       return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
     },

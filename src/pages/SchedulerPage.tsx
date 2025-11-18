@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2 } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock } from '@/types/scheduler';
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock, TaskEnvironment } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -57,6 +57,8 @@ import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import EarlyCompletionModal from '@/components/EarlyCompletionModal';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
+import EnvironmentToggle from '@/components/EnvironmentToggle'; // NEW: Import EnvironmentToggle
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
 // function useDeepCompareMemoize<T>(value: T): T {
@@ -101,10 +103,12 @@ interface InjectionPromptState {
   isFlexible?: boolean;
   energyCost?: number;
   isCustomEnergyCost?: boolean;
+  taskEnvironment?: TaskEnvironment; // NEW: Add taskEnvironment
 }
 
 const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
+  const { currentEnvironment } = useEnvironmentContext(); // NEW: Use environment context
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const scheduleContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
 
@@ -208,11 +212,12 @@ const SchedulerPage: React.FC = () => {
         energyCost: calculateEnergyCost(duration, isCritical),
         breakDuration: undefined,
         isCustomEnergyCost: false,
+        taskEnvironment: currentEnvironment, // NEW: Default to current environment
       });
       setInjectionDuration(String(duration));
       navigate(location.pathname, { replace: true, state: {} }); 
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, currentEnvironment]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -422,6 +427,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: energyCost,
           is_custom_energy_cost: false,
+          task_environment: currentEnvironment, // NEW: Add current environment
         });
         showSuccess(`Quick Scheduled ${duration} min focus block.`);
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
@@ -527,6 +533,7 @@ const SchedulerPage: React.FC = () => {
             is_locked: false,
             energy_cost: taskToPlace.energy_cost,
             is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
+            task_environment: taskToPlace.task_environment, // NEW: Add environment
         });
 
         return true;
@@ -566,6 +573,7 @@ const SchedulerPage: React.FC = () => {
           is_critical: parsedInput.isCritical,
           energy_cost: parsedInput.energyCost,
           is_custom_energy_cost: false,
+          task_environment: currentEnvironment, // NEW: Add current environment
         };
         await addRetiredTask(newRetiredTask);
         success = true;
@@ -596,6 +604,7 @@ const SchedulerPage: React.FC = () => {
               scheduled_date: taskScheduledDate,
               energy_cost: parsedInput.energyCost,
               is_custom_energy_cost: false,
+              task_environment: currentEnvironment, // NEW: Add current environment
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -641,6 +650,7 @@ const SchedulerPage: React.FC = () => {
             is_flexible: parsedInput.isFlexible, 
             energy_cost: parsedInput.energyCost,
             is_custom_energy_cost: false,
+            task_environment: currentEnvironment, // NEW: Add current environment
           }); 
           currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -676,6 +686,7 @@ const SchedulerPage: React.FC = () => {
             is_flexible: injectCommand.isFlexible,
             energy_cost: injectCommand.energyCost,
             is_custom_energy_cost: false,
+            task_environment: currentEnvironment, // NEW: Add current environment
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -698,6 +709,7 @@ const SchedulerPage: React.FC = () => {
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
           isCustomEnergyCost: false,
+          taskEnvironment: currentEnvironment, // NEW: Add current environment
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -715,6 +727,7 @@ const SchedulerPage: React.FC = () => {
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
           isCustomEnergyCost: false,
+          taskEnvironment: currentEnvironment, // NEW: Add current environment
         });
         success = true;
       }
@@ -788,6 +801,7 @@ const SchedulerPage: React.FC = () => {
             energyCost: 0,
             breakDuration: undefined,
             isCustomEnergyCost: false,
+            taskEnvironment: 'away', // Time Off defaults to 'away'
           });
           setInjectionStartTime(format(T_current, 'h:mm a'));
           setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -880,6 +894,7 @@ const SchedulerPage: React.FC = () => {
         is_flexible: injectionPrompt.isFlexible, 
         energy_cost: calculatedEnergyCost,
         is_custom_energy_cost: injectionPrompt.isCustomEnergyCost,
+        task_environment: injectionPrompt.taskEnvironment, // NEW: Add environment
       }); 
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -925,6 +940,7 @@ const SchedulerPage: React.FC = () => {
           is_flexible: injectionPrompt.isFlexible,
           energy_cost: calculatedEnergyCost,
           is_custom_energy_cost: false,
+          task_environment: injectionPrompt.taskEnvironment, // NEW: Add environment
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -988,8 +1004,10 @@ const SchedulerPage: React.FC = () => {
           scheduled_date: formattedSelectedDay,
           is_critical: retiredTask.is_critical,
           is_flexible: true,
+          is_locked: false,
           energy_cost: retiredTask.energy_cost,
           is_custom_energy_cost: retiredTask.is_custom_energy_cost,
+          task_environment: retiredTask.task_environment, // NEW: Add environment
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1087,6 +1105,7 @@ const SchedulerPage: React.FC = () => {
                 originalId: task.id,
                 is_custom_energy_cost: task.is_custom_energy_cost,
                 created_at: task.created_at,
+                task_environment: task.task_environment, // NEW: Add environment
             });
         });
 
@@ -1103,6 +1122,7 @@ const SchedulerPage: React.FC = () => {
                 originalId: task.id,
                 is_custom_energy_cost: task.is_custom_energy_cost,
                 created_at: task.retired_at,
+                task_environment: task.task_environment, // NEW: Add environment
             });
         });
 
@@ -1157,6 +1177,7 @@ const SchedulerPage: React.FC = () => {
                 energy_cost: task.energy_cost,
                 is_completed: task.is_completed,
                 is_custom_energy_cost: task.is_custom_energy_cost,
+                task_environment: task.task_environment, // NEW: Add environment
             });
         });
         console.log("handleAutoScheduleSink: Initial tasksToInsert (fixed tasks):", tasksToInsert.map(t => t.name));
@@ -1193,6 +1214,7 @@ const SchedulerPage: React.FC = () => {
                       energy_cost: task.energy_cost,
                       is_completed: false,
                       is_custom_energy_cost: task.is_custom_energy_cost,
+                      task_environment: task.task_environment, // NEW: Add environment
                   });
                   scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
               }
@@ -1231,6 +1253,7 @@ const SchedulerPage: React.FC = () => {
                             energy_cost: task.energy_cost,
                             is_completed: false,
                             is_custom_energy_cost: task.is_custom_energy_cost,
+                            task_environment: task.task_environment, // NEW: Add environment
                         });
 
                         currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
@@ -1266,6 +1289,7 @@ const SchedulerPage: React.FC = () => {
                         energy_cost: task.energy_cost,
                         is_completed: false,
                         is_custom_energy_cost: task.is_custom_energy_cost,
+                        task_environment: task.task_environment, // NEW: Add environment
                     });
                     scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
                 }
@@ -1291,6 +1315,7 @@ const SchedulerPage: React.FC = () => {
                         energy_cost: task.energy_cost,
                         is_completed: false,
                         is_custom_energy_cost: task.is_custom_energy_cost,
+                        task_environment: task.task_environment, // NEW: Add environment
                     });
                 }
             }
@@ -1398,6 +1423,7 @@ const SchedulerPage: React.FC = () => {
         originalId: task.id,
         is_custom_energy_cost: task.is_custom_energy_cost,
         created_at: task.created_at,
+        task_environment: task.task_environment, // NEW: Add environment
       });
     });
 
@@ -1414,6 +1440,7 @@ const SchedulerPage: React.FC = () => {
         originalId: task.id,
         is_custom_energy_cost: task.is_custom_energy_cost,
         created_at: task.retired_at,
+        task_environment: task.task_environment, // NEW: Add environment
       });
     });
 
@@ -1487,6 +1514,7 @@ const SchedulerPage: React.FC = () => {
             energy_cost: task.energy_cost,
             is_completed: task.is_completed,
             is_custom_energy_cost: task.is_custom_energy_cost,
+            task_environment: task.task_environment, // NEW: Add environment
         });
     });
 
@@ -1523,6 +1551,7 @@ const SchedulerPage: React.FC = () => {
                   energy_cost: task.energy_cost,
                   is_completed: false,
                   is_custom_energy_cost: task.is_custom_energy_cost,
+                  task_environment: task.task_environment, // NEW: Add environment
               });
               scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
           }
@@ -1557,6 +1586,7 @@ const SchedulerPage: React.FC = () => {
                         energy_cost: task.energy_cost,
                         is_completed: false,
                         is_custom_energy_cost: task.is_custom_energy_cost,
+                        task_environment: task.task_environment, // NEW: Add environment
                     });
 
                     currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
@@ -1590,6 +1620,7 @@ const SchedulerPage: React.FC = () => {
                     energy_cost: task.energy_cost,
                     is_completed: false,
                     is_custom_energy_cost: task.is_custom_energy_cost,
+                    task_environment: task.task_environment, // NEW: Add environment
                 });
                 scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
             }
@@ -1614,6 +1645,7 @@ const SchedulerPage: React.FC = () => {
                     energy_cost: task.energy_cost,
                     is_completed: false,
                     is_custom_energy_cost: task.is_custom_energy_cost,
+                    task_environment: task.task_environment, // NEW: Add environment
                 });
             }
         }
@@ -1678,6 +1710,7 @@ const SchedulerPage: React.FC = () => {
       energyCost: calculateEnergyCost(30, false),
       breakDuration: undefined,
       isCustomEnergyCost: false,
+      taskEnvironment: currentEnvironment, // NEW: Default to current environment
     });
     setInjectionDuration('30');
     setInjectionBreak('');
@@ -1698,6 +1731,7 @@ const SchedulerPage: React.FC = () => {
       energyCost: 0,
       breakDuration: undefined,
       isCustomEnergyCost: false,
+      taskEnvironment: 'away', // Time Off defaults to 'away'
     });
     setInjectionStartTime(format(T_current, 'h:mm a'));
     setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -1784,6 +1818,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: true,
           energy_cost: 0,
           is_custom_energy_cost: false,
+          task_environment: currentEnvironment, // NEW: Add current environment
         });
 
         if (task.is_flexible) {
@@ -1846,6 +1881,7 @@ const SchedulerPage: React.FC = () => {
             end_time: newNextTaskEndTime.toISOString(),
             is_flexible: originalNextTask.is_flexible, 
             is_locked: originalNextTask.is_locked,     
+            task_environment: originalNextTask.task_environment, // NEW: Preserve environment
           });
 
           await handleCompactSchedule(); 
@@ -1886,7 +1922,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, currentEnvironment]);
 
   // NEW: Calculate tasks completed today and XP earned today for the recap card
   const tasksCompletedForSelectedDay = useMemo(() => {
@@ -1954,9 +1990,12 @@ const SchedulerPage: React.FC = () => {
               <CardTitle className="flex items-center gap-2 text-xl">
                 <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
-              </p>
+              <div className="flex items-center gap-3">
+                <EnvironmentToggle /> {/* NEW: Environment Toggle */}
+                <p className="text-sm text-muted-foreground hidden sm:block">
+                  Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
+                </p>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <WeatherWidget />

@@ -1,9 +1,9 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
-import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker, DBScheduledTask } from '@/types/scheduler';
+import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker, DBScheduledTask, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star } from 'lucide-react';
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe } from 'lucide-react'; // Added Home, Laptop, Globe icons
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast } from 'date-fns';
@@ -31,6 +31,19 @@ const getBubbleHeightStyle = (duration: number) => {
 
   let calculatedHeight = baseHeight + (duration * multiplier);
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
+};
+
+const getEnvironmentIcon = (environment: TaskEnvironment) => {
+  switch (environment) {
+    case 'home':
+      return <Home className="h-4 w-4 text-logo-green" />;
+    case 'laptop':
+      return <Laptop className="h-4 w-4 text-primary" />;
+    case 'away':
+      return <Globe className="h-4 w-4 text-logo-orange" />;
+    default:
+      return null;
+  }
 };
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick }) => {
@@ -196,6 +209,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
 
+  const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current); // <-- FIX 5: Use selectedDayString
+
   const renderDisplayItem = (item: DisplayItem) => {
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
     const isHighlightedBySession = activeItemId === item.id;
@@ -350,6 +365,18 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 <span className="font-bold">{scheduledItem.name}</span> <span className="font-semibold opacity-80">({scheduledItem.duration} min)</span>
               </span>
               <div className="flex items-center gap-1 ml-auto shrink-0">
+                {/* NEW: Environment Icon */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="h-6 w-6 flex items-center justify-center shrink-0">
+                      {getEnvironmentIcon(scheduledItem.taskEnvironment)}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Environment: {scheduledItem.taskEnvironment.charAt(0).toUpperCase() + scheduledItem.taskEnvironment.slice(1)}</p>
+                  </TooltipContent>
+                </Tooltip>
+
                 {scheduledItem.isCritical && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -504,8 +531,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     }
   };
 
-  const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current);
-
   return (
     <>
       <div className="space-y-4 animate-slide-in-up">
@@ -610,7 +635,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           setIsDialogOpen(open); // Changed from setIsSheetOpen
           if (!open) setSelectedScheduledTask(null);
         }}
-        selectedDayString={selectedDayString}
+        selectedDayString={selectedDayString} // <-- FIX 6: Use selectedDayString
       />
     </>
   );

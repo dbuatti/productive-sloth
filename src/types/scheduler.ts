@@ -3,6 +3,9 @@ export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
 export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
 export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI'; // Updated SortBy
 
+// NEW: Type for task environment
+export type TaskEnvironment = 'home' | 'laptop' | 'away';
+
 // NEW: Type for sorting retired tasks
 export type RetiredTaskSortBy = 
   'NAME_ASC' | 'NAME_DESC' |
@@ -27,6 +30,7 @@ export interface Task {
   created_at: string;
   updated_at: string; // Added updated_at
   is_critical: boolean; // NEW: Critical Urgency Flag
+  is_custom_energy_cost: boolean; // NEW: Added for custom energy cost
 }
 
 export interface NewTask {
@@ -37,6 +41,7 @@ export interface NewTask {
   due_date: string;
   description?: string; // Added description to NewTask
   is_critical?: boolean; // NEW: Critical Urgency Flag
+  is_custom_energy_cost?: boolean; // NEW: Added for custom energy cost
 }
 
 // --- Scheduler Types ---
@@ -67,6 +72,7 @@ export interface DBScheduledTask {
   energy_cost: number; // NEW: Made energyCost required
   is_completed: boolean; // NEW: Added is_completed for scheduled tasks
   is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
+  task_environment: TaskEnvironment; // NEW: Task environment
 }
 
 export interface NewDBScheduledTask {
@@ -82,6 +88,7 @@ export interface NewDBScheduledTask {
   energy_cost: number; // NEW: Made energyCost required
   is_completed?: boolean; // NEW: Added is_completed for new scheduled tasks
   is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
+  task_environment?: TaskEnvironment; // NEW: Task environment
 }
 
 // New types for retired tasks (Aether Sink)
@@ -98,7 +105,7 @@ export interface RetiredTask {
   energy_cost: number; // NEW: Made energyCost required
   is_completed: boolean; // NEW: Added is_completed
   is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
-  // is_flexible: boolean; // REMOVED: Not present in retired_tasks table
+  task_environment: TaskEnvironment; // NEW: Task environment
 }
 
 export interface NewRetiredTask {
@@ -112,7 +119,7 @@ export interface NewRetiredTask {
   energy_cost: number; // NEW: Made energyCost required
   is_completed?: boolean; // NEW: Added is_completed
   is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
-  // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
+  task_environment?: TaskEnvironment; // NEW: Task environment
 }
 
 // Helper type for unification (moved from SchedulerPage.tsx)
@@ -128,6 +135,7 @@ export interface UnifiedTask {
   originalId: string; // ID in the source table
   is_custom_energy_cost: boolean; // NEW: Add custom energy cost flag
   created_at: string; // NEW: Add created_at for age sorting
+  task_environment: TaskEnvironment; // NEW: Task environment
 }
 
 // NEW: Payload for the atomic auto-balance mutation
@@ -158,6 +166,7 @@ export interface ScheduledItem {
   energyCost: number; // NEW: Made energyCost required
   isCompleted: boolean; // NEW: Added isCompleted for scheduled items
   isCustomEnergyCost: boolean; // NEW: Flag for custom energy cost
+  taskEnvironment: TaskEnvironment; // NEW: Task environment
 }
 
 export interface ScheduleSummary {

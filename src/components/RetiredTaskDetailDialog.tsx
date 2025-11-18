@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe } from "lucide-react"; // Added icons
 
 import {
   Sheet,
@@ -24,10 +24,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from '@/components/ui/switch';
-import { RetiredTask } from "@/types/scheduler";
+import { RetiredTask, TaskEnvironment } from "@/types/scheduler"; // Import TaskEnvironment
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -37,7 +38,8 @@ const formSchema = z.object({
   is_locked: z.boolean().default(false),
   is_completed: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
-  is_custom_energy_cost: z.boolean().default(false), // NEW: Add to schema
+  is_custom_energy_cost: z.boolean().default(false),
+  task_environment: z.enum(['home', 'laptop', 'away']).default('laptop'), // NEW: Add task_environment
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -47,6 +49,12 @@ interface RetiredTaskDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const environmentOptions: { value: TaskEnvironment, label: string, icon: React.ElementType }[] = [
+  { value: 'home', label: '🏠 At Home', icon: Home },
+  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
+  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
+];
 
 const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   task,
@@ -66,7 +74,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       is_locked: false,
       is_completed: false,
       energy_cost: 0,
-      is_custom_energy_cost: false, // NEW: Default value
+      is_custom_energy_cost: false,
+      task_environment: 'laptop', // NEW: Default value
     },
   });
 
@@ -81,7 +90,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         is_locked: task.is_locked,
         is_completed: task.is_completed,
         energy_cost: task.energy_cost,
-        is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial value
+        is_custom_energy_cost: task.is_custom_energy_cost,
+        task_environment: task.task_environment, // NEW: Set environment
       });
       // Set initial calculated cost, but only if not custom
       if (!task.is_custom_energy_cost) {
@@ -136,7 +146,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         is_critical: values.is_critical,
         is_locked: values.is_locked,
         energy_cost: values.energy_cost,
-        is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
+        is_custom_energy_cost: values.is_custom_energy_cost,
+        task_environment: values.task_environment, // NEW: Save environment
         // is_completed is handled by completeRetiredTask or updateRetiredTaskStatus
       });
       showSuccess("Retired task updated successfully!");
@@ -225,6 +236,38 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   )}
                 />
               </div>
+
+              {/* NEW: Task Environment */}
+              <FormField
+                control={form.control}
+                name="task_environment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Task Environment</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select environment" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {environmentOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <option.icon className="h-4 w-4" />
+                              {option.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Where this task is typically performed.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Is Critical Switch */}
               <FormField

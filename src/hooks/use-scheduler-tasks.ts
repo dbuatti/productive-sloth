@@ -135,7 +135,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost })));
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment })));
       
       // Client-side sorting for EMOJI
       if (sortBy === 'EMOJI') {
@@ -237,7 +237,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost })));
+      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment })));
       
       // Client-side sorting for EMOJI
       if (retiredSortBy === 'EMOJI') {
@@ -316,7 +316,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       // Combine and map tasks
       const combinedTasks: DBScheduledTask[] = [
-        ...(scheduled || []),
+        ...(scheduled || []).map(t => ({ ...t, task_environment: t.task_environment || 'laptop' })),
         ...(retired || []).map(rt => ({
           id: rt.id,
           user_id: rt.user_id,
@@ -333,6 +333,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           energy_cost: rt.energy_cost,
           is_completed: rt.is_completed,
           is_custom_energy_cost: rt.is_custom_energy_cost,
+          task_environment: rt.task_environment, // Include environment
         })),
         ...(generalTasks || []).map(gt => ({
           id: gt.id,
@@ -350,6 +351,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           energy_cost: gt.energy_cost,
           is_completed: gt.is_completed,
           is_custom_energy_cost: gt.is_custom_energy_cost,
+          task_environment: 'laptop', // Default environment for general tasks
         })),
       ];
 
@@ -380,7 +382,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false };
+      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop' };
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -399,7 +401,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
         const tempId = Math.random().toString(36).substring(2, 9);
         const now = new Date().toISOString();
-        const optimisticTask: DBScheduledTask = {
+        const optimisticTask: DBScheduledTask = { // <-- FIX 2: Add task_environment
           id: tempId,
           user_id: userId!,
           name: newTask.name,
@@ -415,6 +417,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           energy_cost: newTask.energy_cost ?? 0,
           is_completed: newTask.is_completed ?? false,
           is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
+          task_environment: newTask.task_environment ?? 'laptop', // <-- FIX 2: Added task_environment
         };
         return [...(old || []), optimisticTask];
       });
@@ -440,7 +443,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const addRetiredTaskMutation = useMutation({
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false };
+      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop' };
       console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
       const { data, error } = await supabase.from('aethersink').insert(taskToInsert).select().single(); // CORRECTED
       if (error) {
@@ -593,6 +596,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         energy_cost: taskToRetire.energy_cost ?? 0,
         is_completed: taskToRetire.is_completed ?? false, // Pass completion status
         is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false, // Pass custom energy cost flag
+        task_environment: taskToRetire.task_environment, // NEW: Add environment
       };
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTask); // CORRECTED
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -720,6 +724,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         energy_cost: task.energy_cost ?? 0,
         is_completed: task.is_completed ?? false,
         is_custom_energy_cost: task.is_custom_energy_cost ?? false,
+        task_environment: task.task_environment,
         updated_at: new Date().toISOString(),
       }));
 
@@ -836,6 +841,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 energy_cost: breakTask.energy_cost ?? 0,
                 is_completed: breakTask.is_completed ?? false,
                 is_custom_energy_cost: breakTask.is_custom_energy_cost ?? false,
+                task_environment: breakTask.task_environment,
                 updated_at: new Date().toISOString(),
               };
               placedBreaks.push(newBreakTask);
@@ -867,6 +873,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           energy_cost: task.energy_cost ?? 0,
           is_completed: task.is_completed ?? false,
           is_custom_energy_cost: task.is_custom_energy_cost ?? false,
+          task_environment: task.task_environment,
           updated_at: new Date().toISOString(),
         }));
         const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
@@ -952,6 +959,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 energy_cost: breakTask.energy_cost ?? 0,
                 is_completed: breakTask.is_completed ?? false,
                 is_custom_energy_cost: breakTask.is_custom_energy_cost ?? false,
+                task_environment: breakTask.task_environment,
                 updated_at: new Date().toISOString(),
               };
               optimisticPlacedBreaks.push(newBreakTask);
@@ -1130,6 +1138,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         energy_cost: task.energy_cost ?? 0,
         is_completed: task.is_completed ?? false, // Pass completion status
         is_custom_energy_cost: task.is_custom_energy_cost ?? false, // Pass custom energy cost flag
+        task_environment: task.task_environment, // NEW: Add environment
       }));
 
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTasks); // CORRECTED
@@ -1232,6 +1241,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         energy_cost: task.energy_cost ?? 0,
         is_completed: task.is_completed ?? false, // Pass completion status
         is_custom_energy_cost: task.is_custom_energy_cost ?? false, // Pass custom energy cost flag
+        task_environment: task.task_environment, // NEW: Add environment
       }));
 
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTasks); // CORRECTED
@@ -1348,7 +1358,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       // Optimistic update: Remove tasks that are being deleted or moved to sink
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
         const remaining = (old || []).filter(task => !payload.scheduledTaskIdsToDelete.includes(task.id));
-        const newTasks: DBScheduledTask[] = payload.tasksToInsert.map(t => ({
+        const newTasks: DBScheduledTask[] = payload.tasksToInsert.map(t => ({ // <-- FIX 3: Add task_environment
           id: t.id || Math.random().toString(36).substring(2, 9), // Ensure ID is always present
           user_id: userId!,
           name: t.name,
@@ -1364,6 +1374,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           energy_cost: t.energy_cost ?? 0,
           is_completed: t.is_completed ?? false,
           is_custom_energy_cost: t.is_custom_energy_cost ?? false,
+          task_environment: t.task_environment ?? 'laptop', // <-- FIX 3: Added task_environment
         }));
         return [...remaining, ...newTasks];
       });
@@ -1373,7 +1384,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const remainingRetired = (old || []).filter(task => !payload.retiredTaskIdsToDelete.includes(task.id));
         
         // Add tasks that were flexible scheduled tasks but couldn't be placed (now moved to sink)
-        const newSinkTasks: RetiredTask[] = payload.tasksToKeepInSink.map(t => ({
+        const newSinkTasks: RetiredTask[] = payload.tasksToKeepInSink.map(t => ({ // <-- FIX 4: Add task_environment
           id: Math.random().toString(36).substring(2, 9), // Generate new ID for tasks moved from schedule to sink
           user_id: userId!,
           name: t.name,
@@ -1386,6 +1397,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           energy_cost: t.energy_cost ?? 0,
           is_completed: t.is_completed ?? false,
           is_custom_energy_cost: t.is_custom_energy_cost ?? false,
+          task_environment: t.task_environment ?? 'laptop', // <-- FIX 4: Added task_environment
         }));
         return [...remainingRetired, ...newSinkTasks];
       });

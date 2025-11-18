@@ -440,6 +440,7 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
     energy_cost: energyCost,
     is_completed: false,
     is_custom_energy_cost: false,
+    task_environment: 'laptop', // Default environment for sink tasks
   };
 };
 
@@ -688,6 +689,7 @@ export const calculateSchedule = (
       energyCost: task.energy_cost,
       isCompleted: task.is_completed,
       isCustomEnergyCost: task.is_custom_energy_cost,
+      taskEnvironment: task.task_environment, // <-- FIX 1: Added taskEnvironment
     });
 
     if (itemType === 'task') {

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe } from "lucide-react"; // Added Home, Laptop, Globe icons
 
 import {
   Dialog, // Changed from Sheet
@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { DBScheduledTask } from "@/types/scheduler";
+import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler"; // Import TaskEnvironment
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { Switch } from '@/components/ui/switch';
@@ -44,6 +44,7 @@ const formSchema = z.object({
   is_locked: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
+  task_environment: z.enum(['home', 'laptop', 'away']).default('laptop'), // NEW: Add task_environment
 });
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -54,6 +55,12 @@ interface ScheduledTaskDetailDialogProps { // Changed from SheetProps
   onOpenChange: (open: boolean) => void;
   selectedDayString: string;
 }
+
+const environmentOptions: { value: TaskEnvironment, label: string, icon: React.ElementType }[] = [
+  { value: 'home', label: '🏠 At Home', icon: Home },
+  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
+  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
+];
 
 const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ // Changed from Sheet
   task,
@@ -76,6 +83,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
       is_locked: false,
       energy_cost: 0,
       is_custom_energy_cost: false,
+      task_environment: 'laptop', // NEW: Default value
     },
   });
 
@@ -93,6 +101,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         is_locked: task.is_locked,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
+        task_environment: task.task_environment, // NEW: Set environment
       });
       if (!task.is_custom_energy_cost) {
         const selectedDayDate = parseISO(selectedDayString);
@@ -174,6 +183,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         is_locked: values.is_locked,
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
+        task_environment: values.task_environment, // NEW: Save environment
       });
       showSuccess("Scheduled task updated successfully!");
       onOpenChange(false);
@@ -270,6 +280,38 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
                     </FormControl>
                     <FormDescription>
                       Break duration associated with this task.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* NEW: Task Environment */}
+              <FormField
+                control={form.control}
+                name="task_environment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Task Environment</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select environment" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {environmentOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <option.icon className="h-4 w-4" />
+                              {option.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Where this task is typically performed.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

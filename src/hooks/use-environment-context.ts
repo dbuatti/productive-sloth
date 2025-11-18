@@ -1,13 +1,26 @@
 import { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music } from 'lucide-react';
+import { Home, Laptop, Globe, Music, Check } from 'lucide-react';
+
+export interface EnvironmentOption {
+  value: TaskEnvironment;
+  label: string;
+  icon: React.ElementType;
+}
+
+export const environmentOptions: EnvironmentOption[] = [
+  { value: 'home', label: '🏠 At Home', icon: Home },
+  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
+  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
+  { value: 'piano', label: '🎹 Piano Practice', icon: Music },
+  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: Laptop },
+];
 
 export interface EnvironmentContextType {
-  currentEnvironment: TaskEnvironment;
-  currentEnvironmentDetails: { value: TaskEnvironment, label: string, icon: React.ElementType };
-  toggleEnvironment: () => void;
-  setCurrentEnvironment: (env: TaskEnvironment) => void;
-  environmentOptions: { value: TaskEnvironment, label: string, icon: React.ElementType }[];
+  selectedEnvironments: TaskEnvironment[];
+  toggleEnvironmentSelection: (env: TaskEnvironment) => void;
+  setSelectedEnvironments: (envs: TaskEnvironment[]) => void;
+  environmentOptions: EnvironmentOption[];
 }
 
 export const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);
@@ -19,13 +32,3 @@ export const useEnvironmentContext = () => {
   }
   return context;
 };
-
-export const environmentOptions: { value: TaskEnvironment, label: string, icon: React.ElementType }[] = [
-  { value: 'home', label: '🏠 At Home', icon: Home },
-  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
-  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
-  { value: 'piano', label: '🎹 Piano Practice', icon: Music },
-  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: Laptop },
-];
-
-// Removed state management logic from here.

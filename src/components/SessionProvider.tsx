@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { dismissToast, showSuccess, showError } from '@/utils/toast';
-import { isToday, parseISO, isPast, addMinutes, startOfDay, format, isBefore, addDays, addHours, setHours, setMinutes } from 'date-fns';
+import { isToday, parseISO, isPast, addMinutes, startOfDay, format, isSameDay, isBefore, addDays, addHours, setHours, setMinutes } from 'date-fns';
 import { 
   ENERGY_REGEN_AMOUNT, 
   ENERGY_REGEN_INTERVAL_MS, 
@@ -17,7 +17,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
-import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import { useEnvironmentContext, environmentOptions } from '@/hooks/use-environment-context';
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -29,7 +29,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [T_current, setT_current] = useState(new Date()); // Internal T_current for SessionProvider
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { currentEnvironment } = useEnvironmentContext(); // NEW: Get current environment
+  const { selectedEnvironments } = useEnvironmentContext(); // UPDATED: Get selected environments array
 
   // Update T_current every second
   useEffect(() => {
@@ -445,47 +445,27 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const potentialNextItems = calculatedScheduleToday.items.slice(startIndex);
 
-    // 1. Determine if we should prioritize environment matching
-    const isCurrentlyInTask = activeItemToday?.type === 'task';
-    
-    if (isCurrentlyInTask) {
-        // If currently in a task, the next item is simply the next scheduled item, regardless of environment.
-        const activeItemIndex = calculatedScheduleToday.items.findIndex(item => item.id === activeItemToday.id);
-        if (activeItemIndex !== -1 && activeItemIndex < calculatedScheduleToday.items.length - 1) {
-            for (let i = activeItemIndex + 1; i < calculatedScheduleToday.items.length; i++) {
-                const item = calculatedScheduleToday.items[i];
-                if (item.type === 'task' || item.type === 'break' || item.type === 'time-off') {
-                    return item;
-                }
-            }
-        }
-        return null;
-    } else {
-        // If currently in a break, time-off, or free time (activeItemToday is null), 
-        // prioritize the next item that matches the current environment.
-        
-        // Filter for tasks that match the current environment, or any break/time-off item
-        const environmentFilteredItems = potentialNextItems.filter(item => 
-            (item.type === 'task' && item.taskEnvironment === currentEnvironment) || 
+    // If the user has selected environments, we filter the potential next items.
+    if (selectedEnvironments.length > 0) {
+        const nextMatchingItem = potentialNextItems.find(item => 
+            // Match tasks only if their environment is selected
+            (item.type === 'task' && selectedEnvironments.includes(item.taskEnvironment)) || 
+            // Breaks and Time Off are always considered available, regardless of environment selection
             item.type === 'break' || 
             item.type === 'time-off'
         );
-
-        // Find the first item in the environment-filtered list
-        const nextMatchingItem = environmentFilteredItems.find(item => 
-            item.type === 'task' || item.type === 'break' || item.type === 'time-off'
-        );
-
+        
         if (nextMatchingItem) {
             return nextMatchingItem;
         }
-
-        // Fallback: If no matching task or break/time-off was found in the filtered list, 
-        // return the very next scheduled item regardless of environment.
-        const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off');
-        return nextAnyItem || null;
     }
-  }, [calculatedScheduleToday, T_current, activeItemToday, currentEnvironment]);
+
+    // Fallback: If no environments are selected, or if no matching item was found, 
+    // return the very next scheduled item regardless of environment.
+    const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off');
+    return nextAnyItem || null;
+
+  }, [calculatedScheduleToday, T_current, selectedEnvironments]);
 
 
   return (

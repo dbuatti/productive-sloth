@@ -5,49 +5,44 @@ import { TaskEnvironment } from '@/types/scheduler';
 import { EnvironmentContext, environmentOptions, EnvironmentContextType } from '@/hooks/use-environment-context';
 
 const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentEnvironment, setCurrentEnvironment] = useState<TaskEnvironment>(() => {
+  const [selectedEnvironments, setSelectedEnvironments] = useState<TaskEnvironment[]>(() => {
     if (typeof window !== 'undefined') {
-      const savedEnv = localStorage.getItem('aetherflow-environment') as TaskEnvironment;
-      const validEnvironments: TaskEnvironment[] = ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-      return validEnvironments.includes(savedEnv) ? savedEnv : 'laptop';
+      try {
+        const savedEnv = localStorage.getItem('aetherflow-environments');
+        if (savedEnv) {
+          const parsed = JSON.parse(savedEnv);
+          // Basic validation to ensure it's an array of strings
+          if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+            return parsed as TaskEnvironment[];
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse stored environments:", e);
+      }
     }
-    return 'laptop';
+    return []; // Default to NO environment selected
   });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('aetherflow-environment', currentEnvironment);
+      localStorage.setItem('aetherflow-environments', JSON.stringify(selectedEnvironments));
     }
-  }, [currentEnvironment]);
+  }, [selectedEnvironments]);
 
-  const toggleEnvironment = () => {
-    setCurrentEnvironment(prev => {
-      switch (prev) {
-        case 'home':
-          return 'laptop';
-        case 'laptop':
-          return 'away';
-        case 'away':
-          return 'piano';
-        case 'piano':
-          return 'laptop_piano';
-        case 'laptop_piano':
-          return 'home';
-        default:
-          return 'laptop';
+  const toggleEnvironmentSelection = (env: TaskEnvironment) => {
+    setSelectedEnvironments(prev => {
+      if (prev.includes(env)) {
+        return prev.filter(e => e !== env);
+      } else {
+        return [...prev, env];
       }
     });
   };
 
-  const currentEnvironmentDetails = useMemo(() => {
-    return environmentOptions.find(opt => opt.value === currentEnvironment) || environmentOptions[1];
-  }, [currentEnvironment]);
-
   const value: EnvironmentContextType = {
-    currentEnvironment,
-    currentEnvironmentDetails,
-    toggleEnvironment,
-    setCurrentEnvironment,
+    selectedEnvironments,
+    toggleEnvironmentSelection,
+    setSelectedEnvironments,
     environmentOptions,
   };
 

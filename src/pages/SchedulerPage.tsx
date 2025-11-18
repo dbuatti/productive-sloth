@@ -57,8 +57,8 @@ import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import EarlyCompletionModal from '@/components/EarlyCompletionModal';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
-import EnvironmentToggle from '@/components/EnvironmentToggle'; // NEW: Import EnvironmentToggle
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
+import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect'; // UPDATED: Import Multi-Select
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // UPDATED: Import useEnvironmentContext
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
 // function useDeepCompareMemoize<T>(value: T): T {
@@ -108,7 +108,8 @@ interface InjectionPromptState {
 
 const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
-  const { currentEnvironment } = useEnvironmentContext(); // NEW: Use environment context
+  const { selectedEnvironments } = useEnvironmentContext(); // UPDATED: Use environment context
+  const environmentForPlacement = selectedEnvironments[0] || 'laptop'; // Determine environment for placement
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const scheduleContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
 
@@ -140,6 +141,7 @@ const SchedulerPage: React.FC = () => {
     completeScheduledTask: completeScheduledTaskMutation,
     updateScheduledTaskDetails,
     updateScheduledTaskStatus,
+    removeRetiredTask, // ADDED: Import removeRetiredTask
   } = useSchedulerTasks(selectedDay, scheduleContainerRef); // Pass the ref here
 
   const queryClient = useQueryClient();
@@ -212,12 +214,12 @@ const SchedulerPage: React.FC = () => {
         energyCost: calculateEnergyCost(duration, isCritical),
         breakDuration: undefined,
         isCustomEnergyCost: false,
-        taskEnvironment: currentEnvironment, // NEW: Default to current environment
+        taskEnvironment: environmentForPlacement, // NEW: Default to environmentForPlacement
       });
       setInjectionDuration(String(duration));
       navigate(location.pathname, { replace: true, state: {} }); 
     }
-  }, [location.state, navigate, currentEnvironment]);
+  }, [location.state, navigate, environmentForPlacement]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -433,7 +435,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: energyCost,
           is_custom_energy_cost: false,
-          task_environment: currentEnvironment, // NEW: Add current environment
+          task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
         });
         showSuccess(`Quick Scheduled ${duration} min focus block.`);
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
@@ -447,7 +449,7 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
-  // FIX: Define handleAetherDumpButton
+  // FIX 2: Define handleAetherDumpButton
   const handleAetherDumpButton = async () => {
     if (!user) {
       showError("You must be logged in to perform Aether Dump.");
@@ -459,6 +461,23 @@ const SchedulerPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error) {
       console.error("Aether Dump error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
+  // FIX 1: Corrected function name and implementation
+  const handleAutoScheduleSinkWrapper = async () => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to auto-schedule.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      // This logic is now handled by handleZoneFocus with no environment filter
+      await handleZoneFocus();
+    } catch (error) {
+      console.error("Auto Schedule Sink error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -596,7 +615,7 @@ const SchedulerPage: React.FC = () => {
           is_critical: parsedInput.isCritical,
           energy_cost: parsedInput.energyCost,
           is_custom_energy_cost: false,
-          task_environment: currentEnvironment, // NEW: Add current environment
+          task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
         };
         await addRetiredTask(newRetiredTask);
         success = true;
@@ -627,7 +646,7 @@ const SchedulerPage: React.FC = () => {
               scheduled_date: taskScheduledDate,
               energy_cost: parsedInput.energyCost,
               is_custom_energy_cost: false,
-              task_environment: currentEnvironment, // NEW: Add current environment
+              task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
             });
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -673,7 +692,7 @@ const SchedulerPage: React.FC = () => {
             is_flexible: parsedInput.isFlexible, 
             energy_cost: parsedInput.energyCost,
             is_custom_energy_cost: false,
-            task_environment: currentEnvironment, // NEW: Add current environment
+            task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
           }); 
           currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -709,7 +728,7 @@ const SchedulerPage: React.FC = () => {
             is_flexible: injectCommand.isFlexible,
             energy_cost: injectCommand.energyCost,
             is_custom_energy_cost: false,
-            task_environment: currentEnvironment, // NEW: Add current environment
+            task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -732,7 +751,7 @@ const SchedulerPage: React.FC = () => {
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
           isCustomEnergyCost: false,
-          taskEnvironment: currentEnvironment, // NEW: Add current environment
+          taskEnvironment: environmentForPlacement, // UPDATED: Use environmentForPlacement
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -750,7 +769,7 @@ const SchedulerPage: React.FC = () => {
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
           isCustomEnergyCost: false,
-          taskEnvironment: currentEnvironment, // NEW: Add current environment
+          taskEnvironment: environmentForPlacement, // UPDATED: Use environmentForPlacement
         });
         success = true;
       }
@@ -917,7 +936,7 @@ const SchedulerPage: React.FC = () => {
         is_flexible: injectionPrompt.isFlexible, 
         energy_cost: calculatedEnergyCost,
         is_custom_energy_cost: false,
-        task_environment: currentEnvironment, // NEW: Add current environment
+        task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
       }); 
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -963,7 +982,7 @@ const SchedulerPage: React.FC = () => {
           is_flexible: injectionPrompt.isFlexible,
           energy_cost: calculatedEnergyCost,
           is_custom_energy_cost: false,
-          task_environment: currentEnvironment, // NEW: Add current environment
+          task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1048,334 +1067,46 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
-  const handleManualRetire = async (taskToRetire: DBScheduledTask) => {
+  // FIX 2: Define handleManualRetire
+  const handleManualRetire = useCallback(async (task: DBScheduledTask) => {
     if (!user) {
       showError("You must be logged in to retire tasks.");
       return;
     }
-    if (taskToRetire.is_locked) {
-      showError(`Cannot retire locked task "${taskToRetire.name}". Unlock it first.`);
-      return;
-    }
-    setIsProcessingCommand(true);
-    await retireTask(taskToRetire);
-    queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-    setIsProcessingCommand(false);
-  };
-
-  const handleRemoveRetiredTask = async (retiredTaskId: string) => {
-    if (!user) {
-      showError("You must be logged in to remove retired tasks.");
-      return;
-    }
-    const task = retiredTasks.find(t => t.id === retiredTaskId);
-    if (task?.is_locked) {
-      showError(`Cannot delete locked retired task "${task.name}". Unlock it first.`);
+    if (task.is_locked) {
+      showError(`Cannot retire locked task "${task.name}". Unlock it first.`);
       return;
     }
     setIsProcessingCommand(true);
     try {
-      const { error } = await supabase.from('aethersink').delete().eq('id', retiredTaskId).eq('user_id', user.id);
-      if (error) throw new Error(error.message);
-      showSuccess('Task permanently removed from Aether Sink.');
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', user.id] });
+      await retireTask(task);
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+      showSuccess(`Task "${task.name}" moved to Aether Sink.`);
+    } catch (error: any) {
+      showError(`Failed to retire task: ${error.message}`);
+      console.error("Manual retire error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  }, [user, retireTask, queryClient]);
+
+  // FIX 4: Define handleRemoveRetiredTask
+  const handleRemoveRetiredTask = useCallback(async (taskId: string) => {
+    if (!user) {
+      showError("You must be logged in to remove retired tasks.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      await removeRetiredTask(taskId);
+      showSuccess("Retired task permanently deleted.");
     } catch (error: any) {
       showError(`Failed to remove retired task: ${error.message}`);
       console.error("Remove retired task error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
-  };
-
-  const handleAutoScheduleSink = async () => {
-    if (!user || !profile) {
-        showError("Please log in and ensure your profile is loaded to auto-schedule tasks.");
-        return;
-    }
-
-    const today = startOfDay(new Date());
-    if (isBefore(selectedDayAsDate, today)) {
-      showError("Cannot auto-schedule tasks for a past day. Please select today or a future day.");
-      return;
-    }
-
-    setIsProcessingCommand(true);
-    console.log("handleAutoScheduleSink: Starting auto-schedule process.");
-
-    try {
-        const existingFixedTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);
-        const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
-        const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
-
-        console.log("handleAutoScheduleSink: Existing fixed tasks:", existingFixedTasks.map(t => t.name));
-        console.log("handleAutoScheduleSink: Flexible scheduled tasks to re-evaluate:", flexibleScheduledTasks.map(t => t.name));
-        console.log("handleAutoScheduleSink: Unlocked retired tasks to re-evaluate:", unlockedRetiredTasks.map(t => t.name));
-
-
-        const unifiedPool: UnifiedTask[] = [];
-        
-        flexibleScheduledTasks.forEach(task => {
-            const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
-            unifiedPool.push({
-                id: task.id,
-                name: task.name,
-                duration: duration,
-                break_duration: task.break_duration,
-                is_critical: task.is_critical,
-                is_flexible: true,
-                energy_cost: task.energy_cost,
-                source: 'scheduled',
-                originalId: task.id,
-                is_custom_energy_cost: task.is_custom_energy_cost,
-                created_at: task.created_at,
-                task_environment: task.task_environment, // NEW: Add environment
-            });
-        });
-
-        unlockedRetiredTasks.forEach(task => {
-            unifiedPool.push({
-                id: task.id,
-                name: task.name,
-                duration: task.duration || 30,
-                break_duration: task.break_duration,
-                is_critical: task.is_critical,
-                is_flexible: true,
-                energy_cost: task.energy_cost,
-                source: 'retired',
-                originalId: task.id,
-                is_custom_energy_cost: task.is_custom_energy_cost,
-                created_at: task.retired_at,
-                task_environment: task.task_environment, // NEW: Add environment
-            });
-        });
-
-        console.log("handleAutoScheduleSink: Unified pool of tasks to place:", unifiedPool.map(t => t.name));
-
-        // ----------------------------------------------------------------
-        // NEW SORTING LOGIC: P1 Criticality, P2 Age, P3 Duration, P4 Alpha
-        // ----------------------------------------------------------------
-        let balancedQueue: UnifiedTask[] = [...unifiedPool].sort((a, b) => {
-          // P1: CRITICALITY FIRST (Critical tasks ALWAYS first)
-          if (a.is_critical !== b.is_critical) {
-            return a.is_critical ? -1 : 1;
-          }
-
-          // P2: TASK AGE (Oldest First - SOLVES RECENCY BIAS)
-          const createdA = new Date(a.created_at).getTime();
-          const createdB = new Date(b.created_at).getTime();
-          if (createdA !== createdB) {
-            return createdA - createdB;
-          }
-
-          // P3: DURATION (Smallest First - fills gaps efficiently)
-          const durationA = (a.duration || 30) + (a.break_duration || 0);
-          const durationB = (b.duration || 30) + (b.break_duration || 0);
-          if (durationA !== durationB) {
-            return durationA - durationB;
-          }
-
-          // P4: ALPHABETICAL (final tie-breaker only)
-          return a.name.localeCompare(b.name);
-        });
-        // ----------------------------------------------------------------
-
-
-        const scheduledTaskIdsToDelete: string[] = [];
-        const retiredTaskIdsToDelete: string[] = []; // Only for tasks successfully placed from sink
-        const tasksToInsert: NewDBScheduledTask[] = [];
-        const tasksToMoveToSinkFromSchedule: NewRetiredTask[] = []; // For flexible scheduled tasks that couldn't be placed
-        
-        // 1. Add existing fixed tasks to tasksToInsert
-        existingFixedTasks.forEach(task => {
-            tasksToInsert.push({
-                id: task.id, // Keep original ID for upsert
-                name: task.name,
-                start_time: task.start_time,
-                end_time: task.end_time,
-                break_duration: task.break_duration,
-                scheduled_date: task.scheduled_date,
-                is_critical: task.is_critical,
-                is_flexible: task.is_flexible,
-                is_locked: task.is_locked,
-                energy_cost: task.energy_cost,
-                is_completed: task.is_completed,
-                is_custom_energy_cost: task.is_custom_energy_cost,
-                task_environment: task.task_environment, // NEW: Add environment
-            });
-        });
-        console.log("handleAutoScheduleSink: Initial tasksToInsert (fixed tasks):", tasksToInsert.map(t => t.name));
-
-
-        const fixedOccupiedBlocks = mergeOverlappingTimeBlocks(existingFixedTasks
-            .filter(task => task.start_time && task.end_time)
-            .map(task => {
-                const start = setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm'));
-                let end = setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm'));
-                if (isBefore(end, start)) end = addDays(end, 1);
-                return { start, end, duration: differenceInMinutes(end, start) };
-            })
-        );
-
-        let currentOccupiedBlocks = [...fixedOccupiedBlocks];
-        let currentPlacementTime = effectiveWorkdayStart;
-
-        for (const task of balancedQueue) {
-            let placed = false;
-            let searchTime = currentPlacementTime;
-
-            if (task.is_critical && profile.energy < 80) {
-              // If critical task skipped due to low energy, and it was originally a flexible scheduled task, move it to sink
-              if (task.source === 'scheduled') {
-                  tasksToMoveToSinkFromSchedule.push({
-                      user_id: user.id,
-                      name: task.name,
-                      duration: task.duration,
-                      break_duration: task.break_duration,
-                      original_scheduled_date: formattedSelectedDay,
-                      is_critical: task.is_critical,
-                      is_locked: false,
-                      energy_cost: task.energy_cost,
-                      is_completed: false,
-                      is_custom_energy_cost: task.is_custom_energy_cost,
-                      task_environment: task.task_environment, // NEW: Add environment
-                  });
-                  scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
-              }
-              console.log(`handleAutoScheduleSink: Critical task "${task.name}" skipped due to low energy, moved to sink (if from schedule) or remains in sink (if from sink).`);
-              continue; // Skip placement for this task
-            }
-
-            while (isBefore(searchTime, workdayEndTime)) {
-                const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchTime, workdayEndTime);
-                
-                if (freeBlocks.length === 0) {
-                    break;
-                }
-
-                const taskDuration = task.duration;
-                const breakDuration = task.break_duration || 0;
-                const totalDuration = taskDuration + breakDuration;
-
-                const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
-
-                if (suitableBlock) {
-                    const proposedStartTime = suitableBlock.start;
-                    const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
-
-                    if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocks)) {
-                        tasksToInsert.push({
-                            id: task.originalId, // Use original ID for upsert
-                            name: task.name,
-                            start_time: proposedStartTime.toISOString(),
-                            end_time: proposedEndTime.toISOString(),
-                            break_duration: task.break_duration,
-                            scheduled_date: formattedSelectedDay,
-                            is_critical: task.is_critical,
-                            is_flexible: true, // Placed tasks are flexible by default
-                            is_locked: false, // Placed tasks are unlocked by default
-                            energy_cost: task.energy_cost,
-                            is_completed: false,
-                            is_custom_energy_cost: task.is_custom_energy_cost,
-                            task_environment: task.task_environment, // NEW: Add environment
-                        });
-
-                        currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
-                        currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
-                        currentPlacementTime = proposedEndTime;
-                        placed = true;
-                        console.log(`handleAutoScheduleSink: Placed flexible task "${task.name}" from ${formatTime(proposedStartTime)} to ${formatTime(proposedEndTime)}.`);
-
-                        if (task.source === 'scheduled') {
-                            scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
-                        } else if (task.source === 'retired') {
-                            retiredTaskIdsToDelete.push(task.originalId); // Mark for deletion from sink
-                        }
-                        break;
-                    }
-                }
-                
-                break; 
-            }
-
-            if (!placed) {
-                // Task could not be placed.
-                if (task.source === 'scheduled') {
-                    // If it was a flexible scheduled task, move it to the sink
-                    tasksToMoveToSinkFromSchedule.push({
-                        user_id: user.id,
-                        name: task.name,
-                        duration: task.duration,
-                        break_duration: task.break_duration,
-                        original_scheduled_date: formattedSelectedDay,
-                        is_critical: task.is_critical,
-                        is_locked: false,
-                        energy_cost: task.energy_cost,
-                        is_completed: false,
-                        is_custom_energy_cost: task.is_custom_energy_cost,
-                        task_environment: task.task_environment, // NEW: Add environment
-                    });
-                    scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
-                }
-                // If it was originally from the sink, it just remains there (no action needed)
-                console.log(`handleAutoScheduleSink: Flexible task "${task.name}" could not be placed, moved to sink (if from schedule) or remains in sink (if from sink).`);
-            }
-        }
-
-        // Ensure all original flexible scheduled tasks are marked for deletion
-        flexibleScheduledTasks.forEach(task => {
-            if (!scheduledTaskIdsToDelete.includes(task.id)) {
-                scheduledTaskIdsToDelete.push(task.id);
-                // If it wasn't placed, it needs to go to the sink
-                if (!tasksToInsert.some(t => t.id === task.id)) {
-                    tasksToMoveToSinkFromSchedule.push({
-                        user_id: user.id,
-                        name: task.name,
-                        duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
-                        break_duration: task.break_duration,
-                        original_scheduled_date: formattedSelectedDay,
-                        is_critical: task.is_critical,
-                        is_locked: false,
-                        energy_cost: task.energy_cost,
-                        is_completed: false,
-                        is_custom_energy_cost: task.is_custom_energy_cost,
-                        task_environment: task.task_environment, // NEW: Add environment
-                    });
-                }
-            }
-        });
-
-        // The tasksToKeepInSink in the payload should now be tasksToMoveToSinkFromSchedule
-        const payload: AutoBalancePayload = {
-            scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
-            retiredTaskIdsToDelete: retiredTaskIdsToDelete, // Only contains IDs of retired tasks that were placed
-            tasksToInsert: tasksToInsert,
-            tasksToKeepInSink: tasksToMoveToSinkFromSchedule, // These are new inserts into aethersink
-            selectedDate: formattedSelectedDay,
-        };
-
-        console.log("handleAutoScheduleSink: Final payload for autoBalanceSchedule mutation:", {
-          scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
-          retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
-          tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
-          tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
-          selectedDate: payload.selectedDate,
-        });
-
-        await autoBalanceSchedule(payload);
-        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-
-    } catch (error: any) {
-        showError(`Failed to auto-balance schedule: ${error.message}`);
-        console.error("Auto-balance error:", error);
-    } finally {
-        setIsProcessingCommand(false);
-        console.log("handleAutoScheduleSink: Auto-schedule process finished.");
-    }
-  };
-
-  const handleAutoScheduleSinkWrapper = () => {
-    handleAutoScheduleSink();
-  };
+  }, [user, removeRetiredTask]);
   
   const handleZoneFocus = async () => {
     if (!user || !profile) {
@@ -1390,7 +1121,7 @@ const SchedulerPage: React.FC = () => {
     }
 
     setIsProcessingCommand(true);
-    console.log(`handleZoneFocus: Starting Zone Focus for environment: ${currentEnvironment}`);
+    console.log(`handleZoneFocus: Starting Zone Focus for environments: ${selectedEnvironments.join(', ')}`);
 
     try {
         const existingFixedTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);
@@ -1435,14 +1166,23 @@ const SchedulerPage: React.FC = () => {
         });
 
         // --- ZONE FOCUS FILTERING ---
-        const tasksToPlace = unifiedPool.filter(task => 
-            task.task_environment === currentEnvironment
-        );
+        const tasksToPlace = unifiedPool.filter(task => {
+            if (selectedEnvironments.length === 0) {
+                // If no environment is selected, Zone Focus acts like Auto-Balance (places all flexible tasks)
+                return true;
+            }
+            // If environments are selected, only place tasks matching one of them
+            return selectedEnvironments.includes(task.task_environment);
+        });
         
         // Tasks that are currently in the schedule but DON'T match the environment must be retired.
-        const tasksToRetireFromSchedule = flexibleScheduledTasks.filter(task => 
-            task.task_environment !== currentEnvironment
-        );
+        const tasksToRetireFromSchedule = flexibleScheduledTasks.filter(task => {
+            if (selectedEnvironments.length === 0) {
+                // If no environment is selected, we don't retire anything based on environment mismatch.
+                return false;
+            }
+            return !selectedEnvironments.includes(task.task_environment);
+        });
         
         const scheduledTaskIdsToDelete: string[] = [];
         const retiredTaskIdsToDelete: string[] = []; 
@@ -1636,18 +1376,19 @@ const SchedulerPage: React.FC = () => {
             selectedDate: formattedSelectedDay,
         };
 
-        console.log("handleZoneFocus: Final payload for autoBalanceSchedule mutation:", {
+        console.log("handleSortFlexibleTasks: Final payload for autoBalanceSchedule mutation:", {
           scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
           retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
-          tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, env: t.task_environment })),
-          tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name, env: t.task_environment })),
+          tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
+          tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
           selectedDate: payload.selectedDate,
         });
 
         await autoBalanceSchedule(payload);
+        showSuccess("Flexible tasks sorted and schedule re-balanced!");
+        setSortBy(newSortBy);
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-        showSuccess(`Zone Focus activated! Placed ${tasksToPlace.length} tasks for ${currentEnvironment}.`);
-
+        setIsProcessingCommand(false);
     } catch (error: any) {
         showError(`Failed to run Zone Focus: ${error.message}`);
         console.error("Zone Focus error:", error);
@@ -1655,310 +1396,6 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
         console.log("handleZoneFocus: Zone Focus process finished.");
     }
-  };
-
-
-  const handleCompactSchedule = async () => {
-    if (!user || !profile || !dbScheduledTasks) return;
-    setIsProcessingCommand(true);
-
-    const compactedTasks = compactScheduleLogic(
-      dbScheduledTasks,
-      selectedDayAsDate,
-      workdayStartTime,
-      workdayEndTime,
-      T_current,
-      undefined,
-    );
-
-    if (compactedTasks.length > 0) {
-      await compactScheduledTasks({ tasksToUpdate: compactedTasks });
-      showSuccess("Schedule compacted!");
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-    } else {
-      showError("No flexible tasks to compact or no space available.");
-    }
-    setIsProcessingCommand(false);
-  };
-
-
-  const handleSortFlexibleTasks = async (newSortBy: SortBy) => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to sort tasks.");
-      return;
-    }
-    setIsProcessingCommand(true);
-
-    const fixedAndLockedScheduledTasks = dbScheduledTasks.filter(task => !task.is_flexible || task.is_locked);
-    const flexibleScheduledTasks = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked);
-    const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
-
-    const unifiedPool: UnifiedTask[] = [];
-    
-    flexibleScheduledTasks.forEach(task => {
-      const taskDuration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
-      unifiedPool.push({
-        id: task.id,
-        name: task.name,
-        duration: taskDuration,
-        break_duration: task.break_duration,
-        is_critical: task.is_critical,
-        is_flexible: true,
-        energy_cost: task.energy_cost,
-        source: 'scheduled',
-        originalId: task.id,
-        is_custom_energy_cost: task.is_custom_energy_cost,
-        created_at: task.created_at,
-        task_environment: task.task_environment, // NEW: Add environment
-      });
-    });
-
-    unlockedRetiredTasks.forEach(task => {
-      unifiedPool.push({
-        id: task.id,
-        name: task.name,
-        duration: task.duration || 30,
-        break_duration: task.break_duration,
-        is_critical: task.is_critical,
-        is_flexible: true,
-        energy_cost: task.energy_cost,
-        source: 'retired',
-        originalId: task.id,
-        is_custom_energy_cost: task.is_custom_energy_cost,
-        created_at: task.retired_at,
-        task_environment: task.task_environment, // NEW: Add environment
-      });
-    });
-
-    if (unifiedPool.length === 0) {
-      showSuccess("No unlocked flexible tasks in schedule or Aether Sink to sort.");
-      setIsProcessingCommand(false);
-      return;
-    }
-
-    let sortedUnifiedPool = [...unifiedPool];
-
-    if (newSortBy === 'TIME_EARLIEST_TO_LATEST') {
-      sortedUnifiedPool.sort((a, b) => {
-        const durationA = (a.duration || 0) + (a.break_duration || 0);
-        const durationB = (b.duration || 0) + (b.break_duration || 0);
-        return durationA - durationB;
-      });
-    } else if (newSortBy === 'TIME_LATEST_TO_EARLIEST') {
-      sortedUnifiedPool.sort((a, b) => {
-        const durationA = (a.duration || 0) + (a.break_duration || 0);
-        const durationB = (b.duration || 0) + (b.break_duration || 0);
-        return durationB - durationA;
-      });
-    } else if (newSortBy === 'PRIORITY_HIGH_TO_LOW') {
-      const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-      sortedUnifiedPool.sort((a, b) => {
-        const priorityA = a.is_critical ? 'HIGH' : 'MEDIUM';
-        const priorityB = b.is_critical ? 'HIGH' : 'MEDIUM';
-        const priorityDiff = priorityOrder[priorityB] - priorityOrder[priorityA];
-        if (priorityDiff !== 0) return priorityDiff;
-        const durationA = (a.duration || 0) + (a.break_duration || 0);
-        const durationB = (b.duration || 0) + (b.break_duration || 0);
-        return durationB - durationA;
-      });
-    } else if (newSortBy === 'PRIORITY_LOW_TO_HIGH') {
-      const priorityOrder: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-      sortedUnifiedPool.sort((a, b) => {
-        const priorityA = a.is_critical ? 'HIGH' : 'MEDIUM';
-        const priorityB = b.is_critical ? 'HIGH' : 'MEDIUM';
-        const priorityDiff = priorityOrder[priorityA] - priorityOrder[priorityB];
-        if (priorityDiff !== 0) return priorityDiff;
-        const durationA = (a.duration || 0) + (a.break_duration || 0);
-        const durationB = (b.duration || 0) + (b.break_duration || 0);
-        return durationA - durationB;
-      });
-    } else if (newSortBy === 'EMOJI') {
-      sortedUnifiedPool.sort((a, b) => {
-        const hueA = getEmojiHue(a.name);
-        const hueB = getEmojiHue(b.name);
-        return hueA - hueB;
-      });
-    }
-
-    const scheduledTaskIdsToDelete: string[] = [];
-    const retiredTaskIdsToDelete: string[] = []; // Only for tasks successfully placed from sink
-    const tasksToInsert: NewDBScheduledTask[] = [];
-    const tasksToMoveToSinkFromSchedule: NewRetiredTask[] = []; // For flexible scheduled tasks that couldn't be placed
-
-    // 1. Add existing fixed and locked scheduled tasks to tasksToInsert
-    fixedAndLockedScheduledTasks.forEach(task => {
-        tasksToInsert.push({
-            id: task.id, // Keep original ID for upsert
-            name: task.name,
-            start_time: task.start_time,
-            end_time: task.end_time,
-            break_duration: task.break_duration,
-            scheduled_date: task.scheduled_date,
-            is_critical: task.is_critical,
-            is_flexible: task.is_flexible,
-            is_locked: task.is_locked,
-            energy_cost: task.energy_cost,
-            is_completed: task.is_completed,
-            is_custom_energy_cost: task.is_custom_energy_cost,
-            task_environment: task.task_environment, // NEW: Add environment
-        });
-    });
-
-    // Calculate fixed occupied blocks based on fixedAndLockedScheduledTasks
-    const fixedOccupiedBlocks = mergeOverlappingTimeBlocks(fixedAndLockedScheduledTasks
-        .filter(task => task.start_time && task.end_time)
-        .map(task => {
-            const start = setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm'));
-            let end = setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm'));
-            if (isBefore(end, start)) end = addDays(end, 1);
-            return { start, end, duration: differenceInMinutes(end, start) };
-        })
-    );
-
-    // 2. Iterate through sortedUnifiedPool to place tasks
-    let currentOccupiedBlocks = [...fixedOccupiedBlocks]; // Start with fixed blocks
-    let currentPlacementTime = effectiveWorkdayStart;
-
-    for (const task of sortedUnifiedPool) {
-        let placed = false;
-        let searchTime = currentPlacementTime;
-
-        if (task.is_critical && profile.energy < 80) {
-          // If critical task skipped due to low energy, and it was originally a flexible scheduled task, move it to sink
-          if (task.source === 'scheduled') {
-              tasksToMoveToSinkFromSchedule.push({
-                  user_id: user.id,
-                  name: task.name,
-                  duration: task.duration,
-                  break_duration: task.break_duration,
-                  original_scheduled_date: formattedSelectedDay,
-                  is_critical: task.is_critical,
-                  is_locked: false,
-                  energy_cost: task.energy_cost,
-                  is_completed: false,
-                  is_custom_energy_cost: task.is_custom_energy_cost,
-                  task_environment: task.task_environment, // NEW: Add environment
-              });
-              scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
-          }
-          continue; // Skip placement for this task
-        }
-
-        while (isBefore(searchTime, workdayEndTime)) {
-            const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchTime, workdayEndTime);
-            if (freeBlocks.length === 0) break;
-
-            const taskDuration = task.duration;
-            const breakDuration = task.break_duration || 0;
-            const totalDuration = taskDuration + breakDuration;
-
-            const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
-
-            if (suitableBlock) {
-                const proposedStartTime = suitableBlock.start;
-                const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
-
-                if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocks)) {
-                    tasksToInsert.push({
-                        id: task.originalId, // Use original ID for upsert
-                        name: task.name,
-                        start_time: proposedStartTime.toISOString(),
-                        end_time: proposedEndTime.toISOString(),
-                        break_duration: task.break_duration,
-                        scheduled_date: formattedSelectedDay,
-                        is_critical: task.is_critical,
-                        is_flexible: true, // Placed tasks are flexible by default
-                        is_locked: false, // Placed tasks are unlocked by default
-                        energy_cost: task.energy_cost,
-                        is_completed: false,
-                        is_custom_energy_cost: task.is_custom_energy_cost,
-                        task_environment: task.task_environment, // NEW: Add environment
-                    });
-
-                    currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
-                    currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
-                    currentPlacementTime = proposedEndTime;
-                    placed = true;
-
-                    if (task.source === 'scheduled') {
-                        scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
-                    } else if (task.source === 'retired') {
-                        retiredTaskIdsToDelete.push(task.originalId); // Mark for deletion from sink
-                    }
-                    break;
-                }
-            }
-            break; // No suitable block found in this iteration
-        }
-
-        if (!placed) {
-            // Task could not be placed.
-            if (task.source === 'scheduled') {
-                // If it was a flexible scheduled task, move it to the sink
-                tasksToMoveToSinkFromSchedule.push({
-                    user_id: user.id,
-                    name: task.name,
-                    duration: task.duration,
-                    break_duration: task.break_duration,
-                    original_scheduled_date: formattedSelectedDay,
-                    is_critical: task.is_critical,
-                    is_locked: false,
-                    energy_cost: task.energy_cost,
-                    is_completed: false,
-                    is_custom_energy_cost: task.is_custom_energy_cost,
-                    task_environment: task.task_environment, // NEW: Add environment
-                });
-                scheduledTaskIdsToDelete.push(task.originalId); // Mark for deletion from schedule
-            }
-            // If it was originally from the sink, it just remains there (no action needed)
-        }
-    }
-
-    // Ensure all original flexible scheduled tasks are marked for deletion
-    flexibleScheduledTasks.forEach(task => {
-        if (!scheduledTaskIdsToDelete.includes(task.id)) {
-            scheduledTaskIdsToDelete.push(task.id);
-            // If it wasn't placed, it needs to go to the sink
-            if (!tasksToInsert.some(t => t.id === task.id)) {
-                tasksToMoveToSinkFromSchedule.push({
-                    user_id: user.id,
-                    name: task.name,
-                    duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
-                    break_duration: task.break_duration,
-                    original_scheduled_date: formattedSelectedDay,
-                    is_critical: task.is_critical,
-                    is_locked: false,
-                    energy_cost: task.energy_cost,
-                    is_completed: false,
-                    is_custom_energy_cost: task.is_custom_energy_cost,
-                    task_environment: task.task_environment, // NEW: Add environment
-                });
-            }
-        }
-    });
-
-    // The tasksToKeepInSink in the payload should now be tasksToMoveToSinkFromSchedule
-    const payload: AutoBalancePayload = {
-        scheduledTaskIdsToDelete: scheduledTaskIdsToDelete,
-        retiredTaskIdsToDelete: retiredTaskIdsToDelete, // Only contains IDs of retired tasks that were placed
-        tasksToInsert: tasksToInsert,
-        tasksToKeepInSink: tasksToMoveToSinkFromSchedule, // These are new inserts into aethersink
-        selectedDate: formattedSelectedDay,
-    };
-
-    console.log("handleSortFlexibleTasks: Final payload for autoBalanceSchedule mutation:", {
-      scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
-      retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
-      tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
-      tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
-      selectedDate: payload.selectedDate,
-    });
-
-    await autoBalanceSchedule(payload);
-    showSuccess("Flexible tasks sorted and schedule re-balanced!");
-    setSortBy(newSortBy);
-    queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-    setIsProcessingCommand(false);
   };
 
   const handleRandomizeBreaks = async () => {
@@ -1996,7 +1433,7 @@ const SchedulerPage: React.FC = () => {
       energyCost: calculateEnergyCost(30, false),
       breakDuration: undefined,
       isCustomEnergyCost: false,
-      taskEnvironment: currentEnvironment, // NEW: Default to current environment
+      taskEnvironment: environmentForPlacement, // UPDATED: Use environmentForPlacement
     });
     setInjectionDuration('30');
     setInjectionBreak('');
@@ -2104,7 +1541,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: true,
           energy_cost: 0,
           is_custom_energy_cost: false,
-          task_environment: currentEnvironment, // NEW: Add current environment
+          task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
         });
 
         if (task.is_flexible) {
@@ -2207,7 +1644,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, currentEnvironment]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement]);
 
   // NEW: Calculate tasks completed today and XP earned today for the recap card
   const tasksCompletedForSelectedDay = useMemo(() => {
@@ -2276,13 +1713,15 @@ const SchedulerPage: React.FC = () => {
                 <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
               </CardTitle>
               <div className="flex items-center gap-3">
-                <EnvironmentToggle /> {/* NEW: Environment Toggle */}
+                {/* EnvironmentToggle REMOVED */}
                 <p className="text-sm text-muted-foreground hidden sm:block">
                   Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
                 </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* NEW: Environment Multi-Select Placement */}
+              <EnvironmentMultiSelect /> 
               <WeatherWidget />
               <SchedulerInput 
                 onCommand={handleCommand} 

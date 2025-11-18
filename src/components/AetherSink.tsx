@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile } from 'lucide-react'; // Added Smile icon
-import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler'; // Import RetiredTaskSortBy
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile } from 'lucide-react';
+import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import InfoChip from './InfoChip';
-import RetiredTaskDetailDialog from './RetiredTaskDetailDialog'; // UPDATED: Import Dialog
+import RetiredTaskDetailDialog from './RetiredTaskDetailDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,14 +26,14 @@ import {
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
   onRezoneTask: (task: RetiredTask) => void;
-  onRemoveRetiredTask: (taskId: string) => void;
+  onRemoveRetiredTask: (taskId: string, taskName: string) => void; // Changed signature
   onAutoScheduleSink: () => void;
   isLoading: boolean;
   isProcessingCommand: boolean;
   hideTitle?: boolean;
   profileEnergy: number;
-  retiredSortBy: RetiredTaskSortBy; // NEW: Add retiredSortBy prop
-  setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void; // NEW: Add setRetiredSortBy prop
+  retiredSortBy: RetiredTaskSortBy;
+  setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
 }
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy, retiredSortBy, setRetiredSortBy }) => {
@@ -43,7 +43,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
   const [sinkInputValue, setSinkInputValue] = useState('');
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // UPDATED: Dialog state
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
 
   const handleAddSinkTask = async (e: React.FormEvent) => {
@@ -70,7 +70,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
   const handleInfoChipClick = (retiredTask: RetiredTask) => {
     console.log("AetherSink: InfoChip clicked for retired task:", retiredTask.name);
     setSelectedRetiredTask(retiredTask);
-    setIsDialogOpen(true); // UPDATED: Open Dialog
+    setIsDialogOpen(true);
   };
 
   const handleTaskItemClick = (event: React.MouseEvent, retiredTask: RetiredTask) => {
@@ -81,7 +81,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
       return;
     }
     setSelectedRetiredTask(retiredTask);
-    setIsDialogOpen(true); // UPDATED: Open Dialog
+    setIsDialogOpen(true);
     console.log("AetherSink: Setting isDialogOpen to true for retired task:", retiredTask.name);
   };
 
@@ -282,7 +282,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               variant="ghost" 
                               size="icon" 
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevent parent onClick from firing
+                                e.stopPropagation();
                                 handleToggleComplete(task);
                               }}
                               disabled={isLocked || isProcessingCommand}
@@ -301,7 +301,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                           </TooltipContent>
                         </Tooltip>
 
-                        <div // This div replaces the old label element
+                        <div
                           className={`flex flex-col items-start min-w-0 flex-grow`}
                         >
                           <div className="flex items-center gap-1 w-full">
@@ -358,6 +358,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 e.stopPropagation();
                                 toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked });
                               }}
+                              disabled={isProcessingCommand}
                               className={cn(
                                 "h-7 w-7 p-0 shrink-0",
                                 isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20")
@@ -404,7 +405,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               size="icon" 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onRemoveRetiredTask(task.id);
+                                onRemoveRetiredTask(task.id, task.name); // Pass task name
                               }}
                               disabled={isLocked || isProcessingCommand}
                               className={cn(
@@ -437,12 +438,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
           </CardContent>
         </>
       </Card>
-      <RetiredTaskDetailDialog // UPDATED: Use Dialog
+      <RetiredTaskDetailDialog
         task={selectedRetiredTask}
-        open={isDialogOpen} // UPDATED: Use Dialog state
+        open={isDialogOpen}
         onOpenChange={(open) => {
           console.log("AetherSink: Dialog onOpenChange. New state:", open);
-          setIsDialogOpen(open); // UPDATED: Update Dialog state
+          setIsDialogOpen(open);
           if (!open) setSelectedRetiredTask(null);
         }}
       />

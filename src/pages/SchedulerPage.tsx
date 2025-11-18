@@ -57,8 +57,8 @@ import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import EarlyCompletionModal from '@/components/EarlyCompletionModal';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
-import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect'; // UPDATED: Import Multi-Select
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // UPDATED: Import useEnvironmentContext
+import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect';
+import { useEnvironmentContext } from '@/hooks/use-environment-context';
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
 // function useDeepCompareMemoize<T>(value: T): T {
@@ -103,15 +103,15 @@ interface InjectionPromptState {
   isFlexible?: boolean;
   energyCost?: number;
   isCustomEnergyCost?: boolean;
-  taskEnvironment?: TaskEnvironment; // NEW: Add taskEnvironment
+  taskEnvironment?: TaskEnvironment;
 }
 
 const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
-  const { selectedEnvironments } = useEnvironmentContext(); // UPDATED: Use environment context
-  const environmentForPlacement = selectedEnvironments[0] || 'laptop'; // Determine environment for placement
+  const { selectedEnvironments } = useEnvironmentContext();
+  const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const scheduleContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
+  const scheduleContainerRef = useRef<HTMLDivElement>(null);
 
   const { 
     dbScheduledTasks,
@@ -124,8 +124,8 @@ const SchedulerPage: React.FC = () => {
     isLoadingDatesWithTasks,
     retiredTasks,
     isLoadingRetiredTasks,
-    completedTasksForSelectedDayList, // NEW: Import completedTasksForSelectedDayList
-    isLoadingCompletedTasksForSelectedDay, // NEW: Import loading state for completedTasksForSelectedDayList
+    completedTasksForSelectedDayList,
+    isLoadingCompletedTasksForSelectedDay,
     retireTask,
     rezoneTask,
     compactScheduledTasks,
@@ -141,8 +141,8 @@ const SchedulerPage: React.FC = () => {
     completeScheduledTask: completeScheduledTaskMutation,
     updateScheduledTaskDetails,
     updateScheduledTaskStatus,
-    removeRetiredTask, // ADDED: Import removeRetiredTask
-  } = useSchedulerTasks(selectedDay, scheduleContainerRef); // Pass the ref here
+    removeRetiredTask,
+  } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const queryClient = useQueryClient();
   
@@ -163,6 +163,16 @@ const SchedulerPage: React.FC = () => {
   const [earlyCompletionTaskName, setEarlyCompletionTaskName] = useState('');
   const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0);
   const [earlyCompletionDbTask, setEarlyCompletionDbTask] = useState<DBScheduledTask | null>(null);
+
+  // State for scheduled task permanent deletion confirmation
+  const [showDeleteScheduledTaskConfirmation, setShowDeleteScheduledTaskConfirmation] = useState(false);
+  const [scheduledTaskToDeleteId, setScheduledTaskToDeleteId] = useState<string | null>(null);
+  const [scheduledTaskToDeleteName, setScheduledTaskToDeleteName] = useState<string | null>(null);
+
+  // State for retired task permanent deletion confirmation
+  const [showDeleteRetiredTaskConfirmation, setShowDeleteRetiredTaskConfirmation] = useState(false);
+  const [retiredTaskToDeleteId, setRetiredTaskToDeleteId] = useState<string | null>(null);
+  const [retiredTaskToDeleteName, setRetiredTaskToDeleteName] = useState<string | null>(null);
 
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
@@ -214,7 +224,7 @@ const SchedulerPage: React.FC = () => {
         energyCost: calculateEnergyCost(duration, isCritical),
         breakDuration: undefined,
         isCustomEnergyCost: false,
-        taskEnvironment: environmentForPlacement, // NEW: Default to environmentForPlacement
+        taskEnvironment: environmentForPlacement,
       });
       setInjectionDuration(String(duration));
       navigate(location.pathname, { replace: true, state: {} }); 
@@ -396,7 +406,7 @@ const SchedulerPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] }); // NEW: Invalidate completed tasks list for selected day
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] });
       showSuccess("Schedule data refreshed.");
     }
   };
@@ -435,7 +445,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: energyCost,
           is_custom_energy_cost: false,
-          task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+          task_environment: environmentForPlacement,
         });
         showSuccess(`Quick Scheduled ${duration} min focus block.`);
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
@@ -449,7 +459,6 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
-  // FIX 6: Define handleCompactSchedule
   const handleCompactSchedule = useCallback(async () => {
     if (!user || !profile) {
         showError("Please log in and ensure your profile is loaded to compact the schedule.");
@@ -470,7 +479,6 @@ const SchedulerPage: React.FC = () => {
             T_current
         );
 
-        // Filter out tasks that were not placed (i.e., still have null times or are outside the window)
         const tasksToUpdate = compactedTasks.filter(task => task.start_time && task.end_time);
 
         if (tasksToUpdate.length > 0) {
@@ -488,22 +496,17 @@ const SchedulerPage: React.FC = () => {
     }
   }, [user, profile, dbScheduledTasks, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, queryClient]);
 
-  // FIX 5: Define handleSortFlexibleTasks
   const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
     if (!user || !profile) {
         showError("Please log in and ensure your profile is loaded to sort tasks.");
         return;
     }
     
-    // This function only sets the sort state, which triggers a re-fetch of scheduled tasks.
-    // The actual re-placement/re-balancing logic is handled by handleZoneFocus/AutoBalance.
-    // For simple sorting of the current schedule view, we just update the state.
     setSortBy(newSortBy);
     showSuccess(`Schedule sorted by ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
   }, [user, profile, setSortBy]);
 
 
-  // FIX 2: Define handleAetherDumpButton
   const handleAetherDumpButton = async () => {
     if (!user) {
       showError("You must be logged in to perform Aether Dump.");
@@ -521,7 +524,6 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
-  // FIX 1: Corrected function name and implementation
   const handleAutoScheduleSinkWrapper = async () => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to auto-schedule.");
@@ -529,7 +531,6 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
     try {
-      // This logic is now handled by handleZoneFocus with no environment filter
       await handleZoneFocus();
     } catch (error) {
       console.error("Auto Schedule Sink error:", error);
@@ -630,7 +631,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: taskToPlace.energy_cost,
           is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
-          task_environment: taskToPlace.task_environment, // NEW: Add environment
+          task_environment: taskToPlace.task_environment,
         });
 
         return true;
@@ -670,7 +671,7 @@ const SchedulerPage: React.FC = () => {
           is_critical: parsedInput.isCritical,
           energy_cost: parsedInput.energyCost,
           is_custom_energy_cost: false,
-          task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+          task_environment: environmentForPlacement,
         };
         await addRetiredTask(newRetiredTask);
         success = true;
@@ -701,8 +702,8 @@ const SchedulerPage: React.FC = () => {
               scheduled_date: taskScheduledDate,
               energy_cost: parsedInput.energyCost,
               is_custom_energy_cost: false,
-              task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
-            });
+              task_environment: environmentForPlacement,
+            }); 
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
@@ -747,7 +748,7 @@ const SchedulerPage: React.FC = () => {
             is_flexible: parsedInput.isFlexible, 
             energy_cost: parsedInput.energyCost,
             is_custom_energy_cost: false,
-            task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+            task_environment: environmentForPlacement,
           }); 
           currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -783,7 +784,7 @@ const SchedulerPage: React.FC = () => {
             is_flexible: injectCommand.isFlexible,
             energy_cost: injectCommand.energyCost,
             is_custom_energy_cost: false,
-            task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+            task_environment: environmentForPlacement,
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -806,7 +807,7 @@ const SchedulerPage: React.FC = () => {
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
           isCustomEnergyCost: false,
-          taskEnvironment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+          taskEnvironment: environmentForPlacement,
         });
         setInjectionStartTime(injectCommand.startTime);
         setInjectionEndTime(injectCommand.endTime);
@@ -824,7 +825,7 @@ const SchedulerPage: React.FC = () => {
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
           isCustomEnergyCost: false,
-          taskEnvironment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+          taskEnvironment: environmentForPlacement,
         });
         success = true;
       }
@@ -843,12 +844,7 @@ const SchedulerPage: React.FC = () => {
                 setIsProcessingCommand(false);
                 return;
               }
-              await removeScheduledTask(taskToRemove.id);
-              currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
-                !(block.start.getTime() === parseISO(taskToRemove.start_time!).getTime() && 
-                  block.end.getTime() === parseISO(taskToRemove.end_time!).getTime())
-              );
-              queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+              handlePermanentDeleteScheduledTask(taskToRemove.id, taskToRemove.name); // Call new handler
               success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
@@ -856,24 +852,21 @@ const SchedulerPage: React.FC = () => {
           } else if (command.target) {
             const tasksToRemove = dbScheduledTasks.filter(task => task.name.toLowerCase().includes(command.target!.toLowerCase()));
             if (tasksToRemove.length > 0) {
-              const lockedTasksFound = tasksToRemove.filter(task => task.is_locked);
-              if (lockedTasksFound.length > 0) {
-                showError(`Cannot remove locked task(s) matching "${command.target}". Unlock them first.`);
-                setIsProcessingCommand(false);
-                return;
-              }
-              for (const task of tasksToRemove) {
-                await removeScheduledTask(task.id);
-                currentOccupiedBlocksForScheduling = currentOccupiedBlocksForScheduling.filter(block => 
-                  !(block.start.getTime() === parseISO(task.start_time!).getTime() && 
-                    block.end.getTime() === parseISO(task.end_time!).getTime())
-                );
-              }
-              showSuccess(`Removed tasks matching "${command.target}".`);
-              queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-              success = true;
+                const lockedTasksFound = tasksToRemove.filter(task => task.is_locked);
+                if (lockedTasksFound.length > 0) {
+                    showError(`Cannot remove locked task(s) matching "${command.target}". Unlock them first.`);
+                    setIsProcessingCommand(false);
+                    return;
+                }
+                if (tasksToRemove.length > 1) {
+                    showError(`Multiple tasks found matching "${command.target}". Please be more specific or use 'remove index X'.`);
+                    setIsProcessingCommand(false);
+                    return;
+                }
+                handlePermanentDeleteScheduledTask(tasksToRemove[0].id, tasksToRemove[0].name); // Call new handler
+                success = true;
             } else {
-              showError(`No tasks found matching "${command.target}".`);
+                showError(`No tasks found matching "${command.target}".`);
             }
           } else {
             showError("Please specify a task name or index to remove (e.g., 'remove Task Name' or 'remove index 1').");
@@ -898,7 +891,7 @@ const SchedulerPage: React.FC = () => {
             energyCost: 0,
             breakDuration: undefined,
             isCustomEnergyCost: false,
-            taskEnvironment: 'away', // Time Off defaults to 'away'
+            taskEnvironment: 'away',
           });
           setInjectionStartTime(format(T_current, 'h:mm a'));
           setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -991,7 +984,7 @@ const SchedulerPage: React.FC = () => {
         is_flexible: injectionPrompt.isFlexible, 
         energy_cost: calculatedEnergyCost,
         is_custom_energy_cost: false,
-        task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+        task_environment: environmentForPlacement,
       }); 
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1037,7 +1030,7 @@ const SchedulerPage: React.FC = () => {
           is_flexible: injectionPrompt.isFlexible,
           energy_cost: calculatedEnergyCost,
           is_custom_energy_cost: false,
-          task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+          task_environment: environmentForPlacement,
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1104,7 +1097,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: false,
           energy_cost: retiredTask.energy_cost,
           is_custom_energy_cost: retiredTask.is_custom_energy_cost,
-          task_environment: retiredTask.task_environment, // NEW: Add environment
+          task_environment: retiredTask.task_environment,
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1122,7 +1115,6 @@ const SchedulerPage: React.FC = () => {
     }
   };
 
-  // FIX 2: Define handleManualRetire
   const handleManualRetire = useCallback(async (task: DBScheduledTask) => {
     if (!user) {
       showError("You must be logged in to retire tasks.");
@@ -1145,23 +1137,57 @@ const SchedulerPage: React.FC = () => {
     }
   }, [user, retireTask, queryClient]);
 
-  // FIX 4: Define handleRemoveRetiredTask
-  const handleRemoveRetiredTask = useCallback(async (taskId: string) => {
-    if (!user) {
-      showError("You must be logged in to remove retired tasks.");
-      return;
-    }
+  // New handler for permanent deletion of scheduled tasks
+  const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string) => {
+    setScheduledTaskToDeleteId(taskId);
+    setScheduledTaskToDeleteName(taskName);
+    setShowDeleteScheduledTaskConfirmation(true);
+  }, []);
+
+  // Confirmation handler for scheduled task permanent deletion
+  const confirmPermanentDeleteScheduledTask = useCallback(async () => {
+    if (!scheduledTaskToDeleteId || !user) return;
     setIsProcessingCommand(true);
     try {
-      await removeRetiredTask(taskId);
-      showSuccess("Retired task permanently deleted.");
+      await removeScheduledTask(scheduledTaskToDeleteId);
+      await handleCompactSchedule(); // Run compaction after deletion
+      showSuccess(`Task "${scheduledTaskToDeleteName}" permanently deleted.`);
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
-      showError(`Failed to remove retired task: ${error.message}`);
-      console.error("Remove retired task error:", error);
+      showError(`Failed to delete task: ${error.message}`);
+      console.error("Permanent delete scheduled task error:", error);
     } finally {
       setIsProcessingCommand(false);
+      setShowDeleteScheduledTaskConfirmation(false);
+      setScheduledTaskToDeleteId(null);
+      setScheduledTaskToDeleteName(null);
     }
-  }, [user, removeRetiredTask]);
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, user, removeScheduledTask, handleCompactSchedule, queryClient]);
+
+  // New handler for permanent deletion of retired tasks
+  const handlePermanentDeleteRetiredTask = useCallback((taskId: string, taskName: string) => {
+    setRetiredTaskToDeleteId(taskId);
+    setRetiredTaskToDeleteName(taskName);
+    setShowDeleteRetiredTaskConfirmation(true);
+  }, []);
+
+  // Confirmation handler for retired task permanent deletion
+  const confirmPermanentDeleteRetiredTask = useCallback(async () => {
+    if (!retiredTaskToDeleteId || !user) return;
+    setIsProcessingCommand(true);
+    try {
+      await removeRetiredTask(retiredTaskToDeleteId);
+      showSuccess(`Retired task "${retiredTaskToDeleteName}" permanently deleted.`);
+    } catch (error: any) {
+      showError(`Failed to delete retired task: ${error.message}`);
+      console.error("Permanent delete retired task error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+      setShowDeleteRetiredTaskConfirmation(false);
+      setRetiredTaskToDeleteId(null);
+      setRetiredTaskToDeleteName(null);
+    }
+  }, [retiredTaskToDeleteId, retiredTaskToDeleteName, user, removeRetiredTask]);
   
   const handleZoneFocus = async () => {
     if (!user || !profile) {
@@ -1220,20 +1246,15 @@ const SchedulerPage: React.FC = () => {
             });
         });
 
-        // --- ZONE FOCUS FILTERING ---
         const tasksToPlace = unifiedPool.filter(task => {
             if (selectedEnvironments.length === 0) {
-                // If no environment is selected, Zone Focus acts like Auto-Balance (places all flexible tasks)
                 return true;
             }
-            // If environments are selected, only place tasks matching one of them
             return selectedEnvironments.includes(task.task_environment);
         });
         
-        // Tasks that are currently in the schedule but DON'T match the environment must be retired.
         const tasksToRetireFromSchedule = flexibleScheduledTasks.filter(task => {
             if (selectedEnvironments.length === 0) {
-                // If no environment is selected, we don't retire anything based on environment mismatch.
                 return false;
             }
             return !selectedEnvironments.includes(task.task_environment);
@@ -1244,7 +1265,6 @@ const SchedulerPage: React.FC = () => {
         const tasksToInsert: NewDBScheduledTask[] = [];
         const tasksToMoveToSinkFromSchedule: NewRetiredTask[] = []; 
         
-        // 1. Add existing fixed tasks to tasksToInsert
         existingFixedTasks.forEach(task => {
             tasksToInsert.push({
                 id: task.id, 
@@ -1263,19 +1283,15 @@ const SchedulerPage: React.FC = () => {
             });
         });
 
-        // 2. Prepare the queue for placement (only tasks matching the environment)
         let balancedQueue: UnifiedTask[] = [...tasksToPlace].sort((a, b) => {
-          // P1: CRITICALITY FIRST
           if (a.is_critical !== b.is_critical) {
             return a.is_critical ? -1 : 1;
           }
-          // P2: TASK AGE (Oldest First)
           const createdA = new Date(a.created_at).getTime();
           const createdB = new Date(b.created_at).getTime();
           if (createdA !== createdB) {
             return createdA - createdB;
           }
-          // P3: DURATION (Smallest First)
           const durationA = (a.duration || 30) + (a.break_duration || 0);
           const durationB = (b.duration || 30) + (b.break_duration || 0);
           if (durationA !== durationB) {
@@ -1302,7 +1318,6 @@ const SchedulerPage: React.FC = () => {
             let searchTime = currentPlacementTime;
 
             if (task.is_critical && profile.energy < 80) {
-              // Critical task skipped due to low energy, remains in sink (if from sink) or moves to sink (if from schedule)
               if (task.source === 'scheduled') {
                   tasksToMoveToSinkFromSchedule.push({
                       user_id: user.id,
@@ -1371,9 +1386,7 @@ const SchedulerPage: React.FC = () => {
             }
 
             if (!placed) {
-                // Task could not be placed.
                 if (task.source === 'scheduled') {
-                    // If it was a flexible scheduled task, move it to the sink
                     tasksToMoveToSinkFromSchedule.push({
                         user_id: user.id,
                         name: task.name,
@@ -1392,7 +1405,6 @@ const SchedulerPage: React.FC = () => {
             }
         }
         
-        // 3. Handle non-matching flexible tasks currently in the schedule (Tasks to Retire)
         tasksToRetireFromSchedule.forEach(task => {
             if (!scheduledTaskIdsToDelete.includes(task.id)) {
                 scheduledTaskIdsToDelete.push(task.id);
@@ -1412,10 +1424,8 @@ const SchedulerPage: React.FC = () => {
             }
         });
 
-        // 4. Ensure all original flexible scheduled tasks that were placed are marked for deletion from schedule
         flexibleScheduledTasks.forEach(task => {
             if (tasksToPlace.some(t => t.originalId === task.id && t.source === 'scheduled') && tasksToInsert.some(t => t.id === task.id)) {
-                // If a scheduled task was placed, ensure its old entry is deleted
                 if (!scheduledTaskIdsToDelete.includes(task.id)) {
                     scheduledTaskIdsToDelete.push(task.id);
                 }
@@ -1441,7 +1451,7 @@ const SchedulerPage: React.FC = () => {
 
         await autoBalanceSchedule(payload);
         showSuccess("Flexible tasks sorted and schedule re-balanced!");
-        setSortBy('TIME_EARLIEST_TO_LATEST'); // FIX 2: Set sort to default time sort after re-balancing
+        setSortBy('TIME_EARLIEST_TO_LATEST');
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
         setIsProcessingCommand(false);
     } catch (error: any) {
@@ -1488,7 +1498,7 @@ const SchedulerPage: React.FC = () => {
       energyCost: calculateEnergyCost(30, false),
       breakDuration: undefined,
       isCustomEnergyCost: false,
-      taskEnvironment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+      taskEnvironment: environmentForPlacement,
     });
     setInjectionDuration('30');
     setInjectionBreak('');
@@ -1509,7 +1519,7 @@ const SchedulerPage: React.FC = () => {
       energyCost: 0,
       breakDuration: undefined,
       isCustomEnergyCost: false,
-      taskEnvironment: 'away', // Time Off defaults to 'away'
+      taskEnvironment: 'away',
     });
     setInjectionStartTime(format(T_current, 'h:mm a'));
     setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
@@ -1519,7 +1529,7 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleSchedulerAction = useCallback(async (
-    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus', // NEW: Added 'justFinish'
+    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus',
     task: DBScheduledTask,
     isEarlyCompletion: boolean = false,
     remainingDurationMinutes: number = 0,
@@ -1547,7 +1557,7 @@ const SchedulerPage: React.FC = () => {
 
         if (isCurrentlyActive) {
             remainingMins = activeItem ? differenceInMinutes(activeItem.endTime, T_current) : 0;
-            if (remainingMins > 0) { // Only show modal if there's actual time remaining
+            if (remainingMins > 0) {
                 shouldOpenEarlyCompletionModal = true;
             }
         }
@@ -1561,7 +1571,6 @@ const SchedulerPage: React.FC = () => {
             setIsProcessingCommand(false); 
             return;
         } else {
-            // If it's a future task, or active task completed exactly on time/past its end time
             await completeScheduledTaskMutation(task); 
             if (task.is_flexible) {
               await removeScheduledTask(task.id);
@@ -1596,7 +1605,7 @@ const SchedulerPage: React.FC = () => {
           is_locked: true,
           energy_cost: 0,
           is_custom_energy_cost: false,
-          task_environment: environmentForPlacement, // UPDATED: Use environmentForPlacement
+          task_environment: environmentForPlacement,
         });
 
         if (task.is_flexible) {
@@ -1659,17 +1668,17 @@ const SchedulerPage: React.FC = () => {
             end_time: newNextTaskEndTime.toISOString(),
             is_flexible: originalNextTask.is_flexible, 
             is_locked: originalNextTask.is_locked,     
-            task_environment: originalNextTask.task_environment, // NEW: Preserve environment
+            task_environment: originalNextTask.task_environment,
           });
 
-          await handleCompactSchedule(); // FIX 3: Call the defined handleCompactSchedule
+          await handleCompactSchedule();
 
           showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
         }
 
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
-      } else if (action === 'justFinish') { // NEW: Handle 'justFinish' action
+      } else if (action === 'justFinish') {
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
           await removeScheduledTask(task.id);
@@ -1677,8 +1686,7 @@ const SchedulerPage: React.FC = () => {
           await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
         showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
-        setShowEarlyCompletionModal(false);
-        setIsFocusModeActive(false); // Ensure focus mode is exited
+        setIsFocusModeActive(false);
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
         showSuccess("Exited focus mode.");
@@ -1699,9 +1707,8 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement]); // FIX 4: Added handleCompactSchedule to dependencies
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement]);
 
-  // NEW: Calculate tasks completed today and XP earned today for the recap card
   const tasksCompletedForSelectedDay = useMemo(() => {
     if (!completedTasksForSelectedDayList) return 0;
     return completedTasksForSelectedDayList.length;
@@ -1719,9 +1726,8 @@ const SchedulerPage: React.FC = () => {
     ).length;
   }, [completedTasksForSelectedDayList]);
 
-  // NEW: Filter completed scheduled tasks for the selected day
   const completedScheduledTasksForRecap = useMemo(() => {
-    return completedTasksForSelectedDayList; // Use the new combined list
+    return completedTasksForSelectedDayList;
   }, [completedTasksForSelectedDayList]);
 
 
@@ -1768,14 +1774,12 @@ const SchedulerPage: React.FC = () => {
                 <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
               </CardTitle>
               <div className="flex items-center gap-3">
-                {/* EnvironmentToggle REMOVED */}
                 <p className="text-sm text-muted-foreground hidden sm:block">
                   Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
                 </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* NEW: Environment Multi-Select Placement */}
               <EnvironmentMultiSelect /> 
               <WeatherWidget />
               <SchedulerInput 
@@ -1798,13 +1802,13 @@ const SchedulerPage: React.FC = () => {
             dbScheduledTasks={dbScheduledTasks}
             onRechargeEnergy={() => rechargeEnergy()}
             onRandomizeBreaks={handleRandomizeBreaks}
-            onSortFlexibleTasks={handleSortFlexibleTasks} // FIX 5: Use defined handler
+            onSortFlexibleTasks={handleSortFlexibleTasks}
             onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
             sortBy={sortBy}
-            onCompactSchedule={handleCompactSchedule} // FIX 6: Use defined handler
+            onCompactSchedule={handleCompactSchedule}
             onQuickScheduleBlock={handleQuickScheduleBlock}
             retiredTasksCount={retiredTasks.length}
-            onZoneFocus={handleZoneFocus} // NEW: Pass handler
+            onZoneFocus={handleZoneFocus}
           />
 
           {isSameDay(parseISO(selectedDay), T_current) && (
@@ -1865,7 +1869,7 @@ const SchedulerPage: React.FC = () => {
                     <SchedulerDisplay 
                       schedule={currentSchedule} 
                       T_current={T_current} 
-                      onRemoveTask={(taskId) => handleSchedulerAction('skip', dbScheduledTasks.find(t => t.id === taskId)!)}
+                      onRemoveTask={handlePermanentDeleteScheduledTask} // Changed to permanent delete
                       onRetireTask={(task) => handleSchedulerAction('skip', task)}
                       onCompleteTask={(task) => handleSchedulerAction('complete', task, false)}
                       activeItemId={activeItemToday?.id || null} 
@@ -1881,7 +1885,7 @@ const SchedulerPage: React.FC = () => {
               <AetherSink 
                 retiredTasks={retiredTasks} 
                 onRezoneTask={handleRezoneFromSink} 
-                onRemoveRetiredTask={handleRemoveRetiredTask}
+                onRemoveRetiredTask={handlePermanentDeleteRetiredTask} // Changed to permanent delete
                 onAutoScheduleSink={handleAutoScheduleSinkWrapper}
                 isLoading={isLoadingRetiredTasks}
                 isProcessingCommand={isProcessingCommand}
@@ -1894,12 +1898,12 @@ const SchedulerPage: React.FC = () => {
             <TabsContent value="daily-recap" className="space-y-4">
               <DailyVibeRecapCard
                 scheduleSummary={currentSchedule?.summary || null}
-                tasksCompletedToday={tasksCompletedForSelectedDay} // NEW: Use tasksCompletedForSelectedDay
-                xpEarnedToday={xpEarnedForSelectedDay} // NEW: Use xpEarnedForSelectedDay
+                tasksCompletedToday={tasksCompletedForSelectedDay}
+                xpEarnedToday={xpEarnedForSelectedDay}
                 profileEnergy={profile?.energy || 0}
-                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay} // NEW: Use criticalTasksCompletedForSelectedDay
+                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
                 selectedDayString={selectedDay}
-                completedScheduledTasks={completedScheduledTasksForRecap} /* NEW: Pass completed tasks */
+                completedScheduledTasks={completedScheduledTasksForRecap}
               />
             </TabsContent>
           </Tabs>
@@ -1954,6 +1958,7 @@ const SchedulerPage: React.FC = () => {
                     <Input
                       id="duration"
                       type="number"
+                      placeholder="e.g., 60"
                       value={injectionDuration}
                       onChange={(e) => setInjectionDuration(e.target.value)}
                       className="col-span-3"
@@ -1967,6 +1972,7 @@ const SchedulerPage: React.FC = () => {
                     <Input
                       id="break"
                       type="number"
+                      placeholder="e.g., 15"
                       value={injectionBreak}
                       onChange={(e) => setInjectionBreak(e.target.value)}
                       className="col-span-3"
@@ -2002,6 +2008,42 @@ const SchedulerPage: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Scheduled Task Permanent Delete Confirmation */}
+      <AlertDialog open={showDeleteScheduledTaskConfirmation} onOpenChange={setShowDeleteScheduledTaskConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently Delete Task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete "{scheduledTaskToDeleteName}" from your schedule? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPermanentDeleteScheduledTask} className="bg-destructive hover:bg-destructive/90">
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Retired Task Permanent Delete Confirmation */}
+      <AlertDialog open={showDeleteRetiredTaskConfirmation} onOpenChange={setShowDeleteRetiredTaskConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently Delete Retired Task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete "{retiredTaskToDeleteName}" from the Aether Sink? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPermanentDeleteRetiredTask} className="bg-destructive hover:bg-destructive/90">
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <WorkdayWindowDialog 
         open={showWorkdayWindowDialog} 
         onOpenChange={setShowWorkdayWindowDialog} 
@@ -2019,7 +2061,7 @@ const SchedulerPage: React.FC = () => {
         remainingDurationMinutes={earlyCompletionRemainingMinutes}
         onTakeBreak={() => handleSchedulerAction('takeBreak', earlyCompletionDbTask!, true, earlyCompletionRemainingMinutes)}
         onStartNextTask={() => handleSchedulerAction('startNext', earlyCompletionDbTask!, true)}
-        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)} // NEW: Pass 'justFinish' handler
+        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)}
         isProcessingCommand={isProcessingCommand}
         hasNextTask={!!nextItemToday}
       />

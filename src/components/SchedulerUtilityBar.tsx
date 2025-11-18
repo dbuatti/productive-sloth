@@ -28,7 +28,8 @@ interface SchedulerUtilityBarProps {
   sortBy: SortBy;
   onCompactSchedule: () => void;
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => void;
-  retiredTasksCount: number; // NEW: Add retiredTasksCount prop
+  retiredTasksCount: number;
+  onZoneFocus: () => void; // NEW: Handler for Zone Focus
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -42,7 +43,8 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   sortBy,
   onCompactSchedule,
   onQuickScheduleBlock,
-  retiredTasksCount, // NEW: Destructure retiredTasksCount
+  retiredTasksCount,
+  onZoneFocus, // NEW: Destructure prop
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
@@ -133,7 +135,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    disabled={isProcessingCommand || !hasSortableFlexibleTasks /* UPDATED: Enable if there are retired tasks */}
+                    disabled={isProcessingCommand || !hasSortableFlexibleTasks}
                     className={cn(
                       "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
                       !hasSortableFlexibleTasks && "text-muted-foreground/50 cursor-not-allowed"
@@ -187,7 +189,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent className="z-[60]"> {/* Added z-[60] to ensure it sits above the dropdown */}
+              <TooltipContent className="z-[60]">
                 <p>Quick Schedule a Focus Block</p>
               </TooltipContent>
             </Tooltip>
@@ -207,6 +209,26 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* NEW: Zone Focus Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={onZoneFocus} 
+                disabled={isProcessingCommand}
+                className="h-10 w-10 text-accent hover:bg-accent/10 transition-all duration-200"
+                style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+              >
+                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
+                <span className="sr-only">Zone Focus</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Zone Focus: Auto-schedule tasks matching current environment.</p>
+            </TooltipContent>
+          </Tooltip>
+
           {/* Workday Window Toggle */}
           <Tooltip>
             <TooltipTrigger asChild>

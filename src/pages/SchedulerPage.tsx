@@ -168,6 +168,7 @@ const SchedulerPage: React.FC = () => {
   const [showDeleteScheduledTaskConfirmation, setShowDeleteScheduledTaskConfirmation] = useState(false);
   const [scheduledTaskToDeleteId, setScheduledTaskToDeleteId] = useState<string | null>(null);
   const [scheduledTaskToDeleteName, setScheduledTaskToDeleteName] = useState<string | null>(null);
+  const [scheduledTaskToDeleteIndex, setScheduledTaskToDeleteIndex] = useState<number | null>(null); // NEW: Index for deletion
 
   // State for retired task permanent deletion confirmation
   const [showDeleteRetiredTaskConfirmation, setShowDeleteRetiredTaskConfirmation] = useState(false);
@@ -267,9 +268,10 @@ const SchedulerPage: React.FC = () => {
   }, [selectedDay]);
 
   // New handler for permanent deletion of scheduled tasks
-  const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string) => {
+  const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string, index: number) => { // Added index
     setScheduledTaskToDeleteId(taskId);
     setScheduledTaskToDeleteName(taskName);
+    setScheduledTaskToDeleteIndex(index); // NEW: Set index
     setShowDeleteScheduledTaskConfirmation(true);
   }, []);
 
@@ -511,12 +513,26 @@ const SchedulerPage: React.FC = () => {
 
   // Confirmation handler for scheduled task permanent deletion
   const confirmPermanentDeleteScheduledTask = useCallback(async () => {
-    if (!scheduledTaskToDeleteId || !user) return;
+    if (!scheduledTaskToDeleteId || !user || scheduledTaskToDeleteIndex === null) return; // Check index
     setIsProcessingCommand(true);
     try {
       await removeScheduledTask(scheduledTaskToDeleteId);
       await handleCompactSchedule(); // Run compaction after deletion
       showSuccess(`Task "${scheduledTaskToDeleteName}" permanently deleted.`);
+
+      // Scroll to the next item if it exists
+      if (currentSchedule?.items && scheduledTaskToDeleteIndex < currentSchedule.items.length) {
+        const nextItemId = currentSchedule.items[scheduledTaskToDeleteIndex].id; // Item at this index is now the one after the deleted one
+        if (nextItemId) {
+          handleScrollToItem(nextItemId);
+        }
+      } else if (currentSchedule?.items && scheduledTaskToDeleteIndex > 0) {
+        // If the last item was deleted, scroll to the previous one
+        const prevItemId = currentSchedule.items[scheduledTaskToDeleteIndex - 1].id;
+        if (prevItemId) {
+          handleScrollToItem(prevItemId);
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
       showError(`Failed to delete task: ${error.message}`);
@@ -526,8 +542,9 @@ const SchedulerPage: React.FC = () => {
       setShowDeleteScheduledTaskConfirmation(false);
       setScheduledTaskToDeleteId(null);
       setScheduledTaskToDeleteName(null);
+      setScheduledTaskToDeleteIndex(null); // Reset index
     }
-  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, user, removeScheduledTask, handleCompactSchedule, queryClient]);
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, handleCompactSchedule, currentSchedule?.items, queryClient]);
 
   // Confirmation handler for retired task permanent deletion
   const confirmPermanentDeleteRetiredTask = useCallback(async () => {
@@ -895,7 +912,7 @@ const SchedulerPage: React.FC = () => {
                 setIsProcessingCommand(false);
                 return;
               }
-              handlePermanentDeleteScheduledTask(taskToRemove.id, taskToRemove.name); // Call new handler
+              handlePermanentDeleteScheduledTask(taskToRemove.id, taskToRemove.name, command.index); // Call new handler with index
               success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
@@ -914,7 +931,8 @@ const SchedulerPage: React.FC = () => {
                     setIsProcessingCommand(false);
                     return;
                 }
-                handlePermanentDeleteScheduledTask(tasksToRemove[0].id, tasksToRemove[0].name); // Call new handler
+                const taskIndex = dbScheduledTasks.findIndex(t => t.id === tasksToRemove[0].id);
+                handlePermanentDeleteScheduledTask(tasksToRemove[0].id, tasksToRemove[0].name, taskIndex); // Call new handler with index
                 success = true;
             } else {
                 showError(`No tasks found matching "${command.target}".`);
@@ -1530,11 +1548,24 @@ const SchedulerPage: React.FC = () => {
     setInputValue('');
   };
 
+  const handleScrollToItem = useCallback((itemId: string) => {
+    const element = document.getElementById(`scheduled-item-${itemId}`);
+    if (element && scheduleContainerRef.current) {
+      const containerRect = scheduleContainerRef.current.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      // Calculate scroll offset to bring the element into view,
+      // ideally centered or near the top, but not completely at the top.
+      const scrollOffset = elementRect.top - containerRect.top - containerRect.height / 4; 
+      scheduleContainerRef.current.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+    }
+  }, []);
+
   const handleSchedulerAction = useCallback(async (
     action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus',
     task: DBScheduledTask,
     isEarlyCompletion: boolean = false,
     remainingDurationMinutes: number = 0,
+    index: number | null = null // NEW: Added index parameter
   ) => {
     if (!user) {
       showError("You must be logged in to perform this action.");
@@ -1695,6 +1726,12 @@ const SchedulerPage: React.FC = () => {
       }
 
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+      // NEW: Scroll to the active item after any action that might change the schedule
+      if (activeItemToday) {
+        handleScrollToItem(activeItemToday.id);
+      } else if (nextItemToday) {
+        handleScrollToItem(nextItemToday.id);
+      }
     } catch (error: any) {
       if (modalOpened) {
         setShowEarlyCompletionModal(false);
@@ -1709,7 +1746,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem]);
 
   const tasksCompletedForSelectedDay = useMemo(() => {
     if (!completedTasksForSelectedDayList) return 0;
@@ -1873,10 +1910,11 @@ const SchedulerPage: React.FC = () => {
                       T_current={T_current} 
                       onRemoveTask={handlePermanentDeleteScheduledTask} // Changed to permanent delete
                       onRetireTask={(task) => handleSchedulerAction('skip', task)}
-                      onCompleteTask={(task) => handleSchedulerAction('complete', task, false)}
+                      onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)} // Pass index
                       activeItemId={activeItemToday?.id || null} 
                       selectedDayString={selectedDay} 
                       onAddTaskClick={handleAddTaskClick}
+                      onScrollToItem={handleScrollToItem} // NEW: Pass scroll function
                     />
                   )}
                 </CardContent>

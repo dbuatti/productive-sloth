@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker, DBScheduledTask, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
@@ -16,12 +16,13 @@ import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
-  onRemoveTask: (taskId: string, taskName: string) => void; // Changed signature
+  onRemoveTask: (taskId: string, taskName: string, index: number) => void; // Changed signature
   onRetireTask: (task: DBScheduledTask) => void;
-  onCompleteTask: (task: DBScheduledTask) => void;
+  onCompleteTask: (task: DBScheduledTask, index: number) => void; // Changed signature
   activeItemId: string | null;
   selectedDayString: string;
   onAddTaskClick: () => void;
+  onScrollToItem: (itemId: string) => void; // NEW: Prop for scrolling to a specific item
 }
 
 const getBubbleHeightStyle = (duration: number) => {
@@ -55,7 +56,7 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
   }
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick, onScrollToItem }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -219,7 +220,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current);
 
-  const renderDisplayItem = (item: DisplayItem) => {
+  const renderDisplayItem = (item: DisplayItem, index: number) => { // Added index
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
     const isHighlightedBySession = activeItemId === item.id;
     const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'free-time' || item.type === 'time-off') && item.endTime <= T_current;
@@ -347,7 +348,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       size="icon" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onCompleteTask(dbTask);
+                        onCompleteTask(dbTask, index); // Pass index
                       }}
                       disabled={isLocked}
                       className={cn(
@@ -484,7 +485,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         size="icon" 
                         onClick={(e) => {
                           e.stopPropagation();
-                          onRemoveTask(scheduledItem.id, scheduledItem.name); // Pass task name
+                          onRemoveTask(scheduledItem.id, scheduledItem.name, index); // Pass index
                         }}
                         disabled={isLocked}
                         className={cn(
@@ -597,9 +598,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       </div>
                     )}
 
-                    {finalDisplayItems.map((item) => (
+                    {finalDisplayItems.map((item, index) => ( // Pass index
                       <React.Fragment key={item.id}>
-                        {renderDisplayItem(item)}
+                        {renderDisplayItem(item, index)}
                       </React.Fragment>
                     ))}
                   </>

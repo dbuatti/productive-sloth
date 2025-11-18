@@ -266,6 +266,19 @@ const SchedulerPage: React.FC = () => {
     };
   }, [selectedDay]);
 
+  // New handler for permanent deletion of scheduled tasks
+  const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string) => {
+    setScheduledTaskToDeleteId(taskId);
+    setScheduledTaskToDeleteName(taskName);
+    setShowDeleteScheduledTaskConfirmation(true);
+  }, []);
+
+  // New handler for permanent deletion of retired tasks
+  const handlePermanentDeleteRetiredTask = useCallback((taskId: string, taskName: string) => {
+    setRetiredTaskToDeleteId(taskId);
+    setRetiredTaskToDeleteName(taskName);
+    setShowDeleteRetiredTaskConfirmation(true);
+  }, []);
 
   const workdayStartTime = useMemo(() => profile?.default_auto_schedule_start_time 
     ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
@@ -495,6 +508,44 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
     }
   }, [user, profile, dbScheduledTasks, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, queryClient]);
+
+  // Confirmation handler for scheduled task permanent deletion
+  const confirmPermanentDeleteScheduledTask = useCallback(async () => {
+    if (!scheduledTaskToDeleteId || !user) return;
+    setIsProcessingCommand(true);
+    try {
+      await removeScheduledTask(scheduledTaskToDeleteId);
+      await handleCompactSchedule(); // Run compaction after deletion
+      showSuccess(`Task "${scheduledTaskToDeleteName}" permanently deleted.`);
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+    } catch (error: any) {
+      showError(`Failed to delete task: ${error.message}`);
+      console.error("Permanent delete scheduled task error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+      setShowDeleteScheduledTaskConfirmation(false);
+      setScheduledTaskToDeleteId(null);
+      setScheduledTaskToDeleteName(null);
+    }
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, user, removeScheduledTask, handleCompactSchedule, queryClient]);
+
+  // Confirmation handler for retired task permanent deletion
+  const confirmPermanentDeleteRetiredTask = useCallback(async () => {
+    if (!retiredTaskToDeleteId || !user) return;
+    setIsProcessingCommand(true);
+    try {
+      await removeRetiredTask(retiredTaskToDeleteId);
+      showSuccess(`Retired task "${retiredTaskToDeleteName}" permanently deleted.`);
+    } catch (error: any) {
+      showError(`Failed to delete retired task: ${error.message}`);
+      console.error("Permanent delete retired task error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+      setShowDeleteRetiredTaskConfirmation(false);
+      setRetiredTaskToDeleteId(null);
+      setRetiredTaskToDeleteName(null);
+    }
+  }, [retiredTaskToDeleteId, retiredTaskToDeleteName, user, removeRetiredTask]);
 
   const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
     if (!user || !profile) {
@@ -854,7 +905,7 @@ const SchedulerPage: React.FC = () => {
             if (tasksToRemove.length > 0) {
                 const lockedTasksFound = tasksToRemove.filter(task => task.is_locked);
                 if (lockedTasksFound.length > 0) {
-                    showError(`Cannot remove locked task(s) matching "${command.target}". Unlock them first.`);
+                    showError(`Multiple tasks found matching "${command.target}". Please be more specific or use 'remove index X'.`);
                     setIsProcessingCommand(false);
                     return;
                 }
@@ -1136,58 +1187,6 @@ const SchedulerPage: React.FC = () => {
       setIsProcessingCommand(false);
     }
   }, [user, retireTask, queryClient]);
-
-  // New handler for permanent deletion of scheduled tasks
-  const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string) => {
-    setScheduledTaskToDeleteId(taskId);
-    setScheduledTaskToDeleteName(taskName);
-    setShowDeleteScheduledTaskConfirmation(true);
-  }, []);
-
-  // Confirmation handler for scheduled task permanent deletion
-  const confirmPermanentDeleteScheduledTask = useCallback(async () => {
-    if (!scheduledTaskToDeleteId || !user) return;
-    setIsProcessingCommand(true);
-    try {
-      await removeScheduledTask(scheduledTaskToDeleteId);
-      await handleCompactSchedule(); // Run compaction after deletion
-      showSuccess(`Task "${scheduledTaskToDeleteName}" permanently deleted.`);
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-    } catch (error: any) {
-      showError(`Failed to delete task: ${error.message}`);
-      console.error("Permanent delete scheduled task error:", error);
-    } finally {
-      setIsProcessingCommand(false);
-      setShowDeleteScheduledTaskConfirmation(false);
-      setScheduledTaskToDeleteId(null);
-      setScheduledTaskToDeleteName(null);
-    }
-  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, user, removeScheduledTask, handleCompactSchedule, queryClient]);
-
-  // New handler for permanent deletion of retired tasks
-  const handlePermanentDeleteRetiredTask = useCallback((taskId: string, taskName: string) => {
-    setRetiredTaskToDeleteId(taskId);
-    setRetiredTaskToDeleteName(taskName);
-    setShowDeleteRetiredTaskConfirmation(true);
-  }, []);
-
-  // Confirmation handler for retired task permanent deletion
-  const confirmPermanentDeleteRetiredTask = useCallback(async () => {
-    if (!retiredTaskToDeleteId || !user) return;
-    setIsProcessingCommand(true);
-    try {
-      await removeRetiredTask(retiredTaskToDeleteId);
-      showSuccess(`Retired task "${retiredTaskToDeleteName}" permanently deleted.`);
-    } catch (error: any) {
-      showError(`Failed to delete retired task: ${error.message}`);
-      console.error("Permanent delete retired task error:", error);
-    } finally {
-      setIsProcessingCommand(false);
-      setShowDeleteRetiredTaskConfirmation(false);
-      setRetiredTaskToDeleteId(null);
-      setRetiredTaskToDeleteName(null);
-    }
-  }, [retiredTaskToDeleteId, retiredTaskToDeleteName, user, removeRetiredTask]);
   
   const handleZoneFocus = async () => {
     if (!user || !profile) {
@@ -1284,8 +1283,11 @@ const SchedulerPage: React.FC = () => {
         });
 
         let balancedQueue: UnifiedTask[] = [...tasksToPlace].sort((a, b) => {
-          if (a.is_critical !== b.is_critical) {
-            return a.is_critical ? -1 : 1;
+          if (a.is_critical && !b.is_critical) {
+            return -1;
+          }
+          if (!a.is_critical && b.is_critical) {
+            return 1;
           }
           const createdA = new Date(a.created_at).getTime();
           const createdB = new Date(b.created_at).getTime();
@@ -2019,7 +2021,7 @@ const SchedulerPage: React.FC = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPermanentDeleteScheduledTask} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction onClick={confirmPermanentDeleteScheduledTask} className="bg-destructive hover:bg-destructive/90" autoFocus> {/* NEW: autoFocus */}
               Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -2037,7 +2039,7 @@ const SchedulerPage: React.FC = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPermanentDeleteRetiredTask} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction onClick={confirmPermanentDeleteRetiredTask} className="bg-destructive hover:bg-destructive/90" autoFocus> {/* NEW: autoFocus */}
               Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -43,7 +43,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time')
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys') // NEW: Select enable_delete_hotkeys
       .eq('id', userId)
       .single(); // Added .single() for robustness
 
@@ -216,6 +216,31 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (error: any) {
       showError(`Failed to update profile: ${error.message}`);
       console.error("Update profile error:", error);
+    }
+  }, [user, refreshProfile]);
+
+  // NEW: Generic update settings function
+  const updateSettings = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!user) {
+      showError("You must be logged in to update settings.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      await refreshProfile();
+      showSuccess("Settings updated successfully!");
+    } catch (error: any) {
+      showError(`Failed to update settings: ${error.message}`);
+      console.error("Update settings error:", error);
     }
   }, [user, refreshProfile]);
 
@@ -484,6 +509,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       claimDailyReward,
       updateNotificationPreferences,
       updateProfile,
+      updateSettings, // NEW: Provide updateSettings
       activeItemToday, // NEW: Provide active item for today
       nextItemToday,   // NEW: Provide next item for today
       T_current,       // NEW: Provide T_current

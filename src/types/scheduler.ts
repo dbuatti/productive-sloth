@@ -1,7 +1,10 @@
 export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
 export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
-export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI'; // Updated SortBy
+export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI';
+
+// NEW: Task Environment Type
+export type TaskEnvironment = 'home' | 'laptop' | 'away';
 
 // NEW: Type for sorting retired tasks
 export type RetiredTaskSortBy = 
@@ -12,42 +15,44 @@ export type RetiredTaskSortBy =
   'ENERGY_ASC' | 'ENERGY_DESC' |
   'RETIRED_AT_NEWEST' | 'RETIRED_AT_OLDEST' |
   'COMPLETED_FIRST' | 'COMPLETED_LAST' |
-  'EMOJI'; // Added EMOJI sort option
+  'EMOJI' | 'ENVIRONMENT_HOME_FIRST' | 'ENVIRONMENT_LAPTOP_FIRST' | 'ENVIRONMENT_AWAY_FIRST';
 
 export interface Task {
   id: string;
   user_id: string;
   title: string;
-  description?: string; // Added description
+  description?: string;
   is_completed: boolean;
   priority: TaskPriority;
   metadata_xp: number;
-  energy_cost: number; // Added energy_cost
-  due_date: string; // ISO date string
+  energy_cost: number;
+  due_date: string;
   created_at: string;
-  updated_at: string; // Added updated_at
-  is_critical: boolean; // NEW: Critical Urgency Flag
+  updated_at: string;
+  is_critical: boolean;
+  is_custom_energy_cost: boolean;
 }
 
 export interface NewTask {
   title: string;
   priority: TaskPriority;
   metadata_xp: number;
-  energy_cost: number; // Added energy_cost to NewTask
+  energy_cost: number;
   due_date: string;
-  description?: string; // Added description to NewTask
-  is_critical?: boolean; // NEW: Critical Urgency Flag
+  description?: string;
+  is_critical?: boolean;
 }
 
 // --- Scheduler Types ---
 
 export interface RawTaskInput {
   name: string;
-  duration: number; // in minutes
-  breakDuration?: number; // in minutes
-  isCritical?: boolean; // NEW: Critical Urgency Flag
-  isFlexible?: boolean; // NEW: Added isFlexible to RawTaskInput
-  energyCost: number; // NEW: Made energyCost required
+  duration: number;
+  breakDuration?: number;
+  isCritical?: boolean;
+  isFlexible?: boolean;
+  taskEnvironment?: TaskEnvironment; // NEW: Environment support
+  energyCost: number;
 }
 
 // Supabase-specific types for scheduled tasks
@@ -56,32 +61,34 @@ export interface DBScheduledTask {
   user_id: string;
   name: string;
   break_duration: number | null;
-  start_time: string | null; // New: ISO date string for timed events
-  end_time: string | null;   // New: ISO date string for timed events
-  scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
+  start_time: string | null;
+  end_time: string | null;
+  scheduled_date: string;
   created_at: string;
-  updated_at: string; // NEW: Added updated_at column
-  is_critical: boolean; // NEW: Critical Urgency Flag
-  is_flexible: boolean; // NEW: Flag for schedule compaction
-  is_locked: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energyCost required
-  is_completed: boolean; // NEW: Added is_completed for scheduled tasks
-  is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
+  updated_at: string;
+  is_critical: boolean;
+  is_flexible: boolean;
+  is_locked: boolean;
+  energy_cost: number;
+  is_completed: boolean;
+  is_custom_energy_cost: boolean;
+  task_environment: TaskEnvironment; // NEW: Environment field
 }
 
 export interface NewDBScheduledTask {
-  id?: string; // NEW: Added optional ID for upsert operations
+  id?: string;
   name: string;
   break_duration?: number;
-  start_time?: string; // Optional for duration-based tasks
-  end_time?: string;   // Optional for duration-based tasks
-  scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
-  is_critical?: boolean; // NEW: Critical Urgency Flag
-  is_flexible?: boolean; // NEW: Flag for schedule compaction
-  is_locked?: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energyCost required
-  is_completed?: boolean; // NEW: Added is_completed for new scheduled tasks
-  is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
+  start_time?: string;
+  end_time?: string;
+  scheduled_date: string;
+  is_critical?: boolean;
+  is_flexible?: boolean;
+  is_locked?: boolean;
+  energy_cost: number;
+  is_completed?: boolean;
+  is_custom_energy_cost?: boolean;
+  task_environment?: TaskEnvironment; // NEW: Environment support
 }
 
 // New types for retired tasks (Aether Sink)
@@ -89,16 +96,16 @@ export interface RetiredTask {
   id: string;
   user_id: string;
   name: string;
-  duration: number | null; // Duration in minutes (retained for re-zoning)
-  break_duration: number | null; // Break duration in minutes (retained for re-zoning)
-  original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
-  retired_at: string; // Timestamp when it was moved to the sink
-  is_critical: boolean; // NEW: Critical Urgency Flag
-  is_locked: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energyCost required
-  is_completed: boolean; // NEW: Added is_completed
-  is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
-  // is_flexible: boolean; // REMOVED: Not present in retired_tasks table
+  duration: number | null;
+  break_duration: number | null;
+  original_scheduled_date: string;
+  retired_at: string;
+  is_critical: boolean;
+  is_locked: boolean;
+  energy_cost: number;
+  is_completed: boolean;
+  is_custom_energy_cost: boolean;
+  task_environment: TaskEnvironment; // NEW: Environment field
 }
 
 export interface NewRetiredTask {
@@ -107,15 +114,15 @@ export interface NewRetiredTask {
   duration: number | null;
   break_duration: number | null;
   original_scheduled_date: string;
-  is_critical?: boolean; // NEW: Critical Urgency Flag
-  is_locked?: boolean; // NEW: Task Immutability Flag
-  energy_cost: number; // NEW: Made energyCost required
-  is_completed?: boolean; // NEW: Added is_completed
-  is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
-  // is_flexible?: boolean; // REMOVED: Not present in retired_tasks table
+  is_critical?: boolean;
+  is_locked?: boolean;
+  energy_cost: number;
+  is_completed?: boolean;
+  is_custom_energy_cost?: boolean;
+  task_environment?: TaskEnvironment; // NEW: Environment support
 }
 
-// Helper type for unification (moved from SchedulerPage.tsx)
+// Helper type for unification
 export interface UnifiedTask {
   id: string;
   name: string;
@@ -125,9 +132,10 @@ export interface UnifiedTask {
   is_flexible: boolean;
   energy_cost: number;
   source: 'scheduled' | 'retired';
-  originalId: string; // ID in the source table
-  is_custom_energy_cost: boolean; // NEW: Add custom energy cost flag
-  created_at: string; // NEW: Add created_at for age sorting
+  originalId: string;
+  is_custom_energy_cost: boolean;
+  created_at: string;
+  task_environment: TaskEnvironment; // NEW: Environment support
 }
 
 // NEW: Payload for the atomic auto-balance mutation
@@ -139,36 +147,37 @@ export interface AutoBalancePayload {
   selectedDate: string;
 }
 
-export type ScheduledItemType = 'task' | 'break' | 'time-off'; // NEW: Added 'time-off'
+export type ScheduledItemType = 'task' | 'break' | 'time-off';
 
 export interface ScheduledItem {
-  id: string; // Unique ID for React keys
+  id: string;
   type: ScheduledItemType;
-  name: string; // Task name or "BREAK"
-  duration: number; // in minutes (calculated for timed events)
+  name: string;
+  duration: number;
   startTime: Date;
   endTime: Date;
   emoji: string;
-  description?: string; // For breaks
-  isTimedEvent: boolean; // New: Flag to differentiate
-  color?: string; // New: For custom colors (e.g., Tailwind class like 'bg-blue-500')
-  isCritical?: boolean; // NEW: Critical Urgency Flag
-  isFlexible?: boolean; // NEW: Flag for schedule compaction
-  isLocked?: boolean; // NEW: Task Immutability Flag
-  energyCost: number; // NEW: Made energyCost required
-  isCompleted: boolean; // NEW: Added isCompleted for scheduled items
-  isCustomEnergyCost: boolean; // NEW: Flag for custom energy cost
+  description?: string;
+  isTimedEvent: boolean;
+  color?: string;
+  isCritical?: boolean;
+  isFlexible?: boolean;
+  isLocked?: boolean;
+  energyCost: number;
+  isCompleted: boolean;
+  isCustomEnergyCost: boolean;
+  taskEnvironment?: TaskEnvironment; // NEW: Environment support
 }
 
 export interface ScheduleSummary {
   totalTasks: number;
   activeTime: { hours: number; minutes: number };
-  breakTime: number; // in minutes
+  breakTime: number;
   sessionEnd: Date;
   extendsPastMidnight: boolean;
   midnightRolloverMessage: string | null;
-  unscheduledCount: number; // New: Count of tasks that couldn't fit within the workday window
-  criticalTasksRemaining: number; // NEW: Count of critical tasks not yet completed
+  unscheduledCount: number;
+  criticalTasksRemaining: number;
 }
 
 // New type for fixed time markers
@@ -185,7 +194,7 @@ export interface FreeTimeItem {
   type: 'free-time';
   startTime: Date;
   endTime: Date;
-  duration: number; // in minutes
+  duration: number;
   message: string;
 }
 
@@ -200,14 +209,14 @@ export interface CurrentTimeMarker {
 export interface FormattedSchedule {
   items: ScheduledItem[];
   summary: ScheduleSummary;
-  dbTasks: DBScheduledTask[]; // Added for type safety in SchedulerDisplay
+  dbTasks: DBScheduledTask[];
 }
 
-export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker; // Added CurrentTimeMarker
+export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker;
 
 // NEW: TimeBlock interface for scheduler utility functions
 export interface TimeBlock {
   start: Date;
   end: Date;
-  duration: number; // in minutes
+  duration: number;
 }

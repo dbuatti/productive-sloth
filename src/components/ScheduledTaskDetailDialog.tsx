@@ -5,15 +5,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, MapPin } from "lucide-react";
 
 import {
-  Dialog, // Changed from Sheet
-  DialogContent, // Changed from SheetContent
-  DialogDescription, // Changed from SheetDescription
-  DialogHeader, // Changed from SheetHeader
-  DialogTitle, // Changed from SheetTitle
-} from "@/components/ui/dialog"; // Changed from sheet
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -25,13 +25,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { DBScheduledTask } from "@/types/scheduler";
+import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
-import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
 
 const formSchema = z.object({
@@ -42,20 +41,21 @@ const formSchema = z.object({
   is_critical: z.boolean().default(false),
   is_flexible: z.boolean().default(true),
   is_locked: z.boolean().default(false),
+  task_environment: z.enum(['home', 'laptop', 'away']).default('laptop'),
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
 });
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
 
-interface ScheduledTaskDetailDialogProps { // Changed from SheetProps
+interface ScheduledTaskDetailDialogProps {
   task: DBScheduledTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDayString: string;
 }
 
-const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ // Changed from Sheet
+const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   task,
   open,
   onOpenChange,
@@ -74,6 +74,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
       is_critical: false,
       is_flexible: true,
       is_locked: false,
+      task_environment: 'laptop' as TaskEnvironment,
       energy_cost: 0,
       is_custom_energy_cost: false,
     },
@@ -91,6 +92,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         is_critical: task.is_critical,
         is_flexible: task.is_flexible,
         is_locked: task.is_locked,
+        task_environment: task.task_environment as TaskEnvironment,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
       });
@@ -150,7 +152,6 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
     return () => subscription.unsubscribe();
   }, [form, selectedDayString]);
 
-
   const handleSubmit = async (values: ScheduledTaskDetailFormValues) => {
     if (!task) return;
 
@@ -172,7 +173,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         is_critical: values.is_critical,
         is_flexible: values.is_flexible,
         is_locked: values.is_locked,
-        energy_cost: values.energy_cost,
+        task_environment: values.task_environment,
+        energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost,
         is_custom_energy_cost: values.is_custom_energy_cost,
       });
       showSuccess("Scheduled task updated successfully!");
@@ -195,16 +197,16 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
     : 'N/A';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}> {/* Changed from Sheet */}
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in"> {/* Changed from SheetContent, added styling */}
-        <DialogHeader className="border-b pb-4 mb-6"> {/* Changed from SheetHeader */}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in">
+        <DialogHeader className="border-b pb-4 mb-6">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle> {/* Changed from SheetTitle */}
+            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <DialogDescription className="text-sm text-muted-foreground"> {/* Changed from SheetDescription */}
+          <DialogDescription className="text-sm text-muted-foreground">
             Last updated: {formattedLastUpdated}
           </DialogDescription>
         </DialogHeader>
@@ -270,6 +272,42 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
                     </FormControl>
                     <FormDescription>
                       Break duration associated with this task.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* NEW: Task Environment Select */}
+              <FormField
+                control={form.control}
+                name="task_environment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Environment</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select environment" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="home">
+                          <Home className="mr-2 h-4 w-4" />
+                          🏠 At Home
+                        </SelectItem>
+                        <SelectItem value="laptop">
+                          <Laptop className="mr-2 h-4 w-4" />
+                          💻 Laptop/Desk
+                        </SelectItem>
+                        <SelectItem value="away">
+                          <MapPin className="mr-2 h-4 w-4" />
+                          🗺️ Away/Errands
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Where you'll complete this task. Used for environment filtering.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

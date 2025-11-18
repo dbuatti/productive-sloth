@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass } from 'lucide-react';
+import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass, Target } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
@@ -220,7 +220,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 className="h-10 w-10 text-accent hover:bg-accent/10 transition-all duration-200"
                 style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
               >
-                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
+                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Target className="h-5 w-5" />}
                 <span className="sr-only">Zone Focus</span>
               </Button>
             </TooltipTrigger>

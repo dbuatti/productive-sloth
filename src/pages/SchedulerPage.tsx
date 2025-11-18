@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useLocation, useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink';
-import { supabase } from '@/integrations/supabase/client'; // Corrected import path
+import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import WeatherWidget from '@/components/WeatherWidget';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -433,15 +433,75 @@ const SchedulerPage: React.FC = () => {
     }
     setIsProcessingCommand(true);
 
-    const taskName = `Focus Block (${duration} min)`;
-    const energyCost = calculateEnergyCost(duration, false);
-
     try {
+      // 1. Get eligible tasks from Aether Sink
+      const eligibleSinkTasks = retiredTasks
+        .filter(task => !task.is_locked && !task.is_completed)
+        .map(task => ({
+          ...task,
+          // Ensure duration is a number for sorting, default to 30 if null
+          effectiveDuration: task.duration || 30,
+        }))
+        .filter(task => task.effectiveDuration <= duration); // Only consider tasks that fit within the block duration
+
+      if (eligibleSinkTasks.length === 0) {
+        // Fallback to creating a generic Focus Block if no eligible tasks in sink
+        const taskName = `Focus Block (${duration} min)`;
+        const energyCost = calculateEnergyCost(duration, false);
+        const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
+          taskName,
+          duration,
+          false, // isCritical
+          true,  // isFlexible
+          energyCost,
+          occupiedBlocks,
+          effectiveWorkdayStart,
+          workdayEndTime
+        );
+
+        if (proposedStartTime && proposedEndTime) {
+          await addScheduledTask({
+            name: taskName,
+            start_time: proposedStartTime.toISOString(),
+            end_time: proposedEndTime.toISOString(),
+            break_duration: null,
+            scheduled_date: formattedSelectedDay,
+            is_critical: false,
+            is_flexible: true,
+            is_locked: false,
+            energy_cost: energyCost,
+            is_custom_energy_cost: false,
+            task_environment: environmentForPlacement,
+          });
+          showSuccess(`Quick Scheduled a generic ${duration} min focus block.`);
+          queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+        } else {
+          showError(message);
+        }
+        setIsProcessingCommand(false);
+        return;
+      }
+
+      // 2. Sort tasks based on sortPreference
+      eligibleSinkTasks.sort((a, b) => {
+        if (sortPreference === 'shortestFirst') {
+          return a.effectiveDuration - b.effectiveDuration;
+        } else { // 'longestFirst'
+          return b.effectiveDuration - a.effectiveDuration;
+        }
+      });
+
+      // 3. Select the top task
+      const taskToSchedule = eligibleSinkTasks[0];
+      const taskDuration = taskToSchedule.effectiveDuration;
+      const energyCost = taskToSchedule.energy_cost; // Use task's actual energy cost
+
+      // 4. Find a free slot for the selected task
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-        taskName,
-        duration,
-        false,
-        true,
+        taskToSchedule.name,
+        taskDuration,
+        taskToSchedule.is_critical,
+        true, // Quick scheduled tasks are flexible by default
         energyCost,
         occupiedBlocks,
         effectiveWorkdayStart,
@@ -449,21 +509,25 @@ const SchedulerPage: React.FC = () => {
       );
 
       if (proposedStartTime && proposedEndTime) {
+        // 5. Add the selected task to scheduled_tasks
         await addScheduledTask({
-          name: taskName,
+          name: taskToSchedule.name,
           start_time: proposedStartTime.toISOString(),
           end_time: proposedEndTime.toISOString(),
-          break_duration: null,
+          break_duration: taskToSchedule.break_duration,
           scheduled_date: formattedSelectedDay,
-          is_critical: false,
-          is_flexible: true,
+          is_critical: taskToSchedule.is_critical,
+          is_flexible: true, // Quick scheduled tasks are flexible by default
           is_locked: false,
           energy_cost: energyCost,
-          is_custom_energy_cost: false,
-          task_environment: environmentForPlacement,
+          is_custom_energy_cost: taskToSchedule.is_custom_energy_cost,
+          task_environment: taskToSchedule.task_environment,
         });
-        showSuccess(`Quick Scheduled ${duration} min focus block.`);
+        showSuccess(`Quick Scheduled "${taskToSchedule.name}" for ${taskDuration} min.`);
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+
+        // 6. Remove the task from Aether Sink
+        await rezoneTask(taskToSchedule.id); // rezoneTask actually deletes from aethersink
       } else {
         showError(message);
       }

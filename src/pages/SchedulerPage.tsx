@@ -1722,11 +1722,9 @@ const SchedulerPage: React.FC = () => {
             setIsProcessingCommand(false); 
             return;
         } else {
-            await completeScheduledTaskMutation(task); 
+            await completeScheduledTaskMutation(task); // This mutation handles XP/Energy/Streak and marks task as completed
             if (task.is_flexible) {
-              await removeScheduledTask(task.id);
-            } else {
-              await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
+              await removeScheduledTask(task.id); // Remove flexible tasks from schedule after completion
             }
             showSuccess(`Task "${task.name}" completed!`);
             if (isCurrentlyActive) {
@@ -1759,10 +1757,10 @@ const SchedulerPage: React.FC = () => {
           task_environment: environmentForPlacement,
         });
 
+        // Mark the original task as completed and remove if flexible
+        await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
           await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
         showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
         setShowEarlyCompletionModal(false);
@@ -1783,10 +1781,10 @@ const SchedulerPage: React.FC = () => {
         const isNextTaskImmovable = !originalNextTask.is_flexible || originalNextTask.is_locked;
         const remainingMins = differenceInMinutes(originalNextTaskStartTime, T_current);
         
+        // Mark the current task as completed and remove if flexible
+        await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
           await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
 
         if (isNextTaskImmovable) {
@@ -1833,8 +1831,6 @@ const SchedulerPage: React.FC = () => {
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
           await removeScheduledTask(task.id);
-        } else {
-          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
         }
         showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
         setIsFocusModeActive(false);

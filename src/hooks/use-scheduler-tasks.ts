@@ -1400,7 +1400,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
     },
     onError: (e) => {
-      showError(`Failed to complete task: ${e.message}`);
+      if (e.message === "Insufficient energy.") {
+        showError(e.message);
+      } else {
+        showError(`Failed to complete task: ${e.message}`);
+      }
     }
   });
 
@@ -1712,7 +1716,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
     },
     onError: (e) => {
-      showError(`Failed to complete retired task: ${e.message}`);
+      if (e.message === "Insufficient energy.") {
+        showError(e.message);
+      } else {
+        showError(`Failed to complete retired task: ${e.message}`);
+      }
     }
   });
 

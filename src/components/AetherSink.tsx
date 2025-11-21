@@ -90,6 +90,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
       showError(`Cannot change completion status of locked task "${task.name}". Unlock it first.`);
       return;
     }
+    if (!task.is_completed) { // If marking as complete
+      if (profileEnergy < task.energy_cost) {
+        showError(`Insufficient energy (${profileEnergy}⚡). You need ${task.energy_cost}⚡ to complete "${task.name}".`);
+        return;
+      }
+    }
+    // If marking as incomplete, or if energy is sufficient for completion
     if (task.is_completed) {
       await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
     } else {
@@ -297,6 +304,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
                   const isLocked = task.is_locked;
                   const isCriticalAwaitingEnergy = task.is_critical && profileEnergy < 80;
+                  const isInsufficientEnergyForCompletion = !task.is_completed && profileEnergy < task.energy_cost;
 
                   return (
                     <div 
@@ -323,19 +331,25 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 e.stopPropagation();
                                 handleToggleComplete(task);
                               }}
-                              disabled={isLocked || isProcessingCommand}
+                              disabled={isLocked || isProcessingCommand || isInsufficientEnergyForCompletion}
                               className={cn(
                                 "h-6 w-6 p-0 shrink-0",
-                                isLocked || isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
+                                (isLocked || isProcessingCommand || isInsufficientEnergyForCompletion) ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                               )}
-                              style={isLocked || isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+                              style={(isLocked || isProcessingCommand || isInsufficientEnergyForCompletion) ? { pointerEvents: 'auto' } : undefined}
                             >
                               <CheckCircle className="h-4 w-4" />
                               <span className="sr-only">{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</span>
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</p>
+                            {isLocked ? (
+                              <p>Unlock to Change Completion Status</p>
+                            ) : isInsufficientEnergyForCompletion ? (
+                              <p>Insufficient Energy ({profileEnergy}⚡). Need {task.energy_cost}⚡ to Complete.</p>
+                            ) : (
+                              <p>{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</p>
+                            )}
                           </TooltipContent>
                         </Tooltip>
 

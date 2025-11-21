@@ -201,6 +201,7 @@ const SchedulerPage: React.FC = () => {
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
+
     const merged = mergeOverlappingTimeBlocks(mappedTimes);
     return merged;
   }, [dbScheduledTasks, selectedDayAsDate]);
@@ -1723,10 +1724,26 @@ const SchedulerPage: React.FC = () => {
             return;
         } else {
             await completeScheduledTaskMutation(task); // This mutation handles XP/Energy/Streak and marks task as completed
+            // After completion, if it was a flexible task, compact the schedule
             if (task.is_flexible) {
-              await removeScheduledTask(task.id); // Remove flexible tasks from schedule after completion
+              const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+              const compactedTasks = compactScheduleLogic(
+                  latestDbScheduledTasks,
+                  selectedDayAsDate,
+                  workdayStartTime,
+                  workdayEndTime,
+                  T_current
+              );
+              const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
+              if (tasksToUpdate.length > 0) {
+                  await compactScheduledTasks({ tasksToUpdate });
+                  showSuccess(`Task "${task.name}" completed! Schedule compacted.`);
+              } else {
+                  showSuccess(`Task "${task.name}" completed! No flexible tasks to compact.`);
+              }
+            } else {
+              showSuccess(`Task "${task.name}" completed!`);
             }
-            showSuccess(`Task "${task.name}" completed!`);
             if (isCurrentlyActive) {
                 if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
                   setIsFocusModeActive(false);
@@ -1760,7 +1777,19 @@ const SchedulerPage: React.FC = () => {
         // Mark the original task as completed and remove if flexible
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
-          await removeScheduledTask(task.id);
+          // After completion, if it was a flexible task, compact the schedule
+          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+          const compactedTasks = compactScheduleLogic(
+              latestDbScheduledTasks,
+              selectedDayAsDate,
+              workdayStartTime,
+              workdayEndTime,
+              T_current
+          );
+          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
+          if (tasksToUpdate.length > 0) {
+              await compactScheduledTasks({ tasksToUpdate });
+          }
         }
         showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
         setShowEarlyCompletionModal(false);
@@ -1784,7 +1813,19 @@ const SchedulerPage: React.FC = () => {
         // Mark the current task as completed and remove if flexible
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
-          await removeScheduledTask(task.id);
+          // After completion, if it was a flexible task, compact the schedule
+          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+          const compactedTasks = compactScheduleLogic(
+              latestDbScheduledTasks,
+              selectedDayAsDate,
+              workdayStartTime,
+              workdayEndTime,
+              T_current
+          );
+          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
+          if (tasksToUpdate.length > 0) {
+              await compactScheduledTasks({ tasksToUpdate });
+          }
         }
 
         if (isNextTaskImmovable) {
@@ -1830,9 +1871,25 @@ const SchedulerPage: React.FC = () => {
       } else if (action === 'justFinish') {
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
-          await removeScheduledTask(task.id);
+          // After completion, if it was a flexible task, compact the schedule
+          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+          const compactedTasks = compactScheduleLogic(
+              latestDbScheduledTasks,
+              selectedDayAsDate,
+              workdayStartTime,
+              workdayEndTime,
+              T_current
+          );
+          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
+          if (tasksToUpdate.length > 0) {
+              await compactScheduledTasks({ tasksToUpdate });
+              showSuccess(`Task "${task.name}" completed! Remaining time is now free. Schedule compacted.`);
+          } else {
+              showSuccess(`Task "${task.name}" completed! Remaining time is now free. No flexible tasks to compact.`);
+          }
+        } else {
+          showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
         }
-        showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
         setIsFocusModeActive(false);
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
@@ -1860,7 +1917,7 @@ const SchedulerPage: React.FC = () => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem]);
+  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks]);
 
   const tasksCompletedForSelectedDay = useMemo(() => {
     if (!completedTasksForSelectedDayList) return 0;

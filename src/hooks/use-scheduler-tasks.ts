@@ -349,7 +349,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           is_flexible: false,
           is_locked: false,
           energy_cost: gt.energy_cost,
-          is_completed: gt.is_completed,
           is_custom_energy_cost: gt.is_custom_energy_cost,
           task_environment: 'laptop',
         })),
@@ -1347,15 +1346,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       if (profileError) throw new Error(`Failed to update profile: ${profileError.message}`);
 
-      // Mark task as completed in scheduled_tasks
-      const { error: taskError } = await supabase
-        .from('scheduled_tasks')
-        .update({ is_completed: true, updated_at: new Date().toISOString() })
-        .eq('id', task.id)
-        .eq('user_id', userId);
-
-      if (taskError) throw new Error(`Failed to mark scheduled task as completed: ${taskError.message}`);
-
       // Add to completedtasks log
       const { error: completedLogError } = await supabase
         .from('completedtasks')
@@ -1373,6 +1363,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
       if (completedLogError) console.error("Failed to log completed task:", completedLogError.message);
 
+      // DELETE the task from scheduled_tasks
+      const { error: deleteTaskError } = await supabase
+        .from('scheduled_tasks')
+        .delete()
+        .eq('id', task.id)
+        .eq('user_id', userId);
+
+      if (deleteTaskError) throw new Error(`Failed to delete scheduled task after completion: ${deleteTaskError.message}`);
+
       return { newXp, newLevel, newEnergy };
     },
     onMutate: async (task: DBScheduledTask) => {
@@ -1380,10 +1379,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
+      // Optimistically remove the task from the scheduled tasks list
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) =>
-        (old || []).map(t =>
-          t.id === task.id ? { ...t, is_completed: true } : t
-        )
+        (old || []).filter(t => t.id !== task.id)
       );
       return { previousScheduledTasks, previousScrollTop };
     },
@@ -1659,15 +1657,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       if (profileError) throw new Error(`Failed to update profile: ${profileError.message}`);
 
-      // Mark task as completed in aethersink
-      const { error: taskError } = await supabase
-        .from('aethersink')
-        .update({ is_completed: true, retired_at: new Date().toISOString() })
-        .eq('id', task.id)
-        .eq('user_id', userId);
-
-      if (taskError) throw new Error(`Failed to mark retired task as completed: ${taskError.message}`);
-
       // Add to completedtasks log
       const { error: completedLogError } = await supabase
         .from('completedtasks')
@@ -1685,6 +1674,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
       if (completedLogError) console.error("Failed to log completed retired task:", completedLogError.message);
 
+      // DELETE the task from aethersink
+      const { error: deleteTaskError } = await supabase
+        .from('aethersink')
+        .delete()
+        .eq('id', task.id)
+        .eq('user_id', userId);
+
+      if (deleteTaskError) throw new Error(`Failed to delete retired task after completion: ${deleteTaskError.message}`);
+
       return { newXp, newLevel, newEnergy };
     },
     onMutate: async (task: RetiredTask) => {
@@ -1692,10 +1690,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
+      // Optimistically remove the task from the retired tasks list
       queryClient.setQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy], (old) =>
-        (old || []).map(t =>
-          t.id === task.id ? { ...t, is_completed: true } : t
-        )
+        (old || []).filter(t => t.id !== task.id)
       );
       return { previousRetiredTasks, previousScrollTop };
     },

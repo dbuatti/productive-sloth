@@ -1873,7 +1873,7 @@ const SchedulerPage: React.FC = () => {
             start_time: newNextTaskStartTime.toISOString(),
             end_time: newNextTaskEndTime.toISOString(),
             is_flexible: originalNextTask.is_flexible, 
-            is_locked: originalNextNextTask.is_locked,     
+            is_locked: originalNextTask.is_locked,     
             task_environment: originalNextTask.task_environment,
           });
 
@@ -1927,7 +1927,7 @@ const SchedulerPage: React.FC = () => {
         setTaskToCompleteInDeficit(null); // NEW: Clear deficit task
         setTaskToCompleteInDeficitIndex(null); // NEW: Clear deficit task index
       }
-      // Removed "Insufficient energy." specific error message as it's now handled by the dialog
+      // Removed "Insufficient energy" specific error message as it's now handled by the dialog
       showError(`Failed to perform action: ${error.message}`);
       console.error("Scheduler action error:", error);
     } finally {
@@ -2172,7 +2172,7 @@ const SchedulerPage: React.FC = () => {
                 profileEnergy={profile?.energy || 0}
                 criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
                 selectedDayString={selectedDay}
-                completedScheduledTasks={completedScheduledTasksForRecap}
+                completedScheduledTasks={completedTasksForSelectedDayList}
               />
             </TabsContent>
           </Tabs>

@@ -21,20 +21,17 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 interface TaskItemProps {
   task: Task;
+  onCompleteTask: (task: Task) => Promise<void>; // NEW: Added onCompleteTask prop
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { updateTask, deleteTask } = useTasks(); 
+  const { deleteTask } = useTasks(); 
   const navigate = useNavigate();
 
   const handleToggleComplete = async () => {
-    try {
-      await updateTask({ id: task.id, is_completed: !task.is_completed });
-    } catch (error) {
-      console.error("Failed to update task status:", error);
-    }
+    await onCompleteTask(task); // Use the passed onCompleteTask handler
   };
 
   const handleEditClick = () => {

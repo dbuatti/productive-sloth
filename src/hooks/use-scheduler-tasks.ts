@@ -1323,13 +1323,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (task: DBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
       if (!profile) throw new Error("User profile not loaded.");
-      if (profile.energy < task.energy_cost) {
-        throw new Error("Insufficient energy.");
-      }
+      // Removed the energy check here to allow deficit
+      // if (profile.energy < task.energy_cost) {
+      //   throw new Error("Insufficient energy.");
+      // }
 
       const newXp = profile.xp + (task.energy_cost * 2);
       const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
-      const newEnergy = profile.energy - task.energy_cost;
+      const newEnergy = profile.energy - task.energy_cost; // Energy can now go negative
 
       const { error: profileError } = await supabase
         .from('profiles')
@@ -1400,11 +1401,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
     },
     onError: (e) => {
-      if (e.message === "Insufficient energy.") {
-        showError(e.message);
-      } else {
-        showError(`Failed to complete task: ${e.message}`);
-      }
+      // No specific "Insufficient energy" error message here, as it's now allowed.
+      showError(`Failed to complete task: ${e.message}`);
     }
   });
 
@@ -1638,13 +1636,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (task: RetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
       if (!profile) throw new Error("User profile not loaded.");
-      if (profile.energy < task.energy_cost) {
-        throw new Error("Insufficient energy.");
-      }
+      // Removed the energy check here to allow deficit
+      // if (profile.energy < task.energy_cost) {
+      //   throw new Error("Insufficient energy.");
+      // }
 
       const newXp = profile.xp + (task.energy_cost * 2);
       const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
-      const newEnergy = profile.energy - task.energy_cost;
+      const newEnergy = profile.energy - task.energy_cost; // Energy can now go negative
 
       const { error: profileError } = await supabase
         .from('profiles')
@@ -1716,11 +1715,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
     },
     onError: (e) => {
-      if (e.message === "Insufficient energy.") {
-        showError(e.message);
-      } else {
-        showError(`Failed to complete retired task: ${e.message}`);
-      }
+      // No specific "Insufficient energy" error message here, as it's now allowed.
+      showError(`Failed to complete retired task: ${e.message}`);
     }
   });
 

@@ -7,9 +7,10 @@ import { ClipboardList } from 'lucide-react'; // Import ClipboardList
 interface PrioritySectionProps {
   priority: string;
   tasks: Task[];
+  onCompleteTask: (task: Task) => Promise<void>; // NEW: Added onCompleteTask prop
 }
 
-const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) => {
+const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks, onCompleteTask }) => {
   return (
     <AccordionItem value={priority}>
       <AccordionTrigger className="text-base font-semibold capitalize"> {/* Changed text-lg to text-base */}
@@ -24,7 +25,11 @@ const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) =>
             </div>
           ) : (
             tasks.map(task => (
-                <TaskItem key={task.id} task={task} />
+                <TaskItem 
+                  key={task.id} 
+                  task={task} 
+                  onCompleteTask={onCompleteTask} // NEW: Pass onCompleteTask
+                />
               ))
           )}
         </div>

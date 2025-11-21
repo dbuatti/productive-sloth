@@ -59,6 +59,7 @@ import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog'; // NEW: Import EnergyDeficitConfirmationDialog
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
 // function useDeepCompareMemoize<T>(value: T): T {
@@ -174,6 +175,11 @@ const SchedulerPage: React.FC = () => {
   const [showDeleteRetiredTaskConfirmation, setShowDeleteRetiredTaskConfirmation] = useState(false);
   const [retiredTaskToDeleteId, setRetiredTaskToDeleteId] = useState<string | null>(null);
   const [retiredTaskToDeleteName, setRetiredTaskToDeleteName] = useState<string | null>(null);
+
+  // NEW: State for energy deficit confirmation
+  const [showEnergyDeficitConfirmation, setShowEnergyDeficitConfirmation] = useState(false);
+  const [taskToCompleteInDeficit, setTaskToCompleteInDeficit] = useState<DBScheduledTask | null>(null);
+  const [taskToCompleteInDeficitIndex, setTaskToCompleteInDeficitIndex] = useState<number | null>(null);
 
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
@@ -1365,7 +1371,7 @@ const SchedulerPage: React.FC = () => {
   };
 
   const handleInjectionSubmit = async () => {
-    if (!user || !profile || !injectionPrompt) {
+    if (!user || !profile) {
       showError("You must be logged in and your profile loaded to use the scheduler.");
       return;
     }
@@ -1686,7 +1692,7 @@ const SchedulerPage: React.FC = () => {
     remainingDurationMinutes: number = 0,
     index: number | null = null // NEW: Added index parameter
   ) => {
-    if (!user) {
+    if (!user || !profile) {
       showError("You must be logged in to perform this action.");
       return;
     }
@@ -1700,6 +1706,16 @@ const SchedulerPage: React.FC = () => {
 
     try {
       if (action === 'complete') {
+        // NEW: Energy Deficit Check
+        if (profile.energy < 0) {
+          setTaskToCompleteInDeficit(task);
+          setTaskToCompleteInDeficitIndex(index);
+          setShowEnergyDeficitConfirmation(true);
+          modalOpened = true;
+          setIsProcessingCommand(false);
+          return;
+        }
+
         const activeItem = currentSchedule?.items.find(item => item.id === task.id);
         
         const isCurrentlyActive = activeItem && isSameDay(activeItem.startTime, T_current) && T_current >= activeItem.startTime && T_current < activeItem.endTime;
@@ -1857,7 +1873,7 @@ const SchedulerPage: React.FC = () => {
             start_time: newNextTaskStartTime.toISOString(),
             end_time: newNextTaskEndTime.toISOString(),
             is_flexible: originalNextTask.is_flexible, 
-            is_locked: originalNextTask.is_locked,     
+            is_locked: originalNextNextTask.is_locked,     
             task_environment: originalNextTask.task_environment,
           });
 
@@ -1907,17 +1923,59 @@ const SchedulerPage: React.FC = () => {
       if (modalOpened) {
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
+        setShowEnergyDeficitConfirmation(false); // NEW: Close deficit dialog on error
+        setTaskToCompleteInDeficit(null); // NEW: Clear deficit task
+        setTaskToCompleteInDeficitIndex(null); // NEW: Clear deficit task index
       }
-      if (error.message !== "Insufficient energy.") {
-        showError(`Failed to perform action: ${error.message}`);
-        console.error("Scheduler action error:", error);
-      }
+      // Removed "Insufficient energy." specific error message as it's now handled by the dialog
+      showError(`Failed to perform action: ${error.message}`);
+      console.error("Scheduler action error:", error);
     } finally {
       if (!modalOpened) {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks]);
+  }, [user, profile, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks]);
+
+  // NEW: Handler for confirming task completion in deficit
+  const confirmCompleteTaskInDeficit = useCallback(async () => {
+    if (!taskToCompleteInDeficit || !profile) return;
+    setIsProcessingCommand(true);
+    try {
+      await completeScheduledTaskMutation(taskToCompleteInDeficit);
+      // After completion, if it was a flexible task, compact the schedule
+      if (taskToCompleteInDeficit.is_flexible) {
+        const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
+        const compactedTasks = compactScheduleLogic(
+            latestDbScheduledTasks,
+            selectedDayAsDate,
+            workdayStartTime,
+            workdayEndTime,
+            T_current
+        );
+        const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
+        if (tasksToUpdate.length > 0) {
+            await compactScheduledTasks({ tasksToUpdate });
+            showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! Schedule compacted.`);
+        } else {
+            showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! No flexible tasks to compact.`);
+        }
+      } else {
+        showSuccess(`Task "${taskToCompleteInDeficit.name}" completed!`);
+      }
+      setIsFocusModeActive(false); // Exit focus mode after completion
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+    } catch (error: any) {
+      showError(`Failed to complete task: ${error.message}`);
+      console.error("Complete task in deficit error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+      setShowEnergyDeficitConfirmation(false);
+      setTaskToCompleteInDeficit(null);
+      setTaskToCompleteInDeficitIndex(null);
+    }
+  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, setIsFocusModeActive]);
+
 
   const tasksCompletedForSelectedDay = useMemo(() => {
     if (!completedTasksForSelectedDayList) return 0;
@@ -2114,7 +2172,7 @@ const SchedulerPage: React.FC = () => {
                 profileEnergy={profile?.energy || 0}
                 criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
                 selectedDayString={selectedDay}
-                completedScheduledTasks={completedTasksForSelectedDayList}
+                completedScheduledTasks={completedScheduledTasksForRecap}
               />
             </TabsContent>
           </Tabs>
@@ -2276,6 +2334,25 @@ const SchedulerPage: React.FC = () => {
         isProcessingCommand={isProcessingCommand}
         hasNextTask={!!nextItemToday}
       />
+
+      {/* NEW: Energy Deficit Confirmation Dialog */}
+      {profile && taskToCompleteInDeficit && (
+        <EnergyDeficitConfirmationDialog
+          isOpen={showEnergyDeficitConfirmation}
+          onOpenChange={(open) => {
+            if (!open && !isProcessingCommand) {
+              setShowEnergyDeficitConfirmation(false);
+              setTaskToCompleteInDeficit(null);
+              setTaskToCompleteInDeficitIndex(null);
+            }
+          }}
+          taskName={taskToCompleteInDeficit.name}
+          taskEnergyCost={taskToCompleteInDeficit.energy_cost}
+          currentEnergy={profile.energy}
+          onConfirm={confirmCompleteTaskInDeficit}
+          isProcessingCommand={isProcessingCommand}
+        />
+      )}
     </div>
   );
 };

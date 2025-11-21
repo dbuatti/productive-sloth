@@ -7,6 +7,7 @@ import ProgressBarHeader from './ProgressBarHeader';
 import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
+import EnergyDeficitWarning from './EnergyDeficitWarning'; // NEW: Import EnergyDeficitWarning
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -15,7 +16,7 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
   const location = useLocation();
-  const { activeItemToday } = useSession();
+  const { activeItemToday, profile } = useSession(); // NEW: Get profile from useSession
 
   // Attempt to read default layout from cookie
   const defaultLayout = React.useMemo(() => {
@@ -31,24 +32,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   // The FocusAnchor will now show if there's an active task, regardless of the current page.
   const shouldShowFocusAnchor = activeItemToday;
 
+  const energyInDeficit = profile && profile.energy < 0; // NEW: Check for energy deficit
+
+  const mainContent = (
+    <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
+      {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />} {/* NEW: Render warning */}
+      {children}
+    </main>
+  );
+
   return (
     <div className="flex min-h-screen w-full flex-col">
       {isMobile ? (
         <>
           <AppHeader mobileNav={<MobileSidebar />} />
           <ProgressBarHeader />
-          <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
-            {children}
-          </main>
+          {mainContent}
         </>
       ) : (
         <Sidebar defaultLayout={defaultLayout}>
           <div className="flex flex-col h-full">
             <AppHeader />
             <ProgressBarHeader />
-            <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
-              {children}
-            </main>
+            {mainContent}
           </div>
         </Sidebar>
       )}

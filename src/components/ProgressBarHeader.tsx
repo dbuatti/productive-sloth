@@ -3,14 +3,14 @@ import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { CustomProgress } from './CustomProgress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sparkles, Zap, Trophy, BatteryCharging } from 'lucide-react';
+import { Sparkles, Zap, Trophy, BatteryCharging, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import { Button } from '@/components/ui/button';
 import { isToday, parseISO } from 'date-fns';
 import { 
   MAX_ENERGY, 
   RECHARGE_BUTTON_AMOUNT, 
 } from '@/lib/constants';
-import { calculateLevelInfo } from '@/lib/utils';
+import { calculateLevelInfo, cn } from '@/lib/utils'; // Import cn
 
 const ProgressBarHeader: React.FC = () => {
   const { profile, rechargeEnergy } = useSession();
@@ -24,9 +24,10 @@ const ProgressBarHeader: React.FC = () => {
 
   const energyPercentage = (profile.energy / MAX_ENERGY) * 100;
   const isEnergyFull = profile.energy >= MAX_ENERGY;
+  const isEnergyDeficit = profile.energy < 0; // NEW: Check for energy deficit
 
-  const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
   const dailyChallengeProgress = (profile.tasks_completed_today / profile.daily_challenge_target) * 100;
+  const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
   return (
     <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2">
@@ -53,18 +54,30 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Energy Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          <Zap className="h-4 w-4 text-logo-yellow" />
+          {isEnergyDeficit ? ( // NEW: Conditional icon for deficit
+            <AlertTriangle className="h-4 w-4 text-destructive animate-pulse-glow" />
+          ) : (
+            <Zap className="h-4 w-4 text-logo-yellow" />
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
-                value={energyPercentage} 
+                value={isEnergyDeficit ? 0 : energyPercentage} // Show 0% progress if in deficit
                 className="h-2 flex-grow bg-secondary"
-                indicatorClassName="bg-primary"
+                indicatorClassName={cn(
+                  "transition-all duration-500",
+                  isEnergyDeficit ? "bg-destructive animate-pulse-glow" : "bg-primary" // NEW: Deficit styling
+                )}
               />
             </TooltipTrigger>
             <TooltipContent>
               <div>
                 <p>Energy: {profile.energy} / {MAX_ENERGY}</p>
+                {isEnergyDeficit && ( // NEW: Deficit message in tooltip
+                  <p className="text-destructive font-semibold mt-1">
+                    ⚠️ Energy Deficit! Recovery is critical.
+                  </p>
+                )}
                 <Button 
                   variant="secondary" 
                   size="sm" 

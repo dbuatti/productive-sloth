@@ -6,13 +6,12 @@ import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { dismissToast, showSuccess, showError } from '@/utils/toast';
 import { isToday, parseISO, isPast, addMinutes, startOfDay, format, isSameDay, isBefore, addDays, addHours, setHours, setMinutes } from 'date-fns';
 import { 
-  ENERGY_REGEN_AMOUNT, 
-  ENERGY_REGEN_INTERVAL_MS, 
   MAX_ENERGY, 
   RECHARGE_BUTTON_AMOUNT, 
   LOW_ENERGY_THRESHOLD, 
   LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
-  DAILY_CHALLENGE_TASKS_REQUIRED
+  DAILY_CHALLENGE_TASKS_REQUIRED,
+  // Removed ENERGY_REGEN_AMOUNT, ENERGY_REGEN_INTERVAL_MS as they are now server-side
 } from '@/lib/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
@@ -43,7 +42,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup') // NEW: Select enable_aethersink_backup
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at') // NEW: Select last_energy_regen_at
       .eq('id', userId)
       .single();
 
@@ -316,45 +315,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user?.id, refreshProfile]);
 
-  // Energy Regeneration Effect
-  useEffect(() => {
-    let regenInterval: NodeJS.Timeout;
-
-    if (user && profile && profile.energy < MAX_ENERGY) {
-      regenInterval = setInterval(async () => {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('energy')
-          .eq('id', user.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching energy for regeneration:", error.message);
-          return;
-        }
-
-        const currentEnergy = data.energy;
-        const newEnergy = Math.min(MAX_ENERGY, currentEnergy + ENERGY_REGEN_AMOUNT);
-
-        if (newEnergy !== currentEnergy) {
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ energy: newEnergy, updated_at: new Date().toISOString() })
-            .eq('id', user.id);
-
-          if (updateError) {
-            console.error("Failed to regenerate energy:", updateError.message);
-          } else {
-            await refreshProfile();
-          }
-        }
-      }, ENERGY_REGEN_INTERVAL_MS);
-    }
-
-    return () => {
-      if (regenInterval) clearInterval(regenInterval);
-    };
-  }, [user, profile, refreshProfile]);
+  // Removed client-side Energy Regeneration Effect - now handled by server-side Edge Function
 
   // Daily Reset for tasks_completed_today and Daily Reward Notification
   useEffect(() => {

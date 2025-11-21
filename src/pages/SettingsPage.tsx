@@ -26,7 +26,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialogTrigger, // ADDED: AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
 import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database } from 'lucide-react';
@@ -129,6 +129,7 @@ const SettingsPage: React.FC = () => {
           enable_aethersink_backup: true,
           default_auto_schedule_start_time: '09:00',
           default_auto_schedule_end_time: '17:00',
+          last_energy_regen_at: new Date().toISOString(), // NEW: Reset last_energy_regen_at
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);

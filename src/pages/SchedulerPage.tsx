@@ -911,6 +911,10 @@ const SchedulerPage: React.FC = () => {
             return (b.energy_cost || 0) - (a.energy_cost || 0);
           case 'PRIORITY_LOW_TO_HIGH':
             return (a.energy_cost || 0) - (b.energy_cost || 0);
+          case 'NAME_ASC':
+            return a.name.localeCompare(b.name);
+          case 'NAME_DESC':
+            return b.name.localeCompare(a.name);
           case 'EMOJI':
             const hueA = getEmojiHue(a.name);
             const hueB = getEmojiHue(b.name);
@@ -1111,7 +1115,7 @@ const SchedulerPage: React.FC = () => {
       setIsProcessingCommand(false);
       console.log("handleAutoScheduleAndSort: Auto-schedule process finished.");
     }
-  }, [user, profile, dbScheduledTasks, retiredTasks, selectedDayAsDate, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD]);
+  }, [user, profile, dbScheduledTasks, retiredTasks, selectedDayAsDate, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD, sortBy]);
 
   const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
     if (!user || !profile) {
@@ -1380,7 +1384,6 @@ const SchedulerPage: React.FC = () => {
           break;
         case 'show':
           showSuccess("Displaying current queue.");
-          success = true;
           break;
         case 'reorder':
           showError("Reordering is not yet implemented.");

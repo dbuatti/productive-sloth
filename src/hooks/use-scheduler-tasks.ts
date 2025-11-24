@@ -136,6 +136,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         query = query.order('is_critical', { ascending: false }).order('start_time', { ascending: true });
       } else if (sortBy === 'PRIORITY_LOW_TO_HIGH') {
         query = query.order('is_critical', { ascending: true }).order('start_time', { ascending: true });
+      } else if (sortBy === 'NAME_ASC') {
+        query = query.order('name', { ascending: true });
+      } else if (sortBy === 'NAME_DESC') {
+        query = query.order('name', { ascending: false });
       } else if (sortBy === 'EMOJI') {
         // EMOJI sorting is client-side as it depends on task name parsing
         // We'll fetch by creation time and sort client-side

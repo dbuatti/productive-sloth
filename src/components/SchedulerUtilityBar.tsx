@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass, Target, Trash2, RefreshCcw } from 'lucide-react';
+import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass, Target, Trash2, RefreshCcw, SortAsc, SortDesc } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
@@ -157,11 +157,20 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
               </TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Sort By</DropdownMenuLabel>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onSortFlexibleTasks('PRIORITY_HIGH_TO_LOW')} className={cn(sortBy === 'PRIORITY_HIGH_TO_LOW' && 'bg-accent text-accent-foreground')}>
                 <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Priority (High to Low)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onSortFlexibleTasks('PRIORITY_LOW_TO_HIGH')} className={cn(sortBy === 'PRIORITY_LOW_TO_HIGH' && 'bg-accent text-accent-foreground')}>
                 <Star className="mr-2 h-4 w-4 text-logo-yellow" /> Priority (Low to High)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onSortFlexibleTasks('NAME_ASC')} className={cn(sortBy === 'NAME_ASC' && 'bg-accent text-accent-foreground')}>
+                <SortAsc className="mr-2 h-4 w-4" /> Alphabetical (A to Z)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSortFlexibleTasks('NAME_DESC')} className={cn(sortBy === 'NAME_DESC' && 'bg-accent text-accent-foreground')}>
+                <SortDesc className="mr-2 h-4 w-4" /> Alphabetical (Z to A)
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onSortFlexibleTasks('TIME_EARLIEST_TO_LATEST')} className={cn(sortBy === 'TIME_EARLIEST_TO_LATEST' && 'bg-accent text-accent-foreground')}>
@@ -185,6 +194,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                   <Button 
                     variant="outline" 
                     size="icon" 
+                    // Removed onClick={onZoneFocus} as this button is purely a trigger
                     disabled={isProcessingCommand}
                     className="h-11 w-11 text-logo-green hover:bg-logo-green/10 transition-all duration-200" // Increased size
                     style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}

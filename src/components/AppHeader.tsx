@@ -56,22 +56,15 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => { // NEW: Dest
         
         {/* Left side: Mobile Menu Toggle */}
         <div className="flex items-center gap-2 shrink-0 lg:hidden">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onMenuToggle} // UPDATED: Use onMenuToggle
-                className="h-12 w-12 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200" // UPDATED: Increased size h-12 w-12
-              >
-                <CustomMenuIcon />
-                <span className="sr-only">Toggle Menu</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Toggle Menu</p>
-            </TooltipContent>
-          </Tooltip>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onMenuToggle} // UPDATED: Use onMenuToggle
+            className="h-12 w-12 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200" // UPDATED: Increased size h-12 w-12
+          >
+            <CustomMenuIcon />
+            <span className="sr-only">Toggle Menu</span>
+          </Button>
         </div>
 
         {/* Center: Logo/Title (Only visible on mobile) */}

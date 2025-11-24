@@ -9,7 +9,6 @@ import { ThemeProvider } from "next-themes";
 import React from "react";
 import MainLayout from "./components/MainLayout";
 import Dashboard from "./pages/Dashboard";
-import TasksPage from "./pages/TasksPage";
 import AchievementsPage from "./pages/AchievementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -31,7 +30,6 @@ const App = () => (
                 <MainLayout>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    <Route path="/tasks" element={<TasksPage />} />
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/achievements" element={<AchievementsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />

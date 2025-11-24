@@ -36,47 +36,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard
           </CardTitle>
           <div className="flex items-center gap-2">
-            {/* Aether Dump Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={onAetherDump} 
-                  disabled={isProcessingCommand || !hasFlexibleTasks}
-                  className="h-8 w-8 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
-                  style={isProcessingCommand || !hasFlexibleTasks ? { pointerEvents: 'auto' } : undefined}
-                >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} {/* Changed to Trash2 */}
-                  <span className="sr-only">Aether Dump</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Move all flexible, unlocked tasks from CURRENT day to Aether Sink</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Refresh/Reload Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={onRefreshSchedule} 
-                  disabled={isProcessingCommand}
-                  className="h-8 w-8 text-muted-foreground hover:bg-muted/10 transition-all duration-200"
-                  style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
-                >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                  <span className="sr-only">Refresh Schedule</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Refresh schedule data</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Collapse Metrics Button */}
+            {/* Collapse Metrics Button (Keep this one) */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 

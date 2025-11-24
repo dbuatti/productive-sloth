@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass, Target } from 'lucide-react';
+import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass, Target, Trash2, RefreshCcw } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
@@ -29,7 +29,9 @@ interface SchedulerUtilityBarProps {
   onCompactSchedule: () => void;
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => void;
   retiredTasksCount: number;
-  onZoneFocus: () => void; // NEW: Handler for Zone Focus
+  onZoneFocus: () => void;
+  onAetherDump: () => void; // NEW
+  onRefreshSchedule: () => void; // NEW
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -44,7 +46,9 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   onCompactSchedule,
   onQuickScheduleBlock,
   retiredTasksCount,
-  onZoneFocus, // NEW: Destructure prop
+  onZoneFocus,
+  onAetherDump, // NEW
+  onRefreshSchedule, // NEW
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
@@ -209,9 +213,49 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
           </DropdownMenu>
         </div>
 
-        {/* Secondary Utility Group (Zone Focus, Settings) */}
+        {/* Secondary Utility Group (Zone Focus, Aether Dump, Refresh, Settings) */}
         <div className="flex items-center gap-2 sm:ml-auto">
-          {/* NEW: Zone Focus Button */}
+          {/* NEW: Aether Dump Button (Moved from Dashboard) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={onAetherDump} 
+                disabled={isProcessingCommand || !hasFlexibleTasksOnCurrentDay}
+                className="h-11 w-11 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+                style={isProcessingCommand || !hasFlexibleTasksOnCurrentDay ? { pointerEvents: 'auto' } : undefined}
+              >
+                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
+                <span className="sr-only">Aether Dump</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Move all flexible, unlocked tasks from CURRENT day to Aether Sink</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Refresh/Reload Button (Moved from Dashboard) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={onRefreshSchedule} 
+                disabled={isProcessingCommand}
+                className="h-11 w-11 text-muted-foreground hover:bg-muted/10 transition-all duration-200"
+                style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+              >
+                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCcw className="h-5 w-5" />}
+                <span className="sr-only">Refresh Schedule</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Refresh schedule data</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Zone Focus Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 

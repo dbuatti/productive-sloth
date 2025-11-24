@@ -60,21 +60,29 @@ import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
-import { useIsMobile } from '@/hooks/use-mobile'; // NEW: Import useIsMobile
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'; // NEW: Import Drawer components
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 
-// Removed useDeepCompareMemoize to ensure immediate updates for task details
-// function useDeepCompareMemoize<T>(value: T): T {
-//   const ref = useRef<T>(value);
-//   const signalRef = useRef<number>(0);
+// Helper to get initial state from localStorage
+const getInitialSelectedDay = () => {
+  if (typeof window !== 'undefined') {
+    const savedDay = localStorage.getItem('aetherflow-selected-day');
+    if (savedDay && !isNaN(parseISO(savedDay).getTime())) {
+      return savedDay;
+    }
+  }
+  return format(new Date(), 'yyyy-MM-dd');
+};
 
-//   if (!deepCompare(value, ref.current)) {
-//     ref.current = value;
-//     signalRef.current++;
-//   }
-
-//   return useMemo(() => ref.current, [signalRef.current],);
-// }
+const getInitialActiveTab = () => {
+  if (typeof window !== 'undefined') {
+    const savedTab = localStorage.getItem('aetherflow-scheduler-tab');
+    if (savedTab) {
+      return savedTab;
+    }
+  }
+  return 'vibe-schedule';
+};
 
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
@@ -113,9 +121,12 @@ const SchedulerPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
-  const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  
+  // NEW: Initialize selectedDay from localStorage
+  const [selectedDay, setSelectedDay] = useState<string>(getInitialSelectedDay());
+  
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile(); // NEW: Use mobile hook
+  const isMobile = useIsMobile();
 
   const { 
     dbScheduledTasks,
@@ -146,7 +157,7 @@ const SchedulerPage: React.FC = () => {
     updateScheduledTaskDetails,
     updateScheduledTaskStatus,
     removeRetiredTask,
-  } = useSchedulerTasks(selectedDay, scheduleContainerRef); // Pass scheduleContainerRef to the hook
+  } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const queryClient = useQueryClient();
   
@@ -159,7 +170,10 @@ const SchedulerPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
-  const [activeTab, setActiveTab] = useState('vibe-schedule');
+  
+  // NEW: Initialize activeTab from localStorage
+  const [activeTab, setActiveTab] = useState(getInitialActiveTab());
+  
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
 
@@ -172,7 +186,7 @@ const SchedulerPage: React.FC = () => {
   const [showDeleteScheduledTaskConfirmation, setShowDeleteScheduledTaskConfirmation] = useState(false);
   const [scheduledTaskToDeleteId, setScheduledTaskToDeleteId] = useState<string | null>(null);
   const [scheduledTaskToDeleteName, setScheduledTaskToDeleteName] = useState<string | null>(null);
-  const [scheduledTaskToDeleteIndex, setScheduledTaskToDeleteIndex] = useState<number | null>(null); // NEW: Index for deletion
+  const [scheduledTaskToDeleteIndex, setScheduledTaskToDeleteIndex] = useState<number | null>(null);
 
   // State for retired task permanent deletion confirmation
   const [showDeleteRetiredTaskConfirmation, setShowDeleteRetiredTaskConfirmation] = useState(false);
@@ -183,6 +197,15 @@ const SchedulerPage: React.FC = () => {
   const [showEnergyDeficitConfirmation, setShowEnergyDeficitConfirmation] = useState(false);
   const [taskToCompleteInDeficit, setTaskToCompleteInDeficit] = useState<DBScheduledTask | null>(null);
   const [taskToCompleteInDeficitIndex, setTaskToCompleteInDeficitIndex] = useState<number | null>(null);
+
+  // NEW: Persistence effects
+  useEffect(() => {
+    localStorage.setItem('aetherflow-selected-day', selectedDay);
+  }, [selectedDay]);
+
+  useEffect(() => {
+    localStorage.setItem('aetherflow-scheduler-tab', activeTab);
+  }, [activeTab]);
 
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
@@ -290,10 +313,10 @@ const SchedulerPage: React.FC = () => {
   }, []);
 
   // New handler for permanent deletion of scheduled tasks
-  const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string, index: number) => { // Added index
+  const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string, index: number) => {
     setScheduledTaskToDeleteId(taskId);
     setScheduledTaskToDeleteName(taskName);
-    setScheduledTaskToDeleteIndex(index); // NEW: Set index
+    setScheduledTaskToDeleteIndex(index);
     setShowDeleteScheduledTaskConfirmation(true);
   }, []);
 
@@ -601,19 +624,19 @@ const SchedulerPage: React.FC = () => {
   }, [user, profile, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, queryClient, formattedSelectedDay, sortBy]);
 
   const confirmPermanentDeleteScheduledTask = useCallback(async () => {
-    if (!scheduledTaskToDeleteId || !user || scheduledTaskToDeleteIndex === null) return; // Check index
+    if (!scheduledTaskToDeleteId || !user || scheduledTaskToDeleteIndex === null) return;
     setIsProcessingCommand(true);
     try {
       // Perform deletion first
       await removeScheduledTask(scheduledTaskToDeleteId);
-      showSuccess(`Task "${scheduledTaskToDeleteName}" permanently deleted.`); // Show success for deletion immediately
+      showSuccess(`Task "${scheduledTaskToDeleteName}" permanently deleted.`);
 
       // Then attempt compaction
       try {
         // Fetch the *latest* scheduled tasks after deletion for compaction
         const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
         const compactedTasks = compactScheduleLogic(
-            latestDbScheduledTasks, // Pass the latest tasks
+            latestDbScheduledTasks,
             selectedDayAsDate,
             workdayStartTime,
             workdayEndTime,
@@ -623,18 +646,18 @@ const SchedulerPage: React.FC = () => {
 
         if (tasksToUpdate.length > 0) {
             await compactScheduledTasks({ tasksToUpdate });
-            showSuccess("Schedule compacted after deletion."); // Separate success for compaction
+            showSuccess("Schedule compacted after deletion.");
         } else {
             showSuccess("No flexible tasks to compact after deletion.");
         }
       } catch (compactionError: any) {
-        showError(`Failed to compact schedule after deletion: ${compactionError.message}`); // Separate error for compaction
+        showError(`Failed to compact schedule after deletion: ${compactionError.message}`);
         console.error("Compaction after deletion error:", compactionError);
       }
 
       // Scroll to the next item if it exists
       if (currentSchedule?.items && scheduledTaskToDeleteIndex < currentSchedule.items.length) {
-        const nextItemId = currentSchedule.items[scheduledTaskToDeleteIndex].id; // Item at this index is now the one after the deleted one
+        const nextItemId = currentSchedule.items[scheduledTaskToDeleteIndex].id;
         if (nextItemId) {
           handleScrollToItem(nextItemId);
         }
@@ -647,14 +670,14 @@ const SchedulerPage: React.FC = () => {
       }
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
-      showError(`Failed to delete task: ${error.message}`); // This will catch errors from removeScheduledTask
+      showError(`Failed to delete task: ${error.message}`);
       console.error("Permanent delete scheduled task error:", error);
     } finally {
       setIsProcessingCommand(false);
       setShowDeleteScheduledTaskConfirmation(false);
       setScheduledTaskToDeleteId(null);
       setScheduledTaskToDeleteName(null);
-      setScheduledTaskToDeleteIndex(null); // Reset index
+      setScheduledTaskToDeleteIndex(null);
     }
   }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, handleCompactSchedule, currentSchedule?.items, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
 
@@ -803,7 +826,7 @@ const SchedulerPage: React.FC = () => {
   const handleAutoScheduleAndSort = useCallback(async (
     sortPreference: SortBy,
     taskSource: 'all-flexible' | 'sink-only',
-    environmentsToFilterBy: TaskEnvironment[] = [] // Optional environment filter
+    environmentsToFilterBy: TaskEnvironment[] = []
   ) => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to auto-schedule.");
@@ -939,7 +962,7 @@ const SchedulerPage: React.FC = () => {
         let searchTime = currentPlacementTime;
 
         // Critical tasks with low energy are sent to sink
-        if (task.is_critical && profile.energy < LOW_ENERGY_THRESHOLD) { // Use LOW_ENERGY_THRESHOLD
+        if (task.is_critical && profile.energy < LOW_ENERGY_THRESHOLD) {
           if (task.source === 'scheduled') {
             tasksToKeepInSink.push({
               user_id: user.id,
@@ -1078,7 +1101,7 @@ const SchedulerPage: React.FC = () => {
 
       await autoBalanceSchedule(payload);
       showSuccess("Schedule re-balanced!");
-      setSortBy('TIME_EARLIEST_TO_LATEST'); // Reset sort to default after auto-balance
+      setSortBy('TIME_EARLIEST_TO_LATEST');
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       setIsProcessingCommand(false);
     } catch (error: any) {
@@ -1326,7 +1349,7 @@ const SchedulerPage: React.FC = () => {
                 setIsProcessingCommand(false);
                 return;
               }
-              handlePermanentDeleteScheduledTask(taskToRemove.id, taskToRemove.name, command.index); // Call new handler with index
+              handlePermanentDeleteScheduledTask(taskToRemove.id, taskToRemove.name, command.index);
               success = true;
             } else {
               showError(`Invalid index. Please provide a number between 1 and ${dbScheduledTasks.length}.`);
@@ -1346,7 +1369,7 @@ const SchedulerPage: React.FC = () => {
                     return;
                 }
                 const taskIndex = dbScheduledTasks.findIndex(t => t.id === tasksToRemove[0].id);
-                handlePermanentDeleteScheduledTask(tasksToRemove[0].id, tasksToRemove[0].name, taskIndex); // Call new handler with index
+                handlePermanentDeleteScheduledTask(tasksToRemove[0].id, tasksToRemove[0].name, taskIndex);
                 success = true;
             } else {
                 showError(`No tasks found matching "${command.target}".`);
@@ -1690,7 +1713,7 @@ const SchedulerPage: React.FC = () => {
     task: DBScheduledTask,
     isEarlyCompletion: boolean = false,
     remainingDurationMinutes: number = 0,
-    index: number | null = null // NEW: Added index parameter
+    index: number | null = null
   ) => {
     if (!user || !profile) {
       showError("You must be logged in to perform this action.");
@@ -1712,7 +1735,7 @@ const SchedulerPage: React.FC = () => {
           setTaskToCompleteInDeficitIndex(index);
           setShowEnergyDeficitConfirmation(true);
           modalOpened = true;
-          setIsFocusModeActive(false); // Exit focus mode to show dialog
+          setIsFocusModeActive(false);
           setIsProcessingCommand(false);
           return;
         }
@@ -1737,11 +1760,11 @@ const SchedulerPage: React.FC = () => {
             setEarlyCompletionDbTask(task);
             setShowEarlyCompletionModal(true);
             modalOpened = true;
-            setIsFocusModeActive(false); // Exit focus mode to show dialog
+            setIsFocusModeActive(false);
             setIsProcessingCommand(false); 
             return;
         } else {
-            await completeScheduledTaskMutation(task); // This mutation handles XP/Energy/Streak and marks task as completed
+            await completeScheduledTaskMutation(task);
             // After completion, if it was a flexible task, compact the schedule
             if (task.is_flexible) {
               const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
@@ -1927,9 +1950,9 @@ const SchedulerPage: React.FC = () => {
       if (modalOpened) {
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
-        setShowEnergyDeficitConfirmation(false); // NEW: Close deficit dialog on error
-        setTaskToCompleteInDeficit(null); // NEW: Clear deficit task
-        setTaskToCompleteInDeficitIndex(null); // NEW: Clear deficit task index
+        setShowEnergyDeficitConfirmation(false);
+        setTaskToCompleteInDeficit(null);
+        setTaskToCompleteInDeficitIndex(null);
       }
       // Removed "Insufficient energy" specific error message as it's now handled by the dialog
       showError(`Failed to perform action: ${error.message}`);
@@ -1967,7 +1990,7 @@ const SchedulerPage: React.FC = () => {
       } else {
         showSuccess(`Task "${taskToCompleteInDeficit.name}" completed!`);
       }
-      setIsFocusModeActive(false); // Exit focus mode after completion
+      setIsFocusModeActive(false);
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
       showError(`Failed to complete task: ${error.message}`);
@@ -2010,13 +2033,13 @@ const SchedulerPage: React.FC = () => {
   const mobileControls = (
     <Drawer>
       <DrawerTrigger asChild>
-        <Button variant="outline" className="w-full flex items-center gap-2 mt-4 h-12 text-base animate-pop-in animate-hover-lift"> {/* Increased button size and font */}
+        <Button variant="outline" className="w-full flex items-center gap-2 mt-4 h-12 text-base animate-pop-in animate-hover-lift">
           <Trash2 className="h-5 w-5" /> View Aether Sink ({retiredTasks.length})
         </Button>
       </DrawerTrigger>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader>
-          <DrawerTitle className="text-2xl flex items-center gap-2"> {/* Increased font size */}
+          <DrawerTitle className="text-2xl flex items-center gap-2">
             <Trash2 className="h-6 w-6 text-muted-foreground" /> The Aether Sink
           </DrawerTitle>
         </DrawerHeader>
@@ -2122,9 +2145,9 @@ const SchedulerPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
+      {/* REMOVED: <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
         <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
-      </h1>
+      </h1> */}
 
       {isFocusModeActive && activeItemToday && activeItemToday.id && currentSchedule?.dbTasks.find(t => t.id === activeItemToday.id) ? (
         <ImmersiveFocusMode
@@ -2178,7 +2201,7 @@ const SchedulerPage: React.FC = () => {
                 placeholder={`Add task (e.g., 'Gym 60') or command`}
                 onDetailedInject={handleAddTaskClick}
               />
-              <p className="text-sm text-muted-foreground"> {/* Increased font size */}
+              <p className="text-sm text-muted-foreground">
                 Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
               </p>
             </CardContent>
@@ -2198,6 +2221,8 @@ const SchedulerPage: React.FC = () => {
             onQuickScheduleBlock={handleQuickScheduleBlock}
             retiredTasksCount={retiredTasks.length}
             onZoneFocus={handleZoneFocus}
+            onAetherDump={handleAetherDumpButton}
+            onRefreshSchedule={handleRefreshSchedule}
           />
 
           {/* Now Focus Card (Always visible) */}
@@ -2263,7 +2288,7 @@ const SchedulerPage: React.FC = () => {
                 completedScheduledTasks={completedScheduledTasksForRecap}
               />
 
-              {mobileControls} {/* Drawer Trigger (now only for Aether Sink) */}
+              {mobileControls}
             </>
           ) : (
             desktopTabs

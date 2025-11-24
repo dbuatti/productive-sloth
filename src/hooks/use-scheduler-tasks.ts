@@ -77,7 +77,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
   const formattedSelectedDate = selectedDate;
 
-  const [sortBy, setSortBy] = useState<SortBy>('TIME_EARLIEST_TO_LATEST');
+  // NEW: Initialize sortBy from localStorage
+  const [sortBy, setSortBy] = useState<SortBy>(() => {
+    if (typeof window !== 'undefined') {
+      const savedSortBy = localStorage.getItem('aetherflow-scheduler-sort');
+      return savedSortBy ? (savedSortBy as SortBy) : 'TIME_EARLIEST_TO_LATEST';
+    }
+    return 'TIME_EARLIEST_TO_LATEST';
+  });
+  
   // Initialize retiredSortBy from localStorage or default
   const [retiredSortBy, setRetiredSortBy] = useState<RetiredTaskSortBy>(() => {
     if (typeof window !== 'undefined') {
@@ -94,6 +102,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       localStorage.setItem('aetherSinkSortBy', retiredSortBy);
     }
   }, [retiredSortBy]);
+
+  // NEW: Effect to save sortBy to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aetherflow-scheduler-sort', sortBy);
+    }
+  }, [sortBy]);
 
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy],

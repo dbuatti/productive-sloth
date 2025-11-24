@@ -61,6 +61,7 @@ import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl'; // NEW IMPORT
 
 // Helper to get initial state from localStorage
 const getInitialSelectedDay = () => {
@@ -2161,7 +2162,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       onAutoScheduleSink={handleAutoScheduleSinkWrapper}
       isLoading={isLoadingRetiredTasks}
       isProcessingCommand={isProcessingCommand}
-      hideTitle={!isMobile} // Hide title on desktop hybrid view
+      hideTitle={false} 
       profileEnergy={profile?.energy || 0}
       retiredSortBy={retiredSortBy} 
       setRetiredSortBy={setRetiredSortBy} 
@@ -2179,37 +2180,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       completedScheduledTasks={completedScheduledTasksForRecap}
     />
   );
-
-  const renderHybridDesktopView = () => (
-    <>
-      {/* Section B: Daily Vibe Recap (Review) */}
-      <div className="animate-slide-in-up">
-        {renderRecapView()}
-      </div>
-
-      {/* Section C: Schedule Your Day (Execute) */}
-      <div className="space-y-6">
-        {renderScheduleCore()}
-      </div>
-
-      {/* Section D: The Aether Sink (Plan/Triage) */}
-      <div className="animate-slide-in-up">
-        {renderSinkView()}
-      </div>
-    </>
-  );
-
-  const renderMobileView = () => {
-    switch (view) {
-      case 'sink':
-        return renderSinkView();
-      case 'recap':
-        return renderRecapView();
-      case 'schedule':
-      default:
-        return renderScheduleCore();
-    }
-  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -2242,8 +2212,15 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         isLoadingDatesWithTasks={isLoadingDatesWithTasks}
       />
 
-      {/* Conditional View Rendering */}
-      {isMobile || view !== 'schedule' ? renderMobileView() : renderHybridDesktopView()}
+      {/* NEW: Segmented Control for View Switching */}
+      <SchedulerSegmentedControl currentView={view} />
+
+      {/* Conditional View Rendering based on 'view' prop */}
+      <div className="animate-slide-in-up">
+        {view === 'schedule' && renderScheduleCore()}
+        {view === 'recap' && renderRecapView()}
+        {view === 'sink' && renderSinkView()}
+      </div>
 
       {/* Modals and Dialogs */}
       <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>

@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
@@ -17,8 +19,6 @@ Drawer.displayName = "Drawer";
 const DrawerTrigger = DrawerPrimitive.Trigger;
 
 const DrawerPortal = DrawerPrimitive.Portal;
-
-const DrawerClose = DrawerPrimitive.Close;
 
 const DrawerOverlay = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Overlay>,
@@ -42,7 +42,7 @@ const DrawerContent = React.forwardRef<
       ref={ref}
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
-        className,
+        className
       )}
       {...props}
     >
@@ -83,7 +83,7 @@ const DrawerTitle = React.forwardRef<
     ref={ref}
     className={cn(
       "text-lg font-semibold leading-none tracking-tight",
-      className,
+      className
     )}
     {...props}
   />
@@ -107,7 +107,6 @@ export {
   DrawerPortal,
   DrawerOverlay,
   DrawerTrigger,
-  DrawerClose,
   DrawerContent,
   DrawerHeader,
   DrawerFooter,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2 } from 'lucide-react';
+import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2, Menu } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock, TaskEnvironment } from '@/types/scheduler';
@@ -59,7 +59,9 @@ import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY } from '@/lib/constants';
 import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
-import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog'; // NEW: Import EnergyDeficitConfirmationDialog
+import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
+import { useIsMobile } from '@/hooks/use-mobile'; // NEW: Import useIsMobile
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'; // NEW: Import Drawer components
 
 // Removed useDeepCompareMemoize to ensure immediate updates for task details
 // function useDeepCompareMemoize<T>(value: T): T {
@@ -113,6 +115,7 @@ const SchedulerPage: React.FC = () => {
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile(); // NEW: Use mobile hook
 
   const { 
     dbScheduledTasks,
@@ -2003,6 +2006,147 @@ const SchedulerPage: React.FC = () => {
 
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
 
+  const mobileControls = (
+    <Drawer>
+      <DrawerTrigger asChild>
+        <Button variant="outline" className="w-full flex items-center gap-2 mt-4 animate-pop-in animate-hover-lift">
+          <Menu className="h-5 w-5" /> More Controls & Sink
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent className="max-h-[90vh]">
+        <DrawerHeader>
+          <DrawerTitle className="text-xl">Scheduler Utilities</DrawerTitle>
+        </DrawerHeader>
+        <div className="p-4 overflow-y-auto space-y-6">
+          <SchedulerDashboardPanel 
+            scheduleSummary={currentSchedule?.summary || null} 
+            onAetherDump={handleAetherDumpButton}
+            isProcessingCommand={isProcessingCommand}
+            hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
+            onRefreshSchedule={handleRefreshSchedule}
+          />
+          <SchedulerUtilityBar 
+            isProcessingCommand={isProcessingCommand}
+            hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
+            dbScheduledTasks={dbScheduledTasks}
+            onRechargeEnergy={() => rechargeEnergy()}
+            onRandomizeBreaks={handleRandomizeBreaks}
+            onSortFlexibleTasks={handleSortFlexibleTasks}
+            onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
+            sortBy={sortBy}
+            onCompactSchedule={handleCompactSchedule}
+            onQuickScheduleBlock={handleQuickScheduleBlock}
+            retiredTasksCount={retiredTasks.length}
+            onZoneFocus={handleZoneFocus}
+          />
+          <AetherSink 
+            retiredTasks={retiredTasks} 
+            onRezoneTask={handleRezoneFromSink} 
+            onRemoveRetiredTask={handlePermanentDeleteRetiredTask}
+            onAutoScheduleSink={handleAutoScheduleSinkWrapper}
+            isLoading={isLoadingRetiredTasks}
+            isProcessingCommand={isProcessingCommand}
+            hideTitle={false}
+            profileEnergy={profile?.energy || 0}
+            retiredSortBy={retiredSortBy} 
+            setRetiredSortBy={setRetiredSortBy} 
+          />
+          <DailyVibeRecapCard
+            scheduleSummary={currentSchedule?.summary || null}
+            tasksCompletedToday={tasksCompletedForSelectedDay}
+            xpEarnedToday={xpEarnedForSelectedDay}
+            profileEnergy={profile?.energy || 0}
+            criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
+            selectedDayString={selectedDay}
+            completedScheduledTasks={completedScheduledTasksForRecap}
+          />
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+
+  const desktopTabs = (
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
+      <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-muted rounded-md">
+        <TabsTrigger 
+          value="vibe-schedule" 
+          className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
+        >
+          <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Your Vibe Schedule
+        </TabsTrigger>
+        <TabsTrigger 
+          value="aether-sink" 
+          className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
+        >
+          <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
+        </TabsTrigger>
+        <TabsTrigger 
+          value="daily-recap" 
+          className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
+        >
+          <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Daily Vibe Recap
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="vibe-schedule" className="space-y-4">
+        <Card className="animate-pop-in animate-hover-lift">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent ref={scheduleContainerRef}>
+            {isSchedulerTasksLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <SchedulerDisplay 
+                schedule={currentSchedule} 
+                T_current={T_current} 
+                onRemoveTask={handlePermanentDeleteScheduledTask}
+                onRetireTask={(task) => handleSchedulerAction('skip', task)}
+                onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
+                activeItemId={activeItemToday?.id || null} 
+                selectedDayString={selectedDay} 
+                onAddTaskClick={handleAddTaskClick}
+                onScrollToItem={handleScrollToItem}
+                isProcessingCommand={isProcessingCommand}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="aether-sink" className="space-y-4">
+        <AetherSink 
+          retiredTasks={retiredTasks} 
+          onRezoneTask={handleRezoneFromSink} 
+          onRemoveRetiredTask={handlePermanentDeleteRetiredTask}
+          onAutoScheduleSink={handleAutoScheduleSinkWrapper}
+          isLoading={isLoadingRetiredTasks}
+          isProcessingCommand={isProcessingCommand}
+          hideTitle={true}
+          profileEnergy={profile?.energy || 0}
+          retiredSortBy={retiredSortBy} 
+          setRetiredSortBy={setRetiredSortBy} 
+        />
+      </TabsContent>
+
+      <TabsContent value="daily-recap" className="space-y-4">
+        <DailyVibeRecapCard
+          scheduleSummary={currentSchedule?.summary || null}
+          tasksCompletedToday={tasksCompletedForSelectedDay}
+          xpEarnedToday={xpEarnedForSelectedDay}
+          profileEnergy={profile?.energy || 0}
+          criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
+          selectedDayString={selectedDay}
+          completedScheduledTasks={completedScheduledTasksForRecap}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
@@ -2021,6 +2165,7 @@ const SchedulerPage: React.FC = () => {
         />
       ) : (
         <>
+          {/* Dashboard Panel (Always visible) */}
           <SchedulerDashboardPanel 
             scheduleSummary={currentSchedule?.summary || null} 
             onAetherDump={handleAetherDumpButton}
@@ -2029,6 +2174,7 @@ const SchedulerPage: React.FC = () => {
             onRefreshSchedule={handleRefreshSchedule}
           />
 
+          {/* Calendar Strip (Always visible) */}
           <CalendarStrip 
             selectedDay={selectedDay} 
             setSelectedDay={setSelectedDay} 
@@ -2036,6 +2182,7 @@ const SchedulerPage: React.FC = () => {
             isLoadingDatesWithTasks={isLoadingDatesWithTasks}
           />
 
+          {/* Input & Environment/Weather Card (Always visible) */}
           <Card className="animate-pop-in animate-hover-lift">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="flex items-center gap-2 text-xl">
@@ -2064,6 +2211,7 @@ const SchedulerPage: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Utility Bar (Always visible) */}
           <SchedulerUtilityBar 
             isProcessingCommand={isProcessingCommand}
             hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
@@ -2079,6 +2227,7 @@ const SchedulerPage: React.FC = () => {
             onZoneFocus={handleZoneFocus}
           />
 
+          {/* Now Focus Card (Always visible) */}
           {isSameDay(parseISO(selectedDay), T_current) && (
             <div className="pb-4 animate-slide-in-up">
               <NowFocusCard 
@@ -2099,29 +2248,9 @@ const SchedulerPage: React.FC = () => {
             </Card>
           )}
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-            <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-muted rounded-md">
-              <TabsTrigger 
-                value="vibe-schedule" 
-                className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md animate-hover-lift"
-              >
-                <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Your Vibe Schedule
-              </TabsTrigger>
-              <TabsTrigger 
-                value="aether-sink" 
-                className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
-              >
-                <Trash2 className="h-4 w-4 mr-2 text-muted-foreground" /> The Aether Sink ({retiredTasks.length})
-              </TabsTrigger>
-              <TabsTrigger 
-                value="daily-recap" 
-                className="h-9 px-4 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[data-state=active]:shadow-md animate-hover-lift"
-              >
-                <Sparkles className="h-4 w-4 mr-2 text-logo-yellow" /> Daily Vibe Recap
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="vibe-schedule" className="space-y-4">
+          {/* Conditional Rendering of Tabs/Drawer */}
+          {isMobile ? (
+            <>
               <Card className="animate-pop-in animate-hover-lift">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-xl">
@@ -2137,46 +2266,23 @@ const SchedulerPage: React.FC = () => {
                     <SchedulerDisplay 
                       schedule={currentSchedule} 
                       T_current={T_current} 
-                      onRemoveTask={handlePermanentDeleteScheduledTask} // Changed to permanent delete
+                      onRemoveTask={handlePermanentDeleteScheduledTask}
                       onRetireTask={(task) => handleSchedulerAction('skip', task)}
-                      onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)} // Pass index
+                      onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
                       activeItemId={activeItemToday?.id || null} 
                       selectedDayString={selectedDay} 
                       onAddTaskClick={handleAddTaskClick}
-                      onScrollToItem={handleScrollToItem} // NEW: Pass scroll function
-                      isProcessingCommand={isProcessingCommand} // PASSING PROP
+                      onScrollToItem={handleScrollToItem}
+                      isProcessingCommand={isProcessingCommand}
                     />
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            <TabsContent value="aether-sink" className="space-y-4">
-              <AetherSink 
-                retiredTasks={retiredTasks} 
-                onRezoneTask={handleRezoneFromSink} 
-                onRemoveRetiredTask={handlePermanentDeleteRetiredTask} // Changed to permanent delete
-                onAutoScheduleSink={handleAutoScheduleSinkWrapper}
-                isLoading={isLoadingRetiredTasks}
-                isProcessingCommand={isProcessingCommand}
-                profileEnergy={profile?.energy || 0}
-                retiredSortBy={retiredSortBy} 
-                setRetiredSortBy={setRetiredSortBy} 
-              />
-            </TabsContent>
-
-            <TabsContent value="daily-recap" className="space-y-4">
-              <DailyVibeRecapCard
-                scheduleSummary={currentSchedule?.summary || null}
-                tasksCompletedToday={tasksCompletedForSelectedDay}
-                xpEarnedToday={xpEarnedForSelectedDay}
-                profileEnergy={profile?.energy || 0}
-                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
-                selectedDayString={selectedDay}
-                completedScheduledTasks={completedTasksForSelectedDayList}
-              />
-            </TabsContent>
-          </Tabs>
+              {mobileControls}
+            </>
+          ) : (
+            desktopTabs
+          )}
         </>
       )}
 
@@ -2289,7 +2395,7 @@ const SchedulerPage: React.FC = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPermanentDeleteScheduledTask} className="bg-destructive hover:bg-destructive/90" autoFocus> {/* NEW: autoFocus */}
+            <AlertDialogAction onClick={confirmPermanentDeleteScheduledTask} className="bg-destructive hover:bg-destructive/90" autoFocus>
               Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -2307,7 +2413,7 @@ const SchedulerPage: React.FC = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPermanentDeleteRetiredTask} className="bg-destructive hover:bg-destructive/90" autoFocus> {/* NEW: autoFocus */}
+            <AlertDialogAction onClick={confirmPermanentDeleteRetiredTask} className="bg-destructive hover:bg-destructive/90" autoFocus>
               Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>

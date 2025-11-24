@@ -199,7 +199,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
 
       <Popover open={isPopoverExplicitlyOpen} onOpenChange={setIsPopoverExplicitlyOpen}>
         <PopoverTrigger asChild>
-          <div className="absolute top-0 left-0 w-full h-11 pointer-events-none" /> {/* Adjusted height */}
+          {/* FIX: Ensure PopoverTrigger wraps exactly one element */}
+          <div className="absolute top-0 left-0 w-full h-11 pointer-events-none" /> 
         </PopoverTrigger>
         <PopoverContent 
           className="p-0 w-[var(--radix-popover-trigger-width)] mt-1" 

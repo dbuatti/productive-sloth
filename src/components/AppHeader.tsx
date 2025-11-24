@@ -49,6 +49,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
 
   const visibleFirstName = profile?.first_name || getDisplayNameFromEmail(userEmail).split(' ')[0];
 
+  // Debugging: Log the avatar URL if it exists
+  if (profile?.avatar_url) {
+    console.log("Attempting to load avatar from:", profile.avatar_url);
+  }
+
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto max-w-4xl flex items-center justify-between h-16 px-4">

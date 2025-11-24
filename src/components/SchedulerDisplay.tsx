@@ -311,14 +311,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div
             id={`scheduled-item-${scheduledItem.id}`}
             className={cn(
-              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", // Reduced padding and gap
+              "relative flex flex-col justify-center gap-1 p-4 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", // Adjusted padding for better vertical centering
               "border-2",
               isHighlightedBySession ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" :
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border",
               isLocked && "border-[3px] border-primary/70", // Keep locked border logic
               isMissed && "border-destructive/70 bg-destructive/10",
-              isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10",
               scheduledItem.isCritical && "ring-2 ring-logo-yellow/50", // Keep critical ring
               isCompleted && "opacity-50 line-through",
               "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"

@@ -22,10 +22,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import CustomMenuIcon from './CustomMenuIcon';
 
 interface AppHeaderProps {
-  // Removed onMenuToggle prop
+  onMenuToggle: () => void; // NEW: Prop for menu toggle
 }
 
-const AppHeader: React.FC<AppHeaderProps> = () => {
+const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => { // NEW: Destructure prop
   const { user, profile } = useSession();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -54,22 +54,22 @@ const AppHeader: React.FC<AppHeaderProps> = () => {
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-5xl flex items-center justify-between h-16 px-4">
         
-        {/* Left side: Mobile Menu Toggle (Now redirects to settings/dashboard since the drawer is gone) */}
+        {/* Left side: Mobile Menu Toggle */}
         <div className="flex items-center gap-2 shrink-0 lg:hidden">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={() => navigate('/')} // Redirect to dashboard on mobile menu click
-                className="h-10 w-10 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200"
+                onClick={onMenuToggle} // UPDATED: Use onMenuToggle
+                className="h-12 w-12 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200" // UPDATED: Increased size h-12 w-12
               >
                 <CustomMenuIcon />
-                <span className="sr-only">Go to Dashboard</span>
+                <span className="sr-only">Toggle Menu</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Go to Dashboard</p>
+              <p>Toggle Menu</p>
             </TooltipContent>
           </Tooltip>
         </div>

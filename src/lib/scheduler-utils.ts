@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
@@ -43,23 +43,23 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'milk': '🥛', 'cartons': '🥛', // For 'Empty the old milk cartons'
   'sync': '🤝', 'standup': '🤝', // Added back
   'tutorial': '💡', // For 'tutorial'
-  // User-requested specific emoji mappings
+  // User-requested specific emoji mappings (Corrected from numbers to strings)
   'tv': '📺', // Explicitly set for 'TV to Brad'
-  'cobweb': '🕸️', // For 'Clean The Cobwebs'
-  'cables': '🔌', // For 'Clean up the cables'
-  'fold laundry': '🧺', // For 'Fold laundry'
-  'load of laundry': '🧺', // For 'Load of laundry'
-  'tidy': '📦', // For 'Big tidy around rooms', 'Tidy room'
-  'room': '📦', // For 'Big tidy around rooms', 'Tidy room'
-  'book': '📅', // For 'Book Nicholas In', 'Book Estelle In'
-  'waitress': '📅', // For 'Waitress Preparation'
-  'preparation': '📅', // For 'Waitress Preparation'
-  'lego': '🧩', // This is playful—makes sense
-  'organise': '👕', // For 'Organise white shirts'
-  'shirts': '👕', // For 'Organise white shirts'
-  'gigs': '👕', // For 'Organise white shirts'
-  'charge': '🔌', // For 'Charge The Vacuum'
-  'vacuum': '🔌', // For 'Charge The Vacuum'
+  'cobweb': '🕸️', // Same as clean
+  'cables': '🔌', // Tech-related
+  'fold laundry': '🧺', // Same as laundry
+  'load of laundry': '🧺', // Same as laundry
+  'tidy': '🗄️', // Same as organize
+  'room': '🏠', // Same as room
+  'book': '📅', // General admin
+  'waitress': '📅', // Same as book
+  'preparation': '📝', // Same as book
+  'lego': '🧩', // Playful green
+  'organise': '🗄️', // General organization
+  'shirts': '👕', // Same as organise
+  'gigs': '🎤', // Same as organise
+  'charge': '🔌', // Tech-related
+  'vacuum': '🔌', // Same as charge
   'put away': '📦', // For 'Put away my new sheets'
   'sheets': '📦', // For 'Put away my new sheets'
   'pants': '📦', // For 'Put away my new pants'
@@ -67,25 +67,25 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'toothbrush': '💊', // For 'Put medication next to toothbrush'
   'return message': '💬', // For 'Return Message To Damien'
   'voice deal': '🎤', // For 'Voice Deal for Lydia'
-  'find location': '📦', // For 'Find A Location For The Broom'
-  'broom': '📦', // For 'Find A Location For The Broom'
+  'find location': '🗺️', // For 'Find A Location For The Broom'
+  'broom': '🧹', // For 'Find A Location For The Broom'
   'practise': '🎹', // For 'Piano Practise'
-  'track': '🎹', // For 'PIANO TRACK'
+  'track': '🎼', // For 'PIANO TRACK'
   // NEW EMOJIS
   'catch up': '🤝',
   'trim': '💅',
   'cuticle': '💅',
   'payment': '💸',
-  'link': '💸',
-  'send': '🎤', // Can be used for sending voice notes, payment links, etc.
-  'voice notes': '✍️',
+  'link': '🔗',
+  'send': '📧',
+  'voice notes': '🎙️',
   'job notes': '📝',
-  'process': '📝',
+  'process': '⚙️',
   'usb': '🔌',
   'cable': '🔌',
   'coil': '🔌',
   'write up': '✍️',
-  'notes': '✍️',
+  'notes': '📝',
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -376,7 +376,6 @@ export const parseInjectionCommand = (input: string): {
       calculatedEnergyCost = calculateEnergyCost(duration, isCritical);
     } else if (startTime && endTime) {
       // For injection, we can't reliably calculate energy cost without a base date for parsing times
-      // This will be handled in the component where the actual date is known.
       // For now, provide a default or placeholder.
       calculatedEnergyCost = calculateEnergyCost(60, isCritical); // Assume 60 min for placeholder
     } else {
@@ -579,8 +578,28 @@ export const compactScheduleLogic = (
   const effectiveWorkdayStart = isTodaySelected && isBefore(workdayStartTime, T_current) ? T_current : workdayStartTime;
 
   const fixedAndLockedTasks = dbTasks.filter(task => !task.is_flexible || task.is_locked);
-  const flexibleTasksToCompact = tasksToPlace || dbTasks.filter(task => task.is_flexible && !task.is_locked);
+  
+  let flexibleTasksToCompact: DBScheduledTask[];
 
+  if (tasksToPlace) {
+    // If tasksToPlace is provided (e.g., from auto-balance), use it, but ensure it's not completed
+    flexibleTasksToCompact = tasksToPlace.filter(task => !task.is_completed);
+  } else {
+    // If no tasksToPlace provided (e.g., manual 'compact' command), filter from current DB tasks
+    flexibleTasksToCompact = dbTasks.filter(task => task.is_flexible && !task.is_locked && !task.is_completed);
+  }
+
+  // CRITICAL FIX: If today is selected, filter out tasks whose end time is already past T_current.
+  // These tasks should be retired, not compacted/moved forward.
+  if (isTodaySelected) {
+    flexibleTasksToCompact = flexibleTasksToCompact.filter(task => {
+      if (!task.end_time) return true; 
+      const taskEndTime = parseISO(task.end_time);
+      // Only keep tasks that end AFTER the current time
+      return isAfter(taskEndTime, T_current);
+    });
+  }
+  
   // Sort flexible tasks by priority (critical first), then duration (longest first)
   flexibleTasksToCompact.sort((a, b) => {
     if (a.is_critical && !b.is_critical) return -1;
@@ -661,112 +680,95 @@ export const compactScheduleLogic = (
 
 export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
-  selectedDayString: string,
-  workdayStartTime: Date,
-  workdayEndTime: Date
+  selectedDay: string,
+  workdayStart: Date,
+  workdayEnd: Date
 ): FormattedSchedule => {
-  const selectedDayAsDate = parseISO(selectedDayString);
-  const now = new Date();
-  const isTodaySelected = isSameDay(selectedDayAsDate, now);
-
-  const scheduledItems: ScheduledItem[] = [];
+  const items: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
   let totalBreakTimeMinutes = 0;
-  let sessionEnd = workdayStartTime;
-  let extendsPastMidnight = false;
-  let midnightRolloverMessage: string | null = null; // Corrected declaration
   let criticalTasksRemaining = 0;
+  let unscheduledCount = 0;
+  let sessionEnd = workdayStart;
+  let extendsPastMidnight = false;
+  let midnightRolloverMessage: string | null = null;
 
-  // Filter out tasks that are not for the selected day
-  const tasksForSelectedDay = dbTasks.filter(task =>
-    isSameDay(parseISO(task.scheduled_date), selectedDayAsDate)
-  );
-
-  // Sort tasks by start time
-  tasksForSelectedDay.sort((a, b) => {
-    const startTimeA = a.start_time ? parseISO(a.start_time).getTime() : 0;
-    const startTimeB = b.start_time ? parseISO(b.start_time).getTime() : 0;
-    return startTimeA - startTimeB;
+  const sortedTasks = [...dbTasks].sort((a, b) => {
+    if (a.start_time && b.start_time) {
+      return parseISO(a.start_time).getTime() - parseISO(b.start_time).getTime();
+    }
+    return 0;
   });
 
-  for (const task of tasksForSelectedDay) {
-    if (!task.start_time || !task.end_time) continue;
-
-    const utcStart = parseISO(task.start_time);
-    const utcEnd = parseISO(task.end_time);
-
-    let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getMinutes()), utcStart.getHours());
-    let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getMinutes()), utcEnd.getHours());
-
-    // Handle tasks that roll over to the next day
-    if (isBefore(localEnd, localStart)) {
-      localEnd = addDays(localEnd, 1);
-      extendsPastMidnight = true;
-      midnightRolloverMessage = "Your schedule extends past midnight."; // Corrected assignment
+  sortedTasks.forEach((dbTask, index) => {
+    if (!dbTask.start_time || !dbTask.end_time) {
+      unscheduledCount++;
+      return;
     }
 
-    const duration = Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60));
+    const startTimeUTC = parseISO(dbTask.start_time);
+    const endTimeUTC = parseISO(dbTask.end_time);
 
-    const isBreak = task.name.toLowerCase() === 'break';
-    const isTimeOff = task.name.toLowerCase() === 'time off';
+    // Convert UTC times to local times relative to the selected day
+    const selectedDayDate = parseISO(selectedDay);
+    let startTime = setTimeOnDate(selectedDayDate, format(startTimeUTC, 'HH:mm'));
+    let endTime = setTimeOnDate(selectedDayDate, format(endTimeUTC, 'HH:mm'));
 
-    const itemType: ScheduledItemType = isBreak ? 'break' : (isTimeOff ? 'time-off' : 'task');
+    // Handle rollover past midnight
+    if (isBefore(endTime, startTime)) {
+      endTime = addDays(endTime, 1);
+      extendsPastMidnight = true;
+      midnightRolloverMessage = "Schedule extends past midnight.";
+    }
 
-    scheduledItems.push({
-      id: task.id,
-      type: itemType,
-      name: task.name,
+    const duration = differenceInMinutes(endTime, startTime);
+    const breakDuration = dbTask.break_duration || 0;
+
+    if (duration <= 0) return;
+
+    const isTimeOff = dbTask.name.toLowerCase() === 'time off';
+    const isBreak = dbTask.name.toLowerCase() === 'break';
+
+    const item: ScheduledItem = {
+      id: dbTask.id,
+      type: isTimeOff ? 'time-off' : (isBreak ? 'break' : 'task'),
+      name: dbTask.name,
       duration: duration,
-      startTime: localStart,
-      endTime: localEnd,
-      emoji: assignEmoji(task.name),
+      startTime: startTime,
+      endTime: endTime,
+      emoji: assignEmoji(dbTask.name),
       description: isBreak ? getBreakDescription(duration) : undefined,
       isTimedEvent: true,
-      isCritical: task.is_critical,
-      isFlexible: task.is_flexible,
-      isLocked: task.is_locked,
-      energyCost: task.energy_cost,
-      isCompleted: task.is_completed,
-      isCustomEnergyCost: task.is_custom_energy_cost,
-      taskEnvironment: task.task_environment, // <-- FIX 1: Added taskEnvironment
-    });
+      isCritical: dbTask.is_critical,
+      isFlexible: dbTask.is_flexible,
+      isLocked: dbTask.is_locked,
+      energyCost: dbTask.energy_cost,
+      isCompleted: dbTask.is_completed,
+      isCustomEnergyCost: dbTask.is_custom_energy_cost,
+      taskEnvironment: dbTask.task_environment,
+    };
 
-    if (itemType === 'task') {
+    items.push(item);
+
+    if (item.type === 'task' || item.type === 'time-off') {
       totalActiveTimeMinutes += duration;
-      if (task.is_critical && !task.is_completed) {
-        criticalTasksRemaining++;
-      }
-    } else if (itemType === 'break') {
+    } else if (item.type === 'break') {
       totalBreakTimeMinutes += duration;
     }
 
-    if (localEnd > sessionEnd) {
-      sessionEnd = localEnd;
+    if (item.isCritical && !item.isCompleted) {
+      criticalTasksRemaining++;
     }
-  }
 
-  const occupiedBlocks = scheduledItems.map(item => ({
-    start: item.startTime,
-    end: item.endTime,
-    duration: item.duration,
-  }));
+    sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
+  });
 
-  const freeTimeBlocks = getFreeTimeBlocks(occupiedBlocks, workdayStartTime, workdayEndTime);
-  const totalFreeTimeMinutes = freeTimeBlocks.reduce((sum, block) => sum + block.duration, 0);
-
-  const unscheduledCount = tasksForSelectedDay.filter(task => {
-    if (!task.start_time || !task.end_time) return true; // Tasks without times are unscheduled
-    const taskStart = parseISO(task.start_time);
-    const taskEnd = parseISO(task.end_time);
-    return isBefore(taskEnd, workdayStartTime) || isAfter(taskStart, workdayEndTime);
-  }).length;
+  const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);
+  const totalActiveTimeMins = totalActiveTimeMinutes % 60;
 
   const summary: ScheduleSummary = {
-    totalTasks: scheduledItems.length,
-    activeTime: {
-      hours: Math.floor(totalActiveTimeMinutes / 60),
-      minutes: totalActiveTimeMinutes % 60,
-    },
+    totalTasks: items.length,
+    activeTime: { hours: totalActiveTimeHours, minutes: totalActiveTimeMins },
     breakTime: totalBreakTimeMinutes,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
@@ -776,8 +778,8 @@ export const calculateSchedule = (
   };
 
   return {
-    items: scheduledItems,
+    items: items,
     summary: summary,
-    dbTasks: tasksForSelectedDay,
+    dbTasks: dbTasks,
   };
 };

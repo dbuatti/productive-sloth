@@ -762,6 +762,7 @@ const SchedulerPage: React.FC = () => {
         .filter(task => !task.is_locked && !task.is_completed && !tasksToExclude.includes(task.id))
         .map(task => ({
             ...task,
+            // Ensure duration is a number for sorting, default to 30 if null
             duration: task.duration || 30,
             totalDuration: (task.duration || 30) + (task.break_duration || 0),
         }))
@@ -848,10 +849,67 @@ const SchedulerPage: React.FC = () => {
       const unlockedRetiredTasks = retiredTasks.filter(task => !task.is_locked);
 
       const unifiedPool: UnifiedTask[] = [];
+      const scheduledTaskIdsToDelete: string[] = [];
+      const retiredTaskIdsToDelete: string[] = [];
+      const tasksToInsert: NewDBScheduledTask[] = [];
+      const tasksToKeepInSink: NewRetiredTask[] = []; // Tasks that couldn't be placed
 
-      // Collect tasks based on taskSource
+      // Add existing fixed tasks to tasksToInsert (they are not moved)
+      existingFixedTasks.forEach(task => {
+        tasksToInsert.push({
+          id: task.id,
+          name: task.name,
+          start_time: task.start_time,
+          end_time: task.end_time,
+          break_duration: task.break_duration,
+          scheduled_date: task.scheduled_date,
+          is_critical: task.is_critical,
+          is_flexible: task.is_flexible,
+          is_locked: task.is_locked,
+          energy_cost: task.energy_cost,
+          is_completed: task.is_completed,
+          is_custom_energy_cost: task.is_custom_energy_cost,
+          task_environment: task.task_environment,
+        });
+      });
+
+      // --- CRITICAL FIX: Auto-retire past-due, uncompleted, flexible scheduled tasks ---
+      // This prevents tasks that should have already started/finished from being rescheduled.
+      const pastDueScheduledTasks = flexibleScheduledTasks.filter(task => {
+          if (!task.start_time || task.is_completed) return false;
+          
+          const taskStartTime = parseISO(task.start_time);
+          // Check if the task's start time is before T_current AND it's today's schedule
+          return isSameDay(selectedDayAsDate, T_current) && isBefore(taskStartTime, T_current);
+      });
+
+      pastDueScheduledTasks.forEach(task => {
+          if (!scheduledTaskIdsToDelete.includes(task.id)) {
+              scheduledTaskIdsToDelete.push(task.id);
+              tasksToKeepInSink.push({
+                  user_id: user.id,
+                  name: task.name,
+                  duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
+                  break_duration: task.break_duration,
+                  original_scheduled_date: formattedSelectedDay,
+                  is_critical: task.is_critical,
+                  is_locked: false,
+                  energy_cost: task.energy_cost,
+                  is_completed: false,
+                  is_custom_energy_cost: task.is_custom_energy_cost,
+                  task_environment: task.task_environment,
+              });
+          }
+      });
+      // ---------------------------------------------------------------------------------
+
+      // Filter flexibleScheduledTasks to exclude those already marked for retirement
+      const currentFlexibleScheduledTasks = flexibleScheduledTasks.filter(task => !scheduledTaskIdsToDelete.includes(task.id));
+
+
+      // Collect tasks based on taskSource (now using currentFlexibleScheduledTasks)
       if (taskSource === 'all-flexible') {
-        flexibleScheduledTasks.forEach(task => {
+        currentFlexibleScheduledTasks.forEach(task => { // <-- Use filtered list
           const duration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
           unifiedPool.push({
             id: task.id,
@@ -923,30 +981,6 @@ const SchedulerPage: React.FC = () => {
             // Default to oldest first if no specific sort or for tie-breaking
             return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         }
-      });
-
-      const scheduledTaskIdsToDelete: string[] = [];
-      const retiredTaskIdsToDelete: string[] = [];
-      const tasksToInsert: NewDBScheduledTask[] = [];
-      const tasksToKeepInSink: NewRetiredTask[] = []; // Tasks that couldn't be placed
-
-      // Add existing fixed tasks to tasksToInsert (they are not moved)
-      existingFixedTasks.forEach(task => {
-        tasksToInsert.push({
-          id: task.id,
-          name: task.name,
-          start_time: task.start_time,
-          end_time: task.end_time,
-          break_duration: task.break_duration,
-          scheduled_date: task.scheduled_date,
-          is_critical: task.is_critical,
-          is_flexible: task.is_flexible,
-          is_locked: task.is_locked,
-          energy_cost: task.energy_cost,
-          is_completed: task.is_completed,
-          is_custom_energy_cost: task.is_custom_energy_cost,
-          task_environment: task.task_environment,
-        });
       });
 
       let currentOccupiedBlocks = mergeOverlappingTimeBlocks(existingFixedTasks

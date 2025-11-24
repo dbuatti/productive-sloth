@@ -59,7 +59,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
       <div className="container mx-auto max-w-4xl flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
           {mobileNav} {/* Render mobileNav here */}
-          <img src="/aetherflow-logo.svg" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
+          <img src="/aetherflow-logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
         </div>
         
         {user && (

@@ -44,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ defaultLayout = [20, 80], children })
           "flex h-16 items-center justify-center px-4",
           isCollapsed ? "h-16" : "h-16 px-4"
         )}>
-          <img src="/aetherflow-logo.svg" alt="Logo" className={cn("h-8 w-auto transition-all duration-300", isCollapsed && "h-6")} />
+          <img src="/aetherflow-logo.png" alt="Logo" className={cn("h-8 w-auto transition-all duration-300", isCollapsed && "h-6")} />
           {!isCollapsed && <span className="ml-2 text-base font-bold text-primary">AetherFlow</span>} {/* Changed text-lg to text-base */}
         </div>
         <div className="flex-1 overflow-y-auto py-4">

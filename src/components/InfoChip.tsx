@@ -19,7 +19,7 @@ const InfoChip: React.FC<InfoChipProps> = ({ onClick, isHovered, tooltipContent 
           size="icon"
           onClick={onClick}
           className={cn(
-            "h-7 w-7 rounded-full p-0", // Updated size to h-7 w-7
+            "absolute bottom-2 right-2 h-6 w-6 rounded-full p-0",
             "bg-secondary/50 text-muted-foreground border border-transparent",
             "transition-all duration-200 ease-in-out",
             isHovered ? "opacity-100 scale-100 bg-primary/10 text-primary border-primary/50 shadow-md" : "opacity-0 scale-90 pointer-events-none"

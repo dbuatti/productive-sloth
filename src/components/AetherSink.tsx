@@ -303,20 +303,16 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                     <div 
                       key={task.id} 
                       className={cn(
-                        "relative flex items-start justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out cursor-pointer",
+                        "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out cursor-pointer",
                         isLocked ? "border-primary/70 bg-primary/10" : "",
-                        task.is_completed && "opacity-50 line-through",
-                        "hover:bg-secondary/50 animate-hover-lift"
+                        task.is_completed && "opacity-50 line-through"
                       )}
                       style={{ backgroundColor: isLocked ? undefined : ambientBackgroundColor }}
                       onMouseEnter={() => setHoveredItemId(task.id)}
                       onMouseLeave={() => setHoveredItemId(null)}
                       onClick={(e) => handleTaskItemClick(e, task)}
                     >
-                      
-                      {/* LEFT BLOCK: Completion Button + Text Content */}
-                      <div className="flex items-start space-x-2 flex-grow min-w-0 pr-10">
-                        
+                      <div className="flex items-center space-x-3 flex-grow min-w-0 w-full sm:w-auto">
                         {/* Completion Button */}
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -329,7 +325,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               }}
                               disabled={isLocked || isProcessingCommand}
                               className={cn(
-                                "h-6 w-6 p-0 shrink-0 mt-0.5",
+                                "h-6 w-6 p-0 shrink-0",
                                 (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                               )}
                               style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
@@ -347,9 +343,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                           </TooltipContent>
                         </Tooltip>
 
-                        <div className="flex flex-col items-start min-w-0 flex-grow">
-                          {/* Primary Line: Critical, Emoji, Name, Duration, Energy */}
-                          <div className="flex items-center gap-1 w-full text-sm font-semibold text-foreground">
+                        <div
+                          className={`flex flex-col items-start min-w-0 flex-grow`}
+                        >
+                          <div className="flex items-center gap-1 w-full">
                             {task.is_critical && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -363,31 +360,25 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               </Tooltip>
                             )}
                             <span className="text-base">{emoji}</span>
-                            <span className={cn("truncate flex-grow min-w-0", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
-                            
-                            {/* Duration and Energy (Consolidated, nowrap) */}
-                            <div className="flex items-center gap-2 text-xs font-semibold font-mono whitespace-nowrap shrink-0 ml-auto">
-                              {task.duration && <span className={cn("text-xs", isLocked ? "text-primary/80" : "text-foreground/80")}>({task.duration} min)</span>}
-                              {task.energy_cost !== undefined && task.energy_cost > 0 && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className={cn(
-                                      "flex items-center gap-1 text-xs font-semibold font-mono",
-                                      isLocked ? "text-primary/80" : "text-foreground/80"
-                                    )}>
-                                      {task.energy_cost} <Zap className="h-3 w-3" />
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Energy Cost</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              )}
-                            </div>
+                            <span className={cn("font-semibold truncate", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
                           </div>
-                          
-                          {/* Secondary Line: Original Date */}
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                            {task.duration && <span className={cn("text-xs", isLocked ? "text-primary/80" : "text-foreground/80")}>({task.duration} min)</span>}
+                            {task.energy_cost !== undefined && task.energy_cost > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className={cn(
+                                    "flex items-center gap-1 text-xs font-semibold font-mono",
+                                    isLocked ? "text-primary/80" : "text-foreground/80"
+                                  )}>
+                                    {task.energy_cost} <Zap className="h-3 w-3" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Energy Cost</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <span className="text-xs italic text-muted-foreground">
                               Original Date: {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
                             </span>
@@ -395,20 +386,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                         </div>
                       </div>
                       
-                      {/* RIGHT BLOCK: Action Buttons (Vertical Stack, Absolute Positioned) */}
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-end gap-1">
-                        
-                        {/* Info Chip (Always visible on hover, positioned at the top of the stack) */}
-                        <InfoChip 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleInfoChipClick(task);
-                            }}
-                            isHovered={hoveredItemId === task.id} 
-                            tooltipContent="View/Edit Details"
-                        />
-
-                        {/* Lock/Unlock Button */}
+                      {/* Action Buttons Group (Right side, stacks below on mobile) */}
+                      <div className="flex items-center gap-1 ml-auto shrink-0 mt-2 sm:mt-0">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
@@ -420,9 +399,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               }}
                               disabled={isProcessingCommand}
                               className={cn(
-                                "h-7 w-7 p-0 shrink-0 transition-opacity duration-200",
-                                isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20"),
-                                hoveredItemId === task.id ? "opacity-100" : "opacity-0"
+                                "h-7 w-7 p-0 shrink-0",
+                                isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20")
                               )}
                               style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                             >
@@ -435,7 +413,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                           </TooltipContent>
                         </Tooltip>
 
-                        {/* Rezone Button */}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
@@ -447,9 +424,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               }}
                               disabled={isLocked || isProcessingCommand || task.is_completed}
                               className={cn(
-                                "h-7 w-7 text-primary hover:bg-primary/10 transition-opacity duration-200",
-                                (isLocked || isProcessingCommand || task.is_completed) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent",
-                                hoveredItemId === task.id ? "opacity-100" : "opacity-0"
+                                "h-7 w-7 text-primary hover:bg-primary/10",
+                                (isLocked || isProcessingCommand || task.is_completed) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
                               style={(isLocked || isProcessingCommand || task.is_completed) ? { pointerEvents: 'auto' } : undefined}
                             >
@@ -461,8 +437,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             <p>{isLocked ? "Unlock to Re-zone" : (task.is_completed ? "Task Completed" : "Re-zone to schedule")}</p>
                           </TooltipContent>
                         </Tooltip>
-                        
-                        {/* Delete Button */}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
@@ -474,9 +448,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               }}
                               disabled={isLocked || isProcessingCommand}
                               className={cn(
-                                "h-7 w-7 text-destructive hover:bg-destructive/20 transition-opacity duration-200",
-                                (isLocked || isProcessingCommand) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent",
-                                hoveredItemId === task.id ? "opacity-100" : "opacity-0"
+                                "h-7 w-7 text-destructive hover:bg-destructive/20",
+                                (isLocked || isProcessingCommand) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
                               style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                             >
@@ -489,6 +462,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                           </TooltipContent>
                         </Tooltip>
                       </div>
+                      <InfoChip 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInfoChipClick(task);
+                        }}
+                        isHovered={hoveredItemId === task.id} 
+                      />
                     </div>
                   );
                 })}

@@ -37,18 +37,18 @@ const getBubbleHeightStyle = (duration: number) => {
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   switch (environment) {
     case 'home':
-      return <Home className="h-5 w-5 text-logo-green" />; // Increased size
+      return <Home className="h-4 w-4 text-logo-green" />; // Reduced size
     case 'laptop':
-      return <Laptop className="h-5 w-5 text-primary" />; // Increased size
+      return <Laptop className="h-4 w-4 text-primary" />; // Reduced size
     case 'away':
-      return <Globe className="h-5 w-5 text-logo-orange" />; // Increased size
+      return <Globe className="h-4 w-4 text-logo-orange" />; // Reduced size
     case 'piano':
-      return <Music className="h-5 w-5 text-accent" />; // Increased size
+      return <Music className="h-4 w-4 text-accent" />; // Reduced size
     case 'laptop_piano':
       return (
         <div className="relative">
-          <Laptop className="h-5 w-5 text-primary" /> {/* Increased size */}
-          <Music className="h-3 w-3 absolute -bottom-0.5 -right-0.5 text-accent" /> {/* Increased size */}
+          <Laptop className="h-4 w-4 text-primary" /> {/* Reduced size */}
+          <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 text-accent" /> {/* Reduced size */}
         </div>
       );
     default:
@@ -149,8 +149,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     const firstRenderedItem = filteredItems[0];
     const lastRenderedItem = filteredItems[filteredItems.length - 1];
 
-    const actualStartTime = firstRenderedItem ? ('time' in firstRenderedItem ? firstRenderedItem.time : firstRenderedItem.startTime) : startOfTemplate;
-    const actualEndTime = lastRenderedItem ? ('time' in lastRenderedItem ? lastRenderedItem.time : lastRenderedItem.endTime) : endOfTemplate;
+    const actualStartTime = firstRenderedItem ? ('time' in firstRenderedItem ? firstItemStartTime : firstRenderedItem.startTime) : startOfTemplate;
+    const actualEndTime = lastRenderedItem ? ('time' in lastRenderedItem ? lastItemEndTime : lastRenderedItem.endTime) : endOfTemplate;
 
     return {
         finalDisplayItems: filteredItems,
@@ -311,7 +311,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div
             id={`scheduled-item-${scheduledItem.id}`}
             className={cn(
-              "relative flex flex-col justify-center gap-2 p-4 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", // Increased padding and gap
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", // Reduced padding and gap
               "border-2",
               isHighlightedBySession ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" :
@@ -339,7 +339,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
             <div className="relative z-10 flex flex-col w-full">
               
-              {/* Row 1: Title, Completion, and Action Buttons */}
+              {/* Row 1: Title, Completion, and Action Buttons (Condensed Metadata) */}
               <div className="flex items-start justify-between w-full">
                 {/* Completion Button (Left) */}
                 {dbTask && !isBreak && !isTimeOff && !isCompleted && (
@@ -354,12 +354,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         }}
                         disabled={isLocked}
                         className={cn(
-                          "h-9 w-9 p-0 shrink-0 mr-2 mt-0.5", // Increased size
+                          "h-7 w-7 p-0 shrink-0 mr-2 mt-0.5", // Reduced size
                           isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                         )}
                         style={isLocked ? { pointerEvents: 'auto' } : undefined}
                       >
-                        <CheckCircle className="h-6 w-6" /> {/* Increased icon size */}
+                        <CheckCircle className="h-5 w-5" /> {/* Reduced size */}
                         <span className="sr-only">Complete task</span>
                       </Button>
                     </TooltipTrigger>
@@ -369,12 +369,57 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   </Tooltip>
                 )}
 
-                {/* Task Name */}
+                {/* Task Name & Condensed Metadata */}
                 <span className={cn(
                   "text-base flex-grow min-w-0 pr-2", // Increased font size
                   isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
                 )}>
-                  <span className="font-bold truncate block text-lg">{scheduledItem.name}</span> {/* Increased font size */}
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold truncate block text-lg">{scheduledItem.name}</span> {/* Increased font size */}
+                    
+                    {/* Energy Cost */}
+                    {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className={cn(
+                                    "flex items-center gap-1 font-semibold font-mono text-xs px-1 py-0.5 rounded-sm",
+                                    isTimeOff ? "text-logo-green/80 bg-logo-green/20" : "text-[hsl(var(--always-light-text))] opacity-80 bg-white/10"
+                                )}>
+                                    {scheduledItem.energyCost} <Zap className="h-3 w-3" />
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Energy Cost</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+
+                    {/* Critical Badge */}
+                    {scheduledItem.isCritical && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
+                                    <Star className="h-3 w-3" strokeWidth={2.5} />
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Critical Task</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+                    
+                    {/* Environment Icon */}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="h-5 w-5 flex items-center justify-center shrink-0">
+                                {getEnvironmentIcon(scheduledItem.taskEnvironment)}
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Environment: {scheduledItem.taskEnvironment.charAt(0).toUpperCase() + scheduledItem.taskEnvironment.slice(1)}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </span>
 
                 {/* Action Buttons (Right) */}
@@ -391,12 +436,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           }}
                           disabled={isProcessingCommand}
                           className={cn(
-                            "h-9 w-9 p-0 shrink-0", // Increased size
+                            "h-7 w-7 p-0 shrink-0", // Reduced size
                             isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                           )}
                           style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                         >
-                          {isLocked ? <Lock className="h-6 w-6" /> : <Unlock className="h-6 w-6" />} {/* Increased icon size */}
+                          {isLocked ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />} {/* Reduced size */}
                           <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
                         </Button>
                       </TooltipTrigger>
@@ -418,12 +463,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           }}
                           disabled={isLocked || isProcessingCommand}
                           className={cn(
-                            "h-9 w-9 p-0 shrink-0", // Increased size
+                            "h-7 w-7 p-0 shrink-0", // Reduced size
                             (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                           )}
                           style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                         >
-                          <Archive className="h-6 w-6" /> {/* Increased icon size */}
+                          <Archive className="h-5 w-5" /> {/* Reduced size */}
                           <span className="sr-only">Retire task</span>
                         </Button>
                       </TooltipTrigger>
@@ -443,12 +488,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         }}
                         disabled={isLocked || isProcessingCommand}
                         className={cn(
-                          "h-9 w-9 p-0 shrink-0", // Increased size
+                          "h-7 w-7 p-0 shrink-0", // Reduced size
                           (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                         )}
                         style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                       >
-                        <Trash className="h-6 w-6" /> {/* Increased icon size */}
+                        <Trash className="h-5 w-5" /> {/* Reduced size */}
                         <span className="sr-only">Remove task</span>
                       </Button>
                     </TooltipTrigger>
@@ -459,12 +504,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 </div>
               </div>
 
-              {/* Row 2: Metadata (Time, Duration, Energy, Critical, Environment) */}
+              {/* Row 2: Metadata (Time Range, Duration, Missed Badge) */}
               <div className="flex items-center justify-between w-full mt-1 text-sm">
                   <div className="flex items-center gap-3">
                       {/* Time Range */}
                       <span className={cn(
-                          "font-semibold font-mono text-base", // Increased font size slightly
+                          "font-semibold font-mono text-xs", // Reduced font size
                           isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
                       )}>
                           {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
@@ -472,7 +517,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       
                       {/* Duration */}
                       <span className={cn(
-                          "font-semibold opacity-80 text-sm",
+                          "font-semibold opacity-80 text-xs", // Reduced font size
                           isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
                       )}>
                           ({scheduledItem.duration} min)
@@ -480,63 +525,20 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                      {/* Energy Cost */}
-                      {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && (
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <span className={cn(
-                                      "flex items-center gap-1 font-semibold font-mono text-sm",
-                                      isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
-                                  )}>
-                                      {scheduledItem.energyCost} <Zap className="h-4 w-4" />
-                                  </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                  <p>Energy Cost</p>
-                              </TooltipContent>
-                          </Tooltip>
-                      )}
-
-                      {/* Critical Badge */}
-                      {scheduledItem.isCritical && (
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <div className="relative flex items-center justify-center h-5 w-5 rounded-full bg-logo-yellow text-white shrink-0">
-                                      <Star className="h-4 w-4" strokeWidth={2.5} />
-                                  </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                  <p>Critical Task</p>
-                              </TooltipContent>
-                          </Tooltip>
-                      )}
-                      
                       {/* Missed Badge */}
                       {isMissed && (
-                          <Badge variant="destructive" className="px-2 py-0.5 text-sm font-semibold">
+                          <Badge variant="destructive" className="px-2 py-0.5 text-xs font-semibold">
                               MISSED
                           </Badge>
                       )}
-                      
-                      {/* Environment Icon */}
-                      <Tooltip>
-                          <TooltipTrigger asChild>
-                              <div className="h-7 w-7 flex items-center justify-center shrink-0">
-                                  {getEnvironmentIcon(scheduledItem.taskEnvironment)}
-                              </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                              <p>Environment: {scheduledItem.taskEnvironment.charAt(0).toUpperCase() + scheduledItem.taskEnvironment.slice(1)}</p>
-                          </TooltipContent>
-                      </Tooltip>
                   </div>
               </div>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
-              <p className={cn("relative z-10 text-base mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Increased font size
+              <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Reduced font size
             )}
             {isTimeOff && (
-              <p className={cn("relative z-10 text-base mt-1 text-logo-green/80")}>This block is reserved for personal time.</p> // Increased font size
+              <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>This block is reserved for personal time.</p> // Reduced font size
             )}
 
             {isActive && (

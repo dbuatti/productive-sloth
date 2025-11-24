@@ -22,10 +22,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import CustomMenuIcon from './CustomMenuIcon';
 
 interface AppHeaderProps {
-  onMenuToggle: () => void; 
+  // Removed onMenuToggle prop
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
+const AppHeader: React.FC<AppHeaderProps> = () => {
   const { user, profile } = useSession();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -50,43 +50,40 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
   
   const secondaryIdentifier = userId ? `#${userId.substring(0, 8)}` : userEmail;
 
-  const visibleFirstName = profile?.first_name || getDisplayNameFromEmail(userEmail).split(' ')[0];
-
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-5xl flex items-center justify-between h-16 px-4">
         
-        {/* Left side: Persistent Hamburger Menu */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Left side: Mobile Menu Toggle (Now redirects to settings/dashboard since the drawer is gone) */}
+        <div className="flex items-center gap-2 shrink-0 lg:hidden">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={onMenuToggle}
-                // Custom styling to match Gemini icon: circular, primary color, subtle background
+                onClick={() => navigate('/')} // Redirect to dashboard on mobile menu click
                 className="h-10 w-10 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200"
               >
                 <CustomMenuIcon />
-                <span className="sr-only">Toggle Navigation Menu</span>
+                <span className="sr-only">Go to Dashboard</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Toggle Navigation Menu</p>
+              <p>Go to Dashboard</p>
             </TooltipContent>
           </Tooltip>
         </div>
 
-        {/* Center: Logo/Title (Visually centered on mobile) */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
+        {/* Center: Logo/Title (Only visible on mobile) */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center lg:hidden">
           <img src="/aetherflow-logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
         </div>
         
-        {/* Right side: User Controls */}
+        {/* Right side: User Controls (Only visible on mobile/small screens) */}
         {user && (
-          <div className="flex items-center space-x-2 shrink-0">
-            {/* Daily Challenge Claim Button and Daily Streak Display - Hidden on mobile */}
-            <div className="hidden sm:flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0 lg:hidden">
+            {/* Daily Challenge Claim Button and Daily Streak Display */}
+            <div className="flex items-center space-x-2">
               <DailyChallengeClaimButton />
 
               {profile && profile.daily_streak > 0 && (
@@ -103,9 +100,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
                 </Tooltip>
               )}
             </div>
-
-            {/* Removed: User's first name display */}
-            {/* Removed: Dedicated Settings button */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -132,7 +126,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 
-                {/* Settings option remains accessible here */}
                 <DropdownMenuItem onClick={handleGoToSettings} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>

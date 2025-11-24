@@ -2055,7 +2055,7 @@ const SchedulerPage: React.FC = () => {
                 isLoading={overallLoading} 
                 inputValue={inputValue}
                 setInputValue={setInputValue}
-                placeholder={`Add task (e.g., 'Gym 60', 'Meeting 11am-12pm' [fixed by time]) or command (e.g., 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', 'aether dump', 'aether dump mega')`}
+                placeholder={`Add task (e.g., 'Gym 60') or command`}
                 onDetailedInject={handleAddTaskClick}
               />
               <p className="text-xs text-muted-foreground">
@@ -2144,6 +2144,7 @@ const SchedulerPage: React.FC = () => {
                       selectedDayString={selectedDay} 
                       onAddTaskClick={handleAddTaskClick}
                       onScrollToItem={handleScrollToItem} // NEW: Pass scroll function
+                      isProcessingCommand={isProcessingCommand} // PASSING PROP
                     />
                   )}
                 </CardContent>

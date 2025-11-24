@@ -56,8 +56,9 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
 
   return (
     <Card className="animate-pop-in animate-hover-lift">
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 gap-3">
+        {/* Primary Utility Group (Recharge, Breaks, Compact, Sort, Quick Block) */}
+        <div className="flex flex-wrap items-center gap-2">
           {/* Energy Recharge Button */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -208,7 +209,8 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
           </DropdownMenu>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Secondary Utility Group (Zone Focus, Settings) */}
+        <div className="flex items-center gap-2 sm:ml-auto">
           {/* NEW: Zone Focus Button */}
           <Tooltip>
             <TooltipTrigger asChild>

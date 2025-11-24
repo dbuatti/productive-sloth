@@ -117,7 +117,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
         {!hideTitle && (
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
-              <Trash2 className="h-5 w-5" /> The Aether Sink ({retiredTasks.length} Retired Task{retiredTasks.length !== 1 ? 's' : ''})
+              <Trash2 className="h-5 w-5" /> <span className="hidden sm:inline">The Aether Sink</span> <span className="sm:hidden">Sink</span> ({retiredTasks.length})
             </CardTitle>
             <div className="flex items-center gap-2">
               {/* NEW: Backup Now Button */}
@@ -243,7 +243,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                     ) : (
                       <Sparkles className="h-4 w-4" />
                     )}
-                    <span>Auto Schedule</span>
+                    <span className="hidden sm:inline">Auto Schedule</span>
+                    <span className="sm:hidden">Auto</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -297,25 +298,22 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   const emoji = assignEmoji(task.name);
                   const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
                   const isLocked = task.is_locked;
-                  // Removed isCriticalAwaitingEnergy as it's no longer a blocking condition for re-zoning
-                  // Removed isInsufficientEnergyForCompletion as it's no longer a blocking condition for completion
 
                   return (
                     <div 
                       key={task.id} 
                       className={cn(
-                        "relative flex items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out cursor-pointer",
+                        "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out cursor-pointer",
                         isLocked ? "border-primary/70 bg-primary/10" : "",
-                        // Removed isCriticalAwaitingEnergy styling
                         task.is_completed && "opacity-50 line-through"
                       )}
-                      style={{ backgroundColor: isLocked ? undefined : ambientBackgroundColor }} // Adjusted styling
+                      style={{ backgroundColor: isLocked ? undefined : ambientBackgroundColor }}
                       onMouseEnter={() => setHoveredItemId(task.id)}
                       onMouseLeave={() => setHoveredItemId(null)}
                       onClick={(e) => handleTaskItemClick(e, task)}
                     >
-                      <div className="flex items-center space-x-3 flex-grow min-w-0">
-                        {/* Replaced Checkbox with Button containing CheckCircle */}
+                      <div className="flex items-center space-x-3 flex-grow min-w-0 w-full sm:w-auto">
+                        {/* Completion Button */}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
@@ -325,12 +323,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 e.stopPropagation();
                                 handleToggleComplete(task);
                               }}
-                              disabled={isLocked || isProcessingCommand} // Removed isInsufficientEnergyForCompletion
+                              disabled={isLocked || isProcessingCommand}
                               className={cn(
                                 "h-6 w-6 p-0 shrink-0",
-                                (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20" // Removed isInsufficientEnergyForCompletion
+                                (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                               )}
-                              style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined} // Removed isInsufficientEnergyForCompletion
+                              style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                             >
                               <CheckCircle className="h-4 w-4" />
                               <span className="sr-only">{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</span>
@@ -339,7 +337,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                           <TooltipContent>
                             {isLocked ? (
                               <p>Unlock to Change Completion Status</p>
-                            ) : ( // Removed isInsufficientEnergyForCompletion condition
+                            ) : (
                               <p>{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</p>
                             )}
                           </TooltipContent>
@@ -363,6 +361,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             )}
                             <span className="text-base">{emoji}</span>
                             <span className={cn("font-semibold truncate", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
                             {task.duration && <span className={cn("text-xs", isLocked ? "text-primary/80" : "text-foreground/80")}>({task.duration} min)</span>}
                             {task.energy_cost !== undefined && task.energy_cost > 0 && (
                               <Tooltip>
@@ -379,16 +379,15 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-xs italic text-muted-foreground">
-                              Originally for {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
+                              Original Date: {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
                             </span>
-                            {/* Removed isCriticalAwaitingEnergy badge */}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 ml-auto shrink-0">
+                      
+                      {/* Action Buttons Group (Right side, stacks below on mobile) */}
+                      <div className="flex items-center gap-1 ml-auto shrink-0 mt-2 sm:mt-0">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
@@ -423,19 +422,19 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 e.stopPropagation();
                                 onRezoneTask(task);
                               }}
-                              disabled={isLocked || isProcessingCommand || task.is_completed} // Removed isCriticalAwaitingEnergy
+                              disabled={isLocked || isProcessingCommand || task.is_completed}
                               className={cn(
                                 "h-7 w-7 text-primary hover:bg-primary/10",
-                                (isLocked || isProcessingCommand || task.is_completed) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent" // Removed isCriticalAwaitingEnergy
+                                (isLocked || isProcessingCommand || task.is_completed) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
-                              style={(isLocked || isProcessingCommand || task.is_completed) ? { pointerEvents: 'auto' } : undefined} // Removed isCriticalAwaitingEnergy
+                              style={(isLocked || isProcessingCommand || task.is_completed) ? { pointerEvents: 'auto' } : undefined}
                             >
                               <RotateCcw className="h-4 w-4" />
                               <span className="sr-only">Rezone</span>
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{isLocked ? "Unlock to Re-zone" : (task.is_completed ? "Task Completed" : "Re-zone to schedule")}</p> {/* Updated tooltip */}
+                            <p>{isLocked ? "Unlock to Re-zone" : (task.is_completed ? "Task Completed" : "Re-zone to schedule")}</p>
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>

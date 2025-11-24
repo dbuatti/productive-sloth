@@ -39,8 +39,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
     { to: "/scheduler", icon: Clock, label: "Scheduler" },
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
     { to: "/achievements", icon: Trophy, label: "Achievements" },
-    { to: "/settings", icon: Settings, label: "Settings" },
-    { to: "/documentation", icon: BookOpen, label: "Documentation" }, // Added Documentation page link
+    { to: "/documentation", icon: BookOpen, label: "Documentation" }, // Settings removed
   ];
 
   return (

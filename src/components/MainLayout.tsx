@@ -16,7 +16,7 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
   const location = useLocation();
-  const { activeItemToday, profile } = useSession(); // NEW: Get profile from useSession
+  const { activeItemToday, profile } = useSession(); // NEW: Get profile
 
   // Attempt to read default layout from cookie
   const defaultLayout = React.useMemo(() => {

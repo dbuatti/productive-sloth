@@ -20,7 +20,7 @@ const AchievementsPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <h1 className="text-2xl font-bold text-foreground animate-slide-in-up">Achievements</h1> {/* Changed text-3xl to text-2xl */}
       <Card className="animate-pop-in animate-hover-lift"> {/* Added animate-hover-lift */}
         <CardHeader>

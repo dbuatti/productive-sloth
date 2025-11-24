@@ -235,7 +235,7 @@ const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl space-y-8 animate-slide-in-up">
+    <div className="mx-auto max-w-5xl space-y-8 animate-slide-in-up">
       <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
         <Settings className="h-7 w-7 text-primary" /> Settings
       </h1>

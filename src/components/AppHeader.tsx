@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, Settings, Flame, Menu } from 'lucide-react'; // Import Menu icon
+import { LogOut, Settings, Flame, Menu } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/hooks/use-session';
@@ -18,10 +18,11 @@ import DailyChallengeClaimButton from './DailyChallengeClaimButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile
+import { useIsMobile } from '@/hooks/use-mobile'; 
+import CustomMenuIcon from './CustomMenuIcon';
 
 interface AppHeaderProps {
-  onMenuToggle: () => void; // NEW: Handler to open the navigation drawer
+  onMenuToggle: () => void; 
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
@@ -63,9 +64,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
                 variant="ghost" 
                 size="icon" 
                 onClick={onMenuToggle}
-                className="h-10 w-10 text-muted-foreground hover:text-primary transition-transform duration-200 hover:scale-110"
+                // Custom styling to match Gemini icon: circular, primary color, subtle background
+                className="h-10 w-10 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200"
               >
-                <Menu className="h-6 w-6" />
+                <CustomMenuIcon />
                 <span className="sr-only">Toggle Navigation Menu</span>
               </Button>
             </TooltipTrigger>

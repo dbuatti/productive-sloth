@@ -340,7 +340,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             <div className="relative z-10 flex flex-col w-full">
               
               {/* Row 1: Completion Button (Left) and Task Name/Metadata (Right) */}
-              <div className="flex items-start justify-between w-full">
+              <div className="flex items-center justify-between w-full"> {/* CHANGED items-start to items-center */}
                 {/* Completion Button (Left) */}
                 {dbTask && !isBreak && !isTimeOff && !isCompleted && (
                   <Tooltip>
@@ -354,7 +354,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         }}
                         disabled={isLocked}
                         className={cn(
-                          "h-7 w-7 p-0 shrink-0 mr-2", // Removed mt-0.5
+                          "h-7 w-7 p-0 shrink-0 mr-2", 
                           isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                         )}
                         style={isLocked ? { pointerEvents: 'auto' } : undefined}

@@ -104,26 +104,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
               )}
             </div>
 
-            <span className="text-sm font-medium hidden sm:inline-block">
-              {visibleFirstName}
-            </span>
-
-            {/* Always visible Settings button - now navigates */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 transition-transform duration-200 hover:scale-110"
-                  onClick={handleGoToSettings}
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Profile Settings</p>
-              </TooltipContent>
-            </Tooltip>
+            {/* Removed: User's first name display */}
+            {/* Removed: Dedicated Settings button */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -150,7 +132,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 
-                {/* Settings option in dropdown - now navigates */}
+                {/* Settings option remains accessible here */}
                 <DropdownMenuItem onClick={handleGoToSettings} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>

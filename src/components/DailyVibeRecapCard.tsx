@@ -56,12 +56,12 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
 
   return (
     <Card className="animate-pop-in animate-hover-lift">
-      <CardHeader className="pb-2">
+      <CardHeader className="px-4 pb-2 pt-4">
         <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
           <Sparkles className="h-6 w-6 text-logo-yellow" /> Daily Vibe Recap for {format(new Date(selectedDayString), 'EEEE, MMMM d')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="p-4 space-y-6">
         <div className="text-center text-xl font-semibold text-foreground animate-pulse-text"> {/* Increased font size */}
           "{compliment}"
         </div>

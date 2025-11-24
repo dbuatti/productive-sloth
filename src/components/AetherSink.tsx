@@ -136,7 +136,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
   return (
     <>
       <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
-        <CardHeader className={cn("pb-2 flex flex-row items-center justify-between", hideTitle ? "pt-4" : "pt-6")}>
+        <CardHeader className={cn("pb-2 flex flex-row items-center justify-between px-4", hideTitle ? "pt-4" : "pt-6")}>
           <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
             <Trash2 className="h-5 w-5" /> 
             {!hideTitle && <span className="hidden sm:inline">The Aether Sink</span>}
@@ -280,7 +280,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
         
         <div className={cn(hideTitle ? "pt-0" : "pt-2")}>
           {!hideTitle && <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />}
-          <CardContent className="space-y-4"> {/* Increased spacing */}
+          <CardContent className="p-4 space-y-4"> {/* Standardized padding to p-4 */}
             <form onSubmit={handleAddSinkTask} className="flex gap-2 w-full pt-2">
               <Input
                 type="text"

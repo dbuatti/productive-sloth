@@ -9,8 +9,9 @@ import EnergyDeficitWarning from './EnergyDeficitWarning';
 import Sidebar from './Sidebar'; 
 import { Sheet, SheetContent } from '@/components/ui/sheet'; 
 import Navigation from './Navigation'; 
-import BottomNavigationBar from './BottomNavigationBar'; // NEW IMPORT
-import { cn } from '@/lib/utils'; // Import cn
+import BottomNavigationBar from './BottomNavigationBar';
+import MobileStatusIndicator from './MobileStatusIndicator'; // NEW IMPORT
+import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -36,7 +37,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const mainContent = (
     <main className={cn(
       "flex flex-1 flex-col gap-4 p-4 overflow-auto",
-      isMobile && "pb-20" // Add padding for the fixed bottom navigation bar (h-16 + some margin)
+      // Dynamic padding: pb-28 (112px) if status indicator is active (104px total fixed height), pb-20 (80px) otherwise (64px fixed height)
+      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "") 
     )}>
       {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
       {children}
@@ -75,9 +77,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         {/* Page Content */}
         {mainContent}
 
+        {/* Desktop Focus Anchor (Hidden on mobile) */}
         {shouldShowFocusAnchor && <FocusAnchor />}
       </div>
       
+      {/* NEW: Mobile Status Indicator (Above Bottom Nav) */}
+      {isMobile && activeItemToday && <MobileStatusIndicator />}
+
       {/* NEW: Bottom Navigation Bar for Mobile */}
       {isMobile && <BottomNavigationBar />}
     </div>

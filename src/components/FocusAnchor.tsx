@@ -8,14 +8,12 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Clock, Zap, Coffee } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile
 
 const FocusAnchor: React.FC = () => {
-  const { activeItemToday, T_current } = useSession(); // T_current is not in useSession, need to get it from a global state or pass it.
-  // Correction: T_current is internal to SessionProvider. I need to pass it to the context.
-  // For now, I'll use a local T_current for the anchor, or assume SessionProvider will expose it.
-  // Let's assume SessionProvider exposes T_current for now. If not, I'll add it.
-  // Re-checking SessionProvider: T_current is NOT exposed. I will add it to SessionContextType.
-
+  const { activeItemToday, T_current } = useSession(); 
+  
+  // Use local T_current for anchor timing if SessionProvider doesn't expose it (it does now, but keeping the local timer for robustness if needed)
   const [localT_current, setLocalT_current] = useState(new Date());
   useEffect(() => {
     const interval = setInterval(() => {
@@ -26,6 +24,7 @@ const FocusAnchor: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile(); // Check if mobile
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   const updateRemaining = useCallback(() => {
@@ -56,7 +55,8 @@ const FocusAnchor: React.FC = () => {
     return () => clearInterval(interval);
   }, [updateRemaining]);
 
-  if (!activeItemToday || location.pathname === '/scheduler') {
+  // Hide if on scheduler page OR if on mobile
+  if (!activeItemToday || location.pathname === '/scheduler' || isMobile) {
     return null;
   }
 

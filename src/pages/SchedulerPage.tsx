@@ -1090,6 +1090,39 @@ const SchedulerPage: React.FC = () => {
     }
   }, [user, profile, dbScheduledTasks, retiredTasks, selectedDayAsDate, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD]);
 
+  const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to sort tasks.");
+      return;
+    }
+
+    // If schedule is empty, treat it as a sink-only auto-schedule
+    if (dbScheduledTasks.length === 0) {
+      await handleAutoScheduleAndSort(newSortBy, 'sink-only');
+    } else {
+      // If schedule is not empty, re-balance existing flexible tasks and potentially pull from sink
+      await handleAutoScheduleAndSort(newSortBy, 'all-flexible');
+    }
+  }, [user, profile, dbScheduledTasks.length, handleAutoScheduleAndSort]);
+
+  const handleZoneFocus = useCallback(async () => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to use Zone Focus.");
+      return;
+    }
+    // Pass selectedEnvironments to filter by
+    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', selectedEnvironments);
+  }, [user, profile, selectedEnvironments, handleAutoScheduleAndSort]);
+
+  const handleAutoScheduleSinkWrapper = useCallback(async () => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to auto-schedule.");
+      return;
+    }
+    // Auto-schedule from sink, default sort by priority high to low
+    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only');
+  }, [user, profile, handleAutoScheduleAndSort]);
+
   const handleCommand = async (input: string) => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to use the scheduler.");
@@ -1587,42 +1620,6 @@ const SchedulerPage: React.FC = () => {
     }
   }, [user, retireTask, queryClient]);
   
-  // UPDATED: handleZoneFocus now calls the generic auto-schedule function
-  const handleZoneFocus = useCallback(async () => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to use Zone Focus.");
-      return;
-    }
-    // Pass selectedEnvironments to filter by
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', selectedEnvironments);
-  }, [user, profile, selectedEnvironments, handleAutoScheduleAndSort]);
-
-  // UPDATED: handleSortFlexibleTasks now calls the generic auto-schedule function
-  const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to sort tasks.");
-      return;
-    }
-
-    // If schedule is empty, treat it as a sink-only auto-schedule
-    if (dbScheduledTasks.length === 0) {
-      await handleAutoScheduleAndSort(newSortBy, 'sink-only');
-    } else {
-      // If schedule is not empty, re-balance existing flexible tasks and potentially pull from sink
-      await handleAutoScheduleAndSort(newSortBy, 'all-flexible');
-    }
-  }, [user, profile, dbScheduledTasks.length, handleAutoScheduleAndSort]);
-
-  // UPDATED: handleAutoScheduleSinkWrapper now calls the generic auto-schedule function
-  const handleAutoScheduleSinkWrapper = useCallback(async () => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to auto-schedule.");
-      return;
-    }
-    // Auto-schedule from sink, default sort by priority high to low
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only');
-  }, [user, profile, handleAutoScheduleAndSort]);
-
   const handleRandomizeBreaks = async () => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
@@ -1715,6 +1712,7 @@ const SchedulerPage: React.FC = () => {
           setTaskToCompleteInDeficitIndex(index);
           setShowEnergyDeficitConfirmation(true);
           modalOpened = true;
+          setIsFocusModeActive(false); // Exit focus mode to show dialog
           setIsProcessingCommand(false);
           return;
         }
@@ -1739,6 +1737,7 @@ const SchedulerPage: React.FC = () => {
             setEarlyCompletionDbTask(task);
             setShowEarlyCompletionModal(true);
             modalOpened = true;
+            setIsFocusModeActive(false); // Exit focus mode to show dialog
             setIsProcessingCommand(false); 
             return;
         } else {
@@ -1813,6 +1812,7 @@ const SchedulerPage: React.FC = () => {
         showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
+        setIsFocusModeActive(false);
       } else if (action === 'startNext') {
         if (!nextItemToday) {
           showError("No next task available to start early.");
@@ -1887,6 +1887,7 @@ const SchedulerPage: React.FC = () => {
 
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
+        setIsFocusModeActive(false);
       } else if (action === 'justFinish') {
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
@@ -2010,35 +2011,16 @@ const SchedulerPage: React.FC = () => {
     <Drawer>
       <DrawerTrigger asChild>
         <Button variant="outline" className="w-full flex items-center gap-2 mt-4 animate-pop-in animate-hover-lift">
-          <Menu className="h-5 w-5" /> More Controls & Sink
+          <Trash2 className="h-5 w-5" /> View Aether Sink ({retiredTasks.length})
         </Button>
       </DrawerTrigger>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader>
-          <DrawerTitle className="text-xl">Scheduler Utilities</DrawerTitle>
+          <DrawerTitle className="text-xl flex items-center gap-2">
+            <Trash2 className="h-6 w-6 text-muted-foreground" /> The Aether Sink
+          </DrawerTitle>
         </DrawerHeader>
         <div className="p-4 overflow-y-auto space-y-6">
-          <SchedulerDashboardPanel 
-            scheduleSummary={currentSchedule?.summary || null} 
-            onAetherDump={handleAetherDumpButton}
-            isProcessingCommand={isProcessingCommand}
-            hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
-            onRefreshSchedule={handleRefreshSchedule}
-          />
-          <SchedulerUtilityBar 
-            isProcessingCommand={isProcessingCommand}
-            hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-            dbScheduledTasks={dbScheduledTasks}
-            onRechargeEnergy={() => rechargeEnergy()}
-            onRandomizeBreaks={handleRandomizeBreaks}
-            onSortFlexibleTasks={handleSortFlexibleTasks}
-            onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-            sortBy={sortBy}
-            onCompactSchedule={handleCompactSchedule}
-            onQuickScheduleBlock={handleQuickScheduleBlock}
-            retiredTasksCount={retiredTasks.length}
-            onZoneFocus={handleZoneFocus}
-          />
           <AetherSink 
             retiredTasks={retiredTasks} 
             onRezoneTask={handleRezoneFromSink} 
@@ -2046,19 +2028,10 @@ const SchedulerPage: React.FC = () => {
             onAutoScheduleSink={handleAutoScheduleSinkWrapper}
             isLoading={isLoadingRetiredTasks}
             isProcessingCommand={isProcessingCommand}
-            hideTitle={false}
+            hideTitle={true}
             profileEnergy={profile?.energy || 0}
             retiredSortBy={retiredSortBy} 
             setRetiredSortBy={setRetiredSortBy} 
-          />
-          <DailyVibeRecapCard
-            scheduleSummary={currentSchedule?.summary || null}
-            tasksCompletedToday={tasksCompletedForSelectedDay}
-            xpEarnedToday={xpEarnedForSelectedDay}
-            profileEnergy={profile?.energy || 0}
-            criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
-            selectedDayString={selectedDay}
-            completedScheduledTasks={completedScheduledTasksForRecap}
           />
         </div>
       </DrawerContent>
@@ -2278,7 +2251,19 @@ const SchedulerPage: React.FC = () => {
                   )}
                 </CardContent>
               </Card>
-              {mobileControls}
+              
+              {/* Daily Vibe Recap Card (Visible in main mobile flow) */}
+              <DailyVibeRecapCard
+                scheduleSummary={currentSchedule?.summary || null}
+                tasksCompletedToday={tasksCompletedForSelectedDay}
+                xpEarnedToday={xpEarnedForSelectedDay}
+                profileEnergy={profile?.energy || 0}
+                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
+                selectedDayString={selectedDay}
+                completedScheduledTasks={completedScheduledTasksForRecap}
+              />
+
+              {mobileControls} {/* Drawer Trigger (now only for Aether Sink) */}
             </>
           ) : (
             desktopTabs

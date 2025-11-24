@@ -142,6 +142,41 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
               )}>
                 {task.title}
               </span>
+              
+              {/* NEW: Energy Cost Badge (Only show if not completed) */}
+              {!task.is_completed && task.energy_cost !== undefined && task.energy_cost > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline"
+                      className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold font-mono text-logo-yellow border-logo-yellow/50 bg-logo-yellow/10 shrink-0"
+                    >
+                      {task.energy_cost} <Zap className="h-3 w-3" />
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Energy Cost</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              {/* NEW: XP Gain Badge (Only show if not completed) */}
+              {!task.is_completed && task.metadata_xp !== undefined && task.metadata_xp > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline"
+                      className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold font-mono text-primary border-primary/50 bg-primary/10 shrink-0"
+                    >
+                      +{task.metadata_xp} <Sparkles className="h-3 w-3" />
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>XP Gain</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
               {task.description && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -153,38 +188,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
                 </Tooltip>
               )}
             </div>
+            {/* Due Date remains on the second line */}
             <div className="flex items-center space-x-3 text-xs mt-1 text-muted-foreground">
               {task.due_date && (
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3 w-3" />
                   <span>{format(new Date(task.due_date), "MMM d")}</span>
                 </span>
-              )}
-              {/* Energy Cost */}
-              {task.energy_cost !== undefined && task.energy_cost > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex items-center gap-1 font-semibold font-mono text-logo-yellow">
-                      {task.energy_cost} <Zap className="h-3 w-3" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Energy Cost</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {/* XP Gain */}
-              {task.metadata_xp !== undefined && task.metadata_xp > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex items-center gap-1 font-semibold font-mono text-primary">
-                      +{task.metadata_xp} <Sparkles className="h-3 w-3" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>XP Gain</p>
-                  </TooltipContent>
-                </Tooltip>
               )}
             </div>
           </label>

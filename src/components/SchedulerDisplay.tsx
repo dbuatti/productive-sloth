@@ -339,7 +339,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
             <div className="relative z-10 flex flex-col w-full">
               
-              {/* Row 1: Title, Completion, and Action Buttons (Condensed Metadata) */}
+              {/* Row 1: Completion Button (Left) and Task Name/Metadata (Right) */}
               <div className="flex items-start justify-between w-full">
                 {/* Completion Button (Left) */}
                 {dbTask && !isBreak && !isTimeOff && !isCompleted && (
@@ -504,8 +504,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 </div>
               </div>
 
-              {/* Row 2: Metadata (Time Range, Duration, Missed Badge) */}
-              <div className="flex items-center justify-between w-full mt-1 text-sm">
+              {/* Row 2: Time Range, Duration, Missed Badge (Aligned with Task Name) */}
+              <div className={cn(
+                "flex items-center justify-between w-full mt-1 text-sm",
+                // Add margin-left to align with the start of the task name, compensating for the completion button's width (h-7 w-7 + mr-2 = ~36px)
+                dbTask && !isBreak && !isTimeOff && !isCompleted ? "ml-[36px]" : "ml-0"
+              )}>
                   <div className="flex items-center gap-3">
                       {/* Time Range */}
                       <span className={cn(

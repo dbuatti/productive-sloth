@@ -10,7 +10,6 @@ import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfte
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import InfoChip from './InfoChip';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 
 interface SchedulerDisplayProps {
@@ -279,7 +278,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const isHighlightedBySession = activeItemId === scheduledItem.id;
       const isLocked = scheduledItem.isLocked;
       const isFixed = !scheduledItem.isFlexible;
-      const isFixedOrLocked = isFixed || isLocked;
+      // const isFixedOrLocked = isFixed || isLocked; // REMOVED: No longer used for border logic
       const isCompleted = scheduledItem.isCompleted;
       const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current) && !isCompleted;
 
@@ -317,11 +316,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               isHighlightedBySession ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" :
               isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border",
-              isLocked && "bg-primary/10",
+              isLocked && "border-[3px] border-primary/70", // Keep locked border logic
               isMissed && "border-destructive/70 bg-destructive/10",
               isTimeOff && "border-dashed border-logo-green/50 bg-logo-green/10",
-              isFixedOrLocked && "border-[3px] border-live-progress",
-              scheduledItem.isCritical && "border-logo-yellow/70 ring-2 ring-logo-yellow/50",
+              scheduledItem.isCritical && "ring-2 ring-logo-yellow/50", // Keep critical ring
               isCompleted && "opacity-50 line-through",
               "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"
             )}
@@ -339,11 +337,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               </span>
             </div>
 
-            <div className="relative z-10 flex flex-col w-full"> {/* Changed to flex-col */}
+            <div className="relative z-10 flex flex-col w-full">
               
-              {/* Row 1: Title, Duration, and Action Buttons */}
+              {/* Row 1: Title, Completion, and Action Buttons */}
               <div className="flex items-start justify-between w-full">
-                {/* Complete Button (Left) */}
+                {/* Completion Button (Left) */}
                 {dbTask && !isBreak && !isTimeOff && !isCompleted && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -371,13 +369,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   </Tooltip>
                 )}
 
-                {/* Task Name and Duration */}
+                {/* Task Name */}
                 <span className={cn(
                   "text-base flex-grow min-w-0 pr-2", // Increased font size
                   isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
                 )}>
                   <span className="font-bold truncate block text-lg">{scheduledItem.name}</span> {/* Increased font size */}
-                  <span className="font-semibold opacity-80 text-sm block sm:inline">({scheduledItem.duration} min)</span> {/* Increased font size */}
                 </span>
 
                 {/* Action Buttons (Right) */}
@@ -462,67 +459,77 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 </div>
               </div>
 
-              {/* Row 2: Details (Time, Energy, Environment) */}
-              <div className="flex items-center justify-between w-full mt-1 text-sm"> {/* Increased font size */}
-                <div className="flex items-center gap-2">
-                  {/* Time Range */}
-                  <span className={cn(
-                    "font-semibold font-mono",
-                    isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
-                  )}>
-                    {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
-                  </span>
-                  
-                  {/* Energy Cost */}
-                  {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={cn(
-                          "flex items-center gap-1 font-semibold font-mono",
+              {/* Row 2: Metadata (Time, Duration, Energy, Critical, Environment) */}
+              <div className="flex items-center justify-between w-full mt-1 text-sm">
+                  <div className="flex items-center gap-3">
+                      {/* Time Range */}
+                      <span className={cn(
+                          "font-semibold font-mono text-base", // Increased font size slightly
                           isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
-                        )}>
-                          {scheduledItem.energyCost} <Zap className="h-4 w-4" /> {/* Increased icon size */}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Energy Cost</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
+                      )}>
+                          {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
+                      </span>
+                      
+                      {/* Duration */}
+                      <span className={cn(
+                          "font-semibold opacity-80 text-sm",
+                          isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
+                      )}>
+                          ({scheduledItem.duration} min)
+                      </span>
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  {/* Critical Badge */}
-                  {scheduledItem.isCritical && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="relative flex items-center justify-center h-5 w-5 rounded-full bg-logo-yellow text-white shrink-0"> {/* Increased size */}
-                          <Star className="h-4 w-4" strokeWidth={2.5} /> {/* Increased icon size */}
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Critical Task: Must be completed today!</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {/* Missed Badge */}
-                  {isMissed && (
-                    <Badge variant="destructive" className="px-2 py-0.5 text-sm font-semibold"> {/* Increased font size */}
-                      MISSED
-                    </Badge>
-                  )}
-                  {/* Environment Icon */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="h-7 w-7 flex items-center justify-center shrink-0"> {/* Increased size */}
-                        {getEnvironmentIcon(scheduledItem.taskEnvironment)}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Environment: {scheduledItem.taskEnvironment.charAt(0).toUpperCase() + scheduledItem.taskEnvironment.slice(1)}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                      {/* Energy Cost */}
+                      {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && (
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <span className={cn(
+                                      "flex items-center gap-1 font-semibold font-mono text-sm",
+                                      isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
+                                  )}>
+                                      {scheduledItem.energyCost} <Zap className="h-4 w-4" />
+                                  </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                  <p>Energy Cost</p>
+                              </TooltipContent>
+                          </Tooltip>
+                      )}
+
+                      {/* Critical Badge */}
+                      {scheduledItem.isCritical && (
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <div className="relative flex items-center justify-center h-5 w-5 rounded-full bg-logo-yellow text-white shrink-0">
+                                      <Star className="h-4 w-4" strokeWidth={2.5} />
+                                  </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                  <p>Critical Task</p>
+                              </TooltipContent>
+                          </Tooltip>
+                      )}
+                      
+                      {/* Missed Badge */}
+                      {isMissed && (
+                          <Badge variant="destructive" className="px-2 py-0.5 text-sm font-semibold">
+                              MISSED
+                          </Badge>
+                      )}
+                      
+                      {/* Environment Icon */}
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <div className="h-7 w-7 flex items-center justify-center shrink-0">
+                                  {getEnvironmentIcon(scheduledItem.taskEnvironment)}
+                              </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                              <p>Environment: {scheduledItem.taskEnvironment.charAt(0).toUpperCase() + scheduledItem.taskEnvironment.slice(1)}</p>
+                          </TooltipContent>
+                      </Tooltip>
+                  </div>
               </div>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
@@ -544,15 +551,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   </span>
                 </div>
               </>
-            )}
-            {dbTask && (
-              <InfoChip 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleInfoChipClick(dbTask);
-                }}
-                isHovered={hoveredItemId === scheduledItem.id} 
-              />
             )}
           </div>
         </React.Fragment>
@@ -586,8 +584,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
                     <ListTodo className="h-12 w-12 text-muted-foreground" />
                     <p className="text-lg font-semibold">Your schedule is clear for today!</p>
-                    <p className="text-base">Ready to plan? Add a task using the input above.</p> {/* Increased font size */}
-                    <Button onClick={onAddTaskClick} className="mt-4 flex items-center gap-2 h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"> {/* Increased button size and font */}
+                    <p className="text-base">Ready to plan? Add a task using the input above.</p>
+                    <Button onClick={onAddTaskClick} className="mt-4 flex items-center gap-2 h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
                       <PlusCircle className="h-5 w-5" /> Add a Task
                     </Button>
                   </div>
@@ -595,7 +593,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   <>
                     {!activeItemInDisplay && T_current < firstItemStartTime && isTodaySelected && (
                       <div className={cn(
-                        "col-span-2 text-center text-muted-foreground text-base py-2 border-y border-dashed border-primary/50 animate-pulse-glow", // Increased font size
+                        "col-span-2 text-center text-muted-foreground text-base py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                         "top-0"
                       )}>
                         <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
@@ -607,7 +605,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     )}
                     {!activeItemInDisplay && T_current >= lastItemEndTime && isTodaySelected && (
                       <div className={cn(
-                        "col-span-2 text-center text-muted-foreground text-base py-2 border-y border-dashed border-primary/50 animate-pulse-glow", // Increased font size
+                        "col-span-2 text-center text-muted-foreground text-base py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
                         "bottom-0"
                       )}>
                         <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
@@ -618,7 +616,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       </div>
                     )}
 
-                    {finalDisplayItems.map((item, index) => ( // Pass index
+                    {finalDisplayItems.map((item, index) => (
                       <React.Fragment key={item.id}>
                         {renderDisplayItem(item, index)}
                       </React.Fragment>
@@ -637,7 +635,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-base text-muted-foreground"> {/* Increased font size */}
+            <CardContent className="space-y-2 text-base text-muted-foreground">
               {schedule?.summary.extendsPastMidnight && (
                 <p className="text-orange-500 font-semibold">⚠️ {schedule.summary.midnightRolloverMessage}</p>
               )}

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile, Database } from 'lucide-react'; // NEW: Added Database icon
-import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile, Database, Home, Laptop, Globe, Music } from 'lucide-react'; // NEW: Added Database icon, Home, Laptop, Globe, Music
+import { RetiredTask, NewRetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
@@ -22,6 +22,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
+
+const getEnvironmentIcon = (environment: TaskEnvironment) => {
+  switch (environment) {
+    case 'home':
+      return <Home className="h-4 w-4 text-logo-green" />;
+    case 'laptop':
+      return <Laptop className="h-4 w-4 text-primary" />;
+    case 'away':
+      return <Globe className="h-4 w-4 text-logo-orange" />;
+    case 'piano':
+      return <Music className="h-4 w-4 text-accent" />;
+    case 'laptop_piano':
+      return (
+        <div className="relative">
+          <Laptop className="h-4 w-4 text-primary" />
+          <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 text-accent" />
+        </div>
+      );
+    default:
+      return null;
+  }
+};
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -303,7 +325,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                     <div 
                       key={task.id} 
                       className={cn(
-                        "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-md border border-border/50 text-base transition-all duration-200 ease-in-out cursor-pointer", // Increased padding and font size
+                        "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-md border border-border/50 text-base transition-all duration-200 ease-in-out cursor-pointer", // Increased padding to p-4
                         isLocked ? "border-primary/70 bg-primary/10" : "",
                         task.is_completed && "opacity-50 line-through"
                       )}
@@ -346,7 +368,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                         <div
                           className={`flex flex-col items-start min-w-0 flex-grow`}
                         >
-                          <div className="flex items-center gap-1 w-full">
+                          <div className="flex items-center gap-2 w-full">
                             {task.is_critical && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -360,10 +382,34 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               </Tooltip>
                             )}
                             <span className="text-xl">{emoji}</span> {/* Increased emoji size */}
-                            <span className={cn("font-semibold truncate", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
+                            <span className={cn("font-semibold truncate text-lg", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span> {/* Increased font size to text-lg */}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-sm text-muted-foreground flex-wrap"> {/* Increased font size */}
-                            {task.duration && <span className={cn("text-sm", isLocked ? "text-primary/80" : "text-foreground/80")}>({task.duration} min)</span>} {/* Increased font size */}
+                          <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground flex-wrap"> {/* Increased spacing and font size */}
+                            {/* Environment Icon */}
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="h-5 w-5 flex items-center justify-center shrink-0">
+                                        {getEnvironmentIcon(task.task_environment)}
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Environment: {task.task_environment.charAt(0).toUpperCase() + task.task_environment.slice(1)}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                            
+                            {task.duration && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className={cn("flex items-center gap-1 text-sm font-mono", isLocked ? "text-primary/80" : "text-foreground/80")}>
+                                    <Clock className="h-4 w-4" /> {task.duration} min
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Scheduled Duration</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            
                             {task.energy_cost !== undefined && task.energy_cost > 0 && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -380,7 +426,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               </Tooltip>
                             )}
                             <span className="text-sm italic text-muted-foreground"> {/* Increased font size */}
-                              Original Date: {format(new Date(task.original_scheduled_date), 'MMM d, yyyy')}
+                              Retired: {format(new Date(task.retired_at), 'MMM d, yyyy')}
                             </span>
                           </div>
                         </div>

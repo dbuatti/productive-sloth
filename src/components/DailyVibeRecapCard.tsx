@@ -107,7 +107,7 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
           <h3 className="text-xl font-bold flex items-center gap-2 text-foreground"> {/* Increased font size */}
             <Lightbulb className="h-5 w-5 text-logo-yellow" /> Reflect & Grow
           </h3>
-          <ul className="list-disc list-inside space-y-3 text-base text-muted-foreground"> {/* Increased font size and spacing */}
+          <ul className="list-disc list-inside space-y-3 text-lg text-muted-foreground"> {/* Increased font size to text-lg */}
             {reflectionPrompts.map((prompt, index) => (
               <li key={index} className="flex items-start">
                 <Smile className="h-5 w-5 mr-2 mt-1 shrink-0 text-primary" /> {/* Increased icon size */}

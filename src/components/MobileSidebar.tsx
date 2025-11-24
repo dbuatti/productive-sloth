@@ -18,7 +18,7 @@ const MobileSidebar: React.FC = () => {
       </SheetTrigger>
       <SheetContent side="left" className="flex flex-col p-0 w-64">
         <div className="flex h-16 items-center px-4 border-b">
-          <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
+          <img src="/aetherflow-logo.svg" alt="Logo" className="h-8 w-auto" />
           <span className="ml-2 text-lg font-bold text-primary">AetherFlow</span>
         </div>
         <div className="flex-1 overflow-y-auto py-4">

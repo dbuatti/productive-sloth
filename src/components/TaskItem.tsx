@@ -153,23 +153,36 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
                 </Tooltip>
               )}
             </div>
-            <div className="flex items-center space-x-3 text-sm mt-1 text-muted-foreground">
+            <div className="flex items-center space-x-3 text-xs mt-1 text-muted-foreground">
               {task.due_date && (
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3 w-3" />
                   <span>{format(new Date(task.due_date), "MMM d")}</span>
                 </span>
               )}
-              {/* NEW: Display energy cost */}
+              {/* Energy Cost */}
               {task.energy_cost !== undefined && task.energy_cost > 0 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="flex items-center gap-1 text-xs font-semibold font-mono">
+                    <span className="flex items-center gap-1 font-semibold font-mono text-logo-yellow">
                       {task.energy_cost} <Zap className="h-3 w-3" />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Energy Cost</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {/* XP Gain */}
+              {task.metadata_xp !== undefined && task.metadata_xp > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1 font-semibold font-mono text-primary">
+                      +{task.metadata_xp} <Sparkles className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>XP Gain</p>
                   </TooltipContent>
                 </Tooltip>
               )}

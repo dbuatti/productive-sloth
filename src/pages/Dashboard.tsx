@@ -4,7 +4,7 @@ import TemporalFilterTabs from '@/components/TemporalFilterTabs';
 import TaskCreationForm from '@/components/TaskCreationForm';
 import TaskControlBar from '@/components/TaskControlBar';
 import PrioritySection from '@/components/PrioritySection';
-import { MadeWithDyad } from '@/components/made-with-dyad';
+import AppFooter from '@/components/AppFooter'; // UPDATED: Import AppFooter
 import { Loader2, ClipboardList } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
@@ -126,7 +126,7 @@ const Dashboard = () => {
         </Card>
       )}
       
-      <MadeWithDyad />
+      <AppFooter /> {/* UPDATED: Use AppFooter */}
       <LevelUpCelebration />
 
       {/* NEW: Energy Deficit Confirmation Dialog */}

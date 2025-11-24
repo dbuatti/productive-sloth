@@ -354,7 +354,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         }}
                         disabled={isLocked}
                         className={cn(
-                          "h-7 w-7 p-0 shrink-0 mr-2 mt-0.5", // Reduced size
+                          "h-7 w-7 p-0 shrink-0 mr-2", // Removed mt-0.5
                           isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                         )}
                         style={isLocked ? { pointerEvents: 'auto' } : undefined}

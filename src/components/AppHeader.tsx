@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, Settings, Flame } from 'lucide-react';
+import { LogOut, Settings, Flame, Menu } from 'lucide-react'; // Import Menu icon
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/hooks/use-session';
@@ -16,17 +16,18 @@ import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import { AvatarImage } from './ui/avatar';
 import DailyChallengeClaimButton from './DailyChallengeClaimButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
-import { cn } from '@/lib/utils'; // Import cn for conditional classes
+import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile
 
 interface AppHeaderProps {
-  mobileNav?: React.ReactNode;
-  desktopHamburger?: React.ReactNode; // NEW: Prop for desktop hamburger when sidebar is collapsed
+  onMenuToggle: () => void; // NEW: Handler to open the navigation drawer
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav, desktopHamburger }) => { // Accept desktopHamburger prop
+const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
   const { user, profile } = useSession();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -50,19 +51,28 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav, desktopHamburger }) =>
 
   const visibleFirstName = profile?.first_name || getDisplayNameFromEmail(userEmail).split(' ')[0];
 
-  // Debugging: Log the avatar URL if it exists
-  if (profile?.avatar_url) {
-    console.log("Attempting to load avatar from:", profile.avatar_url);
-  }
-
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-5xl flex items-center justify-between h-16 px-4">
         
-        {/* Left side: Mobile Nav (Hamburger) or Desktop Hamburger */}
+        {/* Left side: Persistent Hamburger Menu */}
         <div className="flex items-center gap-2 shrink-0">
-          {mobileNav}
-          {desktopHamburger} {/* NEW: Render desktop hamburger here */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={onMenuToggle}
+                className="h-10 w-10 text-muted-foreground hover:text-primary transition-transform duration-200 hover:scale-110"
+              >
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Toggle Navigation Menu</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Toggle Navigation Menu</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Center: Logo/Title (Visually centered on mobile) */}

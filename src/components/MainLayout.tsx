@@ -28,7 +28,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const energyInDeficit = profile && profile.energy < 0;
 
   const mainContent = (
-    <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
+    <main className="flex flex-1 flex-col gap-4 p-4 overflow-auto"> {/* Removed lg:gap-6 lg:p-6 */}
       {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
       {children}
     </main>

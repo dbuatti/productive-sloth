@@ -22,8 +22,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   // NEW: State to control the navigation drawer visibility
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Removed sidebar collapse logic as we are switching to a drawer model
-
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
 
@@ -34,12 +32,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     </main>
   );
 
-  // The hamburger button logic is now centralized in AppHeader, 
-  // and it controls the isDrawerOpen state.
-
   return (
     <div className="flex min-h-screen w-full flex-col">
-      {/* Navigation Drawer (Controlled by state, used for both mobile and desktop) */}
+      {/* Navigation Drawer (Non-modal on desktop, allowing interaction with content behind it) */}
       <NavigationDrawer 
         isOpen={isDrawerOpen} 
         onOpenChange={setIsDrawerOpen} 

@@ -11,9 +11,16 @@ interface NavigationDrawerProps {
 
 const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onOpenChange, side }) => {
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+    <Sheet open={isOpen} onOpenChange={onOpenChange} modal={false}> {/* Set modal to false */}
       {/* Note: SheetTrigger is handled by the parent component (AppHeader/MainLayout) */}
-      <SheetContent side={side} className="flex flex-col p-0 w-64">
+      <SheetContent 
+        side={side} 
+        className={cn(
+          "flex flex-col p-0 w-64 z-40", // Ensure it's below the header (z-10) but above content
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          "sm:w-72" // Slightly wider on desktop
+        )}
+      >
         <div className="flex h-16 items-center px-4 border-b">
           <img src="/aetherflow-logo.png" alt="Logo" className="h-8 w-auto" />
           <span className="ml-2 text-lg font-bold text-primary">AetherFlow</span>

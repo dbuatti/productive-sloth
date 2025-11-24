@@ -16,13 +16,13 @@ const SchedulerSegmentedControl: React.FC<SchedulerSegmentedControlProps> = ({ c
   };
 
   const viewOptions = [
-    { value: 'schedule', label: 'Schedule', icon: Clock },
+    { value: 'scheduler', label: 'Schedule', icon: Clock },
     { value: 'recap', label: 'Recap', icon: CheckCircle },
     { value: 'sink', label: 'Sink', icon: Trash2 },
   ];
 
   return (
-    <Tabs value={currentView} onValueChange={handleViewChange} className="w-full animate-slide-in-up">
+    <Tabs value={currentView === 'schedule' ? 'scheduler' : currentView} onValueChange={handleViewChange} className="w-full animate-slide-in-up">
       <TabsList className="grid w-full grid-cols-3 h-11 p-1 bg-muted rounded-lg shadow-lg">
         {viewOptions.map(option => (
           <TabsTrigger 

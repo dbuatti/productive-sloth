@@ -20,12 +20,13 @@ import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { cn } from '@/lib/utils'; // Import cn for conditional classes
 
 interface AppHeaderProps {
-  mobileNav?: React.ReactNode; // Add mobileNav prop
+  mobileNav?: React.ReactNode;
+  desktopHamburger?: React.ReactNode; // NEW: Prop for desktop hamburger when sidebar is collapsed
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobileNav prop
+const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav, desktopHamburger }) => { // Accept desktopHamburger prop
   const { user, profile } = useSession();
-  const navigate = useNavigate(); // Initialize navigate
+  const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -58,9 +59,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-5xl flex items-center justify-between h-16 px-4">
         
-        {/* Left side: Mobile Nav (Hamburger) */}
+        {/* Left side: Mobile Nav (Hamburger) or Desktop Hamburger */}
         <div className="flex items-center gap-2 shrink-0">
           {mobileNav}
+          {desktopHamburger} {/* NEW: Render desktop hamburger here */}
         </div>
 
         {/* Center: Logo/Title (Visually centered on mobile) */}

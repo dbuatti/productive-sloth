@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import AppHeader from './AppHeader';
 import Sidebar from './Sidebar';
 import MobileSidebar from './MobileSidebar';
@@ -8,6 +8,8 @@ import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import EnergyDeficitWarning from './EnergyDeficitWarning'; // NEW: Import EnergyDeficitWarning
+import { Button } from '@/components/ui/button';
+import { Menu } from 'lucide-react';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -16,7 +18,24 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
   const location = useLocation();
-  const { activeItemToday, profile } = useSession(); // NEW: Get profile
+  const { activeItemToday, profile } = useSession();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const handleCollapseChange = useCallback((collapsed: boolean) => {
+    setIsSidebarCollapsed(collapsed);
+  }, []);
+
+  // Function to manually toggle collapse state (used by desktop hamburger)
+  const toggleSidebarCollapse = () => {
+    // This relies on the Sidebar component's internal state management via cookies/local storage
+    // For simplicity and to trigger the ResizablePanel's internal logic, we'll rely on a direct DOM manipulation
+    // or a state change that forces the Sidebar to re-render and check its stored state.
+    // Since the Sidebar already uses cookies/local storage, we can just toggle the cookie value.
+    const newCollapsedState = !isSidebarCollapsed;
+    document.cookie = `react-resizable-panels:collapsed=${JSON.stringify(newCollapsedState)}`;
+    setIsSidebarCollapsed(newCollapsedState);
+    window.location.reload(); // Force reload to apply panel state change reliably
+  };
 
   // Attempt to read default layout from cookie
   const defaultLayout = React.useMemo(() => {
@@ -29,17 +48,28 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     return undefined;
   }, []);
 
-  // The FocusAnchor will now show if there's an active task, regardless of the current page.
   const shouldShowFocusAnchor = activeItemToday;
-
-  const energyInDeficit = profile && profile.energy < 0; // NEW: Check for energy deficit
+  const energyInDeficit = profile && profile.energy < 0;
 
   const mainContent = (
     <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
-      {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />} {/* NEW: Render warning */}
+      {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
       {children}
     </main>
   );
+
+  // Desktop Hamburger Button (only visible when sidebar is collapsed)
+  const desktopHamburger = isSidebarCollapsed && !isMobile ? (
+    <Button 
+      variant="ghost" 
+      size="icon" 
+      onClick={toggleSidebarCollapse} 
+      className="h-10 w-10 text-muted-foreground hover:text-primary"
+    >
+      <Menu className="h-6 w-6" />
+      <span className="sr-only">Expand Sidebar</span>
+    </Button>
+  ) : null;
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -50,9 +80,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           {mainContent}
         </>
       ) : (
-        <Sidebar defaultLayout={defaultLayout}>
+        <Sidebar defaultLayout={defaultLayout} onCollapseChange={handleCollapseChange}>
           <div className="flex flex-col h-full">
-            <AppHeader />
+            <AppHeader desktopHamburger={desktopHamburger} /> {/* Pass desktopHamburger */}
             <ProgressBarHeader />
             {mainContent}
           </div>

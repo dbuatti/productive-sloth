@@ -77,16 +77,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
     }
   };
 
-  const getPriorityBorderColor = (priority: Task['priority']) => {
+  // Function to get the left border color class
+  const getPriorityLeftBorderClass = (priority: Task['priority']) => {
     switch (priority) {
       case 'HIGH':
-        return 'border-destructive/50 hover:border-destructive';
+        return 'border-l-destructive hover:border-destructive';
       case 'MEDIUM':
-        return 'border-logo-orange/50 hover:border-logo-orange';
+        return 'border-l-logo-orange hover:border-logo-orange';
       case 'LOW':
-        return 'border-logo-green/50 hover:border-logo-green';
+        return 'border-l-logo-green hover:border-logo-green';
       default:
-        return 'border-border';
+        return 'border-l-border hover:border-border';
     }
   };
 
@@ -96,7 +97,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
         className={cn(
           "relative flex items-center justify-between p-4 border-l-4 transition-all duration-300 rounded-md shadow-sm",
           "bg-card hover:bg-secondary/50 animate-hover-lift",
-          getPriorityBorderColor(task.priority),
+          getPriorityLeftBorderClass(task.priority), // Apply specific left border color and hover effect
           task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
           "hover:shadow-lg hover:shadow-primary/10",
           "border-b border-dashed border-border/50 last:border-b-0"

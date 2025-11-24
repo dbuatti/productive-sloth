@@ -3,6 +3,7 @@ import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/
 import TaskItem from './TaskItem';
 import { Task } from '@/types'; // Updated import to use the consolidated Task type
 import { ClipboardList } from 'lucide-react'; // Import ClipboardList
+import { cn } from '@/lib/utils';
 
 interface PrioritySectionProps {
   priority: string;
@@ -10,13 +11,32 @@ interface PrioritySectionProps {
   onCompleteTask: (task: Task) => Promise<void>; // NEW: Added onCompleteTask prop
 }
 
+const getPriorityColorClass = (priority: string) => {
+  switch (priority) {
+    case 'HIGH':
+      return 'text-destructive hover:text-destructive/90';
+    case 'MEDIUM':
+      return 'text-logo-orange hover:text-logo-orange/90';
+    case 'LOW':
+      return 'text-logo-green hover:text-logo-green/90';
+    default:
+      return 'text-foreground hover:text-primary';
+  }
+};
+
 const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks, onCompleteTask }) => {
   return (
-    <AccordionItem value={priority}>
-      <AccordionTrigger className="text-base font-semibold capitalize"> {/* Changed text-lg to text-base */}
-        {priority} Priority ({tasks.length})
+    <AccordionItem value={priority} className="border rounded-lg shadow-md bg-card animate-hover-lift">
+      <AccordionTrigger className={cn(
+        "text-base font-semibold capitalize p-4 transition-colors duration-200 hover:no-underline",
+        getPriorityColorClass(priority)
+      )}>
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-5 w-5" />
+          {priority} Priority ({tasks.length})
+        </div>
       </AccordionTrigger>
-      <AccordionContent>
+      <AccordionContent className="p-4 pt-0">
         <div className="space-y-2">
           {tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-4 text-muted-foreground text-sm space-y-2">

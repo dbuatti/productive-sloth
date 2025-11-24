@@ -25,23 +25,23 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
   return (
     <div
       className={cn(
-        "flex items-center justify-between p-2 rounded-md border border-border/50 text-sm transition-all duration-200 ease-in-out",
+        "flex items-center justify-between p-3 rounded-md border border-border/50 text-base transition-all duration-200 ease-in-out", // Increased padding and font size
         "bg-card hover:bg-secondary/50 animate-hover-lift"
       )}
       style={{ backgroundColor: ambientBackgroundColor, borderLeft: `4px solid ${accentBorderColor}` }}
     >
-      <div className="flex items-center space-x-2 flex-grow min-w-0">
-        <CheckCircle className="h-4 w-4 text-logo-green shrink-0" />
-        <span className="text-base">{assignEmoji(task.name)}</span>
+      <div className="flex items-center space-x-3 flex-grow min-w-0">
+        <CheckCircle className="h-5 w-5 text-logo-green shrink-0" /> {/* Increased icon size */}
+        <span className="text-xl">{assignEmoji(task.name)}</span> {/* Increased emoji size */}
         <span className="font-semibold truncate text-foreground">{task.name}</span>
-        <span className="text-xs text-muted-foreground">({completedTime})</span>
+        <span className="text-sm text-muted-foreground">({completedTime})</span> {/* Increased font size */}
       </div>
       <div className="flex items-center gap-3 ml-auto shrink-0">
         {timeUsedMinutes > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 text-xs font-semibold font-mono text-foreground/80">
-                <Clock className="h-3 w-3" /> {timeUsedMinutes} min
+              <span className="flex items-center gap-1 text-sm font-semibold font-mono text-foreground/80"> {/* Increased font size */}
+                <Clock className="h-4 w-4" /> {timeUsedMinutes} min {/* Increased icon size */}
               </span>
             </TooltipTrigger>
             <TooltipContent>
@@ -52,8 +52,8 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
         {task.energy_cost > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 text-xs font-semibold font-mono text-logo-yellow">
-                {task.energy_cost} <Zap className="h-3 w-3" />
+              <span className="flex items-center gap-1 text-sm font-semibold font-mono text-logo-yellow"> {/* Increased font size */}
+                {task.energy_cost} <Zap className="h-4 w-4" /> {/* Increased icon size */}
               </span>
             </TooltipTrigger>
             <TooltipContent>
@@ -64,8 +64,8 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
         {xpEarned > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 text-xs font-semibold font-mono text-primary">
-                +{xpEarned} <Sparkles className="h-3 w-3" />
+              <span className="flex items-center gap-1 text-sm font-semibold font-mono text-primary"> {/* Increased font size */}
+                +{xpEarned} <Sparkles className="h-4 w-4" /> {/* Increased icon size */}
               </span>
             </TooltipTrigger>
             <TooltipContent>

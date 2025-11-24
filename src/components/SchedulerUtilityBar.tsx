@@ -68,7 +68,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 onClick={onRechargeEnergy} 
                 disabled={isProcessingCommand || isEnergyFull}
                 className={cn(
-                  "h-10 w-10 text-logo-yellow hover:bg-logo-yellow/10 transition-all duration-200",
+                  "h-11 w-11 text-logo-yellow hover:bg-logo-yellow/10 transition-all duration-200", // Increased size
                   isEnergyFull && "text-muted-foreground/50 cursor-not-allowed"
                 )}
                 style={isProcessingCommand || isEnergyFull ? { pointerEvents: 'auto' } : undefined}
@@ -91,7 +91,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 onClick={onRandomizeBreaks}
                 disabled={isProcessingCommand || !hasUnlockedBreaks}
                 className={cn(
-                  "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
+                  "h-11 w-11 text-primary hover:bg-primary/10 transition-all duration-200", // Increased size
                   !hasUnlockedBreaks && "text-muted-foreground/50 cursor-not-allowed"
                 )}
                 style={isProcessingCommand || !hasUnlockedBreaks ? { pointerEvents: 'auto' } : undefined}
@@ -114,7 +114,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 onClick={onCompactSchedule} 
                 disabled={isProcessingCommand || !hasFlexibleTasksOnCurrentDay}
                 className={cn(
-                  "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
+                  "h-11 w-11 text-primary hover:bg-primary/10 transition-all duration-200", // Increased size
                   !hasFlexibleTasksOnCurrentDay && "text-muted-foreground/50 cursor-not-allowed"
                 )}
                 style={isProcessingCommand || !hasFlexibleTasksOnCurrentDay ? { pointerEvents: 'auto' } : undefined}
@@ -138,7 +138,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                     size="icon" 
                     disabled={isProcessingCommand || !hasSortableFlexibleTasks}
                     className={cn(
-                      "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
+                      "h-11 w-11 text-primary hover:bg-primary/10 transition-all duration-200", // Increased size
                       !hasSortableFlexibleTasks && "text-muted-foreground/50 cursor-not-allowed"
                     )}
                     style={isProcessingCommand || !hasSortableFlexibleTasks ? { pointerEvents: 'auto' } : undefined}
@@ -182,7 +182,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                     variant="outline" 
                     size="icon" 
                     disabled={isProcessingCommand}
-                    className="h-10 w-10 text-logo-green hover:bg-logo-green/10 transition-all duration-200"
+                    className="h-11 w-11 text-logo-green hover:bg-logo-green/10 transition-all duration-200" // Increased size
                     style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                   >
                     {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Hourglass className="h-5 w-5" />}
@@ -219,7 +219,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 size="icon" 
                 onClick={onZoneFocus} 
                 disabled={isProcessingCommand}
-                className="h-10 w-10 text-accent hover:bg-accent/10 transition-all duration-200"
+                className="h-11 w-11 text-accent hover:bg-accent/10 transition-all duration-200" // Increased size
                 style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
               >
                 {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Target className="h-5 w-5" />}
@@ -239,7 +239,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 size="icon" 
                 onClick={onOpenWorkdayWindowDialog} 
                 disabled={isProcessingCommand}
-                className="h-10 w-10 text-muted-foreground hover:bg-muted/10 transition-all duration-200"
+                className="h-11 w-11 text-muted-foreground hover:bg-muted/10 transition-all duration-200" // Increased size
                 style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
               >
                 {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Settings2 className="h-5 w-5" />}

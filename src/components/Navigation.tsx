@@ -17,14 +17,14 @@ const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isColl
     onClick={onClick}
     className={({ isActive }) =>
       cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+        "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary", // Increased gap, padding, and font size
         isActive && "bg-muted text-primary hover:text-primary",
         isCollapsed ? "justify-center" : ""
       )
     }
   >
-    <Icon className="h-5 w-5" />
-    {!isCollapsed && <span className="text-sm font-medium">{label}</span>}
+    <Icon className="h-6 w-6" /> {/* Increased icon size */}
+    {!isCollapsed && <span className="text-base font-medium">{label}</span>} {/* Increased font size */}
   </NavLink>
 );
 

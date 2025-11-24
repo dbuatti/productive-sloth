@@ -139,7 +139,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             onKeyDown={handleKeyDown}
             placeholder="Add task (e.g., 'Gym 60') or command"
             disabled={isLoading}
-            className="flex-grow h-10 pr-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
+            className="flex-grow h-11 pr-10 text-base focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200" // Increased height and font size
           />
           {inputValue && (
             <Button
@@ -162,7 +162,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
               disabled={isLoading} 
               variant="outline"
               size="icon"
-              className="shrink-0 h-10 w-10 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+              className="shrink-0 h-11 w-11 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200" // Increased size
             >
               <Coffee className="h-5 w-5" />
               <span className="sr-only">Add 15-min Break</span>
@@ -181,7 +181,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
               disabled={isLoading} 
               variant="outline"
               size="icon"
-              className="shrink-0 h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200"
+              className="shrink-0 h-11 w-11 text-primary hover:bg-primary/10 transition-all duration-200" // Increased size
             >
               <Plus className="h-5 w-5" />
               <span className="sr-only">Detailed Task Injector</span>
@@ -191,7 +191,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             <p>Inject a task with specific details</p>
           </TooltipContent>
         </Tooltip>
-        <Button type="submit" disabled={isLoading} className="shrink-0 h-10 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
+        <Button type="submit" disabled={isLoading} className="shrink-0 h-11 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"> {/* Increased size */}
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           <span className="sr-only">Send</span>
         </Button>
@@ -199,7 +199,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
 
       <Popover open={isPopoverExplicitlyOpen} onOpenChange={setIsPopoverExplicitlyOpen}>
         <PopoverTrigger asChild>
-          <div className="absolute top-0 left-0 w-full h-10 pointer-events-none" />
+          <div className="absolute top-0 left-0 w-full h-11 pointer-events-none" /> {/* Adjusted height */}
         </PopoverTrigger>
         <PopoverContent 
           className="p-0 w-[var(--radix-popover-trigger-width)] mt-1" 
@@ -212,15 +212,15 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
               <li
                 key={suggestion.name}
                 className={cn(
-                  "flex items-center gap-2 p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                  "flex items-center gap-2 p-3 cursor-pointer hover:bg-accent hover:text-accent-foreground text-base", // Increased padding and font size
                   selectedIndex === index && "bg-accent text-accent-foreground"
                 )}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelectSuggestion(suggestion)}
               >
-                {suggestion.type === 'command' ? <CommandIcon className="h-4 w-4" /> : <ListTodo className="h-4 w-4" />}
+                {suggestion.type === 'command' ? <CommandIcon className="h-5 w-5" /> : <ListTodo className="h-5 w-5" />} {/* Increased icon size */}
                 <span>{suggestion.name}</span>
-                {suggestion.description && <span className="text-muted-foreground text-xs ml-auto">{suggestion.description}</span>}
+                {suggestion.description && <span className="text-muted-foreground text-sm ml-auto">{suggestion.description}</span>} {/* Increased font size */}
               </li>
             ))}
           </ul>

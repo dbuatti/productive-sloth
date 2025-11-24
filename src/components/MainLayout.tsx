@@ -46,7 +46,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Mobile Sheet Navigation */}
       {isMobile && (
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent side="left" className="w-[220px] p-0 flex flex-col bg-sidebar">
+          <SheetContent side="left" className="w-[250px] p-0 flex flex-col bg-sidebar"> {/* Increased width to 250px */}
             {/* Replicate Sidebar content structure for mobile */}
             <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
               <img src="/aetherflow-logo.png" alt="Logo" className="h-8 w-auto" />

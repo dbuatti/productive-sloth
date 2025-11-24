@@ -2010,13 +2010,13 @@ const SchedulerPage: React.FC = () => {
   const mobileControls = (
     <Drawer>
       <DrawerTrigger asChild>
-        <Button variant="outline" className="w-full flex items-center gap-2 mt-4 animate-pop-in animate-hover-lift">
+        <Button variant="outline" className="w-full flex items-center gap-2 mt-4 h-12 text-base animate-pop-in animate-hover-lift"> {/* Increased button size and font */}
           <Trash2 className="h-5 w-5" /> View Aether Sink ({retiredTasks.length})
         </Button>
       </DrawerTrigger>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader>
-          <DrawerTitle className="text-xl flex items-center gap-2">
+          <DrawerTitle className="text-2xl flex items-center gap-2"> {/* Increased font size */}
             <Trash2 className="h-6 w-6 text-muted-foreground" /> The Aether Sink
           </DrawerTitle>
         </DrawerHeader>
@@ -2178,7 +2178,7 @@ const SchedulerPage: React.FC = () => {
                 placeholder={`Add task (e.g., 'Gym 60') or command`}
                 onDetailedInject={handleAddTaskClick}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground"> {/* Increased font size */}
                 Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
               </p>
             </CardContent>

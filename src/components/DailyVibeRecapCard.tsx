@@ -62,17 +62,17 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="text-center text-lg font-semibold text-foreground animate-pulse-text">
+        <div className="text-center text-xl font-semibold text-foreground animate-pulse-text"> {/* Increased font size */}
           "{compliment}"
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Changed to 2 columns on mobile */}
           <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
               <CheckCircle className="h-4 w-4 text-logo-green" /> Tasks Completed
             </CardTitle>
             <CardContent className="p-0 mt-2">
-              <p className="text-2xl font-extrabold font-mono text-foreground">{tasksCompletedToday}</p>
+              <p className="text-3xl font-extrabold font-mono text-foreground">{tasksCompletedToday}</p> {/* Increased font size */}
             </CardContent>
           </Card>
           <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md">
@@ -80,7 +80,7 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
               <Zap className="h-4 w-4 text-primary" /> XP Earned
             </CardTitle>
             <CardContent className="p-0 mt-2">
-              <p className="text-2xl font-extrabold font-mono text-primary">+{xpEarnedToday}</p>
+              <p className="text-3xl font-extrabold font-mono text-primary">+{xpEarnedToday}</p> {/* Increased font size */}
             </CardContent>
           </Card>
           <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md">
@@ -88,7 +88,7 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
               <Clock className="h-4 w-4 text-foreground" /> Active Time
             </CardTitle>
             <CardContent className="p-0 mt-2">
-              <p className="text-2xl font-extrabold font-mono text-foreground">
+              <p className="text-3xl font-extrabold font-mono text-foreground"> {/* Increased font size */}
                 {Math.floor(totalActiveTimeMinutes / 60)}h {totalActiveTimeMinutes % 60}m
               </p>
             </CardContent>
@@ -98,19 +98,19 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
               <Coffee className="h-4 w-4 text-logo-orange" /> Break Time
             </CardTitle>
             <CardContent className="p-0 mt-2">
-              <p className="text-2xl font-extrabold font-mono text-logo-orange">{totalBreakTimeMinutes} min</p>
+              <p className="text-3xl font-extrabold font-mono text-logo-orange">{totalBreakTimeMinutes} min</p> {/* Increased font size */}
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-4 pt-4">
-          <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
+          <h3 className="text-xl font-bold flex items-center gap-2 text-foreground"> {/* Increased font size */}
             <Lightbulb className="h-5 w-5 text-logo-yellow" /> Reflect & Grow
           </h3>
-          <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+          <ul className="list-disc list-inside space-y-3 text-base text-muted-foreground"> {/* Increased font size and spacing */}
             {reflectionPrompts.map((prompt, index) => (
               <li key={index} className="flex items-start">
-                <Smile className="h-4 w-4 mr-2 mt-1 shrink-0 text-primary" />
+                <Smile className="h-5 w-5 mr-2 mt-1 shrink-0 text-primary" /> {/* Increased icon size */}
                 <span>{prompt}</span>
               </li>
             ))}
@@ -121,10 +121,10 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
         {completedScheduledTasks.length > 0 && (
           <Accordion type="single" collapsible className="w-full pt-4">
             <AccordionItem value="completed-tasks-log" className="border-b-0">
-              <AccordionTrigger className="text-base font-semibold flex items-center gap-2 text-primary hover:no-underline">
-                <CheckCircle className="h-5 w-5 text-logo-green" /> View {completedScheduledTasks.length} Completed Task{completedScheduledTasks.length !== 1 ? 's' : ''}
+              <AccordionTrigger className="text-lg font-semibold flex items-center gap-2 text-primary hover:no-underline"> {/* Increased font size */}
+                <CheckCircle className="h-6 w-6 text-logo-green" /> View {completedScheduledTasks.length} Completed Task{completedScheduledTasks.length !== 1 ? 's' : ''}
               </AccordionTrigger>
-              <AccordionContent className="space-y-2 pt-2">
+              <AccordionContent className="space-y-3 pt-3"> {/* Increased spacing */}
                 {completedScheduledTasks.map(task => (
                   <CompletedTaskLogItem key={task.id} task={task} />
                 ))}

@@ -150,7 +150,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     const firstRenderedItem = filteredItems[0];
     const lastRenderedItem = filteredItems[filteredItems.length - 1];
 
-    const actualStartTime = firstRenderedItem ? ('time' in firstRenderedItem ? firstRenderedItem.time : firstRenderedItem.startTime) : startOfTemplate;
+    const actualStartTime = firstRenderedItem ? ('time' in firstRenderedItem ? firstItemStartTime : firstRenderedItem.startTime) : startOfTemplate;
     const actualEndTime = lastRenderedItem ? ('time' in lastRenderedItem ? lastRenderedItem.time : lastRenderedItem.endTime) : endOfTemplate;
 
     return {
@@ -221,7 +221,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current);
 
-  const renderDisplayItem = (item: DisplayItem, index: number) => { // Added index
+  const renderDisplayItem = (item: DisplayItem, index: number) => {
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
     const isHighlightedBySession = activeItemId === item.id;
     const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'time-off') && item.endTime <= T_current;
@@ -339,199 +339,225 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               </span>
             </div>
 
-            <div className="relative z-10 flex flex-col w-full"> {/* Changed to flex-col */}
-              
-              {/* Row 1: Title, Duration, and Action Buttons */}
-              <div className="flex items-start justify-between w-full">
-                {/* Complete Button (Left) */}
+            {/* NEW: Main Content Wrapper (Flex row: Text Block | Action Block) */}
+            <div className="relative z-10 flex w-full h-full items-start">
+                
+                {/* 1. Completion Button (Far Left) */}
                 {dbTask && !isBreak && !isTimeOff && !isCompleted && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCompleteTask(dbTask, index); // Pass index
-                        }}
-                        disabled={isLocked}
-                        className={cn(
-                          "h-8 w-8 p-0 shrink-0 mr-2 mt-0.5", // Increased size for better touch target
-                          isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
-                        )}
-                        style={isLocked ? { pointerEvents: 'auto' } : undefined}
-                      >
-                        <CheckCircle className="h-5 w-5" /> {/* Increased icon size */}
-                        <span className="sr-only">Complete task</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onCompleteTask(dbTask, index);
+                                }}
+                                disabled={isLocked}
+                                className={cn(
+                                    "h-8 w-8 p-0 shrink-0 mr-2 mt-0.5",
+                                    isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
+                                )}
+                                style={isLocked ? { pointerEvents: 'auto' } : undefined}
+                            >
+                                <CheckCircle className="h-5 w-5" />
+                                <span className="sr-only">Complete task</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
+                        </TooltipContent>
+                    </Tooltip>
                 )}
 
-                {/* Task Name and Duration */}
-                <span className={cn(
-                  "text-sm flex-grow min-w-0 pr-2",
-                  isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
-                )}>
-                  <span className="font-bold truncate block">{scheduledItem.name}</span> 
-                  <span className="font-semibold opacity-80 text-xs block sm:inline">({scheduledItem.duration} min)</span>
-                </span>
-
-                {/* Action Buttons (Right) */}
-                <div className="flex items-center gap-1 ml-auto shrink-0">
-                  {scheduledItem.isFlexible && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked });
-                          }}
-                          disabled={isProcessingCommand}
-                          className={cn(
-                            "h-8 w-8 p-0 shrink-0", // Increased size for better touch target
-                            isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
-                          )}
-                          style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
-                        >
-                          {isLocked ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />} {/* Increased icon size */}
-                          <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {dbTask && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRetireTask(dbTask);
-                          }}
-                          disabled={isLocked || isProcessingCommand}
-                          className={cn(
-                            "h-8 w-8 p-0 shrink-0", // Increased size for better touch target
-                            (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
-                          )}
-                          style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-                        >
-                          <Archive className="h-5 w-5" /> {/* Increased icon size */}
-                          <span className="sr-only">Retire task</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{isLocked ? "Unlock to Retire" : "Move to Aether Sink"}</p>
-                    </TooltipContent>
-                    </Tooltip>
-                  )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveTask(scheduledItem.id, scheduledItem.name, index); // Pass index
-                        }}
-                        disabled={isLocked || isProcessingCommand}
-                        className={cn(
-                          "h-8 w-8 p-0 shrink-0", // Increased size for better touch target
-                          (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
+                {/* 2. LEFT BLOCK: Text Content (Primary & Secondary Lines) - Takes up most space */}
+                <div className="flex flex-col flex-grow min-w-0 pr-10">
+                    
+                    {/* Primary Line: Critical, Emoji, Name, Duration, Energy (Flex row, nowrap) */}
+                    <div className="flex items-center gap-2 text-sm font-bold text-[hsl(var(--always-light-text))]">
+                        
+                        {/* Critical Badge/Icon */}
+                        {scheduledItem.isCritical && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
+                                        <Star className="h-3 w-3" strokeWidth={2.5} />
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Critical Task: Must be completed today!</p>
+                                </TooltipContent>
+                            </Tooltip>
                         )}
-                        style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-                      >
-                        <Trash className="h-5 w-5" /> {/* Increased icon size */}
-                        <span className="sr-only">Remove task</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isLocked ? "Unlock to Delete" : "Permanently delete"}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
 
-              {/* Row 2: Details (Time, Energy, Environment) */}
-              <div className="flex items-center justify-between w-full mt-1 text-xs">
-                <div className="flex items-center gap-2">
-                  {/* Time Range */}
-                  <span className={cn(
-                    "font-semibold font-mono",
-                    isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
-                  )}>
-                    {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
-                  </span>
-                  
-                  {/* Energy Cost */}
-                  {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={cn(
-                          "flex items-center gap-1 font-semibold font-mono",
-                          isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
-                        )}>
-                          {scheduledItem.energyCost} <Zap className="h-3 w-3" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Energy Cost</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* Critical Badge */}
-                  {scheduledItem.isCritical && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                          <Star className="h-3 w-3" strokeWidth={2.5} />
+                        {/* Emoji and Name (Truncated) */}
+                        <span className="text-base">{scheduledItem.emoji}</span>
+                        <span className="truncate flex-grow min-w-0">{scheduledItem.name}</span>
+                        
+                        {/* Duration and Energy (Consolidated, nowrap, pushed to the right of the name) */}
+                        <div className="flex items-center gap-2 text-xs font-semibold font-mono whitespace-nowrap shrink-0 ml-auto">
+                            <span className="opacity-80">({scheduledItem.duration} min)</span>
+                            {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="flex items-center gap-1">
+                                            {scheduledItem.energyCost} <Zap className="h-3 w-3" />
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Energy Cost</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
                         </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Critical Task: Must be completed today!</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {/* Missed Badge */}
-                  {isMissed && (
-                    <Badge variant="destructive" className="px-2 py-0.5 text-xs font-semibold">
-                      MISSED
-                    </Badge>
-                  )}
-                  {/* Environment Icon */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="h-6 w-6 flex items-center justify-center shrink-0">
-                        {getEnvironmentIcon(scheduledItem.taskEnvironment)}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Environment: {scheduledItem.taskEnvironment.charAt(0).toUpperCase() + scheduledItem.taskEnvironment.slice(1)}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-            </div>
-            {scheduledItem.type === 'break' && scheduledItem.description && (
-              <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p>
-            )}
-            {isTimeOff && (
-              <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>This block is reserved for personal time.</p>
-            )}
+                    </div>
 
+                    {/* Secondary Line: Time Range, Environment, Status, Description */}
+                    <div className="flex flex-col w-full mt-1 text-xs">
+                        <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2">
+                                {/* Time Range */}
+                                <span className={cn(
+                                    "font-semibold font-mono",
+                                    isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
+                                )}>
+                                    {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
+                                </span>
+                                
+                                {/* Environment Icon */}
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="h-6 w-6 flex items-center justify-center shrink-0">
+                                            {getEnvironmentIcon(scheduledItem.taskEnvironment)}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Environment: {scheduledItem.taskEnvironment.charAt(0).toUpperCase() + scheduledItem.taskEnvironment.slice(1)}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                                {/* Missed Badge */}
+                                {isMissed && (
+                                    <Badge variant="destructive" className="px-2 py-0.5 text-xs font-semibold">
+                                        MISSED
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* Break/Time Off Description */}
+                        {scheduledItem.type === 'break' && scheduledItem.description && (
+                            <p className={cn("text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p>
+                        )}
+                        {isTimeOff && (
+                            <p className={cn("text-sm mt-1 text-logo-green/80")}>This block is reserved for personal time.</p>
+                        )}
+                    </div>
+                </div>
+
+                {/* 3. RIGHT BLOCK: Action Buttons (Vertical Stack, Absolute Positioned) */}
+                {dbTask && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-end gap-1">
+                        
+                        {/* Info Chip (Always visible on hover, positioned at the top of the stack) */}
+                        <InfoChip 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleInfoChipClick(dbTask);
+                            }}
+                            isHovered={hoveredItemId === scheduledItem.id} 
+                            tooltipContent="View/Edit Details"
+                        />
+
+                        {/* Lock/Unlock Button */}
+                        {scheduledItem.isFlexible && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked });
+                                        }}
+                                        disabled={isProcessingCommand}
+                                        className={cn(
+                                            "h-7 w-7 p-0 shrink-0 transition-opacity duration-200",
+                                            isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"),
+                                            hoveredItemId === scheduledItem.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                        style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+                                    >
+                                        {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                                        <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
+
+                        {/* Retire Button */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRetireTask(dbTask);
+                                    }}
+                                    disabled={isLocked || isProcessingCommand}
+                                    className={cn(
+                                        "h-7 w-7 p-0 shrink-0 transition-opacity duration-200",
+                                        (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"),
+                                        hoveredItemId === scheduledItem.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                    style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
+                                >
+                                    <Archive className="h-4 w-4" />
+                                    <span className="sr-only">Retire task</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{isLocked ? "Unlock to Retire" : "Move to Aether Sink"}</p>
+                            </TooltipContent>
+                        </Tooltip>
+
+                        {/* Delete Button */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRemoveTask(scheduledItem.id, scheduledItem.name, index);
+                                    }}
+                                    disabled={isLocked || isProcessingCommand}
+                                    className={cn(
+                                        "h-7 w-7 p-0 shrink-0 transition-opacity duration-200",
+                                        (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10"),
+                                        hoveredItemId === scheduledItem.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                    style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
+                                >
+                                    <Trash className="h-4 w-4" />
+                                    <span className="sr-only">Remove task</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{isLocked ? "Unlock to Delete" : "Permanently delete"}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+                )}
+            </div>
+
+            {/* Active Progress Line */}
             {isActive && (
               <>
                 <div 
@@ -544,15 +570,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   </span>
                 </div>
               </>
-            )}
-            {dbTask && (
-              <InfoChip 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleInfoChipClick(dbTask);
-                }}
-                isHovered={hoveredItemId === scheduledItem.id} 
-              />
             )}
           </div>
         </React.Fragment>
@@ -618,7 +635,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       </div>
                     )}
 
-                    {finalDisplayItems.map((item, index) => ( // Pass index
+                    {finalDisplayItems.map((item, index) => (
                       <React.Fragment key={item.id}>
                         {renderDisplayItem(item, index)}
                       </React.Fragment>

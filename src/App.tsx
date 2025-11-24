@@ -1,7 +1,7 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { SessionProvider } from "./components/SessionProvider";
@@ -33,7 +33,12 @@ const App = () => (
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/achievements" element={<AchievementsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/scheduler" element={<SchedulerPage />} />
+                    
+                    {/* NEW SCHEDULER ROUTES */}
+                    <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
+                    <Route path="/sink" element={<SchedulerPage view="sink" />} />
+                    <Route path="/recap" element={<SchedulerPage view="recap" />} />
+                    
                     <Route path="/documentation" element={<DocumentationPage />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="*" element={<NotFound />} />

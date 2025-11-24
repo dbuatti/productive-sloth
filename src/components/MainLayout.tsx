@@ -7,8 +7,10 @@ import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import EnergyDeficitWarning from './EnergyDeficitWarning';
 import Sidebar from './Sidebar'; 
-import { Sheet, SheetContent } from '@/components/ui/sheet'; // NEW: Import Sheet components
-import Navigation from './Navigation'; // NEW: Import Navigation for mobile sheet
+import { Sheet, SheetContent } from '@/components/ui/sheet'; 
+import Navigation from './Navigation'; 
+import BottomNavigationBar from './BottomNavigationBar'; // NEW IMPORT
+import { cn } from '@/lib/utils'; // Import cn
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -18,7 +20,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { activeItemToday, profile } = useSession();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // NEW: State for mobile menu
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
@@ -32,7 +34,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, []);
 
   const mainContent = (
-    <main className="flex flex-1 flex-col gap-4 p-4 overflow-auto">
+    <main className={cn(
+      "flex flex-1 flex-col gap-4 p-4 overflow-auto",
+      isMobile && "pb-20" // Add padding for the fixed bottom navigation bar (h-16 + some margin)
+    )}>
       {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
       {children}
     </main>
@@ -41,12 +46,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="flex min-h-screen w-full">
       {/* Desktop Sidebar (Permanent on large screens) */}
-      <Sidebar />
+      {!isMobile && <Sidebar />}
 
-      {/* Mobile Sheet Navigation */}
+      {/* Mobile Sheet Navigation (Hamburger Menu) */}
       {isMobile && (
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent side="left" className="w-[250px] p-0 flex flex-col bg-sidebar"> {/* Increased width to 250px */}
+          <SheetContent side="left" className="w-[250px] p-0 flex flex-col bg-sidebar"> 
             {/* Replicate Sidebar content structure for mobile */}
             <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
               <img src="/aetherflow-logo.png" alt="Logo" className="h-8 w-auto" />
@@ -72,6 +77,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         {shouldShowFocusAnchor && <FocusAnchor />}
       </div>
+      
+      {/* NEW: Bottom Navigation Bar for Mobile */}
+      {isMobile && <BottomNavigationBar />}
     </div>
   );
 };

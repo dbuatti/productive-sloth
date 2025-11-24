@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, ListTodo, Settings, Trophy, TrendingUp, Clock, BookOpen } from 'lucide-react'; // Import Clock icon and BookOpen
+import { Home, ListTodo, Settings, Trophy, TrendingUp, Clock, BookOpen, Trash2, CheckCircle } from 'lucide-react'; // Import Trash2 and CheckCircle
 import { cn } from '@/lib/utils';
 
 interface NavLinkItemProps {
@@ -36,10 +36,13 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
   const navItems = [
     { to: "/", icon: Home, label: "Dashboard" },
-    { to: "/scheduler", icon: Clock, label: "Scheduler" },
+    { to: "/scheduler", icon: Clock, label: "Vibe Schedule" }, // Renamed label
+    { to: "/sink", icon: Trash2, label: "Aether Sink" }, // NEW
+    { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, // NEW
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
     { to: "/achievements", icon: Trophy, label: "Achievements" },
-    { to: "/documentation", icon: BookOpen, label: "Documentation" }, // Settings removed
+    { to: "/documentation", icon: BookOpen, label: "Documentation" },
+    { to: "/settings", icon: Settings, label: "Settings" }, // Added Settings back to main nav for desktop/mobile menu
   ];
 
   return (

@@ -20,118 +20,47 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile'; 
 import CustomMenuIcon from './CustomMenuIcon';
+import MobileProfilePill from './MobileProfilePill'; // NEW IMPORT
 
 interface AppHeaderProps {
-  onMenuToggle: () => void; // NEW: Prop for menu toggle
+  onMenuToggle: () => void; 
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => { // NEW: Destructure prop
-  const { user, profile } = useSession();
-  const navigate = useNavigate();
+const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => { 
+  const { user } = useSession();
   const isMobile = useIsMobile();
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-  };
-
-  const handleGoToSettings = () => {
-    navigate('/settings');
-  };
-
-  const userEmail = user?.email || 'User';
-  const userId = user?.id;
-  
-  const displayName = profile?.first_name && profile?.last_name 
-    ? `${profile.first_name} ${profile.last_name}` 
-    : getDisplayNameFromEmail(userEmail);
-
-  const userInitials = (profile?.first_name?.charAt(0) || userEmail.charAt(0) || 'U').toUpperCase() +
-                       (profile?.last_name?.charAt(0) || userEmail.charAt(1) || 'N').toUpperCase();
-  
-  const secondaryIdentifier = userId ? `#${userId.substring(0, 8)}` : userEmail;
+  // Only show the header content on mobile (lg:hidden)
+  if (!isMobile) {
+    return null;
+  }
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:hidden">
       <div className="mx-auto max-w-5xl flex items-center justify-between h-16 px-4">
         
         {/* Left side: Mobile Menu Toggle */}
-        <div className="flex items-center gap-2 shrink-0 lg:hidden">
+        <div className="flex items-center gap-2 shrink-0">
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={onMenuToggle} // UPDATED: Use onMenuToggle
-            className="h-12 w-12 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200" // UPDATED: Increased size h-12 w-12
+            onClick={onMenuToggle} 
+            className="h-12 w-12 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200" 
           >
             <CustomMenuIcon />
             <span className="sr-only">Toggle Menu</span>
           </Button>
         </div>
 
-        {/* Center: Logo/Title (Only visible on mobile) */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center lg:hidden">
+        {/* Center: Logo/Title */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
           <img src="/aetherflow-logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
         </div>
         
-        {/* Right side: User Controls (Only visible on mobile/small screens) */}
+        {/* Right side: User Controls (Profile Pill) */}
         {user && (
-          <div className="flex items-center space-x-2 shrink-0 lg:hidden">
-            {/* Daily Challenge Claim Button and Daily Streak Display */}
-            <div className="flex items-center space-x-2">
-              <DailyChallengeClaimButton />
-
-              {profile && profile.daily_streak > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1 text-sm font-semibold text-logo-orange">
-                      <Flame className="h-4 w-4" />
-                      <span>{profile.daily_streak}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Daily Streak: {profile.daily_streak} Day{profile.daily_streak !== 1 ? 's' : ''}</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full transition-transform duration-200 hover:scale-110">
-                  <Avatar className="h-8 w-8">
-                    {profile?.avatar_url ? (
-                      <AvatarImage src={profile.avatar_url} alt={`${displayName}'s avatar`} />
-                    ) : (
-                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                        {userInitials}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{displayName}</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {secondaryIdentifier}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                
-                <DropdownMenuItem onClick={handleGoToSettings} className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem onClick={handleSignOut} className="text-destructive cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="flex items-center space-x-2 shrink-0">
+            <MobileProfilePill />
           </div>
         )}
       </div>

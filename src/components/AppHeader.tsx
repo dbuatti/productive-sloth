@@ -57,13 +57,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({ mobileNav }) => { // Accept mobil
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-5xl flex items-center justify-between h-16 px-4">
-        <div className="flex items-center gap-2">
-          {mobileNav} {/* Render mobileNav here */}
+        
+        {/* Left side: Mobile Nav (Hamburger) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {mobileNav}
+        </div>
+
+        {/* Center: Logo/Title (Visually centered on mobile) */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
           <img src="/aetherflow-logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
         </div>
         
+        {/* Right side: User Controls */}
         {user && (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             {/* Daily Challenge Claim Button and Daily Streak Display - Hidden on mobile */}
             <div className="hidden sm:flex items-center space-x-2">
               <DailyChallengeClaimButton />

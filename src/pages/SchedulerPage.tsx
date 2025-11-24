@@ -2145,155 +2145,135 @@ const SchedulerPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* REMOVED: <h1 className="text-3xl font-bold text-foreground flex items-center gap-2 animate-slide-in-up">
-        <Clock className="h-7 w-7 text-primary" /> Vibe Scheduler
-      </h1> */}
+      {/* Dashboard Panel (Always visible) */}
+      <SchedulerDashboardPanel 
+        scheduleSummary={currentSchedule?.summary || null} 
+        onAetherDump={handleAetherDumpButton}
+        isProcessingCommand={isProcessingCommand}
+        hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
+        onRefreshSchedule={handleRefreshSchedule}
+      />
 
-      {isFocusModeActive && activeItemToday && activeItemToday.id && currentSchedule?.dbTasks.find(t => t.id === activeItemToday.id) ? (
-        <ImmersiveFocusMode
-          activeItem={activeItemToday}
-          T_current={T_current}
-          onExit={() => handleSchedulerAction('exitFocus', currentSchedule?.dbTasks.find(t => t.id === activeItemToday.id)!)}
-          onAction={handleSchedulerAction}
-          dbTask={currentSchedule?.dbTasks.find(t => t.id === activeItemToday.id) || null}
-          nextItem={nextItemToday} 
-          isProcessingCommand={isProcessingCommand} 
+      {/* Calendar Strip (Always visible) */}
+      <CalendarStrip 
+        selectedDay={selectedDay} 
+        setSelectedDay={setSelectedDay} 
+        datesWithTasks={datesWithTasks} 
+        isLoadingDatesWithTasks={isLoadingDatesWithTasks}
+      />
+
+      {/* Input & Environment/Weather Card (Now de-boxed with gradient wash) */}
+      <div className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg">
+        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
+            <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
+          </h2>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
+            </p>
+          </div>
+        </div>
+        <EnvironmentMultiSelect /> 
+        <WeatherWidget />
+        <SchedulerInput 
+          onCommand={handleCommand} 
+          isLoading={overallLoading} 
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          placeholder={`Add task (e.g., 'Gym 60') or command`}
+          onDetailedInject={handleAddTaskClick}
         />
-      ) : (
+        <p className="text-sm text-muted-foreground">
+          Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+        </p>
+      </div>
+
+      {/* Utility Bar (Always visible) */}
+      <SchedulerUtilityBar 
+        isProcessingCommand={isProcessingCommand}
+        hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
+        dbScheduledTasks={dbScheduledTasks}
+        onRechargeEnergy={() => rechargeEnergy()}
+        onRandomizeBreaks={handleRandomizeBreaks}
+        onSortFlexibleTasks={handleSortFlexibleTasks}
+        onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
+        sortBy={sortBy}
+        onCompactSchedule={handleCompactSchedule}
+        onQuickScheduleBlock={handleQuickScheduleBlock}
+        retiredTasksCount={retiredTasks.length}
+        onZoneFocus={handleZoneFocus}
+        onAetherDump={handleAetherDumpButton}
+        onRefreshSchedule={handleRefreshSchedule}
+      />
+
+      {/* Now Focus Card (Always visible) */}
+      {isSameDay(parseISO(selectedDay), T_current) && (
+        <div className="pb-4 animate-slide-in-up">
+          <NowFocusCard 
+            activeItem={activeItemToday} 
+            nextItem={nextItemToday} 
+            T_current={T_current} 
+            onEnterFocusMode={() => setIsFocusModeActive(true)}
+          />
+        </div>
+      )}
+      
+      {currentSchedule?.summary.unscheduledCount > 0 && (
+        <Card className="animate-pop-in animate-hover-lift">
+          <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Conditional Rendering of Tabs/Drawer */}
+      {isMobile ? (
         <>
-          {/* Dashboard Panel (Always visible) */}
-          <SchedulerDashboardPanel 
-            scheduleSummary={currentSchedule?.summary || null} 
-            onAetherDump={handleAetherDumpButton}
-            isProcessingCommand={isProcessingCommand}
-            hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
-            onRefreshSchedule={handleRefreshSchedule}
-          />
-
-          {/* Calendar Strip (Always visible) */}
-          <CalendarStrip 
-            selectedDay={selectedDay} 
-            setSelectedDay={setSelectedDay} 
-            datesWithTasks={datesWithTasks} 
-            isLoadingDatesWithTasks={isLoadingDatesWithTasks}
-          />
-
-          {/* Input & Environment/Weather Card (Always visible) */}
           <Card className="animate-pop-in animate-hover-lift">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
+                <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
               </CardTitle>
-              <div className="flex items-center gap-3">
-                <p className="text-sm text-muted-foreground hidden sm:block">
-                  Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
-                </p>
-              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <EnvironmentMultiSelect /> 
-              <WeatherWidget />
-              <SchedulerInput 
-                onCommand={handleCommand} 
-                isLoading={overallLoading} 
-                inputValue={inputValue}
-                setInputValue={setInputValue}
-                placeholder={`Add task (e.g., 'Gym 60') or command`}
-                onDetailedInject={handleAddTaskClick}
-              />
-              <p className="text-sm text-muted-foreground">
-                Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-              </p>
+            <CardContent ref={scheduleContainerRef}>
+              {isSchedulerTasksLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <SchedulerDisplay 
+                  schedule={currentSchedule} 
+                  T_current={T_current} 
+                  onRemoveTask={handlePermanentDeleteScheduledTask}
+                  onRetireTask={(task) => handleSchedulerAction('skip', task)}
+                  onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
+                  activeItemId={activeItemToday?.id || null} 
+                  selectedDayString={selectedDay} 
+                  onAddTaskClick={handleAddTaskClick}
+                  onScrollToItem={handleScrollToItem}
+                  isProcessingCommand={isProcessingCommand}
+                />
+              )}
             </CardContent>
           </Card>
-
-          {/* Utility Bar (Always visible) */}
-          <SchedulerUtilityBar 
-            isProcessingCommand={isProcessingCommand}
-            hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-            dbScheduledTasks={dbScheduledTasks}
-            onRechargeEnergy={() => rechargeEnergy()}
-            onRandomizeBreaks={handleRandomizeBreaks}
-            onSortFlexibleTasks={handleSortFlexibleTasks}
-            onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-            sortBy={sortBy}
-            onCompactSchedule={handleCompactSchedule}
-            onQuickScheduleBlock={handleQuickScheduleBlock}
-            retiredTasksCount={retiredTasks.length}
-            onZoneFocus={handleZoneFocus}
-            onAetherDump={handleAetherDumpButton}
-            onRefreshSchedule={handleRefreshSchedule}
+          
+          {/* Daily Vibe Recap Card (Visible in main mobile flow) */}
+          <DailyVibeRecapCard
+            scheduleSummary={currentSchedule?.summary || null}
+            tasksCompletedToday={tasksCompletedForSelectedDay}
+            xpEarnedToday={xpEarnedForSelectedDay}
+            profileEnergy={profile?.energy || 0}
+            criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
+            selectedDayString={selectedDay}
+            completedScheduledTasks={completedScheduledTasksForRecap}
           />
 
-          {/* Now Focus Card (Always visible) */}
-          {isSameDay(parseISO(selectedDay), T_current) && (
-            <div className="pb-4 animate-slide-in-up">
-              <NowFocusCard 
-                activeItem={activeItemToday} 
-                nextItem={nextItemToday} 
-                T_current={T_current} 
-                onEnterFocusMode={() => setIsFocusModeActive(true)}
-              />
-            </div>
-          )}
-          
-          {currentSchedule?.summary.unscheduledCount > 0 && (
-            <Card className="animate-pop-in animate-hover-lift">
-              <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Conditional Rendering of Tabs/Drawer */}
-          {isMobile ? (
-            <>
-              <Card className="animate-pop-in animate-hover-lift">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent ref={scheduleContainerRef}>
-                  {isSchedulerTasksLoading ? (
-                    <div className="flex items-center justify-center h-32">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  ) : (
-                    <SchedulerDisplay 
-                      schedule={currentSchedule} 
-                      T_current={T_current} 
-                      onRemoveTask={handlePermanentDeleteScheduledTask}
-                      onRetireTask={(task) => handleSchedulerAction('skip', task)}
-                      onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
-                      activeItemId={activeItemToday?.id || null} 
-                      selectedDayString={selectedDay} 
-                      onAddTaskClick={handleAddTaskClick}
-                      onScrollToItem={handleScrollToItem}
-                      isProcessingCommand={isProcessingCommand}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-              
-              {/* Daily Vibe Recap Card (Visible in main mobile flow) */}
-              <DailyVibeRecapCard
-                scheduleSummary={currentSchedule?.summary || null}
-                tasksCompletedToday={tasksCompletedForSelectedDay}
-                xpEarnedToday={xpEarnedForSelectedDay}
-                profileEnergy={profile?.energy || 0}
-                criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
-                selectedDayString={selectedDay}
-                completedScheduledTasks={completedScheduledTasksForRecap}
-              />
-
-              {mobileControls}
-            </>
-          ) : (
-            desktopTabs
-          )}
+          {mobileControls}
         </>
+      ) : (
+        desktopTabs
       )}
 
       <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>

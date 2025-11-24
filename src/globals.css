@@ -224,6 +224,15 @@
     }
   }
 
+  /* NEW: Subtle gradient wash for visual bridge */
+  .bg-primary-wash {
+    background: radial-gradient(
+      circle at 50% 0%,
+      hsl(var(--primary) / 0.08) 0%,
+      transparent 50%
+    );
+  }
+
   /* Removed "hover-lift" keyframe */
 
   .animate-pulse-glow {

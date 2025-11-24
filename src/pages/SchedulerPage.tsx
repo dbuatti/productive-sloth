@@ -2055,7 +2055,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
   // --- Conditional View Rendering ---
 
-  const renderScheduleView = () => (
+  const renderScheduleCore = () => (
     <>
       {/* Input & Environment/Weather Card (Now de-boxed with gradient wash) */}
       <div className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg">
@@ -2161,7 +2161,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       onAutoScheduleSink={handleAutoScheduleSinkWrapper}
       isLoading={isLoadingRetiredTasks}
       isProcessingCommand={isProcessingCommand}
-      hideTitle={false}
+      hideTitle={!isMobile} // Hide title on desktop hybrid view
       profileEnergy={profile?.energy || 0}
       retiredSortBy={retiredSortBy} 
       setRetiredSortBy={setRetiredSortBy} 
@@ -2180,7 +2180,26 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     />
   );
 
-  const renderContent = () => {
+  const renderHybridDesktopView = () => (
+    <>
+      {/* Section B: Daily Vibe Recap (Review) */}
+      <div className="animate-slide-in-up">
+        {renderRecapView()}
+      </div>
+
+      {/* Section C: Schedule Your Day (Execute) */}
+      <div className="space-y-6">
+        {renderScheduleCore()}
+      </div>
+
+      {/* Section D: The Aether Sink (Plan/Triage) */}
+      <div className="animate-slide-in-up">
+        {renderSinkView()}
+      </div>
+    </>
+  );
+
+  const renderMobileView = () => {
     switch (view) {
       case 'sink':
         return renderSinkView();
@@ -2188,7 +2207,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         return renderRecapView();
       case 'schedule':
       default:
-        return renderScheduleView();
+        return renderScheduleCore();
     }
   };
 
@@ -2207,7 +2226,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         />
       )}
 
-      {/* Dashboard Panel (Always visible) */}
+      {/* Section A: Metrics & Calendar (Always Visible) */}
       <SchedulerDashboardPanel 
         scheduleSummary={currentSchedule?.summary || null} 
         onAetherDump={handleAetherDumpButton}
@@ -2216,7 +2235,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         onRefreshSchedule={handleRefreshSchedule}
       />
 
-      {/* Calendar Strip (Always visible) */}
       <CalendarStrip 
         selectedDay={selectedDay} 
         setSelectedDay={setSelectedDay} 
@@ -2225,7 +2243,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       />
 
       {/* Conditional View Rendering */}
-      {renderContent()}
+      {isMobile || view !== 'schedule' ? renderMobileView() : renderHybridDesktopView()}
 
       {/* Modals and Dialogs */}
       <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>

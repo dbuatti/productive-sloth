@@ -37,8 +37,8 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
   const navItems = [
     { to: "/", icon: Home, label: "Dashboard" },
     { to: "/scheduler", icon: Clock, label: "Vibe Schedule" }, // Renamed label
-    { to: "/sink", icon: Trash2, label: "Aether Sink" }, // NEW
-    { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, // NEW
+    // Removed: { to: "/sink", icon: Trash2, label: "Aether Sink" }, 
+    // Removed: { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, 
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
     { to: "/achievements", icon: Trophy, label: "Achievements" },
     { to: "/documentation", icon: BookOpen, label: "Documentation" },

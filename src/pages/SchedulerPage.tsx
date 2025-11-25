@@ -147,7 +147,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     randomizeBreaks,
     toggleScheduledTaskLock,
     aetherDump,
-    aetherDumpMega,
+    aetherDumpMega, // NEW: Destructure aetherDumpMega
     sortBy,
     setSortBy,
     retiredSortBy,
@@ -746,6 +746,23 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error) {
       console.error("Aether Dump error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+  
+  const handleAetherDumpMegaButton = async () => { // NEW HANDLER
+    if (!user) {
+      showError("You must be logged in to perform Aether Dump Mega.");
+      return;
+    }
+    setIsProcessingCommand(true);
+
+    try {
+      await aetherDumpMega();
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+    } catch (error) {
+      console.error("Aether Dump Mega error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -2303,6 +2320,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           onZoneFocus={handleZoneFocus}
           onAetherDump={handleAetherDumpButton}
           onRefreshSchedule={handleRefreshSchedule}
+          onAetherDumpMega={handleAetherDumpMegaButton}
         />
       </div>
 
@@ -2494,6 +2512,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                           onZoneFocus={handleZoneFocus}
                           onAetherDump={handleAetherDumpButton}
                           onRefreshSchedule={handleRefreshSchedule}
+                          onAetherDumpMega={handleAetherDumpMegaButton}
                       />
                   </div>
               </DrawerContent>

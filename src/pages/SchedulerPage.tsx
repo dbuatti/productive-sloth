@@ -114,26 +114,7 @@ interface SchedulerPageProps {
   view: 'schedule' | 'sink' | 'recap';
 }
 
-// FIX: Define the SchedulerUtilityBarProps interface locally to resolve TS2322 errors.
-// NOTE: This interface should ideally be imported from src/components/SchedulerUtilityBar.tsx
-interface SchedulerUtilityBarProps {
-  isProcessingCommand: boolean;
-  hasFlexibleTasksOnCurrentDay: boolean;
-  dbScheduledTasks: DBScheduledTask[];
-  onRechargeEnergy: () => Promise<void>;
-  onRandomizeBreaks: () => Promise<void>;
-  onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
-  onOpenWorkdayWindowDialog: () => void;
-  sortBy: SortBy;
-  onCompactSchedule: () => Promise<void>;
-  onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>;
-  retiredTasksCount: number;
-  onZoneFocus: () => Promise<void>;
-  onAetherDump: () => Promise<void>;
-  onRefreshSchedule: () => void;
-  onAetherDumpMega: () => Promise<void>; // <-- Added missing prop
-}
-
+// REMOVED: Local SchedulerUtilityBarProps definition, relying on import from SchedulerUtilityBar.tsx
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;

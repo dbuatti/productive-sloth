@@ -1,9 +1,9 @@
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker, DBScheduledTask, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
+import { formatTime, getEmojiHue, isMeal } from '@/lib/scheduler-utils'; // Import isMeal
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music } from 'lucide-react';
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils } from 'lucide-react'; // Import Utensils
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format } from 'date-fns';
@@ -118,7 +118,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     processedItems.forEach(item => {
         if (item.type === 'marker') {
             const isCovered = processedItems.some(pItem => {
-                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off') {
+                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off' || pItem.type === 'meal') {
                     return item.time >= pItem.startTime && item.time < pItem.endTime;
                 }
                 return false;
@@ -161,7 +161,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
@@ -223,7 +223,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const renderDisplayItem = (item: DisplayItem, index: number) => { // Added index
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
     const isHighlightedBySession = activeItemId === item.id;
-    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'time-off') && item.endTime <= T_current;
+    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal') && item.endTime <= T_current;
 
     if (item.type === 'marker') {
       return (
@@ -293,6 +293,28 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
       const isTimeOff = scheduledItem.type === 'time-off';
       const isBreak = scheduledItem.type === 'break';
+      const isMeal = scheduledItem.type === 'meal'; // NEW: Check for meal type
+
+      // Determine background color based on type
+      let itemBgColor = ambientBackgroundColor;
+      if (isTimeOff) {
+        itemBgColor = undefined; // Use default card background for time off
+      } else if (isMeal) {
+        itemBgColor = `hsl(140 50% 35% / 0.3)`; // Fixed green hue for meals
+      }
+
+      // Determine text color
+      const itemTextColor = isTimeOff ? 'text-logo-green' : (isMeal ? 'text-logo-green' : 'text-[hsl(var(--always-light-text))]');
+
+      // Determine completion visual style
+      const isFixedOrTimed = isFixed || isTimeOff || isMeal; // Fixed tasks, Time Off, and Meals remain visible when completed
+      const completionClasses = isCompleted && isFixedOrTimed ? "opacity-70" : (isCompleted ? "hidden" : "opacity-100");
+      const textCompletionClasses = isCompleted && isFixedOrTimed ? "line-through text-muted-foreground" : "text-foreground";
+      
+      // If the task is completed and is NOT a fixed/timed event, we hide it.
+      if (isCompleted && !isFixedOrTimed) {
+        return null;
+      }
 
       return (
         <React.Fragment key={scheduledItem.id}>
@@ -302,7 +324,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               isHighlightedBySession ? "bg-primary text-primary-foreground" :
               isActive ? "bg-primary/20 text-primary" :
               isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-              "hover:scale-105"
+              "hover:scale-105",
+              isCompleted && isFixedOrTimed && "line-through opacity-70" // Apply strike-through to time marker if completed fixed/timed
             )}>
               {formatTime(scheduledItem.startTime)}
             </span>
@@ -319,10 +342,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               isLocked && "border-[3px] border-primary/70", // Keep locked border logic
               isMissed && "border-destructive/70 bg-destructive/10",
               scheduledItem.isCritical && "ring-2 ring-logo-yellow/50", // Keep critical ring
-              isCompleted && "opacity-50 line-through",
+              completionClasses, // Apply completion opacity/visibility
               "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"
             )}
-            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: isTimeOff ? undefined : ambientBackgroundColor }}
+            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: itemBgColor }}
             onMouseEnter={() => setHoveredItemId(scheduledItem.id)}
             onMouseLeave={() => setHoveredItemId(null)}
             onClick={(e) => {
@@ -341,7 +364,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               {/* Row 1: Completion Button (Left) and Task Name/Metadata (Right) */}
               <div className="flex items-center justify-between w-full"> {/* CHANGED items-start to items-center */}
                 {/* Completion Button (Left) */}
-                {dbTask && !isBreak && !isTimeOff && !isCompleted && (
+                {dbTask && !isTimeOff && ( // Time Off can be completed
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button 
@@ -371,24 +394,27 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 {/* Task Name & Condensed Metadata */}
                 <span className={cn(
                   "text-base flex-grow min-w-0 pr-2", // Increased font size
-                  isTimeOff ? "text-logo-green" : "text-[hsl(var(--always-light-text))]"
+                  itemTextColor,
+                  isCompleted && isFixedOrTimed && "line-through text-muted-foreground" // Apply strike-through to text
                 )}>
                   <div className="flex items-center gap-2">
                     <span className="font-bold truncate block text-lg">{scheduledItem.name}</span> {/* Increased font size */}
                     
-                    {/* Energy Cost */}
-                    {scheduledItem.energyCost !== undefined && scheduledItem.energyCost > 0 && (
+                    {/* Energy Cost / Gain */}
+                    {scheduledItem.energyCost !== undefined && scheduledItem.energyCost !== 0 && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <span className={cn(
                                     "flex items-center gap-1 font-semibold font-mono text-xs px-1 py-0.5 rounded-sm",
-                                    isTimeOff ? "text-logo-green/80 bg-logo-green/20" : "text-[hsl(var(--always-light-text))] opacity-80 bg-white/10"
+                                    scheduledItem.energyCost < 0 ? "text-logo-green bg-logo-green/20" : "text-logo-yellow bg-white/10",
+                                    isCompleted && isFixedOrTimed && "text-muted-foreground/80"
                                 )}>
-                                    {scheduledItem.energyCost} <Zap className="h-3 w-3" />
+                                    {scheduledItem.energyCost > 0 ? scheduledItem.energyCost : `+${Math.abs(scheduledItem.energyCost)}`} 
+                                    {scheduledItem.energyCost > 0 ? <Zap className="h-3 w-3" /> : <Utensils className="h-3 w-3" />} {/* Use Utensils for positive energy (meals) */}
                                 </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>Energy Cost</p>
+                                <p>{scheduledItem.energyCost > 0 ? "Energy Cost" : "Energy Gain (Meal)"}</p>
                             </TooltipContent>
                         </Tooltip>
                     )}
@@ -507,13 +533,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               <div className={cn(
                 "flex items-center justify-between w-full mt-1 text-sm",
                 // Add margin-left to align with the start of the task name, compensating for the completion button's width (h-7 w-7 + mr-2 = ~36px)
-                dbTask && !isBreak && !isTimeOff && !isCompleted ? "ml-[36px]" : "ml-0"
+                dbTask && !isTimeOff && (scheduledItem.type === 'task' || scheduledItem.type === 'break' || scheduledItem.type === 'meal') && !isCompleted ? "ml-[36px]" : "ml-0"
               )}>
                   <div className="flex items-center gap-3">
                       {/* Time Range */}
                       <span className={cn(
                           "font-semibold font-mono text-xs", // Reduced font size
-                          isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
+                          isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80",
+                          isCompleted && isFixedOrTimed && "line-through text-muted-foreground/80" // Apply strike-through to time range
                       )}>
                           {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
                       </span>
@@ -521,7 +548,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       {/* Duration */}
                       <span className={cn(
                           "font-semibold opacity-80 text-xs", // Reduced font size
-                          isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80"
+                          isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80",
+                          isCompleted && isFixedOrTimed && "line-through text-muted-foreground/80" // Apply strike-through to duration
                       )}>
                           ({scheduledItem.duration} min)
                       </span>

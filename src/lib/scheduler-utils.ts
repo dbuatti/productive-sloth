@@ -2,6 +2,8 @@ import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, par
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
+export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break']; // Added 'eat' and 'coffee break'
+
 export const EMOJI_MAP: { [key: string]: string } = {
   'gym': '🏋️', 'workout': '🏋️', 'run': '🏃', 'exercise': '🏋️', 'fitness': '💪',
   'email': '📧', 'messages': '💬', 'calls': '📞', 'communication': '🗣️', 'admin': '⚙️', 'paperwork': '📄',
@@ -10,11 +12,11 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'study': '📦', // Updated to '📦' for house organization context
   'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫',
   'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️',
-  'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎',
+  'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎', 'eat': '🍎', // UPDATED: Added 'eat'
   'brainstorm': '💡', 'strategy': '📈', 'review': '🔍', 'plan': '🗓️',
   'gaming': '🎮', 'hobbies': '🎲', 'leisure': '😌', 'movie': '🎬', 'relax': '🧘', 'chill': '🛋️',
   'meditation': '🧘', 'yoga': '🧘', 'self-care': '🛀', 'wellness': '🌸', 'mindfulness': '🧠', 'nap': '😴', 'rest': '🛌',
-  'break': '☕️', 'coffee': '☕️', 'walk': '🚶', 'stretch': '🤸',
+  'break': '☕️', 'coffee': '☕️', 'walk': '🚶', 'stretch': '🤸', 'coffee break': '☕️', // UPDATED: Added 'coffee break'
   'piano': '🎹', 'music': '🎶', 'practice': '🎼',
   'commute': '🚗', 'drive': '🚗', 'bus': '🚌', 'train': '🚆', 'travel': '✈️',
   'shop': '🛍️', 'bank': '🏦', 'post': '✉️', 'errands': '🏃‍♀️',
@@ -30,48 +32,45 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'student': '🧑‍🎓',
   'rehearsal': '🎭',
   'time off': '🌴',
-  // Updated/New Emojis based on chat-id=764
-  'message': '💬', // For 'Return message to Lydia', 'Return message to Damien'
-  'journal': '✍️', // For 'Journal about my relationship...'
-  'washing': '👕', // For 'Load of washing'
-  'money': '💰', 'transactions': '💰', // For 'Money transactions update'
-  'mop': '🪣', 'floor': '🪣', // For 'Mop floor'
-  'quote': '🧾', 'send quote': '🧾', 'generate quote': '🧾', // For 'Send and create quote for Stephen', 'Send quote to Mama Alto'
-  'doctor': '🩺', 'medical': '🩺', // For 'Isabelle MD'
-  'channel': '🧘', 'anxious': '🧘', // For 'Channel about what might be recycling me...'
-  'recycling': '♻️', 'bin': '♻️', // For 'Bring in the new recycling bin'
-  'milk': '🥛', 'cartons': '🥛', // For 'Empty the old milk cartons'
-  'sync': '🤝', 'standup': '🤝', // Added back
-  'tutorial': '💡', // For 'tutorial'
-  // User-requested specific emoji mappings (Corrected from numbers to strings)
-  'tv': '📺', // Explicitly set for 'TV to Brad'
-  'cobweb': '🕸️', // Same as clean
-  'cables': '🔌', // Tech-related
-  'fold laundry': '🧺', // Same as laundry
-  'load of laundry': '🧺', // Same as laundry
-  'tidy': '🗄️', // Same as organize
-  'room': '🏠', // Same as room
-  'book': '📅', // General admin
-  'waitress': '📅', // Same as book
-  'preparation': '📝', // Same as book
-  'lego': '🧩', // Playful green
-  'organise': '🗄️', // General organization
-  'shirts': '👕', // Same as organise
-  'gigs': '🎤', // Same as organise
-  'charge': '🔌', // Tech-related
-  'vacuum': '🔌', // Same as charge
-  'put away': '📦', // For 'Put away my new sheets'
-  'sheets': '📦', // For 'Put away my new sheets'
-  'pants': '📦', // For 'Put away my new pants'
-  'medication': '💊', // For 'Put medication next to toothbrush'
-  'toothbrush': '💊', // For 'Put medication next to toothbrush'
-  'return message': '💬', // For 'Return Message To Damien'
-  'voice deal': '🎤', // For 'Voice Deal for Lydia'
-  'find location': '🗺️', // For 'Find A Location For The Broom'
-  'broom': '🧹', // For 'Find A Location For The Broom'
-  'practise': '🎹', // For 'Piano Practise'
-  'track': '🎼', // For 'PIANO TRACK'
-  // NEW EMOJIS
+  'message': '💬',
+  'journal': '✍️',
+  'washing': '👕',
+  'money': '💰', 'transactions': '💰',
+  'mop': '🪣', 'floor': '🪣',
+  'quote': '🧾', 'send quote': '🧾', 'generate quote': '🧾',
+  'doctor': '🩺', 'medical': '🩺',
+  'channel': '🧘', 'anxious': '🧘',
+  'recycling': '♻️', 'bin': '♻️',
+  'milk': '🥛', 'cartons': '🥛',
+  'sync': '🤝', 'standup': '🤝',
+  'tutorial': '💡',
+  'tv': '📺',
+  'cobweb': '🕸️',
+  'cables': '🔌',
+  'fold laundry': '🧺',
+  'load of laundry': '🧺',
+  'tidy': '🗄️',
+  'room': '🏠',
+  'book': '📅',
+  'waitress': '📅',
+  'preparation': '📝',
+  'lego': '🧩',
+  'organise': '🗄️',
+  'shirts': '👕',
+  'gigs': '🎤',
+  'charge': '🔌',
+  'vacuum': '🔌',
+  'put away': '📦',
+  'sheets': '📦',
+  'pants': '📦',
+  'medication': '💊',
+  'toothbrush': '💊',
+  'return message': '💬',
+  'voice deal': '🎤',
+  'find location': '🗺️',
+  'broom': '🧹',
+  'practise': '🎹',
+  'track': '🎼',
   'catch up': '🤝',
   'trim': '💅',
   'cuticle': '💅',
@@ -96,11 +95,11 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'study': 150, // Updated hue for house organization context
   'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260,
   'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40,
-  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350,
+  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, 'eat': 35, // UPDATED: Added 'eat'
   'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
   'gaming': 0, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150, 
   'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150,
-  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110,
+  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, 'coffee break': 30, // UPDATED: Added 'coffee break'
   'piano': 270, 'music': 270, 'practice': 270,
   'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200,
   'shop': 180, 'bank': 220, 'post': 240, 'errands': 210,
@@ -116,7 +115,6 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'student': 265,
   'rehearsal': 315,
   'time off': 100,
-  // Updated/New Emojis based on chat-id=764
   'message': 245,
   'journal': 320,
   'washing': 200,
@@ -129,7 +127,6 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'milk': 40, 'cartons': 40,
   'sync': 290, 'standup': 290, // Added back
   'tutorial': 60,
-  // User-requested specific emoji mappings
   'tv': 10, // Explicitly set for 'TV to Brad'
   'cobweb': 120, // Same as clean
   'cables': 210, // Tech-related
@@ -157,7 +154,6 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'broom': 120, // For 'Find A Location For The Broom'
   'practise': 270, // For 'Piano Practise'
   'track': 270, // For 'PIANO TRACK'
-  // NEW EMOJIS
   'catch up': 290,
   'trim': 330,
   'cuticle': 330,
@@ -212,7 +208,17 @@ export const getBreakDescription = (duration: number): string => {
   return "Extended Break";
 };
 
+export const isMeal = (taskName: string): boolean => {
+  const lowerCaseTaskName = taskName.toLowerCase();
+  return MEAL_KEYWORDS.some(keyword => lowerCaseTaskName.includes(keyword));
+};
+
 export const calculateEnergyCost = (duration: number, isCritical: boolean): number => {
+  // Meals provide positive energy
+  if (isMeal('meal')) { // Check against a generic meal keyword or rely on the caller to pass a meal task name
+    return -10; // Fixed positive energy gain (e.g., +10 Energy)
+  }
+
   let baseCost = Math.ceil(duration / 15) * 5; // 5 energy per 15 minutes
   if (isCritical) {
     baseCost = Math.ceil(baseCost * 1.5); // Critical tasks cost 50% more energy
@@ -329,7 +335,11 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
 
     if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-      const energyCost = calculateEnergyCost(duration, isCritical);
+      
+      // Check if it's a meal and assign fixed energy cost
+      const isMealTask = isMeal(name);
+      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical);
+
       return { name, startTime, endTime, isCritical, isFlexible: false, shouldSink, energyCost }; // Timed tasks are implicitly fixed
     }
   }
@@ -342,7 +352,8 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
 
     if (name && duration > 0) {
-      const energyCost = calculateEnergyCost(duration, isCritical);
+      const isMealTask = isMeal(name);
+      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical);
       return { name, duration, breakDuration, isCritical, isFlexible, shouldSink, energyCost };
     }
   }
@@ -372,12 +383,12 @@ export const parseInjectionCommand = (input: string): {
     const isFlexible = !injectMatch[10]; // If 'fixed' flag is present, it's not flexible
 
     let calculatedEnergyCost = 0;
-    if (duration) {
+    const isMealTask = isMeal(taskName);
+
+    if (isMealTask) {
+      calculatedEnergyCost = -10;
+    } else if (duration) {
       calculatedEnergyCost = calculateEnergyCost(duration, isCritical);
-    } else if (startTime && endTime) {
-      // For injection, we can't reliably calculate energy cost without a base date for parsing times
-      // For now, provide a default or placeholder.
-      calculatedEnergyCost = calculateEnergyCost(60, isCritical); // Assume 60 min for placeholder
     } else {
       calculatedEnergyCost = calculateEnergyCost(30, isCritical); // Default for unknown duration
     }
@@ -465,7 +476,8 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
 
   if (!name) return null;
 
-  const energyCost = calculateEnergyCost(duration || 30, isCritical); // Default to 30 min if no duration
+  const isMealTask = isMeal(name);
+  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical); // Default to 30 min if no duration
 
   return {
     user_id: userId,
@@ -728,10 +740,22 @@ export const calculateSchedule = (
 
     const isTimeOff = dbTask.name.toLowerCase() === 'time off';
     const isBreak = dbTask.name.toLowerCase() === 'break';
+    const isMealTask = isMeal(dbTask.name); // Check for meal
+
+    let itemType: ScheduledItemType;
+    if (isTimeOff) {
+      itemType = 'time-off';
+    } else if (isBreak) {
+      itemType = 'break';
+    } else if (isMealTask) { // NEW: Assign 'meal' type
+      itemType = 'meal';
+    } else {
+      itemType = 'task';
+    }
 
     const item: ScheduledItem = {
       id: dbTask.id,
-      type: isTimeOff ? 'time-off' : (isBreak ? 'break' : 'task'),
+      type: itemType, // UPDATED: Use calculated itemType
       name: dbTask.name,
       duration: duration,
       startTime: startTime,
@@ -752,7 +776,7 @@ export const calculateSchedule = (
 
     if (item.type === 'task' || item.type === 'time-off') {
       totalActiveTimeMinutes += duration;
-    } else if (item.type === 'break') {
+    } else if (item.type === 'break' || item.type === 'meal') { // UPDATED: Meals count as break time
       totalBreakTimeMinutes += duration;
     }
 

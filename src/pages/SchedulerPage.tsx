@@ -20,6 +20,7 @@ import {
   calculateEnergyCost,
   getEmojiHue,
   getBreakDescription,
+  isMeal, // Import isMeal
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -1292,12 +1293,17 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       if (isAdHocInjection) {
         const injectedTaskDuration = injectCommand.duration || 30;
         const breakDuration = injectCommand.breakDuration;
+        
+        // Recalculate energy cost based on task name if it's a meal
+        const isMealTask = isMeal(injectCommand.taskName);
+        const calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(injectedTaskDuration, injectCommand.isCritical ?? false);
+
         const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
           injectCommand.taskName,
           injectedTaskDuration,
           injectCommand.isCritical,
           injectCommand.isFlexible,
-          injectCommand.energyCost,
+          calculatedEnergyCost,
           currentOccupiedBlocksForScheduling,
           effectiveWorkdayStart,
           workdayEndTime
@@ -1312,7 +1318,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             scheduled_date: taskScheduledDate,
             is_critical: injectCommand.isCritical,
             is_flexible: injectCommand.isFlexible,
-            energy_cost: injectCommand.energyCost,
+            energy_cost: calculatedEnergyCost,
             is_custom_energy_cost: false,
             task_environment: environmentForPlacement,
           });
@@ -1502,7 +1508,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       }
 
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-      calculatedEnergyCost = calculateEnergyCost(duration, injectionPrompt.isCritical ?? false);
+      
+      // Recalculate energy cost based on task name if it's a meal
+      const isMealTask = isMeal(injectionPrompt.taskName);
+      calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(duration, injectionPrompt.isCritical ?? false);
 
       await addScheduledTask({ 
         name: injectionPrompt.taskName, 
@@ -1536,7 +1545,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         return;
       }
       
-      calculatedEnergyCost = calculateEnergyCost(injectedTaskDuration, injectionPrompt.isCritical ?? false);
+      // Recalculate energy cost based on task name if it's a meal
+      const isMealTask = isMeal(injectionPrompt.taskName);
+      calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(injectedTaskDuration, injectionPrompt.isCritical ?? false);
 
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
         injectionPrompt.taskName,
@@ -1753,8 +1764,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
     try {
       if (action === 'complete') {
-        // NEW: Energy Deficit Check
-        if (profile.energy < 0) {
+        const isMealTask = isMeal(task.name); // NEW: Check if it's a meal
+
+        // NEW: Energy Deficit Check (Bypass if it's a meal, as meals provide energy)
+        if (!isMealTask && profile.energy < 0) {
           setTaskToCompleteInDeficit(task);
           setTaskToCompleteInDeficitIndex(index);
           setShowEnergyDeficitConfirmation(true);
@@ -1778,7 +1791,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             }
         }
         
-        if (shouldOpenEarlyCompletionModal) {
+        if (shouldOpenEarlyCompletionModal && !isMealTask) { // Bypass early completion modal for meals
             setEarlyCompletionTaskName(task.name);
             setEarlyCompletionRemainingMinutes(remainingMins);
             setEarlyCompletionDbTask(task);
@@ -1788,27 +1801,37 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             setIsProcessingCommand(false); 
             return;
         } else {
-            await completeScheduledTaskMutation(task);
-            // After completion, if it was a flexible task, compact the schedule
-            if (task.is_flexible) {
-              const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
-              const compactedTasks = compactScheduleLogic(
-                  latestDbScheduledTasks,
-                  selectedDayAsDate,
-                  workdayStartTime,
-                  workdayEndTime,
-                  T_current
-              );
-              const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-              if (tasksToUpdate.length > 0) {
-                  await compactScheduledTasks({ tasksToUpdate });
-                  showSuccess(`Task "${task.name}" completed! Schedule compacted.`);
-              } else {
-                  showSuccess(`Task "${task.name}" completed! No flexible tasks to compact.`);
-              }
-            } else {
+            // If it's a fixed/timed task (including meals), we only update status, not delete
+            const isFixedOrTimed = !task.is_flexible || isMealTask || task.name.toLowerCase() === 'time off';
+
+            if (isFixedOrTimed) {
+              await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
               showSuccess(`Task "${task.name}" completed!`);
+            } else {
+              // If it's a flexible task, complete and delete
+              await completeScheduledTaskMutation(task);
+              // After completion, if it was a flexible task, compact the schedule
+              if (task.is_flexible) {
+                const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+                const compactedTasks = compactScheduleLogic(
+                    latestDbScheduledTasks,
+                    selectedDayAsDate,
+                    workdayStartTime,
+                    workdayEndTime,
+                    T_current
+                );
+                const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
+                if (tasksToUpdate.length > 0) {
+                    await compactScheduledTasks({ tasksToUpdate });
+                    showSuccess(`Task "${task.name}" completed! Schedule compacted.`);
+                } else {
+                    showSuccess(`Task "${task.name}" completed! No flexible tasks to compact.`);
+                }
+              } else {
+                showSuccess(`Task "${task.name}" completed!`);
+              }
             }
+            
             if (isCurrentlyActive) {
                 if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
                   setIsFocusModeActive(false);
@@ -1993,27 +2016,37 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     if (!taskToCompleteInDeficit || !profile) return;
     setIsProcessingCommand(true);
     try {
-      await completeScheduledTaskMutation(taskToCompleteInDeficit);
-      // After completion, if it was a flexible task, compact the schedule
-      if (taskToCompleteInDeficit.is_flexible) {
-        const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-        const compactedTasks = compactScheduleLogic(
-            latestDbScheduledTasks,
-            selectedDayAsDate,
-            workdayStartTime,
-            workdayEndTime,
-            T_current
-        );
-        const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-        if (tasksToUpdate.length > 0) {
-            await compactScheduledTasks({ tasksToUpdate });
-            showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! Schedule compacted.`);
-        } else {
-            showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! No flexible tasks to compact.`);
-        }
-      } else {
+      // If it's a fixed/timed task (including meals), we only update status, not delete
+      const isMealTask = isMeal(taskToCompleteInDeficit.name);
+      const isFixedOrTimed = !taskToCompleteInDeficit.is_flexible || isMealTask || taskToCompleteInDeficit.name.toLowerCase() === 'time off';
+
+      if (isFixedOrTimed) {
+        await updateScheduledTaskStatus({ taskId: taskToCompleteInDeficit.id, isCompleted: true });
         showSuccess(`Task "${taskToCompleteInDeficit.name}" completed!`);
+      } else {
+        await completeScheduledTaskMutation(taskToCompleteInDeficit);
+        // After completion, if it was a flexible task, compact the schedule
+        if (taskToCompleteInDeficit.is_flexible) {
+          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
+          const compactedTasks = compactScheduleLogic(
+              latestDbScheduledTasks,
+              selectedDayAsDate,
+              workdayStartTime,
+              workdayEndTime,
+              T_current
+          );
+          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
+          if (tasksToUpdate.length > 0) {
+              await compactScheduledTasks({ tasksToUpdate });
+              showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! Schedule compacted.`);
+          } else {
+              showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! No flexible tasks to compact.`);
+          }
+        } else {
+          showSuccess(`Task "${taskToCompleteInDeficit.name}" completed!`);
+        }
       }
+      
       setIsFocusModeActive(false);
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
@@ -2025,7 +2058,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setTaskToCompleteInDeficit(null);
       setTaskToCompleteInDeficitIndex(null);
     }
-  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, setIsFocusModeActive]);
+  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, setIsFocusModeActive, updateScheduledTaskStatus]);
 
 
   const tasksCompletedForSelectedDay = useMemo(() => {

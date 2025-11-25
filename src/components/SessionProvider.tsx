@@ -419,7 +419,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const activeItemToday: ScheduledItem | null = useMemo(() => {
     if (!calculatedScheduleToday) return null;
     for (const item of calculatedScheduleToday.items) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off') && T_current >= item.startTime && T_current < item.endTime) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
@@ -439,9 +439,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const nextMatchingItem = potentialNextItems.find(item => 
             // Match tasks only if their environment is selected
             (item.type === 'task' && selectedEnvironments.includes(item.taskEnvironment)) || 
-            // Breaks and Time Off are always considered available, regardless of environment selection
+            // Breaks, Time Off, and Meals are always considered available, regardless of environment selection
             item.type === 'break' || 
-            item.type === 'time-off'
+            item.type === 'time-off' ||
+            item.type === 'meal' // UPDATED: Include meals
         );
         
         if (nextMatchingItem) {
@@ -451,7 +452,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Fallback: If no environments are selected, or if no matching item was found, 
     // return the very next scheduled item regardless of environment.
-    const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off');
+    const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal'); // UPDATED: Include meals
     return nextAnyItem || null;
 
   }, [calculatedScheduleToday, T_current, selectedEnvironments]);

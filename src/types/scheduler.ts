@@ -147,7 +147,7 @@ export interface AutoBalancePayload {
   selectedDate: string;
 }
 
-export type ScheduledItemType = 'task' | 'break' | 'time-off'; // NEW: Added 'time-off'
+export type ScheduledItemType = 'task' | 'break' | 'time-off' | 'meal'; // UPDATED: Added 'meal'
 
 export interface ScheduledItem {
   id: string; // Unique ID for React keys

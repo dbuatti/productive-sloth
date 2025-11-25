@@ -16,6 +16,15 @@ const PASSIVE_ENERGY_REGEN_PER_MINUTE = 1 / 60; // +1 Energy per hour
 const BREAK_ENERGY_BOOST_PER_MINUTE = 2 / 60; // +2 Energy per break-hour (additional to passive)
 const NIGHT_ENERGY_BOOST_PER_MINUTE = 5 / 60; // +5 Energy per night-hour (additional to passive)
 
+// Meal keywords (mirroring client-side for consistency)
+const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break'];
+
+const isMeal = (taskName: string): boolean => {
+  if (!taskName) return false;
+  const lowerCaseTaskName = taskName.toLowerCase();
+  return MEAL_KEYWORDS.some(keyword => lowerCaseTaskName.includes(keyword));
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -100,17 +109,30 @@ serve(async (req) => {
 
         let isDuringBreak = false;
         let isDuringNighttime = false;
+        let isDuringMeal = false; // NEW: Flag for meal time
 
-        // Check for Scheduled Break
+        // Check for Scheduled Break or Meal
         for (const task of userScheduledTasksToday) {
-          if (task.name?.toLowerCase() === 'break' && task.start_time && task.end_time) {
+          if (task.start_time && task.end_time) {
             const taskStart = dateFns.parseISO(task.start_time);
             const taskEnd = dateFns.parseISO(task.end_time);
+            
             if (currentTimeCursor >= taskStart && currentTimeCursor < taskEnd) {
-              isDuringBreak = true;
-              break;
+              if (task.name?.toLowerCase() === 'break') {
+                isDuringBreak = true;
+              } else if (isMeal(task.name)) { // NEW: Check if it's a meal
+                isDuringMeal = true;
+              }
+              // If it's a task or time-off, no passive boost applies, so we can break early
+              if (!isDuringBreak && !isDuringMeal) break; 
             }
           }
+        }
+        
+        // NEW: If it's during a meal, skip passive/boosted regeneration for this chunk
+        if (isDuringMeal) {
+            currentTimeCursor = actualIntervalEnd;
+            continue;
         }
 
         // Check for Nighttime Recovery (outside default auto-schedule window)

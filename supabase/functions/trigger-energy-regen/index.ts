@@ -18,28 +18,32 @@ serve(async (req) => {
   }
 
   try {
-    // Use the service role key for database access to bypass RLS
-    const supabaseClient = createClient(
-      // @ts-ignore
-      Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    // 1. Invoke the main energy-regen function asynchronously
-    // We use the service role client to ensure this internal call succeeds.
-    const { data, error } = await supabaseClient.functions.invoke('energy-regen', {
-        method: 'POST',
-        body: {}, // No body needed for the energy-regen function
-        // We don't wait for the response, making it asynchronous
-    });
-
-    if (error) {
-      console.error("Error invoking energy-regen:", error.message);
-      throw new Error(`Failed to invoke energy-regen: ${error.message}`);
+    // Get environment variables
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing.");
     }
 
-    return new Response(JSON.stringify({ message: "Energy regeneration triggered asynchronously." }), {
+    const energyRegenUrl = `${SUPABASE_URL}/functions/v1/energy-regen`;
+
+    // 1. Invoke the main energy-regen function using fetch and Service Role Key
+    const response = await fetch(energyRegenUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, // Authenticate with Service Role Key
+        },
+        body: JSON.stringify({}), // Empty body as energy-regen doesn't require input
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error response from energy-regen:", response.status, errorText);
+        throw new Error(`Energy-regen failed with status ${response.status}: ${errorText}`);
+    }
+
+    return new Response(JSON.stringify({ message: "Energy regeneration triggered successfully." }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

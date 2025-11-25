@@ -24,6 +24,8 @@ export interface UserProfile {
   enable_delete_hotkeys: boolean;
   enable_aethersink_backup: boolean; // NEW: Added for Aether Sink backup preference
   last_energy_regen_at: string | null; // NEW: Added for energy regeneration tracking
+  is_in_regen_pod: boolean; // NEW: Is user currently in a regen pod session
+  regen_pod_start_time: string | null; // NEW: Timestamp when pod started
 }
 
 interface SessionContextType {
@@ -45,6 +47,9 @@ interface SessionContextType {
   activeItemToday: ScheduledItem | null;
   nextItemToday: ScheduledItem | null;
   T_current: Date;
+  startRegenPodState: (durationMinutes: number) => Promise<void>; // NEW
+  exitRegenPodState: () => Promise<void>; // NEW
+  regenPodDurationMinutes: number; // NEW: Duration calculated on start
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

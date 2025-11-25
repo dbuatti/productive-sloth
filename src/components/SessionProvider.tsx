@@ -4,20 +4,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { dismissToast, showSuccess, showError } from '@/utils/toast';
-import { isToday, parseISO, isPast, addMinutes, startOfDay, format, isSameDay, isBefore, addDays, addHours, setHours, setMinutes } from 'date-fns';
+import { isToday, parseISO, isPast, addMinutes, startOfDay, format, isSameDay, isBefore, addDays, addHours, setHours, setMinutes, differenceInMinutes } from 'date-fns';
 import { 
   MAX_ENERGY, 
   RECHARGE_BUTTON_AMOUNT, 
   LOW_ENERGY_THRESHOLD, 
   LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES,
   DAILY_CHALLENGE_TASKS_REQUIRED,
-  // Removed ENERGY_REGEN_AMOUNT, ENERGY_REGEN_INTERVAL_MS as they are now server-side
+  REGEN_POD_MAX_DURATION_MINUTES,
 } from '@/lib/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext, environmentOptions } from '@/hooks/use-environment-context';
-// Removed: import { useEnergyRegenTrigger } from '@/hooks/use-energy-regen-trigger'; // NEW: Import the hook
+
+// Supabase Project ID and URL are needed to invoke the Edge Function
+const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
+const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -27,11 +30,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpLevel, setLevelUpLevel] = useState(0);
   const [T_current, setT_current] = useState(new Date()); // Internal T_current for SessionProvider
+  const [regenPodDurationMinutes, setRegenPodDurationMinutes] = useState(0); // NEW state for Pod duration
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedEnvironments } = useEnvironmentContext();
-
-  // Removed: useEnergyRegenTrigger();
 
   // Update T_current every second
   useEffect(() => {
@@ -45,7 +47,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at') // NEW: Select last_energy_regen_at
+      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, regen_pod_start_time') // UPDATED: Select new fields
       .eq('id', userId)
       .single();
 
@@ -54,6 +56,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setProfile(null);
     } else if (data) {
       setProfile(data as UserProfile);
+      // If the user is currently in a pod, calculate the remaining duration
+      if (data.is_in_regen_pod && data.regen_pod_start_time) {
+          const startTime = parseISO(data.regen_pod_start_time);
+          const elapsed = differenceInMinutes(new Date(), startTime);
+          // Assuming max duration is 60 minutes for calculation purposes if we don't store it
+          const remaining = REGEN_POD_MAX_DURATION_MINUTES - elapsed;
+          setRegenPodDurationMinutes(Math.max(0, remaining));
+      } else {
+          setRegenPodDurationMinutes(0);
+      }
     } else {
       setProfile(null);
     }
@@ -246,6 +258,109 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, refreshProfile]);
 
+  // NEW: Start Regen Pod State
+  const startRegenPodState = useCallback(async (durationMinutes: number) => {
+    if (!user) {
+      showError("User not authenticated.");
+      return;
+    }
+    const now = new Date();
+    setRegenPodDurationMinutes(durationMinutes);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ 
+        is_in_regen_pod: true, 
+        regen_pod_start_time: now.toISOString(),
+        updated_at: now.toISOString(),
+      })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error("Failed to start Pod state:", error.message);
+      showError("Failed to start Energy Regen Pod.");
+      setRegenPodDurationMinutes(0);
+    } else {
+      await refreshProfile();
+    }
+  }, [user, refreshProfile]);
+
+  // NEW: Exit Regen Pod State (Triggers server calculation)
+  const exitRegenPodState = useCallback(async () => {
+    if (!user || !profile || !profile.is_in_regen_pod || !profile.regen_pod_start_time) {
+      showError("Pod is not currently active.");
+      return;
+    }
+    
+    const podStartTime = parseISO(profile.regen_pod_start_time);
+    const podEndTime = new Date();
+    const durationMinutes = differenceInMinutes(podEndTime, podStartTime);
+    
+    if (durationMinutes <= 0) {
+        showError("Pod session was too short to register energy gain.");
+        // Immediately reset state if duration is zero
+        await supabase
+            .from('profiles')
+            .update({ 
+                is_in_regen_pod: false, 
+                regen_pod_start_time: null,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id);
+        await refreshProfile();
+        return;
+    }
+
+    // 1. Call Edge Function to calculate and apply energy gain
+    try {
+        const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/calculate-pod-exit`;
+
+        const response = await fetch(edgeFunctionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({
+                startTime: profile.regen_pod_start_time,
+                endTime: podEndTime.toISOString(),
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to process Pod exit via Edge Function');
+        }
+        
+        const data = await response.json();
+        showSuccess(`Pod exited. +${data.energyGained}⚡ gained over ${data.durationMinutes} minutes!`);
+
+    } catch (error: any) {
+        showError(`Failed to calculate Pod energy: ${error.message}`);
+        console.error("Pod exit calculation error:", error);
+    } finally {
+        // 2. Reset Pod state in profile regardless of calculation success
+        const { error: resetError } = await supabase
+            .from('profiles')
+            .update({ 
+                is_in_regen_pod: false, 
+                regen_pod_start_time: null,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id);
+
+        if (resetError) {
+            console.error("Failed to reset Pod state:", resetError.message);
+            showError("Failed to reset Pod state in database.");
+        }
+        
+        // 3. Force profile refresh
+        await refreshProfile();
+        setRegenPodDurationMinutes(0);
+    }
+  }, [user, profile, refreshProfile, session?.access_token]);
+
+
   // Main useEffect for auth state changes and initial session load
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
@@ -317,8 +432,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setProfile(null); // Clear profile if user logs out
     }
   }, [user?.id, refreshProfile]);
-
-  // Removed client-side Energy Regeneration Effect - now handled by server-side Edge Function
 
   // Daily Reset for tasks_completed_today and Daily Reward Notification
   useEffect(() => {
@@ -413,8 +526,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const calculatedScheduleToday = useMemo(() => {
     if (!profile || !dbScheduledTasksToday) return null;
     const todayString = format(new Date(), 'yyyy-MM-dd');
-    return calculateSchedule(dbScheduledTasksToday, todayString, workdayStartTimeToday, workdayEndTimeToday);
-  }, [dbScheduledTasksToday, profile, workdayStartTimeToday, workdayEndTimeToday]);
+    return calculateSchedule(
+      dbScheduledTasksToday, 
+      todayString, 
+      workdayStartTimeToday, 
+      workdayEndTimeToday,
+      profile.is_in_regen_pod, // NEW
+      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, // NEW
+      regenPodDurationMinutes, // NEW
+      T_current // NEW
+    );
+  }, [dbScheduledTasksToday, profile, workdayStartTimeToday, workdayEndTimeToday, regenPodDurationMinutes, T_current]);
 
   const activeItemToday: ScheduledItem | null = useMemo(() => {
     if (!calculatedScheduleToday) return null;
@@ -442,7 +564,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             // Breaks, Time Off, and Meals are always considered available, regardless of environment selection
             item.type === 'break' || 
             item.type === 'time-off' ||
-            item.type === 'meal' // UPDATED: Include meals
+            item.type === 'meal'
         );
         
         if (nextMatchingItem) {
@@ -452,7 +574,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Fallback: If no environments are selected, or if no matching item was found, 
     // return the very next scheduled item regardless of environment.
-    const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal'); // UPDATED: Include meals
+    const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal');
     return nextAnyItem || null;
 
   }, [calculatedScheduleToday, T_current, selectedEnvironments]);
@@ -478,6 +600,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       activeItemToday,
       nextItemToday,
       T_current,
+      startRegenPodState, // NEW
+      exitRegenPodState, // NEW
+      regenPodDurationMinutes, // NEW
     }}>
       {children}
     </SessionContext.Provider>

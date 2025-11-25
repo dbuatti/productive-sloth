@@ -650,7 +650,7 @@ export const compactScheduleLogic = (
     let searchStartTime = currentPlacementCursor;
 
     while (isBefore(searchStartTime, workdayEndTime)) {
-      const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchStartTime, workdayEndTime);
+      const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchTime, workdayEndTime);
       const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
 
       if (suitableBlock) {
@@ -694,7 +694,11 @@ export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
   selectedDay: string,
   workdayStart: Date,
-  workdayEnd: Date
+  workdayEnd: Date,
+  isRegenPodActive: boolean, // NEW: Pod state
+  regenPodStartTime: Date | null, // NEW: Pod start time
+  regenPodDurationMinutes: number, // NEW: Pod duration
+  T_current: Date // NEW: Current time for dynamic calculation
 ): FormattedSchedule => {
   const items: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
@@ -712,7 +716,44 @@ export const calculateSchedule = (
     return 0;
   });
 
+  // --- NEW: Insert Active Regen Pod Block ---
+  if (isRegenPodActive && regenPodStartTime && isSameDay(regenPodStartTime, parseISO(selectedDay))) {
+    const podStart = regenPodStartTime;
+    const podEnd = addMinutes(podStart, regenPodDurationMinutes);
+    
+    // Only display the Pod if it's currently running or scheduled for the future today
+    if (isBefore(podEnd, T_current)) {
+        // Pod is finished, do not display
+    } else {
+        const podItem: ScheduledItem = {
+            id: 'regen-pod-active',
+            type: 'break', // Treat as a break for scheduling purposes
+            name: 'Energy Regen Pod',
+            duration: differenceInMinutes(podEnd, podStart),
+            startTime: podStart,
+            // If the pod is currently running, the end time is the calculated end time
+            endTime: podEnd, 
+            emoji: '🔋',
+            description: getBreakDescription(regenPodDurationMinutes),
+            isTimedEvent: true,
+            isCritical: false,
+            isFlexible: false,
+            isLocked: true,
+            energyCost: 0,
+            isCompleted: false,
+            isCustomEnergyCost: false,
+            taskEnvironment: 'away',
+        };
+        items.push(podItem);
+        totalBreakTimeMinutes += podItem.duration;
+        sessionEnd = isAfter(podEnd, sessionEnd) ? podEnd : sessionEnd;
+    }
+  }
+  // --- END NEW: Insert Active Regen Pod Block ---
+
+
   sortedTasks.forEach((dbTask, index) => {
+    
     if (!dbTask.start_time || !dbTask.end_time) {
       unscheduledCount++;
       return;
@@ -786,6 +827,9 @@ export const calculateSchedule = (
 
     sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
   });
+
+  // Re-sort all items (including the dynamically added Pod item) by start time
+  items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
   const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);
   const totalActiveTimeMins = totalActiveTimeMinutes % 60;

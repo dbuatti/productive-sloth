@@ -117,7 +117,7 @@ const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session } = useSession();
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession(); // UPDATED: Destructure new session functions/state
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
@@ -194,12 +194,12 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const [taskToCompleteInDeficit, setTaskToCompleteInDeficit] = useState<DBScheduledTask | null>(null);
   const [taskToCompleteInDeficitIndex, setTaskToCompleteInDeficitIndex] = useState<number | null>(null);
 
-  // NEW: Energy Regen Pod State
-  const [isRegenPodActive, setIsRegenPodActive] = useState(false);
-  const [regenPodScheduledTaskId, setRegenPodScheduledTaskId] = useState<string>('');
-  const [regenPodStartTime, setRegenPodStartTime] = useState<Date | null>(null);
-  const [regenPodCalculatedDuration, setRegenPodCalculatedDuration] = useState(0);
-  // NEW: Pod Activity State
+  // NEW: Energy Regen Pod State (Derived from profile)
+  const isRegenPodActive = profile?.is_in_regen_pod ?? false;
+  const regenPodStartTime = profile?.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null;
+  // const regenPodCalculatedDuration = regenPodDurationMinutes; // Use derived state from session provider
+  
+  // NEW: Pod Activity State (Internal to SchedulerPage for modal communication)
   const [regenPodActivityName, setRegenPodActivityName] = useState<string>('Energy Regen Pod');
   const [regenPodActivityDuration, setRegenPodActivityDuration] = useState<number>(0);
 
@@ -383,9 +383,18 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null;
-    const newSchedule = calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime);
+    const newSchedule = calculateSchedule(
+      dbScheduledTasks, 
+      selectedDay, 
+      workdayStartTime, 
+      workdayEndTime,
+      profile.is_in_regen_pod, // NEW
+      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, // NEW
+      regenPodDurationMinutes, // NEW
+      T_current // NEW
+    );
     return newSchedule;
-  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile]);
+  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile, regenPodDurationMinutes, T_current]);
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   useEffect(() => {
@@ -1210,7 +1219,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only');
   }, [user, profile, handleAutoScheduleAndSort]);
 
-  // NEW: Pod Start Handler (Now calculates dynamic duration)
+  // NEW: Pod Start Handler (Now calculates dynamic duration and updates profile state)
   const handleStartRegenPod = useCallback(async () => {
     if (!user || !profile) {
       showError("Please log in to start the Energy Regen Pod.");
@@ -1232,107 +1241,34 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     const durationNeeded = Math.ceil(energyNeeded / REGEN_POD_RATE_PER_MINUTE);
     const podDuration = Math.min(durationNeeded, REGEN_POD_MAX_DURATION_MINUTES);
 
-    const podName = `Energy Regen Pod (${podDuration} min)`;
-    const energyCost = 0; // Pod itself costs 0 energy
-
-    // 2. Find a free slot for the calculated fixed Pod duration
-    const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-      podName,
-      podDuration,
-      false, // isCritical
-      false, // isFlexible (Pod is fixed)
-      energyCost,
-      occupiedBlocks,
-      effectiveWorkdayStart,
-      workdayEndTime
-    );
-
-    if (proposedStartTime && proposedEndTime) {
-      // 3. Store dynamic duration and start state
-      setRegenPodCalculatedDuration(podDuration);
-      setRegenPodStartTime(new Date());
-      setIsRegenPodActive(true);
-      // The modal will handle the rest of the flow.
-    } else {
-      showError(message);
-      setIsProcessingCommand(false);
-    }
-  }, [user, profile, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, findFreeSlotForTask, isRegenPodActive]);
-
-  // NEW: Pod Task Insertion (Called by modal's onStart callback)
-  const handlePodTaskInsertion = useCallback(async () => { // MODIFIED: Removed arguments
-    if (!user || !regenPodStartTime || regenPodCalculatedDuration === 0) return;
-    
-    const podDuration = regenPodActivityDuration; // Use the activity's duration from state
-    const podName = regenPodActivityName; // Use the activity's name from state
-    const energyCost = 0;
-    const podEndTime = addMinutes(regenPodStartTime, podDuration);
-
+    // 2. Update profile state to start the Pod
     try {
-      const result = await addScheduledTask({
-        name: podName,
-        start_time: regenPodStartTime.toISOString(),
-        end_time: podEndTime.toISOString(),
-        break_duration: null,
-        scheduled_date: formattedSelectedDay,
-        is_critical: false,
-        is_flexible: false, // Pod is fixed
-        is_locked: true, // Pod is locked
-        energy_cost: energyCost,
-        is_custom_energy_cost: false,
-        task_environment: 'away', // Default environment for breaks
-      });
-      setRegenPodScheduledTaskId(result.id);
-      setIsProcessingCommand(false);
-      showSuccess(`Energy Regen Pod activated for ${podDuration} minutes! Time to recharge. 🔋`);
+      await startRegenPodState(podDuration);
+      // The modal will now open automatically because isRegenPodActive is true
+      // The modal's onStart callback will set the activity name/duration
     } catch (error: any) {
-      showError(`Failed to schedule Pod: ${error.message}`);
-      setIsRegenPodActive(false);
+      showError(`Failed to start Pod: ${error.message}`);
+    } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, regenPodStartTime, regenPodCalculatedDuration, regenPodActivityDuration, regenPodActivityName, addScheduledTask, formattedSelectedDay]);
+  }, [user, profile, isRegenPodActive, startRegenPodState]);
 
-  // NEW: Pod Exit Handler (Calls Edge Function)
-  const handlePodExit = useCallback(async (scheduledTaskId: string, startTime: Date, endTime: Date) => {
-    if (!user || !session?.access_token) {
-      showError("Session expired. Please log in again.");
-      setIsRegenPodActive(false);
-      return;
-    }
+  // Removed: handlePodTaskInsertion (No longer needed as no task is inserted)
+
+  // NEW: Pod Exit Handler (Calls exitRegenPodState)
+  const handlePodExit = useCallback(async () => {
+    if (!user || !profile || !isRegenPodActive) return;
     setIsProcessingCommand(true);
 
     try {
-      const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/start-regen-pod`;
-
-      const response = await fetch(edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          scheduledTaskId: scheduledTaskId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process Pod exit via Edge Function');
-      }
+      await exitRegenPodState(); // Triggers server calculation and profile reset
       
-      const data = await response.json();
-      
-      // 1. Refresh profile to get new energy level
-      await refreshProfile();
-      
-      // 2. Invalidate queries to remove the temporary task and compact schedule
+      // Invalidate queries to refresh schedule display (which now dynamically removes the Pod block)
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user.id] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
 
-      // 3. Run compaction logic to fill the gap left by the Pod
+      // Run compaction logic to fill the gap left by the Pod
       const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
       const compactedTasks = compactScheduleLogic(
           latestDbScheduledTasks,
@@ -1344,22 +1280,18 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
       if (tasksToUpdate.length > 0) {
           await compactScheduledTasks({ tasksToUpdate });
-          showSuccess(`Pod exited. +${data.energyGained}⚡ gained! Schedule compacted.`);
+          showSuccess(`Schedule compacted after Pod exit.`);
       } else {
-          showSuccess(`Pod exited. +${data.energyGained}⚡ gained!`);
+          showSuccess(`No flexible tasks to compact after Pod exit.`);
       }
 
     } catch (error: any) {
       showError(`Failed to exit Pod: ${error.message}`);
       console.error("Pod exit error:", error);
     } finally {
-      setIsRegenPodActive(false);
-      setRegenPodScheduledTaskId('');
-      setRegenPodStartTime(null);
-      setRegenPodCalculatedDuration(0); // Reset duration
       setIsProcessingCommand(false);
     }
-  }, [user, session?.access_token, refreshProfile, queryClient, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
+  }, [user, profile, isRegenPodActive, exitRegenPodState, queryClient, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
 
 
   const handleCommand = async (input: string) => {
@@ -1654,7 +1586,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             is_locked: true,
             energy_cost: 0,
             is_custom_energy_cost: false,
-            task_environment: 'away', // Default environment for breaks
+            task_environment: environmentForPlacement,
           });
           
           // NEW: Trigger energy regen immediately upon starting a break
@@ -2468,18 +2400,18 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       )}
 
       {/* Energy Regen Pod Modal (Highest Layer) */}
-      {isRegenPodActive && (
+      {isRegenPodActive && regenPodStartTime && ( // UPDATED: Check isRegenPodActive and regenPodStartTime
         <EnergyRegenPodModal
           isOpen={isRegenPodActive}
-          onExit={handlePodExit}
-          scheduledTaskId={regenPodScheduledTaskId}
-          onStart={(activityName, activityDuration) => { // MODIFIED: Pass activity details
+          onExit={handlePodExit} // UPDATED: Use simplified exit handler
+          scheduledTaskId={""} // No longer needed, pass empty string
+          onStart={(activityName, activityDuration) => { 
+            // This is only for setting the activity name/duration in the modal's internal state
             setRegenPodActivityName(activityName);
             setRegenPodActivityDuration(activityDuration);
-            handlePodTaskInsertion();
           }}
           isProcessingCommand={isProcessingCommand}
-          totalDurationMinutes={regenPodCalculatedDuration}
+          totalDurationMinutes={regenPodDurationMinutes} // Use derived duration
         />
       )}
 

@@ -112,8 +112,11 @@ interface SchedulerPageProps {
   view: 'schedule' | 'sink' | 'recap';
 }
 
+const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
+const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
+
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session } = useSession();
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
@@ -194,6 +197,34 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   useEffect(() => {
     localStorage.setItem('aetherflow-selected-day', selectedDay);
   }, [selectedDay]);
+
+  // NEW: Helper to trigger server-side energy regeneration
+  const triggerEnergyRegen = useCallback(async () => {
+    if (!user || !session?.access_token) return;
+    
+    try {
+      // Call the trigger-energy-regen function which uses the service role key internally
+      const { error } = await supabase.functions.invoke('trigger-energy-regen', {
+        method: 'POST',
+        body: {},
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Wait a moment for the asynchronous regeneration to complete on the server
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
+      
+      // Force a profile refresh to get the new energy value
+      await refreshProfile();
+      console.log("[EnergyRegen] Immediate trigger complete and profile refreshed.");
+
+    } catch (e: any) {
+      console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
+      // showError("Failed to update energy. Please try refreshing.");
+    }
+  }, [user, session?.access_token, refreshProfile]);
 
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
@@ -919,7 +950,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           duration: task.duration || 30,
           break_duration: task.break_duration,
           is_critical: task.is_critical,
-          is_flexible: true,
+          is_flexible: true, // <-- FIX: Retired tasks are flexible for scheduling
           energy_cost: task.energy_cost,
           source: 'retired',
           originalId: task.id,
@@ -1442,6 +1473,33 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
           success = true;
           break;
+        case 'break':
+          // Immediate break trigger
+          const breakDuration = command.duration || 15;
+          const breakStartTime = T_current;
+          const breakEndTime = addMinutes(breakStartTime, breakDuration);
+          const scheduledDate = format(T_current, 'yyyy-MM-dd');
+
+          await addScheduledTask({
+            name: 'Quick Break',
+            start_time: breakStartTime.toISOString(),
+            end_time: breakEndTime.toISOString(),
+            break_duration: breakDuration,
+            scheduled_date: scheduledDate,
+            is_critical: false,
+            is_flexible: false, // Quick breaks are fixed/locked for immediate use
+            is_locked: true,
+            energy_cost: 0,
+            is_custom_energy_cost: false,
+            task_environment: 'away', // Default environment for breaks
+          });
+          
+          // NEW: Trigger energy regen immediately upon starting a break
+          await triggerEnergyRegen();
+
+          showSuccess(`Scheduled a ${breakDuration}-minute break! Energy boost applied.`);
+          success = true;
+          break;
         default:
           showError("Unknown command.");
       }
@@ -1828,6 +1886,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               }
             }
             
+            // NEW: Trigger energy regen immediately upon completing a break/meal
+            if (task.name.toLowerCase() === 'break' || isMealTask) {
+              await triggerEnergyRegen();
+            }
+
             if (isCurrentlyActive) {
                 if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
                   setIsFocusModeActive(false);
@@ -1875,6 +1938,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               await compactScheduledTasks({ tasksToUpdate });
           }
         }
+        
+        // NEW: Trigger energy regen immediately upon starting a break
+        await triggerEnergyRegen();
+
         showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
         setShowEarlyCompletionModal(false);
         setEarlyCompletionDbTask(null);
@@ -1976,6 +2043,12 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         } else {
           showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
         }
+        
+        // NEW: Trigger energy regen immediately upon completing a break/meal
+        if (task.name.toLowerCase() === 'break' || isMeal(task.name)) {
+          await triggerEnergyRegen();
+        }
+
         setIsFocusModeActive(false);
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
@@ -2005,7 +2078,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, profile, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks]);
+  }, [user, profile, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks, triggerEnergyRegen]);
 
   // NEW: Handler for confirming task completion in deficit
   const confirmCompleteTaskInDeficit = useCallback(async () => {
@@ -2043,6 +2116,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         }
       }
       
+      // NEW: Trigger energy regen immediately upon completing a break/meal
+      if (taskToCompleteInDeficit.name.toLowerCase() === 'break' || isMealTask) {
+        await triggerEnergyRegen();
+      }
+
       setIsFocusModeActive(false);
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
@@ -2054,7 +2132,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setTaskToCompleteInDeficit(null);
       setTaskToCompleteInDeficitIndex(null);
     }
-  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, setIsFocusModeActive, updateScheduledTaskStatus]);
+  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, setIsFocusModeActive, updateScheduledTaskStatus, triggerEnergyRegen]);
 
 
   const tasksCompletedForSelectedDay = useMemo(() => {

@@ -12,8 +12,8 @@ const corsHeaders = {
 
 // Constants for energy regeneration (mirroring client-side for consistency)
 const MAX_ENERGY = 100; // Ensure this matches your client-side constant
-const PASSIVE_ENERGY_REGEN_PER_MINUTE = 1 / 60; // +1 Energy per hour
-const BREAK_ENERGY_BOOST_PER_MINUTE = 2 / 60; // +2 Energy per break-hour (additional to passive)
+const PASSIVE_ENERGY_REGEN_PER_MINUTE = 10 / 60; // +10 Energy per hour (Increased from 1/60)
+const BREAK_ENERGY_BOOST_PER_MINUTE = 5 / 60; // +5 Energy per break-hour (additional to passive) (Increased from 2/60)
 const NIGHT_ENERGY_BOOST_PER_MINUTE = 5 / 60; // +5 Energy per night-hour (additional to passive)
 
 // Meal keywords (mirroring client-side for consistency)

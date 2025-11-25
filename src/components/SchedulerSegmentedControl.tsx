@@ -23,20 +23,24 @@ const SchedulerSegmentedControl: React.FC<SchedulerSegmentedControlProps> = ({ c
 
   return (
     <Tabs value={currentView === 'schedule' ? 'scheduler' : currentView} onValueChange={handleViewChange} className="w-full animate-slide-in-up">
-      <TabsList className="grid w-full grid-cols-3 h-11 p-1 bg-muted rounded-lg shadow-lg">
+      {/* Increased height (h-14) and padding (p-1.5) for better touch target */}
+      <TabsList className="grid w-full grid-cols-3 h-14 p-1.5 bg-muted rounded-lg shadow-lg">
         {viewOptions.map(option => (
           <TabsTrigger 
             key={option.value}
             value={option.value}
             className={cn(
-              "h-9 px-4 py-2 text-base font-semibold rounded-md transition-colors duration-200",
+              // Increased height (h-11) and padding (py-1) for larger hit area
+              "h-11 px-2 py-1 text-sm font-semibold rounded-md transition-colors duration-200",
               "text-muted-foreground hover:bg-muted/50",
               "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md",
-              "flex items-center gap-2"
+              // Mobile: Stack icon and label vertically
+              "flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-2 sm:text-base"
             )}
           >
-            <option.icon className="h-5 w-5" />
-            {option.label}
+            {/* Increased icon size (h-5 w-5) */}
+            <option.icon className="h-5 w-5 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-base font-medium">{option.label}</span>
           </TabsTrigger>
         ))}
       </TabsList>

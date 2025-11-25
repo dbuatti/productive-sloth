@@ -2130,7 +2130,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
           </CardTitle>
         </CardHeader>
-        <CardContent ref={scheduleContainerRef}>
+        <CardContent ref={scheduleContainerRef} className="p-4">
           {isSchedulerTasksLoading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -211,12 +211,19 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
             <ListTodo className="h-5 w-5 text-primary shrink-0" />
             
             {isRunning ? (
-                <div className="flex-grow h-11 flex items-center justify-between px-3 rounded-md border bg-secondary/50 text-foreground font-semibold">
-                    <div className="flex items-center gap-2">
-                        <Lock className="h-4 w-4 text-primary" />
-                        {selectedActivity?.name || 'Recovery Activity'} ({effectivePodDuration} min)
-                    </div>
-                </div>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div className="flex-grow h-11 flex items-center justify-between px-3 rounded-md border bg-secondary/50 text-foreground font-semibold cursor-not-allowed">
+                            <div className="flex items-center gap-2">
+                                <Lock className="h-4 w-4 text-primary" />
+                                {selectedActivity?.name || 'Recovery Activity'} ({effectivePodDuration} min)
+                            </div>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Activity is locked while the Pod is running. Exit to change.</p>
+                    </TooltipContent>
+                </Tooltip>
             ) : (
                 <Select 
                     value={selectedActivityId || undefined} 

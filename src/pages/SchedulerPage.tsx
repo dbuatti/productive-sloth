@@ -50,7 +50,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import WeatherWidget from '@/components/WeatherWidget';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import SchedulerUtilityBar from '@/components/SchedulerUtilityBar';
+import SchedulerUtilityBar, { SchedulerUtilityBarProps } from '@/components/SchedulerUtilityBar';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
 import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog';
 import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
@@ -113,8 +113,6 @@ interface InjectionPromptState {
 interface SchedulerPageProps {
   view: 'schedule' | 'sink' | 'recap';
 }
-
-// REMOVED: Local SchedulerUtilityBarProps definition, relying on import from SchedulerUtilityBar.tsx
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
@@ -538,7 +536,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           taskName,
           duration,
           false, // isCritical
-          true,  // isFlexible <-- FIX: Added missing argument
+          true,  // isFlexible
           energyCost,
           occupiedBlocks,
           effectiveWorkdayStart,

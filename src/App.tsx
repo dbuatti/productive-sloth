@@ -15,6 +15,7 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
+import EnergyRegenInitializer from "./components/EnergyRegenInitializer"; // NEW IMPORT
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <EnvironmentProvider>
               <SessionProvider>
+                <EnergyRegenInitializer /> {/* NEW: Initialize hook here */}
                 <MainLayout>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />

@@ -29,7 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, addHours, subDays, differenceInMinutes } from 'date-fns';
+import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, isPast, format as formatFns, subDays, differenceInMinutes, addHours } from 'date-fns';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
@@ -197,7 +197,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   // NEW: Energy Regen Pod State (Derived from profile)
   const isRegenPodActive = profile?.is_in_regen_pod ?? false;
   const regenPodStartTime = profile?.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null;
-  // const regenPodCalculatedDuration = regenPodDurationMinutes; // Use derived state from session provider
   
   // NEW: Pod Activity State (Internal to SchedulerPage for modal communication)
   const [regenPodActivityName, setRegenPodActivityName] = useState<string>('Energy Regen Pod');
@@ -308,16 +307,16 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         case 'ArrowLeft':
           event.preventDefault();
           newDate = subDays(currentSelectedDate, 1);
-          setSelectedDay(format(newDate, 'yyyy-MM-dd'));
+          setSelectedDay(formatFns(newDate, 'yyyy-MM-dd'));
           break;
         case 'ArrowRight':
           event.preventDefault();
           newDate = addDays(currentSelectedDate, 1);
-          setSelectedDay(format(newDate, 'yyyy-MM-dd'));
+          setSelectedDay(formatFns(newDate, 'yyyy-MM-dd'));
           break;
         case ' ':
           event.preventDefault();
-          setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
+          setSelectedDay(formatFns(new Date(), 'yyyy-MM-dd'));
           break;
         default:
           break;
@@ -416,7 +415,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         if (task.is_locked) return false; 
         if (!task.is_flexible) return false; 
 
-        const taskEndTime = setTimeOnDate(currentDay, format(parseISO(task.end_time), 'HH:mm'));
+        const taskEndTime = setTimeOnDate(currentDay, formatFns(parseISO(task.end_time), 'HH:mm'));
         
         const workdayStart = profile.default_auto_schedule_start_time
           ? setTimeOnDate(currentDay, profile.default_auto_schedule_start_time)
@@ -1021,8 +1020,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       let currentOccupiedBlocks = mergeOverlappingTimeBlocks(existingFixedTasks
         .filter(task => task.start_time && task.end_time)
         .map(task => {
-          const start = setTimeOnDate(selectedDayAsDate, format(parseISO(task.start_time!), 'HH:mm'));
-          let end = setTimeOnDate(selectedDayAsDate, format(parseISO(task.end_time!), 'HH:mm'));
+          const start = setTimeOnDate(selectedDayAsDate, formatFns(parseISO(task.start_time!), 'HH:mm'));
+          let end = setTimeOnDate(selectedDayAsDate, formatFns(parseISO(task.end_time!), 'HH:mm'));
           if (isBefore(end, start)) end = addDays(end, 1);
           return { start, end, duration: differenceInMinutes(end, start) };
         })
@@ -1252,8 +1251,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setIsProcessingCommand(false);
     }
   }, [user, profile, isRegenPodActive, startRegenPodState]);
-
-  // Removed: handlePodTaskInsertion (No longer needed as no task is inserted)
 
   // NEW: Pod Exit Handler (Calls exitRegenPodState)
   const handlePodExit = useCallback(async () => {
@@ -1542,8 +1539,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             taskName: 'Time Off', 
             isOpen: true, 
             isTimed: true,
-            startTime: format(T_current, 'h:mm a'),
-            endTime: format(addHours(T_current, 1), 'h:mm a'),
+            startTime: formatFns(T_current, 'h:mm a'),
+            endTime: formatFns(addHours(T_current, 1), 'h:mm a'),
             isCritical: false,
             isFlexible: false,
             energyCost: 0,
@@ -1551,8 +1548,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             isCustomEnergyCost: false,
             taskEnvironment: 'away',
           });
-          setInjectionStartTime(format(T_current, 'h:mm a'));
-          setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
+          setInjectionStartTime(formatFns(T_current, 'h:mm a'));
+          setInjectionEndTime(formatFns(addHours(T_current, 1), 'h:mm a'));
           setInjectionDuration('');
           setInjectionBreak('');
           success = true;
@@ -1573,7 +1570,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           const breakDuration = command.duration || 15;
           const breakStartTime = T_current;
           const breakEndTime = addMinutes(breakStartTime, breakDuration);
-          const scheduledDate = format(T_current, 'yyyy-MM-dd');
+          const scheduledDate = formatFns(T_current, 'yyyy-MM-dd');
 
           await addScheduledTask({
             name: 'Quick Break',
@@ -1656,7 +1653,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         return;
       }
 
-      const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+      const duration = differenceInMinutes(endTime, startTime);
       
       // Recalculate energy cost based on task name if it's a meal
       const isMealTask = isMeal(injectionPrompt.taskName);
@@ -1876,8 +1873,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       taskName: 'Time Off', 
       isOpen: true, 
       isTimed: true,
-      startTime: format(T_current, 'h:mm a'),
-      endTime: format(addHours(T_current, 1), 'h:mm a'),
+      startTime: formatFns(T_current, 'h:mm a'),
+      endTime: formatFns(addHours(T_current, 1), 'h:mm a'),
       isCritical: false,
       isFlexible: false,
       energyCost: 0,
@@ -1885,8 +1882,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       isCustomEnergyCost: false,
       taskEnvironment: 'away',
     });
-    setInjectionStartTime(format(T_current, 'h:mm a'));
-    setInjectionEndTime(format(addHours(T_current, 1), 'h:mm a'));
+    setInjectionStartTime(formatFns(T_current, 'h:mm a'));
+    setInjectionEndTime(formatFns(addHours(T_current, 1), 'h:mm a'));
     setInjectionDuration('');
     setInjectionBreak('');
     setInputValue('');
@@ -2330,7 +2327,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       <Card className="animate-pop-in animate-hover-lift">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {format(parseISO(selectedDay), 'EEEE, MMMM d')}
+            <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {formatFns(parseISO(selectedDay), 'EEEE, MMMM d')}
           </CardTitle>
         </CardHeader>
         <CardContent ref={scheduleContainerRef} className="p-4">
@@ -2400,11 +2397,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       )}
 
       {/* Energy Regen Pod Modal (Highest Layer) */}
-      {isRegenPodActive && regenPodStartTime && ( // UPDATED: Check isRegenPodActive and regenPodStartTime
+      {isRegenPodActive && regenPodDurationMinutes > 0 && ( // UPDATED: Check isRegenPodActive and duration
         <EnergyRegenPodModal
           isOpen={isRegenPodActive}
           onExit={handlePodExit} // UPDATED: Use simplified exit handler
-          scheduledTaskId={""} // No longer needed, pass empty string
           onStart={(activityName, activityDuration) => { 
             // This is only for setting the activity name/duration in the modal's internal state
             setRegenPodActivityName(activityName);
@@ -2528,7 +2524,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will permanently delete all scheduled tasks for {format(parseISO(selectedDay), 'EEEE, MMMM d')}. This cannot be undone.
+              This action will permanently delete all scheduled tasks for {formatFns(parseISO(selectedDay), 'EEEE, MMMM d')}. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

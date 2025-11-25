@@ -29,18 +29,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { deleteTask } = useTasks(); 
   const navigate = useNavigate();
-  
-  // NEW: State for XP animation
-  const [showXpAnimation, setShowXpAnimation] = useState(false);
-  const xpAmount = task.metadata_xp || 0;
 
   const handleToggleComplete = async () => {
-    if (!task.is_completed) {
-      // If marking as complete, trigger animation before calling parent handler
-      if (xpAmount > 0) {
-        setShowXpAnimation(true);
-      }
-    }
     await onCompleteTask(task); // Use the passed onCompleteTask handler
   };
 
@@ -229,14 +219,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        
-        {/* XP Animation */}
-        {showXpAnimation && !task.is_completed && xpAmount > 0 && (
-          <XPGainAnimation 
-            xpAmount={xpAmount} 
-            onAnimationEnd={() => setShowXpAnimation(false)} 
-          />
-        )}
       </div>
 
       <TaskDetailSheetForTasks

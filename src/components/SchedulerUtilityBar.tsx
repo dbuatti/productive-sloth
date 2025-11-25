@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass, Target, Trash2, RefreshCcw, SortAsc, SortDesc, Globe } from 'lucide-react';
+import { Loader2, Zap, Shuffle, Settings2, ChevronsUp, Star, ArrowDownWideNarrow, Clock, Smile, Hourglass, Target, Trash2, RefreshCcw, SortAsc, SortDesc } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { DBScheduledTask, SortBy, TaskPriority } from '@/types/scheduler';
@@ -30,9 +30,8 @@ interface SchedulerUtilityBarProps {
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => void;
   retiredTasksCount: number;
   onZoneFocus: () => void;
-  onAetherDump: () => void; 
-  onRefreshSchedule: () => void; 
-  onAetherDumpMega: () => void; // NEW PROP
+  onAetherDump: () => void; // NEW
+  onRefreshSchedule: () => void; // NEW
 }
 
 const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
@@ -48,9 +47,8 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   onQuickScheduleBlock,
   retiredTasksCount,
   onZoneFocus,
-  onAetherDump, 
-  onRefreshSchedule, 
-  onAetherDumpMega, // NEW DESTRUCTURE
+  onAetherDump, // NEW
+  onRefreshSchedule, // NEW
 }) => {
   const { profile } = useSession();
   const isEnergyFull = profile?.energy === 100;
@@ -227,7 +225,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
 
         {/* Secondary Utility Group (Zone Focus, Aether Dump, Refresh, Settings) */}
         <div className="flex items-center gap-2 sm:ml-auto">
-          {/* Aether Dump Button */}
+          {/* NEW: Aether Dump Button (Moved from Dashboard) */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
@@ -244,26 +242,6 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
             </TooltipTrigger>
             <TooltipContent>
               <p>Move all flexible, unlocked tasks from CURRENT day to Aether Sink</p>
-            </TooltipContent>
-          </Tooltip>
-          
-          {/* NEW: Aether Dump Mega Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={onAetherDumpMega} 
-                disabled={isProcessingCommand}
-                className="h-11 w-11 text-destructive hover:bg-destructive/10 transition-all duration-200"
-                style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
-              >
-                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Globe className="h-5 w-5" />}
-                <span className="sr-only">Aether Dump Mega</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Aether Dump Mega: Move ALL flexible, unlocked tasks from ALL days to Aether Sink</p>
             </TooltipContent>
           </Tooltip>
 

@@ -23,6 +23,7 @@ export interface UserProfile {
   default_auto_schedule_end_time: string | null;
   enable_delete_hotkeys: boolean;
   enable_aethersink_backup: boolean; // NEW: Added for Aether Sink backup preference
+  last_energy_regen_at: string | null; // NEW: Added for energy regeneration tracking
 }
 
 interface SessionContextType {

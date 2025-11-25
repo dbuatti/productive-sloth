@@ -274,7 +274,7 @@ const SettingsPage: React.FC = () => {
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel> {/* Corrected: Changed <Label> to <FormLabel> and added closing tag */}
+                      <FormLabel>Last Name</FormLabel>
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -605,3 +605,7 @@ const SettingsPage: React.FC = () => {
     </form>
   </Form>
 </div>
+  );
+};
+
+export default SettingsPage;

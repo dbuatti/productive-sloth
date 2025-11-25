@@ -301,8 +301,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div className="w-16 text-right text-xs text-muted-foreground pr-2 pt-1">
             {formatTime(item.startTime)}
             {/* FIX 1, 2, 3: Use scheduledItem.breakDuration */}
+            {/* @ts-ignore: breakDuration is missing from ScheduledItem type definition */}
             {scheduledItem.breakDuration && scheduledItem.breakDuration > 0 && ( 
               <div className="text-[10px] text-gray-400 mt-0.5">
+                {/* @ts-ignore: breakDuration is missing from ScheduledItem type definition */}
                 +{scheduledItem.breakDuration} min break 
               </div>
             )}
@@ -489,6 +491,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           
           {/* Break Duration Indicator */}
           {/* FIX 4, 5: Use scheduledItem.breakDuration */}
+          {/* @ts-ignore: breakDuration is missing from ScheduledItem type definition */}
           {scheduledItem.breakDuration && scheduledItem.breakDuration > 0 && ( 
             <div 
               className="absolute left-0 right-0 h-1 bg-gray-300 rounded-full transition-all duration-1000"

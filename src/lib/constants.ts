@@ -8,6 +8,10 @@ export const DAILY_CHALLENGE_ENERGY = 20;
 export const DAILY_CHALLENGE_TASKS_REQUIRED = 3;
 export const DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION = 30; // New: Default duration for energy calculation for general tasks
 
+// NEW: Energy Regen Pod Constants
+export const REGEN_POD_DURATION_MINUTES = 10; // Default duration for the Pod session
+export const REGEN_POD_RATE_PER_MINUTE = 1; // +1 Energy per minute (+60 Energy per hour)
+
 // NEW: Server-side energy regeneration rates (per minute)
 export const PASSIVE_ENERGY_REGEN_PER_MINUTE = 10 / 60; // +10 Energy per hour (Increased from 1/60)
 export const BREAK_ENERGY_BOOST_PER_MINUTE = 5 / 60; // +5 Energy per break-hour (additional to passive) (Increased from 2/60)

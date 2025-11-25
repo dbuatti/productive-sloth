@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Coffee } from 'lucide-react';
+import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Zap } from 'lucide-react'; // Changed Coffee to Zap
 import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { REGEN_POD_DURATION_MINUTES } from '@/lib/constants';
 
 interface Suggestion {
   type: 'command' | 'task';
@@ -19,10 +20,11 @@ interface SchedulerInputProps {
   placeholder?: string;
   inputValue: string;
   setInputValue: (value: string) => void;
-  onDetailedInject: () => void; // NEW: Handler for detailed injector button
+  onDetailedInject: () => void;
+  onStartRegenPod: () => void; // NEW: Handler for starting the Pod
 }
 
-const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject }) => {
+const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject, onStartRegenPod }) => {
   const { allTasks } = useTasks();
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -123,10 +125,6 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
     inputRef.current?.focus();
   };
 
-  const handleAddBreak = () => {
-    onCommand('break 15');
-  };
-
   return (
     <div className="flex flex-col gap-2 w-full animate-slide-in-up relative">
       <form onSubmit={handleSubmit} className="flex gap-2 w-full">
@@ -154,25 +152,28 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             </Button>
           )}
         </div>
+        
+        {/* NEW: Energy Regen Pod Button (Replaces Quick Break) */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 
               type="button" 
-              onClick={handleAddBreak} 
+              onClick={onStartRegenPod} 
               disabled={isLoading} 
               variant="outline"
               size="icon"
-              className="shrink-0 h-11 w-11 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200" // Increased size
+              className="shrink-0 h-11 w-11 text-logo-green hover:bg-logo-green/10 transition-all duration-200" // Increased size
             >
-              <Coffee className="h-5 w-5" />
-              <span className="sr-only">Add 15-min Break</span>
+              <Zap className="h-5 w-5" />
+              <span className="sr-only">Start Energy Regen Pod</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Add a 15-minute break</p>
+            <p>Start Energy Regen Pod ({REGEN_POD_DURATION_MINUTES} min)</p>
           </TooltipContent>
         </Tooltip>
-        {/* NEW: Detailed Task Injector Button */}
+
+        {/* Detailed Task Injector Button */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 

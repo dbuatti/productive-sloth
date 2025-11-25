@@ -72,8 +72,9 @@ serve(async (req) => {
 
     // 3. Iterate through each user profile to calculate and apply energy regeneration
     for (const profile of profiles) {
+      // Ensure currentEnergy is a number, defaulting to MAX_ENERGY if null/undefined
+      const currentEnergy = profile.energy ?? MAX_ENERGY; 
       const userId = profile.id;
-      const currentEnergy = profile.energy;
       const lastRegenAt = profile.last_energy_regen_at ? dateFns.parseISO(profile.last_energy_regen_at) : now;
 
       const elapsedMinutes = dateFns.differenceInMinutes(now, lastRegenAt);
@@ -150,7 +151,7 @@ serve(async (req) => {
       if (newEnergy !== currentEnergy) {
         updates.push({
           id: userId,
-          energy: newEnergy,
+          energy: Math.round(newEnergy), // Ensure energy is an integer before upserting
           last_energy_regen_at: now.toISOString(),
         });
       }

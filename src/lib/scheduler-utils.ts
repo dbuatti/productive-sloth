@@ -650,7 +650,7 @@ export const compactScheduleLogic = (
     let searchStartTime = currentPlacementCursor;
 
     while (isBefore(searchStartTime, workdayEndTime)) {
-      const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchTime, workdayEndTime);
+      const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchStartTime, workdayEndTime);
       const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
 
       if (suitableBlock) {

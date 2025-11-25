@@ -41,10 +41,10 @@ serve(async (req) => {
 
     const now = new Date(); // Current time in UTC
 
-    // 1. Fetch all profiles
+    // 1. Fetch all profiles, including new Pod state fields
     const { data: profiles, error: profilesError } = await supabaseClient
       .from('profiles')
-      .select('id, energy, last_energy_regen_at, default_auto_schedule_start_time, default_auto_schedule_end_time');
+      .select('id, energy, last_energy_regen_at, default_auto_schedule_start_time, default_auto_schedule_end_time, is_in_regen_pod, regen_pod_start_time');
 
     if (profilesError) {
       console.error("Error fetching profiles:", profilesError.message);
@@ -52,8 +52,6 @@ serve(async (req) => {
     }
 
     // 2. Fetch all scheduled tasks for today (UTC) for all users
-    // This is a simplified approach. A more robust solution might fetch tasks for a wider window
-    // or fetch per user if the total number of tasks is too large.
     const todayStartUTC = dateFns.startOfDay(now);
     const todayEndUTC = dateFns.addDays(todayStartUTC, 1);
 
@@ -86,6 +84,13 @@ serve(async (req) => {
       const userId = profile.id;
       const lastRegenAt = profile.last_energy_regen_at ? dateFns.parseISO(profile.last_energy_regen_at) : now;
 
+      // --- NEW: Skip passive regen if user is in the Pod ---
+      if (profile.is_in_regen_pod) {
+        console.log(`Skipping passive regen for user ${userId}: Currently in Regen Pod.`);
+        continue;
+      }
+      // -----------------------------------------------------
+
       const elapsedMinutes = dateFns.differenceInMinutes(now, lastRegenAt);
 
       if (elapsedMinutes <= 0 || currentEnergy >= MAX_ENERGY) {
@@ -109,7 +114,7 @@ serve(async (req) => {
 
         let isDuringBreak = false;
         let isDuringNighttime = false;
-        let isDuringMeal = false; // NEW: Flag for meal time
+        let isDuringMeal = false; 
 
         // Check for Scheduled Break or Meal
         for (const task of userScheduledTasksToday) {
@@ -120,7 +125,7 @@ serve(async (req) => {
             if (currentTimeCursor >= taskStart && currentTimeCursor < taskEnd) {
               if (task.name?.toLowerCase() === 'break') {
                 isDuringBreak = true;
-              } else if (isMeal(task.name)) { // NEW: Check if it's a meal
+              } else if (isMeal(task.name)) { 
                 isDuringMeal = true;
               }
               // If it's a task or time-off, no passive boost applies, so we can break early
@@ -129,7 +134,7 @@ serve(async (req) => {
           }
         }
         
-        // NEW: If it's during a meal, skip passive/boosted regeneration for this chunk
+        // If it's during a meal, skip passive/boosted regeneration for this chunk
         if (isDuringMeal) {
             currentTimeCursor = actualIntervalEnd;
             continue;

@@ -289,11 +289,15 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const lightness = isLocked ? 25 : 35;
       const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
 
-      const dbTask = schedule?.dbTasks.find(t => t.id === scheduledItem.id);
+      // Find the corresponding DB task only if it's not the dynamic Pod item
+      const dbTask = scheduledItem.id !== 'regen-pod-active' 
+        ? schedule?.dbTasks.find(t => t.id === scheduledItem.id) 
+        : null;
 
       const isTimeOff = scheduledItem.type === 'time-off';
       const isBreak = scheduledItem.type === 'break';
       const isMeal = scheduledItem.type === 'meal'; // NEW: Check for meal type
+      const isRegenPod = scheduledItem.id === 'regen-pod-active'; // NEW: Check for Pod
 
       // Determine background color based on type
       let itemBgColor = ambientBackgroundColor;
@@ -301,13 +305,15 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         itemBgColor = undefined; // Use default card background for time off
       } else if (isMeal) {
         itemBgColor = `hsl(140 50% 35% / 0.3)`; // Fixed green hue for meals
+      } else if (isRegenPod) { // NEW: Pod styling
+        itemBgColor = `hsl(120 50% 35% / 0.5)`; // Green hue for recovery
       }
 
       // Determine text color
-      const itemTextColor = isTimeOff ? 'text-logo-green' : (isMeal ? 'text-logo-green' : 'text-[hsl(var(--always-light-text))]');
+      const itemTextColor = isTimeOff ? 'text-logo-green' : (isMeal ? 'text-logo-green' : (isRegenPod ? 'text-logo-green' : 'text-[hsl(var(--always-light-text))]'));
 
       // Determine completion visual style
-      const isFixedOrTimed = isFixed || isTimeOff || isMeal; // Fixed tasks, Time Off, and Meals remain visible when completed
+      const isFixedOrTimed = isFixed || isTimeOff || isMeal || isRegenPod; // Fixed tasks, Time Off, Meals, and Pod remain visible when completed
       const completionClasses = isCompleted && isFixedOrTimed ? "opacity-70" : (isCompleted ? "hidden" : "opacity-100");
       const textCompletionClasses = isCompleted && isFixedOrTimed ? "line-through text-muted-foreground" : "text-foreground";
       
@@ -364,7 +370,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               {/* Row 1: Completion Button (Left) and Task Name/Metadata (Right) */}
               <div className="flex items-center justify-between w-full"> {/* CHANGED items-start to items-center */}
                 {/* Completion Button (Left) */}
-                {dbTask && !isTimeOff && ( // Time Off can be completed
+                {dbTask && !isTimeOff && !isRegenPod && ( // Time Off and Pod cannot be completed via this button
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button 
@@ -448,7 +454,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                 </span>
 
                 {/* Action Buttons (Right) */}
-                <div className="flex items-center gap-1 ml-auto shrink-0">
+                <div className="flex items-center gap-1 ml-auto shrink-0 mt-2 sm:mt-0">
                   {scheduledItem.isFlexible && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -533,13 +539,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               <div className={cn(
                 "flex items-center justify-between w-full mt-1 text-sm",
                 // Add margin-left to align with the start of the task name, compensating for the completion button's width (h-7 w-7 + mr-2 = ~36px)
-                dbTask && !isTimeOff && (scheduledItem.type === 'task' || scheduledItem.type === 'break' || scheduledItem.type === 'meal') && !isCompleted ? "ml-[36px]" : "ml-0"
+                dbTask && !isTimeOff && !isRegenPod && (scheduledItem.type === 'task' || scheduledItem.type === 'break' || scheduledItem.type === 'meal') && !isCompleted ? "ml-[36px]" : "ml-0"
               )}>
                   <div className="flex items-center gap-3">
                       {/* Time Range */}
                       <span className={cn(
                           "font-semibold font-mono text-xs", // Reduced font size
-                          isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80",
+                          isTimeOff || isRegenPod ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80",
                           isCompleted && isFixedOrTimed && "line-through text-muted-foreground/80" // Apply strike-through to time range
                       )}>
                           {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
@@ -548,7 +554,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       {/* Duration */}
                       <span className={cn(
                           "font-semibold opacity-80 text-xs", // Reduced font size
-                          isTimeOff ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80",
+                          isTimeOff || isRegenPod ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80",
                           isCompleted && isFixedOrTimed && "line-through text-muted-foreground/80" // Apply strike-through to duration
                       )}>
                           ({scheduledItem.duration} min)
@@ -570,6 +576,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             )}
             {isTimeOff && (
               <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>This block is reserved for personal time.</p> // Reduced font size
+            )}
+            {isRegenPod && (
+              <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>Energy regeneration in progress. Exit via the Pod Modal.</p> // NEW: Pod message
             )}
 
             {isActive && (

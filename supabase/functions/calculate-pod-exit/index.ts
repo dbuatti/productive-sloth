@@ -12,14 +12,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Constants (mirroring client-side)
-const MAX_ENERGY = 100;
+// Constants for energy regeneration (mirroring client-side for consistency)
+const MAX_ENERGY = 100; 
 const REGEN_POD_RATE_PER_MINUTE = 1; // +1 Energy per minute
 
 interface PodExitPayload {
     startTime: string;
     endTime: string;
-    scheduledTaskId: string;
 }
 
 serve(async (req) => {
@@ -28,7 +27,7 @@ serve(async (req) => {
   }
 
   try {
-    const now = new Date(); // Define 'now' here
+    const now = new Date(); 
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -73,7 +72,7 @@ serve(async (req) => {
       });
     }
 
-    const { startTime, endTime, scheduledTaskId }: PodExitPayload = await req.json();
+    const { startTime, endTime }: PodExitPayload = await req.json();
 
     const podStart = dateFns.parseISO(startTime);
     const podEnd = dateFns.parseISO(endTime);
@@ -82,7 +81,7 @@ serve(async (req) => {
     const durationMinutes = dateFns.differenceInMinutes(podEnd, podStart);
     
     if (durationMinutes <= 0) {
-        return new Response(JSON.stringify({ energyGained: 0, message: "Pod exited immediately." }), {
+        return new Response(JSON.stringify({ energyGained: 0, durationMinutes: 0, message: "Pod exited immediately." }), {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -91,7 +90,7 @@ serve(async (req) => {
     // Calculate energy gain
     const energyGained = Math.floor(durationMinutes * REGEN_POD_RATE_PER_MINUTE);
 
-    // Use Service Role Key for profile update and task deletion
+    // Use Service Role Key for profile update
     const supabaseClient = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -127,18 +126,6 @@ serve(async (req) => {
     if (profileUpdateError) {
       console.error("Error updating profile energy:", profileUpdateError.message);
       throw new Error("Failed to update profile energy.");
-    }
-
-    // 3. Delete the temporary scheduled task (Energy Regen Pod)
-    const { error: deleteError } = await supabaseClient
-        .from('scheduled_tasks')
-        .delete()
-        .eq('id', scheduledTaskId)
-        .eq('user_id', userId);
-        
-    if (deleteError) {
-        console.error("Error deleting scheduled task:", deleteError.message);
-        // Note: We don't throw here, as the energy update is more critical than the task deletion.
     }
 
     return new Response(JSON.stringify({ energyGained, durationMinutes }), {

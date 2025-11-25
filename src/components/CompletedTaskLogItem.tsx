@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckCircle, Zap, Sparkles, Clock, Utensils } from 'lucide-react'; // Added Utensils icon
 import { cn } from '@/lib/utils';
-import { DBScheduledTask } from '@/types/scheduler';
+import { DBScheduledTask } from '@/types/scheduler'; // FIX: Import DBScheduledTask
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { getEmojiHue, assignEmoji, isMeal } from '@/lib/scheduler-utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';

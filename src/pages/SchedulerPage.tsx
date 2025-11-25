@@ -114,6 +114,27 @@ interface SchedulerPageProps {
   view: 'schedule' | 'sink' | 'recap';
 }
 
+// FIX: Define the SchedulerUtilityBarProps interface locally to resolve TS2322 errors.
+// NOTE: This interface should ideally be imported from src/components/SchedulerUtilityBar.tsx
+interface SchedulerUtilityBarProps {
+  isProcessingCommand: boolean;
+  hasFlexibleTasksOnCurrentDay: boolean;
+  dbScheduledTasks: DBScheduledTask[];
+  onRechargeEnergy: () => Promise<void>;
+  onRandomizeBreaks: () => Promise<void>;
+  onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
+  onOpenWorkdayWindowDialog: () => void;
+  sortBy: SortBy;
+  onCompactSchedule: () => Promise<void>;
+  onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>;
+  retiredTasksCount: number;
+  onZoneFocus: () => Promise<void>;
+  onAetherDump: () => Promise<void>;
+  onRefreshSchedule: () => void;
+  onAetherDumpMega: () => Promise<void>; // <-- Added missing prop
+}
+
+
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
@@ -746,6 +767,24 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error) {
       console.error("Aether Dump error:", error);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  };
+
+  // FIX: Define handleAetherDumpMegaButton
+  const handleAetherDumpMegaButton = async () => {
+    if (!user) {
+      showError("You must be logged in to perform Aether Dump Mega.");
+      return;
+    }
+    setIsProcessingCommand(true);
+
+    try {
+      await aetherDumpMega();
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+    } catch (error) {
+      console.error("Aether Dump Mega error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -1562,8 +1601,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           success = true;
           break;
         case 'aether dump mega':
-          await aetherDumpMega();
-          queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+          await handleAetherDumpMegaButton(); // Use the new handler
           success = true;
           break;
         case 'break':
@@ -2163,7 +2201,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         setTaskToCompleteInDeficit(null);
         setTaskToCompleteInDeficitIndex(null);
       }
-      // Removed "Insufficient energy" specific error message as it's now handled by the dialog
+      // Removed "Insufficient energy" specific error message as it's now allowed.
       showError(`Failed to perform action: ${error.message}`);
       console.error("Scheduler action error:", error);
     } finally {
@@ -2322,6 +2360,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           onZoneFocus={handleZoneFocus}
           onAetherDump={handleAetherDumpButton}
           onRefreshSchedule={handleRefreshSchedule}
+          onAetherDumpMega={handleAetherDumpMegaButton}
         />
       </div>
 
@@ -2515,6 +2554,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                           onZoneFocus={handleZoneFocus}
                           onAetherDump={handleAetherDumpButton}
                           onRefreshSchedule={handleRefreshSchedule}
+                          onAetherDumpMega={handleAetherDumpMegaButton}
                       />
                   </div>
               </DrawerContent>

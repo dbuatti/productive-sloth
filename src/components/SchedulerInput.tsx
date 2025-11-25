@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { REGEN_POD_DURATION_MINUTES } from '@/lib/constants';
+import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; // Use MAX duration for tooltip
 
 interface Suggestion {
   type: 'command' | 'task';
@@ -169,7 +169,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Start Energy Regen Pod ({REGEN_POD_DURATION_MINUTES} min)</p>
+            <p>Start Energy Regen Pod (Dynamic duration, max {REGEN_POD_MAX_DURATION_MINUTES} min)</p>
           </TooltipContent>
         </Tooltip>
 

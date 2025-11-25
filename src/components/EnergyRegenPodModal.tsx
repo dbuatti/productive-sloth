@@ -5,7 +5,7 @@ import { intervalToDuration, formatDuration, addMinutes, differenceInMinutes } f
 import { X, Zap, Loader2, Coffee, Heart, BatteryCharging } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { REGEN_POD_DURATION_MINUTES, REGEN_POD_RATE_PER_MINUTE, MAX_ENERGY } from '@/lib/constants';
+import { REGEN_POD_RATE_PER_MINUTE, MAX_ENERGY } from '@/lib/constants'; // Removed REGEN_POD_DURATION_MINUTES
 import { useSession } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomProgress } from './CustomProgress';
@@ -16,6 +16,7 @@ interface EnergyRegenPodModalProps {
   scheduledTaskId: string;
   onStart: () => void;
   isProcessingCommand: boolean;
+  totalDurationMinutes: number; // NEW: Dynamic duration prop
 }
 
 const PodState = {
@@ -30,6 +31,7 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
   scheduledTaskId,
   onStart,
   isProcessingCommand,
+  totalDurationMinutes, // Use prop
 }) => {
   const { profile, T_current } = useSession();
   const [podState, setPodState] = useState<keyof typeof PodState>('INITIAL');
@@ -38,7 +40,6 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const [showOptimizedCue, setShowOptimizedCue] = useState(false);
 
-  const totalDurationMinutes = REGEN_POD_DURATION_MINUTES;
   const targetEnergyGain = totalDurationMinutes * REGEN_POD_RATE_PER_MINUTE;
   const currentEnergy = profile?.energy ?? 0;
   const maxEnergy = MAX_ENERGY;
@@ -50,8 +51,18 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
 
   // Calculate progress percentage
   const progressPercentage = useMemo(() => {
+    // Calculate progress based on the dynamic total duration
     return Math.min(100, (elapsedMinutes / totalDurationMinutes) * 100);
   }, [elapsedMinutes, totalDurationMinutes]);
+
+  // --- Exit Handler (Moved up) ---
+  const handleExitPod = useCallback(() => {
+    if (podState === 'EXITING' || !startTime) return;
+    setPodState('EXITING');
+    
+    const exitTime = new Date();
+    onExit(scheduledTaskId, startTime, exitTime);
+  }, [podState, startTime, onExit, scheduledTaskId]);
 
   // --- Timer and State Management ---
   useEffect(() => {
@@ -76,7 +87,10 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
         const elapsed = differenceInMinutes(now, startTime);
         setElapsedMinutes(elapsed);
 
-        const remainingMs = addMinutes(startTime, totalDurationMinutes).getTime() - now.getTime();
+        const totalDurationMs = totalDurationMinutes * 60 * 1000;
+        const elapsedMs = now.getTime() - startTime.getTime();
+        const remainingMs = totalDurationMs - elapsedMs;
+        
         if (remainingMs <= 0) {
           // Time's up! Auto-exit.
           handleExitPod();
@@ -108,16 +122,7 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
 
       return () => clearInterval(interval);
     }
-  }, [isOpen, podState, startTime, totalDurationMinutes, showOptimizedCue, onStart]);
-
-  // --- Exit Handler ---
-  const handleExitPod = useCallback(() => {
-    if (podState === 'EXITING' || !startTime) return;
-    setPodState('EXITING');
-    
-    const exitTime = new Date();
-    onExit(scheduledTaskId, startTime, exitTime);
-  }, [podState, startTime, onExit, scheduledTaskId]);
+  }, [isOpen, podState, startTime, totalDurationMinutes, showOptimizedCue, onStart, handleExitPod]);
 
   if (!isOpen) return null;
 
@@ -178,7 +183,7 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
         <div className="grid grid-cols-3 gap-4 w-full max-w-md">
             <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/50">
                 <p className="text-sm text-muted-foreground">Time Left</p>
-                <p className="text-2xl font-extrabold font-mono text-primary">{timeRemaining || '10m'}</p>
+                <p className="text-2xl font-extrabold font-mono text-primary">{timeRemaining || `${totalDurationMinutes}m`}</p>
             </div>
             <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/50">
                 <p className="text-sm text-muted-foreground">Energy Gained</p>

@@ -9,7 +9,8 @@ export const DAILY_CHALLENGE_TASKS_REQUIRED = 3;
 export const DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION = 30; // New: Default duration for energy calculation for general tasks
 
 // NEW: Energy Regen Pod Constants
-export const REGEN_POD_DURATION_MINUTES = 10; // Default duration for the Pod session
+export const REGEN_POD_DURATION_MINUTES = 10; // Default duration for the fixed Pod session (kept for reference/quick breaks)
+export const REGEN_POD_MAX_DURATION_MINUTES = 60; // Max duration for open-ended Pod session (60 minutes cap)
 export const REGEN_POD_RATE_PER_MINUTE = 1; // +1 Energy per minute (+60 Energy per hour)
 
 // NEW: Server-side energy regeneration rates (per minute)

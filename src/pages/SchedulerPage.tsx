@@ -64,6 +64,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
+import { cn } from '@/lib/utils';
 
 // Helper to get initial state from localStorage
 const getInitialSelectedDay = () => {
@@ -2257,8 +2258,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
   const renderScheduleCore = () => (
     <>
-      {/* Input & Environment/Weather Card (Now de-boxed with gradient wash) */}
-      <div className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg">
+      {/* Input & Environment/Weather Card (Desktop Only) */}
+      <div className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg hidden lg:block">
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
           <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
             <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
@@ -2285,23 +2286,25 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         </p>
       </div>
 
-      {/* Utility Bar (Always visible) */}
-      <SchedulerUtilityBar 
-        isProcessingCommand={isProcessingCommand}
-        hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-        dbScheduledTasks={dbScheduledTasks}
-        onRechargeEnergy={() => rechargeEnergy()}
-        onRandomizeBreaks={handleRandomizeBreaks}
-        onSortFlexibleTasks={handleSortFlexibleTasks}
-        onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-        sortBy={sortBy}
-        onCompactSchedule={handleCompactSchedule}
-        onQuickScheduleBlock={handleQuickScheduleBlock}
-        retiredTasksCount={retiredTasks.length}
-        onZoneFocus={handleZoneFocus}
-        onAetherDump={handleAetherDumpButton}
-        onRefreshSchedule={handleRefreshSchedule}
-      />
+      {/* Utility Bar (Desktop Only) */}
+      <div className="hidden lg:block">
+        <SchedulerUtilityBar 
+          isProcessingCommand={isProcessingCommand}
+          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
+          dbScheduledTasks={dbScheduledTasks}
+          onRechargeEnergy={() => rechargeEnergy()}
+          onRandomizeBreaks={handleRandomizeBreaks}
+          onSortFlexibleTasks={handleSortFlexibleTasks}
+          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
+          sortBy={sortBy}
+          onCompactSchedule={handleCompactSchedule}
+          onQuickScheduleBlock={handleQuickScheduleBlock}
+          retiredTasksCount={retiredTasks.length}
+          onZoneFocus={handleZoneFocus}
+          onAetherDump={handleAetherDumpButton}
+          onRefreshSchedule={handleRefreshSchedule}
+        />
+      </div>
 
       {/* Now Focus Card (Always visible) */}
       {isSameDay(parseISO(selectedDay), T_current) && (
@@ -2437,6 +2440,65 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         {view === 'recap' && renderRecapView()}
         {view === 'sink' && renderSinkView()}
       </div>
+
+      {/* Mobile Controls Drawer (Hidden on desktop) */}
+      {isMobile && view === 'schedule' && (
+          <Drawer>
+              <DrawerTrigger asChild>
+                  <Button
+                      variant="default"
+                      size="icon"
+                      className={cn(
+                          "fixed bottom-28 right-4 z-50 h-14 w-14 rounded-full shadow-xl bg-accent hover:bg-accent/90 transition-all duration-200",
+                          isProcessingCommand && "opacity-70 cursor-not-allowed"
+                      )}
+                      disabled={isProcessingCommand}
+                  >
+                      <Settings2 className="h-6 w-6" />
+                      <span className="sr-only">Open Schedule Controls</span>
+                  </Button>
+              </DrawerTrigger>
+              <DrawerContent className="max-h-[90vh]">
+                  <DrawerHeader className="text-left">
+                      <DrawerTitle className="flex items-center gap-2 text-xl font-bold">
+                          <Settings2 className="h-6 w-6 text-primary" /> Schedule Controls
+                      </DrawerTitle>
+                  </DrawerHeader>
+                  <div className="p-4 overflow-y-auto space-y-4">
+                      <EnvironmentMultiSelect /> 
+                      <WeatherWidget />
+                      <SchedulerInput 
+                          onCommand={handleCommand} 
+                          isLoading={overallLoading} 
+                          inputValue={inputValue}
+                          setInputValue={setInputValue}
+                          placeholder={`Add task (e.g., 'Gym 60') or command`}
+                          onDetailedInject={handleAddTaskClick}
+                          onStartRegenPod={handleStartRegenPod}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                          Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+                      </p>
+                      <SchedulerUtilityBar 
+                          isProcessingCommand={isProcessingCommand}
+                          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
+                          dbScheduledTasks={dbScheduledTasks}
+                          onRechargeEnergy={() => rechargeEnergy()}
+                          onRandomizeBreaks={handleRandomizeBreaks}
+                          onSortFlexibleTasks={handleSortFlexibleTasks}
+                          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
+                          sortBy={sortBy}
+                          onCompactSchedule={handleCompactSchedule}
+                          onQuickScheduleBlock={handleQuickScheduleBlock}
+                          retiredTasksCount={retiredTasks.length}
+                          onZoneFocus={handleZoneFocus}
+                          onAetherDump={handleAetherDumpButton}
+                          onRefreshSchedule={handleRefreshSchedule}
+                      />
+                  </div>
+              </DrawerContent>
+          </Drawer>
+      )}
 
       {/* Modals and Dialogs */}
       <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>

@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext, environmentOptions } from '@/hooks/use-environment-context';
+import { useEnergyRegenTrigger } from '@/hooks/use-energy-regen-trigger'; // NEW: Import the hook
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -29,6 +30,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedEnvironments } = useEnvironmentContext();
+
+  // NEW: Call the energy regeneration trigger hook
+  useEnergyRegenTrigger();
 
   // Update T_current every second
   useEffect(() => {

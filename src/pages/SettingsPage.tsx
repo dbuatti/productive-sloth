@@ -34,6 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
+import { format, parseISO } from 'date-fns'; // Import date-fns functions
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
@@ -233,6 +234,10 @@ const SettingsPage: React.FC = () => {
   if (!user || !profile) {
     return null;
   }
+
+  const lastRegenAt = profile.last_energy_regen_at 
+    ? format(parseISO(profile.last_energy_regen_at), 'MMM d, yyyy HH:mm:ss') 
+    : 'N/A';
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 animate-slide-in-up">
@@ -525,6 +530,13 @@ const SettingsPage: React.FC = () => {
               Open Gemini <ExternalLink className="h-4 w-4" />
             </a>
           </div>
+          {/* NEW: Last Energy Regen At */}
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <Label className="flex items-center gap-2">
+              <Zap className="h-4 w-4" /> Last Energy Regen
+            </Label>
+            <span className="font-mono text-sm text-muted-foreground">{lastRegenAt}</span>
+          </div>
         </CardContent>
       </Card>
 
@@ -593,7 +605,3 @@ const SettingsPage: React.FC = () => {
     </form>
   </Form>
 </div>
-  );
-};
-
-export default SettingsPage;

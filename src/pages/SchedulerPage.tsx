@@ -20,7 +20,7 @@ import {
   calculateEnergyCost,
   getEmojiHue,
   getBreakDescription,
-  isMeal, // Import isMeal
+  isMeal,
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -56,14 +56,14 @@ import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog';
 import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import EarlyCompletionModal from '@/components/EarlyCompletionModal';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
-import { LOW_ENERGY_THRESHOLD, MAX_ENERGY, REGEN_POD_MAX_DURATION_MINUTES, REGEN_POD_RATE_PER_MINUTE } from '@/lib/constants'; // UPDATED: Import MAX_DURATION and RATE
+import { LOW_ENERGY_THRESHOLD, MAX_ENERGY, REGEN_POD_MAX_DURATION_MINUTES, REGEN_POD_RATE_PER_MINUTE } from '@/lib/constants';
 import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
-import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; // NEW IMPORT
+import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 
 // Helper to get initial state from localStorage
 const getInitialSelectedDay = () => {
@@ -198,7 +198,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const [isRegenPodActive, setIsRegenPodActive] = useState(false);
   const [regenPodScheduledTaskId, setRegenPodScheduledTaskId] = useState<string>('');
   const [regenPodStartTime, setRegenPodStartTime] = useState<Date | null>(null);
-  const [regenPodCalculatedDuration, setRegenPodCalculatedDuration] = useState(0); // NEW: Store calculated duration
+  const [regenPodCalculatedDuration, setRegenPodCalculatedDuration] = useState(0);
+  // NEW: Pod Activity State
+  const [regenPodActivityName, setRegenPodActivityName] = useState<string>('Energy Regen Pod');
+  const [regenPodActivityDuration, setRegenPodActivityDuration] = useState<number>(0);
+
 
   // NEW: Persistence effects
   useEffect(() => {
@@ -1256,11 +1260,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   }, [user, profile, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, findFreeSlotForTask, isRegenPodActive]);
 
   // NEW: Pod Task Insertion (Called by modal's onStart callback)
-  const handlePodTaskInsertion = useCallback(async () => {
+  const handlePodTaskInsertion = useCallback(async () => { // MODIFIED: Removed arguments
     if (!user || !regenPodStartTime || regenPodCalculatedDuration === 0) return;
     
-    const podDuration = regenPodCalculatedDuration;
-    const podName = `Energy Regen Pod (${podDuration} min)`;
+    const podDuration = regenPodActivityDuration; // Use the activity's duration from state
+    const podName = regenPodActivityName; // Use the activity's name from state
     const energyCost = 0;
     const podEndTime = addMinutes(regenPodStartTime, podDuration);
 
@@ -1286,7 +1290,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setIsRegenPodActive(false);
       setIsProcessingCommand(false);
     }
-  }, [user, regenPodStartTime, regenPodCalculatedDuration, addScheduledTask, formattedSelectedDay]);
+  }, [user, regenPodStartTime, regenPodCalculatedDuration, regenPodActivityDuration, regenPodActivityName, addScheduledTask, formattedSelectedDay]);
 
   // NEW: Pod Exit Handler (Calls Edge Function)
   const handlePodExit = useCallback(async (scheduledTaskId: string, startTime: Date, endTime: Date) => {
@@ -1977,7 +1981,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
     try {
       if (action === 'complete') {
-        const isMealTask = isMeal(task.name); // NEW: Check if it's a meal
+        const isMealTask = isMeal(task.name);
 
         // NEW: Energy Deficit Check (Bypass if it's a meal, as meals provide energy)
         if (!isMealTask && profile.energy < 0) {
@@ -2345,7 +2349,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           setInputValue={setInputValue}
           placeholder={`Add task (e.g., 'Gym 60') or command`}
           onDetailedInject={handleAddTaskClick}
-          onStartRegenPod={handleStartRegenPod} // NEW: Pass Pod handler
+          onStartRegenPod={handleStartRegenPod}
         />
         <p className="text-sm text-muted-foreground">
           Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
@@ -2469,9 +2473,13 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           isOpen={isRegenPodActive}
           onExit={handlePodExit}
           scheduledTaskId={regenPodScheduledTaskId}
-          onStart={handlePodTaskInsertion}
+          onStart={(activityName, activityDuration) => { // MODIFIED: Pass activity details
+            setRegenPodActivityName(activityName);
+            setRegenPodActivityDuration(activityDuration);
+            handlePodTaskInsertion();
+          }}
           isProcessingCommand={isProcessingCommand}
-          totalDurationMinutes={regenPodCalculatedDuration} // PASS DYNAMIC DURATION
+          totalDurationMinutes={regenPodCalculatedDuration}
         />
       )}
 

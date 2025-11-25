@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Zap } from 'lucide-react'; // Changed Coffee to Zap
+import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Zap, BatteryCharging } from 'lucide-react'; // Changed Zap to BatteryCharging for Pod
 import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -21,7 +21,7 @@ interface SchedulerInputProps {
   inputValue: string;
   setInputValue: (value: string) => void;
   onDetailedInject: () => void;
-  onStartRegenPod: () => void; // NEW: Handler for starting the Pod
+  onStartRegenPod: () => void; // Handler for starting the Pod
 }
 
 const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject, onStartRegenPod }) => {
@@ -153,7 +153,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
           )}
         </div>
         
-        {/* NEW: Energy Regen Pod Button (Replaces Quick Break) */}
+        {/* Energy Regen Pod Button */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 
@@ -164,7 +164,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
               size="icon"
               className="shrink-0 h-11 w-11 text-logo-green hover:bg-logo-green/10 transition-all duration-200" // Increased size
             >
-              <Zap className="h-5 w-5" />
+              <BatteryCharging className="h-5 w-5" />
               <span className="sr-only">Start Energy Regen Pod</span>
             </Button>
           </TooltipTrigger>

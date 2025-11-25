@@ -2,21 +2,25 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { intervalToDuration, formatDuration, addMinutes, differenceInMinutes } from 'date-fns';
-import { X, Zap, Loader2, Coffee, Heart, BatteryCharging } from 'lucide-react';
+import { X, Zap, Loader2, Coffee, Heart, BatteryCharging, ListTodo, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { REGEN_POD_RATE_PER_MINUTE, MAX_ENERGY } from '@/lib/constants'; // Removed REGEN_POD_DURATION_MINUTES
+import { REGEN_POD_RATE_PER_MINUTE, MAX_ENERGY } from '@/lib/constants';
 import { useSession } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomProgress } from './CustomProgress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRecoveryActivities, RecoveryActivity } from '@/hooks/use-recovery-activities';
+import RecoveryActivityManagerDialog from './RecoveryActivityManagerDialog'; // NEW IMPORT
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface EnergyRegenPodModalProps {
   isOpen: boolean;
   onExit: (scheduledTaskId: string, startTime: Date, endTime: Date) => void;
   scheduledTaskId: string;
-  onStart: () => void;
+  onStart: (activityName: string, activityDuration: number) => void; // MODIFIED: Pass activity details
   isProcessingCommand: boolean;
-  totalDurationMinutes: number; // NEW: Dynamic duration prop
+  totalDurationMinutes: number;
 }
 
 const PodState = {
@@ -31,29 +35,47 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
   scheduledTaskId,
   onStart,
   isProcessingCommand,
-  totalDurationMinutes, // Use prop
+  totalDurationMinutes,
 }) => {
   const { profile, T_current } = useSession();
+  const { activities, isLoading: isLoadingActivities } = useRecoveryActivities();
+  
   const [podState, setPodState] = useState<keyof typeof PodState>('INITIAL');
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const [showOptimizedCue, setShowOptimizedCue] = useState(false);
+  const [isManagerOpen, setIsManagerOpen] = useState(false); // State for activity manager
+  
+  // NEW: Active Recovery State
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  
+  const selectedActivity = useMemo(() => {
+    if (selectedActivityId) {
+      return activities.find(a => a.id === selectedActivityId);
+    }
+    return null;
+  }, [activities, selectedActivityId]);
 
-  const targetEnergyGain = totalDurationMinutes * REGEN_POD_RATE_PER_MINUTE;
+  // Dynamic duration based on selected activity, capped by totalDurationMinutes
+  const effectivePodDuration = useMemo(() => {
+    if (selectedActivity) {
+      return Math.min(selectedActivity.duration_minutes, totalDurationMinutes);
+    }
+    return totalDurationMinutes;
+  }, [selectedActivity, totalDurationMinutes]);
+
+  const targetEnergyGain = effectivePodDuration * REGEN_POD_RATE_PER_MINUTE;
   const currentEnergy = profile?.energy ?? 0;
   const maxEnergy = MAX_ENERGY;
 
-  // Calculate current energy gain based on elapsed time
   const calculatedEnergyGain = useMemo(() => {
     return Math.floor(elapsedMinutes * REGEN_POD_RATE_PER_MINUTE);
   }, [elapsedMinutes]);
 
-  // Calculate progress percentage
   const progressPercentage = useMemo(() => {
-    // Calculate progress based on the dynamic total duration
-    return Math.min(100, (elapsedMinutes / totalDurationMinutes) * 100);
-  }, [elapsedMinutes, totalDurationMinutes]);
+    return Math.min(100, (elapsedMinutes / effectivePodDuration) * 100);
+  }, [elapsedMinutes, effectivePodDuration]);
 
   // --- Exit Handler (Moved up) ---
   const handleExitPod = useCallback(() => {
@@ -71,14 +93,22 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
       setStartTime(null);
       setElapsedMinutes(0);
       setShowOptimizedCue(false);
+      setSelectedActivityId(null); // Reset activity selection
       return;
     }
 
-    if (podState === 'INITIAL') {
+    if (podState === 'INITIAL' && activities.length > 0 && !selectedActivityId) {
+        // Auto-select the first activity if none is selected
+        setSelectedActivityId(activities[0].id);
+    }
+
+    if (podState === 'INITIAL' && selectedActivityId) {
       // Start the pod when the modal opens and state is INITIAL
       setStartTime(new Date());
       setPodState('RUNNING');
-      onStart(); // Notify parent to add the scheduled task
+      
+      const activityName = selectedActivity ? `Break: ${selectedActivity.name}` : `Energy Regen Pod`;
+      onStart(activityName, effectivePodDuration); // Notify parent to add the scheduled task
     }
 
     if (podState === 'RUNNING' && startTime) {
@@ -87,7 +117,7 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
         const elapsed = differenceInMinutes(now, startTime);
         setElapsedMinutes(elapsed);
 
-        const totalDurationMs = totalDurationMinutes * 60 * 1000;
+        const totalDurationMs = effectivePodDuration * 60 * 1000;
         const elapsedMs = now.getTime() - startTime.getTime();
         const remainingMs = totalDurationMs - elapsedMs;
         
@@ -97,7 +127,7 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
           return;
         }
 
-        const duration = intervalToDuration({ start: now, end: addMinutes(startTime, totalDurationMinutes) });
+        const duration = intervalToDuration({ start: now, end: addMinutes(startTime, effectivePodDuration) });
         setTimeRemaining(formatDuration(duration, {
           format: ['minutes', 'seconds'],
           delimiter: ' ',
@@ -112,9 +142,8 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
         }) || '0s');
 
         // 80% Cue Logic
-        if (elapsed >= totalDurationMinutes * 0.8 && !showOptimizedCue) {
+        if (elapsed >= effectivePodDuration * 0.8 && !showOptimizedCue) {
           setShowOptimizedCue(true);
-          // Play audio cue here if possible (not directly supported in Dyad environment)
           console.log("AUDIO CUE: PING! Recovery Optimized.");
         }
 
@@ -122,7 +151,7 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
 
       return () => clearInterval(interval);
     }
-  }, [isOpen, podState, startTime, totalDurationMinutes, showOptimizedCue, onStart, handleExitPod]);
+  }, [isOpen, podState, startTime, effectivePodDuration, showOptimizedCue, onStart, handleExitPod, activities, selectedActivityId, selectedActivity]);
 
   if (!isOpen) return null;
 
@@ -130,98 +159,145 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
   const isExiting = podState === 'EXITING' || isProcessingCommand;
   const finalEnergy = Math.min(currentEnergy + calculatedEnergyGain, maxEnergy);
   const energyBarFill = Math.min(100, (finalEnergy / maxEnergy) * 100);
+  const podTitle = selectedActivity ? `Active Recovery: ${selectedActivity.name}` : 'Energy Regen Pod';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-lg p-4 text-foreground animate-fade-in">
-      
-      {/* Header/Exit Button */}
-      <div className="flex justify-end p-4 shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleExitPod}
-          disabled={isExiting}
-          className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
-        >
-          <X className="h-6 w-6" />
-          <span className="sr-only">Exit Pod</span>
-        </Button>
-      </div>
-
-      {/* Main Content: Cauldron Graphic and Stats */}
-      <div className="flex flex-col items-center justify-center flex-grow text-center space-y-8 max-w-2xl w-full mx-auto py-8">
+    <>
+      <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-lg p-4 text-foreground animate-fade-in">
         
-        <div className="flex items-center gap-4 text-5xl font-extrabold text-primary animate-pulse-glow-subtle">
-          <BatteryCharging className="h-12 w-12 text-logo-green" />
-          Energy Regen Pod
-        </div>
-
-        {/* Cauldron/Tank Graphic */}
-        <div className="relative w-48 h-64 border-4 border-primary rounded-b-3xl rounded-t-lg overflow-hidden shadow-2xl bg-card/50">
-          {/* Liquid Fill */}
-          <div 
-            className="absolute bottom-0 left-0 right-0 bg-logo-green/70 transition-all duration-1000 ease-out"
-            style={{ height: `${progressPercentage}%` }}
+        {/* Header/Exit Button */}
+        <div className="flex justify-end p-4 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleExitPod}
+            disabled={isExiting}
+            className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
           >
-            <div className="absolute inset-0 bg-logo-green/30 animate-pulse-glow-subtle" />
-          </div>
+            <X className="h-6 w-6" />
+            <span className="sr-only">Exit Pod</span>
+          </Button>
+        </div>
+
+        {/* Main Content: Cauldron Graphic and Stats */}
+        <div className="flex flex-col items-center justify-center flex-grow text-center space-y-8 max-w-2xl w-full mx-auto py-8">
           
-          {/* Energy Zap Icon */}
-          <Zap className={cn(
-            "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-16 w-16 text-logo-yellow transition-opacity duration-500",
-            isRunning ? "opacity-100 animate-pulse" : "opacity-0"
-          )} />
-
-          {/* Progress Text Overlay */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-foreground">
-            <p className="text-4xl font-extrabold font-mono text-primary">{Math.round(progressPercentage)}%</p>
-            <p className="text-sm text-muted-foreground">Time Elapsed</p>
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-4 text-5xl font-extrabold text-primary animate-pulse-glow-subtle">
+              <BatteryCharging className="h-12 w-12 text-logo-green" />
+              {podTitle}
+            </div>
+            <p className="text-lg text-muted-foreground">
+                Target Duration: {effectivePodDuration} min (Max Energy: {maxEnergy}⚡)
+            </p>
           </div>
+
+          {/* Activity Selection & Management */}
+          <div className="flex items-center gap-3 w-full max-w-md">
+            <ListTodo className="h-5 w-5 text-primary shrink-0" />
+            <Select 
+                value={selectedActivityId || undefined} 
+                onValueChange={setSelectedActivityId}
+                disabled={isRunning || isExiting || isLoadingActivities || activities.length === 0}
+            >
+              <SelectTrigger className="flex-grow h-11">
+                <SelectValue placeholder="Select Active Recovery Activity" />
+              </SelectTrigger>
+              <SelectContent>
+                {activities.map(activity => (
+                  <SelectItem key={activity.id} value={activity.id}>
+                    {activity.name} ({activity.duration_minutes} min)
+                  </SelectItem>
+                ))}
+                {activities.length === 0 && (
+                    <SelectItem value="none" disabled>No activities defined</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => setIsManagerOpen(true)}
+                        disabled={isExiting}
+                        className="h-11 w-11 shrink-0"
+                    >
+                        <Settings className="h-5 w-5" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Manage Activities</TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Cauldron/Tank Graphic */}
+          <div className="relative w-48 h-64 border-4 border-primary rounded-b-3xl rounded-t-lg overflow-hidden shadow-2xl bg-card/50">
+            {/* Liquid Fill */}
+            <div 
+              className="absolute bottom-0 left-0 right-0 bg-logo-green/70 transition-all duration-1000 ease-out"
+              style={{ height: `${progressPercentage}%` }}
+            >
+              <div className="absolute inset-0 bg-logo-green/30 animate-pulse-glow-subtle" />
+            </div>
+            
+            {/* Energy Zap Icon */}
+            <Zap className={cn(
+              "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-16 w-16 text-logo-yellow transition-opacity duration-500",
+              isRunning ? "opacity-100 animate-pulse" : "opacity-0"
+            )} />
+
+            {/* Progress Text Overlay */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-foreground">
+              <p className="text-4xl font-extrabold font-mono text-primary">{Math.round(progressPercentage)}%</p>
+              <p className="text-sm text-muted-foreground">Time Elapsed</p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 w-full max-w-md">
+              <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/50">
+                  <p className="text-sm text-muted-foreground">Time Left</p>
+                  <p className="text-2xl font-extrabold font-mono text-primary">{timeRemaining || `${effectivePodDuration}m`}</p>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/50">
+                  <p className="text-sm text-muted-foreground">Energy Gained</p>
+                  <p className="text-2xl font-extrabold font-mono text-logo-green">+{calculatedEnergyGain}⚡</p>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/50">
+                  <p className="text-sm text-muted-foreground">Final Energy</p>
+                  <p className="text-2xl font-extrabold font-mono text-foreground">{finalEnergy} / {maxEnergy}</p>
+              </div>
+          </div>
+
+          {/* Optimized Cue */}
+          {showOptimizedCue && (
+            <div className="text-xl font-semibold text-accent flex items-center gap-2 animate-pulse-glow">
+              <Heart className="h-6 w-6" /> Recovery Optimized!
+            </div>
+          )}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 w-full max-w-md">
-            <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/50">
-                <p className="text-sm text-muted-foreground">Time Left</p>
-                <p className="text-2xl font-extrabold font-mono text-primary">{timeRemaining || `${totalDurationMinutes}m`}</p>
-            </div>
-            <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/50">
-                <p className="text-sm text-muted-foreground">Energy Gained</p>
-                <p className="text-2xl font-extrabold font-mono text-logo-green">+{calculatedEnergyGain}⚡</p>
-            </div>
-            <div className="flex flex-col items-center p-3 rounded-lg bg-secondary/50">
-                <p className="text-sm text-muted-foreground">Final Energy</p>
-                <p className="text-2xl font-extrabold font-mono text-foreground">{finalEnergy} / {maxEnergy}</p>
-            </div>
+        {/* Footer/Exit Button */}
+        <div className="flex justify-center pb-4 pt-4 shrink-0">
+          <Button
+            onClick={handleExitPod}
+            disabled={isExiting}
+            className={cn(
+              "h-12 px-8 text-lg font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-200",
+              isExiting && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            {isExiting ? (
+              <Loader2 className="h-6 w-6 mr-2 animate-spin" />
+            ) : (
+              <X className="h-6 w-6 mr-2" />
+            )}
+            Exit Pod
+          </Button>
         </div>
-
-        {/* Optimized Cue */}
-        {showOptimizedCue && (
-          <div className="text-xl font-semibold text-accent flex items-center gap-2 animate-pulse-glow">
-            <Heart className="h-6 w-6" /> Recovery Optimized!
-          </div>
-        )}
       </div>
-
-      {/* Footer/Exit Button */}
-      <div className="flex justify-center pb-4 pt-4 shrink-0">
-        <Button
-          onClick={handleExitPod}
-          disabled={isExiting}
-          className={cn(
-            "h-12 px-8 text-lg font-semibold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-200",
-            isExiting && "opacity-70 cursor-not-allowed"
-          )}
-        >
-          {isExiting ? (
-            <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-          ) : (
-            <X className="h-6 w-6 mr-2" />
-          )}
-          Exit Pod
-        </Button>
-      </div>
-    </div>
+      <RecoveryActivityManagerDialog open={isManagerOpen} onOpenChange={setIsManagerOpen} />
+    </>
   );
 };
 

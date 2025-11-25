@@ -643,19 +643,15 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         console.error("Compaction after deletion error:", compactionError);
       }
 
-      // Scroll to the next item if it exists
-      if (currentSchedule?.items && scheduledTaskToDeleteIndex < currentSchedule.items.length) {
-        const nextItemId = currentSchedule.items[scheduledTaskToDeleteIndex].id;
-        if (nextItemId) {
-          handleScrollToItem(nextItemId);
-        }
-      } else if (currentSchedule?.items && scheduledTaskToDeleteIndex > 0) {
-        // If the last item was deleted, scroll to the previous one
-        const prevItemId = currentSchedule.items[scheduledTaskToDeleteIndex - 1].id;
-        if (prevItemId) {
-          handleScrollToItem(prevItemId);
-        }
+      // Scroll to the active item or the next item after deletion/compaction
+      if (activeItemToday) {
+        handleScrollToItem(activeItemToday.id);
+      } else if (nextItemToday) {
+        handleScrollToItem(nextItemToday.id);
+      } else if (scheduleContainerRef.current) {
+        scheduleContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
       }
+      
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
       showError(`Failed to delete task: ${error.message}`);
@@ -667,7 +663,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setScheduledTaskToDeleteName(null);
       setScheduledTaskToDeleteIndex(null);
     }
-  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, handleCompactSchedule, currentSchedule?.items, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, activeItemToday, nextItemToday, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
 
   // Confirmation handler for retired task permanent deletion
   const confirmPermanentDeleteRetiredTask = useCallback(async () => {

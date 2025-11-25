@@ -2,11 +2,11 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
-import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy } from '@/types/scheduler';
+import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy, CompletedTaskLogEntry } from '@/types/scheduler';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays } from 'date-fns';
-import { XP_PER_LEVEL, MAX_ENERGY } from '@/lib/constants';
+import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes } from 'date-fns';
+import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue } from '@/lib/scheduler-utils';
 import { useTasks } from './use-tasks';
 
@@ -274,7 +274,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   });
 
   // Renamed from completedTasksTodayList to completedTasksForSelectedDayList
-  const { data: completedTasksForSelectedDayList = [], isLoading: isLoadingCompletedTasksForSelectedDay } = useQuery<DBScheduledTask[]>({
+  const { data: completedTasksForSelectedDayList = [], isLoading: isLoadingCompletedTasksForSelectedDay } = useQuery<CompletedTaskLogEntry[]>({
     queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate],
     queryFn: async () => {
       if (!userId) return [];
@@ -321,7 +321,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       // Fetch completed general tasks for selected day
       const { data: generalTasks, error: generalTasksError } = await supabase
         .from('tasks')
-        .select('*')
+        .select('id, user_id, title, is_critical, energy_cost, is_custom_energy_cost, created_at, updated_at')
         .eq('user_id', userId)
         .eq('is_completed', true)
         .gte('updated_at', selectedDayStartUTC)
@@ -333,13 +333,33 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
       console.log("useSchedulerTasks: Completed General Tasks for selected day:", generalTasks);
 
+      // Helper to calculate effective duration
+      const calculateEffectiveDuration = (task: any, source: 'scheduled_tasks' | 'aethersink' | 'tasks'): number => {
+        if (source === 'scheduled_tasks' && task.start_time && task.end_time) {
+          return differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+        }
+        if (source === 'aethersink' && task.duration) {
+          return task.duration;
+        }
+        // For general tasks or scheduled/retired tasks missing duration/times, use default
+        return DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION;
+      };
+
       // Combine and map tasks
-      const combinedTasks: DBScheduledTask[] = [
-        ...(scheduled || []).map(t => ({ ...t, task_environment: t.task_environment || 'laptop' })),
+      const combinedTasks: CompletedTaskLogEntry[] = [
+        ...(scheduled || []).map(t => ({ 
+          ...t, 
+          effective_duration_minutes: calculateEffectiveDuration(t, 'scheduled_tasks'),
+          original_source: 'scheduled_tasks' as const,
+          task_environment: t.task_environment || 'laptop',
+          is_flexible: t.is_flexible ?? false,
+          is_locked: t.is_locked ?? false,
+        })),
         ...(retired || []).map(rt => ({
           id: rt.id,
           user_id: rt.user_id,
           name: rt.name,
+          effective_duration_minutes: calculateEffectiveDuration(rt, 'aethersink'),
           break_duration: rt.break_duration,
           start_time: null,
           end_time: null,
@@ -353,11 +373,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           is_completed: rt.is_completed,
           is_custom_energy_cost: rt.is_custom_energy_cost,
           task_environment: rt.task_environment,
+          original_source: 'aethersink' as const,
         })),
         ...(generalTasks || []).map(gt => ({
           id: gt.id,
           user_id: gt.user_id,
           name: gt.title,
+          effective_duration_minutes: calculateEffectiveDuration(gt, 'tasks'),
           break_duration: null,
           start_time: null,
           end_time: null,
@@ -368,13 +390,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           is_flexible: false,
           is_locked: false,
           energy_cost: gt.energy_cost,
+          is_completed: true,
           is_custom_energy_cost: gt.is_custom_energy_cost,
-          task_environment: 'laptop',
+          task_environment: 'laptop' as const,
+          original_source: 'tasks' as const,
         })),
       ];
 
       console.log("useSchedulerTasks: Combined Tasks for selected day (before sorting):", combinedTasks);
-      combinedTasks.forEach(task => console.log(`useSchedulerTasks: Task: ${task.name}, Energy Cost: ${task.energy_cost}, Is Completed: ${task.is_completed}`));
+      combinedTasks.forEach(task => console.log(`useSchedulerTasks: Task: ${task.name}, Duration: ${task.effective_duration_minutes}, Energy Cost: ${task.energy_cost}, Source: ${task.original_source}`));
 
       // Sort by updated_at/retired_at descending (most recent first)
       return combinedTasks.sort((a, b) => {
@@ -1373,8 +1397,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           user_id: userId,
           task_name: task.name,
           original_id: task.id,
-          duration_scheduled: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
-          duration_used: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)), // For now, assume scheduled duration
+          duration_scheduled: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION,
+          duration_used: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, // For now, assume scheduled duration
           xp_earned: task.energy_cost * 2,
           energy_cost: task.energy_cost,
           is_critical: task.is_critical,

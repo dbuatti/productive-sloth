@@ -1,13 +1,15 @@
 import React from 'react';
-import { CheckCircle, Zap, Sparkles, Clock } from 'lucide-react'; // Added Clock icon
+import { CheckCircle, Zap, Sparkles, Clock, Utensils } from 'lucide-react'; // Added Utensils icon
 import { cn } from '@/lib/utils';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
-import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
+import { getEmojiHue, assignEmoji, isMeal } from '@/lib/scheduler-utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CompletedTaskLogItemProps {
-  task: DBScheduledTask;
+  // Note: This component now receives data that is structurally compatible with DBScheduledTask,
+  // but the duration fields are guaranteed to be accurate for display (effective_duration_minutes).
+  task: DBScheduledTask & { effective_duration_minutes?: number };
 }
 
 const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => {
@@ -15,12 +17,16 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
   const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
   const accentBorderColor = `hsl(${hue} 70% 50%)`;
 
-  const timeUsedMinutes = task.start_time && task.end_time
-    ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time))
-    : task.break_duration || 0; // Fallback for breaks or if times are missing
+  // Use effective_duration_minutes if available, otherwise fall back to calculation/default
+  const timeUsedMinutes = task.effective_duration_minutes ?? (
+    task.start_time && task.end_time
+      ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time))
+      : task.break_duration || 0
+  ); 
 
   const xpEarned = task.energy_cost * 2;
   const completedTime = task.updated_at ? format(parseISO(task.updated_at), 'h:mm a') : 'N/A';
+  const isEnergyGain = task.energy_cost < 0 || isMeal(task.name);
 
   return (
     <div
@@ -49,15 +55,19 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
             </TooltipContent>
           </Tooltip>
         )}
-        {task.energy_cost > 0 && (
+        {task.energy_cost !== undefined && task.energy_cost !== 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 text-sm font-semibold font-mono text-logo-yellow"> {/* Increased font size */}
-                {task.energy_cost} <Zap className="h-4 w-4" /> {/* Increased icon size */}
+              <span className={cn(
+                "flex items-center gap-1 text-sm font-semibold font-mono", 
+                isEnergyGain ? "text-logo-green" : "text-logo-yellow"
+              )}>
+                {isEnergyGain ? `+${Math.abs(task.energy_cost)}` : task.energy_cost} 
+                {isEnergyGain ? <Utensils className="h-4 w-4" /> : <Zap className="h-4 w-4" />} {/* Increased icon size */}
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Energy Cost</p>
+              <p>{isEnergyGain ? "Energy Gain (Meal/Break)" : "Energy Cost"}</p>
             </TooltipContent>
           </Tooltip>
         )}

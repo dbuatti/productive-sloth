@@ -169,6 +169,28 @@ export interface ScheduledItem {
   taskEnvironment: TaskEnvironment; // NEW: Task environment
 }
 
+// NEW: Type for combined completed task log entry for recap metrics
+export interface CompletedTaskLogEntry {
+  id: string;
+  user_id: string;
+  name: string;
+  effective_duration_minutes: number; // Calculated duration for recap metrics
+  break_duration: number | null;
+  start_time: string | null;
+  end_time: string | null;
+  scheduled_date: string;
+  created_at: string;
+  updated_at: string;
+  is_critical: boolean;
+  is_flexible: boolean;
+  is_locked: boolean;
+  energy_cost: number;
+  is_completed: boolean;
+  is_custom_energy_cost: boolean;
+  task_environment: TaskEnvironment;
+  original_source: 'scheduled_tasks' | 'aethersink' | 'tasks';
+}
+
 export interface ScheduleSummary {
   totalTasks: number;
   activeTime: { hours: number; minutes: number };

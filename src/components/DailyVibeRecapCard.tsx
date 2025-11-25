@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, CheckCircle, Clock, Zap, MessageSquare, Lightbulb, Smile, Coffee } from 'lucide-react';
-import { ScheduleSummary, DBScheduledTask } from '@/types/scheduler'; // Import DBScheduledTask
+import { ScheduleSummary, CompletedTaskLogEntry } from '@/types/scheduler'; // Import CompletedTaskLogEntry
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'; // Import Accordion components
 import CompletedTaskLogItem from './CompletedTaskLogItem'; // Import the new component
+import { isMeal } from '@/lib/scheduler-utils';
 
 interface DailyVibeRecapCardProps {
   scheduleSummary: ScheduleSummary | null;
@@ -14,7 +15,9 @@ interface DailyVibeRecapCardProps {
   profileEnergy: number;
   criticalTasksCompletedToday: number;
   selectedDayString: string;
-  completedScheduledTasks: DBScheduledTask[]; // NEW: Prop for completed tasks
+  completedScheduledTasks: CompletedTaskLogEntry[]; // UPDATED: Use CompletedTaskLogEntry
+  totalActiveTimeMinutes: number; // NEW: Accurate metric
+  totalBreakTimeMinutes: number; // NEW: Accurate metric
 }
 
 const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
@@ -24,10 +27,13 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
   profileEnergy,
   criticalTasksCompletedToday,
   selectedDayString,
-  completedScheduledTasks, // NEW: Destructure prop
+  completedScheduledTasks,
+  totalActiveTimeMinutes, // NEW
+  totalBreakTimeMinutes, // NEW
 }) => {
-  const totalActiveTimeMinutes = scheduleSummary ? (scheduleSummary.activeTime.hours * 60 + scheduleSummary.activeTime.minutes) : 0;
-  const totalBreakTimeMinutes = scheduleSummary ? scheduleSummary.breakTime : 0;
+  
+  const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);
+  const totalActiveTimeMins = totalActiveTimeMinutes % 60;
 
   const compliment = useMemo(() => {
     if (tasksCompletedToday === 0 && totalActiveTimeMinutes === 0) {
@@ -40,13 +46,13 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
       return `Incredible focus today! You crushed ${tasksCompletedToday} tasks and stayed in the flow. 🚀`;
     }
     if (totalActiveTimeMinutes >= 180) { // 3 hours
-      return `That's a marathon session! You logged ${Math.floor(totalActiveTimeMinutes / 60)} hours of Active Time. 💪`;
+      return `That's a marathon session! You logged ${totalActiveTimeHours} hours of Active Time. 💪`;
     }
     if (tasksCompletedToday > 0) {
       return `Nice work today! You completed ${tasksCompletedToday} task${tasksCompletedToday !== 1 ? 's' : ''}. Keep that vibe going! 😊`;
     }
     return "You're making progress, one step at a time! Keep it up. ✨";
-  }, [tasksCompletedToday, totalActiveTimeMinutes, criticalTasksCompletedToday, scheduleSummary?.criticalTasksRemaining]);
+  }, [tasksCompletedToday, totalActiveTimeMinutes, criticalTasksCompletedToday, scheduleSummary?.criticalTasksRemaining, totalActiveTimeHours]);
 
   const reflectionPrompts = [
     "What was the biggest win you had today?",
@@ -89,13 +95,13 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
             </CardTitle>
             <CardContent className="p-0 mt-2">
               <p className="text-3xl font-extrabold font-mono text-foreground"> {/* Increased font size */}
-                {Math.floor(totalActiveTimeMinutes / 60)}h {totalActiveTimeMinutes % 60}m
+                {totalActiveTimeHours}h {totalActiveTimeMins}m
               </p>
             </CardContent>
           </Card>
           <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              <Coffee className="h-4 w-4 text-logo-orange" /> Break Time
+              <Coffee className="h-4 w-4 text-logo-orange" /> Break/Meal Time
             </CardTitle>
             <CardContent className="p-0 mt-2">
               <p className="text-3xl font-extrabold font-mono text-logo-orange">{totalBreakTimeMinutes} min</p> {/* Increased font size */}
@@ -126,7 +132,8 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pt-3"> {/* Increased spacing */}
                 {completedScheduledTasks.map(task => (
-                  <CompletedTaskLogItem key={task.id} task={task} />
+                  // Note: CompletedTaskLogEntry is structurally compatible with DBScheduledTask for this component
+                  <CompletedTaskLogItem key={task.id} task={task as unknown as DBScheduledTask} />
                 ))}
               </AccordionContent>
             </AccordionItem>

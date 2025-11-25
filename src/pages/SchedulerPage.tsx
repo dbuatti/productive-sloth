@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2, Menu } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock, TaskEnvironment } from '@/types/scheduler';
+import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock, TaskEnvironment, CompletedTaskLogEntry } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -147,7 +147,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     randomizeBreaks,
     toggleScheduledTaskLock,
     aetherDump,
-    aetherDumpMega, // NEW: Destructure aetherDumpMega
+    aetherDumpMega,
     sortBy,
     setSortBy,
     retiredSortBy,
@@ -746,23 +746,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error) {
       console.error("Aether Dump error:", error);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  };
-  
-  const handleAetherDumpMegaButton = async () => { // NEW HANDLER
-    if (!user) {
-      showError("You must be logged in to perform Aether Dump Mega.");
-      return;
-    }
-    setIsProcessingCommand(true);
-
-    try {
-      await aetherDumpMega();
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-    } catch (error) {
-      console.error("Aether Dump Mega error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -2266,6 +2249,25 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     return completedTasksForSelectedDayList;
   }, [completedTasksForSelectedDayList]);
 
+  // NEW: Calculate Active Time and Break Time from completed tasks list
+  const { totalActiveTimeMinutes, totalBreakTimeMinutes } = useMemo(() => {
+    let activeTime = 0;
+    let breakTime = 0;
+
+    completedTasksForSelectedDayList.forEach(task => {
+      const duration = task.effective_duration_minutes;
+      const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
+      
+      if (isBreakOrMeal) {
+        breakTime += duration;
+      } else {
+        activeTime += duration;
+      }
+    });
+
+    return { totalActiveTimeMinutes: activeTime, totalBreakTimeMinutes: breakTime };
+  }, [completedTasksForSelectedDayList]);
+
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
@@ -2320,7 +2322,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           onZoneFocus={handleZoneFocus}
           onAetherDump={handleAetherDumpButton}
           onRefreshSchedule={handleRefreshSchedule}
-          onAetherDumpMega={handleAetherDumpMegaButton}
         />
       </div>
 
@@ -2399,6 +2400,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
       selectedDayString={selectedDay}
       completedScheduledTasks={completedScheduledTasksForRecap}
+      totalActiveTimeMinutes={totalActiveTimeMinutes} // NEW
+      totalBreakTimeMinutes={totalBreakTimeMinutes} // NEW
     />
   );
 
@@ -2512,7 +2515,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                           onZoneFocus={handleZoneFocus}
                           onAetherDump={handleAetherDumpButton}
                           onRefreshSchedule={handleRefreshSchedule}
-                          onAetherDumpMega={handleAetherDumpMegaButton}
                       />
                   </div>
               </DrawerContent>

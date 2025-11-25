@@ -153,11 +153,14 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
     }
     
     const start = new Date();
+    
+    // 1. Notify parent to start the session (updates profile state)
+    const activityName = selectedActivity.name; 
+    onStart(activityName, effectivePodDuration); // Notify parent to update profile state and duration
+    
+    // 2. Optimistically set internal state to RUNNING immediately for smooth UI transition
     setSessionStartTime(start);
     setPodState('RUNNING');
-    
-    const activityName = `Break: ${selectedActivity.name}`;
-    onStart(activityName, effectivePodDuration); // Notify parent to update profile state and duration
   };
 
   const handleExitPod = useCallback(async () => {

@@ -1,3 +1,4 @@
+taskToPlace).">
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2, Menu } from 'lucide-react';
@@ -199,8 +200,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const regenPodStartTime = profile?.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null;
   
   // NEW: Pod Activity State (Internal to SchedulerPage for modal communication)
-  const [regenPodActivityName, setRegenPodActivityName] = useState<string>('Energy Regen Pod');
-  const [regenPodActivityDuration, setRegenPodActivityDuration] = useState<number>(0);
+  const [showPodSetupModal, setShowPodSetupModal] = useState(false); 
+  const [calculatedPodDuration, setCalculatedPodDuration] = useState(0); 
 
 
   // NEW: Persistence effects
@@ -1218,7 +1219,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only');
   }, [user, profile, handleAutoScheduleAndSort]);
 
-  // NEW: Pod Start Handler (Now calculates dynamic duration and updates profile state)
+  // NEW: Pod Start Handler (Now calculates dynamic duration and opens setup modal)
   const handleStartRegenPod = useCallback(async () => {
     if (!user || !profile) {
       showError("Please log in to start the Energy Regen Pod.");
@@ -1240,21 +1241,20 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     const durationNeeded = Math.ceil(energyNeeded / REGEN_POD_RATE_PER_MINUTE);
     const podDuration = Math.min(durationNeeded, REGEN_POD_MAX_DURATION_MINUTES);
 
-    // 2. Update profile state to start the Pod
-    try {
-      await startRegenPodState(podDuration);
-      // The modal will now open automatically because isRegenPodActive is true
-      // The modal's onStart callback will set the activity name/duration
-    } catch (error: any) {
-      showError(`Failed to start Pod: ${error.message}`);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  }, [user, profile, isRegenPodActive, startRegenPodState]);
+    // 2. Calculate duration and open the setup modal
+    setCalculatedPodDuration(podDuration);
+    setShowPodSetupModal(true); // Open the modal for setup
+    
+    setIsProcessingCommand(false);
+  }, [user, profile, isRegenPodActive]);
 
   // NEW: Pod Exit Handler (Calls exitRegenPodState)
   const handlePodExit = useCallback(async () => {
-    if (!user || !profile || !isRegenPodActive) return;
+    if (!user || !profile || !isRegenPodActive) {
+        // If we are just closing the setup modal
+        setShowPodSetupModal(false);
+        return;
+    }
     setIsProcessingCommand(true);
 
     try {
@@ -1287,6 +1287,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       console.error("Pod exit error:", error);
     } finally {
       setIsProcessingCommand(false);
+      setShowPodSetupModal(false); // Ensure setup modal state is also reset
     }
   }, [user, profile, isRegenPodActive, exitRegenPodState, queryClient, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
 
@@ -2397,17 +2398,18 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       )}
 
       {/* Energy Regen Pod Modal (Highest Layer) */}
-      {isRegenPodActive && regenPodDurationMinutes > 0 && ( // UPDATED: Check isRegenPodActive and duration
+      {(isRegenPodActive || showPodSetupModal) && ( // UPDATED: Open if active OR in setup phase
         <EnergyRegenPodModal
-          isOpen={isRegenPodActive}
-          onExit={handlePodExit} // UPDATED: Use simplified exit handler
-          onStart={(activityName, activityDuration) => { 
-            // This is only for setting the activity name/duration in the modal's internal state
-            setRegenPodActivityName(activityName);
-            setRegenPodActivityDuration(activityDuration);
+          isOpen={isRegenPodActive || showPodSetupModal}
+          onExit={handlePodExit} // Use simplified exit handler
+          onStart={async (activityName, activityDuration) => { 
+            // This is the new trigger for the actual start
+            await startRegenPodState(activityDuration); 
+            setShowPodSetupModal(false); // Close setup state
           }}
           isProcessingCommand={isProcessingCommand}
-          totalDurationMinutes={regenPodDurationMinutes} // Use derived duration
+          // Use regenPodDurationMinutes if active, otherwise use the calculated duration from setup
+          totalDurationMinutes={isRegenPodActive ? regenPodDurationMinutes : calculatedPodDuration} 
         />
       )}
 

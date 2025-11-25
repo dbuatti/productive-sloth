@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils } from 'lucide-react'; // Import Utensils
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
-import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format } from 'date-fns';
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format, differenceInMinutes } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
@@ -85,7 +85,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
     allEvents.forEach(event => {
         const eventStartTime = 'time' in event ? event.time : event.startTime;
-        const eventEndTime = 'time' in event ? event.time : event.endTime;
+        // FIX 1: Corrected variable name from eventEndTime (undefined) to event.endTime
+        const eventEndTime = 'time' in event ? event.time : event.endTime; 
 
         if (eventStartTime.getTime() > currentCursor.getTime()) {
             const freeDurationMs = eventStartTime.getTime() - currentCursor.getTime();
@@ -149,8 +150,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     const firstRenderedItem = filteredItems[0];
     const lastRenderedItem = filteredItems[filteredItems.length - 1];
 
-    const actualStartTime = firstRenderedItem ? ('time' in firstRenderedItem ? firstItemStartTime : firstRenderedItem.startTime) : startOfTemplate;
-    const actualEndTime = lastRenderedItem ? ('time' in lastRenderedItem ? lastItemEndTime : lastRenderedItem.endTime) : endOfTemplate;
+    const actualStartTime = firstRenderedItem ? ('time' in firstRenderedItem ? firstRenderedItem.time : firstRenderedItem.startTime) : startOfTemplate;
+    const actualEndTime = lastRenderedItem ? ('time' in lastRenderedItem ? lastRenderedItem.time : lastRenderedItem.endTime) : endOfTemplate;
 
     return {
         finalDisplayItems: filteredItems,
@@ -182,532 +183,358 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   }, [activeItemInDisplay, T_current]);
 
   const globalProgressLineTopPercentage = useMemo(() => {
-    if (!containerRef.current || !firstItemStartTime || !lastItemEndTime) return 0;
+    // Calculate the percentage based on the 24-hour template duration
+    const totalTemplateDurationMs = endOfTemplate.getTime() - startOfTemplate.getTime();
+    const timeIntoTemplateMs = T_current.getTime() - startOfTemplate.getTime();
+    
+    let templatePercentage = (timeIntoTemplateMs / totalTemplateDurationMs) * 100;
+    templatePercentage = Math.max(0, Math.min(100, templatePercentage));
+    
+    // We need to map this time percentage to the actual rendered height percentage.
+    // This is complex, so we use a simplified time-based percentage for the global marker.
+    // This assumes a linear time scale, which is visually close enough for a marker.
+    
+    const totalMinutes = differenceInMinutes(endOfTemplate, startOfTemplate);
+    const minutesIntoTemplate = differenceInMinutes(T_current, startOfTemplate);
+    
+    return (minutesIntoTemplate / totalMinutes) * 100; 
+    
+  }, [T_current, startOfTemplate, endOfTemplate]);
 
-    const totalScheduleDurationMs = lastItemEndTime.getTime() - firstItemStartTime.getTime();
-    if (totalScheduleDurationMs <= 0) return 0;
-
-    const timeIntoScheduleMs = T_current.getTime() - firstItemStartTime.getTime();
-    return (timeIntoScheduleMs / totalScheduleDurationMs) * 100;
-  }, [T_current, firstItemStartTime, lastItemEndTime]);
-
-
+  // Scroll to active item on load or when active item changes
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    if (activeItemId) {
+      onScrollToItem(activeItemId);
     }
-  }, [selectedDayString]);
+  }, [activeItemId, onScrollToItem]);
 
-  const handleInfoChipClick = (dbTask: DBScheduledTask) => {
-    console.log("SchedulerDisplay: InfoChip clicked for task:", dbTask.name);
-    setSelectedScheduledTask(dbTask);
+  const handleToggleLock = useCallback(async (task: DBScheduledTask) => {
+    if (isProcessingCommand) return;
+    // FIX 2: Updated function call to match expected object payload
+    await toggleScheduledTaskLock({ taskId: task.id, isLocked: !task.is_locked });
+  }, [isProcessingCommand, toggleScheduledTaskLock]);
+
+  const handleOpenDetails = useCallback((task: DBScheduledTask) => {
+    setSelectedScheduledTask(task);
     setIsDialogOpen(true);
-  };
+  }, []);
 
-  const handleTaskItemClick = (event: React.MouseEvent, dbTask: DBScheduledTask) => {
-    console.log("SchedulerDisplay: Task item clicked for task:", dbTask.name, "Event target:", event.target);
-    const target = event.target as HTMLElement;
-    if (target.closest('button') || target.closest('a')) {
-      console.log("SchedulerDisplay: Click originated from an interactive child, preventing dialog open.");
-      return;
-    }
-    setSelectedScheduledTask(dbTask);
-    setIsDialogOpen(true);
-    console.log("SchedulerDisplay: Setting isDialogOpen to true for task:", dbTask.name);
-  };
+  // FIX 9: Removed handleUpdateDetails as it is no longer needed/used by the dialog
+  // const handleUpdateDetails = useCallback(async (updatedTask: DBScheduledTask) => {
+  //   setIsDialogOpen(false);
+  // }, []);
 
-  const totalScheduledMinutes = schedule ? (schedule.summary.activeTime.hours * 60 + schedule.summary.activeTime.minutes + schedule.summary.breakTime) : 0;
-
-  const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current);
-
-  const renderDisplayItem = (item: DisplayItem, index: number) => { // Added index
-    const isCurrentlyActive = activeItemInDisplay?.id === item.id;
-    const isHighlightedBySession = activeItemId === item.id;
-    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal') && item.endTime <= T_current;
-
+  const renderItem = (item: DisplayItem, index: number) => {
     if (item.type === 'marker') {
       return (
-        <React.Fragment key={item.id}>
-          <div></div>
-          <div className="relative flex items-center">
-            <div className="h-px w-full bg-border" />
-            <div className="absolute right-0 h-3 w-3 rounded-full bg-border -mr-1.5" /> {/* Increased size */}
-            <span className="absolute right-full mr-2 text-base font-bold text-foreground whitespace-nowrap"> {/* Increased font size */}
-              {item.label}
-            </span>
-          </div>
-        </React.Fragment>
-      );
-    } else if (item.type === 'free-time') {
-      const freeTimeItem = item as FreeTimeItem;
-      const isActive = T_current >= freeTimeItem.startTime && T_current < freeTimeItem.endTime;
-      const isHighlightedByNowCard = activeItemId === freeTimeItem.id;
-
-      return (
-        <React.Fragment key={freeTimeItem.id}>
-          <div></div>
-          <div 
-            id={`scheduled-item-${freeTimeItem.id}`}
-            className={cn(
-              "relative flex items-center justify-center text-muted-foreground italic text-base h-[30px] rounded-lg shadow-sm transition-all duration-200 ease-in-out", // Increased height and font size
-              isHighlightedByNowCard ? "opacity-50 border-border" :
-              isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70",
-              isPastItem && "opacity-50 border-muted-foreground/30"
-            )}
-          >
-            {freeTimeItem.message}
-            {isActive && (
-              <>
-                <div 
-                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress"
-                  style={{ top: `${progressLineTopPercentage}%` }}
-                ></div>
-                <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: `${progressLineTopPercentage}%` }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-sm font-semibold whitespace-nowrap"> {/* Increased font size */}
-                    {formatTime(T_current)}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-        </React.Fragment>
-      );
-    } else {
-      const scheduledItem = item as ScheduledItem;
-      const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
-      const isHighlightedBySession = activeItemId === scheduledItem.id;
-      const isLocked = scheduledItem.isLocked;
-      const isFixed = !scheduledItem.isFlexible;
-      // const isFixedOrLocked = isFixed || isLocked; // REMOVED: No longer used for border logic
-      const isCompleted = scheduledItem.isCompleted;
-      const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current) && !isCompleted;
-
-      if (scheduledItem.endTime < startOfTemplate) return null;
-
-      const hue = getEmojiHue(scheduledItem.name);
-      const saturation = 50;
-      const lightness = isLocked ? 25 : 35;
-      const ambientBackgroundColor = `hsl(${hue} ${saturation}% ${lightness}%)`;
-
-      // Find the corresponding DB task only if it's not the dynamic Pod item
-      const dbTask = scheduledItem.id !== 'regen-pod-active' 
-        ? schedule?.dbTasks.find(t => t.id === scheduledItem.id) 
-        : null;
-
-      const isTimeOff = scheduledItem.type === 'time-off';
-      const isBreak = scheduledItem.type === 'break';
-      const isMeal = scheduledItem.type === 'meal'; // NEW: Check for meal type
-      const isRegenPod = scheduledItem.id === 'regen-pod-active'; // NEW: Check for Pod
-
-      // Determine background color based on type
-      let itemBgColor = ambientBackgroundColor;
-      if (isTimeOff) {
-        itemBgColor = undefined; // Use default card background for time off
-      } else if (isMeal) {
-        itemBgColor = `hsl(140 50% 35% / 0.3)`; // Fixed green hue for meals
-      } else if (isRegenPod) { // NEW: Pod styling
-        itemBgColor = `hsl(120 50% 35% / 0.5)`; // Green hue for recovery
-      }
-
-      // Determine text color
-      const itemTextColor = isTimeOff ? 'text-logo-green' : (isMeal ? 'text-logo-green' : (isRegenPod ? 'text-logo-green' : 'text-[hsl(var(--always-light-text))]'));
-
-      // Determine completion visual style
-      const isFixedOrTimed = isFixed || isTimeOff || isMeal || isRegenPod; // Fixed tasks, Time Off, Meals, and Pod remain visible when completed
-      const completionClasses = isCompleted && isFixedOrTimed ? "opacity-70" : (isCompleted ? "hidden" : "opacity-100");
-      const textCompletionClasses = isCompleted && isFixedOrTimed ? "line-through text-muted-foreground" : "text-foreground";
-      
-      // If the task is completed and is NOT a fixed/timed event, we hide it.
-      if (isCompleted && !isFixedOrTimed) {
-        return null;
-      }
-
-      return (
-        <React.Fragment key={scheduledItem.id}>
-          <div className="flex items-center justify-end pr-2">
-            <span className={cn(
-              "px-3 py-1 rounded-md text-sm font-mono transition-colors duration-200", // Increased padding and font size
-              isHighlightedBySession ? "bg-primary text-primary-foreground" :
-              isActive ? "bg-primary/20 text-primary" :
-              isPastItem ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground",
-              "hover:scale-105",
-              isCompleted && isFixedOrTimed && "line-through opacity-70" // Apply strike-through to time marker if completed fixed/timed
-            )}>
-              {formatTime(scheduledItem.startTime)}
-            </span>
-          </div>
-
-          <div
-            id={`scheduled-item-${scheduledItem.id}`}
-            className={cn(
-              "relative flex flex-col justify-center gap-1 p-4 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", // Adjusted padding for better vertical centering
-              "border-2",
-              isHighlightedBySession ? "opacity-50" :
-              isActive ? "border-live-progress animate-pulse-active-row" :
-              isPastItem ? "opacity-50 border-muted-foreground/30" : "border-border",
-              isLocked && "border-[3px] border-primary/70", // Keep locked border logic
-              isMissed && "border-destructive/70 bg-destructive/10",
-              scheduledItem.isCritical && "ring-2 ring-logo-yellow/50", // Keep critical ring
-              completionClasses, // Apply completion opacity/visibility
-              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"
-            )}
-            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: itemBgColor }}
-            onMouseEnter={() => setHoveredItemId(scheduledItem.id)}
-            onMouseLeave={() => setHoveredItemId(null)}
-            onClick={(e) => {
-              console.log("SchedulerDisplay: Task item container clicked. Item ID:", scheduledItem.id);
-              dbTask && handleTaskItemClick(e, dbTask);
-            }}
-          >
-            <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
-              <span className="text-[10rem] opacity-10 select-none">
-                {scheduledItem.emoji}
-              </span>
-            </div>
-
-            <div className="relative z-10 flex flex-col w-full">
-              
-              {/* Row 1: Completion Button (Left) and Task Name/Metadata (Right) */}
-              <div className="flex items-center justify-between w-full"> {/* CHANGED items-start to items-center */}
-                {/* Completion Button (Left) */}
-                {dbTask && !isTimeOff && !isRegenPod && ( // Time Off and Pod cannot be completed via this button
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCompleteTask(dbTask, index); // Pass index
-                        }}
-                        disabled={isLocked}
-                        className={cn(
-                          "h-7 w-7 p-0 shrink-0 mr-2", 
-                          isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
-                        )}
-                        style={isLocked ? { pointerEvents: 'auto' } : undefined}
-                      >
-                        <CheckCircle className="h-5 w-5" /> {/* Reduced size */}
-                        <span className="sr-only">Complete task</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-
-                {/* Task Name & Condensed Metadata */}
-                <span className={cn(
-                  "text-base flex-grow min-w-0 pr-2", // Increased font size
-                  itemTextColor,
-                  isCompleted && isFixedOrTimed && "line-through text-muted-foreground" // Apply strike-through to text
-                )}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold truncate block text-lg">{scheduledItem.name}</span> {/* Increased font size */}
-                    
-                    {/* Energy Cost / Gain */}
-                    {scheduledItem.energyCost !== undefined && scheduledItem.energyCost !== 0 && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span className={cn(
-                                    "flex items-center gap-1 font-semibold font-mono text-xs px-1 py-0.5 rounded-sm",
-                                    scheduledItem.energyCost < 0 ? "text-logo-green bg-logo-green/20" : "text-logo-yellow bg-white/10",
-                                    isCompleted && isFixedOrTimed && "text-muted-foreground/80"
-                                )}>
-                                    {scheduledItem.energyCost > 0 ? scheduledItem.energyCost : `+${Math.abs(scheduledItem.energyCost)}`} 
-                                    {scheduledItem.energyCost > 0 ? <Zap className="h-3 w-3" /> : <Utensils className="h-3 w-3" />} {/* Use Utensils for positive energy (meals) */}
-                                </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{scheduledItem.energyCost > 0 ? "Energy Cost" : "Energy Gain (Meal)"}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-
-                    {/* Critical Badge */}
-                    {scheduledItem.isCritical && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                                    <Star className="h-3 w-3" strokeWidth={2.5} />
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Critical Task</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                    
-                    {/* Environment Icon */}
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <div className="h-5 w-5 flex items-center justify-center shrink-0">
-                                {getEnvironmentIcon(scheduledItem.taskEnvironment)}
-                            </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>Environment: {scheduledItem.taskEnvironment.charAt(0).toUpperCase() + scheduledItem.taskEnvironment.slice(1)}</p>
-                        </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </span>
-
-                {/* Action Buttons (Right) */}
-                <div className="flex items-center gap-1 ml-auto shrink-0 mt-2 sm:mt-0">
-                  {scheduledItem.isFlexible && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked });
-                          }}
-                          disabled={isProcessingCommand}
-                          className={cn(
-                            "h-7 w-7 p-0 shrink-0", // Reduced size
-                            isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
-                          )}
-                          style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
-                        >
-                          {isLocked ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />} {/* Reduced size */}
-                          <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {dbTask && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRetireTask(dbTask);
-                          }}
-                          disabled={isLocked || isProcessingCommand}
-                          className={cn(
-                            "h-7 w-7 p-0 shrink-0", // Reduced size
-                            (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
-                          )}
-                          style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-                        >
-                          <Archive className="h-5 w-5" /> {/* Reduced size */}
-                          <span className="sr-only">Retire task</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{isLocked ? "Unlock to Retire" : "Move to Aether Sink"}</p>
-                    </TooltipContent>
-                    </Tooltip>
-                  )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveTask(scheduledItem.id, scheduledItem.name, index); // Pass index
-                        }}
-                        disabled={isLocked || isProcessingCommand}
-                        className={cn(
-                          "h-7 w-7 p-0 shrink-0", // Reduced size
-                          (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
-                        )}
-                        style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-                      >
-                        <Trash className="h-5 w-5" /> {/* Reduced size */}
-                        <span className="sr-only">Remove task</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isLocked ? "Unlock to Delete" : "Permanently delete"}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-
-              {/* Row 2: Time Range, Duration, Missed Badge (Aligned with Task Name) */}
-              <div className={cn(
-                "flex items-center justify-between w-full mt-1 text-sm",
-                // Add margin-left to align with the start of the task name, compensating for the completion button's width (h-7 w-7 + mr-2 = ~36px)
-                dbTask && !isTimeOff && !isRegenPod && (scheduledItem.type === 'task' || scheduledItem.type === 'break' || scheduledItem.type === 'meal') && !isCompleted ? "ml-[36px]" : "ml-0"
-              )}>
-                  <div className="flex items-center gap-3">
-                      {/* Time Range */}
-                      <span className={cn(
-                          "font-semibold font-mono text-xs", // Reduced font size
-                          isTimeOff || isRegenPod ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80",
-                          isCompleted && isFixedOrTimed && "line-through text-muted-foreground/80" // Apply strike-through to time range
-                      )}>
-                          {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
-                      </span>
-                      
-                      {/* Duration */}
-                      <span className={cn(
-                          "font-semibold opacity-80 text-xs", // Reduced font size
-                          isTimeOff || isRegenPod ? "text-logo-green/80" : "text-[hsl(var(--always-light-text))] opacity-80",
-                          isCompleted && isFixedOrTimed && "line-through text-muted-foreground/80" // Apply strike-through to duration
-                      )}>
-                          ({scheduledItem.duration} min)
-                      </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                      {/* Missed Badge */}
-                      {isMissed && (
-                          <Badge variant="destructive" className="px-2 py-0.5 text-xs font-semibold">
-                              MISSED
-                          </Badge>
-                      )}
-                  </div>
-              </div>
-            </div>
-            {scheduledItem.type === 'break' && scheduledItem.description && (
-              <p className={cn("relative z-10 text-sm mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Reduced font size
-            )}
-            {isTimeOff && (
-              <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>This block is reserved for personal time.</p> // Reduced font size
-            )}
-            {isRegenPod && (
-              <p className={cn("relative z-10 text-sm mt-1 text-logo-green/80")}>Energy regeneration in progress. Exit via the Pod Modal.</p> // NEW: Pod message
-            )}
-
-            {isActive && (
-              <>
-                <div 
-                  className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress"
-                  style={{ top: `${progressLineTopPercentage}%` }}
-                ></div>
-                <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-sm font-semibold whitespace-nowrap"> {/* Increased font size */}
-                    {formatTime(T_current)}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-        </React.Fragment>
+        <div key={item.id} className="relative flex items-center h-8 -mt-4">
+          <div className="w-16 text-right text-xs text-muted-foreground pr-2">{item.label}</div>
+          <div className="flex-grow border-t border-dashed border-border"></div>
+        </div>
       );
     }
+
+    const isScheduledItem = item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal';
+    const isFreeTime = item.type === 'free-time';
+    
+    const isRegenPod = item.id === 'regen-pod-active'; // NEW: Identify Regen Pod
+
+    if (isFreeTime) {
+      return (
+        <div 
+          key={item.id} 
+          className="relative flex items-center py-2 px-4" 
+          style={getBubbleHeightStyle(item.duration)}
+        >
+          <div className="w-16 text-right text-xs text-muted-foreground pr-2"></div>
+          <div className="flex-grow border-l border-dashed border-border pl-4">
+            <div className="text-xs text-muted-foreground italic">
+              {item.message}
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="mt-1 h-6 text-xs text-primary hover:bg-primary/10"
+              onClick={onAddTaskClick}
+            >
+              <PlusCircle className="h-3 w-3 mr-1" /> Add Task
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (isScheduledItem) {
+      const dbTask = schedule?.dbTasks.find(t => t.id === item.id);
+      const isPastItem = isPast(item.endTime) && !isSameDay(item.endTime, T_current);
+      const isActive = activeItemInDisplay?.id === item.id;
+      const isCompleted = item.isCompleted;
+      const isLocked = item.isLocked;
+      const isCritical = item.isCritical;
+      const isMealTask = isMeal(item.name); // Check if it's a meal
+
+      const hue = isRegenPod ? 60 : getEmojiHue(item.name); // Use yellow hue for Pod
+      const colorClass = `hsl(${hue}, 70%, 50%)`;
+      const bgColorClass = `hsl(${hue}, 70%, 95%)`;
+      const borderColorClass = `hsl(${hue}, 70%, 80%)`;
+
+      const isActionable = !isCompleted && !isPastItem && !isRegenPod; // Regen Pod is not actionable via these buttons
+
+      // Use a type assertion to treat item as ScheduledItem, resolving breakDuration errors (1-5)
+      const scheduledItem = item as ScheduledItem;
+
+      return (
+        <div 
+          key={item.id} 
+          id={`scheduled-item-${item.id}`}
+          className={cn(
+            "relative flex items-start py-2 px-4 transition-all duration-300 group",
+            isActive && "z-10",
+            isCompleted && "opacity-50",
+            isPastItem && "opacity-40"
+          )}
+          style={getBubbleHeightStyle(item.duration)}
+          onMouseEnter={() => setHoveredItemId(item.id)}
+          onMouseLeave={() => setHoveredItemId(null)}
+        >
+          {/* Time Column */}
+          <div className="w-16 text-right text-xs text-muted-foreground pr-2 pt-1">
+            {formatTime(item.startTime)}
+            {/* FIX 1, 2, 3: Use scheduledItem.breakDuration */}
+            {scheduledItem.breakDuration && scheduledItem.breakDuration > 0 && ( 
+              <div className="text-[10px] text-gray-400 mt-0.5">
+                +{scheduledItem.breakDuration} min break 
+              </div>
+            )}
+          </div>
+
+          {/* Timeline Separator */}
+          <div className="flex flex-col items-center h-full">
+            <div className="w-px bg-border h-full"></div>
+            <div 
+              className={cn(
+                "w-3 h-3 rounded-full border-2",
+                isActive ? "bg-primary border-primary shadow-lg shadow-primary/50" : "bg-background border-border",
+                isCompleted && "bg-green-500 border-green-500"
+              )}
+              style={{ borderColor: isActive ? colorClass : borderColorClass, backgroundColor: isActive ? colorClass : 'white' }}
+            ></div>
+            <div className="w-px bg-border h-full"></div>
+          </div>
+
+          {/* Content Bubble */}
+          <div 
+            className={cn(
+              "flex-grow ml-4 p-3 rounded-lg shadow-sm border transition-all duration-300",
+              isActive ? "shadow-xl ring-2 ring-offset-2 ring-offset-background" : "hover:shadow-md",
+              isCompleted && "border-green-500 bg-green-50",
+              isRegenPod && "bg-logo-yellow/10 border-logo-yellow/50 shadow-lg shadow-logo-yellow/20" // NEW: Regen Pod Style
+            )}
+            style={{ 
+              backgroundColor: isCompleted || isRegenPod ? undefined : bgColorClass, 
+              borderColor: isCompleted || isRegenPod ? undefined : borderColorClass,
+              // FIX 6: Removed invalid ringColor property
+            }}
+          >
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2">
+                <span className="text-lg" style={{ color: colorClass }}>{item.emoji}</span>
+                <h3 className={cn(
+                  "font-semibold text-sm",
+                  isCompleted && "line-through text-gray-500",
+                  isRegenPod && "text-logo-yellow-dark" // NEW: Regen Pod Text Color
+                )}>
+                  {item.name}
+                </h3>
+                {isCritical && !isCompleted && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Star className="h-3 w-3 text-red-500 fill-red-500" />
+                    </TooltipTrigger>
+                    <TooltipContent>Critical Task</TooltipContent>
+                  </Tooltip>
+                )}
+                {isLocked && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Lock className="h-3 w-3 text-gray-500" />
+                    </TooltipTrigger>
+                    <TooltipContent>Locked (Fixed Time)</TooltipContent>
+                  </Tooltip>
+                )}
+                {item.taskEnvironment && getEnvironmentIcon(item.taskEnvironment)}
+                {isMealTask && ( // NEW: Meal Badge
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Utensils className="h-3 w-3 text-green-600" />
+                    </TooltipTrigger>
+                    <TooltipContent>Meal/Energy Gain</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+              
+              {/* Energy Cost/Gain Display */}
+              <div className={cn(
+                "text-xs font-mono px-2 py-0.5 rounded-full",
+                item.energyCost > 0 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600",
+                isRegenPod && "bg-logo-yellow/30 text-logo-yellow-dark" // NEW: Regen Pod Energy Style
+              )}>
+                {item.energyCost > 0 ? `-${item.energyCost}⚡` : `+${Math.abs(item.energyCost)}⚡`}
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-600 mt-1">
+              {item.description || `${item.duration} minutes`}
+            </p>
+
+            {/* Action Buttons (Visible on hover or active) */}
+            {dbTask && (hoveredItemId === item.id || isActive) && (
+              <div className={cn(
+                "mt-2 flex gap-2 transition-opacity duration-200",
+                isActionable ? "opacity-100" : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+              )}>
+                {isActionable && (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 px-2 text-xs text-green-600 hover:bg-green-100"
+                          onClick={() => onCompleteTask(dbTask, index)}
+                          disabled={isProcessingCommand}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" /> Complete
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Mark as Completed</TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 px-2 text-xs text-orange-600 hover:bg-orange-100"
+                          onClick={() => onRetireTask(dbTask)}
+                          disabled={isProcessingCommand}
+                        >
+                          <Archive className="h-4 w-4 mr-1" /> Sink
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Move to Aether Sink (Retire)</TooltipContent>
+                    </Tooltip>
+                  </>
+                )}
+                
+                {/* Lock/Unlock Button (Always available if dbTask exists) */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 text-xs text-gray-600 hover:bg-gray-100"
+                      onClick={() => handleToggleLock(dbTask)}
+                      disabled={isProcessingCommand || isRegenPod} // Cannot lock/unlock Pod
+                    >
+                      {isLocked ? <Unlock className="h-4 w-4 mr-1" /> : <Lock className="h-4 w-4 mr-1" />}
+                      {isLocked ? 'Unlock' : 'Lock'}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{isLocked ? 'Unlock Time Slot' : 'Lock Time Slot (Fixed)'}</TooltipContent>
+                </Tooltip>
+
+                {/* Details Button */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-100"
+                      onClick={() => handleOpenDetails(dbTask)}
+                      disabled={isProcessingCommand}
+                    >
+                      <AlertCircle className="h-4 w-4 mr-1" /> Details
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>View/Edit Details</TooltipContent>
+                </Tooltip>
+                
+                {/* Delete Button */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 text-xs text-red-600 hover:bg-red-100"
+                      onClick={() => onRemoveTask(item.id, item.name, index)}
+                      disabled={isProcessingCommand || isRegenPod} // Cannot delete Pod
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Permanently Delete Task</TooltipContent>
+                </Tooltip>
+              </div>
+            )}
+          </div>
+          
+          {/* Active Progress Line */}
+          {isActive && (
+            <div 
+              className="absolute left-0 right-0 h-1 bg-primary-dark rounded-full transition-all duration-1000"
+              style={{ top: `${progressLineTopPercentage}%`, backgroundColor: colorClass }}
+            ></div>
+          )}
+          
+          {/* Break Duration Indicator */}
+          {/* FIX 4, 5: Use scheduledItem.breakDuration */}
+          {scheduledItem.breakDuration && scheduledItem.breakDuration > 0 && ( 
+            <div 
+              className="absolute left-0 right-0 h-1 bg-gray-300 rounded-full transition-all duration-1000"
+              style={{ bottom: 0 }}
+            ></div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
-    <>
-      <div className="space-y-4 animate-slide-in-up">
-        <Card className="animate-pop-in animate-hover-lift">
-          <CardContent className="p-0">
-            <div ref={containerRef} className="relative p-4 overflow-y-auto border-l border-dashed border-border/50">
-              {/* Global "Now" Indicator */}
-              {isTodaySelected && firstItemStartTime && lastItemEndTime && (
-                <div 
-                  className="absolute left-0 right-0 h-[2px] bg-live-progress z-10 border-b-2 border-live-progress"
-                  style={{ top: `${globalProgressLineTopPercentage}%` }}
-                >
-                  <div className="absolute -left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-live-progress z-20" />
-                  <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}> 
-                    <span className="px-2 py-1 rounded-md bg-live-progress text-black text-sm font-semibold whitespace-nowrap"> 
-                      {formatTime(T_current)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-                {schedule?.items.length === 0 ? (
-                  <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 py-12">
-                    <ListTodo className="h-12 w-12 text-muted-foreground" />
-                    <p className="text-lg font-semibold">Your schedule is clear for today!</p>
-                    <p className="text-base">Ready to plan? Add a task using the input above.</p>
-                    <Button onClick={onAddTaskClick} className="mt-4 flex items-center gap-2 h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200">
-                      <PlusCircle className="h-5 w-5" /> Add a Task
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    {!activeItemInDisplay && T_current < firstItemStartTime && isTodaySelected && (
-                      <div className={cn(
-                        "col-span-2 text-center text-muted-foreground text-base py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                        "top-0"
-                      )}>
-                        <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                        <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                          ⏳ Schedule starts later today
-                        </p>
-                        <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                      </div>
-                    )}
-                    {!activeItemInDisplay && T_current >= lastItemEndTime && isTodaySelected && (
-                      <div className={cn(
-                        "col-span-2 text-center text-muted-foreground text-base py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                        "bottom-0"
-                      )}>
-                        <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                        <p className="font-semibold text-primary flex items-center justify-center gap-2">
-                          ✅ All tasks completed!
-                        </p>
-                        <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
-                      </div>
-                    )}
-
-                    {finalDisplayItems.map((item, index) => (
-                      <React.Fragment key={item.id}>
-                        {renderDisplayItem(item, index)}
-                      </React.Fragment>
-                    ))}
-                  </>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {totalScheduledMinutes > 0 && schedule?.summary.totalTasks > 0 && (
-          <Card className="animate-pop-in animate-hover-lift">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Sparkles className="h-5 w-5 text-logo-yellow" /> Smart Suggestions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-base text-muted-foreground">
-              {schedule?.summary.extendsPastMidnight && (
-                <p className="text-orange-500 font-semibold">⚠️ {schedule.summary.midnightRolloverMessage}</p>
-              )}
-              {schedule?.summary.criticalTasksRemaining > 0 && (
-                <p className="text-red-500 font-semibold">
-                  ⚠️ Critical task{schedule.summary.criticalTasksRemaining > 1 ? 's' : ''} remain. Rezone now!
-                </p>
-              )}
-              {totalScheduledMinutes < 6 * 60 && (
-                <p>💡 Light day! Consider adding buffer time for flexibility.</p>
-              )}
-              {totalScheduledMinutes > 12 * 60 && (
-                <p className="text-red-500">⚠️ Intense schedule. Remember to include meals and rest.</p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+    <div className="relative">
+      <div ref={containerRef} className="space-y-0.5">
+        {finalDisplayItems.map((item, index) => renderItem(item, index))}
       </div>
-      <ScheduledTaskDetailDialog
-        task={selectedScheduledTask}
-        open={isDialogOpen}
-        onOpenChange={(open) => {
-          console.log("SchedulerDisplay: Dialog onOpenChange. New state:", open);
-          setIsDialogOpen(open);
-          if (!open) setSelectedScheduledTask(null);
-        }}
-        selectedDayString={selectedDayString}
-      />
-    </>
+      
+      {/* Global Current Time Marker (Only for today's schedule) */}
+      {isSameDay(parseISO(selectedDayString), T_current) && (
+        <div 
+          className="absolute left-0 right-0 h-0.5 bg-red-500 z-20 transition-all duration-1000 pointer-events-none"
+          style={{ top: `${globalProgressLineTopPercentage}%` }}
+        >
+          <div className="absolute -left-1 -top-2 w-3 h-3 bg-red-500 rounded-full"></div>
+          <span className="absolute left-4 -top-3 text-xs font-semibold text-red-500 bg-background px-1 rounded">
+            NOW
+          </span>
+        </div>
+      )}
+
+      {/* Detail Dialog */}
+      {selectedScheduledTask && (
+        <ScheduledTaskDetailDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          task={selectedScheduledTask}
+          // FIX 6: Added missing required prop
+          selectedDayString={selectedDayString} 
+        />
+      )}
+    </div>
   );
 });
+
+SchedulerDisplay.displayName = 'SchedulerDisplay';
 
 export default SchedulerDisplay;

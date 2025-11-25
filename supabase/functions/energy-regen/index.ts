@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 // @ts-ignore
-import { differenceInMinutes, parseISO, setHours, setMinutes, startOfDay, addDays, isBefore, isAfter, min, addMinutes } from 'https://esm.sh/date-fns@2.30.0';
+import * as dateFns from 'https://esm.sh/date-fns@2.30.0'; // Import as namespace
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,8 +45,8 @@ serve(async (req) => {
     // 2. Fetch all scheduled tasks for today (UTC) for all users
     // This is a simplified approach. A more robust solution might fetch tasks for a wider window
     // or fetch per user if the total number of tasks is too large.
-    const todayStartUTC = startOfDay(now);
-    const todayEndUTC = addDays(todayStartUTC, 1);
+    const todayStartUTC = dateFns.startOfDay(now);
+    const todayEndUTC = dateFns.addDays(todayStartUTC, 1);
 
     const { data: scheduledTasks, error: tasksError } = await supabaseClient
       .from('scheduled_tasks')
@@ -74,9 +74,9 @@ serve(async (req) => {
     for (const profile of profiles) {
       const userId = profile.id;
       const currentEnergy = profile.energy;
-      const lastRegenAt = profile.last_energy_regen_at ? parseISO(profile.last_energy_regen_at) : now;
+      const lastRegenAt = profile.last_energy_regen_at ? dateFns.parseISO(profile.last_energy_regen_at) : now;
 
-      const elapsedMinutes = differenceInMinutes(now, lastRegenAt);
+      const elapsedMinutes = dateFns.differenceInMinutes(now, lastRegenAt);
 
       if (elapsedMinutes <= 0 || currentEnergy >= MAX_ENERGY) {
         continue; // No time elapsed or energy is already full
@@ -87,9 +87,9 @@ serve(async (req) => {
 
       // Simulate minute-by-minute regeneration for accuracy, especially with boosts
       while (currentTimeCursor < now && (currentEnergy + totalEnergyGained) < MAX_ENERGY) {
-        const intervalEnd = addMinutes(currentTimeCursor, 1);
-        const actualIntervalEnd = min(intervalEnd, now);
-        const durationInChunk = differenceInMinutes(actualIntervalEnd, currentTimeCursor);
+        const intervalEnd = dateFns.addMinutes(currentTimeCursor, 1);
+        const actualIntervalEnd = dateFns.min([intervalEnd, now]);
+        const durationInChunk = dateFns.differenceInMinutes(actualIntervalEnd, currentTimeCursor);
 
         if (durationInChunk <= 0) break;
 
@@ -103,8 +103,8 @@ serve(async (req) => {
         // Check for Scheduled Break
         for (const task of userScheduledTasksToday) {
           if (task.name?.toLowerCase() === 'break' && task.start_time && task.end_time) {
-            const taskStart = parseISO(task.start_time);
-            const taskEnd = parseISO(task.end_time);
+            const taskStart = dateFns.parseISO(task.start_time);
+            const taskEnd = dateFns.parseISO(task.end_time);
             if (currentTimeCursor >= taskStart && currentTimeCursor < taskEnd) {
               isDuringBreak = true;
               break;
@@ -114,15 +114,15 @@ serve(async (req) => {
 
         // Check for Nighttime Recovery (outside default auto-schedule window)
         if (profile.default_auto_schedule_start_time && profile.default_auto_schedule_end_time) {
-          const workdayStart = setHours(setMinutes(startOfDay(currentTimeCursor), parseInt(profile.default_auto_schedule_start_time.split(':')[1])), parseInt(profile.default_auto_schedule_start_time.split(':')[0]));
-          let workdayEnd = setHours(setMinutes(startOfDay(currentTimeCursor), parseInt(profile.default_auto_schedule_end_time.split(':')[1])), parseInt(profile.default_auto_schedule_end_time.split(':')[0]));
+          const workdayStart = dateFns.setHours(dateFns.setMinutes(dateFns.startOfDay(currentTimeCursor), parseInt(profile.default_auto_schedule_start_time.split(':')[1])), parseInt(profile.default_auto_schedule_start_time.split(':')[0]));
+          let workdayEnd = dateFns.setHours(dateFns.setMinutes(dateFns.startOfDay(currentTimeCursor), parseInt(profile.default_auto_schedule_end_time.split(':')[1])), parseInt(profile.default_auto_schedule_end_time.split(':')[0]));
 
           // Handle workday end crossing midnight
-          if (isBefore(workdayEnd, workdayStart)) {
-            workdayEnd = addDays(workdayEnd, 1);
+          if (dateFns.isBefore(workdayEnd, workdayStart)) {
+            workdayEnd = dateFns.addDays(workdayEnd, 1);
           }
 
-          if (isAfter(currentTimeCursor, workdayEnd) || isBefore(currentTimeCursor, workdayStart)) {
+          if (dateFns.isAfter(currentTimeCursor, workdayEnd) || dateFns.isBefore(currentTimeCursor, workdayStart)) {
             isDuringNighttime = true;
           }
         } else {

@@ -10,7 +10,7 @@ import Sidebar from './Sidebar';
 import { Sheet, SheetContent } from '@/components/ui/sheet'; 
 import Navigation from './Navigation'; 
 import BottomNavigationBar from './BottomNavigationBar';
-import MobileStatusIndicator from './MobileStatusIndicator';
+import MobileStatusIndicator from './MobileStatusIndicator'; // NEW IMPORT
 import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {

@@ -64,6 +64,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
+import AutoScheduleButton from '@/components/AutoScheduleButton'; // NEW IMPORT
 import { cn } from '@/lib/utils';
 
 // Helper to get initial state from localStorage
@@ -2332,6 +2333,15 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         </p>
       </div>
 
+      {/* Auto Schedule Button (Prominent) */}
+      <div className="animate-slide-in-up">
+        <AutoScheduleButton
+          onAutoSchedule={handleAutoScheduleDay}
+          isProcessingCommand={isProcessingCommand}
+          disabled={isRegenPodActive}
+        />
+      </div>
+
       {/* Utility Bar (Desktop Only) */}
       <div className="hidden lg:block">
         <SchedulerUtilityBar 
@@ -2350,7 +2360,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           onAetherDump={handleAetherDumpButton}
           onRefreshSchedule={handleRefreshSchedule}
           onAetherDumpMega={handleAetherDumpMegaButton}
-          onAutoScheduleDay={handleAutoScheduleDay} // NEW: Pass the new handler
         />
       </div>
 
@@ -2545,7 +2554,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                           onAetherDump={handleAetherDumpButton}
                           onRefreshSchedule={handleRefreshSchedule}
                           onAetherDumpMega={handleAetherDumpMegaButton}
-                          onAutoScheduleDay={handleAutoScheduleDay} // NEW: Pass the new handler
                       />
                   </div>
               </DrawerContent>

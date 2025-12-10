@@ -1237,6 +1237,16 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only');
   }, [user, profile, handleAutoScheduleAndSort]);
 
+  // NEW: Handler for general auto schedule button
+  const handleAutoScheduleDay = useCallback(async () => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to auto-schedule your day.");
+      return;
+    }
+    // Auto-schedule all flexible tasks (from schedule and sink) with default priority sorting and no environment filters
+    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', []);
+  }, [user, profile, handleAutoScheduleAndSort]);
+
   // NEW: Pod Start Handler (Now calculates dynamic duration and opens setup modal)
   const handleStartRegenPod = useCallback(async () => {
     if (!user || !profile) {
@@ -2340,6 +2350,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           onAetherDump={handleAetherDumpButton}
           onRefreshSchedule={handleRefreshSchedule}
           onAetherDumpMega={handleAetherDumpMegaButton}
+          onAutoScheduleDay={handleAutoScheduleDay} // NEW: Pass the new handler
         />
       </div>
 
@@ -2534,6 +2545,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                           onAetherDump={handleAetherDumpButton}
                           onRefreshSchedule={handleRefreshSchedule}
                           onAetherDumpMega={handleAetherDumpMegaButton}
+                          onAutoScheduleDay={handleAutoScheduleDay} // NEW: Pass the new handler
                       />
                   </div>
               </DrawerContent>

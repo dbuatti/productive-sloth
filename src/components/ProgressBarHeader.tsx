@@ -30,7 +30,7 @@ const ProgressBarHeader: React.FC = () => {
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
   return (
-    <div className="sticky top-16 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2">
+    <div className="sticky top-16 z-10 border-b bg-background py-2">
       <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 px-4">
         {/* XP Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">

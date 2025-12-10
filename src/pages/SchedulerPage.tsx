@@ -64,7 +64,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
-import AutoScheduleButton from '@/components/AutoScheduleButton'; // NEW IMPORT
+import AutoScheduleButton from '@/components/AutoScheduleButton';
 import { cn } from '@/lib/utils';
 
 // Helper to get initial state from localStorage
@@ -2306,7 +2306,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const renderScheduleCore = () => (
     <>
       {/* Input & Environment/Weather Card (Desktop Only) */}
-      <div className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg hidden lg:block">
+      <Card className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg hidden lg:block animate-hover-lift">
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
           <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
             <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
@@ -2331,7 +2331,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         <p className="text-sm text-muted-foreground">
           Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
         </p>
-      </div>
+      </Card>
 
       {/* Auto Schedule Button (Prominent) */}
       <div className="animate-slide-in-up">
@@ -2483,15 +2483,18 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         onRefreshSchedule={handleRefreshSchedule}
       />
 
-      <CalendarStrip 
-        selectedDay={selectedDay} 
-        setSelectedDay={setSelectedDay} 
-        datesWithTasks={datesWithTasks} 
-        isLoadingDatesWithTasks={isLoadingDatesWithTasks}
-      />
+      {/* WRAP CalendarStrip and SchedulerSegmentedControl in a Card */}
+      <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
+        <CalendarStrip 
+          selectedDay={selectedDay} 
+          setSelectedDay={setSelectedDay} 
+          datesWithTasks={datesWithTasks} 
+          isLoadingDatesWithTasks={isLoadingDatesWithTasks}
+        />
 
-      {/* NEW: Segmented Control for View Switching */}
-      <SchedulerSegmentedControl currentView={view} />
+        {/* NEW: Segmented Control for View Switching */}
+        <SchedulerSegmentedControl currentView={view} />
+      </Card>
 
       {/* Conditional View Rendering based on 'view' prop */}
       <div className="animate-slide-in-up">

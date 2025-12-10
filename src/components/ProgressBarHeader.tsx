@@ -3,18 +3,20 @@ import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { CustomProgress } from './CustomProgress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sparkles, Zap, Trophy, BatteryCharging, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { Sparkles, Zap, Trophy, BatteryCharging, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isToday, parseISO } from 'date-fns';
 import { 
   MAX_ENERGY, 
   RECHARGE_BUTTON_AMOUNT, 
 } from '@/lib/constants';
-import { calculateLevelInfo, cn } from '@/lib/utils'; // Import cn
+import { calculateLevelInfo, cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile'; // NEW: Import useIsMobile
 
 const ProgressBarHeader: React.FC = () => {
   const { profile, rechargeEnergy } = useSession();
   const { allTasks } = useTasks();
+  const isMobile = useIsMobile(); // NEW: Get mobile state
 
   if (!profile) {
     return null;
@@ -24,13 +26,16 @@ const ProgressBarHeader: React.FC = () => {
 
   const energyPercentage = (profile.energy / MAX_ENERGY) * 100;
   const isEnergyFull = profile.energy >= MAX_ENERGY;
-  const isEnergyDeficit = profile.energy < 0; // NEW: Check for energy deficit
+  const isEnergyDeficit = profile.energy < 0;
 
   const dailyChallengeProgress = (profile.tasks_completed_today / profile.daily_challenge_target) * 100;
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
   return (
-    <div className="sticky top-16 z-10 border-b bg-background py-2">
+    <div className={cn(
+      "sticky z-10 border-b bg-background py-2",
+      isMobile ? "top-16" : "top-0" // Adjust sticky position: top-16 on mobile (below AppHeader), top-0 on desktop
+    )}>
       <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 px-4">
         {/* XP Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
@@ -54,7 +59,7 @@ const ProgressBarHeader: React.FC = () => {
 
         {/* Energy Progress Bar */}
         <div className="flex items-center gap-2 w-full sm:w-1/3">
-          {isEnergyDeficit ? ( // NEW: Conditional icon for deficit
+          {isEnergyDeficit ? (
             <AlertTriangle className="h-4 w-4 text-destructive animate-pulse-glow" />
           ) : (
             <Zap className="h-4 w-4 text-logo-yellow" />
@@ -62,18 +67,18 @@ const ProgressBarHeader: React.FC = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <CustomProgress 
-                value={isEnergyDeficit ? 0 : energyPercentage} // Show 0% progress if in deficit
+                value={isEnergyDeficit ? 0 : energyPercentage}
                 className="h-2 flex-grow bg-secondary"
                 indicatorClassName={cn(
                   "transition-all duration-500",
-                  isEnergyDeficit ? "bg-destructive animate-pulse-glow" : "bg-primary" // NEW: Deficit styling
+                  isEnergyDeficit ? "bg-destructive animate-pulse-glow" : "bg-primary"
                 )}
               />
             </TooltipTrigger>
             <TooltipContent>
               <div>
                 <p>Energy: {profile.energy} / {MAX_ENERGY}</p>
-                {isEnergyDeficit && ( // NEW: Deficit message in tooltip
+                {isEnergyDeficit && (
                   <p className="text-destructive font-semibold mt-1">
                     ⚠️ Energy Deficit! Recovery is critical.
                   </p>

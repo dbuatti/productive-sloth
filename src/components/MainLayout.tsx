@@ -34,11 +34,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setIsMobileMenuOpen(false);
   }, []);
 
+  // On mobile (lg:hidden), header is h-16, progress bar is sticky top-16 (~h-8). Total offset ~100px.
+  // On desktop (lg:block), header is hidden, progress bar is sticky top-0 (~h-8). Offset ~52px (36px + gap-4).
   const mainContent = (
     <main className={cn(
-      "flex flex-1 flex-col gap-4 px-4 overflow-auto", // Removed p-4, kept px-4
-      // Add top padding to clear sticky headers (h-16 + py-2 header = ~96px total height)
-      "pt-[100px]", 
+      "flex flex-1 flex-col gap-4 px-4 overflow-auto",
+      "pt-[100px] lg:pt-[52px]", // Adjusted top padding for desktop (lg:pt-[52px])
       // Dynamic bottom padding for mobile navigation/status indicator
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4") 
     )}>

@@ -4,34 +4,24 @@ import TemporalFilterTabs from '@/components/TemporalFilterTabs';
 import TaskCreationForm from '@/components/TaskCreationForm';
 import TaskControlBar from '@/components/TaskControlBar';
 import PrioritySection from '@/components/PrioritySection';
-import AppFooter from '@/components/AppFooter'; // UPDATED: Import AppFooter
+import AppFooter from '@/components/AppFooter';
 import { Loader2, ClipboardList } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { Card } from '@/components/ui/card';
 import LevelUpCelebration from '@/components/LevelUpCelebration';
 import { Accordion } from '@/components/ui/accordion';
 import DailyChallengeCard from '@/components/DailyChallengeCard';
-import React, { useState } from 'react'; // Added useState
-import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog'; // NEW: Import EnergyDeficitConfirmationDialog
-import { Task } from '@/types'; // Import Task type
+import React, { useState } from 'react';
+import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
+import { Task } from '@/types';
+import { Separator } from '@/components/ui/separator';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 const Dashboard = () => {
-  const { isLoading: isSessionLoading, user, profile } = useSession(); // NEW: Get profile
-  const { 
-    tasks, 
-    isLoading: isTasksLoading, 
-    temporalFilter, 
-    setTemporalFilter, 
-    statusFilter, 
-    setStatusFilter, 
-    sortBy, 
-    setSortBy,
-    updateTask: updateTaskMutation // NEW: Get updateTask mutation
-  } = useTasks();
-
-  // NEW: State for energy deficit confirmation
+  const { isLoading: isSessionLoading, user, profile } = useSession();
+  const { tasks, isLoading: isTasksLoading, temporalFilter, setTemporalFilter, statusFilter, setStatusFilter, sortBy, setSortBy, updateTask: updateTaskMutation } = useTasks();
+  
   const [showEnergyDeficitConfirmation, setShowEnergyDeficitConfirmation] = useState(false);
   const [taskToCompleteInDeficit, setTaskToCompleteInDeficit] = useState<Task | null>(null);
 
@@ -49,15 +39,14 @@ const Dashboard = () => {
       </div>
     );
   }
-  
+
   if (!user) {
-    return null; 
+    return null;
   }
 
-  // NEW: Function to handle task completion, with deficit check
   const handleCompleteTask = async (task: Task) => {
     if (!profile) return;
-
+    
     if (profile.energy < 0) {
       setTaskToCompleteInDeficit(task);
       setShowEnergyDeficitConfirmation(true);
@@ -66,7 +55,6 @@ const Dashboard = () => {
     }
   };
 
-  // NEW: Function to confirm completion in deficit
   const confirmCompleteTaskInDeficit = async () => {
     if (!taskToCompleteInDeficit) return;
     await updateTaskMutation({ id: taskToCompleteInDeficit.id, is_completed: !taskToCompleteInDeficit.is_completed });
@@ -75,63 +63,55 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      {/* Daily Challenge Card */}
-      <div className="grid grid-cols-1 gap-4 animate-slide-in-up">
+    <div className="mx-auto max-w-5xl w-full space-y-6 py-4">
+      <div className="space-y-6">
+        {/* Daily Challenge Card */}
         <DailyChallengeCard />
-      </div>
-
-      {/* Input & Controls Layer - Now wrapped in a Card */}
-      <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
-        {/* 1. Temporal Filter Tabs */}
-        <TemporalFilterTabs 
-          currentFilter={temporalFilter} 
-          setFilter={setTemporalFilter} 
-        />
-
-        {/* 2. Task Creation Component */}
-        <TaskCreationForm />
-
-        {/* 3. Control Bar */}
-        <TaskControlBar 
-          statusFilter={statusFilter} 
-          setStatusFilter={setStatusFilter} 
-          sortBy={sortBy} 
-          setSortBy={setSortBy}
-        />
-      </Card>
-
-      {/* Task List Layer (Priority Sections) or Empty State */}
-      {hasTasks ? (
-        <Accordion 
-          type="multiple" 
-          className="w-full space-y-4 animate-slide-in-up"
-          defaultValue={PRIORITY_ORDER}
-        >
-          {PRIORITY_ORDER.map(priority => (
-            <PrioritySection 
-              key={priority}
-              priority={priority}
-              tasks={groupedTasks[priority]}
-              // NEW: Pass handleCompleteTask to TaskItem
-              onCompleteTask={handleCompleteTask} 
+        
+        {/* Input & Controls Layer */}
+        <Card className="p-6 space-y-6 animate-slide-in-up animate-hover-lift shadow-lg">
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground">Task Management</h2>
+            <Separator />
+            <TemporalFilterTabs currentFilter={temporalFilter} setFilter={setTemporalFilter} />
+            <TaskCreationForm />
+            <TaskControlBar 
+              statusFilter={statusFilter} 
+              setStatusFilter={setStatusFilter} 
+              sortBy={sortBy} 
+              setSortBy={setSortBy} 
             />
-          ))}
-        </Accordion>
-      ) : (
-        <Card className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center space-y-4 animate-slide-in-up animate-hover-lift">
-          <ClipboardList className="h-12 w-12 text-muted-foreground" />
-          <p className="text-base font-semibold">No tasks found!</p> {/* Changed text-lg to text-base */}
-          <p>Start by adding a new task above to get organized.</p>
+          </div>
         </Card>
-      )}
+        
+        {/* Task List Layer (Priority Sections) or Empty State */}
+        {hasTasks ? (
+          <Accordion type="multiple" className="w-full space-y-4 animate-slide-in-up" defaultValue={PRIORITY_ORDER}>
+            {PRIORITY_ORDER.map(priority => (
+              <PrioritySection 
+                key={priority} 
+                priority={priority} 
+                tasks={groupedTasks[priority]} 
+                onCompleteTask={handleCompleteTask}
+              />
+            ))}
+          </Accordion>
+        ) : (
+          <Card className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center space-y-6 animate-slide-in-up animate-hover-lift shadow-lg">
+            <ClipboardList className="h-16 w-16 text-muted-foreground" />
+            <div className="space-y-2">
+              <p className="text-2xl font-bold">No tasks found!</p>
+              <p className="text-lg">Start by adding a new task above to get organized.</p>
+            </div>
+          </Card>
+        )}
+      </div>
       
-      <AppFooter /> {/* UPDATED: Use AppFooter */}
+      <AppFooter />
       <LevelUpCelebration />
-
-      {/* NEW: Energy Deficit Confirmation Dialog */}
+      
       {profile && taskToCompleteInDeficit && (
-        <EnergyDeficitConfirmationDialog
+        <EnergyDeficitConfirmationDialog 
           isOpen={showEnergyDeficitConfirmation}
           onOpenChange={(open) => {
             if (!open) {
@@ -143,7 +123,7 @@ const Dashboard = () => {
           taskEnergyCost={taskToCompleteInDeficit.energy_cost}
           currentEnergy={profile.energy}
           onConfirm={confirmCompleteTaskInDeficit}
-          isProcessingCommand={false} // Assuming no other command is processing for general tasks
+          isProcessingCommand={false}
         />
       )}
     </div>

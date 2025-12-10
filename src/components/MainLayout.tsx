@@ -6,11 +6,11 @@ import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import EnergyDeficitWarning from './EnergyDeficitWarning';
-import Sidebar from './Sidebar'; 
-import { Sheet, SheetContent } from '@/components/ui/sheet'; 
-import Navigation from './Navigation'; 
+import Sidebar from './Sidebar';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
-import MobileStatusIndicator from './MobileStatusIndicator'; // NEW IMPORT
+import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
@@ -21,8 +21,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { activeItemToday, profile } = useSession();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
-  
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
 
@@ -41,22 +40,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       "flex flex-1 flex-col gap-4 px-4 overflow-auto",
       "pt-[100px] lg:pt-[52px]", // Adjusted top padding for desktop (lg:pt-[52px])
       // Dynamic bottom padding for mobile navigation/status indicator
-      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4") 
+      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4")
     )}>
       {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
-      {children}
+      <div className="max-w-5xl w-full mx-auto">
+        {children}
+      </div>
     </main>
   );
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex min-h-screen w-full bg-background">
       {/* Desktop Sidebar (Permanent on large screens) */}
       {!isMobile && <Sidebar />}
-
+      
       {/* Mobile Sheet Navigation (Hamburger Menu) */}
       {isMobile && (
         <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent side="left" className="w-[250px] p-0 flex flex-col bg-sidebar"> 
+          <SheetContent side="left" className="w-[250px] p-0 flex flex-col bg-sidebar">
             {/* Replicate Sidebar content structure for mobile */}
             <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
               <img src="/aetherflow-logo.png" alt="Logo" className="h-8 w-auto" />
@@ -68,9 +69,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </SheetContent>
         </Sheet>
       )}
-
+      
       {/* Main Content Area (Header + Progress Bar + Page Content) */}
-      <div className="flex flex-col flex-1 min-w-0">
+      <div className="flex flex-col flex-1 min-w-0 w-full">
         {/* Header (Pass toggle function) */}
         <AppHeader onMenuToggle={handleMenuToggle} />
         
@@ -79,15 +80,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         
         {/* Page Content */}
         {mainContent}
-
+        
         {/* Desktop Focus Anchor (Hidden on mobile) */}
         {shouldShowFocusAnchor && <FocusAnchor />}
       </div>
       
-      {/* NEW: Mobile Status Indicator (Above Bottom Nav) */}
+      {/* Mobile Status Indicator (Above Bottom Nav) */}
       {isMobile && activeItemToday && <MobileStatusIndicator />}
-
-      {/* NEW: Bottom Navigation Bar for Mobile */}
+      
+      {/* Bottom Navigation Bar for Mobile */}
       {isMobile && <BottomNavigationBar />}
     </div>
   );

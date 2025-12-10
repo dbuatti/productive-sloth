@@ -403,8 +403,21 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                   itemTextColor,
                   isCompleted && isFixedOrTimed && "line-through text-muted-foreground" // Apply strike-through to text
                 )}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold truncate block text-lg">{scheduledItem.name}</span> {/* Increased font size */}
+                  <div className="flex items-center gap-2 w-full">
+                    {scheduledItem.isCritical && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
+                            <Star className="h-3 w-3" strokeWidth={2.5} />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Critical Task</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    <span className="text-xl">{scheduledItem.emoji}</span> {/* Increased emoji size */}
+                    <span className={cn("font-bold truncate block text-lg", isLocked ? "text-primary" : "text-foreground")}>{scheduledItem.name}</span> {/* Increased font size to text-lg */}
                     
                     {/* Energy Cost / Gain */}
                     {scheduledItem.energyCost !== undefined && scheduledItem.energyCost !== 0 && (
@@ -412,7 +425,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                             <TooltipTrigger asChild>
                                 <span className={cn(
                                     "flex items-center gap-1 font-semibold font-mono text-xs px-1 py-0.5 rounded-sm",
-                                    scheduledItem.energyCost < 0 ? "text-logo-green bg-logo-green/20" : "text-logo-yellow bg-white/10",
+                                    // IMPROVEMENT: Use distinct colors for cost vs gain
+                                    scheduledItem.energyCost < 0 ? "text-logo-green bg-logo-green/30" : "text-logo-yellow bg-logo-yellow/30",
                                     isCompleted && isFixedOrTimed && "text-muted-foreground/80"
                                 )}>
                                     {scheduledItem.energyCost > 0 ? scheduledItem.energyCost : `+${Math.abs(scheduledItem.energyCost)}`} 
@@ -425,20 +439,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         </Tooltip>
                     )}
 
-                    {/* Critical Badge */}
-                    {scheduledItem.isCritical && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                                    <Star className="h-3 w-3" strokeWidth={2.5} />
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Critical Task</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                    
                     {/* Environment Icon */}
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -646,10 +646,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       </div>
                     )}
                     {!activeItemInDisplay && T_current >= lastItemEndTime && isTodaySelected && (
-                      <div className={cn(
-                        "col-span-2 text-center text-muted-foreground text-base py-2 border-y border-dashed border-primary/50 animate-pulse-glow",
-                        "bottom-0"
-                      )}>
+                      <div className="col-span-2 text-center text-muted-foreground text-base py-2 border-y border-dashed border-primary/50 animate-pulse-glow">
                         <p className="font-semibold">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
                         <p className="font-semibold text-primary flex items-center justify-center gap-2">
                           ✅ All tasks completed!

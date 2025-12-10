@@ -1,20 +1,28 @@
-import React, { useEffect, useRef } from 'react';
-import { FormattedSchedule, ScheduledItem, DBScheduledTask } from '@/types/scheduler';
-import { Card, CardContent } from '@/components/ui/card';
-import { format, parseISO, isSameDay, isBefore, isAfter } from 'date-fns';
-import { Clock, Lock, Zap, Coffee, Utensils, Dumbbell, Briefcase, Calendar, Home, Plane, Moon, Sun } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { isMeal } from '@/lib/scheduler-utils';
+import { Clock, AlertCircle, Lock, Unlock, Zap, MoreHorizontal, Trash2, RotateCcw } from 'lucide-react';
+import { FormattedSchedule, ScheduledItem } from '@/types/scheduler';
+import { formatTime, getEmojiHue, getBreakDescription, isMeal } from '@/lib/scheduler-utils';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { useIsMobile } from '@/hooks/use-mobile';
+import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog';
+import { parseISO, isBefore, isAfter, isSameDay } from 'date-fns';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
   onRemoveTask: (taskId: string, taskName: string, index: number) => void;
-  onRetireTask: (task: DBScheduledTask) => void;
-  onCompleteTask: (task: DBScheduledTask, index: number) => void;
+  onRetireTask: (task: any) => void;
+  onCompleteTask: (task: any, index: number) => void;
   activeItemId: string | null;
   selectedDayString: string;
   onAddTaskClick: () => void;
@@ -34,207 +42,74 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({
   onScrollToItem,
   isProcessingCommand
 }) => {
-  const selectedDayAsDate = parseISO(selectedDayString);
-  const isViewingToday = isSameDay(selectedDayAsDate, T_current);
-  const isViewingPast = isBefore(selectedDayAsDate, T_current);
-  const isViewingFuture = isAfter(selectedDayAsDate, T_current);
+  const [taskToDelete, setTaskToDelete] = useState<{ id: string; name: string; index: number } | null>(null);
+  const [taskToRetire, setTaskToRetire] = useState<any | null>(null);
+  const [taskToComplete, setTaskToComplete] = useState<{ task: any; index: number } | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRetireDialog, setShowRetireDialog] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [showTaskDetailDialog, setShowTaskDetailDialog] = useState(false);
+  const isMobile = useIsMobile();
 
-  const getItemIcon = (itemName: string, isCritical: boolean) => {
-    const lowerName = itemName.toLowerCase();
-    
-    if (isMeal(itemName)) return <Utensils className="h-4 w-4" />;
-    if (lowerName.includes('break') || lowerName.includes('rest')) return <Coffee className="h-4 w-4" />;
-    if (lowerName.includes('gym') || lowerName.includes('workout') || lowerName.includes('exercise')) return <Dumbbell className="h-4 w-4" />;
-    if (lowerName.includes('meeting') || lowerName.includes('work') || lowerName.includes('project')) return <Briefcase className="h-4 w-4" />;
-    if (lowerName.includes('appointment') || lowerName.includes('doctor')) return <Calendar className="h-4 w-4" />;
-    if (lowerName.includes('home') || lowerName.includes('house')) return <Home className="h-4 w-4" />;
-    if (lowerName.includes('travel') || lowerName.includes('flight')) return <Plane className="h-4 w-4" />;
-    if (lowerName.includes('sleep') || lowerName.includes('night')) return <Moon className="h-4 w-4" />;
-    if (lowerName.includes('morning') || lowerName.includes('sun')) return <Sun className="h-4 w-4" />;
-    
-    return isCritical ? <Zap className="h-4 w-4" /> : <Clock className="h-4 w-4" />;
+  const handleDeleteTask = (id: string, name: string, index: number) => {
+    setTaskToDelete({ id, name, index });
+    setShowDeleteDialog(true);
   };
 
-  const getItemColorClasses = (item: ScheduledItem) => {
-    if (item.isCompleted) {
-      return 'bg-muted text-muted-foreground border-border';
+  const confirmDeleteTask = () => {
+    if (taskToDelete) {
+      onRemoveTask(taskToDelete.id, taskToDelete.name, taskToDelete.index);
+      setShowDeleteDialog(false);
+      setTaskToDelete(null);
     }
-    
-    if (item.isCritical) {
-      return 'bg-destructive/10 text-destructive border-destructive hover:bg-destructive/20';
-    }
-    
-    if (item.name.toLowerCase().includes('break') || isMeal(item.name)) {
-      return 'bg-logo-green/10 text-logo-green border-logo-green hover:bg-logo-green/20';
-    }
-    
-    return 'bg-primary/5 text-primary border-primary hover:bg-primary/10';
   };
 
-  const getItemTimeIndicator = (item: ScheduledItem) => {
-    const isSelectedDayToday = isSameDay(selectedDayAsDate, T_current);
-    const isItemInPast = isBefore(item.endTime, T_current) && isSelectedDayToday;
-    const isItemActive = item.id === activeItemId;
-    
-    if (isItemInPast && !item.isCompleted) {
-      return (
-        <div className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 rounded-full bg-destructive text-white text-xs font-bold">
-          !
-        </div>
-      );
-    }
-    
-    if (isItemActive) {
-      return (
-        <div className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold animate-pulse">
-          ●
-        </div>
-      );
-    }
-    
-    return null;
+  const handleRetireTask = (task: any) => {
+    setTaskToRetire(task);
+    setShowRetireDialog(true);
   };
 
-  const renderTimeSlot = (item: ScheduledItem, index: number) => {
-    const dbTask = schedule?.dbTasks.find(t => t.id === item.id);
-    if (!dbTask) return null;
+  const confirmRetireTask = () => {
+    if (taskToRetire) {
+      onRetireTask(taskToRetire);
+      setShowRetireDialog(false);
+      setTaskToRetire(null);
+    }
+  };
 
-    const isSelectedDayToday = isSameDay(selectedDayAsDate, T_current);
-    const isItemInPast = isBefore(item.endTime, T_current) && isSelectedDayToday;
-    const isItemActive = item.id === activeItemId;
-    const isItemCompleted = item.isCompleted;
+  const handleCompleteTask = (task: any, index: number) => {
+    setTaskToComplete({ task, index });
+    setShowCompleteDialog(true);
+  };
 
-    return (
-      <div 
-        key={item.id}
-        id={`scheduled-item-${item.id}`}
-        className={cn(
-          "relative p-4 rounded-lg border transition-all duration-200 animate-hover-lift",
-          "flex flex-col sm:flex-row sm:items-center justify-between gap-3",
-          getItemColorClasses(item),
-          isItemActive && "ring-2 ring-primary ring-offset-2",
-          isProcessingCommand && "opacity-70 pointer-events-none"
-        )}
-      >
-        {getItemTimeIndicator(item)}
-        
-        <div className="flex items-start gap-3 min-w-0 flex-grow">
-          <div className="mt-0.5 text-primary">
-            {getItemIcon(item.name, item.isCritical)}
-          </div>
-          
-          <div className="min-w-0 flex-grow">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className={cn(
-                "font-semibold text-base truncate",
-                isItemCompleted && "line-through opacity-70"
-              )}>
-                {item.name}
-              </h3>
-              
-              {item.isLocked && (
-                <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              )}
-              
-              {item.isCritical && !isItemCompleted && (
-                <div className="flex items-center gap-1 bg-destructive/20 text-destructive text-xs px-2 py-0.5 rounded-full font-medium">
-                  <Zap className="h-3 w-3" />
-                  Critical
-                </div>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                {format(item.startTime, 'h:mm a')} - {format(item.endTime, 'h:mm a')}
-              </span>
-              
-              {item.duration > 0 && (
-                <span>
-                  {item.duration} min
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex gap-2 flex-shrink-0">
-          {!isItemCompleted && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onCompleteTask(dbTask, index)}
-              disabled={isProcessingCommand}
-              className="h-8 px-3"
-            >
-              Complete
-            </Button>
-          )}
-          
-          {!isItemCompleted && !isItemInPast && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onRetireTask(dbTask)}
-              disabled={isProcessingCommand || item.isLocked}
-              className="h-8 px-3"
-            >
-              Skip
-            </Button>
-          )}
-          
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => onRemoveTask(item.id, item.name, index)}
-            disabled={isProcessingCommand || item.isLocked}
-            className="h-8 px-3"
-          >
-            Remove
-          </Button>
-        </div>
-      </div>
-    );
+  const confirmCompleteTask = () => {
+    if (taskToComplete) {
+      onCompleteTask(taskToComplete.task, taskToComplete.index);
+      setShowCompleteDialog(false);
+      setTaskToComplete(null);
+    }
+  };
+
+  const handleTaskClick = (task: any) => {
+    setSelectedTask(task);
+    setShowTaskDetailDialog(true);
+  };
+
+  const isTaskInPast = (task: ScheduledItem) => {
+    const selectedDay = new Date(selectedDayString);
+    return isBefore(selectedDay, new Date()) || 
+           (isSameDay(selectedDay, new Date()) && isBefore(task.endTime, T_current));
   };
 
   if (!schedule) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        <p>No schedule data available.</p>
-        <Button 
-          onClick={onAddTaskClick} 
-          className="mt-4"
-          disabled={isProcessingCommand}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Your First Task
-        </Button>
-      </div>
-    );
-  }
-
-  if (schedule.items.length === 0) {
-    return (
       <div className="text-center py-12">
-        <div className="mx-auto h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-          <Clock className="h-12 w-12 text-primary" />
+        <div className="text-lg text-muted-foreground mb-4">
+          No schedule yet. Add some tasks to get started!
         </div>
-        <h3 className="text-xl font-semibold mb-2">Your schedule is empty</h3>
-        <p className="text-muted-foreground mb-6">
-          {isViewingToday 
-            ? "Add tasks to get started with your day!" 
-            : isViewingPast 
-              ? "No tasks were scheduled for this day." 
-              : "Plan your upcoming day by adding tasks."}
-        </p>
-        <Button 
-          onClick={onAddTaskClick} 
-          className="animate-hover-lift"
-          disabled={isProcessingCommand}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Task
+        <Button onClick={onAddTaskClick} disabled={isProcessingCommand}>
+          Add Your First Task
         </Button>
       </div>
     );
@@ -242,7 +117,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Schedule Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4 text-center">
           <div className="text-2xl font-bold text-primary">{schedule.summary.totalTasks}</div>
           <div className="text-sm text-muted-foreground">Total Tasks</div>
@@ -255,29 +131,251 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = ({
           <div className="text-2xl font-bold text-destructive">{schedule.summary.criticalCount}</div>
           <div className="text-sm text-muted-foreground">Critical</div>
         </Card>
+        <Card className="p-4 text-center">
+          <div className="text-2xl font-bold text-logo-yellow">{schedule.summary.totalDuration}m</div>
+          <div className="text-sm text-muted-foreground">Total Time</div>
+        </Card>
       </div>
-      
-      <Separator className="my-6" />
-      
-      <div className="space-y-4">
-        {schedule.items.map((item, index) => (
-          <React.Fragment key={item.id}>
-            {renderTimeSlot(item, index)}
-          </React.Fragment>
-        ))}
+
+      {/* Schedule Items */}
+      <div className="space-y-3">
+        {schedule.items.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-lg text-muted-foreground mb-4">
+              No tasks scheduled for this day.
+            </div>
+            <Button onClick={onAddTaskClick} disabled={isProcessingCommand}>
+              Add Your First Task
+            </Button>
+          </div>
+        ) : (
+          schedule.items.map((item, index) => {
+            const isActive = activeItemId === item.id;
+            const isPast = isTaskInPast(item);
+            const isLocked = item.isLocked;
+            const isCritical = item.isCritical;
+            const isMealTask = isMeal(item.name);
+            
+            return (
+              <div 
+                key={item.id}
+                id={`scheduled-item-${item.id}`}
+                className={cn(
+                  "relative border rounded-lg p-4 transition-all duration-200",
+                  isActive && "ring-2 ring-primary ring-offset-2",
+                  isPast && "opacity-70",
+                  isLocked && "border-dashed"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex flex-col items-center mt-1">
+                    <div className="text-sm font-medium text-muted-foreground">
+                      {formatTime(item.startTime)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">to</div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      {formatTime(item.endTime)}
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 
+                            className={cn(
+                              "font-medium truncate cursor-pointer hover:underline",
+                              isPast && "line-through"
+                            )}
+                            onClick={() => handleTaskClick(item)}
+                          >
+                            {item.name}
+                          </h3>
+                          {isCritical && (
+                            <Zap className="h-4 w-4 text-destructive flex-shrink-0" />
+                          )}
+                          {isLocked && (
+                            <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <Badge 
+                            variant="secondary" 
+                            className={cn(
+                              "text-xs",
+                              isMealTask && "bg-green-100 text-green-800"
+                            )}
+                          >
+                            {item.duration} min
+                          </Badge>
+                          {item.breakDuration > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              {getBreakDescription(item.breakDuration)}
+                            </Badge>
+                          )}
+                          {isLocked && (
+                            <Badge variant="outline" className="text-xs">
+                              Locked
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={isProcessingCommand}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => handleCompleteTask(item, index)}
+                            disabled={isProcessingCommand || isPast}
+                          >
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Complete
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleRetireTask(item)}
+                            disabled={isProcessingCommand || isLocked || isPast}
+                          >
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Move to Sink
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleTaskClick(item)}
+                            disabled={isProcessingCommand}
+                          >
+                            <MoreHorizontal className="mr-2 h-4 w-4" />
+                            Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteTask(item.id, item.name, index)}
+                            disabled={isProcessingCommand || isLocked}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
-      
-      <div className="pt-6 text-center">
-        <Button 
-          onClick={onAddTaskClick} 
-          variant="outline" 
-          className="animate-hover-lift"
-          disabled={isProcessingCommand}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Another Task
-        </Button>
-      </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && taskToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <h3 className="text-lg font-semibold">Delete Task</h3>
+            </div>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to permanently delete "{taskToDelete.name}"? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={isProcessingCommand}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDeleteTask}
+                disabled={isProcessingCommand}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Retire Confirmation Dialog */}
+      {showRetireDialog && taskToRetire && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center gap-2 mb-4">
+              <RotateCcw className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Move to Aether Sink</h3>
+            </div>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to move "{taskToRetire.name}" to the Aether Sink? You can reschedule it later.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowRetireDialog(false)}
+                disabled={isProcessingCommand}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmRetireTask}
+                disabled={isProcessingCommand}
+              >
+                Move to Sink
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Confirmation Dialog */}
+      {showCompleteDialog && taskToComplete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center gap-2 mb-4">
+              <RotateCcw className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Complete Task</h3>
+            </div>
+            <p className="text-muted-foreground mb-6">
+              Mark "{taskToComplete.task.name}" as completed?
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowCompleteDialog(false)}
+                disabled={isProcessingCommand}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmCompleteTask}
+                disabled={isProcessingCommand}
+              >
+                Complete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Task Detail Dialog */}
+      {selectedTask && (
+        <ScheduledTaskDetailDialog
+          task={selectedTask}
+          open={showTaskDetailDialog}
+          onOpenChange={setShowTaskDetailDialog}
+          onRetire={handleRetireTask}
+          onComplete={() => handleCompleteTask(selectedTask, 0)}
+          onDelete={() => handleDeleteTask(selectedTask.id, selectedTask.name, 0)}
+          isProcessingCommand={isProcessingCommand}
+        />
+      )}
     </div>
   );
 };

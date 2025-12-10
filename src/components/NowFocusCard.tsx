@@ -1,11 +1,9 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { differenceInMinutes, format } from 'date-fns';
 import { Zap, Clock, Play, Pause, SkipForward } from 'lucide-react';
 import { ScheduledItem as FormattedScheduleItem } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
+import { formatTime } from '@/lib/scheduler-utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 interface NowFocusCardProps {
   activeItem: FormattedScheduleItem | null;
@@ -14,119 +12,64 @@ interface NowFocusCardProps {
   onEnterFocusMode: () => void;
 }
 
-const NowFocusCard: React.FC<NowFocusCardProps> = ({
-  activeItem,
-  nextItem,
-  T_current,
-  onEnterFocusMode
+const NowFocusCard: React.FC<NowFocusCardProps> = ({ 
+  activeItem, 
+  nextItem, 
+  T_current, 
+  onEnterFocusMode 
 }) => {
   if (!activeItem) {
     return (
-      <Card className="animate-slide-in-up animate-hover-lift border-primary/20 bg-primary/5">
-        <CardContent className="p-6 text-center">
-          <div className="flex flex-col items-center justify-center space-y-4">
-            <div className="p-3 rounded-full bg-primary/10">
-              <Zap className="h-8 w-8 text-primary" />
-            </div>
+      <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 animate-pop-in">
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-semibold">No Active Task</h3>
-              <p className="text-muted-foreground">
-                {nextItem 
-                  ? `Next: ${nextItem.name} at ${format(nextItem.startTime, 'h:mm a')}` 
-                  : "Schedule tasks to get started!"}
-              </p>
+              <h3 className="font-medium text-blue-900">No Active Task</h3>
+              <p className="text-sm text-blue-700">You're free right now!</p>
             </div>
-            {nextItem && (
-              <Button 
-                onClick={onEnterFocusMode}
-                className="animate-hover-lift"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Start Focus Mode
-              </Button>
-            )}
+            <Zap className="h-8 w-8 text-blue-500" />
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  const totalDuration = differenceInMinutes(activeItem.endTime, activeItem.startTime);
-  const elapsedMinutes = differenceInMinutes(T_current, activeItem.startTime);
-  const progressPercentage = Math.min(100, Math.max(0, (elapsedMinutes / totalDuration) * 100));
-
-  const isCritical = activeItem.isCritical;
-  const timeRemaining = differenceInMinutes(activeItem.endTime, T_current);
-  const isEndingSoon = timeRemaining <= 5 && timeRemaining > 0;
+  const timeRemaining = Math.max(0, Math.floor((activeItem.endTime.getTime() - T_current.getTime()) / (1000 * 60)));
 
   return (
-    <Card className={cn(
-      "animate-slide-in-up animate-hover-lift border-2",
-      isCritical ? "border-destructive/50 bg-destructive/5" : "border-primary/20 bg-primary/5",
-      isEndingSoon && "animate-pulse"
-    )}>
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            {isCritical ? (
-              <Zap className="h-5 w-5 text-destructive" />
-            ) : (
-              <Clock className="h-5 w-5 text-primary" />
-            )}
-            <span className={isCritical ? "text-destructive" : "text-primary"}>
-              {isCritical ? "Critical Task" : "Current Task"}
-            </span>
-          </CardTitle>
-          <Button 
-            onClick={onEnterFocusMode}
-            size="sm"
-            className={cn(
-              "animate-hover-lift",
-              isCritical ? "bg-destructive hover:bg-destructive/90" : "bg-primary hover:bg-primary/90"
-            )}
-          >
-            <Play className="h-4 w-4 mr-2" />
-            Focus
-          </Button>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        <div>
-          <h3 className="text-xl font-bold mb-1">{activeItem.name}</h3>
-          <p className="text-muted-foreground text-sm">
-            {format(activeItem.startTime, 'h:mm a')} - {format(activeItem.endTime, 'h:mm a')}
-            <span className="mx-2">•</span>
-            {totalDuration} minutes
-          </p>
-        </div>
-        
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              {elapsedMinutes} min elapsed
-            </span>
-            <span className={cn(
-              "font-medium",
-              isEndingSoon ? "text-destructive" : "text-foreground"
-            )}>
-              {timeRemaining > 0 ? `${timeRemaining} min remaining` : "Time's up!"}
-            </span>
+    <Card className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 animate-pop-in">
+      <CardContent className="p-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium text-green-900">Now: {activeItem.name}</h3>
+              {activeItem.isCritical && <Zap className="h-4 w-4 text-destructive" />}
+            </div>
+            <div className="flex items-center gap-4 mt-1">
+              <div className="flex items-center gap-1 text-sm text-green-700">
+                <Clock className="h-4 w-4" />
+                <span>{formatTime(activeItem.startTime)} - {formatTime(activeItem.endTime)}</span>
+              </div>
+              <span className="text-sm font-medium text-green-800">
+                {timeRemaining} min left
+              </span>
+            </div>
           </div>
-          
-          <Progress 
-            value={progressPercentage} 
-            className={cn(
-              "h-2",
-              isCritical ? "bg-destructive/20 [&>div]:bg-destructive" : "[&>div]:bg-primary"
-            )} 
-          />
+          <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              onClick={onEnterFocusMode}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Play className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         
         {nextItem && (
-          <div className="pt-3 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              Next: <span className="font-medium">{nextItem.name}</span> at {format(nextItem.startTime, 'h:mm a')}
+          <div className="mt-3 pt-3 border-t border-green-100">
+            <p className="text-xs text-green-700">
+              Next: <span className="font-medium">{nextItem.name}</span> at {formatTime(nextItem.startTime)}
             </p>
           </div>
         )}

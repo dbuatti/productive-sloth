@@ -3,9 +3,9 @@ import { DBScheduledTask, SortBy } from '@/types/scheduler';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Anchor, Feather, PlusCircle, MinusCircle, Star, Database, Trash2, CalendarCheck } from 'lucide-react';
+import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Anchor, Feather, PlusCircle, MinusCircle, Star, Database, Trash2, CalendarCheck } from 'lucide-react'; // Added CalendarCheck icon
 import { cn } from '@/lib/utils';
-import { Card } from '@/components/ui/card';
+import { Card } from '@/components/ui/card'; // Added missing import
 
 interface SchedulerUtilityBarProps {
   isProcessingCommand: boolean;
@@ -23,7 +23,7 @@ interface SchedulerUtilityBarProps {
   onAetherDump: () => Promise<void>;
   onRefreshSchedule: () => void;
   onAetherDumpMega: () => Promise<void>;
-  // Removed onAutoScheduleDay prop
+  onAutoScheduleDay: () => Promise<void>; // NEW: Handler for general auto schedule
 }
 
 const DURATION_BUCKETS = [15, 30, 60];
@@ -44,7 +44,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   onAetherDump,
   onRefreshSchedule,
   onAetherDumpMega,
-  // Removed onAutoScheduleDay from destructuring
+  onAutoScheduleDay, // NEW: Destructure new prop
 }) => {
   const hasBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break');
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
@@ -249,7 +249,27 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
 
         {/* Group 4: Aether Dump & Refresh */}
         <div className="flex items-center gap-2">
-          {/* Removed Auto Schedule Day button from here */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onAutoScheduleDay} // NEW: Auto Schedule Day button
+                disabled={isProcessingCommand}
+                className={cn(
+                  "h-10 w-10 text-logo-green hover:bg-logo-green/10 transition-all duration-200",
+                  isProcessingCommand && "opacity-50 cursor-not-allowed"
+                )}
+                style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+              >
+                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-5 w-5" />}
+                <span className="sr-only">Auto Schedule Day</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Auto Schedule Day (Organize all flexible tasks)</p>
+            </TooltipContent>
+          </Tooltip>
 
           <DropdownMenu>
             <Tooltip>

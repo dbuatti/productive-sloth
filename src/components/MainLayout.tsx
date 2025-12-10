@@ -36,9 +36,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const mainContent = (
     <main className={cn(
-      "flex flex-1 flex-col gap-4 p-4 overflow-auto",
-      // Dynamic padding: pb-28 (112px) if status indicator is active (104px total fixed height), pb-20 (80px) otherwise (64px fixed height)
-      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "") 
+      "flex flex-1 flex-col gap-4 px-4 overflow-auto", // Removed p-4, kept px-4
+      // Add top padding to clear sticky headers (h-16 + py-2 header = ~96px total height)
+      "pt-[100px]", 
+      // Dynamic bottom padding for mobile navigation/status indicator
+      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4") 
     )}>
       {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
       {children}

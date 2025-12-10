@@ -383,9 +383,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               </Tooltip>
                             )}
                             <span className="text-xl">{emoji}</span> {/* Increased emoji size */}
-                            <span className={cn("font-semibold truncate text-lg", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span> {/* Increased font size to text-lg */}
+                            <span className={cn("font-semibold truncate text-base", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span> {/* CHANGED text-lg to text-base */}
                           </div>
-                          <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground flex-wrap"> {/* Increased spacing and font size */}
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap"> {/* CHANGED text-sm to text-xs */}
                             {/* Environment Icon */}
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -401,7 +401,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             {task.duration && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className={cn("flex items-center gap-1 text-sm font-mono", isLocked ? "text-primary/80" : "text-foreground/80")}>
+                                  <span className={cn("flex items-center gap-1 text-xs font-mono", isLocked ? "text-primary/80" : "text-foreground/80")}> {/* CHANGED text-sm to text-xs */}
                                     <Clock className="h-4 w-4" /> {task.duration} min
                                   </span>
                                 </TooltipTrigger>
@@ -415,10 +415,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className={cn(
-                                    "flex items-center gap-1 text-sm font-semibold font-mono", // Increased font size
+                                    "flex items-center gap-1 text-xs font-semibold font-mono", // CHANGED text-sm to text-xs
                                     isLocked ? "text-primary/80" : "text-foreground/80"
                                   )}>
-                                    {task.energy_cost} <Zap className="h-4 w-4" /> {/* Increased icon size */}
+                                    {task.energy_cost} <Zap className="h-4 w-4" />
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -426,7 +426,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                            <span className="text-sm italic text-muted-foreground"> {/* Increased font size */}
+                            <span className="text-xs italic text-muted-foreground"> {/* CHANGED text-sm to text-xs */}
                               Retired: {format(new Date(task.retired_at), 'MMM d, yyyy')}
                             </span>
                           </div>

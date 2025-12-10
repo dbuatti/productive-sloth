@@ -19,6 +19,7 @@ const AutoScheduleButton: React.FC<AutoScheduleButtonProps> = ({ onAutoSchedule,
           disabled={isProcessingCommand || disabled}
           className={cn(
             "w-full h-14 text-lg font-bold flex items-center gap-3 transition-all duration-300 ease-in-out",
+            // Use logo-green for a more energetic, positive action
             "bg-logo-green text-primary-foreground hover:bg-logo-green/90 shadow-lg hover:shadow-xl hover:shadow-logo-green/30",
             "animate-pop-in animate-hover-lift",
             (isProcessingCommand || disabled) && "opacity-70 cursor-not-allowed"

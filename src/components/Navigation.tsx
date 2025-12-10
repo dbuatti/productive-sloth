@@ -17,8 +17,9 @@ const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isColl
     onClick={onClick}
     className={({ isActive }) =>
       cn(
-        "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary", // Increased gap, padding, and font size
-        isActive && "bg-muted text-primary hover:text-primary",
+        "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative", // Added relative
+        // Refined active state: lighter background, strong left border
+        isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4",
         isCollapsed ? "justify-center" : ""
       )
     }

@@ -33,6 +33,7 @@ const SchedulerSegmentedControl: React.FC<SchedulerSegmentedControlProps> = ({ c
               // Increased height (h-11) and padding (py-1) for larger hit area
               "h-11 px-2 py-1 text-sm font-semibold rounded-md transition-colors duration-200",
               "text-muted-foreground hover:bg-muted/50",
+              // Refined active state: use primary color for background and text
               "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md",
               // Mobile: Stack icon and label vertically
               "flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-2 sm:text-base"

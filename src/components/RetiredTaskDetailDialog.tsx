@@ -1,345 +1,415 @@
-import React, { useState } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  RotateCcw, 
-  Trash2, 
-  Lock, 
-  Unlock, 
-  Zap, 
-  Clock, 
-  Coffee,
-  Calendar,
-  MapPin
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { formatTime, getBreakDescription, isMeal } from '@/lib/scheduler-utils';
-import { RetiredTask, TaskEnvironment } from "@/types/scheduler";
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import React, { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { format, parseISO } from "date-fns";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react"; // Added Music icon
 
-interface RetiredTaskDetailDialogProps {
-  task: RetiredTask;
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Switch } from '@/components/ui/switch';
+import { RetiredTask, TaskEnvironment } from "@/types/scheduler"; // Import TaskEnvironment
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { showSuccess, showError } from "@/utils/toast";
+import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
+
+const formSchema = z.object({
+  name: z.string().min(1, { message: "Name is required." }).max(255),
+  duration: z.coerce.number().min(1, "Duration must be at least 1 minute.").optional().nullable(),
+  break_duration: z.coerce.number().min(0).optional().nullable(),
+  is_critical: z.boolean().default(false),
+  is_locked: z.boolean().default(false),
+  is_completed: z.boolean().default(false),
+  energy_cost: z.coerce.number().min(0).default(0),
+  is_custom_energy_cost: z.boolean().default(false),
+  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'), // UPDATED: Add new environments
+});
+
+type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
+
+interface RetiredTaskDetailSheetProps {
+  task: RetiredTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRezone: (task: RetiredTask) => void;
-  onDelete: (taskId: string, taskName: string) => void;
-  isProcessingCommand: boolean;
 }
 
-const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
+const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   task,
   open,
   onOpenChange,
-  onRezone,
-  onDelete,
-  isProcessingCommand,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedTask, setEditedTask] = useState({
-    name: task?.name || '',
-    isCritical: task?.is_critical || false,
-    isLocked: task?.is_locked || false,
-    environment: task?.task_environment || 'laptop',
+  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
+  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
+
+  const form = useForm<RetiredTaskDetailFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      duration: 30,
+      break_duration: 0,
+      is_critical: false,
+      is_locked: false,
+      is_completed: false,
+      energy_cost: 0,
+      is_custom_energy_cost: false,
+      task_environment: 'laptop', // NEW: Default value
+    },
   });
 
-  const handleSave = () => {
-    // Save logic would go here
-    setIsEditing(false);
+  // Effect to update form values when task prop changes
+  useEffect(() => {
+    if (task) {
+      form.reset({
+        name: task.name,
+        duration: task.duration ?? 30,
+        break_duration: task.break_duration ?? 0,
+        is_critical: task.is_critical,
+        is_locked: task.is_locked,
+        is_completed: task.is_completed,
+        energy_cost: task.energy_cost,
+        is_custom_energy_cost: task.is_custom_energy_cost,
+        task_environment: task.task_environment, // NEW: Set environment
+      });
+      // Set initial calculated cost, but only if not custom
+      if (!task.is_custom_energy_cost) {
+        setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical));
+      } else {
+        setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
+      }
+    }
+  }, [task, form]);
+
+  // Effect to recalculate energy cost when duration or criticality changes
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      // Only recalculate if custom energy cost is NOT enabled
+      if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical')) {
+        const duration = value.duration ?? 0;
+        const isCritical = value.is_critical;
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
+        setCalculatedEnergyCost(newEnergyCost);
+        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+      } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
+        // If custom energy cost is turned OFF, immediately recalculate and set
+        const duration = form.getValues('duration') ?? 0;
+        const isCritical = form.getValues('is_critical');
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
+        setCalculatedEnergyCost(newEnergyCost);
+        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  const handleSubmit = async (values: RetiredTaskDetailFormValues) => {
+    if (!task) return;
+
+    try {
+      // Handle completion status separately to trigger XP/Energy logic
+      if (values.is_completed !== task.is_completed) {
+        if (values.is_completed) {
+          await completeRetiredTask(task); // This handles XP/Energy and sets is_completed to true
+        } else {
+          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }); // Only update status
+        }
+      }
+
+      // Update other details
+      await updateRetiredTaskDetails({
+        id: task.id,
+        name: values.name,
+        duration: values.duration === 0 ? null : values.duration,
+        break_duration: values.break_duration === 0 ? null : values.break_duration,
+        is_critical: values.is_critical,
+        is_locked: values.is_locked,
+        energy_cost: values.energy_cost,
+        is_custom_energy_cost: values.is_custom_energy_cost,
+        task_environment: values.task_environment, // NEW: Save environment
+        // is_completed is handled by completeRetiredTask or updateRetiredTaskStatus
+      });
+      showSuccess("Retired task updated successfully!");
+      onOpenChange(false);
+    } catch (error) {
+      showError("Failed to save retired task.");
+      console.error("Failed to save retired task:", error);
+    }
   };
+
+  const isSubmitting = form.formState.isSubmitting;
+  const isValid = form.formState.isValid;
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // Watch the custom energy cost toggle
 
   if (!task) return null;
 
-  const isMealTask = isMeal(task.name);
-  const energyCost = task.energy_cost || 0;
+  const formattedRetiredAt = task.retired_at ? format(parseISO(task.retired_at), 'MMM d, yyyy HH:mm') : 'N/A';
+  const formattedOriginalDate = task.original_scheduled_date ? format(parseISO(task.original_scheduled_date), 'MMM d, yyyy') : 'N/A';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {task.name}
-            {task.is_critical && <Zap className="h-4 w-4 text-destructive" />}
-            {task.is_locked && <Lock className="h-4 w-4 text-muted-foreground" />}
-          </DialogTitle>
-          <DialogDescription>
-            Retired task details and actions
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="grid gap-4 py-4">
-          {task.duration && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm font-medium">{task.duration} min</div>
-                  <div className="text-xs text-muted-foreground">Duration</div>
-                </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:w-80 flex flex-col p-6 space-y-6 animate-slide-in-right">
+        <SheetHeader className="border-b pb-4">
+          <SheetTitle className="text-2xl font-bold flex items-center justify-between">
+            Retired Task Details
+            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
+              <X className="h-5 w-5" />
+            </Button>
+          </SheetTitle>
+          <SheetDescription className="text-sm text-muted-foreground">
+            Retired: {formattedRetiredAt} | Original Date: {formattedOriginalDate}
+          </SheetDescription>
+        </SheetHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
+            
+            <div className="flex-grow overflow-y-auto space-y-6 pb-8">
+              {/* Name */}
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Task Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Task name" {...field} className="text-lg font-semibold" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Duration & Break Duration */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Duration (min)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} min="1" />
+                      </FormControl>
+                      <FormDescription>
+                        Estimated time to complete.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="break_duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Break Duration (min)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} min="0" />
+                      </FormControl>
+                      <FormDescription>
+                        Break associated with this task.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
+
+              {/* NEW: Task Environment */}
+              <FormField
+                control={form.control}
+                name="task_environment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Task Environment</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select environment" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {environmentOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <option.icon className="h-4 w-4" />
+                              {option.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Where this task is typically performed.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Is Critical Switch */}
+              <FormField
+                control={form.control}
+                name="is_critical"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Critical Task</FormLabel>
+                      <FormDescription>
+                        Mark this task as critical (higher priority).
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={task.is_locked} // Disable if locked
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Is Locked Switch */}
+              <FormField
+                control={form.control}
+                name="is_locked"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Locked Task</FormLabel>
+                      <FormDescription>
+                        Prevent re-zoning or deletion from Aether Sink.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Is Completed Switch */}
+              <FormField
+                control={form.control}
+                name="is_completed"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Completed</FormLabel>
+                      <FormDescription>
+                        Mark this task as completed.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={task.is_locked} // Disable if locked
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Custom Energy Cost Switch */}
+              <FormField
+                control={form.control}
+                name="is_custom_energy_cost"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Custom Energy Cost</FormLabel>
+                      <FormDescription>
+                        Manually set the energy cost instead of automatic calculation.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Energy Cost (Editable if custom, read-only if auto-calculated) */}
+              <FormField
+                control={form.control}
+                name="energy_cost"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Energy Cost</FormLabel>
+                      <FormDescription>
+                        Energy consumed upon completion.
+                      </FormDescription>
+                    </div>
+                    <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
+                      <Zap className="h-5 w-5" />
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          min="0" 
+                          className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                          readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
+                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
+                          onChange={(e) => {
+                            if (isCustomEnergyCostEnabled) {
+                              field.onChange(e);
+                            }
+                          }}
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
               
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <Coffee className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm font-medium">{energyCost} energy</div>
-                  <div className="text-xs text-muted-foreground">Cost</div>
-                </div>
-              </div>
+            {/* Save Button in Footer */}
+            <div className="sticky bottom-0 bg-card pt-4 border-t shrink-0">
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || !isValid} 
+                className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save Changes
+              </Button>
             </div>
-          )}
-          
-          {task.break_duration && task.break_duration > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-              <Coffee className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div className="text-sm font-medium">{getBreakDescription(task.break_duration)}</div>
-                <div className="text-xs text-muted-foreground">Break</div>
-              </div>
-            </div>
-          )}
-          
-          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <div className="text-sm font-medium capitalize">{task.task_environment}</div>
-              <div className="text-xs text-muted-foreground">Environment</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-            <Label htmlFor="critical" className="flex items-center gap-2">
-              <Zap className="<dyad-problem-report summary="97 problems">
-<problem file="src/hooks/use-environment-context.ts" line="33" column="17" code="1005">'&gt;' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="33" column="26" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="33" column="37" code="1005">':' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="34" column="5" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="39" column="19" code="1005">'&gt;' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="39" column="28" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="39" column="39" code="1005">':' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="40" column="5" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="45" column="18" code="1005">'&gt;' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="45" column="27" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="45" column="38" code="1005">':' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="46" column="5" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="51" column="18" code="1005">'&gt;' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="51" column="27" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="51" column="38" code="1005">':' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="52" column="5" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="57" column="18" code="1005">'&gt;' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="57" column="27" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="57" column="38" code="1005">':' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="58" column="5" code="1005">',' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="105" column="34" code="1005">'&gt;' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="105" column="39" code="1005">')' expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="107" column="6" code="1161">Unterminated regular expression literal.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="108" column="3" code="1128">Declaration or statement expected.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="109" column="1" code="1128">Declaration or statement expected.</problem>
-<problem file="src/components/DailyChallengeClaimButton.tsx" line="10" column="20" code="2339">Property 'claimDailyReward' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/components/ProgressBarHeader.tsx" line="89" column="49" code="2554">Expected 0 arguments, but got 1.</problem>
-<problem file="src/components/FocusAnchor.tsx" line="63" column="35" code="2339">Property 'type' does not exist on type 'ScheduledItem'.</problem>
-<problem file="src/components/FocusAnchor.tsx" line="64" column="37" code="2339">Property 'type' does not exist on type 'ScheduledItem'.</problem>
-<problem file="src/components/BottomNavigationBar.tsx" line="29" column="32" code="2554">Expected 2 arguments, but got 1.</problem>
-<problem file="src/components/MobileStatusIndicator.tsx" line="59" column="35" code="2339">Property 'type' does not exist on type 'ScheduledItem'.</problem>
-<problem file="src/components/MobileStatusIndicator.tsx" line="60" column="37" code="2339">Property 'type' does not exist on type 'ScheduledItem'.</problem>
-<problem file="src/components/LevelUpCelebration.tsx" line="9" column="11" code="2339">Property 'showLevelUp' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/components/LevelUpCelebration.tsx" line="9" column="24" code="2339">Property 'levelUpLevel' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/components/LevelUpCelebration.tsx" line="9" column="38" code="2339">Property 'resetLevelUp' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/pages/SettingsPage.tsx" line="50" column="87" code="2339">Property 'resetDailyStreak' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/pages/SettingsPage.tsx" line="50" column="105" code="2339">Property 'updateNotificationPreferences' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/pages/SettingsPage.tsx" line="50" column="136" code="2339">Property 'updateProfile' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/pages/SettingsPage.tsx" line="50" column="151" code="2339">Property 'updateSettings' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="33" column="12" code="2749">'Home' refers to a value, but is being used as a type here. Did you mean 'typeof Home'?</problem>
-<problem file="src/hooks/use-environment-context.ts" line="33" column="17" code="2304">Cannot find name 'className'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="33" column="27" code="2353">Object literal may only specify known properties, and '&quot;h-4 w-4&quot;' does not exist in type 'EnvironmentOption'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="39" column="12" code="2749">'Laptop' refers to a value, but is being used as a type here. Did you mean 'typeof Laptop'?</problem>
-<problem file="src/hooks/use-environment-context.ts" line="39" column="19" code="2304">Cannot find name 'className'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="39" column="29" code="2353">Object literal may only specify known properties, and '&quot;h-4 w-4&quot;' does not exist in type 'EnvironmentOption'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="45" column="12" code="2749">'Globe' refers to a value, but is being used as a type here. Did you mean 'typeof Globe'?</problem>
-<problem file="src/hooks/use-environment-context.ts" line="45" column="18" code="2304">Cannot find name 'className'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="45" column="28" code="2353">Object literal may only specify known properties, and '&quot;h-4 w-4&quot;' does not exist in type 'EnvironmentOption'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="51" column="12" code="2749">'Music' refers to a value, but is being used as a type here. Did you mean 'typeof Music'?</problem>
-<problem file="src/hooks/use-environment-context.ts" line="51" column="18" code="2304">Cannot find name 'className'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="51" column="28" code="2353">Object literal may only specify known properties, and '&quot;h-4 w-4&quot;' does not exist in type 'EnvironmentOption'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="57" column="12" code="2749">'Check' refers to a value, but is being used as a type here. Did you mean 'typeof Check'?</problem>
-<problem file="src/hooks/use-environment-context.ts" line="57" column="18" code="2304">Cannot find name 'className'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="57" column="28" code="2353">Object literal may only specify known properties, and '&quot;h-4 w-4&quot;' does not exist in type 'EnvironmentOption'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="105" column="6" code="2503">Cannot find namespace 'EnvironmentContext'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="105" column="40" code="2365">Operator '&gt;' cannot be applied to types '{ value: { selectedEnvironments: TaskEnvironment[]; toggleEnvironment: (environment: TaskEnvironment) =&gt; void; clearEnvironments: () =&gt; void; environmentOptions: EnvironmentOption[]; }; }' and '{ children: React.ReactNode; }'.</problem>
-<problem file="src/hooks/use-environment-context.ts" line="105" column="40" code="2365">Operator '&lt;' cannot be applied to types 'boolean' and 'RegExp'.</problem>
-<problem file="src/components/RetiredTaskDetailDialog.tsx" line="59" column="11" code="2339">Property 'updateRetiredTaskDetails' does not exist on type 'UseSchedulerTasksReturn'.</problem>
-<problem file="src/components/RetiredTaskDetailDialog.tsx" line="59" column="37" code="2339">Property 'completeRetiredTask' does not exist on type 'UseSchedulerTasksReturn'.</problem>
-<problem file="src/components/RetiredTaskDetailDialog.tsx" line="59" column="58" code="2339">Property 'updateRetiredTaskStatus' does not exist on type 'UseSchedulerTasksReturn'.</problem>
-<problem file="src/components/RetiredTaskDetailDialog.tsx" line="59" column="86" code="2554">Expected 2 arguments, but got 1.</problem>
-<problem file="src/components/RetiredTaskDetailDialog.tsx" line="89" column="9" code="2322">Type 'TaskEnvironment' is not assignable to type '&quot;home&quot; | &quot;laptop&quot; | &quot;away&quot; | &quot;piano&quot; | &quot;laptop_piano&quot;'.
-  Type '&quot;globe&quot;' is not assignable to type '&quot;home&quot; | &quot;laptop&quot; | &quot;away&quot; | &quot;piano&quot; | &quot;laptop_piano&quot;'.</problem>
-<problem file="src/components/RetiredTaskDetailDialog.tsx" line="252" column="32" code="2604">JSX element type 'option.icon' does not have any construct or call signatures.</problem>
-<problem file="src/components/RetiredTaskDetailDialog.tsx" line="252" column="32" code="2786">'option.icon' cannot be used as a JSX component.
-  Its type 'ReactNode' is not a valid JSX element type.
-    Type 'number' is not assignable to type 'ElementType'.</problem>
-<problem file="src/components/AetherSink.tsx" line="260" column="11" code="2322">Type '{ task: RetiredTask; open: boolean; onOpenChange: Dispatch&lt;SetStateAction&lt;boolean&gt;&gt;; onRezone: (task: RetiredTask) =&gt; void; onDelete: (id: string, name: string) =&gt; void; isProcessingCommand: boolean; }' is not assignable to type 'IntrinsicAttributes &amp; RetiredTaskDetailSheetProps'.
-  Property 'onRezone' does not exist on type 'IntrinsicAttributes &amp; RetiredTaskDetailSheetProps'.</problem>
-<problem file="src/components/SchedulerUtilityBar.tsx" line="17" column="10" code="2305">Module '&quot;@/lib/constants&quot;' has no exported member 'DURATION_BUCKETS'.</problem>
-<problem file="src/components/WorkdayWindowDialog.tsx" line="41" column="49" code="2339">Property 'updateProfile' does not exist on type 'UseSessionReturn'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="702" column="13" code="2304">Cannot find name 'removeRetiredTask'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="713" column="61" code="2304">Cannot find name 'removeRetiredTask'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1165" column="13" code="2304">Cannot find name 'autoBalanceSchedule'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1177" column="134" code="2304">Cannot find name 'autoBalanceSchedule'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1303" column="15" code="2739">Type '{ user_id: string; name: string; duration: number; break_duration: number; original_scheduled_date: string; is_critical: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' is missing the following properties from type 'NewRetiredTask': is_locked, is_completed</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1333" column="36" code="2345">Argument of type '{ name: string; start_time: string; end_time: string; break_duration: number; is_critical: boolean; is_flexible: boolean; scheduled_date: string; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' is not assignable to parameter of type 'NewDBScheduledTask'.
-  Property 'is_locked' is missing in type '{ name: string; start_time: string; end_time: string; break_duration: number; is_critical: boolean; is_flexible: boolean; scheduled_date: string; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' but required in type 'NewDBScheduledTask'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1383" column="34" code="2345">Argument of type '{ name: string; start_time: string; end_time: string; break_duration: number; scheduled_date: string; is_critical: boolean; is_flexible: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' is not assignable to parameter of type 'NewDBScheduledTask'.
-  Property 'is_locked' is missing in type '{ name: string; start_time: string; end_time: string; break_duration: number; scheduled_date: string; is_critical: boolean; is_flexible: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' but required in type 'NewDBScheduledTask'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1412" column="45" code="2339">Property 'breakDuration' does not exist on type '{ taskName: string; duration: number; isCritical: boolean; isFlexible: boolean; energyCost: number; startTime?: undefined; endTime?: undefined; } | { taskName: string; startTime: string; endTime: string; isCritical: boolean; isFlexible: boolean; energyCost: number; duration?: undefined; }'.
-  Property 'breakDuration' does not exist on type '{ taskName: string; duration: number; isCritical: boolean; isFlexible: boolean; energyCost: number; startTime?: undefined; endTime?: undefined; }'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1428" column="34" code="2345">Argument of type '{ name: string; start_time: string; end_time: string; break_duration: any; scheduled_date: string; is_critical: boolean; is_flexible: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' is not assignable to parameter of type 'NewDBScheduledTask'.
-  Property 'is_locked' is missing in type '{ name: string; start_time: string; end_time: string; break_duration: any; scheduled_date: string; is_critical: boolean; is_flexible: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' but required in type 'NewDBScheduledTask'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1463" column="40" code="2339">Property 'breakDuration' does not exist on type '{ taskName: string; duration: number; isCritical: boolean; isFlexible: boolean; energyCost: number; startTime?: undefined; endTime?: undefined; } | { taskName: string; startTime: string; endTime: string; isCritical: boolean; isFlexible: boolean; energyCost: number; duration?: undefined; }'.
-  Property 'breakDuration' does not exist on type '{ taskName: string; duration: number; isCritical: boolean; isFlexible: boolean; energyCost: number; startTime?: undefined; endTime?: undefined; }'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1481" column="40" code="2339">Property 'breakDuration' does not exist on type '{ taskName: string; duration: number; isCritical: boolean; isFlexible: boolean; energyCost: number; startTime?: undefined; endTime?: undefined; } | { taskName: string; startTime: string; endTime: string; isCritical: boolean; isFlexible: boolean; energyCost: number; duration?: undefined; }'.
-  Property 'breakDuration' does not exist on type '{ taskName: string; duration: number; isCritical: boolean; isFlexible: boolean; energyCost: number; startTime?: undefined; endTime?: undefined; }'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1661" column="30" code="2345">Argument of type '{ name: string; start_time: string; end_time: string; break_duration: number; scheduled_date: string; is_critical: boolean; is_flexible: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' is not assignable to parameter of type 'NewDBScheduledTask'.
-  Property 'is_locked' is missing in type '{ name: string; start_time: string; end_time: string; break_duration: number; scheduled_date: string; is_critical: boolean; is_flexible: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' but required in type 'NewDBScheduledTask'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1714" column="32" code="2345">Argument of type '{ name: string; start_time: string; end_time: string; break_duration: number; scheduled_date: string; is_critical: boolean; is_flexible: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' is not assignable to parameter of type 'NewDBScheduledTask'.
-  Property 'is_locked' is missing in type '{ name: string; start_time: string; end_time: string; break_duration: number; scheduled_date: string; is_critical: boolean; is_flexible: boolean; energy_cost: number; is_custom_energy_cost: false; task_environment: TaskEnvironment; }' but required in type 'NewDBScheduledTask'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1976" column="19" code="2304">Cannot find name 'updateScheduledTaskStatus'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="1979" column="19" code="2304">Cannot find name 'completeScheduledTaskMutation'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2037" column="15" code="2304">Cannot find name 'completeScheduledTaskMutation'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2077" column="15" code="2304">Cannot find name 'completeScheduledTaskMutation'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2116" column="17" code="2304">Cannot find name 'updateScheduledTaskDetails'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2133" column="15" code="2304">Cannot find name 'completeScheduledTaskMutation'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2196" column="5" code="2304">Cannot find name 'completeScheduledTaskMutation'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2198" column="5" code="2304">Cannot find name 'updateScheduledTaskStatus'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2201" column="5" code="2304">Cannot find name 'updateScheduledTaskDetails'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2230" column="15" code="2304">Cannot find name 'updateScheduledTaskStatus'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2233" column="15" code="2304">Cannot find name 'completeScheduledTaskMutation'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2276" column="5" code="2304">Cannot find name 'completeScheduledTaskMutation'.</problem>
-<problem file="src/pages/SchedulerPage.tsx" line="2287" column="5" code="2304">Cannot find name 'updateScheduledTaskStatus'.</problem>
-<problem file="src/pages/DocumentationPage.tsx" line="6" column="10" code="2305">Module '&quot;@/lib/scheduler-utils&quot;' has no exported member 'EMOJI_MAP'.</problem>
-<problem file="src/pages/DocumentationPage.tsx" line="6" column="21" code="2305">Module '&quot;@/lib/scheduler-utils&quot;' has no exported member 'EMOJI_HUE_MAP'.</problem>
-<problem file="src/components/EnvironmentProvider.tsx" line="5" column="10" code="2724">'&quot;@/hooks/use-environment-context&quot;' has no exported member named 'EnvironmentContext'. Did you mean 'useEnvironmentContext'?</problem>
-<problem file="src/components/EnvironmentProvider.tsx" line="5" column="50" code="2724">'&quot;@/hooks/use-environment-context&quot;' has no exported member named 'EnvironmentContextType'. Did you mean 'useEnvironmentContext'?</problem>
-</dyad-problem-report>I'll fix these TypeScript errors systematically. Let me start with the environment context hook which has parsing issues:
-
-<dyad-write path="src/hooks/use-environment-context.ts" description="Fixing environment context hook with proper TypeScript syntax">
-import { useState, useEffect, useMemo, useContext, createContext, ReactNode } from 'react';
-import { Home, Laptop, Globe, Music, Check } from 'lucide-react';
-import { TaskEnvironment } from '@/types/scheduler';
-
-export interface EnvironmentOption {
-  value: TaskEnvironment;
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-}
-
-interface EnvironmentContextType {
-  selectedEnvironments: TaskEnvironment[];
-  toggleEnvironment: (environment: TaskEnvironment) => void;
-  clearEnvironments: () => void;
-  environmentOptions: EnvironmentOption[];
-}
-
-const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);
-
-export const useEnvironmentContext = () => {
-  const context = useContext(EnvironmentContext);
-  if (!context) {
-    throw new Error('useEnvironmentContext must be used within an EnvironmentProvider');
-  }
-  return context;
-};
-
-export const environmentOptions: EnvironmentOption[] = [
-  {
-    value: 'home',
-    label: 'Home',
-    icon: <Home className="h-4 w-4" />,
-    color: 'bg-blue-100 text-blue-800',
-  },
-  {
-    value: 'laptop',
-    label: 'Laptop',
-    icon: <Laptop className="h-4 w-4" />,
-    color: 'bg-green-100 text-green-800',
-  },
-  {
-    value: 'globe',
-    label: 'Globe',
-    icon: <Globe className="h-4 w-4" />,
-    color: 'bg-purple-100 text-purple-800',
-  },
-  {
-    value: 'music',
-    label: 'Music',
-    icon: <Music className="h-4 w-4" />,
-    color: 'bg-yellow-100 text-yellow-800',
-  },
-  {
-    value: 'away',
-    label: 'Away',
-    icon: <Check className="h-4 w-4" />,
-    color: 'bg-gray-100 text-gray-800',
-  },
-];
-
-interface EnvironmentProviderProps {
-  children: ReactNode;
-}
-
-export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({ children }) => {
-  const [selectedEnvironments, setSelectedEnvironments] = useState<TaskEnvironment[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('aetherflow-selected-environments');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.every(env => 
-            ['home', 'laptop', 'globe', 'music', 'away'].includes(env))) {
-            return parsed;
-          }
-        } catch {
-          return ['laptop'];
-        }
-      }
-    }
-    return ['laptop'];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('aetherflow-selected-environments', JSON.stringify(selectedEnvironments));
-  }, [selectedEnvironments]);
-
-  const toggleEnvironment = (environment: TaskEnvironment) => {
-    setSelectedEnvironments(prev => 
-      prev.includes(environment) 
-        ? prev.filter(env => env !== environment) 
-        : [...prev, environment]
-    );
-  };
-
-  const clearEnvironments = () => {
-    setSelectedEnvironments([]);
-  };
-
-  const value = useMemo(() => ({
-    selectedEnvironments,
-    toggleEnvironment,
-    clearEnvironments,
-    environmentOptions,
-  }), [selectedEnvironments]);
-
-  return (
-    <EnvironmentContext.Provider value={value}>
-      {children}
-    </EnvironmentContext.Provider>
+          </form>
+        </Form>
+      </SheetContent>
+    </Sheet>
   );
 };
+
+export default RetiredTaskDetailSheet;

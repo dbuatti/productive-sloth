@@ -1,81 +1,114 @@
-import { Zap, Clock, Play, Pause, SkipForward } from 'lucide-react';
-import { ScheduledItem as FormattedScheduleItem } from '@/types/scheduler';
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Activity, Zap, Coffee, ListTodo, Flag, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatTime } from '@/lib/scheduler-utils';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { formatTime, formatDayMonth } from '@/lib/scheduler-utils';
+import { ScheduledItem } from '@/types/scheduler';
+import { intervalToDuration, formatDuration, isPast, isToday } from 'date-fns';
 
 interface NowFocusCardProps {
-  activeItem: FormattedScheduleItem | null;
-  nextItem: FormattedScheduleItem | null;
+  activeItem: ScheduledItem | null;
+  nextItem: ScheduledItem | null;
   T_current: Date;
-  onEnterFocusMode: () => void;
+  onEnterFocusMode: () => void; // NEW: Prop to trigger focus mode
 }
 
-const NowFocusCard: React.FC<NowFocusCardProps> = ({ 
-  activeItem, 
-  nextItem, 
-  T_current, 
-  onEnterFocusMode 
-}) => {
+const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, T_current, onEnterFocusMode }) => {
+  const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeItem) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    const updateRemaining = () => {
+      const duration = intervalToDuration({ start: T_current, end: activeItem.endTime });
+      const formatted = formatDuration(duration, {
+        format: ['hours', 'minutes', 'seconds'],
+        delimiter: ' ',
+        zero: false,
+        locale: {
+          formatDistance: (token, count) => {
+            if (token === 'xSeconds') return `${count}s`;
+            if (token === 'xMinutes') return `${count}m`;
+            if (token === 'xHours') return `${count}h`;
+            return `${count}${token.charAt(0)}`;
+          },
+        },
+      });
+      setTimeRemaining(formatted || '0s');
+    };
+
+    updateRemaining(); // Initial update
+    const interval = setInterval(updateRemaining, 1000); // Update every second
+
+    return () => clearInterval(interval);
+  }, [activeItem, T_current]);
+
   if (!activeItem) {
     return (
-      <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 animate-pop-in">
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-blue-900">No Active Task</h3>
-              <p className="text-sm text-blue-700">You're free right now!</p>
-            </div>
-            <Zap className="h-8 w-8 text-blue-500" />
-          </div>
-        </CardContent>
+      <Card className="animate-pop-in border-dashed border-primary/50 bg-secondary/10 text-center p-6 flex flex-col items-center justify-center space-y-3 animate-hover-lift"> {/* Added animate-hover-lift */}
+        <Clock className="h-8 w-8 text-muted-foreground animate-pulse" />
+        <CardTitle className="text-xl font-bold text-muted-foreground">No Active Task</CardTitle>
+        <p className="text-sm text-muted-foreground">Your schedule is clear, or tasks start later.</p>
+        <p className="text-xs text-muted-foreground">Try adding a task using the input below!</p> {/* Added suggestion */}
       </Card>
     );
   }
 
-  const timeRemaining = Math.max(0, Math.floor((activeItem.endTime.getTime() - T_current.getTime()) / (1000 * 60)));
+  const isBreak = activeItem.type === 'break';
+  const statusIcon = isBreak ? <Coffee className="h-8 w-8 text-logo-orange animate-pulse" /> : <Zap className="h-8 w-8 text-primary animate-pulse" />;
+  const cardBorderColor = isBreak ? 'border-logo-orange/50' : 'border-primary/50';
+  const cardBgColor = isBreak ? 'bg-logo-orange/10' : 'bg-primary/10';
+  const textColor = isBreak ? 'text-logo-orange' : 'text-primary';
 
   return (
-    <Card className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 animate-pop-in">
-      <CardContent className="p-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-medium text-green-900">Now: {activeItem.name}</h3>
-              {activeItem.isCritical && <Zap className="h-4 w-4 text-destructive" />}
-            </div>
-            <div className="flex items-center gap-4 mt-1">
-              <div className="flex items-center gap-1 text-sm text-green-700">
-                <Clock className="h-4 w-4" />
-                <span>{formatTime(activeItem.startTime)} - {formatTime(activeItem.endTime)}</span>
-              </div>
-              <span className="text-sm font-medium text-green-800">
-                {timeRemaining} min left
-              </span>
-            </div>
+    <Card 
+      className={cn("animate-pop-in border-2 animate-hover-lift cursor-pointer", cardBorderColor, cardBgColor, activeItem && "animate-pulse-glow-subtle")}
+      onClick={onEnterFocusMode} // NEW: Add onClick handler
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
+          {statusIcon} NOW FOCUS
+        </CardTitle>
+        <span className="text-sm text-muted-foreground">
+          {isToday(activeItem.startTime) ? 'Today' : formatDayMonth(activeItem.startTime)}
+        </span>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col items-center text-center">
+          <p className={cn("text-4xl font-extrabold font-mono leading-tight", textColor)}>
+            {activeItem.emoji} {activeItem.name}
+          </p>
+          <p className="text-lg text-muted-foreground mt-1">
+            ({activeItem.duration} min)
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex flex-col items-center">
+            <p className="text-muted-foreground">Time Remaining:</p>
+            <p className={cn("text-2xl font-bold font-mono", textColor)}>
+              {timeRemaining}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              size="sm" 
-              onClick={onEnterFocusMode}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Play className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-col items-center">
+            <p className="text-muted-foreground">Finishes At:</p>
+            <p className="text-2xl font-bold font-mono text-foreground">
+              {formatTime(activeItem.endTime)}
+            </p>
           </div>
         </div>
-        
+
         {nextItem && (
-          <div className="mt-3 pt-3 border-t border-green-100">
-            <p className="text-xs text-green-700">
-              Next: <span className="font-medium">{nextItem.name}</span> at {formatTime(nextItem.startTime)}
-            </p>
+          <div className="text-center text-muted-foreground italic mt-4">
+            Next up: {nextItem.emoji} {nextItem.name} ({nextItem.duration} min)
           </div>
         )}
       </CardContent>
     </Card>
   );
-};
+});
 
 export default NowFocusCard;

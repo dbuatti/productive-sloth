@@ -1,234 +1,166 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Zap, BatteryCharging } from 'lucide-react'; // Changed Zap to BatteryCharging for Pod
+import { Send, Zap, Plus, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTasks } from '@/hooks/use-tasks';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; // Use MAX duration for tooltip
-
-interface Suggestion {
-  type: 'command' | 'task';
-  name: string;
-  description?: string;
-}
+import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
+import { Card } from '@/components/ui/card';
 
 interface SchedulerInputProps {
-  onCommand: (command: string) => void;
-  isLoading?: boolean;
-  placeholder?: string;
+  onCommand: (input: string) => void;
+  isLoading: boolean;
   inputValue: string;
   setInputValue: (value: string) => void;
-  onDetailedInject: () => void;
-  onStartRegenPod: () => void; // Handler for starting the Pod
+  placeholder?: string;
+  onDetailedInject?: () => void;
+  onStartRegenPod?: () => void;
 }
 
-const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject, onStartRegenPod }) => {
-  const { allTasks } = useTasks();
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+const SchedulerInput: React.FC<SchedulerInputProps> = ({
+  onCommand,
+  isLoading,
+  inputValue,
+  setInputValue,
+  placeholder = "Enter command or task...",
+  onDetailedInject,
+  onStartRegenPod
+}) => {
+  const isMobile = useIsMobile();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isPopoverExplicitlyOpen, setIsPopoverExplicitlyOpen] = useState(false);
-
-  const commonCommands = useMemo<Suggestion[]>(() => [
-    { type: 'command', name: 'clear', description: 'Clear all scheduled tasks' },
-    { type: 'command', name: 'remove', description: 'Remove a task by name or index' },
-    { type: 'command', name: 'inject', description: 'Inject a task with specific details' },
-    { type: 'command', name: 'time off', description: 'Block out a period as "Time Off"' },
-  ], []);
-
-  const suggestions = useMemo(() => {
-    if (!inputValue) return [];
-
-    const lowerInput = inputValue.toLowerCase();
-    const filteredSuggestions: Suggestion[] = [];
-
-    commonCommands.forEach(cmd => {
-      if (cmd.name.toLowerCase().startsWith(lowerInput)) {
-        filteredSuggestions.push(cmd);
-      }
-    });
-
-    allTasks.forEach(task => {
-      if (task.title.toLowerCase().includes(lowerInput) && !filteredSuggestions.some(s => s.name === task.title)) {
-        filteredSuggestions.push({ type: 'task', name: task.title, description: `Task: ${task.title}` });
-      }
-    });
-
-    return filteredSuggestions.slice(0, 5);
-  }, [inputValue, allTasks, commonCommands]);
-
-  const shouldShowSuggestions = inputValue.length > 0 && suggestions.length > 0;
-
-  useEffect(() => {
-    if (shouldShowSuggestions) {
-      setIsPopoverExplicitlyOpen(true);
-    } else {
-      setIsPopoverExplicitlyOpen(false);
-    }
-    setSelectedIndex(-1);
-  }, [shouldShowSuggestions]);
-
-  useEffect(() => {
-    if (!isLoading && inputValue === '' && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [inputValue, isLoading]);
-
-
-  const handleSelectSuggestion = (suggestion: Suggestion) => {
-    if (suggestion.type === 'command' && suggestion.name === 'clear') {
-      onCommand(suggestion.name);
-    } else if (suggestion.type === 'command' && suggestion.name === 'remove') {
-      setInputValue('remove ');
-    } else if (suggestion.type === 'command' && suggestion.name === 'inject') {
-      setInputValue('inject ');
-    } else if (suggestion.type === 'command' && suggestion.name === 'time off') {
-      onCommand('time off');
-    } else {
-      setInputValue(suggestion.name);
-    }
-    setSelectedIndex(-1);
-    setIsPopoverExplicitlyOpen(false);
-    inputRef.current?.focus();
-  };
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim() && !isLoading) {
-      if (selectedIndex !== -1 && suggestions[selectedIndex]) {
-        handleSelectSuggestion(suggestions[selectedIndex]);
-      } else {
-        onCommand(inputValue.trim());
-        setInputValue('');
-      }
+      onCommand(inputValue.trim());
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (shouldShowSuggestions && isPopoverExplicitlyOpen) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
-      } else if (e.key === 'Enter' && selectedIndex !== -1) {
-        e.preventDefault();
-        handleSelectSuggestion(suggestions[selectedIndex]);
-      }
+  const handleQuickAdd = () => {
+    if (onDetailedInject) {
+      onDetailedInject();
+      if (isMobile) setIsDrawerOpen(false);
     }
   };
 
-  const handleClearInput = () => {
-    setInputValue('');
-    inputRef.current?.focus();
+  const handleRegenPod = () => {
+    if (onStartRegenPod) {
+      onStartRegenPod();
+      if (isMobile) setIsDrawerOpen(false);
+    }
   };
+
+  useEffect(() => {
+    if (inputRef.current && !isMobile) {
+      inputRef.current.focus();
+    }
+  }, [isMobile]);
+
+  const inputElement = (
+    <form onSubmit={handleSubmit} className="flex gap-2 w-full">
+      <div className="relative flex-grow">
+        <Input
+          ref={inputRef}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder={placeholder}
+          disabled={isLoading}
+          className="pr-12 h-12 text-base focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
+        />
+        <Button
+          type="submit"
+          size="icon"
+          disabled={isLoading || !inputValue.trim()}
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
+        >
+          <Send className="h-4 w-4" />
+        </Button>
+      </div>
+    </form>
+  );
+
+  if (isMobile) {
+    return (
+      <Card className="p-4 animate-slide-in-up shadow-md">
+        <div className="flex gap-2">
+          <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+            <DrawerTrigger asChild>
+              <Button variant="outline" size="icon" className="h-12 w-12 shrink-0">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent className="p-4">
+              <div className="space-y-3">
+                <Button 
+                  onClick={handleQuickAdd} 
+                  variant="outline" 
+                  className="w-full justify-start h-12"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Detailed Task
+                </Button>
+                <Button 
+                  onClick={handleRegenPod} 
+                  variant="outline" 
+                  className="w-full justify-start h-12"
+                >
+                  <Zap className="h-5 w-5 mr-2" />
+                  Energy Regen Pod
+                </Button>
+              </div>
+            </DrawerContent>
+          </Drawer>
+          
+          {inputElement}
+        </div>
+      </Card>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-2 w-full animate-slide-in-up relative">
-      <form onSubmit={handleSubmit} className="flex gap-2 w-full">
-        <div className="relative flex-grow">
-          <Input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add task (e.g., 'Gym 60') or command"
-            disabled={isLoading}
-            className="flex-grow h-11 pr-10 text-base focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200" // Increased height and font size
-          />
-          {inputValue && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleClearInput}
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 text-muted-foreground hover:text-primary"
-            >
-              <XCircle className="h-5 w-5" />
-              <span className="sr-only">Clear input</span>
-            </Button>
-          )}
+    <Card className="p-4 animate-slide-in-up shadow-md">
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleQuickAdd} 
+                variant="outline" 
+                size="icon" 
+                className="h-12 w-12"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Add Detailed Task</p>
+            </TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleRegenPod} 
+                variant="outline" 
+                size="icon" 
+                className="h-12 w-12"
+              >
+                <Zap className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Energy Regen Pod</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
         
-        {/* Energy Regen Pod Button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              type="button" 
-              onClick={onStartRegenPod} 
-              disabled={isLoading} 
-              variant="outline"
-              size="icon"
-              className="shrink-0 h-11 w-11 text-logo-green hover:bg-logo-green/10 transition-all duration-200" // Increased size
-            >
-              <BatteryCharging className="h-5 w-5" />
-              <span className="sr-only">Start Energy Regen Pod</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Start Energy Regen Pod (Dynamic duration, max {REGEN_POD_MAX_DURATION_MINUTES} min)</p>
-          </TooltipContent>
-        </Tooltip>
-
-        {/* Detailed Task Injector Button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              type="button" 
-              onClick={onDetailedInject} 
-              disabled={isLoading} 
-              variant="outline"
-              size="icon"
-              className="shrink-0 h-11 w-11 text-primary hover:bg-primary/10 transition-all duration-200" // Increased size
-            >
-              <Plus className="h-5 w-5" />
-              <span className="sr-only">Detailed Task Injector</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Inject a task with specific details</p>
-          </TooltipContent>
-        </Tooltip>
-        <Button type="submit" disabled={isLoading} className="shrink-0 h-11 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"> {/* Increased size */}
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          <span className="sr-only">Send</span>
-        </Button>
-      </form>
-
-      <Popover open={isPopoverExplicitlyOpen} onOpenChange={setIsPopoverExplicitlyOpen}>
-        <PopoverTrigger asChild>
-          {/* FIX: Ensure PopoverTrigger wraps exactly one element */}
-          <div className="absolute top-0 left-0 w-full h-11 pointer-events-none" /> 
-        </PopoverTrigger>
-        <PopoverContent 
-          className="p-0 w-[var(--radix-popover-trigger-width)] mt-1" 
-          align="start" 
-          sideOffset={5}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          <ul className="max-h-60 overflow-y-auto">
-            {suggestions.map((suggestion, index) => (
-              <li
-                key={suggestion.name}
-                className={cn(
-                  "flex items-center gap-2 p-3 cursor-pointer hover:bg-accent hover:text-accent-foreground text-base", // Increased padding and font size
-                  selectedIndex === index && "bg-accent text-accent-foreground"
-                )}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelectSuggestion(suggestion)}
-              >
-                {suggestion.type === 'command' ? <CommandIcon className="h-5 w-5" /> : <ListTodo className="h-5 w-5" />} {/* Increased icon size */}
-                <span>{suggestion.name}</span>
-                {suggestion.description && <span className="text-muted-foreground text-sm ml-auto">{suggestion.description}</span>} {/* Increased font size */}
-              </li>
-            ))}
-          </ul>
-        </PopoverContent>
-      </Popover>
-    </div>
+        <div className="flex-grow">
+          {inputElement}
+        </div>
+      </div>
+    </Card>
   );
 };
 

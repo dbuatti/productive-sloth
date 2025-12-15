@@ -29,12 +29,13 @@ import {
   AlertDialogTrigger, // ADDED: AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
 import { format, parseISO } from 'date-fns'; // Import date-fns functions
+import { useNavigate } from 'react-router-dom'; // Ensure useNavigate is imported
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
@@ -49,6 +50,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 const SettingsPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, refreshProfile, rechargeEnergy, resetDailyStreak, updateNotificationPreferences, updateProfile, updateSettings } = useSession();
   const { setTheme } = useTheme();
+  const navigate = useNavigate(); // Use useNavigate
 
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
@@ -247,6 +249,36 @@ const SettingsPage: React.FC = () => {
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          
+          {/* NEW: Navigation Card */}
+          <Card className="animate-hover-lift">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ExternalLink className="h-5 w-5 text-primary" /> Navigation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => navigate('/analytics')}
+                  className="w-full justify-start flex items-center gap-2"
+                >
+                  <TrendingUp className="h-4 w-4" /> View Analytics Dashboard
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => navigate('/documentation')}
+                  className="w-full justify-start flex items-center gap-2"
+                >
+                  <BookOpen className="h-4 w-4" /> Read Documentation
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Personal Information Card */}
           <Card className="animate-hover-lift">
             <CardHeader>

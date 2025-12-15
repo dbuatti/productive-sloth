@@ -20,7 +20,6 @@ const navItems: NavItem[] = [
   { to: "/scheduler", icon: Clock, label: "Schedule", matchPath: '/scheduler' },
   { to: "/sink", icon: Trash2, label: "Sink", matchPath: '/sink' },
   { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' },
-  { to: "/analytics", icon: Sparkles, label: "Stats", matchPath: '/analytics' },
 ];
 
 const BottomNavigationBar: React.FC = () => {
@@ -96,8 +95,8 @@ const BottomNavigationBar: React.FC = () => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-card border-t border-border shadow-2xl lg:hidden animate-slide-in-up">
-      {/* Use a 5-column grid: Nav1 | Nav2 | FAB | Nav3 | Nav4 */}
-      <div className="grid grid-cols-5 items-center h-full max-w-md mx-auto">
+      {/* Use a 4-column grid: Nav1 | Nav2 | FAB | Nav3 */}
+      <div className="grid grid-cols-4 items-center h-full max-w-md mx-auto">
         
         {/* Nav Item 1: Schedule */}
         <div className="col-span-1 flex items-center justify-center h-full">
@@ -143,10 +142,6 @@ const BottomNavigationBar: React.FC = () => {
             {renderNavItem(navItems[2])}
         </div>
         
-        {/* Nav Item 4: Stats */}
-        <div className="col-span-1 flex items-center justify-center h-full">
-            {renderNavItem(navItems[3])}
-        </div>
       </div>
     </div>
   );

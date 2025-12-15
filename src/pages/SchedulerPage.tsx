@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useLocation, useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@//integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import WeatherWidget from '@/components/WeatherWidget';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -62,9 +62,8 @@ import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
-import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import AutoScheduleButton from '@/components/AutoScheduleButton';
+import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import { cn } from '@/lib/utils';
 
 // Helper to get initial state from localStorage
@@ -682,7 +681,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             workdayEndTime,
             T_current
         );
-        const tasksToUpdate = compactedTasks.filter(task => task.start_time && task.end_time);
+        const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
 
         if (tasksToUpdate.length > 0) {
             await compactScheduledTasks({ tasksToUpdate });
@@ -2483,7 +2482,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         onRefreshSchedule={handleRefreshSchedule}
       />
 
-      {/* WRAP CalendarStrip and SchedulerSegmentedControl in a Card */}
+      {/* WRAP CalendarStrip in a Card */}
       <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
         <CalendarStrip 
           selectedDay={selectedDay} 
@@ -2491,20 +2490,16 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           datesWithTasks={datesWithTasks} 
           isLoadingDatesWithTasks={isLoadingDatesWithTasks}
         />
-
-        {/* NEW: Segmented Control for View Switching */}
-        <SchedulerSegmentedControl currentView={view} />
       </Card>
 
       {/* Conditional View Rendering based on 'view' prop */}
       <div className="animate-slide-in-up">
-        {view === 'schedule' && renderScheduleCore()}
-        {view === 'recap' && renderRecapView()}
-        {view === 'sink' && renderSinkView()}
+        {/* Since /sink and /recap routes are removed, we only render the schedule view */}
+        {renderScheduleCore()}
       </div>
 
       {/* Mobile Controls Drawer (Hidden on desktop) */}
-      {isMobile && view === 'schedule' && (
+      {isMobile && (
           <Drawer>
               <DrawerTrigger asChild>
                   <Button

@@ -37,8 +37,6 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
   const navItems = [
     { to: "/scheduler", icon: Clock, label: "Vibe Schedule" }, 
-    { to: "/sink", icon: Trash2, label: "Aether Sink" }, 
-    { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, 
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
     { to: "/achievements", icon: Trophy, label: "Achievements" },
     { to: "/documentation", icon: BookOpen, label: "Documentation" },

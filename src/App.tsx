@@ -37,8 +37,6 @@ const App = () => (
                     
                     {/* SCHEDULER ROUTES */}
                     <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
-                    <Route path="/sink" element={<SchedulerPage view="sink" />} />
-                    <Route path="/recap" element={<SchedulerPage view="recap" />} />
                     
                     <Route path="/documentation" element={<DocumentationPage />} />
                     <Route path="/login" element={<Login />} />

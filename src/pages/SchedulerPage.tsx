@@ -55,7 +55,6 @@ import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
 import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog';
 import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import EarlyCompletionModal from '@/components/EarlyCompletionModal';
-import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY, REGEN_POD_MAX_DURATION_MINUTES, REGEN_POD_RATE_PER_MINUTE } from '@/lib/constants';
 import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
@@ -112,7 +111,7 @@ interface InjectionPromptState {
 }
 
 interface SchedulerPageProps {
-  view: 'schedule' | 'sink' | 'recap';
+  view: 'schedule' | 'sink';
 }
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
@@ -2256,47 +2255,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, setIsFocusModeActive, updateScheduledTaskStatus, triggerEnergyRegen]);
 
 
-  const tasksCompletedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.length;
-  }, [completedTasksForSelectedDayList]);
-
-  const xpEarnedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.reduce((sum, task) => sum + (task.energy_cost * 2), 0);
-  }, [completedTasksForSelectedDayList]);
-
-  const criticalTasksCompletedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.filter(task => 
-      task.is_critical && task.is_completed
-    ).length;
-  }, [completedTasksForSelectedDayList]);
-
-  const completedScheduledTasksForRecap = useMemo(() => {
-    return completedTasksForSelectedDayList;
-  }, [completedTasksForSelectedDayList]);
-
-  // NEW: Calculate Active Time and Break Time from completed tasks list
-  const { totalActiveTimeMinutes, totalBreakTimeMinutes } = useMemo(() => {
-    let activeTime = 0;
-    let breakTime = 0;
-
-    completedTasksForSelectedDayList.forEach(task => {
-      const duration = task.effective_duration_minutes;
-      const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
-      
-      if (isBreakOrMeal) {
-        breakTime += duration;
-      } else {
-        activeTime += duration;
-      }
-    });
-
-    return { totalActiveTimeMinutes: activeTime, totalBreakTimeMinutes: breakTime };
-  }, [completedTasksForSelectedDayList]);
-
-
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
@@ -2429,20 +2387,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     />
   );
 
-  const renderRecapView = () => (
-    <DailyVibeRecapCard
-      scheduleSummary={currentSchedule?.summary || null}
-      tasksCompletedToday={tasksCompletedForSelectedDay}
-      xpEarnedToday={xpEarnedForSelectedDay}
-      profileEnergy={profile?.energy || 0}
-      criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
-      selectedDayString={selectedDay}
-      completedScheduledTasks={completedScheduledTasksForRecap}
-      totalActiveTimeMinutes={totalActiveTimeMinutes} // NEW
-      totalBreakTimeMinutes={totalBreakTimeMinutes} // NEW
-    />
-  );
-
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Immersive Focus Mode (Highest Layer) */}
@@ -2499,7 +2443,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       {/* Conditional View Rendering based on 'view' prop */}
       <div className="animate-slide-in-up">
         {view === 'schedule' && renderScheduleCore()}
-        {view === 'recap' && renderRecapView()}
         {view === 'sink' && renderSinkView()}
       </div>
 

@@ -1,58 +1,47 @@
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Login from "./pages/Login";
-import NotFound from "./pages/NotFound";
-import { SessionProvider } from "./components/SessionProvider";
-import { ThemeProvider } from "next-themes";
-import React from "react";
-import MainLayout from "./components/MainLayout";
-import Dashboard from "./pages/Dashboard";
-import AchievementsPage from "./pages/AchievementsPage";
-import SettingsPage from "./pages/SettingsPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import SchedulerPage from "./pages/SchedulerPage";
-import DocumentationPage from "./pages/DocumentationPage";
-import EnvironmentProvider from "./components/EnvironmentProvider";
-import EnergyRegenInitializer from "./components/EnergyRegenInitializer"; // NEW IMPORT
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useSession } from './hooks/use-session';
+import IndexPage from './pages/Index';
+import LoginPage from './pages/Login';
+import SchedulerPage from './pages/SchedulerPage';
+import { Toaster } from 'react-hot-toast';
+import { TooltipProvider } from './components/ui/tooltip';
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import { EnvironmentProvider } from './hooks/use-environment-context';
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <TooltipProvider delayDuration={200}>
-        <React.Fragment>
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <EnvironmentProvider>
-              <SessionProvider>
-                <EnergyRegenInitializer /> {/* NEW: Initialize hook here */}
-                <MainLayout>
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/analytics" element={<AnalyticsPage />} />
-                    <Route path="/achievements" element={<AchievementsPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    
-                    {/* NEW SCHEDULER ROUTES */}
-                    <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
-                    <Route path="/sink" element={<SchedulerPage view="sink" />} />
-                    <Route path="/recap" element={<SchedulerPage view="recap" />} />
-                    
-                    <Route path="/documentation" element={<DocumentationPage />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </MainLayout>
-              </SessionProvider>
-            </EnvironmentProvider>
-          </BrowserRouter>
-        </React.Fragment>
+const App = () => {
+  const { user, isLoading } = useSession();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <EnvironmentProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              {user ? (
+                <>
+                  <Route path="/" element={<IndexPage />} />
+                  <Route path="/schedule" element={<SchedulerPage view="schedule" />} />
+                  <Route path="/sink" element={<SchedulerPage view="sink" />} />
+                  <Route path="*" element={<Navigate to="/schedule" replace />} />
+                </>
+              ) : (
+                <Route path="*" element={<Navigate to="/login" replace />} />
+              )}
+            </Routes>
+          </Router>
+          <Toaster />
+        </EnvironmentProvider>
       </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+};
 
 export default App;

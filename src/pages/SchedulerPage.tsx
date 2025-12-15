@@ -64,8 +64,8 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import { cn } from '@/lib/utils';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
-import SchedulerContextBar from '@/components/SchedulerContextBar'; // NEW IMPORT
-import SchedulerActionCenter from '@/components/SchedulerActionCenter'; // NEW IMPORT
+import SchedulerContextBar from '@/components/SchedulerContextBar';
+import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 
 // Helper to get initial state from localStorage
 const getInitialSelectedDay = () => {
@@ -2349,8 +2349,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         <SchedulerContextBar T_current={T_current} />
       </div>
 
-      {/* Schedule Input Card */}
-      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift">
+      {/* Schedule Input Card (Desktop Only) */}
+      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift hidden lg:block">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
             <ListTodo className="h-6 w-6 text-primary" /> Schedule Input
@@ -2372,7 +2372,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       </Card>
 
       {/* Action Center (Replaces Utility Bar and Auto Schedule Button) */}
-      <div className="animate-slide-in-up">
+      <div className="animate-slide-in-up hidden lg:block">
         <SchedulerActionCenter 
           isProcessingCommand={isProcessingCommand}
           dbScheduledTasks={dbScheduledTasks}

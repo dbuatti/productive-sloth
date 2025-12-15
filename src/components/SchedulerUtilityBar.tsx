@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Anchor, Feather, PlusCircle, MinusCircle, Star, Database, Trash2, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
+import QuickScheduleBlock from './QuickScheduleBlock'; // Import QuickScheduleBlock
 
 interface SchedulerUtilityBarProps {
   isProcessingCommand: boolean;
@@ -61,10 +62,10 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
 
   return (
     <Card className="p-4 animate-slide-in-up animate-hover-lift">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-4">
         
-        {/* Group 1: Quick Actions */}
-        <div className="flex items-center gap-2 border-r pr-3">
+        {/* Row 1: Quick Actions (Compact, Randomize, Zone Focus, Recharge) */}
+        <div className="flex flex-wrap items-center gap-2 border-b pb-3">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -130,65 +131,41 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
               <p>Zone Focus (Auto-schedule filtered tasks from Sink)</p>
             </TooltipContent>
           </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onRechargeEnergy}
+                disabled={isProcessingCommand}
+                className="h-10 w-10 text-logo-green hover:bg-logo-green/10 transition-all duration-200"
+              >
+                <Zap className="h-5 w-5" />
+                <span className="sr-only">Recharge Energy</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Recharge Energy (+25⚡)</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* Group 2: Quick Schedule Blocks */}
-        <div className="flex items-center gap-2 border-r pr-3">
-          <span className="text-sm text-muted-foreground">Quick Block:</span>
+        {/* Row 2: Quick Schedule Blocks */}
+        <div className="flex flex-wrap items-center gap-3 border-b pb-3">
+          <span className="text-sm font-semibold text-muted-foreground shrink-0">Quick Block:</span>
           {DURATION_BUCKETS.map(duration => (
-            <div key={duration} className="relative flex items-center h-10 rounded-full border border-input bg-background animate-hover-lift">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onQuickScheduleBlock(duration, 'shortestFirst')}
-                    disabled={isProcessingCommand}
-                    className="h-full w-10 rounded-full rounded-r-none text-primary hover:bg-primary/10"
-                  >
-                    <Feather className="h-5 w-5" />
-                    <span className="sr-only">Schedule {duration} min (Shortest Tasks First)</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Schedule {duration} min (Shortest Tasks First)</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="h-10 w-10 flex items-center justify-center text-sm font-bold text-foreground">
-                    {duration}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Quick Schedule Block: {duration} minutes</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onQuickScheduleBlock(duration, 'longestFirst')}
-                    disabled={isProcessingCommand}
-                    className="h-full w-10 rounded-full rounded-l-none text-primary hover:bg-primary/10"
-                  >
-                    <Anchor className="h-5 w-5" />
-                    <span className="sr-only">Schedule {duration} min (Longest Tasks First)</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Schedule {duration} min (Longest Tasks First)</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
+            <QuickScheduleBlock
+              key={duration}
+              duration={duration}
+              onScheduleBlock={onQuickScheduleBlock}
+              isProcessingCommand={isProcessingCommand}
+            />
           ))}
         </div>
 
-        {/* Group 3: Sort & Settings */}
-        <div className="flex items-center gap-2 border-r pr-3">
+        {/* Row 3: Sort, Settings, Dump, Refresh */}
+        <div className="flex flex-wrap items-center gap-3">
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -244,12 +221,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
               <p>Adjust Workday Window</p>
             </TooltipContent>
           </Tooltip>
-        </div>
-
-        {/* Group 4: Aether Dump & Refresh */}
-        <div className="flex items-center gap-2">
-          {/* Removed Auto Schedule Day button here */}
-
+          
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>

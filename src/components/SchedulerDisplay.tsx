@@ -23,6 +23,7 @@ interface SchedulerDisplayProps {
   onAddTaskClick: () => void;
   onScrollToItem: (itemId: string) => void; // NEW: Prop for scrolling to a specific item
   isProcessingCommand: boolean; // ADDED
+  onFreeTimeClick: (startTime: Date, endTime: Date) => void; // NEW PROP
 }
 
 const getBubbleHeightStyle = (duration: number, isFreeTime: boolean = false) => {
@@ -59,7 +60,7 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
   }
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick, onScrollToItem, isProcessingCommand }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick, onScrollToItem, isProcessingCommand, onFreeTimeClick }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -258,8 +259,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             <span className="text-base font-bold text-foreground whitespace-nowrap">
               {item.label}
             </span>
-            {/* Dot positioned on the timeline (60px column width) */}
-            <div className="absolute right-0 h-3 w-3 rounded-full bg-border translate-x-1.5 z-10" /> 
           </div>
           {/* Column 2: Horizontal line extending into task area */}
           <div className="relative flex items-center h-0">
@@ -280,17 +279,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div 
             id={`scheduled-item-${freeTimeItem.id}`}
             className={cn(
-              "relative flex flex-col items-center justify-center text-muted-foreground italic text-sm h-[25px] rounded-lg shadow-sm transition-all duration-200 ease-in-out", // Reduced height and font size
-              "border-2 border-dashed", // Added dashed border for free time
+              "relative flex flex-col items-center justify-center text-muted-foreground italic text-sm h-[25px] rounded-lg shadow-sm transition-all duration-200 ease-in-out cursor-pointer", 
+              "border-2 border-dashed", 
               isHighlightedByNowCard ? "opacity-50 border-border" :
-              isActive ? "bg-live-progress/10 border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70 border-secondary",
+              isActive ? "bg-live-progress/10 border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70 border-secondary hover:border-primary/50", 
               isPastItem && "opacity-50 border-muted-foreground/30"
             )}
-            style={getBubbleHeightStyle(freeTimeItem.duration, true)} // Apply height style based on duration, explicitly marking as free time
+            style={getBubbleHeightStyle(freeTimeItem.duration, true)} 
+            onClick={() => onFreeTimeClick(freeTimeItem.startTime, freeTimeItem.endTime)} 
           >
             <span className="text-base font-semibold text-muted-foreground/80">{freeTimeItem.message}</span>
             <span className="text-xs text-muted-foreground/60 mt-1">Click to inject a task here</span>
-            {/* Removed local progress line for free time */}
           </div>
         </React.Fragment>
       );
@@ -317,24 +316,24 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
       const isTimeOff = scheduledItem.type === 'time-off';
       const isBreak = scheduledItem.type === 'break';
-      const isMeal = scheduledItem.type === 'meal';
+      const isMealTask = scheduledItem.type === 'meal';
       const isRegenPod = scheduledItem.id === 'regen-pod-active';
 
       // Determine background color based on type
       let itemBgColor = ambientBackgroundColor;
       if (isTimeOff) {
         itemBgColor = undefined; // Use default card background for time off
-      } else if (isMeal) {
+      } else if (isMealTask) {
         itemBgColor = `hsl(140 50% 35% / 0.3)`; // Fixed green hue for meals
       } else if (isRegenPod) { // NEW: Pod styling
         itemBgColor = `hsl(120 50% 35% / 0.5)`; // Green hue for recovery
       }
 
       // Determine text color
-      const itemTextColor = isTimeOff ? 'text-logo-green' : (isMeal ? 'text-logo-green' : (isRegenPod ? 'text-logo-green' : 'text-[hsl(var(--always-light-text))]'));
+      const itemTextColor = isTimeOff ? 'text-logo-green' : (isMealTask ? 'text-logo-green' : (isRegenPod ? 'text-logo-green' : 'text-[hsl(var(--always-light-text))]'));
 
       // Determine completion visual style
-      const isFixedOrTimed = isFixed || isTimeOff || isMeal || isRegenPod; // Fixed tasks, Time Off, Meals, and Pod remain visible when completed
+      const isFixedOrTimed = isFixed || isTimeOff || isMealTask || isRegenPod; // Fixed tasks, Time Off, Meals, and Pod remain visible when completed
       const completionClasses = isCompleted && isFixedOrTimed ? "opacity-70" : (isCompleted ? "hidden" : "opacity-100");
       
       // If the task is completed and is NOT a fixed/timed event, we hide it.
@@ -362,7 +361,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div
             id={`scheduled-item-${scheduledItem.id}`}
             className={cn(
-              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", // Reduced padding to p-3
+              "relative flex flex-col justify-center gap-1 p-3 rounded-lg shadow-md transition-all duration-200 ease-in-out animate-pop-in overflow-hidden cursor-pointer", 
               "border-2",
               isHighlightedBySession ? "opacity-50" :
               isActive ? "border-live-progress animate-pulse-active-row" :
@@ -380,7 +379,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             }}
           >
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
-              <span className="text-[8rem] opacity-10 select-none"> {/* Reduced emoji size */}
+              <span className="text-[8rem] opacity-10 select-none"> 
                 {scheduledItem.emoji}
               </span>
             </div>
@@ -402,12 +401,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         }}
                         disabled={isLocked}
                         className={cn(
-                          "h-6 w-6 p-0 shrink-0 mr-2", // Reduced size
+                          "h-6 w-6 p-0 shrink-0 mr-2", 
                           isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                         )}
                         style={isLocked ? { pointerEvents: 'auto' } : undefined}
                       >
-                        <CheckCircle className="h-4 w-4" /> {/* Reduced size */}
+                        <CheckCircle className="h-4 w-4" /> 
                         <span className="sr-only">Complete task</span>
                       </Button>
                     </TooltipTrigger>
@@ -419,7 +418,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
                 {/* Task Name & Condensed Metadata */}
                 <span className={cn(
-                  "text-sm flex-grow min-w-0 pr-2", // Reduced font size
+                  "text-sm flex-grow min-w-0 pr-2", 
                   itemTextColor,
                   isCompleted && isFixedOrTimed && "line-through text-muted-foreground"
                 )}>
@@ -427,8 +426,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     {scheduledItem.isCritical && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="relative flex items-center justify-center h-3 w-3 rounded-full bg-logo-yellow text-white shrink-0"> {/* Reduced size */}
-                            <Star className="h-2.5 w-2.5" strokeWidth={2.5} /> {/* Reduced size */}
+                          <div className="relative flex items-center justify-center h-3 w-3 rounded-full bg-logo-yellow text-white shrink-0"> 
+                            <Star className="h-2.5 w-2.5" strokeWidth={2.5} /> 
                           </div>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -436,8 +435,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    <span className="text-lg">{scheduledItem.emoji}</span> {/* Reduced emoji size */}
-                    <span className={cn("font-bold truncate block text-base", isLocked ? "text-primary" : "text-foreground")}>{scheduledItem.name}</span> {/* Reduced font size to text-base */}
+                    <span className="text-lg">{scheduledItem.emoji}</span> 
+                    <span className={cn("font-bold truncate block text-base", isLocked ? "text-primary" : "text-foreground")}>{scheduledItem.name}</span> 
                     
                     {/* Energy Cost / Gain */}
                     {scheduledItem.energyCost !== undefined && scheduledItem.energyCost !== 0 && (
@@ -445,12 +444,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                             <TooltipTrigger asChild>
                                 <span className={cn(
                                     "flex items-center gap-1 font-semibold font-mono text-xs px-1 py-0.5 rounded-sm",
-                                    // IMPROVEMENT: Use distinct colors for cost vs gain
                                     scheduledItem.energyCost < 0 ? "text-logo-green bg-logo-green/30" : "text-logo-yellow bg-logo-yellow/30",
                                     isCompleted && isFixedOrTimed && "text-muted-foreground/80"
                                 )}>
                                     {scheduledItem.energyCost > 0 ? scheduledItem.energyCost : `+${Math.abs(scheduledItem.energyCost)}`} 
-                                    {scheduledItem.energyCost > 0 ? <Zap className="h-3 w-3" /> : <Utensils className="h-3 w-3" />} {/* Use Utensils for positive energy (meals) */}
+                                    {scheduledItem.energyCost > 0 ? <Zap className="h-3 w-3" /> : <Utensils className="h-3 w-3" />} 
                                 </span>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -462,7 +460,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     {/* Environment Icon */}
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className="h-4 w-4 flex items-center justify-center shrink-0"> {/* Reduced size */}
+                            <div className="h-4 w-4 flex items-center justify-center shrink-0"> 
                                 {getEnvironmentIcon(scheduledItem.taskEnvironment)}
                             </div>
                         </TooltipTrigger>
@@ -487,12 +485,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           }}
                           disabled={isProcessingCommand}
                           className={cn(
-                            "h-6 w-6 p-0 shrink-0", // Reduced size
+                            "h-6 w-6 p-0 shrink-0", 
                             isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                           )}
                           style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                         >
-                          {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />} {/* Reduced size */}
+                          {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />} 
                           <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
                         </Button>
                       </TooltipTrigger>
@@ -514,12 +512,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           }}
                           disabled={isLocked || isProcessingCommand}
                           className={cn(
-                            "h-6 w-6 p-0 shrink-0", // Reduced size
+                            "h-6 w-6 p-0 shrink-0", 
                             (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                           )}
                           style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                         >
-                          <Archive className="h-4 w-4" /> {/* Reduced size */}
+                          <Archive className="h-4 w-4" /> 
                           <span className="sr-only">Retire task</span>
                         </Button>
                       </TooltipTrigger>
@@ -539,12 +537,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                         }}
                         disabled={isLocked || isProcessingCommand}
                         className={cn(
-                          "h-6 w-6 p-0 shrink-0", // Reduced size
+                          "h-6 w-6 p-0 shrink-0", 
                           (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                         )}
                         style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                       >
-                        <Trash className="h-4 w-4" /> {/* Reduced size */}
+                        <Trash className="h-4 w-4" /> 
                         <span className="sr-only">Remove task</span>
                       </Button>
                     </TooltipTrigger>
@@ -559,7 +557,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               <div className={cn(
                 "flex items-center justify-between w-full mt-1 text-sm",
                 // Adjust margin-left based on whether the completion button is present
-                dbTask && !isTimeOff && !isRegenPod && (scheduledItem.type === 'task' || scheduledItem.type === 'break' || scheduledItem.type === 'meal') && !isCompleted ? "ml-[32px]" : "ml-0" // 32px for h-6 w-6 button + gap
+                dbTask && !isTimeOff && !isRegenPod && (scheduledItem.type === 'task' || scheduledItem.type === 'break' || scheduledItem.type === 'meal') && !isCompleted ? "ml-[32px]" : "ml-0" 
               )}>
                   <div className="flex items-center gap-3">
                       {/* Time Range */}
@@ -592,23 +590,23 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               </div>
             </div>
             {scheduledItem.type === 'break' && scheduledItem.description && (
-              <p className={cn("relative z-10 text-xs mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> // Reduced font size
+              <p className={cn("relative z-10 text-xs mt-1 text-[hsl(var(--always-light-text))] opacity-80")}>{scheduledItem.description}</p> 
             )}
             {isTimeOff && (
-              <p className={cn("relative z-10 text-xs mt-1 text-logo-green/80")}>This block is reserved for personal time.</p> // Reduced font size
+              <p className={cn("relative z-10 text-xs mt-1 text-logo-green/80")}>This block is reserved for personal time.</p> 
             )}
             {isRegenPod && (
-              <p className={cn("relative z-10 text-xs mt-1 text-logo-green/80")}>Energy regeneration in progress. Exit via the Pod Modal.</p> // Reduced font size
+              <p className={cn("relative z-10 text-xs mt-1 text-logo-green/80")}>Energy regeneration in progress. Exit via the Pod Modal.</p> 
             )}
 
-            {isActive && (
+            {isActive && isTodaySelected && (
               <>
                 <div 
                   className="absolute left-0 right-0 h-[4px] bg-live-progress z-20 border-b-4 border-live-progress"
                   style={{ top: `${progressLineTopPercentage}%` }}
                 ></div>
                 <div className="absolute left-0 -translate-x-full mr-2 z-50" style={{ top: '-10px' }}>
-                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> {/* Reduced font size */}
+                  <span className="px-2 py-1 rounded-md bg-live-progress text-black text-xs font-semibold whitespace-nowrap"> 
                     {formatTime(T_current)}
                   </span>
                 </div>

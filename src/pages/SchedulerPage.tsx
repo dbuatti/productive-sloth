@@ -855,7 +855,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     }
 
     eligibleSinkTasks.sort((a, b) => {
-        if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
+        if (a.is_critical && !b.is_critical) return -1;
+        if (!a.is_critical && b.is_critical) return 1;
         return b.totalDuration - a.totalDuration;
     });
 
@@ -1945,6 +1946,32 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     setInputValue('');
   };
 
+  // NEW: Handler for clicking a free time block
+  const handleFreeTimeClick = useCallback((startTime: Date, endTime: Date) => {
+    const duration = differenceInMinutes(endTime, startTime);
+    
+    setInjectionPrompt({ 
+      taskName: '',
+      isOpen: true, 
+      isTimed: false,
+      duration: duration,
+      startTime: undefined,
+      endTime: undefined,
+      isCritical: false,
+      isFlexible: true,
+      energyCost: calculateEnergyCost(duration, false),
+      breakDuration: undefined,
+      isCustomEnergyCost: false,
+      taskEnvironment: environmentForPlacement,
+    });
+    setInjectionDuration(String(duration));
+    setInjectionBreak('');
+    setInjectionStartTime('');
+    setInjectionEndTime('');
+    setInputValue('');
+    showSuccess(`Injected ${duration} min free slot into task creation.`);
+  }, [environmentForPlacement]);
+
   const handleSchedulerAction = useCallback(async (
     action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus',
     task: DBScheduledTask,
@@ -2437,6 +2464,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               onAddTaskClick={handleAddTaskClick}
               onScrollToItem={handleScrollToItem}
               isProcessingCommand={isProcessingCommand}
+              onFreeTimeClick={handleFreeTimeClick}
             />
           )}
         </CardContent>

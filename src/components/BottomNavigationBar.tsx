@@ -18,6 +18,9 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { to: "/scheduler", icon: Clock, label: "Schedule", matchPath: '/scheduler' },
+  { to: "/sink", icon: Trash2, label: "Sink", matchPath: '/sink' },
+  // FAB placeholder in the middle
+  { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' },
 ];
 
 const BottomNavigationBar: React.FC = () => {
@@ -73,8 +76,8 @@ const BottomNavigationBar: React.FC = () => {
     <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-card border-t border-border shadow-2xl lg:hidden animate-slide-in-up">
       <div className="flex justify-around items-center h-full max-w-md mx-auto">
         
-        {/* Left Nav Items (Only Schedule remains) */}
-        {navItems.map(item => (
+        {/* Left Nav Items */}
+        {navItems.slice(0, 2).map(item => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -116,8 +119,22 @@ const BottomNavigationBar: React.FC = () => {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Right Nav Items (Empty) */}
-        <div className="w-1/4 h-full" />
+        {/* Right Nav Items */}
+        {navItems.slice(2).map(item => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              cn(
+                "flex flex-col items-center justify-center h-full w-1/4 text-xs font-medium transition-colors duration-200",
+                (isActive || location.pathname.startsWith(item.matchPath)) ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              )
+            }
+          >
+            <item.icon className="h-6 w-6 mb-0.5" />
+            {item.label}
+          </NavLink>
+        ))}
       </div>
     </div>
   );

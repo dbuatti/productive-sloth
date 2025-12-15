@@ -8,7 +8,6 @@ import { SessionProvider } from "./components/SessionProvider";
 import { ThemeProvider } from "next-themes";
 import React from "react";
 import MainLayout from "./components/MainLayout";
-import AchievementsPage from "./pages/AchievementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SchedulerPage from "./pages/SchedulerPage";

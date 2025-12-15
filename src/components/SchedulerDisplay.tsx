@@ -1,9 +1,9 @@
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, CurrentTimeMarker, DBScheduledTask, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { formatTime, getEmojiHue, isMeal } from '@/lib/scheduler-utils'; // Import isMeal
+import { formatTime, getEmojiHue, isMeal, formatCompactDuration } from '@/lib/scheduler-utils'; // Import formatCompactDuration
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils } from 'lucide-react'; // Import Utensils
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils, ArrowDown } from 'lucide-react'; // Import ArrowDown
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format } from 'date-fns';
@@ -25,6 +25,8 @@ interface SchedulerDisplayProps {
   isProcessingCommand: boolean; // ADDED
 }
 
+const FREE_TIME_THRESHOLD_MINUTES = 10; // Threshold for displaying free time duration
+
 const getBubbleHeightStyle = (duration: number) => {
   const baseHeight = 40;
   const multiplier = 1.5;
@@ -41,7 +43,6 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
     case 'laptop':
       return <Laptop className="h-4 w-4 text-primary" />; // Reduced size
     case 'away':
-      return <Globe className="h-4 w-4 text-logo-orange" />; // Reduced size
     case 'piano':
       return <Music className="h-4 w-4 text-accent" />; // Reduced size
     case 'laptop_piano':
@@ -245,27 +246,52 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     } else if (item.type === 'free-time') {
       const freeTimeItem = item as FreeTimeItem;
       const isActive = T_current >= freeTimeItem.startTime && T_current < freeTimeItem.endTime;
-      const isHighlightedByNowCard = activeItemId === freeTimeItem.id;
+      const isPastFreeTime = freeTimeItem.endTime <= T_current;
+      
+      const durationFormatted = formatCompactDuration(freeTimeItem.duration);
+      const shouldDisplayDuration = freeTimeItem.duration >= FREE_TIME_THRESHOLD_MINUTES;
 
       return (
         <React.Fragment key={freeTimeItem.id}>
-          {/* Column 1: Empty space */}
-          <div></div>
-          {/* Column 2: Free Time Bubble */}
+          {/* Column 1: Timeline Axis - Display Free Time Duration */}
+          <div 
+            className={cn(
+              "flex items-center justify-end pr-2 relative",
+              isPastFreeTime ? "opacity-50" : "opacity-100"
+            )}
+            style={getBubbleHeightStyle(freeTimeItem.duration)}
+          >
+            {shouldDisplayDuration && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs font-semibold text-muted-foreground/60 whitespace-nowrap flex items-center gap-1">
+                    <ArrowDown className="h-3 w-3" />
+                    {durationFormatted} Free
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{freeTimeItem.message}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          {/* Column 2: Empty space (Eliminates the full banner) */}
           <div 
             id={`scheduled-item-${freeTimeItem.id}`}
             className={cn(
-              "relative flex flex-col items-center justify-center text-muted-foreground italic text-sm h-[25px] rounded-lg shadow-sm transition-all duration-200 ease-in-out", // Reduced height and font size
-              "border-2 border-dashed", // Added dashed border for free time
-              isHighlightedByNowCard ? "opacity-50 border-border" :
-              isActive ? "bg-live-progress/10 border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70 border-secondary",
-              isPastItem && "opacity-50 border-muted-foreground/30"
+              "relative flex flex-col items-center justify-center text-muted-foreground italic text-sm rounded-lg transition-all duration-200 ease-in-out",
+              "border-2 border-dashed border-transparent", // Keep border transparent to avoid visual fragmentation
+              isActive ? "bg-live-progress/10" : "bg-transparent",
+              isPastFreeTime && "opacity-50"
             )}
-            style={getBubbleHeightStyle(freeTimeItem.duration)} // Apply height style based on duration
+            style={getBubbleHeightStyle(freeTimeItem.duration)}
           >
-            <span className="text-base font-semibold text-muted-foreground/80">{freeTimeItem.message}</span>
-            <span className="text-xs text-muted-foreground/60 mt-1">Click to inject a task here</span>
-            {/* Removed local progress line for free time */}
+            {/* Optional: Small indicator for click-to-inject */}
+            {freeTimeItem.duration > 0 && (
+              <span className="text-xs text-muted-foreground/30 hover:text-primary/50 transition-colors cursor-pointer">
+                {freeTimeItem.duration > 10 ? 'Click to Inject' : '...'}
+              </span>
+            )}
           </div>
         </React.Fragment>
       );

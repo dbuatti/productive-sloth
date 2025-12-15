@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, intervalToDuration, formatDuration } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
@@ -143,31 +143,6 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'gigs': 200, // Same as organise
   'charge': 210, // Tech-related
   'vacuum': 210, // Same as charge
-  'put away': 140, // For 'Put away my new sheets'
-  'sheets': 140, // For 'Put away my new sheets'
-  'pants': 140, // For 'Put away my new pants'
-  'medication': 300, // For 'Put medication next to toothbrush'
-  'toothbrush': 300, // For 'Put medication next to toothbrush'
-  'return message': 245, // For 'Return Message To Damien'
-  'voice deal': 270, // For 'Voice Deal for Lydia'
-  'find location': 140, // For 'Find A Location For The Broom'
-  'broom': 120, // For 'Find A Location For The Broom'
-  'practise': 270, // For 'Piano Practise'
-  'track': 270, // For 'PIANO TRACK'
-  'catch up': 290,
-  'trim': 330,
-  'cuticle': 330,
-  'payment': 60,
-  'link': 60,
-  'send': 270,
-  'voice notes': 320,
-  'job notes': 230,
-  'process': 230,
-  'usb': 210,
-  'cable': 210,
-  'coil': 210,
-  'write up': 320,
-  'notes': 320,
 };
 
 // --- Utility Functions ---
@@ -175,6 +150,29 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
 export const formatTime = (date: Date): string => format(date, 'h:mm a');
 export const formatDayMonth = (date: Date): string => format(date, 'MMM d');
 export const formatDateTime = (date: Date): string => format(date, 'MMM d, h:mm a');
+
+export const formatCompactDuration = (minutes: number): string => {
+  if (minutes <= 0) return '0m';
+  
+  // Use intervalToDuration to break down minutes into hours and minutes
+  const duration = intervalToDuration({ start: 0, end: minutes * 60 * 1000 });
+  
+  const parts: string[] = [];
+  if (duration.hours && duration.hours > 0) {
+    parts.push(`${duration.hours}h`);
+  }
+  // Only include minutes if it's the only part, or if hours are also present
+  if (duration.minutes && duration.minutes > 0) {
+    parts.push(`${duration.minutes}m`);
+  }
+  
+  if (parts.length === 0) {
+      // If duration is less than 1 minute but greater than 0
+      return `${minutes}m`; 
+  }
+  
+  return parts.join(' ');
+};
 
 export const setTimeOnDate = (date: Date, timeString: string): Date => {
   const [hours, minutes] = timeString.split(':').map(Number);

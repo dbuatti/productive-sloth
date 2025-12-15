@@ -25,10 +25,13 @@ interface SchedulerDisplayProps {
   isProcessingCommand: boolean; // ADDED
 }
 
-const getBubbleHeightStyle = (duration: number) => {
+const getBubbleHeightStyle = (duration: number, isFreeTime: boolean = false) => {
   const baseHeight = 40;
-  const multiplier = 1.5;
+  const taskMultiplier = 1.5;
+  const freeTimeMultiplier = 0.5; // Reduced multiplier for free time
   const minCalculatedHeight = 40;
+
+  const multiplier = isFreeTime ? freeTimeMultiplier : taskMultiplier;
 
   let calculatedHeight = baseHeight + (duration * multiplier);
   return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
@@ -261,7 +264,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               isActive ? "bg-live-progress/10 border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70 border-secondary",
               isPastItem && "opacity-50 border-muted-foreground/30"
             )}
-            style={getBubbleHeightStyle(freeTimeItem.duration)} // Apply height style based on duration
+            style={getBubbleHeightStyle(freeTimeItem.duration, true)} // Apply height style based on duration, explicitly marking as free time
           >
             <span className="text-base font-semibold text-muted-foreground/80">{freeTimeItem.message}</span>
             <span className="text-xs text-muted-foreground/60 mt-1">Click to inject a task here</span>

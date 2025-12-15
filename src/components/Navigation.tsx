@@ -38,7 +38,6 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
   const navItems = [
     { to: "/scheduler", icon: Clock, label: "Vibe Schedule" }, 
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
-    { to: "/achievements", icon: Trophy, label: "Achievements" },
     { to: "/documentation", icon: BookOpen, label: "Documentation" },
     { to: "/settings", icon: Settings, label: "Settings" },
   ];

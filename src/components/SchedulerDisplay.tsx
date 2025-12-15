@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils } from 'lucide-react'; // Import Utensils
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
-import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format } from 'date-fns';
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format, min, max } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
@@ -72,10 +72,34 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
     const scheduledTasks = schedule ? schedule.items : [];
+    
+    if (scheduledTasks.length === 0) {
+        // If no tasks, use the workday start/end as the boundary for display
+        const workdayStart = schedule?.dbTasks.length > 0 ? parseISO(schedule.dbTasks[0].scheduled_date) : startOfDay(parseISO(selectedDayString));
+        const workdayEnd = schedule?.summary.sessionEnd || addHours(workdayStart, 8);
+        
+        return {
+            finalDisplayItems: [
+                { id: `marker-start-empty`, type: 'marker', time: workdayStart, label: formatTime(workdayStart) },
+                { id: `marker-end-empty`, type: 'marker', time: workdayEnd, label: formatTime(workdayEnd) },
+            ] as DisplayItem[],
+            firstItemStartTime: workdayStart,
+            lastItemEndTime: workdayEnd,
+        };
+    }
+
+    // Determine the actual start and end times of the scheduled items
+    const allStartTimes = scheduledTasks.map(item => item.startTime);
+    const allEndTimes = scheduledTasks.map(item => item.endTime);
+    
+    const actualStart = min(allStartTimes);
+    const actualEnd = max(allEndTimes);
+
     const allEvents: (ScheduledItem | TimeMarker)[] = [...scheduledTasks];
 
-    allEvents.push({ id: `marker-start-${format(startOfTemplate, 'HHmm')}`, type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
-    allEvents.push({ id: `marker-end-${format(endOfTemplate, 'HHmm')}`, type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) }); 
+    // Add markers only at the actual start and end of the schedule
+    allEvents.push({ id: `marker-start-${format(actualStart, 'HHmm')}`, type: 'marker', time: actualStart, label: formatTime(actualStart) });
+    allEvents.push({ id: `marker-end-${format(actualEnd, 'HHmm')}`, type: 'marker', time: actualEnd, label: formatTime(actualEnd) }); 
 
     allEvents.sort((a, b) => {
         const timeA = 'time' in a ? a.time : a.startTime;
@@ -84,12 +108,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     });
 
     const processedItems: DisplayItem[] = [];
-    let currentCursor = startOfTemplate;
+    let currentCursor = actualStart; // Start cursor at the actual start time
 
     allEvents.forEach(event => {
         const eventStartTime = 'time' in event ? event.time : event.startTime;
         const eventEndTime = 'time' in event ? event.time : event.endTime;
 
+        // Only generate free time if the gap is within the actual scheduled range
         if (eventStartTime.getTime() > currentCursor.getTime()) {
             const freeDurationMs = eventStartTime.getTime() - currentCursor.getTime();
             const freeDurationMinutes = Math.floor(freeDurationMs / (1000 * 60));
@@ -117,15 +142,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         currentCursor = event.type === 'marker' ? event.time : eventEndTime;
     });
 
+    // Filter out redundant markers (markers that fall exactly on the start/end of a task/free-time block)
     const filteredItems: DisplayItem[] = [];
     processedItems.forEach(item => {
         if (item.type === 'marker') {
             const isCovered = processedItems.some(pItem => {
                 if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off' || pItem.type === 'meal') {
-                    return item.time >= pItem.startTime && item.time < pItem.endTime;
+                    return item.time > pItem.startTime && item.time < pItem.endTime; // Marker is strictly inside a block
                 }
                 return false;
             });
+            // Keep markers that are at the start/end of the overall schedule, or are not covered by a block
             if (!isCovered) {
                 filteredItems.push(item);
             }
@@ -134,13 +161,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         }
     });
 
-    const hasStartMarker = filteredItems.some(item => ('startTime' in item ? item.startTime : item.time).getTime() === startOfTemplate.getTime());
+    // Ensure the first and last markers are present
+    const hasStartMarker = filteredItems.some(item => ('startTime' in item ? item.startTime : item.time).getTime() === actualStart.getTime());
     if (!hasStartMarker) {
-        filteredItems.unshift({ id: `marker-start-final-${format(startOfTemplate, 'HHmm')}`, type: 'marker', time: startOfTemplate, label: formatTime(startOfTemplate) });
+        filteredItems.unshift({ id: `marker-start-final-${format(actualStart, 'HHmm')}`, type: 'marker', time: actualStart, label: formatTime(actualStart) });
     }
-    const hasEndMarker = filteredItems.some(item => ('endTime' in item ? item.endTime : item.time).getTime() === endOfTemplate.getTime());
+    const hasEndMarker = filteredItems.some(item => ('endTime' in item ? item.endTime : item.time).getTime() === actualEnd.getTime());
     if (!hasEndMarker) {
-        filteredItems.push({ id: `marker-end-final-${format(endOfTemplate, 'HHmm')}`, type: 'marker', time: endOfTemplate, label: formatTime(endOfTemplate) });
+        filteredItems.push({ id: `marker-end-final-${format(actualEnd, 'HHmm')}`, type: 'marker', time: actualEnd, label: formatTime(actualEnd) });
     }
 
     filteredItems.sort((a, b) => {
@@ -149,18 +177,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         return timeA.getTime() - timeB.getTime();
     });
 
-    const firstRenderedItem = filteredItems[0];
-    const lastRenderedItem = filteredItems[filteredItems.length - 1];
-
-    const actualStartTime = firstRenderedItem ? ('time' in firstRenderedItem ? firstItemStartTime : firstRenderedItem.startTime) : startOfTemplate;
-    const actualEndTime = lastRenderedItem ? ('time' in lastRenderedItem ? lastItemEndTime : lastRenderedItem.endTime) : endOfTemplate;
-
     return {
         finalDisplayItems: filteredItems,
-        firstItemStartTime: actualStartTime,
-        lastItemEndTime: actualEndTime,
+        firstItemStartTime: actualStart,
+        lastItemEndTime: actualEnd,
     };
-  }, [schedule, T_current, startOfTemplate, endOfTemplate]);
+  }, [schedule, T_current, selectedDayString]);
 
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {

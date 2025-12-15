@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, Database, Trash2, CalendarCheck, Coffee, ListTodo, BatteryCharging, Feather, Anchor } from 'lucide-react';
+import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, Database, Trash2, CalendarCheck, Coffee, ListTodo, BatteryCharging, Feather, Anchor, Code } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock';
@@ -69,137 +69,59 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
 
   return (
     <Card className="p-4 animate-slide-in-up animate-hover-lift">
-      <CardContent className="p-0 space-y-4">
+      <CardContent className="p-0 space-y-3"> {/* Reduced vertical spacing to space-y-3 */}
         
-        {/* 1. Primary Action: Auto Schedule Day (Elevated) */}
-        <Button
-          onClick={onAutoSchedule}
-          disabled={isProcessingCommand}
-          className={cn(
-            "w-full h-14 text-xl font-bold flex items-center justify-center gap-3 transition-all duration-300 ease-in-out",
-            "bg-logo-green text-primary-foreground hover:bg-logo-green/90 shadow-xl hover:shadow-2xl hover:shadow-logo-green/40",
-            isProcessingCommand && "opacity-70 cursor-not-allowed"
-          )}
-          style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
-        >
-          {isProcessingCommand ? (
-            <Loader2 className="h-7 w-7 animate-spin" />
-          ) : (
-            <CalendarCheck className="h-7 w-7" />
-          )}
-          Auto Schedule Day
-          <Star className="h-6 w-6 text-logo-yellow" />
-        </Button>
-
-        {/* 2. Quick Blocks & Core Management Actions (Consolidated into a single grid) */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 border-t pt-4 border-border/50">
+        {/* 1. Primary Action & Quick Blocks (Top Row) */}
+        <div className="flex flex-col sm:flex-row gap-3 pb-3 border-b border-border/50">
           
-          {/* Quick Block 15 min */}
-          <QuickScheduleBlock
-            duration={15}
-            onScheduleBlock={onQuickScheduleBlock}
-            isProcessingCommand={isProcessingCommand}
-          />
+          {/* Auto Schedule Day (Prominent) */}
+          <Button
+            onClick={onAutoSchedule}
+            disabled={isProcessingCommand}
+            className={cn(
+              "w-full sm:w-auto h-12 text-lg font-bold flex items-center justify-center gap-3 transition-all duration-300 ease-in-out shrink-0",
+              "bg-logo-green text-primary-foreground hover:bg-logo-green/90 shadow-xl hover:shadow-2xl hover:shadow-logo-green/40",
+              isProcessingCommand && "opacity-70 cursor-not-allowed"
+            )}
+            style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+          >
+            {isProcessingCommand ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <CalendarCheck className="h-6 w-6" />
+            )}
+            Auto Schedule Day
+            <Star className="h-5 w-5 text-logo-yellow" />
+          </Button>
 
-          {/* Quick Block 30 min */}
-          <QuickScheduleBlock
-            duration={30}
-            onScheduleBlock={onQuickScheduleBlock}
-            isProcessingCommand={isProcessingCommand}
-          />
-
-          {/* Quick Block 60 min */}
-          <QuickScheduleBlock
-            duration={60}
-            onScheduleBlock={onQuickScheduleBlock}
-            isProcessingCommand={isProcessingCommand}
-          />
-
-          {/* Compact Schedule */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onCompactSchedule}
-                disabled={isProcessingCommand || !hasUnlockedFlexibleTasks}
-                className={cn(
-                  "h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200",
-                  (!hasUnlockedFlexibleTasks || isProcessingCommand) && "opacity-50 cursor-not-allowed"
-                )}
-                style={(!hasUnlockedFlexibleTasks || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-              >
-                <ChevronsUp className="h-5 w-5" />
-                <span className="sr-only">Compact Schedule</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Compact Schedule (Fill gaps)</p>
-            </TooltipContent>
-          </Tooltip>
-
-          {/* Randomize Breaks */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onRandomizeBreaks}
-                disabled={isProcessingCommand || !hasUnlockedBreaks}
-                className={cn(
-                  "h-10 w-full text-logo-orange hover:bg-logo-orange/10 transition-all duration-200",
-                  (!hasUnlockedBreaks || isProcessingCommand) && "opacity-50 cursor-not-allowed"
-                )}
-                style={(!hasUnlockedBreaks || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-              >
-                <Shuffle className="h-5 w-5" />
-                <span className="sr-only">Randomize Breaks</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Randomize Unlocked Breaks</p>
-            </TooltipContent>
-          </Tooltip>
-
-          {/* Zone Focus */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onZoneFocus}
-                disabled={isProcessingCommand || retiredTasksCount === 0}
-                className={cn(
-                  "h-10 w-full text-accent hover:bg-accent/10 transition-all duration-200",
-                  (retiredTasksCount === 0 || isProcessingCommand) && "opacity-50 cursor-not-allowed"
-                )}
-                style={(retiredTasksCount === 0 || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-              >
-                <Star className="h-5 w-5" />
-                <span className="sr-only">Zone Focus</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Zone Focus (Auto-schedule filtered tasks from Sink)</p>
-            </TooltipContent>
-          </Tooltip>
+          {/* Quick Blocks (Compact) */}
+          <div className="flex items-center gap-2 flex-grow justify-center sm:justify-end">
+            <span className="text-sm font-medium text-muted-foreground hidden sm:inline">Quick Blocks:</span>
+            {DURATION_BUCKETS.map(duration => (
+              <QuickScheduleBlock
+                key={duration}
+                duration={duration}
+                onScheduleBlock={onQuickScheduleBlock}
+                isProcessingCommand={isProcessingCommand}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* 3. Energy & Utility Actions (Grouped) */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 border-t pt-4 border-border/50">
+        {/* 2. Energy, Time & Core Management (Middle Row) */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-3">
           
           {/* Recharge Energy */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
-                size="icon"
                 onClick={onRechargeEnergy}
                 disabled={isProcessingCommand}
-                className="h-10 w-full text-logo-green hover:bg-logo-green/10 transition-all duration-200"
+                className="h-10 w-full text-logo-green hover:bg-logo-green/10 transition-all duration-200 flex items-center gap-1 text-sm"
               >
-                <Zap className="h-5 w-5" />
-                <span className="sr-only">Recharge Energy</span>
+                <Zap className="h-4 w-4" />
+                <span className="hidden sm:inline">Recharge</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -212,13 +134,12 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
-                size="icon"
                 onClick={onQuickBreak}
                 disabled={isProcessingCommand}
-                className="h-10 w-full text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+                className="h-10 w-full text-logo-orange hover:bg-logo-orange/10 transition-all duration-200 flex items-center gap-1 text-sm"
               >
-                <Coffee className="h-5 w-5" />
-                <span className="sr-only">Quick Break (15 min)</span>
+                <Coffee className="h-4 w-4" />
+                <span className="hidden sm:inline">Break</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -234,18 +155,87 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 onClick={onStartRegenPod} 
                 disabled={isProcessingCommand} 
                 variant="outline"
-                size="icon"
-                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200"
+                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200 flex items-center gap-1 text-sm"
               >
-                <BatteryCharging className="h-5 w-5" />
-                <span className="sr-only">Start Energy Regen Pod</span>
+                <BatteryCharging className="h-4 w-4" />
+                <span className="hidden sm:inline">Regen Pod</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Start Energy Regen Pod (Dynamic duration, max {REGEN_POD_MAX_DURATION_MINUTES} min)</p>
+              <p>Start Energy Regen Pod (Max {REGEN_POD_MAX_DURATION_MINUTES} min)</p>
             </TooltipContent>
           </Tooltip>
 
+          {/* Compact Schedule */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={onCompactSchedule}
+                disabled={isProcessingCommand || !hasUnlockedFlexibleTasks}
+                className={cn(
+                  "h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200 flex items-center gap-1 text-sm",
+                  (!hasUnlockedFlexibleTasks || isProcessingCommand) && "opacity-50 cursor-not-allowed"
+                )}
+                style={(!hasUnlockedFlexibleTasks || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
+              >
+                <ChevronsUp className="h-4 w-4" />
+                <span className="hidden sm:inline">Compact</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Compact Schedule (Fill gaps)</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Randomize Breaks */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={onRandomizeBreaks}
+                disabled={isProcessingCommand || !hasUnlockedBreaks}
+                className={cn(
+                  "h-10 w-full text-logo-orange hover:bg-logo-orange/10 transition-all duration-200 flex items-center gap-1 text-sm",
+                  (!hasUnlockedBreaks || isProcessingCommand) && "opacity-50 cursor-not-allowed"
+                )}
+                style={(!hasUnlockedBreaks || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
+              >
+                <Shuffle className="h-4 w-4" />
+                <span className="hidden sm:inline">Randomize</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Randomize Unlocked Breaks</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Zone Focus */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                onClick={onZoneFocus}
+                disabled={isProcessingCommand || retiredTasksCount === 0}
+                className={cn(
+                  "h-10 w-full text-accent hover:bg-accent/10 transition-all duration-200 flex items-center gap-1 text-sm",
+                  (retiredTasksCount === 0 || isProcessingCommand) && "opacity-50 cursor-not-allowed"
+                )}
+                style={(retiredTasksCount === 0 || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
+              >
+                <Star className="h-4 w-4" />
+                <span className="hidden sm:inline">Zone Focus</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Zone Focus (Auto-schedule filtered tasks from Sink)</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* 3. Tools & Dump (Bottom Row) */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-3 border-t border-border/50">
+          
           {/* Sort Flexible Tasks Dropdown */}
           <DropdownMenu>
             <Tooltip>
@@ -260,8 +250,8 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                     disabled={isProcessingCommand}
                     style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                   >
-                    <currentSortOption.icon className="h-5 w-5 shrink-0" />
-                    <span className="truncate text-sm hidden sm:inline">{currentSortOption.label}</span>
+                    <currentSortOption.icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate text-sm hidden sm:inline">{currentSortOption.label.split(' ')[0]}</span>
                     <span className="sr-only">Sort Flexible Tasks</span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -290,13 +280,12 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
-                size="icon"
                 onClick={onOpenWorkdayWindowDialog}
                 disabled={isProcessingCommand}
-                className="h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200"
+                className="h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200 flex items-center gap-1 text-sm"
               >
-                <Clock className="h-5 w-5" />
-                <span className="sr-only">Workday Window</span>
+                <Clock className="h-4 w-4" />
+                <span className="hidden sm:inline">Window</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -311,16 +300,15 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
-                    size="icon"
                     disabled={isProcessingCommand}
                     className={cn(
-                      "h-10 w-full text-destructive hover:bg-destructive/10 transition-all duration-200",
+                      "h-10 w-full text-destructive hover:bg-destructive/10 transition-all duration-200 flex items-center gap-1 text-sm",
                       isProcessingCommand && "opacity-50 cursor-not-allowed"
                     )}
                     style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                   >
-                    <Trash2 className="h-5 w-5" />
-                    <span className="sr-only">Aether Dump</span>
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Dump</span>
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -339,26 +327,27 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               </DropdownMenuContent>
             </Tooltip>
           </DropdownMenu>
-        </div>
-        
-        {/* 4. Refresh Data (Standalone for clarity) */}
-        <div className="grid grid-cols-1 border-t pt-4 border-border/50">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200 flex items-center gap-2"
-                  onClick={onRefreshSchedule}
-                  disabled={isProcessingCommand}
-                >
-                  <Database className="h-5 w-5" />
-                  <span className="text-sm">Refresh Data</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Force refresh all schedule data from the database</p>
-              </TooltipContent>
-            </Tooltip>
+
+          {/* Refresh Data */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200 flex items-center gap-1 text-sm"
+                onClick={onRefreshSchedule}
+                disabled={isProcessingCommand}
+              >
+                <Database className="h-4 w-4" />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Force refresh all schedule data from the database</p>
+            </TooltipContent>
+          </Tooltip>
+          
+          {/* Placeholder for alignment on 6-column grid */}
+          <div className="hidden sm:block col-span-2"></div>
         </div>
       </CardContent>
     </Card>

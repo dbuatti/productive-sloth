@@ -127,6 +127,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                         >
                             <ChevronsUp className="h-4 w-4" />
                             <span className="hidden sm:inline">Compact</span>
+                            <span className="sm:hidden">Comp.</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -149,6 +150,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                         >
                             <Shuffle className="h-4 w-4" />
                             <span className="hidden sm:inline">Randomize</span>
+                            <span className="sm:hidden">Rand.</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -171,6 +173,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                         >
                             <Star className="h-4 w-4" />
                             <span className="hidden sm:inline">Zone Focus</span>
+                            <span className="sm:hidden">Zone</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -194,7 +197,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                                 >
                                     <ArrowDownWideNarrow className="h-4 w-4 shrink-0" />
                                     <span className="truncate text-sm hidden sm:inline">Sort</span>
-                                    <span className="sr-only">Sort Flexible Tasks</span>
+                                    <span className="sm:hidden">Sort</span>
                                 </Button>
                             </DropdownMenuTrigger>
                         </TooltipTrigger>
@@ -228,6 +231,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                         >
                             <Clock className="h-4 w-4" />
                             <span className="hidden sm:inline">Window</span>
+                            <span className="sm:hidden">Win.</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -249,6 +253,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                         >
                             <Zap className="h-4 w-4" />
                             <span className="hidden sm:inline">Recharge</span>
+                            <span className="sm:hidden">Rchg.</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -267,6 +272,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                         >
                             <Coffee className="h-4 w-4" />
                             <span className="hidden sm:inline">Break</span>
+                            <span className="sm:hidden">Brk.</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -286,6 +292,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                         >
                             <BatteryCharging className="h-4 w-4" />
                             <span className="hidden sm:inline">Regen Pod</span>
+                            <span className="sm:hidden">Pod</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -309,6 +316,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                                 >
                                     <Trash2 className="h-4 w-4" />
                                     <span className="hidden sm:inline">Dump</span>
+                                    <span className="sm:hidden">Dump</span>
                                 </Button>
                             </DropdownMenuTrigger>
                         </TooltipTrigger>
@@ -339,6 +347,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                         >
                             <Database className="h-4 w-4" />
                             <span className="hidden sm:inline">Refresh</span>
+                            <span className="sm:hidden">Ref.</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>

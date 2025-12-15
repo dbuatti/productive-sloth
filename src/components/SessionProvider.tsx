@@ -58,8 +58,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setProfile(data as UserProfile);
       // If the user is currently in a pod, calculate the remaining duration
       if (data.is_in_regen_pod && data.regen_pod_start_time) {
-          const startTime = parseISO(data.regen_pod_start_time);
-          const elapsed = differenceInMinutes(new Date(), startTime);
+          const start = parseISO(data.regen_pod_start_time);
+          const elapsed = differenceInMinutes(new Date(), start);
           // Assuming max duration is 60 minutes for calculation purposes if we don't store it
           const remaining = REGEN_POD_MAX_DURATION_MINUTES - elapsed;
           setRegenPodDurationMinutes(Math.max(0, remaining));
@@ -257,6 +257,35 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error("Update settings error:", error);
     }
   }, [user, refreshProfile]);
+
+  // NEW: Helper to trigger server-side energy regeneration (MOVED HERE)
+  const triggerEnergyRegen = useCallback(async () => {
+    if (!user || !session?.access_token) return;
+    
+    try {
+      // Call the trigger-energy-regen function which uses the service role key internally
+      const { error } = await supabase.functions.invoke('trigger-energy-regen', {
+        method: 'POST',
+        body: {},
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Wait a moment for the asynchronous regeneration to complete on the server
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
+      
+      // Force a profile refresh to get the new energy value
+      await refreshProfile();
+      console.log("[EnergyRegen] Immediate trigger complete and profile refreshed.");
+
+    } catch (e: any) {
+      console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
+      // showError("Failed to update energy. Please try refreshing.");
+    }
+  }, [user, session?.access_token, refreshProfile]);
+
 
   // NEW: Start Regen Pod State
   const startRegenPodState = useCallback(async (durationMinutes: number) => {
@@ -603,6 +632,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       startRegenPodState, // NEW
       exitRegenPodState, // NEW
       regenPodDurationMinutes, // NEW
+      triggerEnergyRegen, // NEW
     }}>
       {children}
     </SessionContext.Provider>

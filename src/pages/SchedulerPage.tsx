@@ -118,7 +118,7 @@ const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession(); // UPDATED: Destructure new session functions/state
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes, triggerEnergyRegen } = useSession(); // UPDATED: Destructure triggerEnergyRegen
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
@@ -209,33 +209,45 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     localStorage.setItem('aetherflow-selected-day', selectedDay);
   }, [selectedDay]);
 
-  // NEW: Helper to trigger server-side energy regeneration
-  const triggerEnergyRegen = useCallback(async () => {
-    if (!user || !session?.access_token) return;
-    
-    try {
-      // Call the trigger-energy-regen function which uses the service role key internally
-      const { error } = await supabase.functions.invoke('trigger-energy-regen', {
-        method: 'POST',
-        body: {},
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      // Wait a moment for the asynchronous regeneration to complete on the server
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
-      
-      // Force a profile refresh to get the new energy value
-      await refreshProfile();
-      console.log("[EnergyRegen] Immediate trigger complete and profile refreshed.");
-
-    } catch (e: any) {
-      console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
-      // showError("Failed to update energy. Please try refreshing.");
+  // NEW: Handler for Quick Break Button (MOVED FROM LOCAL DEFINITION)
+  const handleQuickBreakButton = useCallback(async () => {
+    if (!user || !profile) {
+        showError("Please log in to add a quick break.");
+        return;
     }
-  }, [user, session?.access_token, refreshProfile]);
+    setIsProcessingCommand(true);
+    try {
+        const breakDuration = 15;
+        const breakStartTime = T_current;
+        const breakEndTime = addMinutes(breakStartTime, breakDuration);
+        const scheduledDate = formatFns(T_current, 'yyyy-MM-dd');
+
+        await addScheduledTask({
+            name: 'Quick Break',
+            start_time: breakStartTime.toISOString(),
+            end_time: breakEndTime.toISOString(),
+            break_duration: breakDuration,
+            scheduled_date: scheduledDate,
+            is_critical: false,
+            is_flexible: false, // Fixed for immediate use
+            is_locked: true, // Locked for immediate use
+            energy_cost: 0, // Breaks have 0 energy cost (but trigger regen)
+            is_custom_energy_cost: false,
+            task_environment: environmentForPlacement,
+        });
+        
+        // Trigger energy regen immediately upon starting a break
+        await triggerEnergyRegen();
+
+        showSuccess(`Scheduled a ${breakDuration}-minute Quick Break! Energy boost applied.`);
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+    } catch (error: any) {
+        showError(`Failed to add quick break: ${error.message}`);
+        console.error("Quick break error:", error);
+    } finally {
+        setIsProcessingCommand(false);
+    }
+  }, [user, profile, T_current, addScheduledTask, environmentForPlacement, triggerEnergyRegen, queryClient]);
 
 
   const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
@@ -1202,7 +1214,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setIsProcessingCommand(false);
       console.log("handleAutoScheduleAndSort: Auto-schedule process finished.");
     }
-  }, [user, profile, dbScheduledTasks, retiredTasks, selectedDayAsDate, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD, sortBy]);
+  }, [user, profile, dbScheduledTasks, retiredTasks, selectedDayAsDate, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD, sortBy, T_current]);
 
   const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
     if (!user || !profile) {
@@ -2359,6 +2371,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           onAetherDump={handleAetherDumpButton}
           onRefreshSchedule={handleRefreshSchedule}
           onAetherDumpMega={handleAetherDumpMegaButton}
+          onQuickBreak={handleQuickBreakButton} // NEW PROP
         />
       </div>
 
@@ -2555,6 +2568,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                           onAetherDump={handleAetherDumpButton}
                           onRefreshSchedule={handleRefreshSchedule}
                           onAetherDumpMega={handleAetherDumpMegaButton}
+                          onQuickBreak={handleQuickBreakButton}
                       />
                   </div>
               </DrawerContent>

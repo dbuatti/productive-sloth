@@ -3,7 +3,7 @@ import { DBScheduledTask, SortBy } from '@/types/scheduler';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Anchor, Feather, PlusCircle, MinusCircle, Star, Database, Trash2, CalendarCheck } from 'lucide-react';
+import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Anchor, Feather, PlusCircle, MinusCircle, Star, Database, Trash2, CalendarCheck, Coffee } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock'; // Import QuickScheduleBlock
@@ -24,7 +24,7 @@ interface SchedulerUtilityBarProps {
   onAetherDump: () => Promise<void>;
   onRefreshSchedule: () => void;
   onAetherDumpMega: () => Promise<void>;
-  // Removed onAutoScheduleDay
+  onQuickBreak: () => Promise<void>; // NEW PROP
 }
 
 const DURATION_BUCKETS = [15, 30, 60];
@@ -45,6 +45,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
   onAetherDump,
   onRefreshSchedule,
   onAetherDumpMega,
+  onQuickBreak,
 }) => {
   const hasBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break');
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
@@ -64,7 +65,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
     <Card className="p-4 animate-slide-in-up animate-hover-lift">
       <div className="flex flex-col gap-4">
         
-        {/* Row 1: Quick Actions (Compact, Randomize, Zone Focus, Recharge) */}
+        {/* Row 1: Quick Actions (Compact, Randomize, Zone Focus, Recharge, Quick Break) */}
         <div className="flex flex-wrap items-center gap-2 border-b pb-3">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -147,6 +148,25 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
             </TooltipTrigger>
             <TooltipContent>
               <p>Recharge Energy (+25⚡)</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* NEW: Quick Break Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onQuickBreak}
+                disabled={isProcessingCommand}
+                className="h-10 w-10 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+              >
+                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coffee className="h-5 w-5" />}
+                <span className="sr-only">Quick Break (15 min)</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Quick Break (15 min, Fixed & Locked)</p>
             </TooltipContent>
           </Tooltip>
         </div>

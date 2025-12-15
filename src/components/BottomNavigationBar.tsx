@@ -6,6 +6,7 @@ import { Sparkles, Trash2, Plus, CheckCircle, Coffee, ListTodo, Loader2, Clock }
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import { addMinutes, format } from 'date-fns';
 
@@ -27,6 +28,7 @@ const BottomNavigationBar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { addScheduledTask } = useSchedulerTasks('');
+  const { triggerEnergyRegen } = useSession();
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
 
   const handleQuickBreak = async () => {
@@ -52,6 +54,9 @@ const BottomNavigationBar: React.FC = () => {
         is_custom_energy_cost: false,
         task_environment: 'away', // Default environment for breaks
       });
+      
+      // NEW: Trigger energy regen immediately upon starting a break
+      await triggerEnergyRegen();
       
       // Navigate to scheduler to see the break
       if (location.pathname !== '/scheduler') {

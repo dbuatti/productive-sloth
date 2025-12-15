@@ -50,6 +50,7 @@ interface SessionContextType {
   startRegenPodState: (durationMinutes: number) => Promise<void>; // NEW
   exitRegenPodState: () => Promise<void>; // NEW
   regenPodDurationMinutes: number; // NEW: Duration calculated on start
+  triggerEnergyRegen: () => Promise<void>; // NEW
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

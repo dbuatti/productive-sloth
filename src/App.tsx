@@ -10,11 +10,11 @@ import React from "react";
 import MainLayout from "./components/MainLayout";
 import SettingsPage from "./pages/SettingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
-import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
-import ModelPage from "./pages/ModelPage"; // NEW IMPORT
+import ModelPage from "./pages/ModelPage";
+import SchedulerWorkspace from "./pages/SchedulerWorkspace"; // UPDATED IMPORT
 
 const queryClient = new QueryClient();
 
@@ -35,14 +35,14 @@ const App = () => (
                     {/* Secondary Pages (Accessed via Settings) */}
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/documentation" element={<DocumentationPage />} />
-                    <Route path="/model" element={<ModelPage />} /> {/* NEW ROUTE */}
+                    <Route path="/model" element={<ModelPage />} />
                     
                     <Route path="/settings" element={<SettingsPage />} />
                     
                     {/* SCHEDULER CORE VIEWS (Primary Navigation) */}
-                    <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
-                    <Route path="/sink" element={<SchedulerPage view="sink" />} />
-                    <Route path="/recap" element={<SchedulerPage view="recap" />} />
+                    <Route path="/scheduler" element={<SchedulerWorkspace view="schedule" />} />
+                    <Route path="/sink" element={<SchedulerWorkspace view="sink" />} />
+                    <Route path="/recap" element={<SchedulerWorkspace view="recap" />} />
                     
                     <Route path="/login" element={<Login />} />
                     <Route path="*" element={<NotFound />} />

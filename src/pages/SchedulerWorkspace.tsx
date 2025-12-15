@@ -47,7 +47,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import WeatherWidget from '@/components/WeatherWidget';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
@@ -56,7 +55,6 @@ import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import EarlyCompletionModal from '@/components/EarlyCompletionModal';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { LOW_ENERGY_THRESHOLD, MAX_ENERGY, REGEN_POD_MAX_DURATION_MINUTES, REGEN_POD_RATE_PER_MINUTE } from '@/lib/constants';
-import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -64,8 +62,8 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import { cn } from '@/lib/utils';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
-import SchedulerContextBar from '@/components/SchedulerContextBar'; // NEW IMPORT
-import SchedulerActionCenter from '@/components/SchedulerActionCenter'; // NEW IMPORT
+import SchedulerContextBar from '@/components/SchedulerContextBar';
+import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 
 // Helper to get initial state from localStorage
 const getInitialSelectedDay = () => {
@@ -96,14 +94,14 @@ interface InjectionPromptState {
   taskEnvironment?: TaskEnvironment;
 }
 
-interface SchedulerPageProps {
+interface SchedulerWorkspaceProps {
   view: 'schedule' | 'sink' | 'recap';
 }
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
-const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
+const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes, triggerEnergyRegen } = useSession();
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
@@ -424,7 +422,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       });
 
       if (tasksToRetire.length > 0) {
-        console.log(`SchedulerPage: Automatically retiring ${tasksToRetire.length} past-due tasks from before workday start.`);
+        console.log(`SchedulerWorkspace: Automatically retiring ${tasksToRetire.length} past-due tasks from before workday start.`);
         tasksToRetire.forEach(task => {
           retireTask(task);
         });
@@ -2455,7 +2453,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       onAutoScheduleSink={handleAutoScheduleSinkWrapper}
       isLoading={isLoadingRetiredTasks}
       isProcessingCommand={isProcessingCommand}
-      hideTitle={false} 
+      hideTitle={true} // Hide title since the tab provides it
       profileEnergy={profile?.energy || 0}
       retiredSortBy={retiredSortBy} 
       setRetiredSortBy={setRetiredSortBy} 
@@ -2516,7 +2514,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         onRefreshSchedule={handleRefreshSchedule}
       />
 
-      {/* WRAP CalendarStrip in a Card */}
+      {/* WRAP CalendarStrip and Tabs in a Card */}
       <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
         <CalendarStrip 
           selectedDay={selectedDay} 
@@ -2790,4 +2788,4 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   );
 };
 
-export default SchedulerPage;
+export default SchedulerWorkspace;

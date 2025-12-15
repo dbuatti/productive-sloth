@@ -11,10 +11,10 @@ import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
-import { Settings, TrendingUp, BookOpen, Clock, Trash2, CheckCircle, Code } from 'lucide-react'; // Added Code icon
+import { Settings, TrendingUp, BookOpen, Clock, Trash2, CheckCircle, Code } from 'lucide-react';
 import { NavLink } from 'react-router-dom'; 
 import DesktopHeaderControls from './DesktopHeaderControls'; 
-import { Separator } from '@/components/ui/separator'; // NEW IMPORT
+import { Separator } from '@/components/ui/separator';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -93,7 +93,7 @@ const MobileNavigationLinks: React.FC<{ onLinkClick: () => void }> = ({ onLinkCl
       <span className="text-base font-medium">Documentation</span>
     </NavLink>
     <NavLink
-      to="/model" // NEW LINK
+      to="/model"
       onClick={onLinkClick}
       className={({ isActive }) =>
         cn(

@@ -29,13 +29,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
 import { format, parseISO } from 'date-fns';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom'; 
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
@@ -50,7 +50,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 const SettingsPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, refreshProfile, rechargeEnergy, resetDailyStreak, updateNotificationPreferences, updateProfile, updateSettings } = useSession();
   const { setTheme } = useTheme();
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate(); 
 
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
@@ -243,9 +243,19 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 animate-slide-in-up">
-      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-        <Settings className="h-7 w-7 text-primary" /> Settings
-      </h1>
+      <div className="flex items-center justify-between border-b pb-4">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Settings className="h-7 w-7 text-primary" /> Settings
+        </h1>
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/scheduler')}
+          className="flex items-center gap-2 h-10 text-base"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          Back to Schedule
+        </Button>
+      </div>
       
       {/* Secondary Navigation Links (New) */}
       <Card className="animate-hover-lift">

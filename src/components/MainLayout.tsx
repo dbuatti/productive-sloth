@@ -11,9 +11,10 @@ import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
-import { Settings, TrendingUp, BookOpen } from 'lucide-react'; // Added icons for mobile menu links
-import { NavLink } from 'react-router-dom'; // Added NavLink for mobile menu links
-import DesktopHeaderControls from './DesktopHeaderControls'; // NEW IMPORT
+import { Settings, TrendingUp, BookOpen, Clock, Trash2, CheckCircle } from 'lucide-react'; // Added Clock, Trash2, CheckCircle
+import { NavLink } from 'react-router-dom'; 
+import DesktopHeaderControls from './DesktopHeaderControls'; 
+import { Separator } from '@/components/ui/separator'; // NEW IMPORT
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -21,6 +22,50 @@ interface MainLayoutProps {
 
 const MobileNavigationLinks: React.FC<{ onLinkClick: () => void }> = ({ onLinkClick }) => (
   <nav className="grid items-start px-4 text-sm font-medium space-y-1">
+    {/* Primary Navigation Links */}
+    <NavLink
+      to="/scheduler"
+      onClick={onLinkClick}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
+          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
+        )
+      }
+    >
+      <Clock className="h-6 w-6" />
+      <span className="text-base font-medium">Vibe Schedule</span>
+    </NavLink>
+    <NavLink
+      to="/sink"
+      onClick={onLinkClick}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
+          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
+        )
+      }
+    >
+      <Trash2 className="h-6 w-6" />
+      <span className="text-base font-medium">Aether Sink</span>
+    </NavLink>
+    <NavLink
+      to="/recap"
+      onClick={onLinkClick}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
+          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
+        )
+      }
+    >
+      <CheckCircle className="h-6 w-6" />
+      <span className="text-base font-medium">Daily Recap</span>
+    </NavLink>
+    
+    <Separator className="my-2" />
+
+    {/* Secondary Pages */}
     <NavLink
       to="/analytics"
       onClick={onLinkClick}

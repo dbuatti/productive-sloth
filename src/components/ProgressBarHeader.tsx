@@ -11,12 +11,12 @@ import {
   RECHARGE_BUTTON_AMOUNT, 
 } from '@/lib/constants';
 import { calculateLevelInfo, cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile'; // NEW: Import useIsMobile
+import { useIsMobile } from '@/hooks/use-mobile'; 
 
 const ProgressBarHeader: React.FC = () => {
   const { profile, rechargeEnergy } = useSession();
   const { allTasks } = useTasks();
-  const isMobile = useIsMobile(); // NEW: Get mobile state
+  const isMobile = useIsMobile(); 
 
   if (!profile) {
     return null;
@@ -33,8 +33,7 @@ const ProgressBarHeader: React.FC = () => {
 
   return (
     <div className={cn(
-      "sticky z-10 border-b bg-background py-2",
-      isMobile ? "top-16" : "top-0" // Adjust sticky position: top-16 on mobile (below AppHeader), top-0 on desktop
+      "sticky z-10 border-b bg-background py-2 top-16" // Use top-16 consistently (64px, below h-16 header)
     )}>
       <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 px-4">
         {/* XP Progress Bar */}

@@ -62,7 +62,6 @@ import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import AutoScheduleButton from '@/components/AutoScheduleButton';
 import { cn } from '@/lib/utils';
@@ -2483,7 +2482,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         onRefreshSchedule={handleRefreshSchedule}
       />
 
-      {/* WRAP CalendarStrip and SchedulerSegmentedControl in a Card */}
+      {/* WRAP CalendarStrip in a Card */}
       <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
         <CalendarStrip 
           selectedDay={selectedDay} 
@@ -2492,8 +2491,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           isLoadingDatesWithTasks={isLoadingDatesWithTasks}
         />
 
-        {/* NEW: Segmented Control for View Switching */}
-        <SchedulerSegmentedControl currentView={view} />
+        {/* REMOVED: SchedulerSegmentedControl */}
       </Card>
 
       {/* Conditional View Rendering based on 'view' prop */}

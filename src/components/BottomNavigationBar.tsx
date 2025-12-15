@@ -19,8 +19,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: "/scheduler", icon: Clock, label: "Schedule", matchPath: '/scheduler' },
   { to: "/sink", icon: Trash2, label: "Sink", matchPath: '/sink' },
-  // FAB placeholder in the middle
   { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' },
+  { to: "/analytics", icon: Sparkles, label: "Stats", matchPath: '/analytics' },
 ];
 
 const BottomNavigationBar: React.FC = () => {
@@ -67,74 +67,86 @@ const BottomNavigationBar: React.FC = () => {
   };
 
   const handleQuickAddTask = () => {
-    // Navigate to the dashboard where the TaskCreationForm is located
-    navigate('/');
-    showError("Use the Quick Add bar on the Dashboard to create a new task.");
+    // Navigate to the scheduler where the TaskCreationForm is located
+    navigate('/scheduler');
+    showError("Use the Quick Add bar on the Schedule view to create a new task.");
+  };
+
+  const renderNavItem = (item: NavItem) => {
+    const isActive = location.pathname.startsWith(item.matchPath);
+    
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        className={({ isActive: isCurrentActive }) =>
+          cn(
+            "flex flex-col items-center justify-center h-full w-full text-sm font-medium transition-colors duration-200 relative",
+            (isCurrentActive || location.pathname.startsWith(item.matchPath)) ? "text-primary" : "text-muted-foreground hover:text-foreground",
+            // Active state visual indicator (small bar above icon)
+            (isCurrentActive || location.pathname.startsWith(item.matchPath)) && "after:content-[''] after:absolute after:top-0 after:h-0.5 after:w-1/2 after:bg-primary after:rounded-b-full"
+          )
+        }
+      >
+        <item.icon className="h-6 w-6 mb-0.5" />
+        <span className="text-xs font-semibold">{item.label}</span>
+      </NavLink>
+    );
   };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-card border-t border-border shadow-2xl lg:hidden animate-slide-in-up">
-      <div className="flex justify-around items-center h-full max-w-md mx-auto">
+      {/* Use a 5-column grid: Nav1 | Nav2 | FAB | Nav3 | Nav4 */}
+      <div className="grid grid-cols-5 items-center h-full max-w-md mx-auto">
         
-        {/* Left Nav Items */}
-        {navItems.slice(0, 2).map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              cn(
-                "flex flex-col items-center justify-center h-full w-1/4 text-xs font-medium transition-colors duration-200",
-                (isActive || location.pathname.startsWith(item.matchPath)) ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )
-            }
-          >
-            <item.icon className="h-6 w-6 mb-0.5" />
-            {item.label}
-          </NavLink>
-        ))}
+        {/* Nav Item 1: Schedule */}
+        <div className="col-span-1 flex items-center justify-center h-full">
+            {renderNavItem(navItems[0])}
+        </div>
+
+        {/* Nav Item 2: Sink */}
+        <div className="col-span-1 flex items-center justify-center h-full">
+            {renderNavItem(navItems[1])}
+        </div>
 
         {/* Central FAB/Action Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="default"
-              size="icon"
-              disabled={isProcessingCommand}
-              className={cn(
-                "relative -top-4 h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 transition-all duration-200",
-                isProcessingCommand && "opacity-70 cursor-not-allowed"
-              )}
-            >
-              {isProcessingCommand ? <Loader2 className="h-6 w-6 animate-spin" /> : <Plus className="h-6 w-6" />}
-              <span className="sr-only">New Action</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="center" side="top" className="w-48 p-1 mb-4">
-            <DropdownMenuItem onClick={handleQuickBreak} className="cursor-pointer flex items-center gap-2 text-logo-orange">
-              <Coffee className="h-4 w-4" /> Quick Break (15 min)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleQuickAddTask} className="cursor-pointer flex items-center gap-2 text-primary">
-              <ListTodo className="h-4 w-4" /> Add New Task
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="col-span-1 flex items-center justify-center h-full relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="default"
+                size="icon"
+                disabled={isProcessingCommand}
+                className={cn(
+                  // FAB is now larger and slightly overlaps the top edge
+                  "relative -top-4 h-16 w-16 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 border-4 border-card",
+                  isProcessingCommand && "opacity-70 cursor-not-allowed"
+                )}
+              >
+                {isProcessingCommand ? <Loader2 className="h-7 w-7 animate-spin" /> : <Plus className="h-7 w-7" />}
+                <span className="sr-only">New Action</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" side="top" className="w-48 p-1 mb-4">
+              <DropdownMenuItem onClick={handleQuickBreak} className="cursor-pointer flex items-center gap-2 text-logo-orange">
+                <Coffee className="h-4 w-4" /> Quick Break (15 min)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleQuickAddTask} className="cursor-pointer flex items-center gap-2 text-primary">
+                <ListTodo className="h-4 w-4" /> Add New Task
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-        {/* Right Nav Items */}
-        {navItems.slice(2).map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              cn(
-                "flex flex-col items-center justify-center h-full w-1/4 text-xs font-medium transition-colors duration-200",
-                (isActive || location.pathname.startsWith(item.matchPath)) ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )
-            }
-          >
-            <item.icon className="h-6 w-6 mb-0.5" />
-            {item.label}
-          </NavLink>
-        ))}
+        {/* Nav Item 3: Recap */}
+        <div className="col-span-1 flex items-center justify-center h-full">
+            {renderNavItem(navItems[2])}
+        </div>
+        
+        {/* Nav Item 4: Stats */}
+        <div className="col-span-1 flex items-center justify-center h-full">
+            {renderNavItem(navItems[3])}
+        </div>
       </div>
     </div>
   );

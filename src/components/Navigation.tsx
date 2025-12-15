@@ -36,10 +36,10 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
   const navItems = [
-    { to: "/", icon: Home, label: "Dashboard" },
-    { to: "/scheduler", icon: Clock, label: "Vibe Schedule" }, // Links to the default schedule view
-    { to: "/sink", icon: Trash2, label: "Aether Sink" }, // Links directly to the sink view
-    { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, // Links directly to the recap view
+    { to: "/tasks", icon: ListTodo, label: "My Tasks" }, // NEW: Tasks page
+    { to: "/scheduler", icon: Clock, label: "Vibe Schedule" }, 
+    { to: "/sink", icon: Trash2, label: "Aether Sink" }, 
+    { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, 
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
     { to: "/achievements", icon: Trophy, label: "Achievements" },
     { to: "/documentation", icon: BookOpen, label: "Documentation" },

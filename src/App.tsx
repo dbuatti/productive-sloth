@@ -8,14 +8,14 @@ import { SessionProvider } from "./components/SessionProvider";
 import { ThemeProvider } from "next-themes";
 import React from "react";
 import MainLayout from "./components/MainLayout";
-import Dashboard from "./pages/Dashboard";
+import TasksPage from "./pages/TasksPage";
 import AchievementsPage from "./pages/AchievementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
-import EnergyRegenInitializer from "./components/EnergyRegenInitializer"; // NEW IMPORT
+import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
 
 const queryClient = new QueryClient();
 
@@ -28,10 +28,11 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <EnvironmentProvider>
               <SessionProvider>
-                <EnergyRegenInitializer /> {/* NEW: Initialize hook here */}
+                <EnergyRegenInitializer />
                 <MainLayout>
                   <Routes>
-                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/" element={<Navigate to="/scheduler" replace />} />
+                    <Route path="/tasks" element={<TasksPage />} />
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/achievements" element={<AchievementsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />

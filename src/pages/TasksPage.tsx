@@ -18,7 +18,7 @@ import { Separator } from '@/components/ui/separator';
 
 const PRIORITY_ORDER: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
-const Dashboard = () => {
+const TasksPage = () => {
   const { isLoading: isSessionLoading, user, profile } = useSession();
   const { tasks, isLoading: isTasksLoading, temporalFilter, setTemporalFilter, statusFilter, setStatusFilter, sortBy, setSortBy, updateTask: updateTaskMutation } = useTasks();
   
@@ -130,4 +130,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default TasksPage;

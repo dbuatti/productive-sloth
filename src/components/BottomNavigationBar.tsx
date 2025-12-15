@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Trash2, Plus, CheckCircle, Coffee, ListTodo, Loader2, Clock, ClipboardList } from 'lucide-react'; // Import ClipboardList
+import { Sparkles, Trash2, Plus, CheckCircle, Coffee, ListTodo, Loader2, Clock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
@@ -18,7 +18,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { to: "/scheduler", icon: Clock, label: "Schedule", matchPath: '/scheduler' },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", matchPath: '/tasks' }, // NEW: Tasks Page
   { to: "/sink", icon: Trash2, label: "Sink", matchPath: '/sink' },
   { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' },
 ];
@@ -67,9 +66,9 @@ const BottomNavigationBar: React.FC = () => {
   };
 
   const handleQuickAddTask = () => {
-    // Navigate to the tasks page
-    navigate('/tasks');
-    showError("Use the Quick Add bar on the Tasks view to create a new task.");
+    // Navigate to the scheduler where the TaskCreationForm is located
+    navigate('/scheduler');
+    showError("Use the Quick Add bar on the Schedule view to create a new task.");
   };
 
   const renderNavItem = (item: NavItem) => {
@@ -96,15 +95,15 @@ const BottomNavigationBar: React.FC = () => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-card border-t border-border shadow-2xl lg:hidden animate-slide-in-up">
-      {/* Use a 5-column grid: Nav1 | Nav2 | FAB | Nav3 | Nav4 */}
-      <div className="grid grid-cols-5 items-center h-full max-w-md mx-auto">
+      {/* Use a 4-column grid: Nav1 | Nav2 | FAB | Nav3 */}
+      <div className="grid grid-cols-4 items-center h-full max-w-md mx-auto">
         
         {/* Nav Item 1: Schedule */}
         <div className="col-span-1 flex items-center justify-center h-full">
             {renderNavItem(navItems[0])}
         </div>
 
-        {/* Nav Item 2: Tasks */}
+        {/* Nav Item 2: Sink */}
         <div className="col-span-1 flex items-center justify-center h-full">
             {renderNavItem(navItems[1])}
         </div>
@@ -138,14 +137,9 @@ const BottomNavigationBar: React.FC = () => {
           </DropdownMenu>
         </div>
 
-        {/* Nav Item 3: Sink */}
+        {/* Nav Item 3: Recap */}
         <div className="col-span-1 flex items-center justify-center h-full">
             {renderNavItem(navItems[2])}
-        </div>
-        
-        {/* Nav Item 4: Recap */}
-        <div className="col-span-1 flex items-center justify-center h-full">
-            {renderNavItem(navItems[3])}
         </div>
         
       </div>

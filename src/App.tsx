@@ -14,7 +14,6 @@ import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
-import TasksPage from "./pages/TasksPage"; // NEW: Import TasksPage
 
 const queryClient = new QueryClient();
 
@@ -33,7 +32,6 @@ const App = () => (
                     <Route path="/" element={<Navigate to="/scheduler" replace />} />
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/tasks" element={<TasksPage />} /> {/* NEW: Tasks Page Route */}
                     
                     {/* SCHEDULER ROUTES */}
                     <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />

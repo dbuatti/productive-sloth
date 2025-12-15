@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger, // ADDED: AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ListTodo } from 'lucide-react'; // Import ListTodo
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -259,14 +259,6 @@ const SettingsPage: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => navigate('/tasks')}
-                  className="w-full justify-start flex items-center gap-2"
-                >
-                  <ListTodo className="h-4 w-4" /> View My Tasks
-                </Button>
                 <Button 
                   type="button" 
                   variant="outline" 

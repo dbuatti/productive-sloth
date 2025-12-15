@@ -194,61 +194,61 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                 </TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Sort By</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_NEWEST')} className={cn(retiredSortBy === 'RETIRED_AT_NEWEST' && 'bg-accent text-accent-foreground')}>
-                  <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Newest)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_OLDEST')} className={cn(retiredSortBy === 'RETIRED_AT_OLDEST' && 'bg-accent text-accent-foreground')}>
-                  <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Oldest)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_ASC')} className={cn(retiredSortBy === 'NAME_ASC' && 'bg-accent text-accent-foreground')}>
-                  <SortAsc className="mr-2 h-4 w-4" /> Name (A-Z)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_DESC')} className={cn(retiredSortBy === 'NAME_DESC' && 'bg-accent text-accent-foreground')}>
-                  <SortDesc className="mr-2 h-4 w-4" /> Name (Z-A)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_DESC')} className={cn(retiredSortBy === 'DURATION_DESC' && 'bg-accent text-accent-foreground')}>
-                  <Clock className="mr-2 h-4 w-4" /> Duration (Longest)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_ASC')} className={cn(retiredSortBy === 'DURATION_ASC' && 'bg-accent text-accent-foreground')}>
-                  <Clock className="mr-2 h-4 w-4" /> Duration (Shortest)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_FIRST')} className={cn(retiredSortBy === 'CRITICAL_FIRST' && 'bg-accent text-accent-foreground')}>
-                  <Star className="mr-2 h-4 w-4" /> Critical (First)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_LAST')} className={cn(retiredSortBy === 'CRITICAL_LAST' && 'bg-accent text-accent-foreground')}>
-                  <Star className="mr-2 h-4 w-4" /> Critical (Last)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_FIRST')} className={cn(retiredSortBy === 'LOCKED_FIRST' && 'bg-accent text-accent-foreground')}>
-                  <Lock className="mr-2 h-4 w-4" /> Locked (First)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_LAST')} className={cn(retiredSortBy === 'LOCKED_LAST' && 'bg-accent text-accent-foreground')}>
-                  <Unlock className="mr-2 h-4 w-4" /> Locked (Last)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_DESC')} className={cn(retiredSortBy === 'ENERGY_DESC' && 'bg-accent text-accent-foreground')}>
-                  <Zap className="mr-2 h-4 w-4" /> Energy (Highest)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_ASC')} className={cn(retiredSortBy === 'ENERGY_ASC' && 'bg-accent text-accent-foreground')}>
-                  <Zap className="mr-2 h-4 w-4" /> Energy (Lowest)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_FIRST')} className={cn(retiredSortBy === 'COMPLETED_FIRST' && 'bg-accent text-accent-foreground')}>
-                  <CheckCircle className="mr-2 h-4 w-4" /> Completed (First)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_LAST')} className={cn(retiredSortBy === 'COMPLETED_LAST' && 'bg-accent text-accent-foreground')}>
-                  <CheckCircle className="mr-2 h-4 w-4" /> Completed (Last)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setRetiredSortBy('EMOJI')} className={cn(retiredSortBy === 'EMOJI' && 'bg-accent text-accent-foreground')}>
-                  <Smile className="mr-2 h-4 w-4" /> Emoji
-                </DropdownMenuItem>
-              </DropdownMenuContent>
+                  <DropdownMenuLabel>Sort By</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_NEWEST')} className={cn(retiredSortBy === 'RETIRED_AT_NEWEST' && 'bg-accent text-accent-foreground')}>
+                    <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Newest)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_OLDEST')} className={cn(retiredSortBy === 'RETIRED_AT_OLDEST' && 'bg-accent text-accent-foreground')}>
+                    <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Oldest)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_ASC')} className={cn(retiredSortBy === 'NAME_ASC' && 'bg-accent text-accent-foreground')}>
+                    <SortAsc className="mr-2 h-4 w-4" /> Name (A-Z)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_DESC')} className={cn(retiredSortBy === 'NAME_DESC' && 'bg-accent text-accent-foreground')}>
+                    <SortDesc className="mr-2 h-4 w-4" /> Name (Z-A)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_DESC')} className={cn(retiredSortBy === 'DURATION_DESC' && 'bg-accent text-accent-foreground')}>
+                    <Clock className="mr-2 h-4 w-4" /> Duration (Longest)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_ASC')} className={cn(retiredSortBy === 'DURATION_ASC' && 'bg-accent text-accent-foreground')}>
+                    <Clock className="mr-2 h-4 w-4" /> Duration (Shortest)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_FIRST')} className={cn(retiredSortBy === 'CRITICAL_FIRST' && 'bg-accent text-accent-foreground')}>
+                    <Star className="mr-2 h-4 w-4" /> Critical (First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_LAST')} className={cn(retiredSortBy === 'CRITICAL_LAST' && 'bg-accent text-accent-foreground')}>
+                    <Star className="mr-2 h-4 w-4" /> Critical (Last)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_FIRST')} className={cn(retiredSortBy === 'LOCKED_FIRST' && 'bg-accent text-accent-foreground')}>
+                    <Lock className="mr-2 h-4 w-4" /> Locked (First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_LAST')} className={cn(retiredSortBy === 'LOCKED_LAST' && 'bg-accent text-accent-foreground')}>
+                    <Unlock className="mr-2 h-4 w-4" /> Locked (Last)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_DESC')} className={cn(retiredSortBy === 'ENERGY_DESC' && 'bg-accent text-accent-foreground')}>
+                    <Zap className="mr-2 h-4 w-4" /> Energy (Highest)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_ASC')} className={cn(retiredSortBy === 'ENERGY_ASC' && 'bg-accent text-accent-foreground')}>
+                    <Zap className="mr-2 h-4 w-4" /> Energy (Lowest)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_FIRST')} className={cn(retiredSortBy === 'COMPLETED_FIRST' && 'bg-accent text-accent-foreground')}>
+                    <CheckCircle className="mr-2 h-4 w-4" /> Completed (First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_LAST')} className={cn(retiredSortBy === 'COMPLETED_LAST' && 'bg-accent text-accent-foreground')}>
+                    <CheckCircle className="mr-2 h-4 w-4" /> Completed (Last)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setRetiredSortBy('EMOJI')} className={cn(retiredSortBy === 'EMOJI' && 'bg-accent text-accent-foreground')}>
+                    <Smile className="mr-2 h-4 w-4" /> Emoji
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
             </DropdownMenu>
 
             {/* Auto Schedule Button */}
@@ -319,18 +319,19 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                 {retiredTasks.map((task) => {
                   const hue = getEmojiHue(task.name);
                   const emoji = assignEmoji(task.name);
-                  const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
+                  const accentBorderColor = `hsl(${hue} 70% 50%)`; // Define vibrant accent color
                   const isLocked = task.is_locked;
 
                   return (
                     <div 
                       key={task.id} 
                       className={cn(
-                        "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-md border border-border/50 text-base transition-all duration-200 ease-in-out cursor-pointer", // Increased padding to p-4
-                        isLocked ? "border-primary/70 bg-primary/10" : "",
+                        "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg shadow-sm text-base transition-all duration-200 ease-in-out cursor-pointer",
+                        "bg-card hover:bg-secondary/50 border-l-4 animate-hover-lift", // Use border-l-4 for accent
+                        isLocked ? "border-l-primary/70 bg-primary/10" : "",
                         task.is_completed && "opacity-50 line-through"
                       )}
-                      style={{ backgroundColor: isLocked ? undefined : ambientBackgroundColor }}
+                      style={{ borderLeftColor: isLocked ? undefined : accentBorderColor }} // Apply dynamic color via style
                       onMouseEnter={() => setHoveredItemId(task.id)}
                       onMouseLeave={() => setHoveredItemId(null)}
                       onClick={(e) => handleTaskItemClick(e, task)}

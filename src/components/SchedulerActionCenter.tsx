@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, Database, Trash2, CalendarCheck, Coffee, ListTodo, BatteryCharging, Feather, Anchor } from 'lucide-react'; // Added Feather and Anchor
+import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, Database, Trash2, CalendarCheck, Coffee, ListTodo, BatteryCharging, Feather, Anchor } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock';
@@ -94,62 +94,26 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
         {/* 2. Quick Blocks & Core Management Actions (Consolidated into a single grid) */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 border-t pt-4 border-border/50">
           
-          {/* Quick Block 15 min (Shortest First) */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onQuickScheduleBlock(15, 'shortestFirst')}
-                disabled={isProcessingCommand}
-                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200"
-              >
-                <Feather className="h-5 w-5" />
-                <span className="sr-only">Quick Block 15 min (Shortest First)</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Quick Block 15 min (Shortest First)</p>
-            </TooltipContent>
-          </Tooltip>
+          {/* Quick Block 15 min */}
+          <QuickScheduleBlock
+            duration={15}
+            onScheduleBlock={onQuickScheduleBlock}
+            isProcessingCommand={isProcessingCommand}
+          />
 
-          {/* Quick Block 30 min (Longest First) */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onQuickScheduleBlock(30, 'longestFirst')}
-                disabled={isProcessingCommand}
-                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200"
-              >
-                <Anchor className="h-5 w-5" />
-                <span className="sr-only">Quick Block 30 min (Longest First)</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Quick Block 30 min (Longest First)</p>
-            </TooltipContent>
-          </Tooltip>
+          {/* Quick Block 30 min */}
+          <QuickScheduleBlock
+            duration={30}
+            onScheduleBlock={onQuickScheduleBlock}
+            isProcessingCommand={isProcessingCommand}
+          />
 
-          {/* Quick Block 60 min (Shortest First) */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onQuickScheduleBlock(60, 'shortestFirst')}
-                disabled={isProcessingCommand}
-                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200"
-              >
-                <Feather className="h-5 w-5" />
-                <span className="sr-only">Quick Block 60 min (Shortest First)</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Quick Block 60 min (Shortest First)</p>
-            </TooltipContent>
-          </Tooltip>
+          {/* Quick Block 60 min */}
+          <QuickScheduleBlock
+            duration={60}
+            onScheduleBlock={onQuickScheduleBlock}
+            isProcessingCommand={isProcessingCommand}
+          />
 
           {/* Compact Schedule */}
           <Tooltip>

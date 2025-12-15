@@ -14,6 +14,7 @@ import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
+import ModelPage from "./pages/ModelPage"; // NEW IMPORT
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
                     {/* Secondary Pages (Accessed via Settings) */}
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/documentation" element={<DocumentationPage />} />
+                    <Route path="/model" element={<ModelPage />} /> {/* NEW ROUTE */}
                     
                     <Route path="/settings" element={<SettingsPage />} />
                     

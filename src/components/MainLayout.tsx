@@ -11,7 +11,7 @@ import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
-import { Settings, TrendingUp, BookOpen, Clock, Trash2, CheckCircle } from 'lucide-react'; // Added Clock, Trash2, CheckCircle
+import { Settings, TrendingUp, BookOpen, Clock, Trash2, CheckCircle, Code } from 'lucide-react'; // Added Code icon
 import { NavLink } from 'react-router-dom'; 
 import DesktopHeaderControls from './DesktopHeaderControls'; 
 import { Separator } from '@/components/ui/separator'; // NEW IMPORT
@@ -91,6 +91,19 @@ const MobileNavigationLinks: React.FC<{ onLinkClick: () => void }> = ({ onLinkCl
     >
       <BookOpen className="h-6 w-6" />
       <span className="text-base font-medium">Documentation</span>
+    </NavLink>
+    <NavLink
+      to="/model" // NEW LINK
+      onClick={onLinkClick}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
+          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
+        )
+      }
+    >
+      <Code className="h-6 w-6" />
+      <span className="text-base font-medium">App Model & Reference</span>
     </NavLink>
     <NavLink
       to="/settings"

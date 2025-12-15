@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, ListTodo, Settings, Trophy, TrendingUp, Clock, BookOpen, Trash2, CheckCircle } from 'lucide-react'; // Import Trash2 and CheckCircle
+import { Home, ListTodo, Settings, Trophy, TrendingUp, Clock, BookOpen, Trash2, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavLinkItemProps {
@@ -17,15 +17,15 @@ const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isColl
     onClick={onClick}
     className={({ isActive }) =>
       cn(
-        "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative", // Added relative
+        "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
         // Refined active state: lighter background, strong left border
         isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4",
         isCollapsed ? "justify-center" : ""
       )
     }
   >
-    <Icon className="h-6 w-6" /> {/* Increased icon size */}
-    {!isCollapsed && <span className="text-base font-medium">{label}</span>} {/* Increased font size */}
+    <Icon className="h-6 w-6" />
+    {!isCollapsed && <span className="text-base font-medium">{label}</span>}
   </NavLink>
 );
 
@@ -36,9 +36,8 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
   const navItems = [
-    { to: "/scheduler", icon: Clock, label: "Vibe Schedule" }, 
-    { to: "/analytics", icon: TrendingUp, label: "Analytics" },
-    { to: "/documentation", icon: BookOpen, label: "Documentation" },
+    // Removed primary navigation links (Scheduler, Sink, Recap, Analytics, Docs)
+    // Keeping Settings as the only link accessible via the mobile sheet/desktop sidebar (if it existed)
     { to: "/settings", icon: Settings, label: "Settings" },
   ];
 

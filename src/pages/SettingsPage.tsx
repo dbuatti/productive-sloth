@@ -26,15 +26,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // ADDED: AlertDialogTrigger
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
-import { format, parseISO } from 'date-fns'; // Import date-fns functions
+import { format, parseISO } from 'date-fns';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
@@ -49,6 +50,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 const SettingsPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, refreshProfile, rechargeEnergy, resetDailyStreak, updateNotificationPreferences, updateProfile, updateSettings } = useSession();
   const { setTheme } = useTheme();
+  const navigate = useNavigate(); // Initialize useNavigate
 
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
@@ -130,7 +132,7 @@ const SettingsPage: React.FC = () => {
           enable_aethersink_backup: true,
           default_auto_schedule_start_time: '09:00',
           default_auto_schedule_end_time: '17:00',
-          last_energy_regen_at: new Date().toISOString(), // NEW: Reset last_energy_regen_at
+          last_energy_regen_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -245,6 +247,33 @@ const SettingsPage: React.FC = () => {
         <Settings className="h-7 w-7 text-primary" /> Settings
       </h1>
       
+      {/* Secondary Navigation Links (New) */}
+      <Card className="animate-hover-lift">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <ExternalLink className="h-5 w-5 text-primary" /> Secondary Views
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/analytics')}
+            className="flex items-center justify-start gap-3 h-12 text-base"
+          >
+            <TrendingUp className="h-5 w-5 text-logo-yellow" />
+            Analytics & Progress
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/documentation')}
+            className="flex items-center justify-start gap-3 h-12 text-base"
+          >
+            <BookOpen className="h-5 w-5 text-logo-green" />
+            App Documentation
+          </Button>
+        </CardContent>
+      </Card>
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Personal Information Card */}

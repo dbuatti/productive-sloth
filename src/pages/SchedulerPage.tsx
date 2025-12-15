@@ -65,6 +65,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import AutoScheduleButton from '@/components/AutoScheduleButton';
 import { cn } from '@/lib/utils';
+import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl'; // NEW IMPORT
 
 // Helper to get initial state from localStorage
 const getInitialSelectedDay = () => {
@@ -118,7 +119,7 @@ const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes, triggerEnergyRegen } = useSession(); // UPDATED: Destructure triggerEnergyRegen
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes, triggerEnergyRegen } = useSession();
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
@@ -2371,7 +2372,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           onAetherDump={handleAetherDumpButton}
           onRefreshSchedule={handleRefreshSchedule}
           onAetherDumpMega={handleAetherDumpMegaButton}
-          onQuickBreak={handleQuickBreakButton} // NEW PROP
+          onQuickBreak={handleQuickBreakButton}
         />
       </div>
 
@@ -2450,8 +2451,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
       selectedDayString={selectedDay}
       completedScheduledTasks={completedScheduledTasksForRecap}
-      totalActiveTimeMinutes={totalActiveTimeMinutes} // NEW
-      totalBreakTimeMinutes={totalBreakTimeMinutes} // NEW
+      totalActiveTimeMinutes={totalActiveTimeMinutes}
+      totalBreakTimeMinutes={totalBreakTimeMinutes}
     />
   );
 
@@ -2471,10 +2472,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       )}
 
       {/* Energy Regen Pod Modal (Highest Layer) */}
-      {(isRegenPodActive || showPodSetupModal) && ( // UPDATED: Open if active OR in setup phase
+      {(isRegenPodActive || showPodSetupModal) && (
         <EnergyRegenPodModal
           isOpen={isRegenPodActive || showPodSetupModal}
-          onExit={handlePodExit} // Use simplified exit handler
+          onExit={handlePodExit}
           onStart={async (activityName, activityDuration) => { 
             // This is the new trigger for the actual start
             await startRegenPodState(activityDuration); 
@@ -2503,8 +2504,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           datesWithTasks={datesWithTasks} 
           isLoadingDatesWithTasks={isLoadingDatesWithTasks}
         />
-
-        {/* REMOVED: SchedulerSegmentedControl */}
+        
+        {/* NEW: Primary Navigation Tabs */}
+        <SchedulerSegmentedControl currentView={view} />
       </Card>
 
       {/* Conditional View Rendering based on 'view' prop */}

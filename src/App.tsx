@@ -30,15 +30,18 @@ const App = () => (
                 <MainLayout>
                   <Routes>
                     <Route path="/" element={<Navigate to="/scheduler" replace />} />
+                    
+                    {/* Secondary Pages (Accessed via Settings) */}
                     <Route path="/analytics" element={<AnalyticsPage />} />
+                    <Route path="/documentation" element={<DocumentationPage />} />
+                    
                     <Route path="/settings" element={<SettingsPage />} />
                     
-                    {/* SCHEDULER ROUTES */}
+                    {/* SCHEDULER CORE VIEWS (Primary Navigation) */}
                     <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
                     <Route path="/sink" element={<SchedulerPage view="sink" />} />
                     <Route path="/recap" element={<SchedulerPage view="recap" />} />
                     
-                    <Route path="/documentation" element={<DocumentationPage />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

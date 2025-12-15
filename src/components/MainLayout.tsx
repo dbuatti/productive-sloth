@@ -6,16 +6,62 @@ import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import EnergyDeficitWarning from './EnergyDeficitWarning';
-import Sidebar from './Sidebar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
+import { Settings, TrendingUp, BookOpen } from 'lucide-react'; // Added icons for mobile menu links
+import { NavLink } from 'react-router-dom'; // Added NavLink for mobile menu links
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
+
+const MobileNavigationLinks: React.FC<{ onLinkClick: () => void }> = ({ onLinkClick }) => (
+  <nav className="grid items-start px-4 text-sm font-medium space-y-1">
+    <NavLink
+      to="/analytics"
+      onClick={onLinkClick}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
+          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
+        )
+      }
+    >
+      <TrendingUp className="h-6 w-6" />
+      <span className="text-base font-medium">Analytics</span>
+    </NavLink>
+    <NavLink
+      to="/documentation"
+      onClick={onLinkClick}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
+          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
+        )
+      }
+    >
+      <BookOpen className="h-6 w-6" />
+      <span className="text-base font-medium">Documentation</span>
+    </NavLink>
+    <NavLink
+      to="/settings"
+      onClick={onLinkClick}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
+          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
+        )
+      }
+    >
+      <Settings className="h-6 w-6" />
+      <span className="text-base font-medium">Settings</span>
+    </NavLink>
+  </nav>
+);
+
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
@@ -51,8 +97,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Desktop Sidebar (Permanent on large screens) */}
-      {!isMobile && <Sidebar />}
+      {/* Desktop Sidebar is removed. */}
       
       {/* Mobile Sheet Navigation (Hamburger Menu) */}
       {isMobile && (
@@ -64,7 +109,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               <span className="ml-2 text-lg font-bold text-sidebar-foreground">AetherFlow</span>
             </div>
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
-              <Navigation isCollapsed={false} onLinkClick={handleLinkClick} />
+              {/* Use the new consolidated links for the mobile menu */}
+              <MobileNavigationLinks onLinkClick={handleLinkClick} />
             </div>
           </SheetContent>
         </Sheet>

@@ -36,7 +36,6 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
   const navItems = [
-    { to: "/tasks", icon: ListTodo, label: "My Tasks" }, // NEW: Tasks page
     { to: "/scheduler", icon: Clock, label: "Vibe Schedule" }, 
     { to: "/sink", icon: Trash2, label: "Aether Sink" }, 
     { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, 

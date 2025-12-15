@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, Database, Trash2, CalendarCheck, Coffee, ListTodo, BatteryCharging } from 'lucide-react';
+import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, Database, Trash2, CalendarCheck, Coffee, ListTodo, BatteryCharging, Feather, Anchor } from 'lucide-react'; // Added Feather and Anchor
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock';
@@ -71,41 +71,87 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
     <Card className="p-4 animate-slide-in-up animate-hover-lift">
       <CardContent className="p-0 space-y-4">
         
-        {/* 1. Primary Action: Auto Schedule Day */}
+        {/* 1. Primary Action: Auto Schedule Day (Elevated) */}
         <Button
           onClick={onAutoSchedule}
           disabled={isProcessingCommand}
           className={cn(
-            "w-full h-12 text-lg font-bold flex items-center justify-center gap-3 transition-all duration-300 ease-in-out",
-            "bg-logo-green text-primary-foreground hover:bg-logo-green/90 shadow-lg hover:shadow-xl hover:shadow-logo-green/30",
+            "w-full h-14 text-xl font-bold flex items-center justify-center gap-3 transition-all duration-300 ease-in-out",
+            "bg-logo-green text-primary-foreground hover:bg-logo-green/90 shadow-xl hover:shadow-2xl hover:shadow-logo-green/40",
             isProcessingCommand && "opacity-70 cursor-not-allowed"
           )}
           style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
         >
           {isProcessingCommand ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
+            <Loader2 className="h-7 w-7 animate-spin" />
           ) : (
-            <CalendarCheck className="h-6 w-6" />
+            <CalendarCheck className="h-7 w-7" />
           )}
           Auto Schedule Day
-          <Star className="h-5 w-5 text-logo-yellow" />
+          <Star className="h-6 w-6 text-logo-yellow" />
         </Button>
 
-        {/* 2. Quick Blocks */}
-        <div className="flex flex-wrap items-center gap-3 border-t pt-4 border-border/50">
-          <span className="text-sm font-semibold text-muted-foreground shrink-0">Quick Block:</span>
-          {DURATION_BUCKETS.map(duration => (
-            <QuickScheduleBlock
-              key={duration}
-              duration={duration}
-              onScheduleBlock={onQuickScheduleBlock}
-              isProcessingCommand={isProcessingCommand}
-            />
-          ))}
-        </div>
-
-        {/* 3. Core Management Actions (Compact, Randomize, Zone Focus, Recharge, Quick Break, Regen Pod) */}
+        {/* 2. Quick Blocks & Core Management Actions (Consolidated into a single grid) */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 border-t pt-4 border-border/50">
+          
+          {/* Quick Block 15 min (Shortest First) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onQuickScheduleBlock(15, 'shortestFirst')}
+                disabled={isProcessingCommand}
+                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200"
+              >
+                <Feather className="h-5 w-5" />
+                <span className="sr-only">Quick Block 15 min (Shortest First)</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Quick Block 15 min (Shortest First)</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Quick Block 30 min (Longest First) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onQuickScheduleBlock(30, 'longestFirst')}
+                disabled={isProcessingCommand}
+                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200"
+              >
+                <Anchor className="h-5 w-5" />
+                <span className="sr-only">Quick Block 30 min (Longest First)</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Quick Block 30 min (Longest First)</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Quick Block 60 min (Shortest First) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onQuickScheduleBlock(60, 'shortestFirst')}
+                disabled={isProcessingCommand}
+                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200"
+              >
+                <Feather className="h-5 w-5" />
+                <span className="sr-only">Quick Block 60 min (Shortest First)</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Quick Block 60 min (Shortest First)</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Compact Schedule */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -128,6 +174,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </TooltipContent>
           </Tooltip>
 
+          {/* Randomize Breaks */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -150,6 +197,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </TooltipContent>
           </Tooltip>
 
+          {/* Zone Focus */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -171,7 +219,12 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <p>Zone Focus (Auto-schedule filtered tasks from Sink)</p>
             </TooltipContent>
           </Tooltip>
+        </div>
+
+        {/* 3. Energy & Utility Actions (Grouped) */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 border-t pt-4 border-border/50">
           
+          {/* Recharge Energy */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -190,6 +243,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </TooltipContent>
           </Tooltip>
 
+          {/* Quick Break */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -208,6 +262,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </TooltipContent>
           </Tooltip>
 
+          {/* Start Energy Regen Pod */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
@@ -226,10 +281,8 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <p>Start Energy Regen Pod (Dynamic duration, max {REGEN_POD_MAX_DURATION_MINUTES} min)</p>
             </TooltipContent>
           </Tooltip>
-        </div>
 
-        {/* 4. Advanced/Utility Actions (Sort, Workday, Dump, Refresh) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t pt-4 border-border/50">
+          {/* Sort Flexible Tasks Dropdown */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -268,6 +321,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </Tooltip>
           </DropdownMenu>
 
+          {/* Workday Window */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -286,6 +340,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </TooltipContent>
           </Tooltip>
           
+          {/* Aether Dump Dropdown */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -320,24 +375,26 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               </DropdownMenuContent>
             </Tooltip>
           </DropdownMenu>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onRefreshSchedule}
-                disabled={isProcessingCommand}
-                className="h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200"
-              >
-                <Database className="h-5 w-5" />
-                <span className="sr-only">Refresh Data</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Refresh Schedule Data</p>
-            </TooltipContent>
-          </Tooltip>
+        </div>
+        
+        {/* 4. Refresh Data (Standalone for clarity) */}
+        <div className="grid grid-cols-1 border-t pt-4 border-border/50">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200 flex items-center gap-2"
+                  onClick={onRefreshSchedule}
+                  disabled={isProcessingCommand}
+                >
+                  <Database className="h-5 w-5" />
+                  <span className="text-sm">Refresh Data</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Force refresh all schedule data from the database</p>
+              </TooltipContent>
+            </Tooltip>
         </div>
       </CardContent>
     </Card>

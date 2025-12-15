@@ -31,7 +31,6 @@ const App = () => (
                   <Routes>
                     <Route path="/" element={<Navigate to="/scheduler" replace />} />
                     <Route path="/analytics" element={<AnalyticsPage />} />
-                    <Route path="/achievements" element={<AchievementsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     
                     {/* SCHEDULER ROUTES */}

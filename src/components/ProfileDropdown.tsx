@@ -18,13 +18,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-const MobileProfilePill: React.FC = () => {
+const ProfileDropdown: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
   const navigate = useNavigate();
 
   if (!user || !profile || isSessionLoading) {
     return (
-      <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+      <div className="h-10 w-24 rounded-full bg-muted animate-pulse" />
     );
   }
 
@@ -117,4 +117,4 @@ const MobileProfilePill: React.FC = () => {
   );
 };
 
-export default MobileProfilePill;
+export default ProfileDropdown;

@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile'; 
 import CustomMenuIcon from './CustomMenuIcon';
-import MobileProfilePill from './MobileProfilePill'; // NEW IMPORT
+import ProfileDropdown from './ProfileDropdown'; // UPDATED IMPORT
 
 interface AppHeaderProps {
   onMenuToggle: () => void; 
@@ -60,7 +60,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
         {/* Right side: User Controls (Profile Pill) */}
         {user && (
           <div className="flex items-center space-x-2 shrink-0">
-            <MobileProfilePill />
+            <ProfileDropdown />
           </div>
         )}
       </div>

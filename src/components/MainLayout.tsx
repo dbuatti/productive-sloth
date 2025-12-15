@@ -13,6 +13,7 @@ import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
 import { Settings, TrendingUp, BookOpen } from 'lucide-react'; // Added icons for mobile menu links
 import { NavLink } from 'react-router-dom'; // Added NavLink for mobile menu links
+import DesktopHeaderControls from './DesktopHeaderControls'; // NEW IMPORT
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -80,11 +81,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, []);
 
   // On mobile (lg:hidden), header is h-16, progress bar is sticky top-16 (~h-8). Total offset ~100px.
-  // On desktop (lg:block), header is hidden, progress bar is sticky top-0 (~h-8). Offset ~52px (36px + gap-4).
+  // On desktop (lg:block), header is h-16, progress bar is sticky top-16 (~h-8). Total offset ~100px.
   const mainContent = (
     <main className={cn(
       "flex flex-1 flex-col gap-4 px-4 overflow-auto",
-      "pt-[100px] lg:pt-[52px]", // Adjusted top padding for desktop (lg:pt-[52px])
+      "pt-[100px] lg:pt-[100px]", // Adjusted top padding for both mobile and desktop (h-16 header + h-8 progress bar + gap)
       // Dynamic bottom padding for mobile navigation/status indicator
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4")
     )}>
@@ -97,7 +98,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Desktop Sidebar is removed. */}
+      {/* Desktop Header Controls (Visible on large screens) */}
+      {!isMobile && <DesktopHeaderControls />}
       
       {/* Mobile Sheet Navigation (Hamburger Menu) */}
       {isMobile && (
@@ -118,7 +120,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       
       {/* Main Content Area (Header + Progress Bar + Page Content) */}
       <div className="flex flex-col flex-1 min-w-0 w-full">
-        {/* Header (Pass toggle function) */}
+        {/* Header (Pass toggle function) - Only visible on mobile */}
         <AppHeader onMenuToggle={handleMenuToggle} />
         
         {/* Progress Bar Header (Sticks below the header) */}

@@ -255,13 +255,16 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
           <div 
             id={`scheduled-item-${freeTimeItem.id}`}
             className={cn(
-              "relative flex items-center justify-center text-muted-foreground italic text-sm h-[25px] rounded-lg shadow-sm transition-all duration-200 ease-in-out", // Reduced height and font size
+              "relative flex flex-col items-center justify-center text-muted-foreground italic text-sm h-[25px] rounded-lg shadow-sm transition-all duration-200 ease-in-out", // Reduced height and font size
+              "border-2 border-dashed", // Added dashed border for free time
               isHighlightedByNowCard ? "opacity-50 border-border" :
-              isActive ? "bg-live-progress/10 border border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70",
+              isActive ? "bg-live-progress/10 border-live-progress animate-pulse-active-row" : "bg-secondary/50 hover:bg-secondary/70 border-secondary",
               isPastItem && "opacity-50 border-muted-foreground/30"
             )}
+            style={getBubbleHeightStyle(freeTimeItem.duration)} // Apply height style based on duration
           >
-            {freeTimeItem.message}
+            <span className="text-base font-semibold text-muted-foreground/80">{freeTimeItem.message}</span>
+            <span className="text-xs text-muted-foreground/60 mt-1">Click to inject a task here</span>
             {/* Removed local progress line for free time */}
           </div>
         </React.Fragment>

@@ -2317,11 +2317,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
   const renderScheduleCore = () => (
     <>
-      {/* Input & Environment/Weather Card (Desktop Only) */}
+      {/* Info Panel Card (Desktop Only) */}
       <Card className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg hidden lg:block animate-hover-lift">
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
           <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
-            <ListTodo className="h-5 w-5 text-primary" /> Schedule Your Day
+            <ListTodo className="h-5 w-5 text-primary" /> Schedule Input
           </h2>
           <div className="flex items-center gap-3">
             <p className="text-sm text-muted-foreground hidden sm:block">
@@ -2329,8 +2329,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             </p>
           </div>
         </div>
-        <EnvironmentMultiSelect /> 
-        <WeatherWidget />
+        <div className="grid grid-cols-2 gap-4">
+          <EnvironmentMultiSelect /> 
+          <WeatherWidget />
+        </div>
         <SchedulerInput 
           onCommand={handleCommand} 
           isLoading={overallLoading} 
@@ -2540,20 +2542,34 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                       </DrawerTitle>
                   </DrawerHeader>
                   <div className="p-4 overflow-y-auto space-y-4">
-                      <EnvironmentMultiSelect /> 
-                      <WeatherWidget />
-                      <SchedulerInput 
-                          onCommand={handleCommand} 
-                          isLoading={overallLoading} 
-                          inputValue={inputValue}
-                          setInputValue={setInputValue}
-                          placeholder={`Add task (e.g., 'Gym 60') or command`}
-                          onDetailedInject={handleAddTaskClick}
-                          onStartRegenPod={handleStartRegenPod}
-                      />
-                      <p className="text-sm text-muted-foreground">
-                          Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-                      </p>
+                      <Card className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg animate-hover-lift">
+                          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                              <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
+                                  <ListTodo className="h-5 w-5 text-primary" /> Schedule Input
+                              </h2>
+                              <div className="flex items-center gap-3">
+                                  <p className="text-sm text-muted-foreground hidden sm:block">
+                                      Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
+                                  </p>
+                              </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                              <EnvironmentMultiSelect /> 
+                              <WeatherWidget />
+                          </div>
+                          <SchedulerInput 
+                              onCommand={handleCommand} 
+                              isLoading={overallLoading} 
+                              inputValue={inputValue}
+                              setInputValue={setInputValue}
+                              placeholder={`Add task (e.g., 'Gym 60') or command`}
+                              onDetailedInject={handleAddTaskClick}
+                              onStartRegenPod={handleStartRegenPod}
+                          />
+                          <p className="text-sm text-muted-foreground">
+                              Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+                          </p>
+                      </Card>
                       <SchedulerUtilityBar 
                           isProcessingCommand={isProcessingCommand}
                           hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}

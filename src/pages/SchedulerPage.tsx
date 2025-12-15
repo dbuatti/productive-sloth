@@ -523,7 +523,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     }
   };
 
-  const handleQuickScheduleBlock = async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
+  const handleQuickScheduleBlock = useCallback(async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to quick schedule.");
       return;
@@ -532,50 +532,17 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
     try {
       // 1. Get eligible tasks from Aether Sink
-      const eligibleSinkTasks = retiredTasks
+      let eligibleSinkTasks = retiredTasks
         .filter(task => !task.is_locked && !task.is_completed)
         .map(task => ({
           ...task,
           // Ensure duration is a number for sorting, default to 30 if null
           effectiveDuration: task.duration || 30,
-        }))
-        .filter(task => task.effectiveDuration <= duration); // Only consider tasks that fit within the block duration
+          totalDuration: (task.duration || 30) + (task.break_duration || 0),
+        }));
 
       if (eligibleSinkTasks.length === 0) {
-        // Fallback to creating a generic Focus Block if no eligible tasks in sink
-        const taskName = `Focus Block (${duration} min)`;
-        const energyCost = calculateEnergyCost(duration, false);
-        const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-          taskName,
-          duration,
-          false, // isCritical
-          true,  // isFlexible
-          energyCost,
-          occupiedBlocks,
-          effectiveWorkdayStart,
-          workdayEndTime
-        );
-
-        if (proposedStartTime && proposedEndTime) {
-          await addScheduledTask({
-            name: taskName,
-            start_time: proposedStartTime.toISOString(),
-            end_time: proposedEndTime.toISOString(),
-            break_duration: null,
-            scheduled_date: formattedSelectedDay,
-            is_critical: false,
-            is_flexible: true,
-            is_locked: false,
-            energy_cost: energyCost,
-            is_custom_energy_cost: false,
-            task_environment: environmentForPlacement,
-          });
-          showSuccess(`Quick Scheduled a generic ${duration} min focus block.`);
-          queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-        } else {
-          showError(message);
-        }
-        setIsProcessingCommand(false);
+        showError("Aether Sink is empty. Cannot quick schedule tasks.");
         return;
       }
 
@@ -588,52 +555,100 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         }
       });
 
-      // 3. Select the top task
-      const taskToSchedule = eligibleSinkTasks[0];
-      const taskDuration = taskToSchedule.effectiveDuration;
-      const energyCost = taskToSchedule.energy_cost; // Use task's actual energy cost
-
-      // 4. Find a free slot for the selected task
-      const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
-        taskToSchedule.name,
-        taskDuration,
-        taskToSchedule.is_critical,
-        true, // Quick scheduled tasks are flexible by default
-        energyCost,
-        occupiedBlocks,
-        effectiveWorkdayStart,
-        workdayEndTime
-      );
-
-      if (proposedStartTime && proposedEndTime) {
-        // 5. Add the selected task to scheduled_tasks
-        await addScheduledTask({
-          name: taskToSchedule.name,
-          start_time: proposedStartTime.toISOString(),
-          end_time: proposedEndTime.toISOString(),
-          break_duration: taskToSchedule.break_duration,
-          scheduled_date: formattedSelectedDay,
-          is_critical: taskToSchedule.is_critical,
-          is_flexible: true, // Quick scheduled tasks are flexible by default
-          is_locked: false,
-          energy_cost: energyCost,
-          is_custom_energy_cost: taskToSchedule.is_custom_energy_cost,
-          task_environment: taskToSchedule.task_environment,
-        });
-        showSuccess(`Quick Scheduled "${taskToSchedule.name}" for ${taskDuration} min.`);
-        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-
-        // 6. Remove the task from Aether Sink
-        await rezoneTask(taskToSchedule.id); // rezoneTask actually deletes from aethersink
-      } else {
-        showError(message);
+      let remainingDuration = duration;
+      const tasksToPlace: typeof eligibleSinkTasks = [];
+      
+      // 3. Select tasks until the duration is filled
+      for (const task of eligibleSinkTasks) {
+        if (task.effectiveDuration <= remainingDuration) {
+          tasksToPlace.push(task);
+          remainingDuration -= task.effectiveDuration;
+        }
       }
+      
+      if (tasksToPlace.length === 0) {
+          showError(`No tasks in the Aether Sink fit within the ${duration} minute block.`);
+          return;
+      }
+
+      // 4. Find the first available free slot large enough to hold the *first* task
+      let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+      let freeBlocks = getFreeTimeBlocks(currentOccupiedBlocksForScheduling, effectiveWorkdayStart, workdayEndTime);
+      
+      const firstTaskTotalDuration = tasksToPlace[0].totalDuration;
+      const initialFreeBlock = freeBlocks.find(block => block.duration >= firstTaskTotalDuration);
+
+      if (!initialFreeBlock) {
+          showError(`No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) to start the quick block.`);
+          return;
+      }
+
+      let currentPlacementTime = initialFreeBlock.start;
+      let tasksSuccessfullyPlaced = 0;
+
+      // 5. Sequentially place the selected tasks
+      for (const task of tasksToPlace) {
+        const taskDuration = task.duration;
+        const breakDuration = task.break_duration || 0;
+        const totalDuration = taskDuration + breakDuration;
+        
+        const proposedStartTime = currentPlacementTime;
+        const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
+
+        // Check if the proposed slot is still within the workday and free
+        if (isAfter(proposedEndTime, workdayEndTime)) {
+            console.log(`QuickScheduleBlock: Task "${task.name}" exceeds workday end time. Stopping placement.`);
+            break;
+        }
+        
+        // Re-check slot freedom against the dynamically updated occupied blocks
+        if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocksForScheduling)) {
+            // 5a. Add the task to scheduled_tasks
+            await addScheduledTask({
+                name: task.name,
+                start_time: proposedStartTime.toISOString(),
+                end_time: proposedEndTime.toISOString(),
+                break_duration: task.break_duration,
+                scheduled_date: formattedSelectedDay,
+                is_critical: task.is_critical,
+                is_flexible: true, // Quick scheduled tasks are flexible by default
+                is_locked: false,
+                energy_cost: task.energy_cost,
+                is_custom_energy_cost: task.is_custom_energy_cost,
+                task_environment: task.task_environment,
+            });
+            
+            // 5b. Update local occupied blocks and cursor
+            currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
+            currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
+            currentPlacementTime = proposedEndTime;
+            tasksSuccessfullyPlaced++;
+        } else {
+            // If the slot is no longer free (e.g., due to a fixed task starting in the middle of the block), stop.
+            console.log(`QuickScheduleBlock: Slot for task "${task.name}" is no longer free. Stopping placement.`);
+            break;
+        }
+      }
+      
+      // 6. Remove successfully placed tasks from Aether Sink
+      if (tasksSuccessfullyPlaced > 0) {
+          const placedIds = tasksToPlace.slice(0, tasksSuccessfullyPlaced).map(t => t.id);
+          
+          await Promise.all(placedIds.map(id => rezoneTask(id)));
+          
+          showSuccess(`Quick Scheduled ${tasksSuccessfullyPlaced} tasks (${duration - remainingDuration} min) from the Aether Sink.`);
+          queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
+      } else {
+          showError("Allocation failed: Could not place any tasks in the schedule.");
+      }
+
     } catch (error: any) {
       showError(`Failed to quick schedule: ${error.message}`);
+      console.error("Quick schedule error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
-  };
+  }, [user, profile, retiredTasks, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, addScheduledTask, rezoneTask, formattedSelectedDay, selectedDayAsDate, workdayStartTime, queryClient]);
 
   const handleCompactSchedule = useCallback(async () => {
     if (!user || !profile) {

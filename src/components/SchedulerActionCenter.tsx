@@ -1,53 +1,57 @@
 import React from 'react';
-import { DBScheduledTask, SortBy } from '@/types/scheduler';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Anchor, Feather, PlusCircle, MinusCircle, Star, Database, Trash2, CalendarCheck, Coffee } from 'lucide-react';
+import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, Loader2, ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, Database, Trash2, CalendarCheck, Coffee, ListTodo, BatteryCharging } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Card } from '@/components/ui/card';
-import QuickScheduleBlock from './QuickScheduleBlock'; // Import QuickScheduleBlock
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import QuickScheduleBlock from './QuickScheduleBlock';
+import { DBScheduledTask, SortBy } from '@/types/scheduler';
+import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants';
 
-interface SchedulerUtilityBarProps {
+interface SchedulerActionCenterProps {
   isProcessingCommand: boolean;
   hasFlexibleTasksOnCurrentDay: boolean;
   dbScheduledTasks: DBScheduledTask[];
-  onRechargeEnergy: () => Promise<void>;
-  onRandomizeBreaks: () => Promise<void>;
-  onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
-  onOpenWorkdayWindowDialog: () => void;
-  sortBy: SortBy;
-  onCompactSchedule: () => Promise<void>;
-  onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>;
   retiredTasksCount: number;
+  sortBy: SortBy;
+  
+  onAutoSchedule: () => Promise<void>;
+  onCompactSchedule: () => Promise<void>;
+  onRandomizeBreaks: () => Promise<void>;
   onZoneFocus: () => Promise<void>;
+  onRechargeEnergy: () => Promise<void>;
+  onQuickBreak: () => Promise<void>;
+  onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>;
+  onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
   onAetherDump: () => Promise<void>;
-  onRefreshSchedule: () => void;
   onAetherDumpMega: () => Promise<void>;
-  onQuickBreak: () => Promise<void>; // NEW PROP
+  onRefreshSchedule: () => void;
+  onOpenWorkdayWindowDialog: () => void;
+  onStartRegenPod: () => void;
 }
 
 const DURATION_BUCKETS = [15, 30, 60];
 
-const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
+const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   isProcessingCommand,
-  hasFlexibleTasksOnCurrentDay,
   dbScheduledTasks,
-  onRechargeEnergy,
-  onRandomizeBreaks,
-  onSortFlexibleTasks,
-  onOpenWorkdayWindowDialog,
-  sortBy,
-  onCompactSchedule,
-  onQuickScheduleBlock,
   retiredTasksCount,
+  sortBy,
+  onAutoSchedule,
+  onCompactSchedule,
+  onRandomizeBreaks,
   onZoneFocus,
-  onAetherDump,
-  onRefreshSchedule,
-  onAetherDumpMega,
+  onRechargeEnergy,
   onQuickBreak,
+  onQuickScheduleBlock,
+  onSortFlexibleTasks,
+  onAetherDump,
+  onAetherDumpMega,
+  onRefreshSchedule,
+  onOpenWorkdayWindowDialog,
+  onStartRegenPod,
 }) => {
-  const hasBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break');
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
   const hasUnlockedFlexibleTasks = dbScheduledTasks.some(task => task.is_flexible && !task.is_locked);
 
@@ -56,17 +60,52 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
     { value: 'TIME_LATEST_TO_EARLIEST', label: 'Time (Latest)', icon: ArrowDownWideNarrow },
     { value: 'PRIORITY_HIGH_TO_LOW', label: 'Priority (High)', icon: Star },
     { value: 'PRIORITY_LOW_TO_HIGH', label: 'Priority (Low)', icon: Star },
-    { value: 'EMOJI', label: 'Emoji Hue', icon: PlusCircle },
+    { value: 'EMOJI', label: 'Emoji Hue', icon: ListTodo },
     { value: 'NAME_ASC', label: 'Name (A-Z)', icon: ArrowUpWideNarrow },
     { value: 'NAME_DESC', label: 'Name (Z-A)', icon: ArrowDownWideNarrow },
   ];
 
+  const currentSortOption = sortOptions.find(opt => opt.value === sortBy) || { label: 'Sort', icon: ArrowDownWideNarrow };
+
   return (
     <Card className="p-4 animate-slide-in-up animate-hover-lift">
-      <div className="flex flex-col gap-4">
+      <CardContent className="p-0 space-y-4">
         
-        {/* Row 1: Quick Actions (Compact, Randomize, Zone Focus, Recharge, Quick Break) */}
-        <div className="flex flex-wrap items-center gap-2 border-b pb-3">
+        {/* 1. Primary Action: Auto Schedule Day */}
+        <Button
+          onClick={onAutoSchedule}
+          disabled={isProcessingCommand}
+          className={cn(
+            "w-full h-12 text-lg font-bold flex items-center justify-center gap-3 transition-all duration-300 ease-in-out",
+            "bg-logo-green text-primary-foreground hover:bg-logo-green/90 shadow-lg hover:shadow-xl hover:shadow-logo-green/30",
+            isProcessingCommand && "opacity-70 cursor-not-allowed"
+          )}
+          style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+        >
+          {isProcessingCommand ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <CalendarCheck className="h-6 w-6" />
+          )}
+          Auto Schedule Day
+          <Star className="h-5 w-5 text-logo-yellow" />
+        </Button>
+
+        {/* 2. Quick Blocks */}
+        <div className="flex flex-wrap items-center gap-3 border-t pt-4 border-border/50">
+          <span className="text-sm font-semibold text-muted-foreground shrink-0">Quick Block:</span>
+          {DURATION_BUCKETS.map(duration => (
+            <QuickScheduleBlock
+              key={duration}
+              duration={duration}
+              onScheduleBlock={onQuickScheduleBlock}
+              isProcessingCommand={isProcessingCommand}
+            />
+          ))}
+        </div>
+
+        {/* 3. Core Management Actions (Compact, Randomize, Zone Focus, Recharge, Quick Break, Regen Pod) */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 border-t pt-4 border-border/50">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -75,17 +114,17 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 onClick={onCompactSchedule}
                 disabled={isProcessingCommand || !hasUnlockedFlexibleTasks}
                 className={cn(
-                  "h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200",
+                  "h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200",
                   (!hasUnlockedFlexibleTasks || isProcessingCommand) && "opacity-50 cursor-not-allowed"
                 )}
                 style={(!hasUnlockedFlexibleTasks || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
               >
-                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronsUp className="h-5 w-5" />}
+                <ChevronsUp className="h-5 w-5" />
                 <span className="sr-only">Compact Schedule</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Compact Schedule (Fill gaps with flexible tasks)</p>
+              <p>Compact Schedule (Fill gaps)</p>
             </TooltipContent>
           </Tooltip>
 
@@ -97,12 +136,12 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 onClick={onRandomizeBreaks}
                 disabled={isProcessingCommand || !hasUnlockedBreaks}
                 className={cn(
-                  "h-10 w-10 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200",
+                  "h-10 w-full text-logo-orange hover:bg-logo-orange/10 transition-all duration-200",
                   (!hasUnlockedBreaks || isProcessingCommand) && "opacity-50 cursor-not-allowed"
                 )}
                 style={(!hasUnlockedBreaks || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
               >
-                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shuffle className="h-5 w-5" />}
+                <Shuffle className="h-5 w-5" />
                 <span className="sr-only">Randomize Breaks</span>
               </Button>
             </TooltipTrigger>
@@ -119,12 +158,12 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 onClick={onZoneFocus}
                 disabled={isProcessingCommand || retiredTasksCount === 0}
                 className={cn(
-                  "h-10 w-10 text-accent hover:bg-accent/10 transition-all duration-200",
+                  "h-10 w-full text-accent hover:bg-accent/10 transition-all duration-200",
                   (retiredTasksCount === 0 || isProcessingCommand) && "opacity-50 cursor-not-allowed"
                 )}
                 style={(retiredTasksCount === 0 || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
               >
-                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-5 w-5" />}
+                <Star className="h-5 w-5" />
                 <span className="sr-only">Zone Focus</span>
               </Button>
             </TooltipTrigger>
@@ -140,7 +179,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 size="icon"
                 onClick={onRechargeEnergy}
                 disabled={isProcessingCommand}
-                className="h-10 w-10 text-logo-green hover:bg-logo-green/10 transition-all duration-200"
+                className="h-10 w-full text-logo-green hover:bg-logo-green/10 transition-all duration-200"
               >
                 <Zap className="h-5 w-5" />
                 <span className="sr-only">Recharge Energy</span>
@@ -151,7 +190,6 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
             </TooltipContent>
           </Tooltip>
 
-          {/* NEW: Quick Break Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -159,9 +197,9 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 size="icon"
                 onClick={onQuickBreak}
                 disabled={isProcessingCommand}
-                className="h-10 w-10 text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
+                className="h-10 w-full text-logo-orange hover:bg-logo-orange/10 transition-all duration-200"
               >
-                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coffee className="h-5 w-5" />}
+                <Coffee className="h-5 w-5" />
                 <span className="sr-only">Quick Break (15 min)</span>
               </Button>
             </TooltipTrigger>
@@ -169,38 +207,44 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
               <p>Quick Break (15 min, Fixed & Locked)</p>
             </TooltipContent>
           </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                type="button" 
+                onClick={onStartRegenPod} 
+                disabled={isProcessingCommand} 
+                variant="outline"
+                size="icon"
+                className="h-10 w-full text-primary hover:bg-primary/10 transition-all duration-200"
+              >
+                <BatteryCharging className="h-5 w-5" />
+                <span className="sr-only">Start Energy Regen Pod</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Start Energy Regen Pod (Dynamic duration, max {REGEN_POD_MAX_DURATION_MINUTES} min)</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* Row 2: Quick Schedule Blocks */}
-        <div className="flex flex-wrap items-center gap-3 border-b pb-3">
-          <span className="text-sm font-semibold text-muted-foreground shrink-0">Quick Block:</span>
-          {DURATION_BUCKETS.map(duration => (
-            <QuickScheduleBlock
-              key={duration}
-              duration={duration}
-              onScheduleBlock={onQuickScheduleBlock}
-              isProcessingCommand={isProcessingCommand}
-            />
-          ))}
-        </div>
-
-        {/* Row 3: Sort, Settings, Dump, Refresh */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* 4. Advanced/Utility Actions (Sort, Workday, Dump, Refresh) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t pt-4 border-border/50">
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="outline" 
-                    size="icon" 
-                    disabled={isProcessingCommand}
                     className={cn(
-                      "h-10 w-10 text-muted-foreground hover:bg-muted/10 transition-all duration-200",
+                      "h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200 flex items-center justify-start gap-2",
                       isProcessingCommand && "opacity-50 cursor-not-allowed"
                     )}
+                    disabled={isProcessingCommand}
                     style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                   >
-                    <ArrowDownWideNarrow className="h-5 w-5" />
+                    <currentSortOption.icon className="h-5 w-5 shrink-0" />
+                    <span className="truncate text-sm hidden sm:inline">{currentSortOption.label}</span>
                     <span className="sr-only">Sort Flexible Tasks</span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -231,7 +275,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 size="icon"
                 onClick={onOpenWorkdayWindowDialog}
                 disabled={isProcessingCommand}
-                className="h-10 w-10 text-muted-foreground hover:bg-muted/10 transition-all duration-200"
+                className="h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200"
               >
                 <Clock className="h-5 w-5" />
                 <span className="sr-only">Workday Window</span>
@@ -251,7 +295,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                     size="icon"
                     disabled={isProcessingCommand}
                     className={cn(
-                      "h-10 w-10 text-destructive hover:bg-destructive/10 transition-all duration-200",
+                      "h-10 w-full text-destructive hover:bg-destructive/10 transition-all duration-200",
                       isProcessingCommand && "opacity-50 cursor-not-allowed"
                     )}
                     style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
@@ -284,7 +328,7 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
                 size="icon"
                 onClick={onRefreshSchedule}
                 disabled={isProcessingCommand}
-                className="h-10 w-10 text-muted-foreground hover:bg-muted/10 transition-all duration-200"
+                className="h-10 w-full text-muted-foreground hover:bg-muted/10 transition-all duration-200"
               >
                 <Database className="h-5 w-5" />
                 <span className="sr-only">Refresh Data</span>
@@ -295,10 +339,9 @@ const SchedulerUtilityBar: React.FC<SchedulerUtilityBarProps> = ({
             </TooltipContent>
           </Tooltip>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 };
 
-export default SchedulerUtilityBar;
-export type { SchedulerUtilityBarProps };
+export default SchedulerActionCenter;

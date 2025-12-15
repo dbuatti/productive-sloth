@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle, Zap, BatteryCharging } from 'lucide-react'; // Changed Zap to BatteryCharging for Pod
+import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle } from 'lucide-react'; // Removed BatteryCharging
 import { cn } from '@/lib/utils';
 import { useTasks } from '@/hooks/use-tasks';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; // Use MAX duration for tooltip
+import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; // Keep import for reference if needed elsewhere
 
 interface Suggestion {
   type: 'command' | 'task';
@@ -21,10 +21,10 @@ interface SchedulerInputProps {
   inputValue: string;
   setInputValue: (value: string) => void;
   onDetailedInject: () => void;
-  onStartRegenPod: () => void; // Handler for starting the Pod
+  // Removed: onStartRegenPod: () => void;
 }
 
-const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject, onStartRegenPod }) => {
+const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject }) => {
   const { allTasks } = useTasks();
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -153,26 +153,6 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = 
           )}
         </div>
         
-        {/* Energy Regen Pod Button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              type="button" 
-              onClick={onStartRegenPod} 
-              disabled={isLoading} 
-              variant="outline"
-              size="icon"
-              className="shrink-0 h-11 w-11 text-logo-green hover:bg-logo-green/10 transition-all duration-200" // Increased size
-            >
-              <BatteryCharging className="h-5 w-5" />
-              <span className="sr-only">Start Energy Regen Pod</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Start Energy Regen Pod (Dynamic duration, max {REGEN_POD_MAX_DURATION_MINUTES} min)</p>
-          </TooltipContent>
-        </Tooltip>
-
         {/* Detailed Task Injector Button */}
         <Tooltip>
           <TooltipTrigger asChild>

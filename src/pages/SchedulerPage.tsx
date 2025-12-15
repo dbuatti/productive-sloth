@@ -50,7 +50,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import WeatherWidget from '@/components/WeatherWidget';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import SchedulerUtilityBar, { SchedulerUtilityBarProps } from '@/components/SchedulerUtilityBar';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
 import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog';
 import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
@@ -63,9 +62,10 @@ import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmat
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
-import AutoScheduleButton from '@/components/AutoScheduleButton';
 import { cn } from '@/lib/utils';
-import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl'; // NEW IMPORT
+import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
+import SchedulerContextBar from '@/components/SchedulerContextBar'; // NEW IMPORT
+import SchedulerActionCenter from '@/components/SchedulerActionCenter'; // NEW IMPORT
 
 // Helper to get initial state from localStorage
 const getInitialSelectedDay = () => {
@@ -80,21 +80,6 @@ const getInitialSelectedDay = () => {
 
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
-
-const INTERLEAVING_PATTERN = [
-  { duration: 15, critical: true }, { duration: 15, critical: false },
-  { duration: 60, critical: true }, { duration: 60, critical: false },
-  { duration: 5, critical: true }, { duration: 5, critical: false },
-  { duration: 45, critical: true }, { duration: 45, critical: false },
-  { duration: 10, critical: true }, { duration: 10, critical: false },
-  { duration: 90, critical: true }, { duration: 90, critical: false },
-  { duration: 20, critical: true }, { duration: 20, critical: false },
-  { duration: 30, critical: true }, { duration: 30, critical: false },
-  { duration: 75, critical: true }, { duration: 75, critical: false },
-  { duration: 25, critical: true }, { duration: 25, critical: false },
-  { duration: LONG_TASK_THRESHOLD + 1, critical: true },
-  { duration: LONG_TASK_THRESHOLD + 1, critical: false },
-];
 
 interface InjectionPromptState {
   taskName: string;
@@ -2360,63 +2345,53 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const renderScheduleCore = () => (
     <>
       {/* Info Panel Card (Desktop Only) */}
-      <Card className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg hidden lg:block animate-hover-lift">
-        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
-            <ListTodo className="h-5 w-5 text-primary" /> Schedule Input
-          </h2>
-          <div className="flex items-center gap-3">
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <EnvironmentMultiSelect /> 
-          <WeatherWidget />
-        </div>
-        <SchedulerInput 
-          onCommand={handleCommand} 
-          isLoading={overallLoading} 
-          inputValue={inputValue}
-          setInputValue={setInputValue}
-          placeholder={`Add task (e.g., 'Gym 60') or command`}
-          onDetailedInject={handleAddTaskClick}
-          onStartRegenPod={handleStartRegenPod}
-        />
-        <p className="text-sm text-muted-foreground">
-          Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-        </p>
-      </Card>
-
-      {/* Auto Schedule Button (Prominent) */}
-      <div className="animate-slide-in-up">
-        <AutoScheduleButton
-          onAutoSchedule={handleAutoScheduleDay}
-          isProcessingCommand={isProcessingCommand}
-          disabled={isRegenPodActive}
-        />
+      <div className="hidden lg:block">
+        <SchedulerContextBar T_current={T_current} />
       </div>
 
-      {/* Utility Bar (Desktop Only) */}
-      <div className="hidden lg:block">
-        <SchedulerUtilityBar 
+      {/* Schedule Input Card */}
+      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
+            <ListTodo className="h-6 w-6 text-primary" /> Schedule Input
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <SchedulerInput 
+            onCommand={handleCommand} 
+            isLoading={overallLoading} 
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            placeholder={`Add task (e.g., 'Gym 60') or command`}
+            onDetailedInject={handleAddTaskClick}
+          />
+          <p className="text-sm text-muted-foreground mt-2">
+            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Action Center (Replaces Utility Bar and Auto Schedule Button) */}
+      <div className="animate-slide-in-up">
+        <SchedulerActionCenter 
           isProcessingCommand={isProcessingCommand}
-          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
           dbScheduledTasks={dbScheduledTasks}
-          onRechargeEnergy={() => rechargeEnergy()}
-          onRandomizeBreaks={handleRandomizeBreaks}
-          onSortFlexibleTasks={handleSortFlexibleTasks}
-          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-          sortBy={sortBy}
-          onCompactSchedule={handleCompactSchedule}
-          onQuickScheduleBlock={handleQuickScheduleBlock}
           retiredTasksCount={retiredTasks.length}
+          sortBy={sortBy}
+          onAutoSchedule={handleAutoScheduleDay}
+          onCompactSchedule={handleCompactSchedule}
+          onRandomizeBreaks={handleRandomizeBreaks}
           onZoneFocus={handleZoneFocus}
-          onAetherDump={handleAetherDumpButton}
-          onRefreshSchedule={handleRefreshSchedule}
-          onAetherDumpMega={handleAetherDumpMegaButton}
+          onRechargeEnergy={() => rechargeEnergy()}
           onQuickBreak={handleQuickBreakButton}
+          onQuickScheduleBlock={handleQuickScheduleBlock}
+          onSortFlexibleTasks={handleSortFlexibleTasks}
+          onAetherDump={handleAetherDumpButton}
+          onAetherDumpMega={handleAetherDumpMegaButton}
+          onRefreshSchedule={handleRefreshSchedule}
+          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
+          onStartRegenPod={handleStartRegenPod}
+          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
         />
       </div>
 
@@ -2447,7 +2422,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {formatFns(parseISO(selectedDay), 'EEEE, MMMM d')}
           </CardTitle>
         </CardHeader>
-        <CardContent ref={scheduleContainerRef} className="p-4">
+        <CardContent className="p-4">
           {isSchedulerTasksLoading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -2585,51 +2560,51 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                       </DrawerTitle>
                   </DrawerHeader>
                   <div className="p-4 overflow-y-auto space-y-4">
-                      <Card className="p-4 pt-6 space-y-4 animate-pop-in bg-primary-wash rounded-lg animate-hover-lift">
-                          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                              <h2 className="flex items-center gap-2 text-xl font-bold text-foreground">
-                                  <ListTodo className="h-5 w-5 text-primary" /> Schedule Input
-                              </h2>
-                              <div className="flex items-center gap-3">
-                                  <p className="text-sm text-muted-foreground hidden sm:block">
-                                      Current Time: <span className="font-semibold">{formatDateTime(T_current)}</span>
-                                  </p>
-                              </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                              <EnvironmentMultiSelect /> 
-                              <WeatherWidget />
-                          </div>
-                          <SchedulerInput 
-                              onCommand={handleCommand} 
-                              isLoading={overallLoading} 
-                              inputValue={inputValue}
-                              setInputValue={setInputValue}
-                              placeholder={`Add task (e.g., 'Gym 60') or command`}
-                              onDetailedInject={handleAddTaskClick}
-                              onStartRegenPod={handleStartRegenPod}
-                          />
-                          <p className="text-sm text-muted-foreground">
-                              Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-                          </p>
+                      {/* Mobile Context Bar */}
+                      <SchedulerContextBar T_current={T_current} />
+                      
+                      {/* Mobile Input Card */}
+                      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift">
+                          <CardHeader className="p-0 pb-4">
+                              <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
+                                  <ListTodo className="h-6 w-6 text-primary" /> Schedule Input
+                              </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                              <SchedulerInput 
+                                  onCommand={handleCommand} 
+                                  isLoading={overallLoading} 
+                                  inputValue={inputValue}
+                                  setInputValue={setInputValue}
+                                  placeholder={`Add task (e.g., 'Gym 60') or command`}
+                                  onDetailedInject={handleAddTaskClick}
+                              />
+                              <p className="text-sm text-muted-foreground mt-2">
+                                  Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+                              </p>
+                          </CardContent>
                       </Card>
-                      <SchedulerUtilityBar 
+
+                      {/* Mobile Action Center */}
+                      <SchedulerActionCenter 
                           isProcessingCommand={isProcessingCommand}
-                          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
                           dbScheduledTasks={dbScheduledTasks}
-                          onRechargeEnergy={() => rechargeEnergy()}
-                          onRandomizeBreaks={handleRandomizeBreaks}
-                          onSortFlexibleTasks={handleSortFlexibleTasks}
-                          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-                          sortBy={sortBy}
-                          onCompactSchedule={handleCompactSchedule}
-                          onQuickScheduleBlock={handleQuickScheduleBlock}
                           retiredTasksCount={retiredTasks.length}
+                          sortBy={sortBy}
+                          onAutoSchedule={handleAutoScheduleDay}
+                          onCompactSchedule={handleCompactSchedule}
+                          onRandomizeBreaks={handleRandomizeBreaks}
                           onZoneFocus={handleZoneFocus}
-                          onAetherDump={handleAetherDumpButton}
-                          onRefreshSchedule={handleRefreshSchedule}
-                          onAetherDumpMega={handleAetherDumpMegaButton}
+                          onRechargeEnergy={() => rechargeEnergy()}
                           onQuickBreak={handleQuickBreakButton}
+                          onQuickScheduleBlock={handleQuickScheduleBlock}
+                          onSortFlexibleTasks={handleSortFlexibleTasks}
+                          onAetherDump={handleAetherDumpButton}
+                          onAetherDumpMega={handleAetherDumpMegaButton}
+                          onRefreshSchedule={handleRefreshSchedule}
+                          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
+                          onStartRegenPod={handleStartRegenPod}
+                          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
                       />
                   </div>
               </DrawerContent>

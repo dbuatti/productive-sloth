@@ -140,7 +140,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             processedItems.push(event);
         }
         
-        currentCursor = event.type === 'marker' ? event.time : eventEndTime;
+        // FIX: Ensure the cursor only advances, preventing time markers that share a start time 
+        // with a preceding task from resetting the cursor back to the start time.
+        const nextCursorTime = event.type === 'marker' ? event.time : eventEndTime;
+        currentCursor = new Date(Math.max(currentCursor.getTime(), nextCursorTime.getTime()));
     });
 
     // Filter out redundant markers (markers that fall exactly on the start/end of a task/free-time block)

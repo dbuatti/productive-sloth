@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw, Plug, CheckCircle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -38,6 +38,7 @@ import { format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom'; 
 import { useICloudCalendar } from '@/hooks/use-icloud-calendar';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
@@ -58,6 +59,9 @@ const SettingsPage: React.FC = () => {
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
   const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
   const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
+  
+  // NEW: State to simulate iCloud connection status
+  const [isICloudConnected, setIsICloudConnected] = useState(false);
 
   // NEW: Calendar Hook
   const { 
@@ -95,8 +99,11 @@ const SettingsPage: React.FC = () => {
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
       setEnableDeleteHotkeys(profile.enable_delete_hotkeys);
       setEnableAetherSinkBackup(profile.enable_aethersink_backup);
+      
+      // Simulate connection status based on whether any calendar is enabled
+      setIsICloudConnected(userCalendars.length > 0);
     }
-  }, [profile, form]);
+  }, [profile, form, userCalendars.length]);
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user) {
@@ -232,6 +239,12 @@ const SettingsPage: React.FC = () => {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
+  
+  // NEW: Simulate iCloud connection
+  const handleConnectICloud = () => {
+    setIsICloudConnected(true);
+    showSuccess("iCloud account connected successfully! Select calendars to sync.");
+  };
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
@@ -314,64 +327,94 @@ const SettingsPage: React.FC = () => {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isLoadingAvailableCalendars ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <span className="ml-2 text-muted-foreground">Fetching available calendars...</span>
+          {!isICloudConnected ? (
+            <div className="space-y-4 p-4 border border-dashed rounded-lg bg-secondary/50">
+              <p className="text-sm text-muted-foreground">
+                To connect your iCloud account, you would typically be redirected to Apple's OAuth flow. Since this is a demo environment, click the button below to simulate a successful connection and enable calendar selection.
+              </p>
+              <Button 
+                onClick={handleConnectICloud}
+                className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
+              >
+                <Plug className="h-4 w-4" /> Simulate Connect iCloud Account
+              </Button>
             </div>
-          ) : availableCalendars.length === 0 ? (
-            <p className="text-sm text-destructive">
-              Could not retrieve available calendars. Ensure iCloud access is granted.
-            </p>
           ) : (
-            <div className="space-y-3">
-              <h4 className="font-semibold text-foreground">Select Calendars to Sync:</h4>
-              <div className="space-y-2">
-                {availableCalendars.map(calendar => {
-                  const userCalendar = userCalendars.find(uc => uc.calendar_id === calendar.id);
-                  const isEnabled = userCalendar?.is_enabled ?? false;
-                  const lastSynced = userCalendar?.last_synced_at ? format(parseISO(userCalendar.last_synced_at), 'MMM d, h:mm a') : 'Never';
+            <>
+              <div className="flex items-center gap-2 text-logo-green font-semibold">
+                <CheckCircle className="h-5 w-5" /> iCloud Account Connected
+              </div>
+              {isLoadingAvailableCalendars ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">Fetching available calendars...</span>
+                </div>
+              ) : availableCalendars.length === 0 ? (
+                <p className="text-sm text-destructive">
+                  Could not retrieve available calendars.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-foreground">Select Calendars to Sync:</h4>
+                  <div className="space-y-2">
+                    {availableCalendars.map(calendar => {
+                      const userCalendar = userCalendars.find(uc => uc.calendar_id === calendar.id);
+                      const isEnabled = userCalendar?.is_enabled ?? false;
+                      const lastSynced = userCalendar?.last_synced_at ? format(parseISO(userCalendar.last_synced_at), 'MMM d, h:mm a') : 'Never';
 
-                  return (
-                    <div key={calendar.id} className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-secondary/50">
-                      <div className="flex items-center space-x-3">
-                        <Switch
-                          checked={isEnabled}
-                          onCheckedChange={(checked) => toggleCalendarSelection(calendar, checked)}
-                          disabled={isSyncing}
-                        />
-                        <div className="space-y-0.5">
-                          <Label className="flex items-center gap-2">
-                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: calendar.color }} />
-                            {calendar.name}
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Last Synced: {lastSynced}
-                          </p>
+                      return (
+                        <div key={calendar.id} className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-secondary/50">
+                          <div className="flex items-center space-x-3">
+                            <Switch
+                              checked={isEnabled}
+                              onCheckedChange={(checked) => toggleCalendarSelection(calendar, checked)}
+                              disabled={isSyncing}
+                            />
+                            <div className="space-y-0.5">
+                              <Label className="flex items-center gap-2">
+                                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: calendar.color }} />
+                                {calendar.name}
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                Last Synced: {lastSynced}
+                              </p>
+                            </div>
+                          </div>
+                          {isEnabled && (
+                            <Badge variant="secondary" className="text-xs">
+                              Enabled
+                            </Badge>
+                          )}
                         </div>
-                      </div>
-                      {isEnabled && (
-                        <Badge variant="secondary" className="text-xs">
-                          Enabled
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              
-              <div className="flex justify-end pt-4">
-                <Button
-                  type="button"
-                  onClick={triggerSync}
-                  disabled={isSyncing || userCalendars.filter(uc => uc.is_enabled).length === 0}
-                  className="flex items-center gap-2 bg-primary hover:bg-primary/90"
-                >
-                  {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  {isSyncing ? 'Syncing...' : 'Manual Sync Now'}
-                </Button>
-              </div>
-            </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="flex justify-end pt-4">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          onClick={triggerSync}
+                          disabled={isSyncing || userCalendars.filter(uc => uc.is_enabled).length === 0}
+                          className="flex items-center gap-2 bg-primary hover:bg-primary/90"
+                        >
+                          {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                          {isSyncing ? 'Syncing...' : 'Manual Sync Now'}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {userCalendars.filter(uc => uc.is_enabled).length === 0 ? (
+                          <p>Enable at least one calendar to sync.</p>
+                        ) : (
+                          <p>Fetch and update events for enabled calendars.</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -671,71 +714,71 @@ const SettingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Danger Zone Card */}
-      <Card className="border-destructive/50 animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg text-destructive">
-            <Trash2 className="h-5 w-5" /> Danger Zone
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full flex items-center gap-2">
-                <Gamepad2 className="h-4 w-4" /> Reset All Game Progress & Tasks
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action will reset your XP, Level, Daily Streak, Energy, and delete ALL your tasks. This cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
-                  Confirm Reset
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {/* Danger Zone Card */}
+          <Card className="border-destructive/50 animate-hover-lift">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+                <Trash2 className="h-5 w-5" /> Danger Zone
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full flex items-center gap-2">
+                    <Gamepad2 className="h-4 w-4" /> Reset All Game Progress & Tasks
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action will reset your XP, Level, Daily Streak, Energy, and delete ALL your tasks. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
+                      Confirm Reset
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full flex items-center gap-2">
-                <Trash2 className="h-4 w-4" /> Delete Account
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete your account and all associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
-                  Confirm Deletion
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full flex items-center gap-2">
+                    <Trash2 className="h-4 w-4" /> Delete Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your account and all associated data.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
+                      Confirm Deletion
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
-          <Button
-            variant="outline"
-            className="w-full flex items-center gap-2"
-            onClick={handleSignOut}
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Button>
-        </CardContent>
-      </Card>
-    </form>
-  </Form>
-</div>
+              <Button
+                variant="outline"
+                className="w-full flex items-center gap-2"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
+    </div>
   );
 };
 

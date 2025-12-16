@@ -62,21 +62,10 @@ import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmat
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
-import { cn } from '@/lib/utils';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
-
-// Helper to get initial state from localStorage
-const getInitialSelectedDay = () => {
-  if (typeof window !== 'undefined') {
-    const savedDay = localStorage.getItem('aetherflow-selected-day');
-    if (savedDay && !isNaN(parseISO(savedDay).getTime())) {
-      return savedDay;
-    }
-  }
-  return format(new Date(), 'yyyy-MM-dd');
-};
+import { cn } from '@/lib/utils'; // ADDED cn import
 
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
@@ -108,8 +97,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
-  // NEW: Initialize selectedDay from localStorage
-  const [selectedDay, setSelectedDay] = useState<string>(getInitialSelectedDay());
+  // Always default to today's date, ignoring localStorage
+  const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -190,10 +179,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const [calculatedPodDuration, setCalculatedPodDuration] = useState(0); 
 
 
-  // NEW: Persistence effects
-  useEffect(() => {
-    localStorage.setItem('aetherflow-selected-day', selectedDay);
-  }, [selectedDay]);
+  // Removed: Persistence effects for selectedDay
 
   // NEW: Handler for Quick Break Button (MOVED FROM LOCAL DEFINITION)
   const handleQuickBreakButton = useCallback(async () => {
@@ -1695,7 +1681,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         return;
       }
 
-      const duration = differenceInMinutes(endTime, startTime);
+      const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       
       // Recalculate energy cost based on task name if it's a meal
       const isMealTask = isMeal(injectionPrompt.taskName);

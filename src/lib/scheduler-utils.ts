@@ -743,6 +743,7 @@ export const calculateSchedule = (
             isCompleted: false,
             isCustomEnergyCost: false,
             taskEnvironment: 'away',
+            sourceCalendarId: null,
         };
         items.push(podItem);
         totalBreakTimeMinutes += podItem.duration;
@@ -781,14 +782,17 @@ export const calculateSchedule = (
 
     const isTimeOff = dbTask.name.toLowerCase() === 'time off';
     const isBreak = dbTask.name.toLowerCase() === 'break';
-    const isMealTask = isMeal(dbTask.name); // Check for meal
+    const isMealTask = isMeal(dbTask.name);
+    const isCalendarEvent = !!dbTask.source_calendar_id; // NEW: Check for calendar source
 
     let itemType: ScheduledItemType;
-    if (isTimeOff) {
+    if (isCalendarEvent) { // NEW: Highest priority type check
+      itemType = 'calendar-event';
+    } else if (isTimeOff) {
       itemType = 'time-off';
     } else if (isBreak) {
       itemType = 'break';
-    } else if (isMealTask) { // NEW: Assign 'meal' type
+    } else if (isMealTask) {
       itemType = 'meal';
     } else {
       itemType = 'task';
@@ -796,12 +800,12 @@ export const calculateSchedule = (
 
     const item: ScheduledItem = {
       id: dbTask.id,
-      type: itemType, // UPDATED: Use calculated itemType
+      type: itemType,
       name: dbTask.name,
       duration: duration,
       startTime: startTime,
       endTime: endTime,
-      emoji: assignEmoji(dbTask.name),
+      emoji: isCalendarEvent ? '📅' : assignEmoji(dbTask.name), // NEW: Use calendar emoji for sync events
       description: isBreak ? getBreakDescription(duration) : undefined,
       isTimedEvent: true,
       isCritical: dbTask.is_critical,
@@ -811,13 +815,14 @@ export const calculateSchedule = (
       isCompleted: dbTask.is_completed,
       isCustomEnergyCost: dbTask.is_custom_energy_cost,
       taskEnvironment: dbTask.task_environment,
+      sourceCalendarId: dbTask.source_calendar_id, // NEW: Pass source calendar ID
     };
 
     items.push(item);
 
-    if (item.type === 'task' || item.type === 'time-off') {
+    if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { // UPDATED: Calendar events count as active time
       totalActiveTimeMinutes += duration;
-    } else if (item.type === 'break' || item.type === 'meal') { // UPDATED: Meals count as break time
+    } else if (item.type === 'break' || item.type === 'meal') {
       totalBreakTimeMinutes += duration;
     }
 
@@ -850,4 +855,88 @@ export const calculateSchedule = (
     summary: summary,
     dbTasks: dbTasks,
   };
+};
+
+export const mergeOverlappingTimeBlocks = (blocks: TimeBlock[]): TimeBlock[] => {
+  if (blocks.length === 0) return [];
+
+  // Sort blocks by start time
+  blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  const merged: TimeBlock[] = [];
+  let currentMergedBlock = { ...blocks[0] };
+
+  for (let i = 1; i < blocks.length; i++) {
+    const nextBlock = blocks[i];
+
+    // If the current merged block overlaps with the next block
+    if (currentMergedBlock.end >= nextBlock.start) {
+      // Extend the current merged block to include the next block's end time
+      currentMergedBlock.end = new Date(Math.max(currentMergedBlock.end.getTime(), nextBlock.end.getTime()));
+      currentMergedBlock.duration = Math.floor((currentMergedBlock.end.getTime() - currentMergedBlock.start.getTime()) / (1000 * 60));
+    } else {
+      // No overlap, add the current merged block to the result and start a new one
+      merged.push(currentMergedBlock);
+      currentMergedBlock = { ...nextBlock };
+    }
+  }
+
+  // Add the last merged block
+  merged.push(currentMergedBlock);
+  return merged;
+};
+
+export const getFreeTimeBlocks = (
+  occupiedBlocks: TimeBlock[],
+  workdayStart: Date,
+  workdayEnd: Date
+): TimeBlock[] => {
+  const freeBlocks: TimeBlock[] = [];
+  let currentFreeTimeCursor = workdayStart;
+
+  const sortedOccupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks);
+
+  for (const occupiedBlock of sortedOccupiedBlocks) {
+    // If there's a gap between the current cursor and the start of the occupied block
+    if (currentFreeTimeCursor < occupiedBlock.start) {
+      const duration = Math.floor((occupiedBlock.start.getTime() - currentFreeTimeCursor.getTime()) / (1000 * 60));
+      if (duration > 0) {
+        freeBlocks.push({
+          start: currentFreeTimeCursor,
+          end: occupiedBlock.start,
+          duration: duration,
+        });
+      }
+    }
+    // Move the cursor past the end of the occupied block
+    currentFreeTimeCursor = new Date(Math.max(currentFreeTimeCursor.getTime(), occupiedBlock.end.getTime()));
+  }
+
+  // Add any remaining free time after the last occupied block until workday end
+  if (currentFreeTimeCursor < workdayEnd) {
+    const duration = Math.floor((workdayEnd.getTime() - currentFreeTimeCursor.getTime()) / (1000 * 60));
+    if (duration > 0) {
+      freeBlocks.push({
+        start: currentFreeTimeCursor,
+        end: workdayEnd,
+        duration: duration,
+      });
+    }
+  }
+
+  return freeBlocks;
+};
+
+export const isSlotFree = (
+  proposedStart: Date,
+  proposedEnd: Date,
+  occupiedBlocks: TimeBlock[]
+): boolean => {
+  for (const block of occupiedBlocks) {
+    // Check for overlap: (StartA < EndB) and (EndA > StartB)
+    if (proposedStart < block.end && proposedEnd > block.start) {
+      return false; // Overlaps with an existing block
+    }
+  }
+  return true; // No overlaps found
 };

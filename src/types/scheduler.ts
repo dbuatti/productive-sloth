@@ -73,6 +73,7 @@ export interface DBScheduledTask {
   is_completed: boolean; // NEW: Added is_completed for scheduled tasks
   is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
   task_environment: TaskEnvironment; // NEW: Task environment
+  source_calendar_id: string | null; // NEW: Source calendar ID for read-only events
 }
 
 export interface NewDBScheduledTask {
@@ -89,6 +90,7 @@ export interface NewDBScheduledTask {
   is_completed?: boolean; // NEW: Added is_completed for new scheduled tasks
   is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
   task_environment?: TaskEnvironment; // NEW: Task environment
+  source_calendar_id?: string | null; // NEW: Source calendar ID
 }
 
 // New types for retired tasks (Aether Sink)
@@ -147,7 +149,7 @@ export interface AutoBalancePayload {
   selectedDate: string;
 }
 
-export type ScheduledItemType = 'task' | 'break' | 'time-off' | 'meal'; // UPDATED: Added 'meal'
+export type ScheduledItemType = 'task' | 'break' | 'time-off' | 'meal' | 'calendar-event'; // UPDATED: Added 'calendar-event'
 
 export interface ScheduledItem {
   id: string; // Unique ID for React keys
@@ -167,6 +169,7 @@ export interface ScheduledItem {
   isCompleted: boolean; // NEW: Added isCompleted for scheduled items
   isCustomEnergyCost: boolean; // NEW: Flag for custom energy cost
   taskEnvironment: TaskEnvironment; // NEW: Task environment
+  sourceCalendarId: string | null; // NEW: Source calendar ID
 }
 
 // NEW: Type for combined completed task log entry for recap metrics

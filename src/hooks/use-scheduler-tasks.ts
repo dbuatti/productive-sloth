@@ -154,7 +154,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment })));
+      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, source_calendar_id: t.source_calendar_id })));
       
       // Client-side sorting for EMOJI
       if (sortBy === 'EMOJI') {
@@ -424,7 +424,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop' };
+      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop', source_calendar_id: newTask.source_calendar_id ?? null };
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -748,6 +748,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_completed: task.is_completed ?? false,
         is_custom_energy_cost: task.is_custom_energy_cost ?? false,
         task_environment: task.task_environment,
+        source_calendar_id: task.source_calendar_id,
         updated_at: new Date().toISOString(),
       }));
 
@@ -865,6 +866,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 is_completed: breakTask.is_completed ?? false,
                 is_custom_energy_cost: breakTask.is_custom_energy_cost ?? false,
                 task_environment: breakTask.task_environment,
+                source_calendar_id: breakTask.source_calendar_id,
                 updated_at: new Date().toISOString(),
               };
               placedBreaks.push(newBreakTask);
@@ -897,6 +899,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           is_completed: task.is_completed ?? false,
           is_custom_energy_cost: task.is_custom_energy_cost ?? false,
           task_environment: task.task_environment,
+          source_calendar_id: task.source_calendar_id,
           updated_at: new Date().toISOString(),
         }));
         const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
@@ -1306,6 +1309,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             is_completed: t.is_completed ?? false,
             is_custom_energy_cost: t.is_custom_energy_cost ?? false,
             task_environment: t.task_environment ?? 'laptop',
+            source_calendar_id: null, // FIX: Added missing required property
           };
         });
         

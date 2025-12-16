@@ -3,7 +3,7 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue, isMeal } from '@/lib/scheduler-utils'; // Import isMeal
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils } from 'lucide-react'; // Import Utensils
+import { Trash, Archive, AlertCircle, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils, CalendarDays } from 'lucide-react'; // Import CalendarDays
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, BarChart, ListTodo, PlusCircle } from 'lucide-react';
 import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format, min, max } from 'date-fns';
@@ -151,7 +151,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
     processedItems.forEach(item => {
         if (item.type === 'marker') {
             const isCovered = processedItems.some(pItem => {
-                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off' || pItem.type === 'meal') {
+                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off' || pItem.type === 'meal' || pItem.type === 'calendar-event') {
                     return item.time > pItem.startTime && item.time < pItem.endTime; // Marker is strictly inside a block
                 }
                 return false;
@@ -190,7 +190,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
   const activeItemInDisplay = useMemo(() => {
     for (const item of finalDisplayItems) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal') && T_current >= item.startTime && T_current < item.endTime) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal' || item.type === 'calendar-event') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
@@ -252,7 +252,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   const renderDisplayItem = (item: DisplayItem, index: number) => {
     const isCurrentlyActive = activeItemInDisplay?.id === item.id;
     const isHighlightedBySession = activeItemId === item.id;
-    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal') && item.endTime <= T_current;
+    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal' || item.type === 'calendar-event') && item.endTime <= T_current;
 
     if (item.type === 'marker') {
       return (
@@ -304,6 +304,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
       const isFixed = !scheduledItem.isFlexible;
       const isCompleted = scheduledItem.isCompleted;
       const isMissed = isLocked && isPast(scheduledItem.endTime) && !isSameDay(scheduledItem.endTime, T_current) && !isCompleted;
+      const isCalendarEvent = scheduledItem.type === 'calendar-event'; // NEW: Calendar event flag
 
       if (scheduledItem.endTime < startOfTemplate) return null;
 
@@ -330,19 +331,24 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         itemBgColor = `hsl(140 50% 35% / 0.3)`; // Fixed green hue for meals
       } else if (isRegenPod) { // NEW: Pod styling
         itemBgColor = `hsl(120 50% 35% / 0.5)`; // Green hue for recovery
+      } else if (isCalendarEvent) { // NEW: Calendar event styling
+        itemBgColor = `hsl(240 50% 30% / 0.5)`; // Darker blue/purple for external events
       }
 
       // Determine text color
-      const itemTextColor = isTimeOff ? 'text-logo-green' : (isMealTask ? 'text-logo-green' : (isRegenPod ? 'text-logo-green' : 'text-[hsl(var(--always-light-text))]'));
+      const itemTextColor = isTimeOff ? 'text-logo-green' : (isMealTask ? 'text-logo-green' : (isRegenPod ? 'text-logo-green' : (isCalendarEvent ? 'text-primary-foreground' : 'text-[hsl(var(--always-light-text))]')));
 
       // Determine completion visual style
-      const isFixedOrTimed = isFixed || isTimeOff || isMealTask || isRegenPod; // Fixed tasks, Time Off, Meals, and Pod remain visible when completed
+      const isFixedOrTimed = isFixed || isTimeOff || isMealTask || isRegenPod || isCalendarEvent; // UPDATED: Include calendar events
       const completionClasses = isCompleted && isFixedOrTimed ? "opacity-70" : (isCompleted ? "hidden" : "opacity-100");
       
       // If the task is completed and is NOT a fixed/timed event, we hide it.
       if (isCompleted && !isFixedOrTimed) {
         return null;
       }
+
+      // Calendar events are read-only: disable actions
+      const isReadOnly = isCalendarEvent;
 
       return (
         <React.Fragment key={scheduledItem.id}>
@@ -372,13 +378,16 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               isLocked && "border-[3px] border-primary/70",
               scheduledItem.isCritical && "ring-2 ring-logo-yellow/50",
               completionClasses,
-              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary"
+              "hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/30 hover:border-primary",
+              isCalendarEvent && "border-blue-500/70 bg-blue-900/50 hover:border-blue-500" // Calendar specific styling
             )}
             style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: itemBgColor }}
             onMouseEnter={() => setHoveredItemId(scheduledItem.id)}
             onMouseLeave={() => setHoveredItemId(null)}
             onClick={(e) => {
-              dbTask && handleTaskItemClick(e, dbTask);
+              if (!isReadOnly) {
+                dbTask && handleTaskItemClick(e, dbTask);
+              }
             }}
           >
             <div className="absolute inset-0 flex items-center justify-end pointer-events-none">
@@ -392,7 +401,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               {/* Row 1: Completion Button (Left) and Task Name/Metadata (Right) */}
               <div className="flex items-center justify-between w-full">
                 {/* Completion Button (Left) */}
-                {dbTask && !isTimeOff && !isRegenPod && (
+                {dbTask && !isTimeOff && !isRegenPod && !isCalendarEvent && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button 
@@ -402,12 +411,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                           e.stopPropagation();
                           onCompleteTask(dbTask, index);
                         }}
-                        disabled={isLocked}
+                        disabled={isLocked || isReadOnly}
                         className={cn(
                           "h-6 w-6 p-0 shrink-0 mr-2", 
-                          isLocked ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
+                          (isLocked || isReadOnly) ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                         )}
-                        style={isLocked ? { pointerEvents: 'auto' } : undefined}
+                        style={(isLocked || isReadOnly) ? { pointerEvents: 'auto' } : undefined}
                       >
                         <CheckCircle className="h-4 w-4" /> 
                         <span className="sr-only">Complete task</span>
@@ -417,6 +426,16 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                       <p>{isLocked ? "Unlock to Complete" : "Mark as Complete"}</p>
                     </TooltipContent>
                   </Tooltip>
+                )}
+                {isCalendarEvent && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <CalendarDays className="h-5 w-5 text-blue-300 shrink-0 mr-2" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>iCloud Calendar Event</p>
+                        </TooltipContent>
+                    </Tooltip>
                 )}
 
                 {/* Task Name & Condensed Metadata */}
@@ -476,7 +495,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
 
                 {/* Action Buttons (Right) */}
                 <div className="flex items-center gap-1 ml-auto shrink-0 mt-2 sm:mt-0">
-                  {scheduledItem.isFlexible && (
+                  {scheduledItem.isFlexible && !isReadOnly && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
@@ -486,12 +505,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                             e.stopPropagation();
                             toggleScheduledTaskLock({ taskId: scheduledItem.id, isLocked: !isLocked });
                           }}
-                          disabled={isProcessingCommand}
+                          disabled={isProcessingCommand || isReadOnly}
                           className={cn(
                             "h-6 w-6 p-0 shrink-0", 
-                            isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
+                            (isLocked || isProcessingCommand || isReadOnly) ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                           )}
-                          style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+                          style={(isLocked || isProcessingCommand || isReadOnly) ? { pointerEvents: 'auto' } : undefined}
                         >
                           {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />} 
                           <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
@@ -503,7 +522,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     </Tooltip>
                   )}
 
-                  {dbTask && (
+                  {dbTask && !isReadOnly && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
@@ -513,12 +532,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                             e.stopPropagation();
                             onRetireTask(dbTask);
                           }}
-                          disabled={isLocked || isProcessingCommand}
+                          disabled={isLocked || isProcessingCommand || isReadOnly}
                           className={cn(
                             "h-6 w-6 p-0 shrink-0", 
-                            (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
+                            (isLocked || isProcessingCommand || isReadOnly) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
                           )}
-                          style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
+                          style={(isLocked || isProcessingCommand || isReadOnly) ? { pointerEvents: 'auto' } : undefined}
                         >
                           <Archive className="h-4 w-4" /> 
                           <span className="sr-only">Retire task</span>
@@ -529,30 +548,32 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
                     </TooltipContent>
                     </Tooltip>
                   )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveTask(scheduledItem.id, scheduledItem.name, index);
-                        }}
-                        disabled={isLocked || isProcessingCommand}
-                        className={cn(
-                          "h-6 w-6 p-0 shrink-0", 
-                          (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
-                        )}
-                        style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-                      >
-                        <Trash className="h-4 w-4" /> 
-                        <span className="sr-only">Remove task</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isLocked ? "Unlock to Delete" : "Permanently delete"}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  {!isReadOnly && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveTask(scheduledItem.id, scheduledItem.name, index);
+                          }}
+                          disabled={isLocked || isProcessingCommand || isReadOnly}
+                          className={cn(
+                            "h-6 w-6 p-0 shrink-0", 
+                            (isLocked || isProcessingCommand || isReadOnly) ? "text-muted-foreground/50 cursor-not-allowed" : (isTimeOff ? "text-logo-green hover:bg-logo-green/20" : "text-[hsl(var(--always-light-text))] hover:bg-white/10")
+                          )}
+                          style={(isLocked || isProcessingCommand || isReadOnly) ? { pointerEvents: 'auto' } : undefined}
+                        >
+                          <Trash className="h-4 w-4" /> 
+                          <span className="sr-only">Remove task</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isLocked ? "Unlock to Delete" : "Permanently delete"}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
               </div>
 
@@ -560,7 +581,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
               <div className={cn(
                 "flex items-center justify-between w-full mt-1 text-sm",
                 // Adjust margin-left based on whether the completion button is present
-                dbTask && !isTimeOff && !isRegenPod && (scheduledItem.type === 'task' || scheduledItem.type === 'break' || scheduledItem.type === 'meal') && !isCompleted ? "ml-[32px]" : "ml-0" 
+                dbTask && !isTimeOff && !isRegenPod && !isCalendarEvent && (scheduledItem.type === 'task' || scheduledItem.type === 'break' || scheduledItem.type === 'meal') && !isCompleted ? "ml-[32px]" : "ml-0" 
               )}>
                   <div className="flex items-center gap-3">
                       {/* Time Range */}
@@ -600,6 +621,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
             )}
             {isRegenPod && (
               <p className={cn("relative z-10 text-xs mt-1 text-logo-green/80")}>Energy regeneration in progress. Exit via the Pod Modal.</p> 
+            )}
+            {isCalendarEvent && (
+              <p className={cn("relative z-10 text-xs mt-1 text-blue-300/80")}>Read-only event synced from iCloud Calendar.</p> 
             )}
 
             {isActive && isTodaySelected && (

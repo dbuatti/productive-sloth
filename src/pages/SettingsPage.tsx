@@ -29,13 +29,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
 import { format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom'; 
+import { useICloudCalendar } from '@/hooks/use-icloud-calendar';
+import { Badge } from '@/components/ui/badge';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
@@ -56,6 +58,16 @@ const SettingsPage: React.FC = () => {
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
   const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
   const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
+
+  // NEW: Calendar Hook
+  const { 
+    availableCalendars, 
+    userCalendars, 
+    isLoadingAvailableCalendars, 
+    isSyncing, 
+    toggleCalendarSelection, 
+    triggerSync 
+  } = useICloudCalendar();
 
 
   const form = useForm<ProfileFormValues>({
@@ -133,7 +145,6 @@ const SettingsPage: React.FC = () => {
           default_auto_schedule_start_time: '09:00',
           default_auto_schedule_end_time: '17:00',
           last_energy_regen_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
 
@@ -281,6 +292,87 @@ const SettingsPage: React.FC = () => {
             <BookOpen className="h-5 w-5 text-logo-green" />
             App Documentation
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/model')}
+            className="flex items-center justify-start gap-3 h-12 text-base"
+          >
+            <Code className="h-5 w-5 text-secondary-foreground" />
+            App Model & Reference
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* NEW: iCloud Calendar Sync Card */}
+      <Card className="animate-hover-lift">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CalendarDays className="h-5 w-5 text-blue-500" /> iCloud Calendar Sync
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Synchronize external calendar events as read-only fixed appointments.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoadingAvailableCalendars ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">Fetching available calendars...</span>
+            </div>
+          ) : availableCalendars.length === 0 ? (
+            <p className="text-sm text-destructive">
+              Could not retrieve available calendars. Ensure iCloud access is granted.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <h4 className="font-semibold text-foreground">Select Calendars to Sync:</h4>
+              <div className="space-y-2">
+                {availableCalendars.map(calendar => {
+                  const userCalendar = userCalendars.find(uc => uc.calendar_id === calendar.id);
+                  const isEnabled = userCalendar?.is_enabled ?? false;
+                  const lastSynced = userCalendar?.last_synced_at ? format(parseISO(userCalendar.last_synced_at), 'MMM d, h:mm a') : 'Never';
+
+                  return (
+                    <div key={calendar.id} className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-secondary/50">
+                      <div className="flex items-center space-x-3">
+                        <Switch
+                          checked={isEnabled}
+                          onCheckedChange={(checked) => toggleCalendarSelection(calendar, checked)}
+                          disabled={isSyncing}
+                        />
+                        <div className="space-y-0.5">
+                          <Label className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: calendar.color }} />
+                            {calendar.name}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Last Synced: {lastSynced}
+                          </p>
+                        </div>
+                      </div>
+                      {isEnabled && (
+                        <Badge variant="secondary" className="text-xs">
+                          Enabled
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="flex justify-end pt-4">
+                <Button
+                  type="button"
+                  onClick={triggerSync}
+                  disabled={isSyncing || userCalendars.filter(uc => uc.is_enabled).length === 0}
+                  className="flex items-center gap-2 bg-primary hover:bg-primary/90"
+                >
+                  {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {isSyncing ? 'Syncing...' : 'Manual Sync Now'}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

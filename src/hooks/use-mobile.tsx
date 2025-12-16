@@ -1,8 +1,8 @@
 import * as React from "react";
 
-// Changed from 768 to 1024 to align with Tailwind's 'lg' breakpoint, 
+// Changed from 1024 to 768 to align with Tailwind's 'md' breakpoint, 
 // which controls when the desktop sidebar hides and the mobile menu button appears.
-const MOBILE_BREAKPOINT = 1024; 
+const MOBILE_BREAKPOINT = 768; 
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(

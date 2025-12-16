@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, ListTodo, Settings, Trophy, TrendingUp, Clock, BookOpen, Trash2, CheckCircle } from 'lucide-react';
+import { Settings, Trophy, TrendingUp, Clock, BookOpen, Trash2, CheckCircle, Code, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 interface NavLinkItemProps {
   to: string;
@@ -35,15 +36,41 @@ interface NavigationProps {
 }
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
-  const navItems = [
-    // Removed primary navigation links (Scheduler, Sink, Recap, Analytics, Docs)
-    // Keeping Settings as the only link accessible via the mobile sheet/desktop sidebar (if it existed)
+  const primaryNavItems = [
+    { to: "/scheduler", icon: Clock, label: "Vibe Schedule" },
+    { to: "/sink", icon: Trash2, label: "Aether Sink" },
+    { to: "/recap", icon: CheckCircle, label: "Daily Recap" },
+  ];
+  
+  const secondaryNavItems = [
+    { to: "/analytics", icon: TrendingUp, label: "Analytics" },
+    { to: "/documentation", icon: BookOpen, label: "Documentation" },
+    { to: "/model", icon: Code, label: "App Model" },
     { to: "/settings", icon: Settings, label: "Settings" },
   ];
 
   return (
-    <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-      {navItems.map((item) => (
+    <nav className="grid items-start px-2 text-sm font-medium lg:px-4 space-y-1">
+      <h3 className={cn("text-xs font-semibold uppercase text-muted-foreground mb-2 mt-4", isCollapsed ? "text-center" : "pl-4")}>
+        {isCollapsed ? "CORE" : "Core Views"}
+      </h3>
+      {primaryNavItems.map((item) => (
+        <NavLinkItem
+          key={item.to}
+          to={item.to}
+          icon={item.icon}
+          label={item.label}
+          isCollapsed={isCollapsed}
+          onClick={onLinkClick}
+        />
+      ))}
+      
+      <Separator className="my-2" />
+
+      <h3 className={cn("text-xs font-semibold uppercase text-muted-foreground mb-2 mt-4", isCollapsed ? "text-center" : "pl-4")}>
+        {isCollapsed ? "INFO" : "Info & Tools"}
+      </h3>
+      {secondaryNavItems.map((item) => (
         <NavLinkItem
           key={item.to}
           to={item.to}

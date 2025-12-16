@@ -16,6 +16,13 @@ const statusOptions: { label: string, value: TaskStatusFilter }[] = [
   { label: 'Completed', value: 'COMPLETED' },
 ];
 
+const sortOptions: { label: string, value: SortBy }[] = [
+  { label: 'Priority (High to Low)', value: 'PRIORITY_HIGH_TO_LOW' },
+  { label: 'Priority (Low to High)', value: 'PRIORITY_LOW_TO_HIGH' },
+  { label: 'Due Date (Earliest)', value: 'TIME_EARLIEST_TO_LATEST' },
+  { label: 'Due Date (Latest)', value: 'TIME_LATEST_TO_EARLIEST' },
+];
+
 const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatusFilter, sortBy, setSortBy }) => {
   return (
     <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 sm:space-x-4 animate-slide-in-up"> {/* Added animate-slide-in-up */}
@@ -44,12 +51,15 @@ const TaskControlBar: React.FC<TaskControlBarProps> = ({ statusFilter, setStatus
       <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
         <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
         <Select value={sortBy} onValueChange={(value: SortBy) => setSortBy(value)}>
-          <SelectTrigger className="w-[150px] focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 animate-hover-lift"> {/* Added focus styles and animate-hover-lift */}
+          <SelectTrigger className="w-[200px] focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 animate-hover-lift"> {/* Increased width */}
             <SelectValue placeholder="Sort Option" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="PRIORITY">Priority</SelectItem>
-            <SelectItem value="DUE_DATE">Due Date</SelectItem>
+            {sortOptions.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

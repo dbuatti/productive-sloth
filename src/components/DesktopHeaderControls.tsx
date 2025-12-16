@@ -9,10 +9,6 @@ import { cn } from '@/lib/utils';
 const DesktopHeaderControls: React.FC = () => {
   const navigate = useNavigate();
 
-  const handleGoToSettings = () => {
-    navigate('/settings');
-  };
-
   return (
     <header className={cn(
       "fixed top-0 left-0 right-0 z-20 h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
@@ -27,17 +23,6 @@ const DesktopHeaderControls: React.FC = () => {
       {/* Right: Controls */}
       <div className="flex items-center space-x-3">
         <ThemeToggle />
-        
-        {/* Dedicated Settings Button */}
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={handleGoToSettings}
-          className="h-10 w-10 text-muted-foreground hover:bg-secondary/50 transition-colors duration-200"
-        >
-          <Settings className="h-5 w-5" />
-          <span className="sr-only">Settings</span>
-        </Button>
         
         {/* Profile Dropdown */}
         <ProfileDropdown />

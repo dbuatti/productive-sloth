@@ -6,144 +6,37 @@ import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import EnergyDeficitWarning from './EnergyDeficitWarning';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
 import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
-import { Settings, TrendingUp, BookOpen, Clock, Trash2, CheckCircle, Code } from 'lucide-react'; // Added Code icon
-import { NavLink } from 'react-router-dom'; 
 import DesktopHeaderControls from './DesktopHeaderControls'; 
-import { Separator } from '@/components/ui/separator'; // NEW IMPORT
+import { Separator } from '@/components/ui/separator'; 
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-const MobileNavigationLinks: React.FC<{ onLinkClick: () => void }> = ({ onLinkClick }) => (
-  <nav className="grid items-start px-4 text-sm font-medium space-y-1">
-    {/* Primary Navigation Links */}
-    <NavLink
-      to="/scheduler"
-      onClick={onLinkClick}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
-          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
-        )
-      }
-    >
-      <Clock className="h-6 w-6" />
-      <span className="text-base font-medium">Vibe Schedule</span>
-    </NavLink>
-    <NavLink
-      to="/sink"
-      onClick={onLinkClick}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
-          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
-        )
-      }
-    >
-      <Trash2 className="h-6 w-6" />
-      <span className="text-base font-medium">Aether Sink</span>
-    </NavLink>
-    <NavLink
-      to="/recap"
-      onClick={onLinkClick}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
-          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
-        )
-      }
-    >
-      <CheckCircle className="h-6 w-6" />
-      <span className="text-base font-medium">Daily Recap</span>
-    </NavLink>
-    
-    <Separator className="my-2" />
-
-    {/* Secondary Pages */}
-    <NavLink
-      to="/analytics"
-      onClick={onLinkClick}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
-          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
-        )
-      }
-    >
-      <TrendingUp className="h-6 w-6" />
-      <span className="text-base font-medium">Analytics</span>
-    </NavLink>
-    <NavLink
-      to="/documentation"
-      onClick={onLinkClick}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
-          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
-        )
-      }
-    >
-      <BookOpen className="h-6 w-6" />
-      <span className="text-base font-medium">Documentation</span>
-    </NavLink>
-    <NavLink
-      to="/model" // NEW LINK
-      onClick={onLinkClick}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
-          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
-        )
-      }
-    >
-      <Code className="h-6 w-6" />
-      <span className="text-base font-medium">App Model & Reference</span>
-    </NavLink>
-    <NavLink
-      to="/settings"
-      onClick={onLinkClick}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
-          isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4"
-        )
-      }
-    >
-      <Settings className="h-6 w-6" />
-      <span className="text-base font-medium">Settings</span>
-    </NavLink>
-  </nav>
-);
-
-
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { activeItemToday, profile } = useSession();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
 
-  const handleMenuToggle = useCallback(() => {
-    setIsMobileMenuOpen(prev => !prev);
-  }, []);
+  // Desktop sidebar state (always open on desktop, but can be collapsed)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  const handleLinkClick = useCallback(() => {
-    setIsMobileMenuOpen(false);
-  }, []);
+  // The mobile menu sheet is removed as navigation is handled by BottomNavigationBar.
+  // The AppHeader now only handles the logo/profile on mobile.
 
-  // On mobile (lg:hidden), header is h-16, progress bar is sticky top-16 (~h-8). Total offset ~100px.
-  // On desktop (lg:block), header is h-16, progress bar is sticky top-16 (~h-8). Total offset ~100px.
+  const sidebarWidth = isSidebarCollapsed ? "w-[72px]" : "w-[250px]";
+  const contentPaddingLeft = isSidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[250px]";
+
   const mainContent = (
     <main className={cn(
       "flex flex-1 flex-col gap-4 px-4 overflow-auto",
-      "pt-[100px] lg:pt-[100px]", // Adjusted top padding for both mobile and desktop (h-16 header + h-8 progress bar + gap)
+      "pt-[100px]", // Adjusted top padding for both mobile and desktop (h-16 header + h-8 progress bar + gap)
       // Dynamic bottom padding for mobile navigation/status indicator
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4")
     )}>
@@ -156,30 +49,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
+      
+      {/* Desktop Sidebar (Visible on large screens) */}
+      {!isMobile && (
+        <div 
+          className={cn(
+            "fixed top-0 left-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-16",
+            sidebarWidth
+          )}
+        >
+          <div className="flex h-full flex-col overflow-y-auto">
+            <div className="flex-1 py-4">
+              <Navigation isCollapsed={isSidebarCollapsed} />
+            </div>
+            {/* Optional: Add a collapse toggle button here if needed */}
+          </div>
+        </div>
+      )}
+
       {/* Desktop Header Controls (Visible on large screens) */}
       {!isMobile && <DesktopHeaderControls />}
       
-      {/* Mobile Sheet Navigation (Hamburger Menu) */}
-      {isMobile && (
-        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-          <SheetContent side="left" className="w-[250px] p-0 flex flex-col bg-sidebar">
-            {/* Replicate Sidebar content structure for mobile */}
-            <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
-              <img src="/aetherflow-logo.png" alt="Logo" className="h-8 w-auto" />
-              <span className="ml-2 text-lg font-bold text-sidebar-foreground">AetherFlow</span>
-            </div>
-            <div className="flex-1 overflow-y-auto py-4 space-y-4">
-              {/* Use the new consolidated links for the mobile menu */}
-              <MobileNavigationLinks onLinkClick={handleLinkClick} />
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
-      
       {/* Main Content Area (Header + Progress Bar + Page Content) */}
-      <div className="flex flex-col flex-1 min-w-0 w-full">
-        {/* Header (Pass toggle function) - Only visible on mobile */}
-        <AppHeader onMenuToggle={handleMenuToggle} />
+      <div className={cn("flex flex-col flex-1 min-w-0 w-full", contentPaddingLeft)}>
+        
+        {/* Header (Only visible on mobile) */}
+        {isMobile && <AppHeader onMenuToggle={() => {}} />} {/* onMenuToggle is now a placeholder */}
         
         {/* Progress Bar Header (Sticks below the header) */}
         <ProgressBarHeader />

@@ -85,7 +85,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
       await addRetiredTask(parsedTask);
       setSinkInputValue('');
     } else {
-      showError("Invalid task format. Use 'Task Name [Duration] [!]'.");
+      showError("Invalid task format. Use 'Task Name [Duration] [!] [-]'.");
     }
   };
 
@@ -284,7 +284,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
             <form onSubmit={handleAddSinkTask} className="flex gap-2 w-full pt-2">
               <Input
                 type="text"
-                placeholder="Add task to sink (e.g., 'Read Book 30', 'Critical Idea !')"
+                placeholder="Add task to sink (e.g., 'Read Book 30', '-Clean desk 30')"
                 value={sinkInputValue}
                 onChange={(e) => setSinkInputValue(e.target.value)}
                 disabled={isProcessingCommand}
@@ -300,7 +300,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               </Button>
             </form>
             <p className="text-sm text-muted-foreground"> {/* Increased font size */}
-              Tip: Add duration (e.g., "Task Name 30") and/or mark as critical (e.g., "Important Idea !")
+              Tip: Add duration (e.g., "Task Name 30"), mark as critical (e.g., "Important Idea !"), or backburner (e.g., "-Low Priority")
             </p>
 
             {isLoading ? (
@@ -321,6 +321,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   const emoji = assignEmoji(task.name);
                   const accentBorderColor = `hsl(${hue} 70% 50%)`; // Define vibrant accent color
                   const isLocked = task.is_locked;
+                  const isBackburner = task.is_backburner; // NEW: Get backburner status
 
                   return (
                     <div 
@@ -329,9 +330,11 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                         "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg shadow-sm text-base transition-all duration-200 ease-in-out cursor-pointer",
                         "bg-card hover:bg-secondary/50 border-l-4 animate-hover-lift", // Use border-l-4 for accent
                         isLocked ? "border-l-primary/70 bg-primary/10" : "",
-                        task.is_completed && "opacity-50 line-through"
+                        isBackburner && !isLocked ? "opacity-70 bg-secondary/30 border-l-muted-foreground/50" : "", // NEW: Backburner visual cue
+                        task.is_completed && "opacity-50 line-through",
+                        "hover:shadow-lg hover:shadow-primary/10",
                       )}
-                      style={{ borderLeftColor: isLocked ? undefined : accentBorderColor }} // Apply dynamic color via style
+                      style={{ borderLeftColor: isLocked ? undefined : (isBackburner ? undefined : accentBorderColor) }} // Apply dynamic color via style
                       onMouseEnter={() => setHoveredItemId(task.id)}
                       onMouseLeave={() => setHoveredItemId(null)}
                       onClick={(e) => handleTaskItemClick(e, task)}
@@ -379,7 +382,19 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Critical Task: Must be completed today!</p>
+                                  <p>Critical Task</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {isBackburner && !task.is_critical && ( // NEW: Backburner badge
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="outline" className="px-2 py-0.5 text-xs font-semibold text-muted-foreground border-muted-foreground/50 bg-muted/20 shrink-0">
+                                    Backburner
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Low-Orbit Task (P: Low)</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}

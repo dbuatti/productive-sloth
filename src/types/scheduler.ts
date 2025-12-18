@@ -31,6 +31,7 @@ export interface Task {
   updated_at: string; // Added updated_at
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_custom_energy_cost: boolean; // NEW: Added for custom energy cost
+  is_backburner: boolean; // NEW: Backburner Urgency Flag
 }
 
 export interface NewTask {
@@ -42,6 +43,7 @@ export interface NewTask {
   description?: string; // Added description to NewTask
   is_critical?: boolean; // NEW: Critical Urgency Flag
   is_custom_energy_cost?: boolean; // NEW: Added for custom energy cost
+  is_backburner?: boolean; // NEW: Backburner Urgency Flag
 }
 
 // --- Scheduler Types ---
@@ -52,6 +54,7 @@ export interface RawTaskInput {
   breakDuration?: number; // in minutes
   isCritical?: boolean; // NEW: Critical Urgency Flag
   isFlexible?: boolean; // NEW: Added isFlexible to RawTaskInput
+  isBackburner?: boolean; // NEW: Backburner Urgency Flag
   energyCost: number; // NEW: Made energyCost required
 }
 
@@ -65,7 +68,7 @@ export interface DBScheduledTask {
   end_time: string | null;   // New: ISO date string for timed events
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
   created_at: string;
-  updated_at: string; // NEW: Added updated_at column
+  updated_at: string; // NEW: Added updated_at
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_flexible: boolean; // NEW: Flag for schedule compaction
   is_locked: boolean; // NEW: Task Immutability Flag
@@ -74,6 +77,7 @@ export interface DBScheduledTask {
   is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
   task_environment: TaskEnvironment; // NEW: Task environment
   source_calendar_id: string | null; // NEW: Source calendar ID for read-only events
+  is_backburner: boolean; // NEW: Backburner Urgency Flag
 }
 
 export interface NewDBScheduledTask {
@@ -91,6 +95,7 @@ export interface NewDBScheduledTask {
   is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
   task_environment?: TaskEnvironment; // NEW: Task environment
   source_calendar_id?: string | null; // NEW: Source calendar ID
+  is_backburner?: boolean; // NEW: Backburner Urgency Flag
 }
 
 // New types for retired tasks (Aether Sink)
@@ -108,6 +113,7 @@ export interface RetiredTask {
   is_completed: boolean; // NEW: Added is_completed
   is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
   task_environment: TaskEnvironment; // NEW: Task environment
+  is_backburner: boolean; // NEW: Backburner Urgency Flag
 }
 
 export interface NewRetiredTask {
@@ -122,6 +128,7 @@ export interface NewRetiredTask {
   is_completed?: boolean; // NEW: Added is_completed
   is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
   task_environment?: TaskEnvironment; // NEW: Task environment
+  is_backburner?: boolean; // NEW: Backburner Urgency Flag
 }
 
 // Helper type for unification (moved from SchedulerPage.tsx)
@@ -132,6 +139,7 @@ export interface UnifiedTask {
   break_duration: number | null;
   is_critical: boolean;
   is_flexible: boolean;
+  is_backburner: boolean; // NEW: Backburner Urgency Flag
   energy_cost: number;
   source: 'scheduled' | 'retired';
   originalId: string; // ID in the source table
@@ -170,6 +178,7 @@ export interface ScheduledItem {
   isCustomEnergyCost: boolean; // NEW: Flag for custom energy cost
   taskEnvironment: TaskEnvironment; // NEW: Task environment
   sourceCalendarId: string | null; // NEW: Source calendar ID
+  isBackburner: boolean; // NEW: Backburner Urgency Flag
 }
 
 // NEW: Type for combined completed task log entry for recap metrics

@@ -80,6 +80,7 @@ interface InjectionPromptState {
   endTime?: string;
   isCritical?: boolean;
   isFlexible?: boolean;
+  isBackburner?: boolean; // NEW: Backburner flag
   energyCost?: number;
   isCustomEnergyCost?: boolean;
   taskEnvironment?: TaskEnvironment;
@@ -206,6 +207,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             energy_cost: 0, // Breaks have 0 energy cost (but trigger regen)
             is_custom_energy_cost: false,
             task_environment: environmentForPlacement,
+            is_backburner: false, // NEW: Default to false
         });
         
         // Trigger energy regen immediately upon starting a break
@@ -269,6 +271,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         duration: duration, 
         isCritical: isCritical,
         isFlexible: true,
+        isBackburner: false, // Default to false when scheduling from task list
         energyCost: calculateEnergyCost(duration, isCritical),
         breakDuration: undefined,
         isCustomEnergyCost: false,
@@ -587,6 +590,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                 energy_cost: task.energy_cost,
                 is_custom_energy_cost: task.is_custom_energy_cost,
                 task_environment: task.task_environment,
+                is_backburner: task.is_backburner, // NEW: Pass backburner status
             });
             
             // 5b. Update local occupied blocks and cursor
@@ -862,6 +866,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           energy_cost: taskToPlace.energy_cost,
           is_custom_energy_cost: taskToPlace.is_custom_energy_cost,
           task_environment: taskToPlace.task_environment,
+          is_backburner: taskToPlace.is_backburner, // NEW: Pass backburner status
         });
         // Declare currentOccupiedBlocksForScheduling locally within this function
         let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
@@ -923,11 +928,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           is_completed: task.is_completed,
           is_custom_energy_cost: task.is_custom_energy_cost,
           task_environment: task.task_environment,
+          is_backburner: task.is_backburner, // NEW: Pass backburner status
         });
       });
 
       // --- CRITICAL FIX: Auto-retire past-due, uncompleted, flexible scheduled tasks ---
-      // This prevents tasks that should have already started/finished from being rescheduled.
       const pastDueScheduledTasks = flexibleScheduledTasks.filter(task => {
           if (!task.start_time || task.is_completed) return false;
           
@@ -951,6 +956,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                   is_completed: false,
                   is_custom_energy_cost: task.is_custom_energy_cost,
                   task_environment: task.task_environment,
+                  is_backburner: task.is_backburner, // NEW: Pass backburner status
               });
           }
       });
@@ -971,6 +977,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             break_duration: task.break_duration,
             is_critical: task.is_critical,
             is_flexible: true,
+            is_backburner: task.is_backburner, // NEW: Pass backburner status
             energy_cost: task.energy_cost,
             source: 'scheduled',
             originalId: task.id,
@@ -989,6 +996,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           break_duration: task.break_duration,
           is_critical: task.is_critical,
           is_flexible: true, // <-- FIX: Retired tasks are flexible for scheduling
+          is_backburner: task.is_backburner, // NEW: Pass backburner status
           energy_cost: task.energy_cost,
           source: 'retired',
           originalId: task.id,
@@ -1006,19 +1014,21 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         return environmentsToFilterBy.includes(task.task_environment);
       });
 
-      // Sort the tasksToConsider based on sortPreference
+      // --- NEW: Tiered Sorting Logic ---
       let sortedTasks = [...tasksToConsider].sort((a, b) => {
-        // Primary sort: Critical tasks first
+        // 1. Primary Sort: Critical (High) > Neutral (Standard) > Backburner (Low)
         if (a.is_critical && !b.is_critical) return -1;
         if (!a.is_critical && b.is_critical) return 1;
+        if (a.is_backburner && !b.is_backburner) return 1;
+        if (!a.is_backburner && b.is_backburner) return -1;
 
+        // 2. Secondary Sort: Apply user's sort preference within each tier
         switch (sortPreference) {
-          case 'TIME_EARLIEST_TO_LATEST': // Changed from DURATION_ASC
+          case 'TIME_EARLIEST_TO_LATEST': // Shortest Duration First
             return (a.duration || 0) - (b.duration || 0);
-          case 'TIME_LATEST_TO_EARLIEST': // Changed from DURATION_DESC
+          case 'TIME_LATEST_TO_EARLIEST': // Longest Duration First
             return (b.duration || 0) - (a.duration || 0);
           case 'PRIORITY_HIGH_TO_LOW':
-            // Assuming higher energy cost implies higher priority if not critical
             return (b.energy_cost || 0) - (a.energy_cost || 0);
           case 'PRIORITY_LOW_TO_HIGH':
             return (a.energy_cost || 0) - (b.energy_cost || 0);
@@ -1035,6 +1045,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         }
       });
+      // --- END NEW: Tiered Sorting Logic ---
 
       let currentOccupiedBlocks = mergeOverlappingTimeBlocks(existingFixedTasks
         .filter(task => task.start_time && task.end_time)
@@ -1067,11 +1078,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               is_completed: false,
               is_custom_energy_cost: task.is_custom_energy_cost,
               task_environment: task.task_environment,
+              is_backburner: task.is_backburner, // NEW: Pass backburner status
             });
             scheduledTaskIdsToDelete.push(task.originalId);
           } else if (task.source === 'retired') {
             // If it's already in sink, it stays in sink (no action needed for tasksToKeepInSink)
-            // But we need to ensure it's not deleted from sink if it was considered for placement
           }
           continue;
         }
@@ -1106,6 +1117,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                 is_completed: false,
                 is_custom_energy_cost: task.is_custom_energy_cost,
                 task_environment: task.task_environment,
+                is_backburner: task.is_backburner, // NEW: Pass backburner status
               });
 
               currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
@@ -1138,6 +1150,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               is_completed: false,
               is_custom_energy_cost: task.is_custom_energy_cost,
               task_environment: task.task_environment,
+              is_backburner: task.is_backburner, // NEW: Pass backburner status
             });
             scheduledTaskIdsToDelete.push(task.originalId);
           }
@@ -1165,6 +1178,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               is_completed: false,
               is_custom_energy_cost: task.is_custom_energy_cost,
               task_environment: task.task_environment,
+              is_backburner: task.is_backburner, // NEW: Pass backburner status
             });
           }
         }
@@ -1185,8 +1199,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       console.log("handleAutoScheduleAndSort: Final payload for autoBalanceSchedule mutation:", {
         scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
         retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
-        tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
-        tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
+        tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked, is_backburner: t.is_backburner })),
+        tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name, is_backburner: t.is_backburner })),
         selectedDate: payload.selectedDate,
       });
 
@@ -1350,6 +1364,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           energy_cost: parsedInput.energyCost,
           is_custom_energy_cost: false,
           task_environment: environmentForPlacement,
+          is_backburner: parsedInput.isBackburner, // NEW: Pass backburner status
         };
         await addRetiredTask(newRetiredTask);
         success = true;
@@ -1381,6 +1396,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               energy_cost: parsedInput.energyCost,
               is_custom_energy_cost: false,
               task_environment: environmentForPlacement,
+              is_backburner: parsedInput.isBackburner, // NEW: Pass backburner status
             }); 
             currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: newTaskDuration });
             currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1427,6 +1443,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             energy_cost: parsedInput.energyCost,
             is_custom_energy_cost: false,
             task_environment: environmentForPlacement,
+            is_backburner: parsedInput.isBackburner, // NEW: Pass backburner status
           }); 
           currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1444,7 +1461,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         
         // Recalculate energy cost based on task name if it's a meal
         const isMealTask = isMeal(injectCommand.taskName);
-        const calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(injectedTaskDuration, injectCommand.isCritical ?? false);
+        const calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(injectedTaskDuration, injectCommand.isCritical ?? false, injectCommand.isBackburner ?? false);
 
         const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
           injectCommand.taskName,
@@ -1469,6 +1486,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             energy_cost: calculatedEnergyCost,
             is_custom_energy_cost: false,
             task_environment: environmentForPlacement,
+            is_backburner: injectCommand.isBackburner, // NEW: Pass backburner status
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1488,6 +1506,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           endTime: injectCommand.endTime,
           isCritical: injectCommand.isCritical,
           isFlexible: injectCommand.isFlexible,
+          isBackburner: injectCommand.isBackburner, // NEW: Pass backburner status
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
           isCustomEnergyCost: false,
@@ -1506,6 +1525,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           endTime: undefined,
           isCritical: injectCommand.isCritical,
           isFlexible: injectCommand.isFlexible,
+          isBackburner: injectCommand.isBackburner, // NEW: Pass backburner status
           energyCost: injectCommand.energyCost,
           breakDuration: injectCommand.breakDuration,
           isCustomEnergyCost: false,
@@ -1572,6 +1592,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             endTime: formatFns(addHours(T_current, 1), 'h:mm a'),
             isCritical: false,
             isFlexible: false,
+            isBackburner: false, // NEW: Default to false
             energyCost: 0,
             breakDuration: undefined,
             isCustomEnergyCost: false,
@@ -1612,6 +1633,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             energy_cost: 0,
             is_custom_energy_cost: false,
             task_environment: environmentForPlacement,
+            is_backburner: false, // NEW: Default to false
           });
           
           // NEW: Trigger energy regen immediately upon starting a break
@@ -1685,7 +1707,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       
       // Recalculate energy cost based on task name if it's a meal
       const isMealTask = isMeal(injectionPrompt.taskName);
-      calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(duration, injectionPrompt.isCritical ?? false);
+      calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(duration, injectionPrompt.isCritical ?? false, injectionPrompt.isBackburner ?? false);
 
       await addScheduledTask({ 
         name: injectionPrompt.taskName, 
@@ -1698,6 +1720,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         energy_cost: calculatedEnergyCost,
         is_custom_energy_cost: false,
         task_environment: environmentForPlacement,
+        is_backburner: injectionPrompt.isBackburner, // NEW: Pass backburner status
       }); 
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1721,7 +1744,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       
       // Recalculate energy cost based on task name if it's a meal
       const isMealTask = isMeal(injectionPrompt.taskName);
-      calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(injectedTaskDuration, injectionPrompt.isCritical ?? false);
+      calculatedEnergyCost = isMealTask ? -10 : calculateEnergyCost(injectedTaskDuration, injectionPrompt.isCritical ?? false, injectionPrompt.isBackburner ?? false);
 
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
         injectionPrompt.taskName,
@@ -1746,6 +1769,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           energy_cost: calculatedEnergyCost,
           is_custom_energy_cost: false,
           task_environment: environmentForPlacement,
+          is_backburner: injectionPrompt.isBackburner, // NEW: Pass backburner status
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1813,6 +1837,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           energy_cost: retiredTask.energy_cost,
           is_custom_energy_cost: retiredTask.is_custom_energy_cost,
           task_environment: retiredTask.task_environment,
+          is_backburner: retiredTask.is_backburner, // NEW: Pass backburner status
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1884,6 +1909,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       endTime: undefined,
       isCritical: false,
       isFlexible: true,
+      isBackburner: false, // NEW: Default to false
       energyCost: calculateEnergyCost(30, false),
       breakDuration: undefined,
       isCustomEnergyCost: false,
@@ -1905,6 +1931,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       endTime: formatFns(addHours(T_current, 1), 'h:mm a'),
       isCritical: false,
       isFlexible: false,
+      isBackburner: false, // NEW: Default to false
       energyCost: 0,
       breakDuration: undefined,
       isCustomEnergyCost: false,
@@ -1930,6 +1957,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       endTime: undefined,
       isCritical: false,
       isFlexible: true,
+      isBackburner: false, // NEW: Default to false
       energyCost: calculateEnergyCost(duration, false),
       breakDuration: undefined,
       isCustomEnergyCost: false,
@@ -2012,7 +2040,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               await completeScheduledTaskMutation(task);
               // After completion, if it was a flexible task, compact the schedule
               if (task.is_flexible) {
-                const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+                const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
                 const compactedTasks = compactScheduleLogic(
                     latestDbScheduledTasks,
                     selectedDayAsDate,
@@ -2065,13 +2093,14 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           energy_cost: 0,
           is_custom_energy_cost: false,
           task_environment: environmentForPlacement,
+          is_backburner: false, // NEW: Default to false
         });
 
         // Mark the original task as completed and remove if flexible
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
           // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
           const compactedTasks = compactScheduleLogic(
               latestDbScheduledTasks,
               selectedDayAsDate,
@@ -2112,7 +2141,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
           // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
           const compactedTasks = compactScheduleLogic(
               latestDbScheduledTasks,
               selectedDayAsDate,
@@ -2157,6 +2186,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             is_flexible: originalNextTask.is_flexible, 
             is_locked: originalNextTask.is_locked,     
             task_environment: originalNextTask.task_environment,
+            is_backburner: originalNextTask.is_backburner, // NEW: Pass backburner status
           });
 
           await handleCompactSchedule();
@@ -2171,7 +2201,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         await completeScheduledTaskMutation(task);
         if (task.is_flexible) {
           // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
+          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
           const compactedTasks = compactScheduleLogic(
               latestDbScheduledTasks,
               selectedDayAsDate,
@@ -2348,11 +2378,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             isLoading={overallLoading} 
             inputValue={inputValue}
             setInputValue={setInputValue}
-            placeholder={`Add task (e.g., 'Gym 60') or command`}
+            placeholder={`Add task (e.g., 'Gym 60', '-Clean desk') or command`}
             onDetailedInject={handleAddTaskClick}
           />
           <p className="text-sm text-muted-foreground mt-2">
-            Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+            Examples: "Gym 60", "-Clean desk 30", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
           </p>
         </CardContent>
       </Card>
@@ -2562,11 +2592,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                                   isLoading={overallLoading} 
                                   inputValue={inputValue}
                                   setInputValue={setInputValue}
-                                  placeholder={`Add task (e.g., 'Gym 60') or command`}
+                                  placeholder={`Add task (e.g., 'Gym 60', '-Clean desk') or command`}
                                   onDetailedInject={handleAddTaskClick}
                               />
                               <p className="text-sm text-muted-foreground mt-2">
-                                  Examples: "Gym 60", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
+                                  Examples: "Gym 60", "-Clean desk 30", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
                               </p>
                           </CardContent>
                       </Card>

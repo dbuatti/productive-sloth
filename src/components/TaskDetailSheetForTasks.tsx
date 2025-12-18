@@ -41,6 +41,7 @@ const formSchema = z.object({
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
   dueDate: z.date({ required_error: "Due date is required." }), 
   isCritical: z.boolean().default(false),
+  isBackburner: z.boolean().default(false), // NEW: Backburner flag
   energy_cost: z.coerce.number().min(0).default(0), // NEW: Add energy_cost to schema
   is_custom_energy_cost: z.boolean().default(false), // NEW: Add custom energy cost flag
 });
@@ -70,6 +71,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       priority: "MEDIUM",
       dueDate: new Date(),
       isCritical: false,
+      isBackburner: false, // NEW: Default to false
       energy_cost: 0, // Will be set by useEffect
       is_custom_energy_cost: false, // Will be set by useEffect
     },
@@ -83,30 +85,40 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         priority: task.priority,
         dueDate: task.due_date ? new Date(task.due_date) : new Date(), 
         isCritical: task.is_critical,
+        isBackburner: task.is_backburner, // NEW: Set initial backburner status
         energy_cost: task.energy_cost, // NEW: Set initial energy cost
         is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial custom energy cost flag
       });
       // NEW: Set initial calculated cost, but only if not custom
       if (!task.is_custom_energy_cost) {
-        setCalculatedEnergyCost(calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, task.is_critical));
+        setCalculatedEnergyCost(calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, task.is_critical, task.is_backburner)); // NEW: Pass backburner status
       } else {
         setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
       }
     }
   }, [task, form]);
 
-  // NEW: Effect to recalculate energy cost when isCritical changes
+  // NEW: Effect to recalculate energy cost when isCritical or isBackburner changes
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       // Only recalculate if custom energy cost is NOT enabled
-      if (!value.is_custom_energy_cost && name === 'isCritical') {
-        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, value.isCritical ?? false);
+      if (!value.is_custom_energy_cost && (name === 'isCritical' || name === 'isBackburner')) {
+        const newEnergyCost = calculateEnergyCost(
+          DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, 
+          value.isCritical ?? false,
+          value.isBackburner ?? false // NEW: Pass backburner status
+        );
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
         // If custom energy cost is turned OFF, immediately recalculate and set
         const isCritical = form.getValues('isCritical');
-        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical ?? false);
+        const isBackburner = form.getValues('isBackburner'); // NEW: Get backburner status
+        const newEnergyCost = calculateEnergyCost(
+          DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, 
+          isCritical ?? false,
+          isBackburner ?? false // NEW: Pass backburner status
+        );
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }
@@ -128,6 +140,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         priority: values.priority,
         due_date: values.dueDate.toISOString(),
         is_critical: values.isCritical,
+        is_backburner: values.isBackburner, // NEW: Pass backburner status
         energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost, // NEW: Use custom or calculated
         is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
       });
@@ -141,6 +154,8 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
   const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // NEW: Watch the custom energy cost toggle
+  const isCritical = form.watch('isCritical');
+  const isBackburner = form.watch('isBackburner');
 
   if (!task) return null;
 
@@ -267,15 +282,44 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
-                      <FormLabel>Critical Task</FormLabel>
+                      <FormLabel>Critical Task (P: High)</FormLabel>
                       <FormDescription>
-                        Mark this task as critical (must be completed today).
+                        Must be scheduled first.
                       </FormDescription>
                     </div>
                     <FormControl>
                       <Switch
                         checked={field.value}
-                        onCheckedChange={field.onChange}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          if (checked) form.setValue('isBackburner', false); // Critical overrides Backburner
+                        }}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Is Backburner Switch */}
+              <FormField
+                control={form.control}
+                name="isBackburner"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Backburner Task (P: Low)</FormLabel>
+                      <FormDescription>
+                        Only scheduled if free time remains.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          if (checked) form.setValue('isCritical', false); // Backburner overrides Critical
+                        }}
+                        disabled={isCritical}
                       />
                     </FormControl>
                   </FormItem>

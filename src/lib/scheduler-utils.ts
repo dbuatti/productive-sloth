@@ -213,16 +213,21 @@ export const isMeal = (taskName: string): boolean => {
   return MEAL_KEYWORDS.some(keyword => lowerCaseTaskName.includes(keyword));
 };
 
-export const calculateEnergyCost = (duration: number, isCritical: boolean): number => {
+export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false): number => {
   // Meals provide positive energy
   if (isMeal('meal')) { // Check against a generic meal keyword or rely on the caller to pass a meal task name
     return -10; // Fixed positive energy gain (e.g., +10 Energy)
   }
 
   let baseCost = Math.ceil(duration / 15) * 5; // 5 energy per 15 minutes
+  
   if (isCritical) {
     baseCost = Math.ceil(baseCost * 1.5); // Critical tasks cost 50% more energy
+  } else if (isBackburner) {
+    // Backburner tasks cost 25% less energy
+    baseCost = Math.ceil(baseCost * 0.75);
   }
+  
   return Math.max(5, baseCost); // Minimum energy cost of 5
 };
 
@@ -268,37 +273,59 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   endTime?: Date;
   isCritical: boolean;
   isFlexible: boolean;
+  isBackburner: boolean; // NEW: Backburner flag
   shouldSink: boolean;
   energyCost: number;
 } | null => {
-  let lowerInput = input.toLowerCase().trim();
+  let rawInput = input.trim();
+  let lowerInput = rawInput.toLowerCase();
   let isCritical = false;
+  let isBackburner = false; // NEW: Backburner flag
   let shouldSink = false;
   let isFlexible = true; // Default to flexible
 
-  // Check for critical flag
+  // Check for critical flag (suffix)
   if (lowerInput.endsWith(' !')) {
     isCritical = true;
-    lowerInput = lowerInput.slice(0, -2).trim();
-    input = input.slice(0, -2).trim();
+    rawInput = rawInput.slice(0, -2).trim();
+    lowerInput = rawInput.toLowerCase();
   }
 
-  // Check for sink flag
+  // Check for Backburner flag (prefix)
+  if (lowerInput.startsWith('-')) {
+    isBackburner = true;
+    rawInput = rawInput.slice(1).trim();
+    lowerInput = rawInput.toLowerCase();
+  }
+
+  // Check for sink flag (suffix)
   if (lowerInput.endsWith(' sink')) {
     shouldSink = true;
-    lowerInput = lowerInput.slice(0, -5).trim();
-    input = input.slice(0, -5).trim();
+    rawInput = rawInput.slice(0, -5).trim();
+    lowerInput = rawInput.toLowerCase();
   }
 
-  // Check for fixed flag (only applies to duration-based tasks, timed tasks are implicitly fixed)
+  // Check for fixed flag (suffix)
   if (lowerInput.endsWith(' fixed')) {
     isFlexible = false;
-    lowerInput = lowerInput.slice(0, -6).trim();
-    input = input.slice(0, -6).trim();
+    rawInput = rawInput.slice(0, -6).trim();
+    lowerInput = rawInput.toLowerCase();
   }
-
+  
+  // Re-check for critical/backburner after removing other suffixes
+  if (rawInput.endsWith(' !')) {
+    isCritical = true;
+    rawInput = rawInput.slice(0, -2).trim();
+    lowerInput = rawInput.toLowerCase();
+  }
+  if (rawInput.startsWith('-')) {
+    isBackburner = true;
+    rawInput = rawInput.slice(1).trim();
+    lowerInput = rawInput.toLowerCase();
+  }
+  
   // Time Off (always fixed, no energy cost)
-  const timeOffMatch = input.match(/^(time off)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
+  const timeOffMatch = rawInput.match(/^(time off)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeOffMatch) {
     const name = timeOffMatch[1];
     const startTimeString = timeOffMatch[2];
@@ -316,15 +343,15 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
       startTime: startTime,
       endTime: endTime,
       isCritical: false,
+      isBackburner: false,
       isFlexible: false, // Time Off is always fixed
       shouldSink: false,
       energyCost: 0, // Time Off has no energy cost
     };
   }
 
-  // Timed task: "Task Name 10am-11am [!] [fixed]"
-  // Regex updated to be more permissive on the task name part (.*?)
-  const timeRangeMatch = input.match(/^(.*?)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
+  // Timed task: "Task Name 10am-11am"
+  const timeRangeMatch = rawInput.match(/^(.*?)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeRangeMatch) {
     const name = timeRangeMatch[1].trim();
     const startTimeString = timeRangeMatch[2];
@@ -336,16 +363,15 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       
-      // Check if it's a meal and assign fixed energy cost
       const isMealTask = isMeal(name);
-      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical);
+      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner);
 
-      return { name, startTime, endTime, isCritical, isFlexible: false, shouldSink, energyCost }; // Timed tasks are implicitly fixed
+      return { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost }; // Timed tasks are implicitly fixed
     }
   }
 
-  // Duration-based task: "Task Name 60 [10] [!] [sink] [fixed]"
-  const durationMatch = input.match(/^(.*?)\s+(\d+)(?:\s+(\d+))?$/);
+  // Duration-based task: "Task Name 60 [10]"
+  const durationMatch = rawInput.match(/^(.*?)\s+(\d+)(?:\s+(\d+))?$/);
   if (durationMatch) {
     const name = durationMatch[1].trim();
     const duration = parseInt(durationMatch[2], 10);
@@ -353,8 +379,8 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
 
     if (name && duration > 0) {
       const isMealTask = isMeal(name);
-      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical);
-      return { name, duration, breakDuration, isCritical, isFlexible, shouldSink, energyCost };
+      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner);
+      return { name, duration, breakDuration, isCritical, isBackburner, isFlexible, shouldSink, energyCost };
     }
   }
 
@@ -369,10 +395,12 @@ export const parseInjectionCommand = (input: string): {
   endTime?: string;
   isCritical?: boolean;
   isFlexible?: boolean;
+  isBackburner?: boolean; // NEW: Backburner flag
   energyCost: number;
 } | null => {
   const lowerInput = input.toLowerCase().trim();
-  const injectMatch = lowerInput.match(/^inject\s+"([^"]+)"(?:\s+(\d+))?(?:\s+(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s+(!))?(?:\s+(fixed))?$/);
+  // Regex updated to capture the Backburner flag (-) and ensure it's handled correctly
+  const injectMatch = lowerInput.match(/^inject\s+"([^"]+)"(?:\s+(\d+))?(?:\s+(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s+(!))?(?:\s+(-))?(?:\s+(fixed))?$/);
 
   if (injectMatch) {
     const taskName = injectMatch[1];
@@ -380,7 +408,8 @@ export const parseInjectionCommand = (input: string): {
     const startTime = injectMatch[3] || undefined;
     const endTime = injectMatch[6] || undefined;
     const isCritical = !!injectMatch[9];
-    const isFlexible = !injectMatch[10]; // If 'fixed' flag is present, it's not flexible
+    const isBackburner = !!injectMatch[10]; // Capture the Backburner flag
+    const isFlexible = !injectMatch[11]; // If 'fixed' flag is present, it's not flexible
 
     let calculatedEnergyCost = 0;
     const isMealTask = isMeal(taskName);
@@ -388,9 +417,9 @@ export const parseInjectionCommand = (input: string): {
     if (isMealTask) {
       calculatedEnergyCost = -10;
     } else if (duration) {
-      calculatedEnergyCost = calculateEnergyCost(duration, isCritical);
+      calculatedEnergyCost = calculateEnergyCost(duration, isCritical, isBackburner);
     } else {
-      calculatedEnergyCost = calculateEnergyCost(30, isCritical); // Default for unknown duration
+      calculatedEnergyCost = calculateEnergyCost(30, isCritical, isBackburner); // Default for unknown duration
     }
 
     return {
@@ -399,6 +428,7 @@ export const parseInjectionCommand = (input: string): {
       startTime,
       endTime,
       isCritical,
+      isBackburner,
       isFlexible,
       energyCost: calculatedEnergyCost,
     };
@@ -460,11 +490,18 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   let name = input.trim();
   let duration: number | null = null;
   let isCritical = false;
+  let isBackburner = false; // NEW: Backburner flag
 
-  // Check for critical flag
+  // Check for critical flag (suffix)
   if (name.endsWith(' !')) {
     isCritical = true;
     name = name.slice(0, -2).trim();
+  }
+
+  // Check for Backburner flag (prefix)
+  if (name.startsWith('-')) {
+    isBackburner = true;
+    name = name.slice(1).trim();
   }
 
   // Check for duration
@@ -477,7 +514,7 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   if (!name) return null;
 
   const isMealTask = isMeal(name);
-  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical); // Default to 30 min if no duration
+  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner); // Default to 30 min if no duration
 
   return {
     user_id: userId,
@@ -491,6 +528,7 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
     is_completed: false,
     is_custom_energy_cost: false,
     task_environment: 'laptop', // Default environment for sink tasks
+    is_backburner: isBackburner, // NEW: Include backburner status
   };
 };
 
@@ -614,11 +652,18 @@ export const compactScheduleLogic = (
   
   // Sort flexible tasks by priority (critical first), then duration (longest first)
   flexibleTasksToCompact.sort((a, b) => {
+    // 1. Critical tasks first
     if (a.is_critical && !b.is_critical) return -1;
     if (!a.is_critical && b.is_critical) return 1;
+    
+    // 2. Backburner tasks last
+    if (a.is_backburner && !b.is_backburner) return 1;
+    if (!a.is_backburner && b.is_backburner) return -1;
+
+    // 3. Tie-breaker: Duration (Longest first)
     const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
     const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
-    return durationB - durationA; // Longest first
+    return durationB - durationA; 
   });
 
   let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
@@ -744,6 +789,7 @@ export const calculateSchedule = (
             isCustomEnergyCost: false,
             taskEnvironment: 'away',
             sourceCalendarId: null,
+            isBackburner: false, // NEW: Default to false
         };
         items.push(podItem);
         totalBreakTimeMinutes += podItem.duration;
@@ -816,6 +862,7 @@ export const calculateSchedule = (
       isCustomEnergyCost: dbTask.is_custom_energy_cost,
       taskEnvironment: dbTask.task_environment,
       sourceCalendarId: dbTask.source_calendar_id, // NEW: Pass source calendar ID
+      isBackburner: dbTask.is_backburner, // NEW: Pass backburner status
     };
 
     items.push(item);

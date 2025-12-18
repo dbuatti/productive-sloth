@@ -9,179 +9,354 @@ import DatePicker from './DatePicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import CreateTaskDialog from './CreateTaskDialog';
-import { useSession } from '@/hooks/use-session';
-import { MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
-import { calculateEnergyCost } from '@/lib/scheduler-utils';
-import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage,
+  FormDescription
+} from '@/components/ui/form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { calculateEnergyCost } from '@/lib/scheduler-utils'; // Import calculateEnergyCost
+import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // Import default duration
 
-const QuickTaskCreationSchema = z.object({
+const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
+  description: z.string().max(1000).optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
+  isCritical: z.boolean().default(false),
+  isBackburner: z.boolean().default(false), // NEW: Backburner flag
+  energy_cost: z.coerce.number().min(0).default(0), 
+  is_custom_energy_cost: z.boolean().default(false), 
 });
 
-type QuickTaskCreationFormValues = z.infer<typeof QuickTaskCreationSchema>;
+type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
 
-const getAdaptiveDefaultPriority = (energy: number | undefined): TaskPriority => {
-  if (energy === undefined) return 'MEDIUM';
-  const energyPercentage = (energy / MAX_ENERGY) * 100;
-  if (energyPercentage < 30) {
-    return 'LOW';
-  } else if (energyPercentage <= 70) {
-    return 'MEDIUM';
-  } else {
-    return 'HIGH';
-  }
-};
+interface CreateTaskDialogProps {
+  defaultPriority: TaskPriority;
+  defaultDueDate: Date;
+  onTaskCreated: () => void;
+}
 
-const TaskCreationForm: React.FC = () => {
+const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, defaultDueDate, onTaskCreated }) => {
   const { addTask } = useTasks();
-  const { profile } = useSession();
-  const defaultPriority = getAdaptiveDefaultPriority(profile?.energy);
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0); 
   
-  const form = useForm<QuickTaskCreationFormValues>({
-    resolver: zodResolver(QuickTaskCreationSchema),
+  const form = useForm<TaskCreationFormValues>({
+    resolver: zodResolver(TaskCreationSchema),
     defaultValues: {
       title: '',
+      description: '',
       priority: defaultPriority,
-      dueDate: new Date(),
+      dueDate: defaultDueDate,
+      isCritical: false,
+      isBackburner: false, // NEW: Default to false
+      energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false), // NEW: Pass isBackburner=false
+      is_custom_energy_cost: false,
     },
     mode: 'onChange',
   });
 
-  React.useEffect(() => {
-    const newDefaultPriority = getAdaptiveDefaultPriority(profile?.energy);
-    if (form.getValues('priority') !== newDefaultPriority) {
-      form.setValue('priority', newDefaultPriority);
-    }
-  }, [profile?.energy, form]);
+  // NEW: Effect to update calculated energy cost when isCritical or isBackburner changes
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (!value.is_custom_energy_cost && (name === 'isCritical' || name === 'isBackburner')) {
+        const newEnergyCost = calculateEnergyCost(
+          DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, 
+          value.isCritical ?? false,
+          value.isBackburner ?? false // NEW: Pass backburner status
+        );
+        setCalculatedEnergyCost(newEnergyCost);
+        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+      } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
+        // If custom energy cost is turned OFF, immediately recalculate and set
+        const isCritical = form.getValues('isCritical');
+        const isBackburner = form.getValues('isBackburner'); // NEW: Get backburner status
+        const newEnergyCost = calculateEnergyCost(
+          DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, 
+          isCritical ?? false,
+          isBackburner ?? false // NEW: Pass backburner status
+        );
+        setCalculatedEnergyCost(newEnergyCost);
+        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
-  const onQuickSubmit = (values: QuickTaskCreationFormValues) => {
-    const { title, priority, dueDate } = values;
-    let taskTitle = title.trim();
-    let isCritical = false;
-    
-    if (taskTitle.endsWith(' !')) {
-      isCritical = true;
-      taskTitle = taskTitle.slice(0, -2).trim();
-    }
-    
-    const energyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical);
-    
+  // NEW: Initialize calculated energy cost on mount
+  useEffect(() => {
+    const initialIsCritical = form.getValues('isCritical');
+    const initialIsBackburner = form.getValues('isBackburner'); // NEW: Get initial backburner status
+    const initialEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, initialIsCritical, initialIsBackburner);
+    setCalculatedEnergyCost(initialEnergyCost);
+    form.setValue('energy_cost', initialEnergyCost);
+  }, [form]);
+
+
+  const onSubmit = (values: TaskCreationFormValues) => {
+    const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost } = values;
+
     const newTask: NewTask = {
-      title: taskTitle,
-      description: undefined,
+      title: title.trim(),
+      description: description?.trim() || undefined,
       priority: priority,
       due_date: dueDate.toISOString(),
       is_critical: isCritical,
-      energy_cost: energyCost,
-      is_custom_energy_cost: false,
+      is_backburner: isBackburner, // NEW: Pass backburner status
+      energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost, 
+      is_custom_energy_cost: is_custom_energy_cost,
     };
-    
-    addTask(newTask);
-    form.reset({
-      title: '',
-      priority: values.priority,
-      dueDate: values.dueDate,
+
+    addTask(newTask, {
+      onSuccess: () => {
+        onTaskCreated();
+        setIsOpen(false);
+        form.reset({
+          title: '',
+          description: '',
+          priority: values.priority, 
+          dueDate: values.dueDate, 
+          isCritical: false,
+          isBackburner: false, // NEW: Reset backburner
+          energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false), // Reset to default calculated
+          is_custom_energy_cost: false,
+        });
+      }
     });
   };
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); 
+  const isCritical = form.watch('isCritical');
+  const isBackburner = form.watch('isBackburner');
 
   return (
-    <Card className="p-4 animate-slide-in-up shadow-md">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onQuickSubmit)} className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="md:col-span-2">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem className="w-full">
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="shrink-0 h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200"
+          onClick={() => setIsOpen(true)}
+        >
+          <AlignLeft className="h-4 w-4" />
+          <span className="sr-only">Add Description</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] animate-pop-in">
+        <DialogHeader>
+          <DialogTitle>Add Task Details</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Task title" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Add detailed notes or context here..." 
+                      {...field} 
+                      value={field.value || ''}
+                      rows={4}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priority</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Priority" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="HIGH">High</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="LOW">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Due Date</FormLabel>
+                  <FormControl>
+                    <DatePicker 
+                      date={field.value} 
+                      setDate={field.onChange} 
+                      placeholder="Pick a date"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Critical Task Switch */}
+            <FormField
+              control={form.control}
+              name="isCritical"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Critical Task</FormLabel>
+                    <FormDescription>
+                      Mark this task as critical (P: High).
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (checked) form.setValue('isBackburner', false); // Critical overrides Backburner
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Backburner Task Switch */}
+            <FormField
+              control={form.control}
+              name="isBackburner"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Backburner Task</FormLabel>
+                    <FormDescription>
+                      Mark this task as low-orbit filler (P: Low).
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (checked) form.setValue('isCritical', false); // Backburner overrides Critical
+                      }}
+                      disabled={isCritical}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Custom Energy Cost Switch */}
+            <FormField
+              control={form.control}
+              name="is_custom_energy_cost"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Custom Energy Cost</FormLabel>
+                    <FormDescription>
+                      Manually set the energy cost instead of automatic calculation.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Energy Cost Input (conditionally editable) */}
+            <FormField
+              control={form.control}
+              name="energy_cost"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Energy Cost</FormLabel>
+                    <FormDescription>
+                      Energy consumed upon completion.
+                    </FormDescription>
+                  </div>
+                  <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
+                    <Zap className="h-5 w-5" />
                     <FormControl>
                       <Input 
-                        placeholder="Add a new task... (append ' !' for critical)" 
+                        type="number" 
                         {...field} 
-                        className="h-12 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 text-base" 
+                        min="0" 
+                        className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                        readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
+                        value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
+                        onChange={(e) => {
+                          if (isCustomEnergyCostEnabled) {
+                            field.onChange(e);
+                          }
+                        }}
                       />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-12 focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 animate-hover-lift">
-                          <SelectValue placeholder="Priority" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="HIGH">High</SelectItem>
-                        <SelectItem value="MEDIUM">Medium</SelectItem>
-                        <SelectItem value="LOW">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <DatePicker 
-                        date={field.value} 
-                        setDate={field.onChange} 
-                        placeholder="Due Date"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <CreateTaskDialog 
-              defaultPriority={form.getValues('priority')} 
-              defaultDueDate={form.getValues('dueDate')} 
-              onTaskCreated={() => form.reset({ 
-                title: '', 
-                priority: form.getValues('priority'), 
-                dueDate: form.getValues('dueDate') 
-              })} 
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            
+
             <Button 
               type="submit" 
-              disabled={isSubmitting || !isValid}
-              className="shrink-0 h-12 px-6 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 animate-hover-lift flex items-center gap-2"
+              disabled={isSubmitting || !isValid} 
+              className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
             >
-              <Plus className="h-5 w-5" />
-              <span className="hidden sm:inline">Quick Add</span>
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Create Task
             </Button>
-          </div>
-        </form>
-      </Form>
-    </Card>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 };
 
-export default TaskCreationForm;
+export default CreateTaskDialog;

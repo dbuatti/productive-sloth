@@ -424,7 +424,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop', source_calendar_id: newTask.source_calendar_id ?? null };
+      const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop', source_calendar_id: newTask.source_calendar_id ?? null, is_backburner: newTask.is_backburner ?? false };
       console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -464,7 +464,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const addRetiredTaskMutation = useMutation({
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop' };
+      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop', is_backburner: newTask.is_backburner ?? false };
       console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
       const { data, error } = await supabase.from('aethersink').insert(taskToInsert).select().single();
       if (error) {
@@ -636,6 +636,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_completed: taskToRetire.is_completed ?? false,
         is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false,
         task_environment: taskToRetire.task_environment,
+        is_backburner: taskToRetire.is_backburner, // NEW: Pass backburner status
       };
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -749,6 +750,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_custom_energy_cost: task.is_custom_energy_cost ?? false,
         task_environment: task.task_environment,
         source_calendar_id: task.source_calendar_id,
+        is_backburner: task.is_backburner, // NEW: Pass backburner status
         updated_at: new Date().toISOString(),
       }));
 
@@ -867,6 +869,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 is_custom_energy_cost: breakTask.is_custom_energy_cost ?? false,
                 task_environment: breakTask.task_environment,
                 source_calendar_id: breakTask.source_calendar_id,
+                is_backburner: breakTask.is_backburner, // NEW: Pass backburner status
                 updated_at: new Date().toISOString(),
               };
               placedBreaks.push(newBreakTask);
@@ -900,6 +903,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           is_custom_energy_cost: task.is_custom_energy_cost ?? false,
           task_environment: task.task_environment,
           source_calendar_id: task.source_calendar_id,
+          is_backburner: task.is_backburner, // NEW: Pass backburner status
           updated_at: new Date().toISOString(),
         }));
         const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
@@ -1082,6 +1086,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_completed: task.is_completed ?? false,
         is_custom_energy_cost: task.is_custom_energy_cost ?? false,
         task_environment: task.task_environment,
+        is_backburner: task.is_backburner, // NEW: Pass backburner status
       }));
 
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTasks);
@@ -1168,6 +1173,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_completed: task.is_completed ?? false,
         is_custom_energy_cost: task.is_custom_energy_cost ?? false,
         task_environment: task.task_environment,
+        is_backburner: task.is_backburner, // NEW: Pass backburner status
       }));
 
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTasks);
@@ -1310,6 +1316,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             is_custom_energy_cost: t.is_custom_energy_cost ?? false,
             task_environment: t.task_environment ?? 'laptop',
             source_calendar_id: null, // FIX: Added missing required property
+            is_backburner: t.is_backburner ?? false, // FIX: Added missing property
           };
         });
         
@@ -1337,6 +1344,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           is_completed: t.is_completed ?? false,
           is_custom_energy_cost: t.is_custom_energy_cost ?? false,
           task_environment: t.task_environment ?? 'laptop',
+          is_backburner: t.is_backburner ?? false, // FIX: Added missing property
         }));
         return [...remainingRetired, ...newSinkTasks];
       });

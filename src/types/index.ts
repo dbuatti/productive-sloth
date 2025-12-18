@@ -17,6 +17,7 @@ export interface Task {
   updated_at: string;
   is_critical: boolean;
   is_custom_energy_cost: boolean; // NEW: Added for custom energy cost
+  is_backburner: boolean; // FIX: Added missing property
 }
 
 export interface NewTask {
@@ -25,6 +26,7 @@ export interface NewTask {
   due_date: string;
   description?: string;
   is_critical?: boolean;
+  is_backburner?: boolean; // FIX: Added missing property
   energy_cost: number; // NEW: Made energy_cost required
   is_custom_energy_cost?: boolean; // NEW: Added for custom energy cost
 }

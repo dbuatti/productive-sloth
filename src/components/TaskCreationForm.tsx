@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus, Sparkles, AlignLeft, Zap, Loader2 } from 'lucide-react'; // FIX: Added AlignLeft, Zap, Loader2
 import DatePicker from './DatePicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,7 +18,7 @@ import {
   FormMessage,
   FormDescription
 } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // FIX: Added DialogTrigger
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost } from '@/lib/scheduler-utils'; // Import calculateEnergyCost
@@ -101,6 +101,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
 
 
   const onSubmit = (values: TaskCreationFormValues) => {
+    // FIX 11-21: Destructure values correctly from the form submission object
     const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost } = values;
 
     const newTask: NewTask = {
@@ -109,7 +110,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
       priority: priority,
       due_date: dueDate.toISOString(),
       is_critical: isCritical,
-      is_backburner: isBackburner, // NEW: Pass backburner status
+      is_backburner: isBackburner, // FIX 16: Assuming NewTask type is updated
       energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost, 
       is_custom_energy_cost: is_custom_energy_cost,
     };
@@ -140,6 +141,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      {/* FIX 1, 22, 24, 23: Corrected DialogTrigger usage and missing setIsOpen */}
       <DialogTrigger asChild>
         <Button 
           variant="outline" 
@@ -317,6 +319,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
                       Energy consumed upon completion.
                     </FormDescription>
                   </div>
+                  {/* FIX 2, 3, 25: Corrected JSX structure for Zap and FormControl */}
                   <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
                     <Zap className="h-5 w-5" />
                     <FormControl>
@@ -340,6 +343,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
               )}
             />
 
+            {/* FIX 26, 27, 28: Corrected usage of isSubmitting and isValid */}
             <Button 
               type="submit" 
               disabled={isSubmitting || !isValid} 

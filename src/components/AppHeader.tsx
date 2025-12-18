@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile'; 
 import CustomMenuIcon from './CustomMenuIcon';
-import ProfileDropdown from './ProfileDropdown'; // UPDATED IMPORT
+import ProfileDropdown from './ProfileDropdown';
 
 interface AppHeaderProps {
   onMenuToggle: () => void; 
@@ -39,21 +39,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:hidden">
       <div className="mx-auto max-w-5xl flex items-center justify-between h-16 px-4">
         
-        {/* Left side: Mobile Menu Toggle */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onMenuToggle} 
-            className="h-12 w-12 bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200" 
-          >
-            <CustomMenuIcon />
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
+        {/* Left side: Empty space for alignment */}
+        <div className="flex items-center gap-2 shrink-0 w-10">
+          {/* Menu toggle removed */}
         </div>
 
         {/* Center: Logo/Title */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center">
+        <div className="flex items-center">
           <img src="/aetherflow-logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
         </div>
         

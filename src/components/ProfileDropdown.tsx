@@ -17,10 +17,12 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const ProfileDropdown: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   if (!user || !profile || isSessionLoading) {
     return (
@@ -46,49 +48,88 @@ const ProfileDropdown: React.FC = () => {
 
   const { level } = calculateLevelInfo(profile.xp);
   const isEnergyDeficit = profile.energy < 0;
+  const energyDisplay = Math.max(0, profile.energy);
+
+  // Determine the trigger content based on screen size
+  const triggerContent = isMobile ? (
+    <Button 
+      variant="outline" 
+      size="icon"
+      className={cn(
+        "h-10 w-10 p-0 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-secondary/50",
+        "border-2 border-primary/50 bg-background/80 backdrop-blur-sm shadow-md relative"
+      )}
+    >
+      <Avatar className="h-8 w-8 shrink-0">
+        {profile.avatar_url ? (
+          <AvatarImage src={profile.avatar_url} alt={`${displayName}'s avatar`} />
+        ) : (
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+            {userInitials.substring(0, 2)}
+          </AvatarFallback>
+        )}
+      </Avatar>
+      {/* Small status badge for mobile */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={cn(
+            "absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-card flex items-center justify-center text-xs font-bold font-mono",
+            isEnergyDeficit ? 'bg-destructive text-destructive-foreground' : 'bg-logo-green text-logo-green-foreground'
+          )}>
+            {isEnergyDeficit ? <Zap className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Level {level} | Energy {profile.energy} / {MAX_ENERGY}</p>
+        </TooltipContent>
+      </Tooltip>
+    </Button>
+  ) : (
+    <Button 
+      variant="outline" 
+      className={cn(
+        "h-10 px-2 py-1 rounded-full flex items-center gap-2 transition-all duration-200 hover:bg-secondary/50",
+        "border-2 border-primary/50 bg-background/80 backdrop-blur-sm shadow-md"
+      )}
+    >
+      <Avatar className="h-7 w-7 shrink-0">
+        {profile.avatar_url ? (
+          <AvatarImage src={profile.avatar_url} alt={`${displayName}'s avatar`} />
+        ) : (
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+            {userInitials}
+          </AvatarFallback>
+        )}
+      </Avatar>
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="flex items-center gap-1 text-logo-yellow font-mono">
+              <Sparkles className="h-4 w-4" /> Lvl {level}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Current Level</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={cn("flex items-center gap-1 font-mono", isEnergyDeficit ? 'text-destructive' : 'text-logo-green')}>
+              <Zap className="h-4 w-4" /> {energyDisplay}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Current Energy ({profile.energy} / {MAX_ENERGY})</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </Button>
+  );
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="outline" 
-          className={cn(
-            "h-10 px-2 py-1 rounded-full flex items-center gap-2 transition-all duration-200 hover:bg-secondary/50",
-            "border-2 border-primary/50 bg-background/80 backdrop-blur-sm shadow-md"
-          )}
-        >
-          <Avatar className="h-7 w-7 shrink-0">
-            {profile.avatar_url ? (
-              <AvatarImage src={profile.avatar_url} alt={`${displayName}'s avatar`} />
-            ) : (
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                {userInitials}
-              </AvatarFallback>
-            )}
-          </Avatar>
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="flex items-center gap-1 text-logo-yellow font-mono">
-                  <Sparkles className="h-4 w-4" /> Lvl {level}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Current Level</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={cn("flex items-center gap-1 font-mono", isEnergyDeficit ? 'text-destructive' : 'text-logo-green')}>
-                  <Zap className="h-4 w-4" /> {Math.max(0, profile.energy)}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Current Energy ({profile.energy} / {MAX_ENERGY})</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </Button>
+        {triggerContent}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">

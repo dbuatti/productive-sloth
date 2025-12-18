@@ -65,7 +65,7 @@ import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
-import { cn } from '@/lib/utils'; // ADDED cn import
+import { cn } from '@/lib/utils';
 
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
@@ -2365,11 +2365,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         <SchedulerContextBar T_current={T_current} />
       </div>
 
-      {/* Schedule Input Card (Desktop Only) */}
-      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift hidden lg:block">
+      {/* Schedule Input Card (Now visible on all screens) */}
+      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-            <ListTodo className="h-6 w-6 text-primary" /> Schedule Input
+            <ListTodo className="h-6 w-6 text-primary" /> Quick Add
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -2387,7 +2387,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         </CardContent>
       </Card>
 
-      {/* Action Center (Replaces Utility Bar and Auto Schedule Button) */}
+      {/* Action Center (Desktop Only) */}
       <div className="animate-slide-in-up hidden lg:block">
         <SchedulerActionCenter 
           isProcessingCommand={isProcessingCommand}
@@ -2579,28 +2579,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                       {/* Mobile Context Bar */}
                       <SchedulerContextBar T_current={T_current} />
                       
-                      {/* Mobile Input Card */}
-                      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift">
-                          <CardHeader className="p-0 pb-4">
-                              <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                                  <ListTodo className="h-6 w-6 text-primary" /> Schedule Input
-                              </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-0">
-                              <SchedulerInput 
-                                  onCommand={handleCommand} 
-                                  isLoading={overallLoading} 
-                                  inputValue={inputValue}
-                                  setInputValue={setInputValue}
-                                  placeholder={`Add task (e.g., 'Gym 60', '-Clean desk') or command`}
-                                  onDetailedInject={handleAddTaskClick}
-                              />
-                              <p className="text-sm text-muted-foreground mt-2">
-                                  Examples: "Gym 60", "-Clean desk 30", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-                              </p>
-                          </CardContent>
-                      </Card>
-
                       {/* Mobile Action Center */}
                       <SchedulerActionCenter 
                           isProcessingCommand={isProcessingCommand}

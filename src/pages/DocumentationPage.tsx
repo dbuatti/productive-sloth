@@ -104,7 +104,7 @@ const DocumentationPage: React.FC = () => {
                     <span className="font-semibold text-foreground">Due Dates:</span> Assign deadlines to your tasks for better organization.
                   </li>
                   <li>
-                    <span className="font-semibold text-foreground">Critical Tasks:</span> Mark tasks as critical (append ` !` to the title in quick add, or use the switch in detailed forms). Critical tasks are highlighted and give bonus XP if completed on their due date.
+                    <span className="font-semibold text-foreground">Critical Tasks:</span> Mark tasks as critical (prefix `!` to the title in quick add, or use the switch in detailed forms). Critical tasks are highlighted and give bonus XP if completed on their due date.
                   </li>
                   <li>
                     <span className="font-semibold text-foreground">Backburner Tasks:</span> Mark tasks as low-priority filler (prefix with `-` in quick add, or use the switch in detailed forms). Backburner tasks are scheduled last and cost less energy.
@@ -280,13 +280,13 @@ const DocumentationPage: React.FC = () => {
                 <ul className="list-disc list-inside space-y-3">
                   <li>
                     <span className="font-semibold text-foreground">Add a duration-based task:</span>
-                    <code className="block bg-muted p-2 rounded-md mt-1">[ - ] Task Name 60 [BreakDuration] [!] [sink]</code>
-                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">Gym 60</code> (60 min task, calculated energy cost), <code className="font-mono">-Read Book 30 10</code> (30 min task, 10 min break, backburner), <code className="font-mono">Critical Task 45 !</code> (45 min task, critical), <code className="font-mono">Old Task 20 sink</code> (20 min task, sent to sink)</p>
+                    <code className="block bg-muted p-2 rounded-md mt-1">[ ! ] [ - ] Task Name 60 [BreakDuration] [sink]</code>
+                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">Gym 60</code> (60 min task, calculated energy cost), <code className="font-mono">-Read Book 30 10</code> (30 min task, 10 min break, backburner), <code className="font-mono">!Critical Task 45</code> (45 min task, critical), <code className="font-mono">Old Task 20 sink</code> (20 min task, sent to sink)</p>
                   </li>
                   <li>
                     <span className="font-semibold text-foreground">Add a fixed-time task:</span>
-                    <code className="block bg-muted p-2 rounded-md mt-1">[ - ] Task Name HH:MM AM/PM - HH:MM AM/PM [!] [fixed]</code>
-                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">Meeting 10am-11am</code>, <code className="font-mono">-Doctor Appt 2:30pm-3pm fixed !</code> (critical, backburner, fixed)</p>
+                    <code className="block bg-muted p-2 rounded-md mt-1">[ ! ] [ - ] Task Name HH:MM AM/PM - HH:MM AM/PM [fixed]</code>
+                    <p className="text-sm italic ml-4">e.g., <code className="font-mono">Meeting 10am-11am</code>, <code className="font-mono">!-Doctor Appt 2:30pm-3pm fixed</code> (critical, backburner, fixed)</p>
                   </li>
                   <li>
                     <span className="font-semibold text-foreground">Add "Time Off":</span>
@@ -332,8 +332,8 @@ const DocumentationPage: React.FC = () => {
               <p className="text-sm text-muted-foreground mt-4">
                 <span className="font-semibold">Flags:</span>
                 <ul className="list-disc list-inside ml-4">
-                  <li><code className="font-mono">!</code>: Marks a task as critical (P: High).</li>
-                  <li><code className="font-mono">-</code>: Marks a task as backburner (P: Low).</li>
+                  <li><code className="font-mono">!</code>: Marks a task as critical (P: High). Must be the first character.</li>
+                  <li><code className="font-mono">-</code>: Marks a task as backburner (P: Low). Must be the first or second character (after `!`).</li>
                   <li><code className="font-mono">sink</code>: Sends a duration-based task directly to the Aether Sink instead of scheduling it.</li>
                   <li><code className="font-mono">fixed</code>: Explicitly marks a duration-based task as fixed, preventing the scheduler from moving it. Timed tasks are implicitly fixed.</li>
                   <li>Energy cost is automatically calculated based on duration, criticality, and backburner status.</li>

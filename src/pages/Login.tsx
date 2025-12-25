@@ -9,10 +9,14 @@ function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('[Login] Component mounted. Starting session check...');
+
     // Check if user is already logged in and redirect to home if they are
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('[Login] Initial session check result:', session ? 'Session found' : 'No session');
       if (session) {
+        console.log('[Login] Redirecting to home due to existing session...');
         navigate('/');
       }
     };
@@ -21,12 +25,15 @@ function Login() {
 
     // Listen for auth state changes to catch successful login immediately
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`[Login] Auth state changed: ${event}`, session ? 'Session active' : 'No session');
       if (event === 'SIGNED_IN' && session) {
+        console.log('[Login] SIGNED_IN event detected. Redirecting to home...');
         navigate('/');
       }
     });
 
     return () => {
+      console.log('[Login] Component unmounting. Cleaning up auth listener.');
       authListener.subscription.unsubscribe();
     };
   }, [navigate]);

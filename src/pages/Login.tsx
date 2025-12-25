@@ -80,7 +80,7 @@ function Login() {
                 },
               },
             }}
-            theme="light"
+            theme="dark"
             view="sign_in"
           />
         </CardContent>

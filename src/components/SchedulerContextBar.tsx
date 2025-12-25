@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants';
 
 interface SchedulerContextBarProps {
-  selectedDay: string; // Added this prop
+  selectedDay: string;
   profile: UserProfile | null;
   T_current: Date;
   isRegenPodActive: boolean;

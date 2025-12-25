@@ -1,4 +1,4 @@
-import { format, parseISO, setHours, setMinutes, addMinutes, isBefore, addDays, isSameDay, startOfDay, differenceInMinutes, isAfter, isPast } from 'date-fns';
+import { format, parseISO, setHours, setMinutes, addMinutes, isBefore, addDays, isSameDay, startOfDay, differenceInMinutes, isAfter, isPast, parse, addHours } from 'date-fns'; // Added parse, addHours
 import { DBScheduledTask, ScheduledItem, TimeBlock, FormattedSchedule, TaskEnvironment, TaskPriority, NewDBScheduledTask, NewRetiredTask } from '@/types/scheduler';
 import { Home, Laptop, Globe, Music, Star, Utensils } from 'lucide-react'; // Import icons
 import React from 'react'; // Import React for JSX
@@ -63,6 +63,14 @@ export const parseTaskInput = (input: string, selectedDay: Date) => {
     isFlexible = true; // Backburner implies flexible
   }
 
+  // Extract break duration if present (e.g., "Task 30m break 5m")
+  const breakRegex = /\s+break\s+(\d+)(m|min)$/i;
+  const breakMatch = name.match(breakRegex);
+  if (breakMatch) {
+    name = name.replace(breakMatch[0], '').trim();
+    breakDuration = parseInt(breakMatch[1], 10);
+  }
+
   // Check for duration
   const durationMatch = name.match(durationRegex);
   if (durationMatch) {
@@ -77,14 +85,6 @@ export const parseTaskInput = (input: string, selectedDay: Date) => {
     startTime = parseFlexibleTime(timeRangeMatch[2], selectedDay);
     endTime = parseFlexibleTime(timeRangeMatch[5], selectedDay);
     isFlexible = false; // Timed tasks are not flexible
-  }
-
-  // Extract break duration if present (e.g., "Task 30m break 5m")
-  const breakRegex = /\s+break\s+(\d+)(m|min)$/i;
-  const breakMatch = name.match(breakRegex);
-  if (breakMatch) {
-    name = name.replace(breakMatch[0], '').trim();
-    breakDuration = parseInt(breakMatch[1], 10);
   }
 
   if (duration || (startTime && endTime)) {

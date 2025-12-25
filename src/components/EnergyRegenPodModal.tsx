@@ -3,13 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Zap, Clock } from 'lucide-react';
+import { Zap, Clock, Play } from 'lucide-react'; // Added Play
 import { cn } from '@/lib/utils';
 import { REGEN_POD_MAX_DURATION_MINUTES, REGEN_POD_RATE_PER_MINUTE } from '@/lib/constants';
 
 interface EnergyRegenPodModalProps {
   isOpen: boolean;
-  onOpenChange: (open: boolean) => void; // Added this prop
+  onOpenChange: (open: boolean) => void;
   calculatedDuration: number;
   onConfirmStart: (duration: number) => Promise<void>;
   isProcessingCommand: boolean;

@@ -3,13 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScheduledItem, DBScheduledTask, UserProfile } from '@/types/scheduler';
 import { format, differenceInMinutes, isSameDay, isBefore, isAfter } from 'date-fns';
-import { Play, Pause, SkipForward, CheckCircle, Coffee, XCircle, Zap, Home, Laptop, Globe, Music, Utensils, Star, Lock, Unlock, PowerOff } from 'lucide-react';
+import { Play, Pause, SkipForward, CheckCircle, Coffee, XCircle, Zap, Star, Utensils, PowerOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getEnvironmentIcon } from '@/lib/scheduler-utils'; // Assuming this utility exists
 
 interface ImmersiveFocusModeProps {
-  isActive: boolean; // Added this prop
+  isActive: boolean;
   setIsActive: React.Dispatch<React.SetStateAction<boolean>>;
   currentTask: ScheduledItem | null;
   nextTask: ScheduledItem | null;
@@ -65,11 +65,13 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
     is_locked: currentTask.isLocked,
     is_completed: currentTask.isCompleted,
     energy_cost: currentTask.energyCost,
-    break_duration: currentTask.breakDuration,
+    break_duration: currentTask.breakDuration || null, // Use || null for optional
     is_custom_energy_cost: false, // Placeholder
     task_environment: currentTask.taskEnvironment,
     is_backburner: currentTask.isBackburner,
     created_at: new Date().toISOString(), // Placeholder
+    updated_at: new Date().toISOString(), // Added
+    source_calendar_id: null, // Added
   } : null;
 
   const nextDbTask: DBScheduledTask | null = nextTask ? {
@@ -84,11 +86,13 @@ const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
     is_locked: nextTask.isLocked,
     is_completed: nextTask.isCompleted,
     energy_cost: nextTask.energyCost,
-    break_duration: nextTask.breakDuration,
+    break_duration: nextTask.breakDuration || null, // Use || null for optional
     is_custom_energy_cost: false, // Placeholder
     task_environment: nextTask.taskEnvironment,
     is_backburner: nextTask.isBackburner,
     created_at: new Date().toISOString(), // Placeholder
+    updated_at: new Date().toISOString(), // Added
+    source_calendar_id: null, // Added
   } : null;
 
   const remainingMinutes = currentTask ? differenceInMinutes(currentTask.endTime, T_current) : 0;

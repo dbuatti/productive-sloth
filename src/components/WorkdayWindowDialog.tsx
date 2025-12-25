@@ -11,7 +11,7 @@ import { useSession } from '@/hooks/use-session';
 interface WorkdayWindowDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  profile: UserProfile | null; // Added this prop
+  profile: UserProfile | null;
   refreshProfile: () => Promise<void>;
 }
 

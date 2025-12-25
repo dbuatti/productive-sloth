@@ -8,7 +8,7 @@ import { LOW_ENERGY_THRESHOLD } from '@/lib/constants';
 
 interface DailyVibeRecapCardProps {
   selectedDayString: string;
-  completedTasks: CompletedTaskLogEntry[]; // Added this prop
+  completedTasks: CompletedTaskLogEntry[];
   isLoading: boolean;
   profile: UserProfile | null;
   T_current: Date;

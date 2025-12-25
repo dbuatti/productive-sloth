@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
-import { Archive, Trash, Lock, Unlock, Zap, Utensils, Star, Home, Laptop, Globe, Music } from 'lucide-react';
+import { Archive, Trash, Lock, Unlock, Zap, Utensils, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -12,7 +12,7 @@ interface AetherSinkProps {
   retiredTasks: RetiredTask[];
   isLoading: boolean;
   onRezoneTask: (retiredTask: RetiredTask) => Promise<void>;
-  onPermanentDeleteRetiredTask: (taskId: string, taskName: string) => void; // Added this prop
+  onPermanentDeleteRetiredTask: (taskId: string, taskName: string) => void;
   retiredSortBy: RetiredTaskSortBy;
   setRetiredSortBy: React.Dispatch<React.SetStateAction<RetiredTaskSortBy>>;
   isProcessingCommand: boolean;
@@ -56,9 +56,9 @@ const AetherSink: React.FC<AetherSinkProps> = ({
   const sortedRetiredTasks = [...retiredTasks].sort((a, b) => {
     switch (retiredSortBy) {
       case 'OLDEST_FIRST':
-        return new Date(a.retired_at || a.created_at).getTime() - new Date(b.retired_at || b.created_at).getTime();
+        return new Date(a.retired_at).getTime() - new Date(b.retired_at).getTime();
       case 'NEWEST_FIRST':
-        return new Date(b.retired_at || b.created_at).getTime() - new Date(a.retired_at || a.created_at).getTime();
+        return new Date(b.retired_at).getTime() - new Date(a.retired_at).getTime();
       case 'DURATION_SHORTEST_FIRST':
         return (a.duration || 0) - (b.duration || 0);
       case 'DURATION_LONGEST_FIRST':

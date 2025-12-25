@@ -3,7 +3,12 @@ import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils'; 
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils, CalendarDays, Plus, PlusCircle, ListTodo } from 'lucide-react';
+import { Badge } from '@/components/ui/badge'; // Added missing import
+import { 
+  Trash, Archive, Lock, Unlock, Clock, Zap, CheckCircle, 
+  Star, Home, Laptop, Globe, Music, Utensils, CalendarDays, 
+  Plus, PlusCircle, ListTodo 
+} from 'lucide-react';
 import { startOfDay, addHours, parseISO, isSameDay, format, min, max } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
@@ -73,7 +78,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
     const sortedEvents = [...items].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
     sortedEvents.forEach(event => {
-      // Gap detection for Free Time
+      // Gap detection for Buffer/Free Time
       if (event.startTime.getTime() > cursor.getTime()) {
         const diff = Math.floor((event.startTime.getTime() - cursor.getTime()) / 60000);
         if (diff > 0) {
@@ -121,7 +126,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
 
     const sItem = item as ScheduledItem;
     const isActive = T_current >= sItem.startTime && T_current < sItem.endTime && isTodaySelected;
-    const isPast = T_current >= sItem.endTime && isTodaySelected;
+    const isPastItem = T_current >= sItem.endTime && isTodaySelected;
     const hue = getEmojiHue(sItem.name);
     
     // Calculate Progress Line Percentage
@@ -154,7 +159,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
             isActive 
               ? "glass-card border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] ring-1 ring-primary/20" 
               : "bg-card border-border/50 shadow-sm",
-            isPast && "opacity-60 grayscale-[0.5] hover:grayscale-0 transition-all",
+            isPastItem && "opacity-60 grayscale-[0.5] hover:grayscale-0 transition-all",
             "hover:shadow-xl hover:-translate-y-0.5 hover:border-primary/30"
           )}
           style={{ 
@@ -237,7 +242,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
 
   return (
     <div className="relative">
-      {/* Timeline Vertical Spine */}
       <div className="absolute left-[64px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-transparent via-border/40 to-transparent z-0" />
       
       <div ref={containerRef} className="grid grid-cols-[64px_1fr] gap-x-2 sm:gap-x-4 min-h-[400px]">

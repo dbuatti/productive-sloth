@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw, Plug, CheckCircle, EyeOff } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw, Plug, CheckCircle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -59,7 +59,6 @@ const SettingsPage: React.FC = () => {
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
   const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
   const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
-  const [enableTemporalGaps, setEnableTemporalGaps] = useState(profile?.enable_temporal_gaps ?? true); // NEW: State for temporal gaps
   
   // NEW: State to simulate iCloud connection status
   const [isICloudConnected, setIsICloudConnected] = useState(false);
@@ -100,7 +99,6 @@ const SettingsPage: React.FC = () => {
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
       setEnableDeleteHotkeys(profile.enable_delete_hotkeys);
       setEnableAetherSinkBackup(profile.enable_aethersink_backup);
-      setEnableTemporalGaps(profile.enable_temporal_gaps); // NEW: Set initial state
       
       // Simulate connection status based on whether any calendar is enabled
       setIsICloudConnected(userCalendars.length > 0);
@@ -151,7 +149,6 @@ const SettingsPage: React.FC = () => {
           enable_low_energy_notifications: true,
           enable_delete_hotkeys: true,
           enable_aethersink_backup: true,
-          enable_temporal_gaps: true, // NEW: Reset temporal gaps
           default_auto_schedule_start_time: '09:00',
           default_auto_schedule_end_time: '17:00',
           last_energy_regen_at: new Date().toISOString(),
@@ -192,7 +189,6 @@ const SettingsPage: React.FC = () => {
         enable_low_energy_notifications: true,
         enable_delete_hotkeys: true,
         enable_aethersink_backup: true,
-        enable_temporal_gaps: true, // NEW: Reset temporal gaps
         default_auto_schedule_start_time: '09:00',
         default_auto_schedule_end_time: '17:00',
       });
@@ -203,7 +199,6 @@ const SettingsPage: React.FC = () => {
       setLowEnergyNotifications(true);
       setEnableDeleteHotkeys(true);
       setEnableAetherSinkBackup(true);
-      setEnableTemporalGaps(true); // NEW: Reset temporal gaps
 
       showSuccess("App settings reset to default!");
     } catch (error: any) {
@@ -230,12 +225,6 @@ const SettingsPage: React.FC = () => {
   const handleAetherSinkBackupChange = async (checked: boolean) => {
     setEnableAetherSinkBackup(checked);
     await updateSettings({ enable_aethersink_backup: checked });
-  };
-
-  // NEW: Handler for Temporal Gaps setting
-  const handleTemporalGapsChange = async (checked: boolean) => {
-    setEnableTemporalGaps(checked);
-    await updateSettings({ enable_temporal_gaps: checked });
   };
 
   const handleDeleteAccount = async () => {
@@ -459,7 +448,7 @@ const SettingsPage: React.FC = () => {
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</Label>
+                      <FormLabel>Last Name</FormLabel>
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -619,22 +608,6 @@ const SettingsPage: React.FC = () => {
                 <Switch
                   checked={enableAetherSinkBackup}
                   onCheckedChange={handleAetherSinkBackupChange}
-                />
-              </div>
-
-              {/* NEW: Enable Temporal Gaps */}
-              <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                <div className="space-y-0.5">
-                  <Label className="flex items-center gap-2">
-                    <EyeOff className="h-4 w-4" /> Hide Temporal Gaps
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Hide empty time slots in the schedule display.
-                  </p>
-                </div>
-                <Switch
-                  checked={!enableTemporalGaps} // Display as "Hide" so invert the boolean
-                  onCheckedChange={(checked) => handleTemporalGapsChange(!checked)} // Invert back for saving
                 />
               </div>
 

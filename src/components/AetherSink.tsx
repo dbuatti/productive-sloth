@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile, Database, Home, Laptop, Globe, Music } from 'lucide-react'; // NEW: Added Database icon, Home, Laptop, Globe, Music
+import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile, Database, Home, Laptop, Globe, Music } from 'lucide-react';
 import { RetiredTask, NewRetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -37,13 +37,21 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
       return (
         <div className="relative">
           <Laptop className="h-4 w-4 text-primary" />
-          <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 text-accent" />
+          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5 text-accent" />
         </div>
       );
     default:
       return null;
   }
 };
+
+// NEW: ForwardRef wrapper for Badge to fix Tooltip ref warning
+const ForwardRefBadge = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof Badge>>((props, ref) => (
+  <div ref={ref} className={props.className}>
+    <Badge {...props} className="pointer-events-none" />
+  </div>
+));
+ForwardRefBadge.displayName = 'ForwardRefBadge';
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -60,8 +68,8 @@ interface AetherSinkProps {
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy, retiredSortBy, setRetiredSortBy }) => {
   const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked);
-  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup } = useSchedulerTasks(''); // NEW: Destructure triggerAetherSinkBackup
-  const { user, profile } = useSession(); // NEW: Get profile to check enable_aethersink_backup
+  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup } = useSchedulerTasks('');
+  const { user, profile } = useSession();
   const [sinkInputValue, setSinkInputValue] = useState('');
 
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
@@ -112,7 +120,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
       showError(`Cannot change completion status of locked task "${task.name}". Unlock it first.`);
       return;
     }
-    // Removed the energy check here to allow deficit
     if (task.is_completed) {
       await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
     } else {
@@ -120,7 +127,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
     }
   };
 
-  // NEW: Handle manual Aether Sink backup
   const handleManualAetherSinkBackup = async () => {
     if (!user || !profile) {
       showError("You must be logged in and your profile loaded to create a backup.");
@@ -144,7 +150,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
             <span className={cn(hideTitle ? "text-xl" : "text-base")}>({retiredTasks.length})</span>
           </CardTitle>
           <div className="flex items-center gap-2">
-            {/* NEW: Backup Now Button */}
             {profile?.enable_aethersink_backup && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -154,7 +159,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                     onClick={handleManualAetherSinkBackup} 
                     disabled={isProcessingCommand}
                     className={cn(
-                      "h-9 w-9 text-primary hover:bg-primary/10 transition-all duration-200", // Increased size
+                      "h-9 w-9 text-primary hover:bg-primary/10 transition-all duration-200",
                       isProcessingCommand && "text-muted-foreground/50 cursor-not-allowed"
                     )}
                     style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
@@ -169,7 +174,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               </Tooltip>
             )}
 
-            {/* Sort Button for Aether Sink */}
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -179,7 +183,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                       size="icon" 
                       disabled={isProcessingCommand || retiredTasks.length === 0}
                       className={cn(
-                        "h-9 w-9 text-muted-foreground hover:bg-muted/10 transition-all duration-200", // Increased size
+                        "h-9 w-9 text-muted-foreground hover:bg-muted/10 transition-all duration-200",
                         (isProcessingCommand || retiredTasks.length === 0) && "text-muted-foreground/50 cursor-not-allowed"
                       )}
                       style={(isProcessingCommand || retiredTasks.length === 0) ? { pointerEvents: 'auto' } : undefined}
@@ -251,7 +255,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Auto Schedule Button */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -259,7 +262,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                   size="sm"
                   onClick={onAutoScheduleSink}
                   disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
-                  className="flex items-center gap-1 h-9 px-3 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90" // Increased size and font
+                  className="flex items-center gap-1 h-9 px-3 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
                   style={(!hasUnlockedRetiredTasks || isLoading || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                 >
                   {isProcessingCommand ? (
@@ -280,7 +283,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
         
         <div className={cn(hideTitle ? "pt-0" : "pt-2")}>
           {!hideTitle && <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />}
-          <CardContent className="p-4 space-y-4"> {/* Standardized padding to p-4 */}
+          <CardContent className="p-4 space-y-4">
             <form onSubmit={handleAddSinkTask} className="flex gap-2 w-full pt-2">
               <Input
                 type="text"
@@ -288,18 +291,18 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                 value={sinkInputValue}
                 onChange={(e) => setSinkInputValue(e.target.value)}
                 disabled={isProcessingCommand}
-                className="flex-grow h-11 text-base focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200" // Increased size and font
+                className="flex-grow h-11 text-base focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
               />
               <Button 
                 type="submit" 
                 disabled={isProcessingCommand || !sinkInputValue.trim()} 
-                className="shrink-0 h-11 w-11 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200" // Increased size
+                className="shrink-0 h-11 w-11 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
               >
                 {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 <span className="sr-only">Add to Sink</span>
               </Button>
             </form>
-            <p className="text-sm text-muted-foreground"> {/* Increased font size */}
+            <p className="text-sm text-muted-foreground">
               Tip: Add duration (e.g., "Task Name 30"), mark as critical (e.g., "Important Idea !"), or backburner (e.g., "-Low Priority")
             </p>
 
@@ -309,38 +312,38 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                 <span className="ml-2 text-muted-foreground">Loading Aether Sink...</span>
               </div>
             ) : retiredTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-base space-y-2"> {/* Increased font size */}
+              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-base space-y-2">
                 <Ghost className="h-8 w-8" />
-                <p className="text-lg font-semibold">Aether Sink is empty!</p> {/* Increased font size */}
+                <p className="text-lg font-semibold">Aether Sink is empty!</p>
                 <p>No tasks have been retired yet. Complete or manually retire tasks to send them here.</p>
               </div>
             ) : (
-              <div className="space-y-3"> {/* Increased spacing */}
+              <div className="space-y-3">
                 {retiredTasks.map((task) => {
                   const hue = getEmojiHue(task.name);
                   const emoji = assignEmoji(task.name);
-                  const accentBorderColor = `hsl(${hue} 70% 50%)`; // Define vibrant accent color
+                  const accentBorderColor = `hsl(${hue} 70% 50%)`;
                   const isLocked = task.is_locked;
-                  const isBackburner = task.is_backburner; // NEW: Get backburner status
+                  const isBackburner = task.is_backburner;
 
                   return (
                     <div 
                       key={task.id} 
                       className={cn(
                         "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg shadow-sm text-base transition-all duration-200 ease-in-out cursor-pointer",
-                        "bg-card hover:bg-secondary/50 border-l-4 animate-hover-lift", // Use border-l-4 for accent
+                        "bg-card hover:bg-secondary/50 border-l-4 animate-hover-lift",
                         isLocked ? "border-l-primary/70 bg-primary/10" : "",
-                        isBackburner && !isLocked ? "opacity-70 bg-secondary/30 border-l-muted-foreground/50" : "", // NEW: Backburner visual cue
+                        isBackburner && !isLocked ? "opacity-70 bg-secondary/30 border-l-muted-foreground/50" : "",
                         task.is_completed && "opacity-50 line-through",
                         "hover:shadow-lg hover:shadow-primary/10",
+                        "border-b border-dashed border-border/50 last:border-b-0",
                       )}
-                      style={{ borderLeftColor: isLocked ? undefined : (isBackburner ? undefined : accentBorderColor) }} // Apply dynamic color via style
+                      style={{ borderLeftColor: isLocked ? undefined : (isBackburner ? undefined : accentBorderColor) }}
                       onMouseEnter={() => setHoveredItemId(task.id)}
                       onMouseLeave={() => setHoveredItemId(null)}
                       onClick={(e) => handleTaskItemClick(e, task)}
                     >
                       <div className="flex items-center space-x-3 flex-grow min-w-0 w-full sm:w-auto">
-                        {/* Completion Button */}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
@@ -352,12 +355,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               }}
                               disabled={isLocked || isProcessingCommand}
                               className={cn(
-                                "h-8 w-8 p-0 shrink-0", // Increased size
+                                "h-8 w-8 p-0 shrink-0",
                                 (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
                               )}
                               style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                             >
-                              <CheckCircle className="h-5 w-5" /> {/* Increased icon size */}
+                              <CheckCircle className="h-5 w-5" />
                               <span className="sr-only">{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</span>
                             </Button>
                           </TooltipTrigger>
@@ -386,23 +389,22 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                            {isBackburner && !task.is_critical && ( // NEW: Backburner badge
+                            {isBackburner && !task.is_critical && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Badge variant="outline" className="px-2 py-0.5 text-xs font-semibold text-muted-foreground border-muted-foreground/50 bg-muted/20 shrink-0">
+                                  <ForwardRefBadge variant="outline" className="px-2 py-0.5 text-xs font-semibold text-muted-foreground border-muted-foreground/50 bg-muted/20 shrink-0">
                                     Backburner
-                                  </Badge>
+                                  </ForwardRefBadge>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Low-Orbit Task (P: Low)</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                            <span className="text-xl">{emoji}</span> {/* Increased emoji size */}
-                            <span className={cn("font-semibold truncate text-base", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span> {/* CHANGED text-lg to text-base */}
+                            <span className="text-xl">{emoji}</span>
+                            <span className={cn("font-semibold truncate text-base", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
                           </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap"> {/* CHANGED text-sm to text-xs */}
-                            {/* Environment Icon */}
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <div className="h-5 w-5 flex items-center justify-center shrink-0">
@@ -417,7 +419,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                             {task.duration && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className={cn("flex items-center gap-1 text-xs font-mono", isLocked ? "text-primary/80" : "text-foreground/80")}> {/* CHANGED text-sm to text-xs */}
+                                  <span className={cn("flex items-center gap-1 text-xs font-mono", isLocked ? "text-primary/80" : "text-foreground/80")}>
                                     <Clock className="h-4 w-4" /> {task.duration} min
                                   </span>
                                 </TooltipTrigger>
@@ -431,7 +433,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className={cn(
-                                    "flex items-center gap-1 text-xs font-semibold font-mono", // CHANGED text-sm to text-xs
+                                    "flex items-center gap-1 text-xs font-semibold font-mono",
                                     isLocked ? "text-primary/80" : "text-foreground/80"
                                   )}>
                                     {task.energy_cost} <Zap className="h-4 w-4" />
@@ -442,14 +444,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                            <span className="text-xs italic text-muted-foreground"> {/* CHANGED text-sm to text-xs */}
+                            <span className="text-xs italic text-muted-foreground">
                               Retired: {format(new Date(task.retired_at), 'MMM d, yyyy')}
                             </span>
                           </div>
                         </div>
                       </div>
                       
-                      {/* Action Buttons Group (Right side, stacks below on mobile) */}
                       <div className="flex items-center gap-1 ml-auto shrink-0 mt-2 sm:mt-0">
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -462,12 +463,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               }}
                               disabled={isProcessingCommand}
                               className={cn(
-                                "h-8 w-8 p-0 shrink-0", // Increased size
+                                "h-8 w-8 p-0 shrink-0",
                                 isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20")
                               )}
                               style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
                             >
-                              {isLocked ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />} {/* Increased icon size */}
+                              {isLocked ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
                               <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
                             </Button>
                           </TooltipTrigger>
@@ -487,12 +488,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               }}
                               disabled={isLocked || isProcessingCommand || task.is_completed}
                               className={cn(
-                                "h-8 w-8 text-primary hover:bg-primary/10", // Increased size
+                                "h-8 w-8 text-primary hover:bg-primary/10",
                                 (isLocked || isProcessingCommand || task.is_completed) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
                               style={(isLocked || isProcessingCommand || task.is_completed) ? { pointerEvents: 'auto' } : undefined}
                             >
-                              <RotateCcw className="h-5 w-5" /> {/* Increased icon size */}
+                              <RotateCcw className="h-5 w-5" />
                               <span className="sr-only">Rezone</span>
                             </Button>
                           </TooltipTrigger>
@@ -511,12 +512,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
                               }}
                               disabled={isLocked || isProcessingCommand}
                               className={cn(
-                                "h-8 w-8 text-destructive hover:bg-destructive/20", // Increased size
+                                "h-8 w-8 text-destructive hover:bg-destructive/20",
                                 (isLocked || isProcessingCommand) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
                               )}
                               style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
                             >
-                              <Trash2 className="h-5 w-5" /> {/* Increased icon size */}
+                              <Trash2 className="h-5 w-5" />
                               <span className="sr-only">Delete</span>
                             </Button>
                           </TooltipTrigger>

@@ -1,119 +1,158 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { PlusCircle, Coffee, ListTodo, Archive, CalendarDays, Zap } from 'lucide-react';
-import { useSession } from '@/hooks/use-session';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import { format, addMinutes } from 'date-fns';
-import { showSuccess, showError } from '@/utils/toast';
-import { useIsMobile } from '@/hooks/use-mobile';
+import React, { useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import { Button } from '@/components/ui/button';
+import { Sparkles, Trash2, Plus, CheckCircle, Coffee, ListTodo, Loader2, Clock } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { useSession } from '@/hooks/use-session';
+import { showError } from '@/utils/toast';
+import { addMinutes, format } from 'date-fns';
 
-interface BottomNavigationBarProps {
-  onViewChange: (view: 'schedule' | 'sink' | 'recap') => void;
-  currentView: 'schedule' | 'sink' | 'recap';
-  onAddTaskClick: () => void;
+interface NavItem {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+  matchPath: string;
 }
 
-const BottomNavigationBar: React.FC<BottomNavigationBarProps> = ({ onViewChange, currentView, onAddTaskClick }) => {
-  const { user, T_current, profile } = useSession();
-  const { addScheduledTask } = useSchedulerTasks(format(T_current, 'yyyy-MM-dd'), React.useRef(null));
-  const { selectedEnvironments } = useEnvironmentContext();
-  const environmentForPlacement = selectedEnvironments[0] || 'laptop';
-  const isMobile = useIsMobile();
-  const navigate = useNavigate();
+const navItems: NavItem[] = [
+  { to: "/scheduler", icon: Clock, label: "Schedule", matchPath: '/scheduler' },
+  { to: "/sink", icon: Trash2, label: "Sink", matchPath: '/sink' },
+  { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' },
+  { to: "/analytics", icon: Sparkles, label: "Stats", matchPath: '/analytics' },
+];
+
+const BottomNavigationBar: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { addScheduledTask } = useSchedulerTasks('');
+  const { triggerEnergyRegen } = useSession();
+  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
 
   const handleQuickBreak = async () => {
-    if (!user || !profile) {
-      showError("Please log in to add a quick break.");
-      return;
-    }
+    setIsProcessingCommand(true);
     try {
+      // Logic to add a 15-minute break now (similar to scheduler command 'break 15')
+      const now = new Date();
       const breakDuration = 15;
-      const breakStartTime = T_current;
-      const breakEndTime = addMinutes(breakStartTime, breakDuration);
-      const scheduledDate = format(T_current, 'yyyy-MM-dd');
+      const breakStartTime = now;
+      const breakEndTime = addMinutes(now, breakDuration);
+      const scheduledDate = format(now, 'yyyy-MM-dd');
 
       await addScheduledTask({
-        user_id: user.id, // Added
         name: 'Quick Break',
         start_time: breakStartTime.toISOString(),
         end_time: breakEndTime.toISOString(),
         break_duration: breakDuration,
         scheduled_date: scheduledDate,
         is_critical: false,
-        is_flexible: false,
+        is_flexible: false, // Quick breaks are fixed/locked for immediate use
         is_locked: true,
         energy_cost: 0,
         is_custom_energy_cost: false,
-        task_environment: environmentForPlacement,
-        is_backburner: false, // Added
+        task_environment: 'away', // Default environment for breaks
       });
-      showSuccess("Scheduled a 15-minute Quick Break!");
+      
+      // NEW: Trigger energy regen immediately upon starting a break
+      await triggerEnergyRegen();
+      
+      // Navigate to scheduler to see the break
+      if (location.pathname !== '/scheduler') {
+        navigate('/scheduler');
+      }
+      
+      showError("Quick Break added! Time to recharge. ☕️");
     } catch (error: any) {
       showError(`Failed to add quick break: ${error.message}`);
-      console.error("Quick break error:", error);
+    } finally {
+      setIsProcessingCommand(false);
     }
   };
 
-  const handleViewChange = (view: 'schedule' | 'sink' | 'recap') => {
-    onViewChange(view);
-    navigate(location.pathname, { replace: true, state: { view } });
+  const handleQuickAddTask = () => {
+    // Navigate to the scheduler where the TaskCreationForm is located
+    navigate('/scheduler');
+    showError("Use the Quick Add bar on the Schedule view to create a new task.");
   };
 
-  if (!isMobile) {
-    return null; // Render nothing on desktop
-  }
+  const renderNavItem = (item: NavItem) => {
+    const isActive = location.pathname.startsWith(item.matchPath);
+    
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        className={({ isActive: isCurrentActive }) =>
+          cn(
+            "flex flex-col items-center justify-center h-full w-full text-sm font-medium transition-colors duration-200 relative",
+            (isCurrentActive || location.pathname.startsWith(item.matchPath)) ? "text-primary" : "text-muted-foreground hover:text-foreground",
+            // Active state visual indicator (small bar above icon)
+            (isCurrentActive || location.pathname.startsWith(item.matchPath)) && "after:content-[''] after:absolute after:top-0 after:h-0.5 after:w-1/2 after:bg-primary after:rounded-b-full"
+          )
+        }
+      >
+        <item.icon className="h-6 w-6 mb-0.5" />
+        <span className="text-xs font-semibold">{item.label}</span>
+      </NavLink>
+    );
+  };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-2 flex justify-around items-center z-40 shadow-lg">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => handleViewChange('schedule')}
-        className={cn(currentView === 'schedule' ? 'text-primary' : 'text-muted-foreground')}
-      >
-        <CalendarDays className="h-6 w-6" />
-        <span className="sr-only">Schedule</span>
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => handleViewChange('sink')}
-        className={cn(currentView === 'sink' ? 'text-primary' : 'text-muted-foreground')}
-      >
-        <Archive className="h-6 w-6" />
-        <span className="sr-only">Aether Sink</span>
-      </Button>
-      <Button
-        variant="default"
-        size="icon"
-        className="h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 -mt-8"
-        onClick={onAddTaskClick}
-      >
-        <PlusCircle className="h-7 w-7" />
-        <span className="sr-only">Add Task</span>
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleQuickBreak}
-        className="text-muted-foreground"
-      >
-        <Coffee className="h-6 w-6" />
-        <span className="sr-only">Quick Break</span>
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => handleViewChange('recap')}
-        className={cn(currentView === 'recap' ? 'text-primary' : 'text-muted-foreground')}
-      >
-        <ListTodo className="h-6 w-6" />
-        <span className="sr-only">Recap</span>
-      </Button>
+    <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-card border-t border-border shadow-2xl lg:hidden animate-slide-in-up">
+      {/* Use a 5-column grid: Nav1 | Nav2 | FAB | Nav3 | Nav4 */}
+      <div className="grid grid-cols-5 items-center h-full max-w-md mx-auto">
+        
+        {/* Nav Item 1: Schedule */}
+        <div className="col-span-1 flex items-center justify-center h-full">
+            {renderNavItem(navItems[0])}
+        </div>
+
+        {/* Nav Item 2: Sink */}
+        <div className="col-span-1 flex items-center justify-center h-full">
+            {renderNavItem(navItems[1])}
+        </div>
+
+        {/* Central FAB/Action Menu */}
+        <div className="col-span-1 flex items-center justify-center h-full relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="default"
+                size="icon"
+                disabled={isProcessingCommand}
+                className={cn(
+                  // FAB is now larger and slightly overlaps the top edge
+                  "relative -top-4 h-16 w-16 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 border-4 border-card",
+                  isProcessingCommand && "opacity-70 cursor-not-allowed"
+                )}
+              >
+                {isProcessingCommand ? <Loader2 className="h-7 w-7 animate-spin" /> : <Plus className="h-7 w-7" />}
+                <span className="sr-only">New Action</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" side="top" className="w-48 p-1 mb-4">
+              <DropdownMenuItem onClick={handleQuickBreak} className="cursor-pointer flex items-center gap-2 text-logo-orange">
+                <Coffee className="h-4 w-4" /> Quick Break (15 min)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleQuickAddTask} className="cursor-pointer flex items-center gap-2 text-primary">
+                <ListTodo className="h-4 w-4" /> Add New Task
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Nav Item 3: Recap */}
+        <div className="col-span-1 flex items-center justify-center h-full">
+            {renderNavItem(navItems[2])}
+        </div>
+        
+        {/* Nav Item 4: Stats */}
+        <div className="col-span-1 flex items-center justify-center h-full">
+            {renderNavItem(navItems[3])}
+        </div>
+      </div>
     </div>
   );
 };

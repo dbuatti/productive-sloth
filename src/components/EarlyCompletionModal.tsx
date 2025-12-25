@@ -1,63 +1,106 @@
+"use client";
+
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Coffee, CheckCircle } from 'lucide-react';
+import { Coffee, Rocket, Check } from 'lucide-react'; // Added Check icon
+import { formatDuration, intervalToDuration } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface EarlyCompletionModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   taskName: string;
-  remainingMinutes: number; // Added this prop
+  remainingDurationMinutes: number;
   onTakeBreak: () => void;
-  onJustFinish: () => void;
+  onStartNextTask: () => void;
+  onJustFinish: () => void; // NEW: Handler for 'Just Finish'
   isProcessingCommand: boolean;
+  hasNextTask: boolean;
 }
 
 const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
   isOpen,
   onOpenChange,
   taskName,
-  remainingMinutes,
+  remainingDurationMinutes,
   onTakeBreak,
-  onJustFinish,
+  onStartNextTask,
+  onJustFinish, // NEW: Destructure new prop
   isProcessingCommand,
+  hasNextTask,
 }) => {
+  const remainingDurationFormatted = React.useMemo(() => {
+    if (remainingDurationMinutes <= 0) return '0 minutes';
+    const duration = intervalToDuration({ start: 0, end: remainingDurationMinutes * 60 * 1000 });
+    return formatDuration(duration, {
+      format: ['hours', 'minutes'],
+      delimiter: ' ',
+      zero: false,
+      locale: {
+        formatDistance: (token, count) => {
+          if (token === 'xMinutes') return `${count} minutes`;
+          if (token === 'xHours') return `${count} hours`;
+          return `${count}${token.charAt(0)}`;
+        },
+      },
+    }) || '0 minutes';
+  }, [remainingDurationMinutes]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-xl animate-pop-in"> {/* Changed sm:max-w-lg to sm:max-w-xl */}
         <DialogHeader>
-          <DialogTitle>Task "{taskName}" Completed Early!</DialogTitle>
-          <DialogDescription>
-            You finished with {remainingMinutes} minutes to spare. What would you like to do with this time?
+          <DialogTitle className="text-3xl font-bold text-primary text-center">
+            🎉 Task Completed Early!
+          </DialogTitle>
+          <DialogDescription className="text-center text-lg mt-2 text-foreground">
+            You finished "<span className="font-semibold text-primary">{taskName}</span>" with{' '}
+            <span className="font-bold text-logo-green">{remainingDurationFormatted}</span> of scheduled time remaining.
+            What would you like to do with this time?
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 sm:justify-end">
           <Button
             onClick={onTakeBreak}
             disabled={isProcessingCommand}
             className={cn(
-              "flex items-center gap-2 h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200",
-              isProcessingCommand && "opacity-50 cursor-not-allowed"
+              "w-full sm:w-auto flex items-center gap-2 bg-logo-orange hover:bg-logo-orange/90 text-primary-foreground transition-all duration-200",
+              isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
-            <Coffee className="h-5 w-5" /> Take a {remainingMinutes}-minute Break
+            <Coffee className="h-5 w-5" />
+            Take a Break
+          </Button>
+          <Button
+            onClick={onStartNextTask}
+            disabled={isProcessingCommand || !hasNextTask}
+            className={cn(
+              "w-full sm:w-auto flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200",
+              (isProcessingCommand || !hasNextTask) && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            <Rocket className="h-5 w-5" />
+            Start Next Task Now
           </Button>
           <Button
             onClick={onJustFinish}
             disabled={isProcessingCommand}
             variant="outline"
             className={cn(
-              "flex items-center gap-2 h-11 text-base transition-all duration-200",
-              isProcessingCommand && "opacity-50 cursor-not-allowed"
+              "w-full sm:w-auto flex items-center gap-2 transition-all duration-200",
+              isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
-            <CheckCircle className="h-5 w-5" /> Just Finish Task
-          </Button>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isProcessingCommand}>
-            Cancel
+            <Check className="h-5 w-5 text-primary" />
+            Just Finish
           </Button>
         </DialogFooter>
       </DialogContent>

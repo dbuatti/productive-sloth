@@ -1,15 +1,26 @@
+"use client";
+
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Zap, AlertCircle } from 'lucide-react';
+import { AlertTriangle, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface EnergyDeficitConfirmationDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   taskName: string;
-  taskEnergyCost: number; // Added this prop
-  currentEnergy: number; // Added this prop
+  taskEnergyCost: number;
+  currentEnergy: number;
   onConfirm: () => void;
   isProcessingCommand: boolean;
 }
@@ -23,50 +34,45 @@ const EnergyDeficitConfirmationDialog: React.FC<EnergyDeficitConfirmationDialogP
   onConfirm,
   isProcessingCommand,
 }) => {
-  const energyAfterTask = currentEnergy - taskEnergyCost;
+  const newEnergyLevel = currentEnergy - taskEnergyCost;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-500">
-            <AlertCircle className="h-6 w-6" /> Energy Deficit Warning
-          </DialogTitle>
-          <DialogDescription>
-            Completing "{taskName}" will put you further into an energy deficit.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 text-center">
-          <p className="text-lg font-semibold">
-            Current Energy: <span className="text-logo-yellow">{currentEnergy}</span>
-          </p>
-          <p className="text-lg font-semibold">
-            Task Energy Cost: <span className="text-red-500">{taskEnergyCost}</span>
-          </p>
-          <p className="text-xl font-bold">
-            Energy After Task: <span className="text-red-500">{energyAfterTask}</span>
-          </p>
-          <p className="text-muted-foreground">
-            Are you sure you want to proceed?
-          </p>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessingCommand}>
-            Cancel
-          </Button>
-          <Button
+    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="sm:max-w-md animate-pop-in">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-2xl font-bold text-destructive flex items-center gap-2">
+            <AlertTriangle className="h-7 w-7" /> Energy Deficit Warning!
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-base text-foreground mt-2">
+            You are currently in an energy deficit (<span className="font-bold text-destructive">{currentEnergy}⚡</span>).
+            Completing "<span className="font-semibold text-primary">{taskName}</span>" will cost{' '}
+            <span className="font-bold text-logo-yellow">{taskEnergyCost}⚡</span>,
+            further increasing your deficit to <span className="font-bold text-destructive">{newEnergyLevel}⚡</span>.
+          </AlertDialogDescription>
+          <AlertDialogDescription className="text-sm text-muted-foreground">
+            Are you sure you want to push through and complete this task?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 sm:justify-end">
+          <AlertDialogCancel disabled={isProcessingCommand}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
             onClick={onConfirm}
             disabled={isProcessingCommand}
             className={cn(
-              "flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white",
-              isProcessingCommand && "opacity-50 cursor-not-allowed"
+              "w-full sm:w-auto flex items-center gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground transition-all duration-200",
+              isProcessingCommand && "opacity-70 cursor-not-allowed"
             )}
           >
-            <Zap className="h-5 w-5" /> {isProcessingCommand ? "Confirming..." : "Confirm & Complete"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            {isProcessingCommand ? (
+              <Zap className="h-5 w-5 animate-pulse" />
+            ) : (
+              <Zap className="h-5 w-5" />
+            )}
+            Yes, Push Through!
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };
 

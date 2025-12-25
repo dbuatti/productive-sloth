@@ -11,7 +11,7 @@ import {
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, Trash2, ListTodo, 
-  BatteryCharging, Target, Cpu, Coffee
+  BatteryCharging, Target, Cpu, Coffee, Archive
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,14 +32,14 @@ interface SchedulerActionCenterProps {
   onQuickBreak: () => Promise<void>;
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>;
   onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
-  onAetherDump: () => Promise<void>;
-  onAetherDumpMega: () => Promise<void>;
+  onAetherDump: () => Promise<void>; // Today + Future Sink Return
+  onAetherDumpMega: () => Promise<void>; // Full Timeline Sink Return
   onRefreshSchedule: () => void;
   onOpenWorkdayWindowDialog: () => void;
   onStartRegenPod: () => void;
 }
 
-const DURATION_BUCKETS = [15, 30, 60];
+const DURATION_BUCKETS = [30, 60, 90];
 
 const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   isProcessingCommand,
@@ -169,7 +169,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 />
             </div>
 
-            {/* 3. BIO-SYSTEMS & PURGE GRID */}
+            {/* 3. BIO-SYSTEMS & PURGE (RETIRE) GRID */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
                 <ActionButton 
                   icon={Zap} label="Recharge" colorClass="text-logo-green" tooltip="Pulse: Immediate +25 Bio-Energy"
@@ -184,32 +184,45 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   onClick={onStartRegenPod}
                 />
 
-                {/* THE PURGE DROPDOWN - Fixed Icon Spacing */}
                 <DropdownMenu>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="glass" disabled={isProcessingCommand} className="h-10 w-full text-[10px] font-black uppercase tracking-widest text-destructive hover:bg-destructive/10 gap-2 border-destructive/20">
-                          <Trash2 className="h-4 w-4" />
-                          <span className="hidden md:inline">Purge</span>
+                        <Button variant="glass" disabled={isProcessingCommand} className="h-10 w-full text-[10px] font-black uppercase tracking-widest text-logo-orange hover:bg-logo-orange/10 gap-2 border-logo-orange/20">
+                          <Archive className="h-4 w-4" />
+                          <span className="hidden md:inline">Flush</span>
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent className="glass-card border-destructive/20">System Purge: Delete data</TooltipContent>
-                    <DropdownMenuContent align="end" className="glass-card border-destructive/20 bg-background/95 backdrop-blur-xl min-w-56">
-                      <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-destructive/50 px-3 py-2">Destructive Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator className="bg-destructive/10" />
+                    <TooltipContent className="glass-card border-logo-orange/20">Mass Retire: Return tasks to Sink</TooltipContent>
+                    <DropdownMenuContent align="end" className="glass-card border-white/10 bg-background/95 backdrop-blur-xl min-w-[280px]">
+                      <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-logo-orange/50 px-3 py-2">Temporal Flush Logic</DropdownMenuLabel>
+                      <DropdownMenuSeparator className="bg-white/5" />
                       
-                      {/* Fixed spacing: Feather (Clear Today) */}
-                      <DropdownMenuItem onClick={onAetherDump} className="text-destructive font-black text-[10px] uppercase gap-4 py-3 px-4 focus:bg-destructive/10 cursor-pointer">
-                        <RefreshCcw className="h-4 w-4 shrink-0" /> 
-                        <span className="tracking-tighter">Clear Current Timeline</span>
+                      {/* Standard Flush: Today + Future */}
+                      <DropdownMenuItem 
+                        onClick={onAetherDump} 
+                        className="flex items-center justify-start text-logo-orange font-black text-[10px] uppercase gap-4 py-4 px-6 focus:bg-logo-orange/10 cursor-pointer"
+                      >
+                        <RefreshCcw className="h-5 w-5 shrink-0" /> 
+                        <div className="flex flex-col gap-0.5">
+                           <span>Flush Today + Future</span>
+                           <span className="text-[8px] opacity-50 lowercase tracking-normal font-medium italic">Returns items from current timeline to Sink</span>
+                        </div>
                       </DropdownMenuItem>
 
-                      {/* Fixed spacing: Anchor (Wipe All) */}
-                      <DropdownMenuItem onClick={onAetherDumpMega} className="text-destructive font-black text-[10px] uppercase gap-4 py-3 px-4 focus:bg-destructive/20 cursor-pointer">
-                        <Globe className="h-4 w-4 shrink-0" /> 
-                        <span className="tracking-tighter">Global Database Wipe</span>
+                      <DropdownMenuSeparator className="bg-white/5" />
+
+                      {/* Mega Flush: All Time */}
+                      <DropdownMenuItem 
+                        onClick={onAetherDumpMega} 
+                        className="flex items-center justify-start text-destructive font-black text-[10px] uppercase gap-4 py-4 px-6 focus:bg-destructive/10 cursor-pointer"
+                      >
+                        <Globe className="h-5 w-5 shrink-0" /> 
+                        <div className="flex flex-col gap-0.5">
+                           <span>Global Timeline Flush</span>
+                           <span className="text-[8px] opacity-50 lowercase tracking-normal font-medium italic">Returns ALL historical and future items to Sink</span>
+                        </div>
                       </DropdownMenuItem>
 
                     </DropdownMenuContent>

@@ -128,7 +128,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
         </Button>
       )}
 
-      <div ref={containerRef} className="relative pl-14 pr-2 py-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+      <div ref={containerRef} className="relative pl-14 pr-2 py-6 custom-scrollbar"> {/* Removed max-h-[70vh] and overflow-y-auto */}
         <div className="absolute left-[3.75rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" />
 
         {finalDisplayItems.map((item, index) => {

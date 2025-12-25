@@ -154,14 +154,14 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="glass" size="icon" disabled={retiredTasks.length === 0} className="h-10 w-10">
+                    <Button variant="glass" disabled={retiredTasks.length === 0} className="h-10 w-10">
                       <ArrowDownWideNarrow className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
                 <TooltipContent>Sort Terminal</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="end" className="w-64 glass-card p-2">
+              <DropdownMenuContent align="end" className="glass-card min-w-48 border-white/10 bg-background/95 backdrop-blur-xl">
                 <DropdownMenuLabel className="text-[10px] uppercase font-black tracking-[0.2em] opacity-50 mb-1">Sorting Logic</DropdownMenuLabel>
                 <SortItem type="RETIRED_AT_NEWEST" label="Retired (Newest)" icon={CalendarDays} />
                 <SortItem type="RETIRED_AT_OLDEST" label="Retired (Oldest)" icon={CalendarDays} />
@@ -222,7 +222,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               </div>
             </div>
           ) : (
-            <div className="grid gap-2 max-h-[500px] overflow-y-auto pr-2 scrollbar-none">
+            <div className="grid gap-2 pr-2 scrollbar-none"> {/* Removed max-h-[500px] and overflow-y-auto */}
               {retiredTasks.map((task) => {
                 const hue = getEmojiHue(task.name);
                 const emoji = assignEmoji(task.name);

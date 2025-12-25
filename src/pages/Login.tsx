@@ -68,9 +68,10 @@ function Login() {
                 },
               },
             }}
-            theme={resolvedTheme === 'dark' ? 'dark' : 'light'} // Dynamically set theme
+            theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
             showLinks={true}
             view="sign_in"
+            redirectTo={window.location.origin} // Explicitly set redirectTo to the current origin
           />
         </CardContent>
       </Card>

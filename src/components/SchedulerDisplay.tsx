@@ -1,11 +1,14 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, TimeMarker, FreeTimeItem, DBScheduledTask, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime, getEmojiHue } from '@/lib/scheduler-utils'; 
 import { Button } from '@/components/ui/button';
-import { Trash, Archive, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils, CalendarDays, Plus, PlusCircle, ListTodo } from 'lucide-react';
-import { startOfDay, addHours, parseISO, isSameDay, format, min, max } from 'date-fns';
+import { Trash, Archive, Lock, Unlock, Clock, Zap, CheckCircle, Star, Home, Laptop, Globe, Music, Utensils, CalendarDays, Plus } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Sparkles, ListTodo, PlusCircle } from 'lucide-react';
+import { startOfDay, addHours, addMinutes, isSameDay, parseISO, isBefore, isAfter, isPast, format, min, max, differenceInMinutes } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 
@@ -24,26 +27,26 @@ interface SchedulerDisplayProps {
 }
 
 const getBubbleHeightStyle = (duration: number, isFreeTime: boolean = false) => {
-  const baseHeight = 44;
-  const taskMultiplier = 1.2;
-  const freeTimeMultiplier = 0.5;
-  const minHeight = isFreeTime ? 48 : 64;
-  
-  const calculated = baseHeight + (duration * (isFreeTime ? freeTimeMultiplier : taskMultiplier));
-  return { minHeight: `${Math.max(calculated, minHeight)}px` };
+  const baseHeight = 40;
+  const taskMultiplier = 1.4;
+  const freeTimeMultiplier = 0.4;
+  const minCalculatedHeight = 44;
+
+  const multiplier = isFreeTime ? freeTimeMultiplier : taskMultiplier;
+  let calculatedHeight = baseHeight + (duration * multiplier);
+  return { minHeight: `${Math.max(calculatedHeight, minCalculatedHeight)}px` };
 };
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
-  const className = "h-3.5 w-3.5 opacity-80";
   switch (environment) {
-    case 'home': return <Home className={className} />;
-    case 'laptop': return <Laptop className={className} />;
-    case 'away': return <Globe className={className} />;
-    case 'piano': return <Music className={className} />;
+    case 'home': return <Home className="h-3.5 w-3.5" />;
+    case 'laptop': return <Laptop className="h-3.5 w-3.5" />;
+    case 'away': return <Globe className="h-3.5 w-3.5" />;
+    case 'piano': return <Music className="h-3.5 w-3.5" />;
     case 'laptop_piano':
       return (
         <div className="relative">
-          <Laptop className={className} />
+          <Laptop className="h-3.5 w-3.5" />
           <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
         </div>
       );
@@ -51,217 +54,317 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
   }
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ 
-  schedule, T_current, onCompleteTask, activeItemId, 
-  selectedDayString, onAddTaskClick, onFreeTimeClick 
-}) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick, onScrollToItem, isProcessingCommand, onFreeTimeClick }) => {
+  const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString);
+
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedScheduledTask, setSelectedScheduledTask] = useState<DBScheduledTask | null>(null);
 
-  // Timeline Processing Logic
-  const { finalDisplayItems } = useMemo(() => {
-    const items = schedule?.items || [];
-    if (items.length === 0) return { finalDisplayItems: [] };
+  const { finalDisplayItems, firstItemStartTime, lastItemEndTime } = useMemo(() => {
+    const scheduledTasks = schedule ? schedule.items : [];
+    if (scheduledTasks.length === 0) {
+        const workdayStart = startOfDay(parseISO(selectedDayString));
+        const workdayEnd = addHours(workdayStart, 8);
+        return {
+            finalDisplayItems: [
+                { id: `marker-start-empty`, type: 'marker', time: workdayStart, label: formatTime(workdayStart) },
+                { id: `marker-end-empty`, type: 'marker', time: workdayEnd, label: formatTime(workdayEnd) },
+            ] as DisplayItem[],
+            firstItemStartTime: workdayStart,
+            lastItemEndTime: workdayEnd,
+        };
+    }
 
-    const actualStart = min(items.map(i => i.startTime));
-    const actualEnd = max(items.map(i => i.endTime));
-    
-    const processed: DisplayItem[] = [];
-    let cursor = actualStart;
+    const allStartTimes = scheduledTasks.map(item => item.startTime);
+    const allEndTimes = scheduledTasks.map(item => item.endTime);
+    const actualStart = min(allStartTimes);
+    const actualEnd = max(allEndTimes);
 
-    const sortedEvents = [...items].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+    const allEvents: (ScheduledItem | TimeMarker)[] = [...scheduledTasks];
+    allEvents.push({ id: `marker-start-${format(actualStart, 'HHmm')}`, type: 'marker', time: actualStart, label: formatTime(actualStart) });
+    allEvents.push({ id: `marker-end-${format(actualEnd, 'HHmm')}`, type: 'marker', time: actualEnd, label: formatTime(actualEnd) }); 
 
-    sortedEvents.forEach(event => {
-      // Gap detection for Free Time
-      if (event.startTime.getTime() > cursor.getTime()) {
-        const diff = Math.floor((event.startTime.getTime() - cursor.getTime()) / 60000);
-        if (diff > 0) {
-          processed.push({
-            id: `free-${cursor.toISOString()}`,
-            type: 'free-time',
-            startTime: cursor,
-            endTime: event.startTime,
-            duration: diff,
-            message: `${Math.floor(diff / 60)}h ${diff % 60}m Buffer`
-          } as FreeTimeItem);
-        }
-      }
-      processed.push(event);
-      cursor = new Date(Math.max(cursor.getTime(), event.endTime.getTime()));
+    allEvents.sort((a, b) => {
+        const timeA = 'time' in a ? a.time : a.startTime;
+        const timeB = 'time' in b ? b.time : b.startTime;
+        return timeA.getTime() - timeB.getTime();
     });
 
-    return { finalDisplayItems: processed };
-  }, [schedule]);
+    const processedItems: DisplayItem[] = [];
+    let currentCursor = actualStart;
+
+    allEvents.forEach(event => {
+        const eventStartTime = 'time' in event ? event.time : event.startTime;
+        const eventEndTime = 'time' in event ? event.time : event.endTime;
+
+        if (eventStartTime.getTime() > currentCursor.getTime()) {
+            const freeDurationMinutes = Math.floor((eventStartTime.getTime() - currentCursor.getTime()) / (1000 * 60));
+            if (freeDurationMinutes > 0) {
+                processedItems.push({
+                    id: `free-${currentCursor.toISOString()}-${eventStartTime.toISOString()}`,
+                    type: 'free-time',
+                    startTime: currentCursor,
+                    endTime: eventStartTime,
+                    duration: freeDurationMinutes,
+                    message: `${Math.floor(freeDurationMinutes / 60)}h ${freeDurationMinutes % 60}m Free Time`,
+                });
+            }
+        }
+
+        const isRedundantMarker = event.type === 'marker' && processedItems.some(pItem => 
+            ('startTime' in pItem && pItem.startTime.getTime() === event.time.getTime()) ||
+            ('endTime' in pItem && pItem.endTime.getTime() === event.time.getTime())
+        );
+
+        if (!isRedundantMarker) {
+            processedItems.push(event);
+        }
+        
+        const nextCursorTime = event.type === 'marker' ? event.time : eventEndTime;
+        currentCursor = new Date(Math.max(currentCursor.getTime(), nextCursorTime.getTime()));
+    });
+
+    const filteredItems: DisplayItem[] = [];
+    processedItems.forEach(item => {
+        if (item.type === 'marker') {
+            const isCovered = processedItems.some(pItem => {
+                if (pItem.type === 'free-time' || pItem.type === 'task' || pItem.type === 'break' || pItem.type === 'time-off' || pItem.type === 'meal' || pItem.type === 'calendar-event') {
+                    return item.time > pItem.startTime && item.time < pItem.endTime;
+                }
+                return false;
+            });
+            if (!isCovered) filteredItems.push(item);
+        } else {
+            filteredItems.push(item);
+        }
+    });
+
+    return {
+        finalDisplayItems: filteredItems.sort((a, b) => ('time' in a ? a.time : a.startTime).getTime() - ('time' in b ? b.time : b.startTime).getTime()),
+        firstItemStartTime: actualStart,
+        lastItemEndTime: actualEnd,
+    };
+  }, [schedule, selectedDayString]);
+
+  const activeItemInDisplay = useMemo(() => {
+    for (const item of finalDisplayItems) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal' || item.type === 'calendar-event') && T_current >= item.startTime && T_current < item.endTime) {
+        return item;
+      }
+    }
+    return null;
+  }, [finalDisplayItems, T_current]);
+
+  const progressLineTopPercentage = useMemo(() => {
+    if (!activeItemInDisplay) return 0;
+    const itemStartTime = activeItemInDisplay.startTime.getTime();
+    const itemEndTime = activeItemInDisplay.endTime.getTime();
+    const itemDurationMs = itemEndTime - itemStartTime;
+    if (itemDurationMs === 0) return 0;
+    return ((T_current.getTime() - itemStartTime) / itemDurationMs) * 100;
+  }, [activeItemInDisplay, T_current]);
 
   const isTodaySelected = isSameDay(parseISO(selectedDayString), T_current);
 
+  const handleTaskItemClick = (event: React.MouseEvent, dbTask: DBScheduledTask) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) return;
+    setSelectedScheduledTask(dbTask);
+    setIsDialogOpen(true);
+  };
+
   const renderDisplayItem = (item: DisplayItem, index: number) => {
-    const isFree = item.type === 'free-time';
-    
-    if (isFree) {
-      const freeItem = item as FreeTimeItem;
+    const isCurrentlyActive = activeItemInDisplay?.id === item.id;
+    const isHighlightedBySession = activeItemId === item.id;
+    const isPastItem = (item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal' || item.type === 'calendar-event') && item.endTime <= T_current;
+
+    if (item.type === 'marker') {
       return (
-        <React.Fragment key={freeItem.id}>
-          <div className="flex items-center justify-end pr-4 opacity-30">
-            <span className="text-[9px] font-black font-mono">{formatTime(freeItem.startTime)}</span>
+        <React.Fragment key={item.id}>
+          <div className="flex items-center justify-end pr-3 py-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/60 whitespace-nowrap">
+              {item.label}
+            </span>
           </div>
+          <div className="relative flex items-center h-0">
+            <div className="h-px w-full bg-border/40 border-t border-dashed" />
+          </div>
+        </React.Fragment>
+      );
+    } else if (item.type === 'free-time') {
+      const freeTimeItem = item as FreeTimeItem;
+      const isActive = T_current >= freeTimeItem.startTime && T_current < freeTimeItem.endTime;
+
+      return (
+        <React.Fragment key={freeTimeItem.id}>
+          <div></div>
           <div 
-            onClick={() => onFreeTimeClick(freeItem.startTime, freeItem.endTime)}
-            className="group relative flex items-center justify-center rounded-xl border-2 border-dashed border-border/40 bg-secondary/5 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-crosshair mb-2"
-            style={getBubbleHeightStyle(freeItem.duration, true)}
+            id={`scheduled-item-${freeTimeItem.id}`}
+            className={cn(
+              "relative flex flex-col items-center justify-center rounded-xl transition-all duration-300 group cursor-pointer",
+              "border-2 border-dashed border-muted-foreground/20 bg-muted/5",
+              "hover:bg-primary/5 hover:border-primary/40 hover:scale-[1.01] shadow-sm hover:shadow-inner",
+              isActive && isTodaySelected && "bg-live-progress/5 border-live-progress/40 animate-pulse-glow"
+            )}
+            style={getBubbleHeightStyle(freeTimeItem.duration, true)} 
+            onClick={() => onFreeTimeClick(freeTimeItem.startTime, freeTimeItem.endTime)} 
           >
-            <div className="flex items-center gap-2 text-muted-foreground/40 group-hover:text-primary/60 font-bold uppercase tracking-widest text-[10px]">
-              <Plus className="h-3 w-3" /> {freeItem.message}
+            <div className="flex items-center gap-2 text-muted-foreground/60 font-semibold group-hover:text-primary/60 transition-colors">
+              <Plus className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-widest">{freeTimeItem.message}</span>
             </div>
           </div>
         </React.Fragment>
       );
-    }
+    } else {
+      const scheduledItem = item as ScheduledItem;
+      const isActive = T_current >= scheduledItem.startTime && T_current < scheduledItem.endTime;
+      const isLocked = scheduledItem.isLocked;
+      const isFixed = !scheduledItem.isFlexible;
+      const isCompleted = scheduledItem.isCompleted;
+      const isCalendarEvent = scheduledItem.type === 'calendar-event';
 
-    const sItem = item as ScheduledItem;
-    const isActive = T_current >= sItem.startTime && T_current < sItem.endTime && isTodaySelected;
-    const isPast = T_current >= sItem.endTime && isTodaySelected;
-    const hue = getEmojiHue(sItem.name);
-    
-    // Calculate Progress Line Percentage
-    const progress = isActive 
-      ? ((T_current.getTime() - sItem.startTime.getTime()) / (sItem.endTime.getTime() - sItem.startTime.getTime())) * 100 
-      : 0;
+      const hue = getEmojiHue(scheduledItem.name);
+      const ambientBackgroundColor = `hsl(${hue} 45% ${isLocked ? '25%' : '35%'}% / 0.95)`;
+      const dbTask = scheduledItem.id !== 'regen-pod-active' ? schedule?.dbTasks.find(t => t.id === scheduledItem.id) : null;
 
-    const dbTask = schedule?.dbTasks.find(t => t.id === sItem.id);
+      const isFixedOrTimed = isFixed || scheduledItem.type === 'time-off' || scheduledItem.type === 'meal' || scheduledItem.id === 'regen-pod-active' || isCalendarEvent;
+      
+      if (isCompleted && !isFixedOrTimed) return null;
 
-    return (
-      <React.Fragment key={sItem.id}>
-        {/* Time Pillar */}
-        <div className="flex flex-col items-end pr-4 pt-1 gap-1">
-          <span className={cn(
-            "text-[10px] font-black font-mono transition-colors",
-            isActive ? "text-primary scale-110" : "text-muted-foreground/50"
-          )}>
-            {formatTime(sItem.startTime)}
-          </span>
-          {isActive && (
-             <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-primary text-primary animate-pulse">LIVE</Badge>
-          )}
-        </div>
-
-        {/* Task Card */}
-        <div 
-          onClick={() => dbTask && (setSelectedScheduledTask(dbTask), setIsDialogOpen(true))}
-          className={cn(
-            "group relative flex flex-col p-4 rounded-2xl border transition-all duration-500 mb-2",
-            isActive 
-              ? "glass-card border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] ring-1 ring-primary/20" 
-              : "bg-card border-border/50 shadow-sm",
-            isPast && "opacity-60 grayscale-[0.5] hover:grayscale-0 transition-all",
-            "hover:shadow-xl hover:-translate-y-0.5 hover:border-primary/30"
-          )}
-          style={{ 
-            ...getBubbleHeightStyle(sItem.duration),
-            borderLeftWidth: '6px',
-            borderLeftColor: `hsl(${hue} 70% 50%)`
-          }}
-        >
-          {/* Active Progress Indicator */}
-          {isActive && (
-            <div 
-              className="absolute left-0 right-0 h-0.5 bg-primary/30 z-0 top-0 overflow-hidden rounded-t-2xl"
-            >
-              <div 
-                className="h-full bg-primary shadow-[0_0_10px_hsl(var(--primary))] transition-all duration-1000"
-                style={{ width: `${progress}%` }}
-              />
+      return (
+        <React.Fragment key={scheduledItem.id}>
+          {/* Time Marker Column */}
+          <div className="flex items-center justify-end pr-3">
+            <div className={cn(
+              "px-2 py-1 rounded-md text-[10px] font-mono font-bold transition-all duration-300",
+              isActive && isTodaySelected ? "bg-primary text-primary-foreground shadow-glow scale-110" : "bg-secondary/80 text-muted-foreground",
+              isPastItem && "opacity-40 grayscale"
+            )}>
+              {formatTime(scheduledItem.startTime)}
             </div>
-          )}
+          </div>
 
-          <div className="flex items-start justify-between gap-4 z-10">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="h-10 w-10 shrink-0 rounded-xl bg-secondary/50 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-                {sItem.emoji}
+          {/* Task Bubble Column */}
+          <div
+            id={`scheduled-item-${scheduledItem.id}`}
+            className={cn(
+              "relative flex flex-col justify-center gap-1 p-4 rounded-xl shadow-md transition-all duration-500 ease-out animate-pop-in overflow-hidden cursor-pointer border-2",
+              isActive && isTodaySelected ? "border-live-progress shadow-[0_0_15px_rgba(var(--live-progress),0.3)] animate-pulse-active-row z-10" : "border-white/5",
+              isLocked && "ring-2 ring-primary/40 ring-offset-1 ring-offset-background",
+              scheduledItem.isCritical && "ring-2 ring-logo-yellow/40",
+              isCompleted && isFixedOrTimed ? "opacity-50 line-through scale-[0.98]" : "opacity-100",
+              isPastItem && "opacity-60 grayscale-[0.3]",
+              "hover:scale-[1.02] hover:shadow-2xl hover:border-white/20"
+            )}
+            style={{ ...getBubbleHeightStyle(scheduledItem.duration), backgroundColor: ambientBackgroundColor }}
+            onClick={(e) => !isCalendarEvent && dbTask && handleTaskItemClick(e, dbTask)}
+          >
+            {/* Background Emoji Icon */}
+            <div className="absolute top-1/2 -right-2 -translate-y-1/2 pointer-events-none opacity-10 blur-[1px]">
+              <span className="text-[7rem] leading-none">{scheduledItem.emoji}</span>
+            </div>
+
+            <div className="relative z-10 flex flex-col w-full gap-1">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2 min-w-0">
+                  {dbTask && !isFixedOrTimed && !isCalendarEvent && (
+                    <Button 
+                      variant="ghost" size="icon" 
+                      onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask, index); }}
+                      className="h-6 w-6 rounded-full bg-black/20 text-logo-green hover:bg-black/40"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {isCalendarEvent && <CalendarDays className="h-4 w-4 text-blue-300" />}
+                  
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                       <span className="text-sm">{scheduledItem.emoji}</span>
+                       <h3 className="font-bold text-white truncate text-base tracking-tight leading-none uppercase">
+                        {scheduledItem.name}
+                       </h3>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {scheduledItem.energyCost !== 0 && (
+                    <div className={cn(
+                      "px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-black/20 flex items-center gap-1",
+                      scheduledItem.energyCost < 0 ? "text-logo-green" : "text-logo-yellow"
+                    )}>
+                      {scheduledItem.energyCost > 0 ? scheduledItem.energyCost : `+${Math.abs(scheduledItem.energyCost)}`}
+                      {scheduledItem.energyCost > 0 ? <Zap className="h-3 w-3" /> : <Utensils className="h-3 w-3" />}
+                    </div>
+                  )}
+                  <div className="p-1 rounded bg-black/20 text-white/70">
+                    {getEnvironmentIcon(scheduledItem.taskEnvironment)}
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-col min-w-0">
-                <h3 className={cn(
-                  "font-black text-sm sm:text-base tracking-tight uppercase truncate leading-tight",
-                  isActive ? "text-primary" : "text-foreground"
-                )}>
-                  {sItem.name}
-                </h3>
-                <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/70 tracking-widest uppercase">
-                  <Clock className="h-3 w-3" />
-                  {formatTime(sItem.startTime)} — {formatTime(sItem.endTime)}
-                  <span className="opacity-30">|</span>
-                  <span>{sItem.duration}m</span>
+
+              <div className="flex items-center justify-between mt-1">
+                <div className="flex items-center gap-3 text-[10px] font-bold text-white/80 uppercase tracking-widest">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatTime(scheduledItem.startTime)} - {formatTime(scheduledItem.endTime)}
+                  </div>
+                  <span className="bg-white/10 px-1 rounded">{scheduledItem.duration}m</span>
+                </div>
+
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                   {/* Context specific action buttons could go here */}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-2 shrink-0">
-               <div className="flex gap-1">
-                  {sItem.energyCost !== 0 && (
-                    <div className={cn(
-                      "px-1.5 py-0.5 rounded-md text-[10px] font-black font-mono flex items-center gap-1",
-                      sItem.energyCost < 0 ? "bg-logo-green/10 text-logo-green" : "bg-logo-yellow/10 text-logo-yellow"
-                    )}>
-                      {sItem.energyCost > 0 ? `-${sItem.energyCost}` : `+${Math.abs(sItem.energyCost)}`}
-                      <Zap className="h-2.5 w-2.5" />
-                    </div>
-                  )}
-                  <div className="p-1.5 rounded-md bg-secondary/50 text-muted-foreground">
-                    {getEnvironmentIcon(sItem.taskEnvironment)}
-                  </div>
-               </div>
-               {sItem.isCritical && (
-                 <Star className="h-3 w-3 fill-logo-yellow text-logo-yellow" />
-               )}
-            </div>
-          </div>
-
-          {/* Action Footer (Visible on Hover) */}
-          <div className="mt-auto pt-3 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            {dbTask && !sItem.isCompleted && (
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="h-7 px-2 text-[10px] font-bold text-logo-green hover:bg-logo-green/10"
-                onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask, index); }}
-              >
-                <CheckCircle className="h-3 w-3 mr-1" /> FINISH
-              </Button>
+            {isActive && isTodaySelected && (
+              <>
+                <div 
+                  className="absolute left-0 right-0 h-[3px] bg-live-progress z-20 shadow-[0_0_8px_hsl(var(--live-progress))]"
+                  style={{ top: `${progressLineTopPercentage}%` }}
+                />
+                <div className="absolute left-0 -translate-x-full pr-3 z-30" style={{ top: `calc(${progressLineTopPercentage}% - 8px)` }}>
+                  <span className="px-1.5 py-0.5 rounded bg-live-progress text-black text-[9px] font-black uppercase whitespace-nowrap tracking-tighter"> 
+                    NOW
+                  </span>
+                </div>
+              </>
             )}
           </div>
-        </div>
-      </React.Fragment>
-    );
+        </React.Fragment>
+      );
+    }
   };
 
   return (
-    <div className="relative">
-      {/* Timeline Vertical Spine */}
-      <div className="absolute left-[64px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-transparent via-border/40 to-transparent z-0" />
-      
-      <div ref={containerRef} className="grid grid-cols-[64px_1fr] gap-x-2 sm:gap-x-4 min-h-[400px]">
-        {schedule?.items.length === 0 ? (
-          <div className="col-span-2 flex flex-col items-center justify-center py-20 gap-6">
-            <div className="h-24 w-24 rounded-full bg-secondary/20 flex items-center justify-center border-2 border-dashed border-border animate-pulse">
-              <ListTodo className="h-10 w-10 text-muted-foreground/30" />
-            </div>
-            <div className="text-center space-y-2">
-              <h3 className="text-xl font-black text-foreground uppercase tracking-tighter">Timeline Vacuum</h3>
-              <p className="text-sm text-muted-foreground max-w-[240px]">No objectives detected for this temporal window.</p>
-            </div>
-            <Button 
-              onClick={onAddTaskClick} 
-              className="rounded-full px-8 h-12 text-base font-bold shadow-xl animate-hover-lift"
-            >
-              <PlusCircle className="h-5 w-5 mr-2" /> Sync Objective
-            </Button>
+    <div className="space-y-4">
+        <div ref={containerRef} className="relative p-2 overflow-y-auto">
+          <div className="absolute left-[54px] top-0 bottom-0 w-px border-l-2 border-dashed border-border/20 z-0" />
+          <div className="grid grid-cols-[54px_1fr] gap-x-4 gap-y-3">
+            {schedule?.items.length === 0 ? (
+              <div className="col-span-2 text-center text-muted-foreground flex flex-col items-center justify-center space-y-6 py-16">
+                <div className="h-20 w-20 rounded-full bg-secondary/30 flex items-center justify-center border-2 border-dashed border-border">
+                  <ListTodo className="h-10 w-10 text-muted-foreground/40" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xl font-bold text-foreground">Schedule Vacant</p>
+                  <p className="text-sm">Initiate your daily flow by adding a new objective.</p>
+                </div>
+                <Button onClick={onAddTaskClick} className="rounded-full px-8 h-12 text-base font-bold bg-primary hover:bg-primary/90 shadow-lg animate-pulse-glow">
+                  <PlusCircle className="h-5 w-5 mr-2" /> Add Objective
+                </Button>
+              </div>
+            ) : (
+              finalDisplayItems.map((item, index) => renderDisplayItem(item, index))
+            )}
           </div>
-        ) : (
-          finalDisplayItems.map((item, idx) => renderDisplayItem(item, idx))
-        )}
-      </div>
-
+        </div>
       <ScheduledTaskDetailDialog
         task={selectedScheduledTask}
         open={isDialogOpen}
@@ -271,7 +374,5 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
     </div>
   );
 });
-
-SchedulerDisplay.displayName = 'SchedulerDisplay';
 
 export default SchedulerDisplay;

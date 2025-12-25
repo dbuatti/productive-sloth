@@ -78,12 +78,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user?.id) {
-      await fetchProfile(user.id);
-    }
+    if (user?.id) await fetchProfile(user.id);
   }, [user?.id, fetchProfile]);
 
-  // --- Profile/Energy/Settings Actions ---
   const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
     if (!user || !profile) return;
     const newEnergy = Math.min(MAX_ENERGY, profile.energy + amount);
@@ -94,45 +91,85 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const triggerLevelUp = useCallback((level: number) => { setLevelUpLevel(level); setShowLevelUp(true); }, []);
   const resetLevelUp = useCallback(() => { setShowLevelUp(false); setLevelUpLevel(0); }, []);
 
+  const resetDailyStreak = useCallback(async () => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update({ daily_streak: 0, last_streak_update: null }).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const claimDailyReward = useCallback(async (xpAmount: number, energyAmount: number) => {
+    if (!user || !profile) return;
+    const newXp = profile.xp + xpAmount;
+    const newEnergy = Math.min(MAX_ENERGY, profile.energy + energyAmount);
+    const { error } = await supabase.from('profiles').update({ 
+      xp: newXp, 
+      energy: newEnergy, 
+      last_daily_reward_claim: new Date().toISOString() 
+    }).eq('id', user.id);
+    if (!error) {
+      await refreshProfile();
+      showSuccess("Reward claimed!");
+    }
+  }, [user, profile, refreshProfile]);
+
+  const updateNotificationPreferences = useCallback(async (preferences: any) => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update(preferences).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const updateSettings = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const triggerEnergyRegen = useCallback(async () => {
+    if (!user) return;
+    await supabase.functions.invoke('trigger-energy-regen');
+    await refreshProfile();
+  }, [user, refreshProfile]);
+
   const startRegenPodState = useCallback(async (durationMinutes: number) => {
     if (!user) return;
     setRegenPodDurationMinutes(durationMinutes);
-    const { error } = await supabase.from('profiles').update({ is_in_regen_pod: true, regen_pod_start_time: new Date().toISOString() }).eq('id', user.id);
-    if (!error) await refreshProfile();
+    await supabase.from('profiles').update({ is_in_regen_pod: true, regen_pod_start_time: new Date().toISOString() }).eq('id', user.id);
+    await refreshProfile();
   }, [user, refreshProfile]);
 
   const exitRegenPodState = useCallback(async () => {
     if (!user || !profile?.is_in_regen_pod) return;
     try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/calculate-pod-exit`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-            body: JSON.stringify({ startTime: profile.regen_pod_start_time, endTime: new Date().toISOString() }),
-        });
-        if (response.ok) showSuccess("Pod exited.");
-    } catch (error) { console.error(error); } 
-    finally {
-        await supabase.from('profiles').update({ is_in_regen_pod: false, regen_pod_start_time: null }).eq('id', user.id);
-        await refreshProfile();
-        setRegenPodDurationMinutes(0);
+      await fetch(`${SUPABASE_URL}/functions/v1/calculate-pod-exit`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ startTime: profile.regen_pod_start_time, endTime: new Date().toISOString() }),
+      });
+    } finally {
+      await supabase.from('profiles').update({ is_in_regen_pod: false, regen_pod_start_time: null }).eq('id', user.id);
+      await refreshProfile();
+      setRegenPodDurationMinutes(0);
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // --- Auth Logic ---
+  // --- Auth Handlers ---
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
-      console.log(`[SessionProvider] Auth Event: ${event}`);
-      
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
-
       if (currentSession?.user) {
         await fetchProfile(currentSession.user.id);
         if (location.pathname === '/login') setRedirectPath('/');
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
-        if (location.pathname !== '/login') setRedirectPath('/login');
+        setRedirectPath('/login');
       }
     };
 
@@ -143,88 +180,64 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const loadInitialSession = async () => {
       if (initialSessionLoadedRef.current) return;
       initialSessionLoadedRef.current = true;
-
       try {
-        // Try refresh first to catch session recovery
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
-        
         if (initialSession?.user) {
           await fetchProfile(initialSession.user.id);
           if (location.pathname === '/login') setRedirectPath('/');
-        } else {
-          // Only redirect if we are actually NOT on the login page
-          if (location.pathname !== '/login') setRedirectPath('/login');
+        } else if (location.pathname !== '/login') {
+          setRedirectPath('/login');
         }
-      } catch (error) {
-        console.error("[SessionProvider] Error during initial session load:", error);
       } finally {
         setIsAuthLoading(false);
       }
     };
 
     loadInitialSession();
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    return () => authListener.subscription.unsubscribe();
   }, [fetchProfile, queryClient, location.pathname]);
 
-  // Redirect Handler
   useEffect(() => {
     if (!isAuthLoading && redirectPath && location.pathname !== redirectPath) {
-      console.log(`[SessionProvider] Redirecting to: ${redirectPath}`);
       navigate(redirectPath, { replace: true });
       setRedirectPath(null);
     }
   }, [redirectPath, navigate, location.pathname, isAuthLoading]);
 
-  // --- Scheduling Logic (React Query) ---
+  // --- Query Logic ---
   const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasksToday', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase.from('scheduled_tasks')
-        .select('*').eq('user_id', user.id).eq('scheduled_date', format(new Date(), 'yyyy-MM-dd'));
-      if (error) throw error;
+      const { data } = await supabase.from('scheduled_tasks').select('*')
+        .eq('user_id', user.id).eq('scheduled_date', format(new Date(), 'yyyy-MM-dd'));
       return data as DBScheduledTask[];
     },
     enabled: !!user?.id && !isAuthLoading,
   });
 
   const calculatedScheduleToday = useMemo(() => {
-    if (!profile || !dbScheduledTasksToday) return null;
-    const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_start_time) : startOfDay(T_current);
-    let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_end_time) : addHours(startOfDay(T_current), 17);
-    if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
-
-    return calculateSchedule(
-      dbScheduledTasksToday, format(new Date(), 'yyyy-MM-dd'), workdayStart, workdayEnd,
-      profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null,
-      regenPodDurationMinutes, T_current
-    );
+    if (!profile) return null;
+    const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_start_time) : startOfDay(T_current);
+    let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_end_time) : addHours(startOfDay(T_current), 17);
+    if (isBefore(end, start)) end = addDays(end, 1);
+    return calculateSchedule(dbScheduledTasksToday, format(new Date(), 'yyyy-MM-dd'), start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current);
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current]);
 
-  const activeItemToday = useMemo(() => 
-    calculatedScheduleToday?.items.find(item => T_current >= item.startTime && T_current < item.endTime) || null, 
-  [calculatedScheduleToday, T_current]);
-
-  const nextItemToday = useMemo(() => 
-    calculatedScheduleToday?.items.find(item => item.startTime > T_current) || null, 
-  [calculatedScheduleToday, T_current]);
+  const activeItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => T_current >= i.startTime && T_current < i.endTime) || null, [calculatedScheduleToday, T_current]);
+  const nextItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => i.startTime > T_current) || null, [calculatedScheduleToday, T_current]);
 
   return (
     <SessionContext.Provider value={{ 
       session, user, profile, isLoading, refreshProfile, rechargeEnergy,
       showLevelUp, levelUpLevel, triggerLevelUp, resetLevelUp,
+      resetDailyStreak, claimDailyReward, updateNotificationPreferences,
+      updateProfile, updateSettings, triggerEnergyRegen,
       activeItemToday, nextItemToday, T_current,
       startRegenPodState, exitRegenPodState, regenPodDurationMinutes
     }}>
-      {/* IMPORTANT: We don't render children until we know the initial auth check is done.
-          This prevents the protected components from mounting and immediately failing.
-      */}
       {!isAuthLoading ? children : null}
     </SessionContext.Provider>
   );

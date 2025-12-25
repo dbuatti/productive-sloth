@@ -1,6 +1,7 @@
-import * as React from "react";
-import { Check, ChevronDown, X } from "lucide-react";
+"use client";
 
+import * as React from "react";
+import { Check, ChevronDown, X, Filter, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,8 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useEnvironmentContext, environmentOptions, EnvironmentOption } from "@/hooks/use-environment-context";
-import { TaskEnvironment } from "@/types/scheduler";
+import { useEnvironmentContext, environmentOptions } from "@/hooks/use-environment-context";
 
 const EnvironmentMultiSelect: React.FC = () => {
   const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments } = useEnvironmentContext();
@@ -33,32 +33,38 @@ const EnvironmentMultiSelect: React.FC = () => {
 
   const renderSelectedBadges = () => {
     if (selectedOptions.length === 0) {
-      return <span className="text-muted-foreground">Select Environments... (No Filter)</span>;
+      return (
+        <div className="flex items-center gap-2 text-muted-foreground/50 italic font-medium text-xs uppercase tracking-widest">
+          <Zap className="h-3 w-3" /> Wide Spectrum (No Filter)
+        </div>
+      );
     }
 
     if (selectedOptions.length > 2) {
       return (
-        <div className="flex items-center gap-1">
-          <Badge variant="secondary" className="text-xs">
-            {selectedOptions.length} environments selected
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-black text-[10px] uppercase tracking-tighter">
+            {selectedOptions.length} Zones Active
           </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+          <div 
+            className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive transition-colors cursor-pointer"
             onClick={handleClearAll}
           >
             <X className="h-3 w-3" />
-          </Button>
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {selectedOptions.map(option => (
-          <Badge key={option.value} variant="secondary" className="text-xs flex items-center gap-1">
-            <option.icon className="h-3 w-3" />
+          <Badge 
+            key={option.value} 
+            variant="outline" 
+            className="bg-background/50 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-tight flex items-center gap-1.5 py-0.5 px-2"
+          >
+            <option.icon className="h-2.5 w-2.5" />
             {option.label}
           </Badge>
         ))}
@@ -70,39 +76,51 @@ const EnvironmentMultiSelect: React.FC = () => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant="glass"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between h-10 text-left animate-hover-lift"
+          className={cn(
+            "w-full justify-between h-11 px-4 border-white/5 shadow-xl transition-all duration-300",
+            open && "border-primary/40 ring-1 ring-primary/20"
+          )}
         >
-          <div className="truncate max-w-[calc(100%-20px)]">
+          <div className="flex items-center gap-3 truncate max-w-[calc(100%-24px)]">
+            <Filter className={cn("h-3.5 w-3.5 transition-colors", selectedOptions.length > 0 ? "text-primary" : "text-muted-foreground/30")} />
             {renderSelectedBadges()}
           </div>
-          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform duration-300 opacity-30", open && "rotate-180 opacity-100 text-primary")} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
-        <Command>
-          <CommandList>
-            <CommandGroup>
-              {environmentOptions.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  onSelect={() => {
-                    toggleEnvironmentSelection(option.value);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Check
+      <PopoverContent className="w-[320px] p-0 glass-card border-white/10 shadow-2xl animate-pop-in" sideOffset={8}>
+        <Command className="bg-transparent">
+          <CommandList className="scrollbar-none">
+            <CommandGroup className="p-2">
+              <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">
+                Environment Frequency
+              </div>
+              {environmentOptions.map((option) => {
+                const isSelected = selectedEnvironments.includes(option.value);
+                return (
+                  <CommandItem
+                    key={option.value}
+                    onSelect={() => toggleEnvironmentSelection(option.value)}
                     className={cn(
-                      "mr-2 h-4 w-4",
-                      selectedEnvironments.includes(option.value) ? "opacity-100 text-primary" : "opacity-0"
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 mb-1",
+                      "hover:bg-primary/10 data-[selected='true']:bg-primary/5",
+                      isSelected && "text-primary font-bold"
                     )}
-                  />
-                  <option.icon className="mr-2 h-4 w-4" />
-                  {option.label}
-                </CommandItem>
-              ))}
+                  >
+                    <div className={cn(
+                      "flex items-center justify-center h-5 w-5 rounded border transition-all duration-300",
+                      isSelected ? "bg-primary border-primary shadow-[0_0_8px_hsl(var(--primary))]" : "border-white/10 bg-white/5"
+                    )}>
+                      {isSelected && <Check className="h-3 w-3 text-background stroke-[4px]" />}
+                    </div>
+                    <option.icon className={cn("h-4 w-4 transition-colors", isSelected ? "text-primary" : "text-muted-foreground/50")} />
+                    <span className="text-sm tracking-tight">{option.label}</span>
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

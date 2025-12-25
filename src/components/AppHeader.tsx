@@ -1,26 +1,9 @@
-import React, { useState } from 'react';
-import { LogOut, Settings, Flame, Menu } from 'lucide-react'; 
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { getDisplayNameFromEmail } from '@/lib/user-utils';
-import { AvatarImage } from './ui/avatar';
-import DailyChallengeClaimButton from './DailyChallengeClaimButton';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile'; 
-import CustomMenuIcon from './CustomMenuIcon';
 import ProfileDropdown from './ProfileDropdown';
+import { cn } from '@/lib/utils';
 
 interface AppHeaderProps {
   onMenuToggle: () => void; 
@@ -30,31 +13,54 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
   const { user } = useSession();
   const isMobile = useIsMobile();
 
-  // Only show the header content on mobile (lg:hidden)
+  // The Header is mobile-only as per your layout strategy (lg:hidden)
   if (!isMobile) {
     return null;
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:hidden">
-      <div className="mx-auto max-w-5xl flex items-center justify-between h-16 px-4">
+    <header className={cn(
+      "fixed top-0 left-0 right-0 z-50",
+      "glass-header h-16 transition-all duration-300 ease-aether-out"
+    )}>
+      <div className="mx-auto max-w-5xl h-full px-4 flex items-center">
         
-        {/* Left side: Empty space for alignment */}
-        <div className="flex items-center gap-2 shrink-0 w-10">
-          {/* Menu toggle removed */}
+        {/* Left Section: Placeholder for balance */}
+        <div className="flex-1 flex justify-start">
+          {/* Keeping this flex-1 ensures the logo stays perfectly centered. 
+            If you add a left-side action later (like a back button), place it here.
+          */}
         </div>
 
-        {/* Center: Logo/Title */}
-        <div className="flex items-center">
-          <img src="/aetherflow-logo.png" alt="Daily Task Manager Logo" className="h-8 w-auto transition-transform duration-200 hover:scale-105" />
+        {/* Center Section: Branding */}
+        <div className="flex-none">
+          <Link 
+            to="/" 
+            className="flex items-center gap-2 group active:scale-95 transition-transform duration-200"
+          >
+            <div className="relative">
+              <img 
+                src="/aetherflow-logo.png" 
+                alt="AetherFlow Logo" 
+                className="h-9 w-auto drop-shadow-[0_0_8px_rgba(var(--primary),0.3)]"
+              />
+              {/* Subtle Aether Glow behind logo */}
+              <div className="absolute -inset-1 bg-primary/10 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            
+            {/* Optional Text Branding - hidden by default but follows design tokens */}
+            <span className="sr-only">AetherFlow</span>
+          </Link>
         </div>
         
-        {/* Right side: User Controls (Profile Pill) */}
-        {user && (
-          <div className="flex items-center space-x-2 shrink-0">
-            <ProfileDropdown />
-          </div>
-        )}
+        {/* Right Section: User Controls */}
+        <div className="flex-1 flex justify-end items-center gap-3">
+          {user && (
+            <div className="animate-pop-in">
+              <ProfileDropdown />
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

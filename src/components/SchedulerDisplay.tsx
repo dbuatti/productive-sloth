@@ -24,6 +24,7 @@ interface SchedulerDisplayProps {
   onScrollToItem: (itemId: string) => void; // NEW: Prop for scrolling to a specific item
   isProcessingCommand: boolean; // ADDED
   onFreeTimeClick: (startTime: Date, endTime: Date) => void; // NEW PROP
+  scheduleContainerRef: React.RefObject<HTMLDivElement>; // NEW: Added scheduleContainerRef
 }
 
 const getBubbleHeightStyle = (duration: number, isFreeTime: boolean = false) => {
@@ -60,10 +61,10 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
   }
 };
 
-const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick, onScrollToItem, isProcessingCommand, onFreeTimeClick }) => {
+const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule, T_current, onRemoveTask, onRetireTask, onCompleteTask, activeItemId, selectedDayString, onAddTaskClick, onScrollToItem, isProcessingCommand, onFreeTimeClick, scheduleContainerRef }) => {
   const startOfTemplate = useMemo(() => startOfDay(T_current), [T_current]);
   const endOfTemplate = useMemo(() => addHours(startOfTemplate, 24), [startOfTemplate]);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // const containerRef = useRef<HTMLDivElement>(null); // Removed local ref, using prop
 
   const { toggleScheduledTaskLock, updateScheduledTaskStatus } = useSchedulerTasks(selectedDayString);
 
@@ -211,21 +212,21 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
   }, [activeItemInDisplay, T_current]);
 
   const globalProgressLineTopPercentage = useMemo(() => {
-    if (!containerRef.current || !firstItemStartTime || !lastItemEndTime) return 0;
+    if (!scheduleContainerRef.current || !firstItemStartTime || !lastItemEndTime) return 0;
 
     const totalScheduleDurationMs = lastItemEndTime.getTime() - firstItemStartTime.getTime();
     if (totalScheduleDurationMs <= 0) return 0;
 
     const timeIntoScheduleMs = T_current.getTime() - firstItemStartTime.getTime();
     return (timeIntoScheduleMs / totalScheduleDurationMs) * 100;
-  }, [T_current, firstItemStartTime, lastItemEndTime]);
+  }, [T_current, firstItemStartTime, lastItemEndTime, scheduleContainerRef]);
 
 
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    if (scheduleContainerRef.current) {
+      scheduleContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [selectedDayString]);
+  }, [selectedDayString, scheduleContainerRef]);
 
   const handleInfoChipClick = (dbTask: DBScheduledTask) => {
     console.log("SchedulerDisplay: InfoChip clicked for task:", dbTask.name);
@@ -651,7 +652,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({ schedule
         <Card className="animate-pop-in animate-hover-lift">
           <CardContent className="p-0">
             {/* 1. Main Schedule Display Area */}
-            <div ref={containerRef} className="relative p-4 overflow-y-auto">
+            <div ref={scheduleContainerRef} className="relative p-4 overflow-y-auto">
               
               {/* Absolute Timeline Line (Placed between the two grid columns) */}
               <div className="absolute left-[60px] top-0 bottom-0 w-px border-l border-dashed border-border/50" />

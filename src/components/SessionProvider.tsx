@@ -26,14 +26,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthLoading, setIsAuthLoading] = useState(true); // Tracks initial auth load
+  const [isProfileLoading, setIsProfileLoading] = useState(false); // Tracks profile fetch
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpLevel, setLevelUpLevel] = useState(0);
   const [T_current, setT_current] = useState(new Date()); // Internal T_current for SessionProvider
-  const [regenPodDurationMinutes, setRegenPodDurationMinutes] = useState(0); // NEW state for Pod duration
+  const [regenPodDurationMinutes, setRegenPodDurationMinutes] = useState(0);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedEnvironments } = useEnvironmentContext();
+
+  // Combined loading state
+  const isLoading = isAuthLoading || isProfileLoading;
 
   // Update T_current every second
   useEffect(() => {
@@ -45,29 +49,35 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Stabilized fetchProfile function
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, regen_pod_start_time') // UPDATED: Select new fields
-      .eq('id', userId)
-      .single();
+    setIsProfileLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, regen_pod_start_time')
+        .eq('id', userId)
+        .single();
 
-    if (error) {
-      console.error('Error fetching profile:', error);
-      setProfile(null);
-    } else if (data) {
-      setProfile(data as UserProfile);
-      // If the user is currently in a pod, calculate the remaining duration
-      if (data.is_in_regen_pod && data.regen_pod_start_time) {
-          const start = parseISO(data.regen_pod_start_time);
-          const elapsed = differenceInMinutes(new Date(), start);
-          // Assuming max duration is 60 minutes for calculation purposes if we don't store it
-          const remaining = REGEN_POD_MAX_DURATION_MINUTES - elapsed;
-          setRegenPodDurationMinutes(Math.max(0, remaining));
+      if (error) {
+        console.error('Error fetching profile:', error);
+        setProfile(null);
+      } else if (data) {
+        setProfile(data as UserProfile);
+        if (data.is_in_regen_pod && data.regen_pod_start_time) {
+            const start = parseISO(data.regen_pod_start_time);
+            const elapsed = differenceInMinutes(new Date(), start);
+            const remaining = REGEN_POD_MAX_DURATION_MINUTES - elapsed;
+            setRegenPodDurationMinutes(Math.max(0, remaining));
+        } else {
+            setRegenPodDurationMinutes(0);
+        }
       } else {
-          setRegenPodDurationMinutes(0);
+        setProfile(null);
       }
-    } else {
-      setProfile(null);
+    } catch (e) {
+        console.error('Unexpected error during profile fetch:', e);
+        setProfile(null);
+    } finally {
+        setIsProfileLoading(false);
     }
   }, []);
 
@@ -258,7 +268,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, refreshProfile]);
 
-  // NEW: Helper to trigger server-side energy regeneration (MOVED HERE)
+  // NEW: Helper to trigger server-side energy regeneration
   const triggerEnergyRegen = useCallback(async () => {
     if (!user || !session?.access_token) return;
     
@@ -393,20 +403,27 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Main useEffect for auth state changes and initial session load
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
-      // Only update session if its access token or user ID has changed
-      if (session?.access_token !== currentSession?.access_token || session?.user?.id !== currentSession?.user?.id) {
-        setSession(currentSession);
-      }
+      const newUserId = currentSession?.user?.id ?? null;
+      const oldUserId = user?.id ?? null;
 
-      // Only update user if the ID changes or if the user presence changes
-      if (user?.id !== currentSession?.user?.id) {
-        setUser(currentSession?.user ?? null);
-      }
+      // Update session and user state
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
 
-      if (event === 'SIGNED_IN' && window.location.pathname === '/login') {
-        navigate('/');
-      } else if (event === 'SIGNED_OUT' && window.location.pathname !== '/login') {
-        navigate('/login');
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (newUserId && newUserId !== oldUserId) {
+          // If a new user signs in, trigger profile fetch
+          await fetchProfile(newUserId);
+        }
+        if (window.location.pathname === '/login') {
+          navigate('/');
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null);
+        queryClient.clear(); // Clear all query cache on sign out
+        if (window.location.pathname !== '/login') {
+          navigate('/login');
+        }
       }
     };
 
@@ -418,17 +435,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
         
-        // Only update session if its access token or user ID has changed
-        if (session?.access_token !== initialSession?.access_token || session?.user?.id !== initialSession?.user?.id) {
-          setSession(initialSession);
-        }
-
-        // Only update user if the ID changes or if the user presence changes
-        if (user?.id !== initialSession?.user?.id) {
-          setUser(initialSession?.user ?? null);
-        }
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
         
-        if (!initialSession && window.location.pathname !== '/login') {
+        if (initialSession?.user) {
+          await fetchProfile(initialSession.user.id);
+        } else if (!initialSession && window.location.pathname !== '/login') {
           navigate('/login');
         } else if (initialSession && window.location.pathname === '/login') {
           navigate('/');
@@ -437,12 +449,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.error("Error during initial session load:", error);
         setSession(null);
         setUser(null);
-        setProfile(null); // Ensure profile is cleared on error
+        setProfile(null);
         if (window.location.pathname !== '/login') {
           navigate('/login');
         }
       } finally {
-        setIsLoading(false);
+        setIsAuthLoading(false);
       }
     };
 
@@ -451,16 +463,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, session, user]);
+  }, [navigate, fetchProfile, queryClient]);
 
-  // Separate useEffect to fetch/refresh profile when user changes
+  // Separate useEffect for profile refresh when user changes (redundant now, but kept for safety)
   useEffect(() => {
-    if (user?.id) {
-      refreshProfile();
-    } else {
+    if (user?.id && !profile) {
+      // Only fetch if profile is null, otherwise rely on the main auth flow or explicit refresh
+      fetchProfile(user.id);
+    } else if (!user) {
       setProfile(null); // Clear profile if user logs out
     }
-  }, [user?.id, refreshProfile]);
+  }, [user?.id, profile, fetchProfile]);
 
   // Daily Reset for tasks_completed_today and Daily Reward Notification
   useEffect(() => {
@@ -560,17 +573,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       todayString, 
       workdayStartTimeToday, 
       workdayEndTimeToday,
-      profile.is_in_regen_pod, // NEW
-      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, // NEW
-      regenPodDurationMinutes, // NEW
-      T_current // NEW
+      profile.is_in_regen_pod,
+      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null,
+      regenPodDurationMinutes,
+      T_current
     );
   }, [dbScheduledTasksToday, profile, workdayStartTimeToday, workdayEndTimeToday, regenPodDurationMinutes, T_current]);
 
   const activeItemToday: ScheduledItem | null = useMemo(() => {
     if (!calculatedScheduleToday) return null;
     for (const item of calculatedScheduleToday.items) {
-      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal') && T_current >= item.startTime && T_current < item.endTime) {
+      if ((item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal' || item.type === 'calendar-event') && T_current >= item.startTime && T_current < item.endTime) {
         return item;
       }
     }
@@ -590,10 +603,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const nextMatchingItem = potentialNextItems.find(item => 
             // Match tasks only if their environment is selected
             (item.type === 'task' && selectedEnvironments.includes(item.taskEnvironment)) || 
-            // Breaks, Time Off, and Meals are always considered available, regardless of environment selection
+            // Breaks, Time Off, Meals, and Calendar Events are always considered available, regardless of environment selection
             item.type === 'break' || 
             item.type === 'time-off' ||
-            item.type === 'meal'
+            item.type === 'meal' ||
+            item.type === 'calendar-event'
         );
         
         if (nextMatchingItem) {
@@ -603,7 +617,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Fallback: If no environments are selected, or if no matching item was found, 
     // return the very next scheduled item regardless of environment.
-    const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal');
+    const nextAnyItem = potentialNextItems.find(item => item.type === 'task' || item.type === 'break' || item.type === 'time-off' || item.type === 'meal' || item.type === 'calendar-event');
     return nextAnyItem || null;
 
   }, [calculatedScheduleToday, T_current, selectedEnvironments]);
@@ -629,10 +643,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       activeItemToday,
       nextItemToday,
       T_current,
-      startRegenPodState, // NEW
-      exitRegenPodState, // NEW
-      regenPodDurationMinutes, // NEW
-      triggerEnergyRegen, // NEW
+      startRegenPodState,
+      exitRegenPodState,
+      regenPodDurationMinutes,
+      triggerEnergyRegen,
     }}>
       {children}
     </SessionContext.Provider>

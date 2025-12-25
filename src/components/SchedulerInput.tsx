@@ -1,215 +1,49 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Send, Plus, Loader2, ListTodo, Command as CommandIcon, XCircle } from 'lucide-react'; // Removed BatteryCharging
-import { cn } from '@/lib/utils';
-import { useTasks } from '@/hooks/use-tasks';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; // Keep import for reference if needed elsewhere
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { formatDateTime } from '@/lib/scheduler-utils';
+import { Clock, Filter } from 'lucide-react';
+import WeatherWidget from './WeatherWidget';
+import EnvironmentMultiSelect from './EnvironmentMultiSelect';
 
-interface Suggestion {
-  type: 'command' | 'task';
-  name: string;
-  description?: string;
+interface SchedulerContextBarProps {
+  T_current: Date;
 }
 
-interface SchedulerInputProps {
-  onCommand: (command: string) => void;
-  isLoading?: boolean;
-  placeholder?: string;
-  inputValue: string;
-  setInputValue: (value: string) => void;
-  onDetailedInject: () => void;
-  // Removed: onStartRegenPod: () => void;
-}
-
-const SchedulerInput: React.FC<SchedulerInputProps> = ({ onCommand, isLoading = false, placeholder = "Enter task or command...", inputValue, setInputValue, onDetailedInject }) => {
-  const { allTasks } = useTasks();
-  const [selectedIndex, setSelectedIndex] = useState(-1);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [isPopoverExplicitlyOpen, setIsPopoverExplicitlyOpen] = useState(false);
-
-  const commonCommands = useMemo<Suggestion[]>(() => [
-    { type: 'command', name: 'clear', description: 'Clear all scheduled tasks' },
-    { type: 'command', name: 'remove', description: 'Remove a task by name or index' },
-    { type: 'command', name: 'inject', description: 'Inject a task with specific details' },
-    { type: 'command', name: 'time off', description: 'Block out a period as "Time Off"' },
-  ], []);
-
-  const suggestions = useMemo(() => {
-    if (!inputValue) return [];
-
-    const lowerInput = inputValue.toLowerCase();
-    const filteredSuggestions: Suggestion[] = [];
-
-    commonCommands.forEach(cmd => {
-      if (cmd.name.toLowerCase().startsWith(lowerInput)) {
-        filteredSuggestions.push(cmd);
-      }
-    });
-
-    allTasks.forEach(task => {
-      if (task.title.toLowerCase().includes(lowerInput) && !filteredSuggestions.some(s => s.name === task.title)) {
-        filteredSuggestions.push({ type: 'task', name: task.title, description: `Task: ${task.title}` });
-      }
-    });
-
-    return filteredSuggestions.slice(0, 5);
-  }, [inputValue, allTasks, commonCommands]);
-
-  const shouldShowSuggestions = inputValue.length > 0 && suggestions.length > 0;
-
-  useEffect(() => {
-    if (shouldShowSuggestions) {
-      setIsPopoverExplicitlyOpen(true);
-    } else {
-      setIsPopoverExplicitlyOpen(false);
-    }
-    setSelectedIndex(-1);
-  }, [shouldShowSuggestions]);
-
-  useEffect(() => {
-    if (!isLoading && inputValue === '' && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [inputValue, isLoading]);
-
-
-  const handleSelectSuggestion = (suggestion: Suggestion) => {
-    if (suggestion.type === 'command' && suggestion.name === 'clear') {
-      onCommand(suggestion.name);
-    } else if (suggestion.type === 'command' && suggestion.name === 'remove') {
-      setInputValue('remove ');
-    } else if (suggestion.type === 'command' && suggestion.name === 'inject') {
-      setInputValue('inject ');
-    } else if (suggestion.type === 'command' && suggestion.name === 'time off') {
-      onCommand('time off');
-    } else {
-      setInputValue(suggestion.name);
-    }
-    setSelectedIndex(-1);
-    setIsPopoverExplicitlyOpen(false);
-    inputRef.current?.focus();
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputValue.trim() && !isLoading) {
-      if (selectedIndex !== -1 && suggestions[selectedIndex]) {
-        handleSelectSuggestion(suggestions[selectedIndex]);
-      } else {
-        onCommand(inputValue.trim());
-        setInputValue('');
-      }
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (shouldShowSuggestions && isPopoverExplicitlyOpen) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
-      } else if (e.key === 'Enter' && selectedIndex !== -1) {
-        e.preventDefault();
-        handleSelectSuggestion(suggestions[selectedIndex]);
-      }
-    }
-  };
-
-  const handleClearInput = () => {
-    setInputValue('');
-    inputRef.current?.focus();
-  };
-
+const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) => {
   return (
-    <div className="flex flex-col gap-2 w-full animate-slide-in-up relative">
-      <form onSubmit={handleSubmit} className="flex gap-2 w-full">
-        <div className="relative flex-grow">
-          <Input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add task (e.g., 'Gym 60') or command"
-            disabled={isLoading}
-            className="flex-grow h-11 pr-10 text-base focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200" // Increased height and font size
-          />
-          {inputValue && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleClearInput}
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 text-muted-foreground hover:text-primary"
-            >
-              <XCircle className="h-5 w-5" />
-              <span className="sr-only">Clear input</span>
-            </Button>
-          )}
-        </div>
-        
-        {/* Detailed Task Injector Button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              type="button" 
-              onClick={onDetailedInject} 
-              disabled={isLoading} 
-              variant="outline"
-              size="icon"
-              className="shrink-0 h-11 w-11 text-primary hover:bg-primary/10 transition-all duration-200" // Increased size
-            >
-              <Plus className="h-5 w-5" />
-              <span className="sr-only">Detailed Task Injector</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Inject a task with specific details</p>
-          </TooltipContent>
-        </Tooltip>
-        <Button type="submit" disabled={isLoading} className="shrink-0 h-11 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"> {/* Increased size */}
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          <span className="sr-only">Send</span>
-        </Button>
-      </form>
+    <Card glass className="p-2 animate-pop-in border-white/10 shadow-2xl">
+      <CardContent className="p-0">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2">
+          
+          {/* Time Section */}
+          <div className="flex items-center gap-3 px-4 h-11 rounded-xl bg-primary/5 border border-primary/10 shrink-0">
+            <Clock className="h-4 w-4 text-primary" />
+            <div className="flex flex-col justify-center">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none mb-1">
+                Current Time
+              </span>
+              <span className="text-xs font-black font-mono text-foreground leading-none">
+                {formatDateTime(T_current)}
+              </span>
+            </div>
+          </div>
 
-      <Popover open={isPopoverExplicitlyOpen} onOpenChange={setIsPopoverExplicitlyOpen}>
-        <PopoverTrigger asChild>
-          {/* FIX: Ensure PopoverTrigger wraps exactly one element */}
-          <div className="absolute top-0 left-0 w-full h-11 pointer-events-none" /> 
-        </PopoverTrigger>
-        <PopoverContent 
-          className="p-0 w-[var(--radix-popover-trigger-width)] mt-1" 
-          align="start" 
-          sideOffset={5}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          <ul className="max-h-60 overflow-y-auto">
-            {suggestions.map((suggestion, index) => (
-              <li
-                key={suggestion.name}
-                className={cn(
-                  "flex items-center gap-2 p-3 cursor-pointer hover:bg-accent hover:text-accent-foreground text-base", // Increased padding and font size
-                  selectedIndex === index && "bg-accent text-accent-foreground"
-                )}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelectSuggestion(suggestion)}
-              >
-                {suggestion.type === 'command' ? <CommandIcon className="h-5 w-5" /> : <ListTodo className="h-5 w-5" />} {/* Increased icon size */}
-                <span>{suggestion.name}</span>
-                {suggestion.description && <span className="text-muted-foreground text-sm ml-auto">{suggestion.description}</span>} {/* Increased font size */}
-              </li>
-            ))}
-          </ul>
-        </PopoverContent>
-      </Popover>
-    </div>
+          {/* Environment Section */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
+            {/* EnvironmentMultiSelect sits here. We add a label above it if needed, 
+                but usually the Select's own placeholder handles it. */}
+            <EnvironmentMultiSelect />
+          </div>
+
+          {/* Weather Section */}
+          <div className="lg:w-64 shrink-0">
+            <WeatherWidget />
+          </div>
+
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
-export default SchedulerInput;
+export default SchedulerContextBar;

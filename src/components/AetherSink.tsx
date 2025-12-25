@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, RotateCcw, ListTodo, Ghost, AlertCircle, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, Flame, Scale, CalendarDays, Smile, Database, Home, Laptop, Globe, Music } from 'lucide-react';
-import { RetiredTask, NewRetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
+import { 
+  Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, 
+  Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, 
+  SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, 
+  Globe, Music 
+} from 'lucide-react';
+import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
@@ -25,14 +30,10 @@ import {
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   switch (environment) {
-    case 'home':
-      return <Home className="h-4 w-4 text-logo-green" />;
-    case 'laptop':
-      return <Laptop className="h-4 w-4 text-primary" />;
-    case 'away':
-      return <Globe className="h-4 w-4 text-logo-orange" />;
-    case 'piano':
-      return <Music className="h-4 w-4 text-accent" />;
+    case 'home': return <Home className="h-4 w-4 text-logo-green" />;
+    case 'laptop': return <Laptop className="h-4 w-4 text-primary" />;
+    case 'away': return <Globe className="h-4 w-4 text-logo-orange" />;
+    case 'piano': return <Music className="h-4 w-4 text-accent" />;
     case 'laptop_piano':
       return (
         <div className="relative">
@@ -40,12 +41,10 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
           <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5 text-accent" />
         </div>
       );
-    default:
-      return null;
+    default: return null;
   }
 };
 
-// NEW: ForwardRef wrapper for Badge to fix Tooltip ref warning
 const ForwardRefBadge = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof Badge>>((props, ref) => (
   <div ref={ref} className={props.className}>
     <Badge {...props} className="pointer-events-none" />
@@ -66,29 +65,30 @@ interface AetherSinkProps {
   setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
 }
 
-const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, hideTitle = false, profileEnergy, retiredSortBy, setRetiredSortBy }) => {
-  const hasUnlockedRetiredTasks = retiredTasks.some(task => !task.is_locked);
-  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup } = useSchedulerTasks('');
+const AetherSink: React.FC<AetherSinkProps> = React.memo(({ 
+  retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, 
+  isLoading, isProcessingCommand, hideTitle = false, 
+  retiredSortBy, setRetiredSortBy 
+}) => {
   const { user, profile } = useSession();
-  const [sinkInputValue, setSinkInputValue] = useState('');
+  const { 
+    toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, 
+    updateRetiredTaskStatus, triggerAetherSinkBackup 
+  } = useSchedulerTasks('');
 
+  const [sinkInputValue, setSinkInputValue] = useState('');
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
 
+  const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
+
   const handleAddSinkTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      showError("You must be logged in to add tasks to the Aether Sink.");
-      return;
-    }
-    if (!sinkInputValue.trim()) {
-      showError("Task name cannot be empty.");
-      return;
-    }
+    if (!user) return showError("You must be logged in.");
+    if (!sinkInputValue.trim()) return showError("Task name cannot be empty.");
 
     const parsedTask = parseSinkTaskInput(sinkInputValue, user.id);
-
     if (parsedTask) {
       await addRetiredTask(parsedTask);
       setSinkInputValue('');
@@ -97,80 +97,59 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
     }
   };
 
-  const handleInfoChipClick = (retiredTask: RetiredTask) => {
-    console.log("AetherSink: InfoChip clicked for retired task:", retiredTask.name);
-    setSelectedRetiredTask(retiredTask);
-    setIsDialogOpen(true);
-  };
-
-  const handleTaskItemClick = (event: React.MouseEvent, retiredTask: RetiredTask) => {
-    console.log("AetherSink: Retired task item clicked for task:", retiredTask.name, "Event target:", event.target);
-    const target = event.target as HTMLElement;
-    if (target.closest('button') || target.closest('a')) {
-      console.log("AetherSink: Click originated from an interactive child, preventing dialog open.");
-      return;
-    }
-    setSelectedRetiredTask(retiredTask);
-    setIsDialogOpen(true);
-    console.log("AetherSink: Setting isDialogOpen to true for retired task:", retiredTask.name);
-  };
+  const handleAction = useCallback((e: React.MouseEvent, action: () => void) => {
+    e.stopPropagation();
+    action();
+  }, []);
 
   const handleToggleComplete = async (task: RetiredTask) => {
-    if (task.is_locked) {
-      showError(`Cannot change completion status of locked task "${task.name}". Unlock it first.`);
-      return;
-    }
-    if (task.is_completed) {
-      await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
-    } else {
-      await completeRetiredTask(task);
-    }
+    if (task.is_locked) return showError(`Unlock "${task.name}" first.`);
+    task.is_completed 
+      ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false })
+      : await completeRetiredTask(task);
   };
 
   const handleManualAetherSinkBackup = async () => {
-    if (!user || !profile) {
-      showError("You must be logged in and your profile loaded to create a backup.");
-      return;
-    }
-    if (!profile.enable_aethersink_backup) {
-      showError("Daily Aether Sink backup is disabled in settings. Please enable it to use this feature.");
-      return;
+    if (!profile?.enable_aethersink_backup) {
+      return showError("Aether Sink backup is disabled in settings.");
     }
     await triggerAetherSinkBackup();
   };
 
+  const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
+    <DropdownMenuItem 
+      onClick={() => setRetiredSortBy(type)} 
+      className={cn("cursor-pointer", retiredSortBy === type && 'bg-accent text-accent-foreground')}
+    >
+      <Icon className="mr-2 h-4 w-4" /> {label}
+    </DropdownMenuItem>
+  );
+
   return (
     <>
-      <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/10 animate-hover-lift">
+      <Card className="animate-pop-in border-dashed border-muted-foreground/30 bg-secondary/5 transition-all duration-300 hover:shadow-md">
         <CardHeader className={cn("pb-2 flex flex-row items-center justify-between px-4", hideTitle ? "pt-4" : "pt-6")}>
-          <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground">
+          <CardTitle className="text-xl font-bold flex items-center gap-2 text-muted-foreground/80">
             <Trash2 className="h-5 w-5" /> 
             {!hideTitle && <span className="hidden sm:inline">The Aether Sink</span>}
             {!hideTitle && <span className="sm:hidden">Sink</span>}
-            <span className={cn(hideTitle ? "text-xl" : "text-base")}>({retiredTasks.length})</span>
+            <span className="text-sm font-medium opacity-70">({retiredTasks.length})</span>
           </CardTitle>
+          
           <div className="flex items-center gap-2">
             {profile?.enable_aethersink_backup && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    variant="outline" 
-                    size="icon" 
+                    variant="outline" size="icon" 
                     onClick={handleManualAetherSinkBackup} 
                     disabled={isProcessingCommand}
-                    className={cn(
-                      "h-9 w-9 text-primary hover:bg-primary/10 transition-all duration-200",
-                      isProcessingCommand && "text-muted-foreground/50 cursor-not-allowed"
-                    )}
-                    style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
+                    className="h-9 w-9 text-primary hover:bg-primary/10"
                   >
                     {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                    <span className="sr-only">Backup Now</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Create an immediate backup of your Aether Sink</p>
-                </TooltipContent>
+                <TooltipContent>Manual Backup</TooltipContent>
               </Tooltip>
             )}
 
@@ -178,374 +157,189 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      disabled={isProcessingCommand || retiredTasks.length === 0}
-                      className={cn(
-                        "h-9 w-9 text-muted-foreground hover:bg-muted/10 transition-all duration-200",
-                        (isProcessingCommand || retiredTasks.length === 0) && "text-muted-foreground/50 cursor-not-allowed"
-                      )}
-                      style={(isProcessingCommand || retiredTasks.length === 0) ? { pointerEvents: 'auto' } : undefined}
-                    >
-                      {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownWideNarrow className="h-4 w-4" />}
-                      <span className="sr-only">Sort Aether Sink</span>
+                    <Button variant="outline" size="icon" disabled={retiredTasks.length === 0} className="h-9 w-9">
+                      <ArrowDownWideNarrow className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>Sort Aether Sink Tasks</p>
-                </TooltipContent>
+                <TooltipContent>Sort Tasks</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Sort By</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_NEWEST')} className={cn(retiredSortBy === 'RETIRED_AT_NEWEST' && 'bg-accent text-accent-foreground')}>
-                    <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Newest)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('RETIRED_AT_OLDEST')} className={cn(retiredSortBy === 'RETIRED_AT_OLDEST' && 'bg-accent text-accent-foreground')}>
-                    <CalendarDays className="mr-2 h-4 w-4" /> Retired Date (Oldest)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_ASC')} className={cn(retiredSortBy === 'NAME_ASC' && 'bg-accent text-accent-foreground')}>
-                    <SortAsc className="mr-2 h-4 w-4" /> Name (A-Z)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('NAME_DESC')} className={cn(retiredSortBy === 'NAME_DESC' && 'bg-accent text-accent-foreground')}>
-                    <SortDesc className="mr-2 h-4 w-4" /> Name (Z-A)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_DESC')} className={cn(retiredSortBy === 'DURATION_DESC' && 'bg-accent text-accent-foreground')}>
-                    <Clock className="mr-2 h-4 w-4" /> Duration (Longest)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('DURATION_ASC')} className={cn(retiredSortBy === 'DURATION_ASC' && 'bg-accent text-accent-foreground')}>
-                    <Clock className="mr-2 h-4 w-4" /> Duration (Shortest)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_FIRST')} className={cn(retiredSortBy === 'CRITICAL_FIRST' && 'bg-accent text-accent-foreground')}>
-                    <Star className="mr-2 h-4 w-4" /> Critical (First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('CRITICAL_LAST')} className={cn(retiredSortBy === 'CRITICAL_LAST' && 'bg-accent text-accent-foreground')}>
-                    <Star className="mr-2 h-4 w-4" /> Critical (Last)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_FIRST')} className={cn(retiredSortBy === 'LOCKED_FIRST' && 'bg-accent text-accent-foreground')}>
-                    <Lock className="mr-2 h-4 w-4" /> Locked (First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('LOCKED_LAST')} className={cn(retiredSortBy === 'LOCKED_LAST' && 'bg-accent text-accent-foreground')}>
-                    <Unlock className="mr-2 h-4 w-4" /> Locked (Last)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_DESC')} className={cn(retiredSortBy === 'ENERGY_DESC' && 'bg-accent text-accent-foreground')}>
-                    <Zap className="mr-2 h-4 w-4" /> Energy (Highest)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('ENERGY_ASC')} className={cn(retiredSortBy === 'ENERGY_ASC' && 'bg-accent text-accent-foreground')}>
-                    <Zap className="mr-2 h-4 w-4" /> Energy (Lowest)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_FIRST')} className={cn(retiredSortBy === 'COMPLETED_FIRST' && 'bg-accent text-accent-foreground')}>
-                    <CheckCircle className="mr-2 h-4 w-4" /> Completed (First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('COMPLETED_LAST')} className={cn(retiredSortBy === 'COMPLETED_LAST' && 'bg-accent text-accent-foreground')}>
-                    <CheckCircle className="mr-2 h-4 w-4" /> Completed (Last)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setRetiredSortBy('EMOJI')} className={cn(retiredSortBy === 'EMOJI' && 'bg-accent text-accent-foreground')}>
-                    <Smile className="mr-2 h-4 w-4" /> Emoji
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Sort Options</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <SortItem type="RETIRED_AT_NEWEST" label="Retired (Newest)" icon={CalendarDays} />
+                <SortItem type="RETIRED_AT_OLDEST" label="Retired (Oldest)" icon={CalendarDays} />
+                <DropdownMenuSeparator />
+                <SortItem type="NAME_ASC" label="Name (A-Z)" icon={SortAsc} />
+                <SortItem type="NAME_DESC" label="Name (Z-A)" icon={SortDesc} />
+                <DropdownMenuSeparator />
+                <SortItem type="DURATION_DESC" label="Duration (Longest)" icon={Clock} />
+                <SortItem type="DURATION_ASC" label="Duration (Shortest)" icon={Clock} />
+                <DropdownMenuSeparator />
+                <SortItem type="ENERGY_DESC" label="Energy (Highest)" icon={Zap} />
+                <SortItem type="ENERGY_ASC" label="Energy (Lowest)" icon={Zap} />
+                <DropdownMenuSeparator />
+                <SortItem type="EMOJI" label="Emoji" icon={Smile} />
+              </DropdownMenuContent>
             </DropdownMenu>
 
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="secondary"
-                  size="sm"
+                  variant="secondary" size="sm"
                   onClick={onAutoScheduleSink}
                   disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
-                  className="flex items-center gap-1 h-9 px-3 text-base font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
-                  style={(!hasUnlockedRetiredTasks || isLoading || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
+                  className="flex items-center gap-1 h-9 px-3 font-semibold bg-accent text-accent-foreground hover:bg-accent/90"
                 >
-                  {isProcessingCommand ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   <span className="hidden sm:inline">Auto Schedule</span>
                   <span className="sm:hidden">Auto</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>Automatically re-zone all unlocked retired tasks into your current schedule.</p>
-              </TooltipContent>
+              <TooltipContent>Re-zone all unlocked tasks</TooltipContent>
             </Tooltip>
           </div>
         </CardHeader>
-        
-        <div className={cn(hideTitle ? "pt-0" : "pt-2")}>
-          {!hideTitle && <div className="w-full border-t border-dashed border-muted-foreground/30 mt-2" />}
-          <CardContent className="p-4 space-y-4">
-            <form onSubmit={handleAddSinkTask} className="flex gap-2 w-full pt-2">
-              <Input
-                type="text"
-                placeholder="Add task to sink (e.g., 'Read Book 30', '-Clean desk 30')"
-                value={sinkInputValue}
-                onChange={(e) => setSinkInputValue(e.target.value)}
-                disabled={isProcessingCommand}
-                className="flex-grow h-11 text-base focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
-              />
-              <Button 
-                type="submit" 
-                disabled={isProcessingCommand || !sinkInputValue.trim()} 
-                className="shrink-0 h-11 w-11 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
-              >
-                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                <span className="sr-only">Add to Sink</span>
-              </Button>
-            </form>
-            <p className="text-sm text-muted-foreground">
-              Tip: Add duration (e.g., "Task Name 30"), mark as critical (e.g., "Important Idea !"), or backburner (e.g., "-Low Priority")
-            </p>
 
-            {isLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading Aether Sink" />
-                <span className="ml-2 text-muted-foreground">Loading Aether Sink...</span>
+        <CardContent className="p-4 space-y-4">
+          <form onSubmit={handleAddSinkTask} className="flex gap-2">
+            <Input
+              placeholder="Task name [duration] [!] [-]"
+              value={sinkInputValue}
+              onChange={(e) => setSinkInputValue(e.target.value)}
+              disabled={isProcessingCommand}
+              className="flex-grow h-11 focus-visible:ring-primary"
+            />
+            <Button type="submit" disabled={isProcessingCommand || !sinkInputValue.trim()} className="h-11 w-11">
+              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            </Button>
+          </form>
+
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 opacity-60">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm font-medium">Synchronizing Aether...</p>
+            </div>
+          ) : retiredTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+              <div className="bg-secondary/20 p-4 rounded-full"><Ghost className="h-10 w-10 text-muted-foreground/40" /></div>
+              <div className="space-y-1">
+                <p className="text-lg font-bold text-muted-foreground">The Sink is Empty</p>
+                <p className="text-sm text-muted-foreground/60 max-w-[240px]">Retired tasks will manifest here for future re-zoning.</p>
               </div>
-            ) : retiredTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground text-base space-y-2">
-                <Ghost className="h-8 w-8" />
-                <p className="text-lg font-semibold">Aether Sink is empty!</p>
-                <p>No tasks have been retired yet. Complete or manually retire tasks to send them here.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {retiredTasks.map((task) => {
-                  const hue = getEmojiHue(task.name);
-                  const emoji = assignEmoji(task.name);
-                  const accentBorderColor = `hsl(${hue} 70% 50%)`;
-                  const isLocked = task.is_locked;
-                  const isBackburner = task.is_backburner;
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {retiredTasks.map((task) => {
+                const hue = getEmojiHue(task.name);
+                const emoji = assignEmoji(task.name);
+                const accentColor = `hsl(${hue} 70% 50%)`;
+                const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted } = task;
 
-                  return (
-                    <div 
-                      key={task.id} 
-                      className={cn(
-                        "relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg shadow-sm text-base transition-all duration-200 ease-in-out cursor-pointer",
-                        "bg-card hover:bg-secondary/50 border-l-4 animate-hover-lift",
-                        isLocked ? "border-l-primary/70 bg-primary/10" : "",
-                        isBackburner && !isLocked ? "opacity-70 bg-secondary/30 border-l-muted-foreground/50" : "",
-                        task.is_completed && "opacity-50 line-through",
-                        "hover:shadow-lg hover:shadow-primary/10",
-                        "border-b border-dashed border-border/50 last:border-b-0",
-                      )}
-                      style={{ borderLeftColor: isLocked ? undefined : (isBackburner ? undefined : accentBorderColor) }}
-                      onMouseEnter={() => setHoveredItemId(task.id)}
-                      onMouseLeave={() => setHoveredItemId(null)}
-                      onClick={(e) => handleTaskItemClick(e, task)}
-                    >
-                      <div className="flex items-center space-x-3 flex-grow min-w-0 w-full sm:w-auto">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleComplete(task);
-                              }}
-                              disabled={isLocked || isProcessingCommand}
-                              className={cn(
-                                "h-8 w-8 p-0 shrink-0",
-                                (isLocked || isProcessingCommand) ? "text-muted-foreground/50 cursor-not-allowed" : "text-logo-green hover:bg-logo-green/20"
-                              )}
-                              style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-                            >
-                              <CheckCircle className="h-5 w-5" />
-                              <span className="sr-only">{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {isLocked ? (
-                              <p>Unlock to Change Completion Status</p>
-                            ) : (
-                              <p>{task.is_completed ? "Mark as Incomplete" : "Mark as Complete"}</p>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
+                return (
+                  <div 
+                    key={task.id} 
+                    onMouseEnter={() => setHoveredItemId(task.id)}
+                    onMouseLeave={() => setHoveredItemId(null)}
+                    onClick={() => { setSelectedRetiredTask(task); setIsDialogOpen(true); }}
+                    className={cn(
+                      "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer",
+                      "bg-card hover:bg-secondary/40",
+                      isLocked ? "border-primary/30 bg-primary/5" : "border-transparent",
+                      isBackburner && !isLocked && "opacity-75 grayscale-[0.2]",
+                      isCompleted && "opacity-40 grayscale"
+                    )}
+                    style={{ borderLeft: isLocked ? '4px solid hsl(var(--primary))' : `4px solid ${accentColor}` }}
+                  >
+                    <div className="flex items-center gap-3 flex-grow min-w-0">
+                      <Button 
+                        variant="ghost" size="icon" 
+                        onClick={(e) => handleAction(e, () => handleToggleComplete(task))}
+                        disabled={isLocked || isProcessingCommand}
+                        className={cn("h-8 w-8 shrink-0", isCompleted ? "text-logo-green" : "text-muted-foreground/40")}
+                      >
+                        <CheckCircle className={cn("h-5 w-5 transition-transform", !isCompleted && "group-hover:scale-110")} />
+                      </Button>
 
-                        <div
-                          className={`flex flex-col items-start min-w-0 flex-grow`}
-                        >
-                          <div className="flex items-center gap-2 w-full">
-                            {task.is_critical && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="relative flex items-center justify-center h-4 w-4 rounded-full bg-logo-yellow text-white shrink-0">
-                                    <Star className="h-3 w-3" strokeWidth={2.5} />
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Critical Task</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            {isBackburner && !task.is_critical && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <ForwardRefBadge variant="outline" className="px-2 py-0.5 text-xs font-semibold text-muted-foreground border-muted-foreground/50 bg-muted/20 shrink-0">
-                                    Backburner
-                                  </ForwardRefBadge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Low-Orbit Task (P: Low)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            <span className="text-xl">{emoji}</span>
-                            <span className={cn("font-semibold truncate text-base", isLocked ? "text-primary" : "text-foreground")}>{task.name}</span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="h-5 w-5 flex items-center justify-center shrink-0">
-                                        {getEnvironmentIcon(task.task_environment)}
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Environment: {task.task_environment.charAt(0).toUpperCase() + task.task_environment.slice(1)}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                            
-                            {task.duration && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className={cn("flex items-center gap-1 text-xs font-mono", isLocked ? "text-primary/80" : "text-foreground/80")}>
-                                    <Clock className="h-4 w-4" /> {task.duration} min
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Scheduled Duration</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            
-                            {task.energy_cost !== undefined && task.energy_cost > 0 && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className={cn(
-                                    "flex items-center gap-1 text-xs font-semibold font-mono",
-                                    isLocked ? "text-primary/80" : "text-foreground/80"
-                                  )}>
-                                    {task.energy_cost} <Zap className="h-4 w-4" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Energy Cost</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            <span className="text-xs italic text-muted-foreground">
-                              Retired: {format(new Date(task.retired_at), 'MMM d, yyyy')}
-                            </span>
-                          </div>
+                      <div className="min-w-0 flex-grow">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          {task.is_critical && <Star className="h-3.5 w-3.5 fill-logo-yellow text-logo-yellow shrink-0" />}
+                          {isBackburner && <Badge variant="outline" className="h-4 px-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">Orbit</Badge>}
+                          <span className="text-lg shrink-0">{emoji}</span>
+                          <span className={cn("font-bold truncate text-sm sm:text-base", isCompleted && "line-through")}>
+                            {task.name}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground/70 font-medium">
+                          <span className="flex items-center gap-1">{getEnvironmentIcon(task.task_environment)}</span>
+                          {task.duration && <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {task.duration}m</span>}
+                          {task.energy_cost > 0 && <span className="flex items-center gap-1 text-primary/80">{task.energy_cost}<Zap className="h-3 w-3 fill-current" /></span>}
+                          <span className="hidden xs:inline opacity-40">|</span>
+                          <span className="text-[10px] uppercase opacity-60">{format(new Date(task.retired_at), 'MMM d')}</span>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-1 ml-auto shrink-0 mt-2 sm:mt-0">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked });
-                              }}
-                              disabled={isProcessingCommand}
-                              className={cn(
-                                "h-8 w-8 p-0 shrink-0",
-                                isProcessingCommand ? "text-muted-foreground/50 cursor-not-allowed" : (isLocked ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/20")
-                              )}
-                              style={isProcessingCommand ? { pointerEvents: 'auto' } : undefined}
-                            >
-                              {isLocked ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
-                              <span className="sr-only">{isLocked ? "Unlock task" : "Lock task"}</span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{isLocked ? "Unlock Task" : "Lock Task"}</p>
-                          </TooltipContent>
-                        </Tooltip>
-
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="secondary"
-                              size="icon" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRezoneTask(task);
-                              }}
-                              disabled={isLocked || isProcessingCommand || task.is_completed}
-                              className={cn(
-                                "h-8 w-8 text-primary hover:bg-primary/10",
-                                (isLocked || isProcessingCommand || task.is_completed) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
-                              )}
-                              style={(isLocked || isProcessingCommand || task.is_completed) ? { pointerEvents: 'auto' } : undefined}
-                            >
-                              <RotateCcw className="h-5 w-5" />
-                              <span className="sr-only">Rezone</span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{isLocked ? "Unlock to Re-zone" : (task.is_completed ? "Task Completed" : "Re-zone to schedule")}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRemoveRetiredTask(task.id, task.name);
-                              }}
-                              disabled={isLocked || isProcessingCommand}
-                              className={cn(
-                                "h-8 w-8 text-destructive hover:bg-destructive/20",
-                                (isLocked || isProcessingCommand) && "text-muted-foreground/50 cursor-not-allowed hover:bg-transparent"
-                              )}
-                              style={(isLocked || isProcessingCommand) ? { pointerEvents: 'auto' } : undefined}
-                            >
-                              <Trash2 className="h-5 w-5" />
-                              <span className="sr-only">Delete</span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{isLocked ? "Unlock to Delete" : "Permanently delete"}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <InfoChip 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleInfoChipClick(task);
-                        }}
-                        isHovered={hoveredItemId === task.id} 
-                      />
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </div>
+
+                    <div className="flex items-center gap-1 mt-3 sm:mt-0 ml-auto bg-background/50 sm:bg-transparent p-1 sm:p-0 rounded-lg">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" size="icon" 
+                            onClick={(e) => handleAction(e, () => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked }))}
+                            className={cn("h-8 w-8", isLocked ? "text-primary bg-primary/10" : "text-muted-foreground/40")}
+                          >
+                            {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{isLocked ? "Unlock" : "Lock"}</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" size="icon" 
+                            onClick={(e) => handleAction(e, () => onRezoneTask(task))}
+                            disabled={isLocked || isCompleted}
+                            className="h-8 w-8 text-primary/60 hover:text-primary hover:bg-primary/10"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Re-zone</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" size="icon" 
+                            onClick={(e) => handleAction(e, () => onRemoveRetiredTask(task.id, task.name))}
+                            disabled={isLocked}
+                            className="h-8 w-8 text-destructive/40 hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Purge</TooltipContent>
+                      </Tooltip>
+                    </div>
+
+                    <InfoChip 
+                      onClick={(e) => handleAction(e, () => { setSelectedRetiredTask(task); setIsDialogOpen(true); })}
+                      isHovered={hoveredItemId === task.id} 
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
       </Card>
+
       <RetiredTaskDetailDialog
         task={selectedRetiredTask}
         open={isDialogOpen}
         onOpenChange={(open) => {
-          console.log("AetherSink: Dialog onOpenChange. New state:", open);
           setIsDialogOpen(open);
           if (!open) setSelectedRetiredTask(null);
         }}
@@ -553,5 +347,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({ retiredTasks, onRezo
     </>
   );
 });
+
+AetherSink.displayName = 'AetherSink';
 
 export default AetherSink;

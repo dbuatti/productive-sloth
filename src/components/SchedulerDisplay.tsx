@@ -129,7 +129,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
       {showSyncButton && activeItemId && (
         <Button 
           onClick={() => onScrollToItem(activeItemId)}
-          className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[100] rounded-full bg-primary/90 shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)] animate-bounce"
+          className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[100] rounded-full bg-primary/90 shadow-[0_0_20px_hsl(var(--primary)/0.4)] animate-bounce"
           size="sm"
         >
           <Target className="h-4 w-4 mr-2" /> Sync to Now
@@ -182,7 +182,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               <div className="relative z-10 mt-2 shrink-0">
                 <div className={cn(
                   "h-3 w-3 rounded-full border-2 border-background transition-all duration-700",
-                  isActive ? "bg-primary scale-150 shadow-[0_0_15px_rgba(var(--primary-rgb),0.6)]" : "bg-secondary border-primary/20",
+                  isActive ? "bg-primary scale-150 shadow-[0_0_15px_hsl(var(--primary)/0.6)]" : "bg-secondary border-primary/20",
                   isPastItem && "opacity-30 grayscale"
                 )} />
               </div>
@@ -261,7 +261,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                     {format(taskItem.startTime, 'p')} — {format(taskItem.endTime, 'p')}
                   </div>
                   {isActive && (
-                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0">LIVE SEQUENCE</Badge>
+                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0 bg-primary/90 text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/0.4)]">LIVE SEQUENCE</Badge>
                   )}
                 </div>
               </div>

@@ -14,10 +14,11 @@ import {
   Info, ChevronDown, Target
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { format, differenceInMinutes, isSameDay, parseISO, min, max, isPast } from 'date-fns';
+import { format, differenceInMinutes, isSameDay, parseISO, min, max, isPast, addMinutes } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
+import { Badge } from '@/components/ui/badge';
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;

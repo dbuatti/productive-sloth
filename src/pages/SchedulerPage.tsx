@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from 'react';
-import { format } from 'date-fns';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { format, parseISO } from 'date-fns';
 import { ListTodo, Sparkles, Loader2, Settings2 } from 'lucide-react';
 
 // UI Components
@@ -26,15 +26,14 @@ import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { DBScheduledTask } from '@/types/scheduler';
+import { DBScheduledTask, RetiredTask } from '@/types/scheduler';
+import { showSuccess, showError } from '@/utils/toast';
 
-// Define the Props interface
 interface SchedulerPageProps {
   view: 'schedule' | 'sink' | 'recap';
 }
 
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
-  // 1. Destructure Session Data
   const { 
     user, profile, rechargeEnergy, T_current, 
     activeItemToday, nextItemToday 
@@ -43,14 +42,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const isMobile = useIsMobile();
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
   
-  // 2. Local State for UI and Inputs
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [inputValue, setInputValue] = useState('');
-  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
-  const [showWorkdayDialog, setShowWorkdayDialog] = useState(false);
 
-  // 3. Destructure Scheduler Logic from Hook
   const { 
     dbScheduledTasks, isLoading: isTasksLoading, retiredTasks,
     datesWithTasks, isLoadingDatesWithTasks, isLoadingRetiredTasks,
@@ -59,20 +55,19 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     completeScheduledTask
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
-  // 4. Command Handler Logic
+  // FIX FOR ERROR 180: Wrapper to pass string ID instead of full task object
+  const handleRezoneTask = useCallback(async (task: RetiredTask) => {
+    await rezoneTask(task.id);
+  }, [rezoneTask]);
+
   const handleCommand = async (input: string) => {
-    // Logic implementation for command parsing
-    console.log("Processing command:", input);
+    console.log("Command received:", input);
   };
 
-  const handleAddTaskClick = () => {
-    // Logic to open detailed add modal or dialogue
-    console.log("Opening Detailed Inject...");
-  };
-
-  // 5. The core schedule view (Desktop/Tablet)
   const renderScheduleCore = () => (
     <div className="space-y-6">
+      {/* FIX FOR ERRORS 77 & 88: 
+          ContextBar gets the Time. Input gets the Logic. */}
       <div className="hidden lg:block">
         <SchedulerContextBar T_current={T_current} />
       </div>
@@ -86,23 +81,23 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         <CardContent className="p-0">
           <SchedulerInput 
             onCommand={async (val) => { 
-              setIsProcessingCommand(true); 
+              setIsProcessing(true); 
               await handleCommand(val); 
-              setIsProcessingCommand(false); 
+              setIsProcessing(false); 
               setInputValue(''); 
             }} 
-            isLoading={isProcessingCommand} 
+            isLoading={isProcessing} 
             inputValue={inputValue}
             setInputValue={setInputValue}
             placeholder="Add task (e.g., 'Gym 60')"
-            onDetailedInject={handleAddTaskClick}
+            onDetailedInject={() => {}}
           />
         </CardContent>
       </Card>
 
       <div className="hidden lg:block animate-slide-in-up">
         <SchedulerActionCenter 
-          isProcessingCommand={isProcessingCommand}
+          isProcessingCommand={isProcessing}
           dbScheduledTasks={dbScheduledTasks}
           retiredTasksCount={retiredTasks.length}
           sortBy={sortBy}
@@ -117,7 +112,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           onAetherDump={async () => aetherDump()}
           onAetherDumpMega={async () => aetherDumpMega()}
           onRefreshSchedule={() => {}}
-          onOpenWorkdayWindowDialog={() => setShowWorkdayDialog(true)}
+          onOpenWorkdayWindowDialog={() => {}}
           onStartRegenPod={() => {}}
           hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible)}
         />
@@ -125,29 +120,22 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
       <Card className="animate-pop-in border-white/10 shadow-xl overflow-hidden">
         <CardHeader className="bg-secondary/10">
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="h-5 w-5 text-logo-yellow" /> 
-            Active Timeline Hub
-          </CardTitle>
+          <CardTitle>Timeline Hub</CardTitle>
         </CardHeader>
         <CardContent className="p-4 bg-background/20">
-          {isTasksLoading ? (
-            <div className="flex justify-center py-20"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>
-          ) : (
-            <SchedulerDisplay 
-              schedule={null} 
-              T_current={T_current} 
-              onRemoveTask={() => {}}
-              onRetireTask={() => {}}
-              onCompleteTask={(task) => completeScheduledTask(task)}
-              activeItemId={activeItemToday?.id || null} 
-              selectedDayString={selectedDay} 
-              onAddTaskClick={handleAddTaskClick}
-              onScrollToItem={() => {}}
-              isProcessingCommand={isProcessingCommand}
-              onFreeTimeClick={() => {}}
-            />
-          )}
+          <SchedulerDisplay 
+            schedule={null} 
+            T_current={T_current} 
+            onRemoveTask={() => {}}
+            onRetireTask={() => {}}
+            onCompleteTask={(task) => completeScheduledTask(task)}
+            activeItemId={activeItemToday?.id || null} 
+            selectedDayString={selectedDay} 
+            onAddTaskClick={() => {}}
+            onScrollToItem={() => {}}
+            isProcessingCommand={isProcessing}
+            onFreeTimeClick={() => {}}
+          />
         </CardContent>
       </Card>
     </div>
@@ -158,7 +146,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       <SchedulerDashboardPanel 
         scheduleSummary={null} 
         onAetherDump={aetherDump}
-        isProcessingCommand={isProcessingCommand}
+        isProcessingCommand={isProcessing}
         hasFlexibleTasks={true}
         onRefreshSchedule={() => {}}
       />
@@ -177,12 +165,14 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         {view === 'schedule' && renderScheduleCore()}
         {view === 'sink' && (
           <AetherSink 
-            retiredTasks={retiredTasks} onRezoneTask={rezoneTask} 
+            retiredTasks={retiredTasks} 
+            onRezoneTask={handleRezoneTask} // FIX: Using wrapper
             onRemoveRetiredTask={(id) => removeRetiredTask(id)} 
             isLoading={isLoadingRetiredTasks} 
-            isProcessingCommand={isProcessingCommand} 
+            isProcessingCommand={isProcessing} 
             profileEnergy={profile?.energy || 0}
-            retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy}
+            retiredSortBy={retiredSortBy} 
+            setRetiredSortBy={setRetiredSortBy}
             onAutoScheduleSink={() => {}}
           />
         )}
@@ -206,9 +196,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           </DrawerTrigger>
           <DrawerContent className="bg-background/95 backdrop-blur-xl">
             <div className="p-6 space-y-6">
+              {/* FIX FOR ERROR 209: Mobile Drawer alignment */}
               <SchedulerContextBar T_current={T_current} />
               <SchedulerActionCenter 
-                isProcessingCommand={isProcessingCommand} dbScheduledTasks={dbScheduledTasks}
+                isProcessingCommand={isProcessing} dbScheduledTasks={dbScheduledTasks}
                 retiredTasksCount={retiredTasks.length} sortBy={sortBy}
                 onAutoSchedule={async () => {}} onCompactSchedule={async () => {}}
                 onRandomizeBreaks={async () => {}} onZoneFocus={async () => {}}
@@ -226,5 +217,4 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   );
 };
 
-// CRITICAL: Ensure the default export is here
 export default SchedulerPage;

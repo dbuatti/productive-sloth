@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* AetherFlow - Light Theme: Clean, Airy, Cyan-focused */
+    /* AetherFlow - Light Theme */
     --background: 220 40% 98%;
     --foreground: 222 47% 11%;
 
@@ -14,7 +14,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 191 91% 36%; /* Deep Cyan */
+    --primary: 191 91% 36%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
@@ -23,7 +23,7 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 340 82% 52%; /* Vibrant Pink */
+    --accent: 340 82% 52%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
@@ -52,7 +52,6 @@
   }
 
   .dark {
-    /* AetherFlow - Dark Theme: Deep Space, Soft Glows */
     --background: 230 25% 7%;
     --foreground: 210 40% 98%;
 
@@ -62,7 +61,7 @@
     --popover: 230 25% 10%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 191 85% 55%; /* Glowing Cyan */
+    --primary: 191 85% 55%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 15%;
@@ -99,12 +98,11 @@
 
 @layer base {
   * {
-    @apply border-border selection:bg-primary/20 selection:text-primary;
+    border-color: hsl(var(--border));
   }
 
   body {
     @apply bg-background text-foreground antialiased overflow-x-hidden;
-    /* Improved Ambient Mesh Gradient */
     background-image: 
       radial-gradient(at 0% 0%, hsl(var(--primary) / 0.12) 0px, transparent 50%),
       radial-gradient(at 100% 0%, hsl(var(--accent) / 0.08) 0px, transparent 50%),
@@ -112,40 +110,35 @@
       radial-gradient(at 0% 100%, hsl(var(--accent) / 0.1) 0px, transparent 50%);
     background-attachment: fixed;
   }
-
-  /* Custom Scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
-  }
 }
 
 @layer utilities {
   /* Ethereal Surfaces */
   .glass-card {
-    @apply bg-background/40 backdrop-blur-xl border border-white/10 saturate-150 shadow-2xl;
+    background-color: hsl(var(--background) / 0.4);
+    backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   }
 
   .glass-header {
-    @apply sticky top-0 z-50 bg-background/60 backdrop-blur-xl border-b border-white/5;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background-color: hsl(var(--background) / 0.6);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
 
   /* Typography */
   .text-gradient-primary {
-    @apply bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent;
+    background: linear-gradient(to bottom right, hsl(var(--primary)), hsl(var(--accent)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
-  .text-glow {
-    text-shadow: 0 0 15px hsl(var(--primary) / 0.5);
-  }
-
-  /* Improved Animations */
+  /* Shimmer Animation */
   @keyframes shimmer {
     0% { background-position: -200% 0; }
     100% { background-position: 200% 0; }
@@ -162,13 +155,16 @@
     animation: shimmer 2s infinite linear;
   }
 
+  /* Active Row Animation - Replaced @apply with standard CSS */
   @keyframes pulse-active-row {
     0%, 100% {
-      @apply border-live-progress/20 bg-live-progress/5;
+      border-color: hsl(var(--live-progress) / 0.2);
+      background-color: hsl(var(--live-progress) / 0.05);
       box-shadow: 0 0 0px hsl(var(--live-progress) / 0);
     }
     50% {
-      @apply border-live-progress/60 bg-live-progress/10;
+      border-color: hsl(var(--live-progress) / 0.6);
+      background-color: hsl(var(--live-progress) / 0.1);
       box-shadow: 0 0 20px hsl(var(--live-progress) / 0.2);
       transform: translateY(-1px);
     }
@@ -176,24 +172,47 @@
 
   .animate-active-task {
     animation: pulse-active-row 3s infinite ease-in-out;
-    @apply transition-all duration-500;
   }
 
   .animate-hover-lift {
-    @apply transition-all duration-300 ease-[cubic-bezier(0.33,1,0.68,1)];
+    transition: all 0.3s cubic-bezier(0.33, 1, 0.68, 1);
   }
   
   .animate-hover-lift:hover {
-    @apply -translate-y-1 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.1)] border-primary/40 dark:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)];
+    transform: translateY(-4px);
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
   }
 
-  /* Status Bar */
+  .animate-pop-in {
+    animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  /* Status Bar Styling */
   .status-bar-track {
-    @apply bg-secondary/50 rounded-full h-3 overflow-hidden border border-white/5 shadow-inner relative;
+    background-color: hsl(var(--secondary) / 0.5);
+    border-radius: 9999px;
+    height: 0.75rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
   }
 
   .status-bar-fill {
-    @apply h-full transition-all duration-700 ease-out rounded-full;
+    height: 100%;
+    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 9999px;
     background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--live-progress)));
     box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
   }

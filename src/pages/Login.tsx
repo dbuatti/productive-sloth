@@ -2,16 +2,34 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function Login() {
-  const [redirectTo, setRedirectTo] = useState<string | undefined>(undefined);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Set the redirect URL to the current origin (e.g., http://localhost:32129)
-    // This ensures Supabase knows where to send you back after Google login.
-    setRedirectTo(window.location.origin);
-  }, []);
+    // Check if user is already logged in and redirect to home if they are
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/');
+      }
+    };
+    
+    checkSession();
+
+    // Listen for auth state changes to catch successful login immediately
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        navigate('/');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -23,7 +41,8 @@ function Login() {
           <Auth
             supabaseClient={supabase}
             providers={['google']}
-            redirectTo={redirectTo}
+            // Removing explicit redirectTo to allow Supabase to use the default configuration
+            // which is often more robust for local development across different ports.
             appearance={{
               theme: ThemeSupa,
               variables: {

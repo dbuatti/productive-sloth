@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask, TaskEnvironment } from '@/types/scheduler';
 
 // --- Constants ---
 export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break']; // Added 'eat' and 'coffee break'
@@ -213,7 +213,7 @@ export const isMeal = (taskName: string): boolean => {
   return MEAL_KEYWORDS.some(keyword => lowerCaseTaskName.includes(keyword));
 };
 
-export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false): number => {
+export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false, taskEnvironment: TaskEnvironment = 'laptop'): number => {
   // Meals provide positive energy
   if (isMeal('meal')) { // Check against a generic meal keyword or rely on the caller to pass a meal task name
     return -10; // Fixed positive energy gain (e.g., +10 Energy)
@@ -227,6 +227,20 @@ export const calculateEnergyCost = (duration: number, isCritical: boolean, isBac
     // Backburner tasks cost 25% less energy
     baseCost = Math.ceil(baseCost * 0.75);
   }
+
+  // Apply environment multipliers
+  let environmentMultiplier = 1.0;
+  switch (taskEnvironment) {
+    case 'laptop_piano': // Recovery/flow state
+      environmentMultiplier = 0.9; // -10% energy drain
+      break;
+    case 'away': // Sensory distractions
+      environmentMultiplier = 1.2; // +20% energy drain
+      break;
+    // 'home' and 'laptop' (default) have no additional multiplier
+  }
+
+  baseCost = Math.ceil(baseCost * environmentMultiplier);
   
   return Math.max(5, baseCost); // Minimum energy cost of 5
 };
@@ -486,7 +500,7 @@ export const parseCommand = (input: string): { type: string; target?: string; in
   return null;
 };
 
-export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTask | null => {
+export const parseSinkTaskInput = (input: string, userId: string, taskEnvironment: TaskEnvironment = 'laptop'): NewRetiredTask | null => {
   let name = input.trim();
   let duration: number | null = null;
   let isCritical = false;
@@ -514,7 +528,7 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   if (!name) return null;
 
   const isMealTask = isMeal(name);
-  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner); // Default to 30 min if no duration
+  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner, taskEnvironment); // Default to 30 min if no duration
 
   return {
     user_id: userId,
@@ -527,7 +541,7 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
     energy_cost: energyCost,
     is_completed: false,
     is_custom_energy_cost: false,
-    task_environment: 'laptop', // Default environment for sink tasks
+    task_environment: taskEnvironment, // Default environment for sink tasks
     is_backburner: isBackburner, // NEW: Include backburner status
   };
 };

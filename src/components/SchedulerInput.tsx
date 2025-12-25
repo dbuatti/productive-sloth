@@ -1,49 +1,62 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { formatDateTime } from '@/lib/scheduler-utils';
-import { Clock, Filter } from 'lucide-react';
-import WeatherWidget from './WeatherWidget';
-import EnvironmentMultiSelect from './EnvironmentMultiSelect';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Loader2, Plus } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-interface SchedulerContextBarProps {
-  T_current: Date;
+interface SchedulerInputProps {
+  onCommand: (input: string) => Promise<void>;
+  isLoading: boolean;
+  inputValue: string;
+  setInputValue: (value: string) => void;
+  placeholder?: string;
+  onDetailedInject: () => void;
 }
 
-const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) => {
+const SchedulerInput: React.FC<SchedulerInputProps> = ({
+  onCommand,
+  isLoading,
+  inputValue,
+  setInputValue,
+  placeholder = "Enter command...",
+  onDetailedInject,
+}) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (inputValue.trim()) {
+        onCommand(inputValue);
+      }
+    }
+  };
+
   return (
-    <Card glass className="p-2 animate-pop-in border-white/10 shadow-2xl">
-      <CardContent className="p-0">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2">
-          
-          {/* Time Section */}
-          <div className="flex items-center gap-3 px-4 h-11 rounded-xl bg-primary/5 border border-primary/10 shrink-0">
-            <Clock className="h-4 w-4 text-primary" />
-            <div className="flex flex-col justify-center">
-              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none mb-1">
-                Current Time
-              </span>
-              <span className="text-xs font-black font-mono text-foreground leading-none">
-                {formatDateTime(T_current)}
-              </span>
-            </div>
-          </div>
-
-          {/* Environment Section */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            {/* EnvironmentMultiSelect sits here. We add a label above it if needed, 
-                but usually the Select's own placeholder handles it. */}
-            <EnvironmentMultiSelect />
-          </div>
-
-          {/* Weather Section */}
-          <div className="lg:w-64 shrink-0">
-            <WeatherWidget />
-          </div>
-
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex w-full items-center space-x-2">
+      <Input
+        type="text"
+        placeholder={placeholder}
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={isLoading}
+        className="flex-grow h-12 bg-background/40 font-bold placeholder:font-medium placeholder:opacity-30"
+      />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={onDetailedInject}
+            disabled={isLoading}
+            variant="outline"
+            size="icon"
+            className="h-12 w-12 shrink-0"
+          >
+            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Detailed Injection</TooltipContent>
+      </Tooltip>
+    </div>
   );
 };
 
-export default SchedulerContextBar;
+export default SchedulerInput;

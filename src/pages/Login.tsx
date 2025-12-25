@@ -26,6 +26,25 @@ function Login() {
     // Listen for auth state changes to catch successful login immediately
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       console.log(`[Login] Auth state changed: ${event}`, session ? 'Session active' : 'No session');
+      
+      if (event === 'INITIAL_SESSION') {
+        // After the initial check, if we still don't have a session, 
+        // let's wait a moment and check again. This helps catch sessions 
+        // that might be processed slightly after the initial event.
+        if (!session) {
+          console.log('[Login] No session in INITIAL_SESSION. Waiting 500ms for potential delayed session...');
+          setTimeout(async () => {
+            const { data: { session: delayedSession } } = await supabase.auth.getSession();
+            if (delayedSession) {
+              console.log('[Login] Session found after delay! Redirecting...');
+              navigate('/');
+            } else {
+              console.log('[Login] Still no session after delay.');
+            }
+          }, 500);
+        }
+      }
+
       if (event === 'SIGNED_IN' && session) {
         console.log('[Login] SIGNED_IN event detected. Redirecting to home...');
         navigate('/');

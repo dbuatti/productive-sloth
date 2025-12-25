@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -104,9 +104,11 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   const handleToggleComplete = async (task: RetiredTask) => {
     if (task.is_locked) return showError(`Unlock "${task.name}" first.`);
-    task.is_completed 
-      ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false })
-      : await completeRetiredTask(task);
+    if (task.is_completed) {
+      await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
+    } else {
+      await completeRetiredTask(task);
+    }
   };
 
   const handleManualAetherSinkBackup = async () => {

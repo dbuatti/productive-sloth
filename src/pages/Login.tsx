@@ -1,48 +1,13 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useTheme } from 'next-themes'; // Import useTheme
+import { useTheme } from 'next-themes';
 
 function Login() {
-  const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const { resolvedTheme } = useTheme(); // Get the resolved theme from next-themes
-
-  useEffect(() => {
-    // 1. Check current session once on mount
-    const initCheck = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate('/', { replace: true });
-      } else {
-        setIsLoading(false);
-      }
-    };
-
-    initCheck();
-
-    // 2. Listen for auth changes (Login, Sign Out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(`[Auth Event]: ${event}`);
-      
-      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        navigate('/', { replace: true });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-pulse text-gray-500">Loading...</div>
-      </div>
-    );
-  }
+  const [isLoading, setIsLoading] = useState(false); // Local loading state for UI
+  const { resolvedTheme } = useTheme();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -71,7 +36,8 @@ function Login() {
             theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
             showLinks={true}
             view="sign_in"
-            redirectTo={window.location.origin} // Explicitly set redirectTo to the current origin
+            redirectTo={window.location.origin}
+            // The SessionProvider will handle the redirection after sign-in
           />
         </CardContent>
       </Card>

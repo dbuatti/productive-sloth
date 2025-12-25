@@ -261,7 +261,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                     {format(taskItem.startTime, 'p')} — {format(taskItem.endTime, 'p')}
                   </div>
                   {isActive && (
-                    <Badge variant="aether" className="text-[8px] px-1.5 py-0">LIVE SEQUENCE</Badge>
+                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0">LIVE SEQUENCE</Badge>
                   )}
                 </div>
               </div>

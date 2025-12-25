@@ -56,9 +56,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('[SessionProvider] Error fetching profile:', error);
         setProfile(null);
       } else if (data) {
+        console.log('[SessionProvider] Profile fetched successfully:', data);
         setProfile(data as UserProfile);
         if (data.is_in_regen_pod && data.regen_pod_start_time) {
             const start = parseISO(data.regen_pod_start_time);
@@ -69,10 +70,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             setRegenPodDurationMinutes(0);
         }
       } else {
+        console.log('[SessionProvider] No profile data found for user:', userId);
         setProfile(null);
       }
     } catch (e) {
-        console.error('Unexpected error during profile fetch:', e);
+        console.error('[SessionProvider] Unexpected error during profile fetch:', e);
         setProfile(null);
     } finally {
         setIsProfileLoading(false);
@@ -266,6 +268,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
       console.log(`[SessionProvider] Auth Event: ${event}`);
+      if (event === 'SIGNED_IN') {
+        console.log('[SessionProvider] User SIGNED_IN. Session:', currentSession);
+      } else if (event === 'SIGNED_OUT') {
+        console.log('[SessionProvider] User SIGNED_OUT. Session:', currentSession);
+      }
+
       const newUserId = currentSession?.user?.id ?? null;
       const oldUserId = user?.id ?? null;
 
@@ -317,7 +325,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         }
       } catch (error) {
-        console.error("Error during initial session load:", error);
+        console.error("[SessionProvider] Error during initial session load:", error);
         // On error, redirect to '/login' if not already there
         if (location.pathname !== '/login') {
           setRedirectPath('/login');

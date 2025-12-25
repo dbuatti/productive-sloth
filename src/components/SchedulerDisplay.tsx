@@ -64,7 +64,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showSyncButton, setShowSyncButton] = useState(false);
 
-  // 1. Logic to handle "Sync to Now" visibility
   useEffect(() => {
     const handleScroll = () => {
       if (containerRef.current) {
@@ -76,15 +75,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
     return () => el?.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 2. Process Items (Original Logic with HUD markers)
   const finalDisplayItems = useMemo(() => {
     if (!schedule || schedule.items.length === 0) return [];
-    
-    const items = [...schedule.items] as (ScheduledItem | TimeMarker | FreeTimeItem)[];
+    const items = [...schedule.items];
     const actualStart = min(schedule.items.map(i => i.startTime));
-    const actualEnd = max(schedule.items.map(i => i.endTime));
-
-    // Simple gap filling logic for visual vertical flow
     const processed: DisplayItem[] = [];
     let cursor = actualStart;
 
@@ -102,7 +96,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
       processed.push(item);
       cursor = item.endTime;
     });
-
     return processed;
   }, [schedule]);
 
@@ -125,11 +118,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
 
   return (
     <div className="relative">
-      {/* Return to Sync Button */}
       {showSyncButton && activeItemId && (
         <Button 
           onClick={() => onScrollToItem(activeItemId)}
-          className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[100] rounded-full bg-primary/90 shadow-[0_0_20px_hsl(var(--primary)/0.4)] animate-bounce"
+          className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[100] rounded-full bg-primary/90 shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)]"
           size="sm"
         >
           <Target className="h-4 w-4 mr-2" /> Sync to Now
@@ -137,7 +129,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
       )}
 
       <div ref={containerRef} className="relative pl-14 pr-2 py-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-        {/* Vertical Axis Line */}
         <div className="absolute left-[3.75rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" />
 
         {finalDisplayItems.map((item, index) => {
@@ -153,7 +144,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 <div className="w-10 text-right opacity-20 font-mono text-[9px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
                 <div className="flex-1 flex items-center justify-center border border-dashed border-white/5 rounded-2xl hover:bg-white/[0.02] transition-colors">
                   <span className="opacity-0 group-hover:opacity-100 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 transition-opacity">
-                    Manifest Objective ({gap.duration}m)
+                    Inject Sequence ({gap.duration}m)
                   </span>
                 </div>
               </div>
@@ -168,7 +159,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
 
           return (
             <div key={taskItem.id} className="relative group flex gap-6 mb-4">
-              {/* Time Column */}
               <div className="w-10 text-right shrink-0 pt-1">
                 <span className={cn(
                   "text-[10px] font-black font-mono leading-none transition-colors",
@@ -178,19 +168,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 </span>
               </div>
 
-              {/* Node Point */}
               <div className="relative z-10 mt-2 shrink-0">
                 <div className={cn(
                   "h-3 w-3 rounded-full border-2 border-background transition-all duration-700",
-                  isActive ? "bg-primary scale-150 shadow-[0_0_15px_hsl(var(--primary)/0.6)]" : "bg-secondary border-primary/20",
+                  isActive ? "bg-primary scale-150 shadow-[0_0_15px_rgba(var(--primary-rgb),0.6)]" : "bg-secondary border-primary/20",
                   isPastItem && "opacity-30 grayscale"
                 )} />
               </div>
 
-              {/* Task Bubble */}
               <div 
                 className={cn(
-                  "flex-1 rounded-2xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between p-4 group/bubble",
+                  "flex-1 rounded-2xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between p-4",
                   isActive ? "bg-primary/10 border-primary/40 shadow-2xl ring-1 ring-primary/20" : "bg-card/30 border-white/10 hover:border-primary/30",
                   isPastItem && "opacity-40 grayscale pointer-events-none"
                 )}
@@ -217,40 +205,65 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                     </div>
                   </div>
 
-                  {/* Actions Area */}
-                  <div className="flex gap-1">
+                  {/* RESTORED & IMPROVED ACTIONS AREA */}
+                  <div className="flex items-center gap-1.5 shrink-0 bg-background/40 p-1 rounded-lg border border-white/5">
                     {dbTask && !isPastItem && (
                       <>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
                               variant="ghost" size="icon" 
-                              className="h-7 w-7 rounded-full hover:bg-primary/20 text-primary"
+                              className={cn(
+                                "h-7 w-7 rounded-md transition-colors",
+                                dbTask.is_locked ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+                              )}
                               onClick={(e) => { e.stopPropagation(); toggleScheduledTaskLock({ taskId: dbTask.id, isLocked: !dbTask.is_locked }); }}
                             >
-                              {dbTask.is_locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                              {dbTask.is_locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5 opacity-50" />}
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent className="glass-card font-black text-[10px] uppercase">Toggle Anchor</TooltipContent>
+                          <TooltipContent className="glass-card text-[9px] font-black uppercase">Anchor Task</TooltipContent>
                         </Tooltip>
 
-                        <div className="flex opacity-0 group-hover/bubble:opacity-100 transition-all">
-                          <Button 
-                            variant="ghost" size="icon" className="h-7 w-7 rounded-full text-logo-green hover:bg-logo-green/20"
-                            onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask, index); }}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" size="icon" className="h-7 w-7 rounded-full text-destructive hover:bg-destructive/20"
-                            onClick={(e) => { e.stopPropagation(); onRetireTask(dbTask); }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" className="h-7 w-7 rounded-md text-logo-green hover:bg-logo-green/20"
+                              onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask, index); }}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent className="glass-card text-[9px] font-black uppercase">Complete</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" className="h-7 w-7 rounded-md text-logo-orange hover:bg-logo-orange/20"
+                              onClick={(e) => { e.stopPropagation(); onRetireTask(dbTask); }}
+                            >
+                              <Archive className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent className="glass-card text-[9px] font-black uppercase">Return to Sink</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
+                              onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id, dbTask.name, index); }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent className="glass-card text-[9px] font-black uppercase">Purge Data</TooltipContent>
+                        </Tooltip>
                       </>
                     )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/50 hover:text-foreground">
+                    
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground">
                       <Info className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -261,7 +274,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                     {format(taskItem.startTime, 'p')} — {format(taskItem.endTime, 'p')}
                   </div>
                   {isActive && (
-                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0 bg-primary/90 text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/0.4)]">LIVE SEQUENCE</Badge>
+                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0 bg-primary/20 text-primary border-none">LIVE SEQUENCE</Badge>
                   )}
                 </div>
               </div>

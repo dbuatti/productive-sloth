@@ -308,7 +308,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       initialSessionLoadedRef.current = true;
 
       try {
-        const { data: { session: initialSession, error: getSessionError } } = await supabase.auth.getSession();
+        const { data, error: getSessionError } = await supabase.auth.getSession(); // Corrected destructuring
+        const initialSession = data.session;
         
         console.log('[SessionProvider] loadInitialSession: initialSession:', initialSession);
         console.log('[SessionProvider] loadInitialSession: initialSession?.user:', initialSession?.user);

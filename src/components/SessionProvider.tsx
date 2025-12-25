@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, setHours, setMinutes, differenceInMinutes, format } from 'date-fns'; // Added format
+import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, setHours, setMinutes, differenceInMinutes, format } from 'date-fns';
 import { 
   MAX_ENERGY, 
   RECHARGE_BUTTON_AMOUNT, 
@@ -277,15 +277,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (newUserId && newUserId !== oldUserId) {
           await fetchProfile(newUserId);
         }
-        // Set redirect path, let useEffect handle navigation
-        if (window.location.pathname === '/login') {
-          setRedirectPath('/');
+        // If we have a session, we should be on the dashboard
+        if (currentSession) {
+            setRedirectPath('/');
         }
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
-        if (window.location.pathname !== '/login') {
-          setRedirectPath('/login');
+        // If we don't have a session, we should be on login
+        if (!currentSession) {
+            setRedirectPath('/login');
         }
       }
     };
@@ -300,22 +301,22 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
+        
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
         
         if (initialSession?.user) {
           await fetchProfile(initialSession.user.id);
-          if (window.location.pathname === '/login') {
-            setRedirectPath('/');
-          }
-        } else if (!initialSession && window.location.pathname !== '/login') {
+          // If we have a session, we should be on the dashboard
+          setRedirectPath('/');
+        } else {
+          // If we don't have a session, we should be on login
           setRedirectPath('/login');
         }
       } catch (error) {
         console.error("Error during initial session load:", error);
-        if (window.location.pathname !== '/login') {
-          setRedirectPath('/login');
-        }
+        // On error, force to login
+        setRedirectPath('/login');
       } finally {
         setIsAuthLoading(false);
       }

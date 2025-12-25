@@ -230,6 +230,7 @@ export interface FreeTimeItem {
   endTime: Date;
   duration: number; // in minutes
   message: string;
+  suggestedTask?: RetiredTask | null; // NEW: Add suggested task
 }
 
 // New type for current time marker

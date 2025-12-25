@@ -14,9 +14,14 @@ import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
-import ModelPage from "./pages/ModelPage"; // NEW IMPORT
+import ModelPage from "./pages/ModelPage";
 
 const queryClient = new QueryClient();
+
+// Define the props for SchedulerPage to be used in the routes
+interface SchedulerPageProps {
+  view: 'schedule' | 'sink' | 'recap';
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -35,7 +40,7 @@ const App = () => (
                     {/* Secondary Pages (Accessed via Settings) */}
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/documentation" element={<DocumentationPage />} />
-                    <Route path="/model" element={<ModelPage />} /> {/* NEW ROUTE */}
+                    <Route path="/model" element={<ModelPage />} />
                     
                     <Route path="/settings" element={<SettingsPage />} />
                     

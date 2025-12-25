@@ -20,28 +20,25 @@ import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
-import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 
 // Hooks & Types
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { DBScheduledTask, RetiredTask } from '@/types/scheduler';
-import { showSuccess, showError } from '@/utils/toast';
+import { RetiredTask } from '@/types/scheduler';
 
 interface SchedulerPageProps {
   view: 'schedule' | 'sink' | 'recap';
 }
 
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
-  const { user, profile, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
+  const { profile, rechargeEnergy, T_current, activeItemToday, nextItemToday } = useSession();
   const isMobile = useIsMobile();
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
   
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isFocusModeActive, setIsFocusModeActive] = useState(false);
 
   const { 
     dbScheduledTasks, isLoading: isTasksLoading, retiredTasks,
@@ -51,26 +48,25 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     completeScheduledTask
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
-  // Function to handle the command input
+  // Logic Handlers
   const handleCommand = async (input: string) => {
     if (!input.trim()) return;
-    // Your command processing logic goes here
-    console.log("System Command Executed:", input);
+    console.log("Syncing Command:", input);
+    // Command implementation logic here
   };
 
-  // Wrapper for rezone to extract ID string from object
-  const handleRezoneTask = useCallback(async (task: RetiredTask) => {
+  const onRezoneTaskHandler = useCallback(async (task: RetiredTask) => {
     await rezoneTask(task.id);
   }, [rezoneTask]);
 
   const renderScheduleCore = () => (
     <div className="space-y-6">
-      {/* 1. Dashboard Context (HUD Display Only) */}
+      {/* MODULE 1: Dashboard HUD (Information Only) */}
       <div className="hidden lg:block">
         <SchedulerContextBar T_current={T_current} />
       </div>
 
-      {/* 2. Command Input Card (Logic Only) */}
+      {/* MODULE 2: Command Terminal (Interactive Logic Only) */}
       <Card className="p-4 shadow-md animate-hover-lift bg-card/40 backdrop-blur-sm border-primary/10">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -78,7 +74,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {/* THE FIX: Logic props are passed here, NOT to the ContextBar above */}
+          {/* THE FIX: Logic props belong to SchedulerInput, not the ContextBar */}
           <SchedulerInput 
             onCommand={async (val) => { 
               setIsProcessing(true); 
@@ -95,7 +91,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         </CardContent>
       </Card>
 
-      {/* 3. Action Center */}
+      {/* Action Center & Timeline Hub */}
       <div className="hidden lg:block animate-slide-in-up">
         <SchedulerActionCenter 
           isProcessingCommand={isProcessing}
@@ -119,7 +115,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         />
       </div>
 
-      {/* 4. Timeline display */}
       <Card className="animate-pop-in border-white/10 shadow-xl overflow-hidden">
         <CardContent className="p-4 bg-background/20">
           <SchedulerDisplay 
@@ -164,20 +159,17 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         {view === 'schedule' && renderScheduleCore()}
         {view === 'sink' && (
           <AetherSink 
-            retiredTasks={retiredTasks} 
-            onRezoneTask={handleRezoneTask} 
+            retiredTasks={retiredTasks} onRezoneTask={onRezoneTaskHandler} 
             onRemoveRetiredTask={(id) => removeRetiredTask(id)} 
             isLoading={isLoadingRetiredTasks} 
             isProcessingCommand={isProcessing} 
             profileEnergy={profile?.energy || 0}
-            retiredSortBy={retiredSortBy} 
-            setRetiredSortBy={setRetiredSortBy}
+            retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy}
             onAutoScheduleSink={() => {}}
           />
         )}
       </div>
 
-      {/* Mobile Controls Drawer */}
       {isMobile && view === 'schedule' && (
         <Drawer>
           <DrawerTrigger asChild>

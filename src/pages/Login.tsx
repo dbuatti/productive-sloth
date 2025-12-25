@@ -4,10 +4,12 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useTheme } from 'next-themes'; // Import useTheme
 
 function Login() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
+  const { resolvedTheme } = useTheme(); // Get the resolved theme from next-themes
 
   useEffect(() => {
     // 1. Check current session once on mount
@@ -66,7 +68,7 @@ function Login() {
                 },
               },
             }}
-            theme="dark"
+            theme={resolvedTheme === 'dark' ? 'dark' : 'light'} // Dynamically set theme
             showLinks={true}
             view="sign_in"
           />

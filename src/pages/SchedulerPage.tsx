@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 
-// Dashboard Components
+// Custom Dashboard Components
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
@@ -20,12 +20,14 @@ import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
+import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
 
 // Hooks & Types
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { RetiredTask } from '@/types/scheduler';
+import { DBScheduledTask, RetiredTask } from '@/types/scheduler';
+import { showSuccess, showError } from '@/utils/toast';
 
 interface SchedulerPageProps {
   view: 'schedule' | 'sink' | 'recap';
@@ -39,6 +41,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isFocusModeActive, setIsFocusModeActive] = useState(false);
 
   const { 
     dbScheduledTasks, isLoading: isTasksLoading, retiredTasks,
@@ -48,32 +51,34 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     completeScheduledTask
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
+  // Function to handle the command input
   const handleCommand = async (input: string) => {
-    // Command implementation
-    console.log("Processing:", input);
+    if (!input.trim()) return;
+    // Your command processing logic goes here
+    console.log("System Command Executed:", input);
   };
 
-  // FIX FOR ERROR 163: Extract string ID from task object
-  const onRezoneTaskHandler = useCallback(async (task: RetiredTask) => {
+  // Wrapper for rezone to extract ID string from object
+  const handleRezoneTask = useCallback(async (task: RetiredTask) => {
     await rezoneTask(task.id);
   }, [rezoneTask]);
 
   const renderScheduleCore = () => (
     <div className="space-y-6">
-      {/* Module 1: HUD Context (Only receives Time) */}
+      {/* 1. Dashboard Context (HUD Display Only) */}
       <div className="hidden lg:block">
         <SchedulerContextBar T_current={T_current} />
       </div>
 
-      {/* Module 2: Logic Input (Receives Command Props) */}
-      <Card className="p-4 shadow-md bg-card/40 border-primary/10">
+      {/* 2. Command Input Card (Logic Only) */}
+      <Card className="p-4 shadow-md animate-hover-lift bg-card/40 backdrop-blur-sm border-primary/10">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
-            <ListTodo className="h-6 w-6 text-primary" /> Quick Command
+            <ListTodo className="h-6 w-6 text-primary" /> Command Terminal
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {/* FIX FOR ERROR 79: Prop placement corrected */}
+          {/* THE FIX: Logic props are passed here, NOT to the ContextBar above */}
           <SchedulerInput 
             onCommand={async (val) => { 
               setIsProcessing(true); 
@@ -90,6 +95,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         </CardContent>
       </Card>
 
+      {/* 3. Action Center */}
       <div className="hidden lg:block animate-slide-in-up">
         <SchedulerActionCenter 
           isProcessingCommand={isProcessing}
@@ -113,6 +119,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         />
       </div>
 
+      {/* 4. Timeline display */}
       <Card className="animate-pop-in border-white/10 shadow-xl overflow-hidden">
         <CardContent className="p-4 bg-background/20">
           <SchedulerDisplay 
@@ -134,7 +141,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-24 px-4">
+    <div className="mx-auto max-w-5xl space-y-6 pb-24 px-4 sm:px-6">
       <SchedulerDashboardPanel 
         scheduleSummary={null} 
         onAetherDump={aetherDump}
@@ -158,7 +165,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         {view === 'sink' && (
           <AetherSink 
             retiredTasks={retiredTasks} 
-            onRezoneTask={onRezoneTaskHandler} // FIX: Applied ID wrapper
+            onRezoneTask={handleRezoneTask} 
             onRemoveRetiredTask={(id) => removeRetiredTask(id)} 
             isLoading={isLoadingRetiredTasks} 
             isProcessingCommand={isProcessing} 
@@ -170,6 +177,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         )}
       </div>
 
+      {/* Mobile Controls Drawer */}
       {isMobile && view === 'schedule' && (
         <Drawer>
           <DrawerTrigger asChild>

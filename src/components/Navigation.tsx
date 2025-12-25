@@ -1,8 +1,18 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Settings, Trophy, TrendingUp, Clock, BookOpen, Trash2, CheckCircle, Code, Home } from 'lucide-react';
+import { 
+  Settings, 
+  TrendingUp, 
+  Clock, 
+  BookOpen, 
+  Trash2, 
+  CheckCircle, 
+  Code, 
+  Sparkles 
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface NavLinkItemProps {
   to: string;
@@ -12,27 +22,58 @@ interface NavLinkItemProps {
   onClick?: () => void;
 }
 
-const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isCollapsed, onClick }) => (
-  <NavLink
-    to={to}
-    onClick={onClick}
-    className={({ isActive }) =>
-      cn(
-        "flex items-center gap-4 rounded-lg px-4 py-3 text-base text-muted-foreground transition-all hover:text-primary relative",
-        // Refined active state: lighter background, strong left border
-        isActive && "bg-sidebar-accent text-primary hover:text-primary border-l-4 border-primary -ml-4 pl-4",
-        isCollapsed ? "justify-center" : ""
-      )
-    }
-  >
-    <Icon className="h-6 w-6" />
-    {!isCollapsed && <span className="text-base font-medium">{label}</span>}
-  </NavLink>
-);
+const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isCollapsed, onClick }) => {
+  const content = (
+    <NavLink
+      to={to}
+      onClick={onClick}
+      className={({ isActive }) =>
+        cn(
+          "group relative flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-bold tracking-tight transition-all duration-300 ease-aether-out",
+          "text-muted-foreground/70 hover:text-primary hover:bg-primary/5 hover:pl-5",
+          isActive && [
+            "text-primary bg-primary/10 border-r-2 border-primary shadow-[inset_0_0_20px_rgba(var(--primary),0.05)]",
+            "after:absolute after:left-0 after:top-1/4 after:h-1/2 after:w-1 after:bg-primary after:rounded-full after:shadow-[0_0_10px_hsl(var(--primary))]"
+          ],
+          isCollapsed && "justify-center px-0 hover:pl-0"
+        )
+      }
+    >
+      <div className="relative">
+        <Icon className={cn(
+          "h-5 w-5 transition-all duration-300 group-hover:scale-110",
+          "group-hover:drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]"
+        )} />
+      </div>
+      
+      {!isCollapsed && (
+        <span className="truncate transition-opacity duration-300">{label}</span>
+      )}
+
+      {/* Subtle indicator dot for "Active" or "Live" status */}
+      {!isCollapsed && to === "/scheduler" && (
+        <div className="ml-auto h-1.5 w-1.5 rounded-full bg-live-progress animate-pulse shadow-[0_0_5px_hsl(var(--live-progress))]" />
+      )}
+    </NavLink>
+  );
+
+  if (isCollapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
+        <TooltipContent side="right" className="glass-card ml-2 font-bold">
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return content;
+};
 
 interface NavigationProps {
   isCollapsed: boolean;
-  onLinkClick?: () => void; // Optional handler for mobile to close sidebar
+  onLinkClick?: () => void;
 }
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
@@ -49,11 +90,27 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
     { to: "/settings", icon: Settings, label: "Settings" },
   ];
 
+  const SectionLabel = ({ children, icon: Icon }: { children: string, icon?: any }) => (
+    <div className={cn(
+      "flex items-center gap-2 px-4 mb-2 mt-6 transition-all duration-300",
+      isCollapsed && "justify-center px-0"
+    )}>
+      {!isCollapsed ? (
+        <>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">
+            {children}
+          </span>
+          <div className="h-[1px] flex-1 bg-gradient-to-r from-border/50 to-transparent" />
+        </>
+      ) : (
+        <div className="h-[1px] w-4 bg-border" />
+      )}
+    </div>
+  );
+
   return (
-    <nav className="grid items-start px-2 text-sm font-medium lg:px-4 space-y-1">
-      <h3 className={cn("text-xs font-semibold uppercase text-muted-foreground mb-2 mt-4", isCollapsed ? "text-center" : "pl-4")}>
-        {isCollapsed ? "CORE" : "Core Views"}
-      </h3>
+    <nav className="grid items-start px-3 space-y-1 select-none">
+      <SectionLabel>Core Views</SectionLabel>
       {primaryNavItems.map((item) => (
         <NavLinkItem
           key={item.to}
@@ -65,11 +122,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
         />
       ))}
       
-      <Separator className="my-2" />
-
-      <h3 className={cn("text-xs font-semibold uppercase text-muted-foreground mb-2 mt-4", isCollapsed ? "text-center" : "pl-4")}>
-        {isCollapsed ? "INFO" : "Info & Tools"}
-      </h3>
+      <SectionLabel>System Tools</SectionLabel>
       {secondaryNavItems.map((item) => (
         <NavLinkItem
           key={item.to}
@@ -80,6 +133,20 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
           onClick={onLinkClick}
         />
       ))}
+
+      {!isCollapsed && (
+        <div className="mt-10 px-4">
+          <div className="glass-card p-4 rounded-2xl border-primary/10 bg-primary/[0.02]">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-4 w-4 text-logo-yellow" />
+              <span className="text-[10px] font-bold uppercase text-primary">Aether Cloud</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              System synchronized. All vibe data is encrypted.
+            </p>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };

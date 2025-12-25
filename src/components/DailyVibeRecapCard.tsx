@@ -1,143 +1,116 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, CheckCircle, Clock, Zap, MessageSquare, Lightbulb, Smile, Coffee } from 'lucide-react';
-import { ScheduleSummary, CompletedTaskLogEntry, DBScheduledTask } from '@/types/scheduler'; // FIX: Import DBScheduledTask
-import { cn } from '@/lib/utils';
+import { CompletedTaskLogEntry, UserProfile } from '@/types/scheduler';
 import { format } from 'date-fns';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import CompletedTaskLogItem from './CompletedTaskLogItem';
-import { isMeal } from '@/lib/scheduler-utils';
+import { Sparkles, CheckCircle, XCircle, Clock, Zap, Utensils } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { LOW_ENERGY_THRESHOLD } from '@/lib/constants';
 
 interface DailyVibeRecapCardProps {
-  scheduleSummary: ScheduleSummary | null;
-  tasksCompletedToday: number;
-  xpEarnedToday: number;
-  profileEnergy: number;
-  criticalTasksCompletedToday: number;
   selectedDayString: string;
-  completedScheduledTasks: CompletedTaskLogEntry[];
-  totalActiveTimeMinutes: number;
-  totalBreakTimeMinutes: number;
+  completedTasks: CompletedTaskLogEntry[]; // Added this prop
+  isLoading: boolean;
+  profile: UserProfile | null;
+  T_current: Date;
 }
 
 const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
-  scheduleSummary,
-  tasksCompletedToday,
-  xpEarnedToday,
-  profileEnergy,
-  criticalTasksCompletedToday,
   selectedDayString,
-  completedScheduledTasks,
-  totalActiveTimeMinutes,
-  totalBreakTimeMinutes,
+  completedTasks,
+  isLoading,
+  profile,
+  T_current,
 }) => {
-  
-  const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);
-  const totalActiveTimeMins = totalActiveTimeMinutes % 60;
+  const totalEnergyCost = completedTasks.reduce((sum, task) => sum + (task.energy_cost || 0), 0);
+  const totalEnergyGain = completedTasks.reduce((sum, task) => sum + (task.energy_cost < 0 ? Math.abs(task.energy_cost) : 0), 0);
+  const finalEnergy = profile?.energy; // Assuming this is the final energy for the day
 
-  const compliment = useMemo(() => {
-    if (tasksCompletedToday === 0 && totalActiveTimeMinutes === 0) {
-      return "The day is still young! Time to make some magic happen. ✨";
-    }
-    if (criticalTasksCompletedToday > 0 && criticalTasksCompletedToday === scheduleSummary?.criticalTasksRemaining) {
-      return "Great job prioritizing! All critical tasks for the day are complete. ✅";
-    }
-    if (tasksCompletedToday >= 5) {
-      return `Incredible focus today! You crushed ${tasksCompletedToday} tasks and stayed in the flow. 🚀`;
-    }
-    if (totalActiveTimeMinutes >= 180) { // 3 hours
-      return `That's a marathon session! You logged ${totalActiveTimeHours} hours of Active Time. 💪`;
-    }
-    if (tasksCompletedToday > 0) {
-      return `Nice work today! You completed ${tasksCompletedToday} task${tasksCompletedToday !== 1 ? 's' : ''}. Keep that vibe going! 😊`;
-    }
-    return "You're making progress, one step at a time! Keep it up. ✨";
-  }, [tasksCompletedToday, totalActiveTimeMinutes, criticalTasksCompletedToday, scheduleSummary?.criticalTasksRemaining, totalActiveTimeHours]);
+  const vibeMessage = React.useMemo(() => {
+    if (isLoading) return "Calculating your daily vibe...";
+    if (!profile) return "Profile not loaded. Cannot calculate daily vibe.";
 
-  const reflectionPrompts = [
-    "What was the biggest win you had today?",
-    "Which task gave you the most energy, and why?",
-    "What is one small thing you learned that will help your focus tomorrow?",
-  ];
+    const completedCount = completedTasks.filter(t => t.is_completed).length;
+    const totalTasks = completedTasks.length;
+
+    if (totalTasks === 0) {
+      return "No tasks completed today. Time to plan some action!";
+    }
+
+    let message = "";
+    if (completedCount === totalTasks) {
+      message += "All tasks completed! ";
+    } else if (completedCount > 0) {
+      message += `${completedCount} of ${totalTasks} tasks completed. `;
+    } else {
+      message += "No tasks completed yet. ";
+    }
+
+    if (finalEnergy !== undefined) {
+      if (finalEnergy >= 0) {
+        message += `You finished the day with ${finalEnergy} energy. Great job!`;
+      } else if (finalEnergy > LOW_ENERGY_THRESHOLD) {
+        message += `You finished the day with ${finalEnergy} energy. Consider some rest.`;
+      } else {
+        message += `You finished the day with ${finalEnergy} energy. Time for deep recovery.`;
+      }
+    }
+
+    return message;
+  }, [isLoading, profile, completedTasks, finalEnergy]);
 
   return (
     <Card className="animate-pop-in animate-hover-lift">
-      <CardHeader className="px-4 pb-2 pt-4">
-        <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
-          <Sparkles className="h-6 w-6 text-logo-yellow" /> Daily Vibe Recap for {format(new Date(selectedDayString), 'EEEE, MMMM d')}
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-xl">
+          <Sparkles className="h-5 w-5 text-logo-yellow" /> Daily Vibe Recap for {format(new Date(selectedDayString), 'PPP')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4 space-y-6">
-        <div className="text-center text-xl font-semibold text-foreground animate-pulse-text">
-          "{compliment}"
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              <CheckCircle className="h-4 w-4 text-logo-green" /> Tasks Completed
-            </CardTitle>
-            <CardContent className="p-0 mt-2">
-              <p className="text-3xl font-extrabold font-mono text-foreground">{tasksCompletedToday}</p>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              <Zap className="h-4 w-4 text-primary" /> XP Earned
-            </CardTitle>
-            <CardContent className="p-0 mt-2">
-              <p className="text-3xl font-extrabold font-mono text-primary">+{xpEarnedToday}</p>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              <Clock className="h-4 w-4 text-foreground" /> Active Time
-            </CardTitle>
-            <CardContent className="p-0 mt-2">
-              <p className="text-3xl font-extrabold font-mono text-foreground">
-                {totalActiveTimeHours}h {totalActiveTimeMins}m
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              <Coffee className="h-4 w-4 text-logo-orange" /> Break/Meal Time
-            </CardTitle>
-            <CardContent className="p-0 mt-2">
-              <p className="text-3xl font-extrabold font-mono text-logo-orange">{totalBreakTimeMinutes} min</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4 pt-4">
-          <h3 className="text-xl font-bold flex items-center gap-2 text-foreground">
-            <Lightbulb className="h-5 w-5 text-logo-yellow" /> Reflect & Grow
-          </h3>
-          <ul className="list-disc list-inside space-y-3 text-lg text-muted-foreground">
-            {reflectionPrompts.map((prompt, index) => (
-              <li key={index} className="flex items-start">
-                <Smile className="h-5 w-5 mr-2 mt-1 shrink-0 text-primary" />
-                <span>{prompt}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* NEW: Collapsible Completed Task Log */}
-        {completedScheduledTasks.length > 0 && (
-          <Accordion type="single" collapsible className="w-full pt-4">
-            <AccordionItem value="completed-tasks-log" className="border-b-0">
-              <AccordionTrigger className="text-lg font-semibold flex items-center gap-2 text-primary hover:no-underline">
-                <CheckCircle className="h-6 w-6 text-logo-green" /> View {completedScheduledTasks.length} Completed Task{completedScheduledTasks.length !== 1 ? 's' : ''}
-              </AccordionTrigger>
-              <AccordionContent className="space-y-3 pt-3">
-                {completedScheduledTasks.map(task => (
-                  // Note: CompletedTaskLogEntry is structurally compatible with DBScheduledTask for this component
-                  <CompletedTaskLogItem key={task.id} task={task as unknown as DBScheduledTask} />
-                ))}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+      <CardContent className="space-y-4 text-base text-muted-foreground">
+        {isLoading ? (
+          <p>Loading recap...</p>
+        ) : (
+          <>
+            <p className="font-semibold text-lg">{vibeMessage}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-logo-green" />
+                <span>Tasks Completed: {completedTasks.filter(t => t.is_completed).length}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <XCircle className="h-5 w-5 text-red-500" />
+                <span>Tasks Missed/Skipped: {completedTasks.filter(t => !t.is_completed).length}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-logo-yellow" />
+                <span>Total Energy Cost: {totalEnergyCost > 0 ? totalEnergyCost : 0}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Utensils className="h-5 w-5 text-logo-green" />
+                <span>Total Energy Gain: {totalEnergyGain}</span>
+              </div>
+              <div className="flex items-center gap-2 col-span-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <span>Final Energy Level: {finalEnergy !== undefined ? finalEnergy : 'N/A'}</span>
+              </div>
+            </div>
+            {completedTasks.length > 0 && (
+              <div className="mt-4">
+                <h3 className="font-semibold text-lg mb-2">Completed Tasks:</h3>
+                <ul className="space-y-1">
+                  {completedTasks.map(task => (
+                    <li key={task.id} className="flex items-center gap-2 text-sm">
+                      {task.is_completed ? (
+                        <CheckCircle className="h-4 w-4 text-logo-green" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span>{task.name} ({task.duration} min) - Energy: {task.energy_cost}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

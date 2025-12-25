@@ -1,115 +1,109 @@
-import React, { useState, useMemo } from 'react';
-import { format, addDays, isSameDay, isToday, parseISO, subWeeks, addWeeks, subDays } from 'date-fns';
+import React from 'react';
+import { format, isSameDay, addDays, subDays, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CalendarDays, CalendarCheck, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'; // Import Chevron icons, added Loader2
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CalendarStripProps {
-  selectedDay: string; // Changed to string
-  setSelectedDay: (dateString: string) => void; // Changed to accept string
-  datesWithTasks: string[]; // Array of 'YYYY-MM-DD' strings for days with tasks
-  isLoadingDatesWithTasks: boolean; // New prop for loading state
+  selectedDay: string;
+  setSelectedDay: (date: string) => void;
+  datesWithTasks: string[];
+  isProcessingCommand: boolean; // Added this prop
 }
 
-const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({ selectedDay, setSelectedDay, datesWithTasks, isLoadingDatesWithTasks }) => {
-  const daysToDisplay = 7; // Show 7 days
-  const [weekOffset, setWeekOffset] = useState(0); // 0 for current week, -1 for previous, 1 for next
+const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDay, setSelectedDay, datesWithTasks, isProcessingCommand }) => {
+  const today = new Date();
+  const selectedDate = parseISO(selectedDay);
 
-  const currentWeekStart = useMemo(() => {
-    const today = new Date();
-    const startOfWeek = subDays(today, today.getDay()); // Start of the current week (Sunday)
-    return addWeeks(startOfWeek, weekOffset);
-  }, [weekOffset]);
+  const days = React.useMemo(() => {
+    const start = subDays(selectedDate, 3);
+    return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+  }, [selectedDate]);
 
-  const handleGoToToday = () => {
-    setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-    setWeekOffset(0); // Reset week offset to current week
+  const handleDayClick = (day: Date) => {
+    if (!isProcessingCommand) {
+      setSelectedDay(format(day, 'yyyy-MM-dd'));
+    }
   };
 
-  const handlePreviousWeek = () => {
-    setWeekOffset(prev => prev - 1);
+  const handlePrevDay = () => {
+    if (!isProcessingCommand) {
+      setSelectedDay(format(subDays(selectedDate, 1), 'yyyy-MM-dd'));
+    }
   };
 
-  const handleNextWeek = () => {
-    setWeekOffset(prev => prev + 1);
+  const handleNextDay = () => {
+    if (!isProcessingCommand) {
+      setSelectedDay(format(addDays(selectedDate, 1), 'yyyy-MM-dd'));
+    }
   };
 
-  const days = Array.from({ length: daysToDisplay }).map((_, i) => {
-    const day = addDays(currentWeekStart, i);
-    const formattedDay = format(day, 'yyyy-MM-dd');
-    const hasTasks = datesWithTasks.includes(formattedDay);
-
-    return (
-      <Button
-        key={formattedDay}
-        variant="ghost"
-        onClick={() => setSelectedDay(formattedDay)} // Pass formattedDay string
-        className={cn(
-          "flex flex-col items-center justify-center h-16 w-14 p-1 rounded-lg transition-all duration-200 relative",
-          "text-muted-foreground hover:bg-secondary/50 hover:scale-105 hover:shadow-md", // Added hover effects
-          // Refined selected day styling: softer background, stronger border
-          formattedDay === selectedDay && "bg-primary/10 text-primary border-2 border-primary/70 shadow-lg hover:bg-primary/20", 
-          isToday(day) && formattedDay !== selectedDay && "border border-primary/50", // Subtle border for today if not selected
-          hasTasks && "after:content-[''] after:absolute after:bottom-1 after:w-1.5 after:h-1.5 after:rounded-full after:bg-logo-yellow" // Indicator for days with tasks
-        )}
-      >
-        <span className="text-xs font-semibold">{format(day, 'EEE')}</span> {/* Day of week (Mon, Tue) */}
-        <span className="text-base font-bold">{format(day, 'd')}</span> {/* Changed text-lg to text-base */}
-      </Button>
-    );
-  });
+  const handleTodayClick = () => {
+    if (!isProcessingCommand) {
+      setSelectedDay(format(today, 'yyyy-MM-dd'));
+    }
+  };
 
   return (
-    <div className="flex justify-center items-center space-x-2 overflow-x-auto py-2 animate-slide-in-up">
-      {/* Previous Week Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handlePreviousWeek}
-        className="h-16 w-10 shrink-0 text-muted-foreground hover:bg-secondary/50 hover:scale-105 hover:shadow-md"
-      >
+    <div className="flex items-center justify-between p-2 bg-background border-b">
+      <Button variant="ghost" size="icon" onClick={handlePrevDay} disabled={isProcessingCommand}>
         <ChevronLeft className="h-5 w-5" />
-        <span className="sr-only">Previous Week</span>
       </Button>
+      <div className="flex gap-1">
+        {days.map((day) => {
+          const dayString = format(day, 'yyyy-MM-dd');
+          const isSelected = isSameDay(day, selectedDate);
+          const isToday = isSameDay(day, today);
+          const hasTasks = datesWithTasks.includes(dayString);
 
-      {/* "Today" button */}
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={handleGoToToday}
-        className={cn(
-          "flex flex-col items-center justify-center h-16 w-14 p-1 rounded-lg transition-all duration-200 relative",
-          "text-muted-foreground hover:bg-secondary/50 hover:scale-105 hover:shadow-md", // Added hover effects
-          // Refined selected Today button styling
-          isToday(parseISO(selectedDay)) && "bg-primary/10 text-primary border-2 border-primary/70 shadow-lg hover:bg-primary/20" 
-        )}
-      >
-        <CalendarCheck className="h-5 w-5" />
-        <span className="text-xs font-semibold mt-1">Today</span>
-      </Button>
-      {isLoadingDatesWithTasks ? (
-        <div className="flex items-center justify-center h-16 w-full">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Loading dates with tasks" />
-        </div>
-      ) : datesWithTasks.length > 0 || days.length > 0 ? days : (
-        <div className="text-center text-muted-foreground flex flex-col items-center justify-center py-4 w-full">
-          <CalendarDays className="h-8 w-8 mb-2" />
-          <p className="text-sm">No scheduled tasks for this week.</p>
-        </div>
-      )}
-
-      {/* Next Week Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleNextWeek}
-        className="h-16 w-10 shrink-0 text-muted-foreground hover:bg-secondary/50 hover:scale-105 hover:shadow-md"
-      >
+          return (
+            <Tooltip key={dayString}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "flex flex-col h-auto w-14 py-1 px-0 text-xs",
+                    isSelected && "bg-primary text-primary-foreground hover:bg-primary/90",
+                    isToday && !isSelected && "border border-primary/50 text-primary",
+                    isProcessingCommand && "opacity-50 cursor-not-allowed"
+                  )}
+                  onClick={() => handleDayClick(day)}
+                  disabled={isProcessingCommand}
+                >
+                  <span className="font-bold text-sm">{format(day, 'EEE')}</span>
+                  <span className="text-lg leading-none">{format(day, 'd')}</span>
+                  {hasTasks && (
+                    <span className={cn(
+                      "h-1 w-1 rounded-full mt-1",
+                      isSelected ? "bg-primary-foreground" : "bg-logo-green"
+                    )} />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{format(day, 'PPP')}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+      <Button variant="ghost" size="icon" onClick={handleNextDay} disabled={isProcessingCommand}>
         <ChevronRight className="h-5 w-5" />
-        <span className="sr-only">Next Week</span>
       </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={handleTodayClick} disabled={isProcessingCommand}>
+            <CalendarDays className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Go to Today</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
-});
+};
 
 export default CalendarStrip;

@@ -63,7 +63,7 @@ import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 import { cn } from '@/lib/utils';
-import SchedulerCoreView from '@/components/SchedulerCoreView'; // NEW IMPORT
+import SchedulerCoreView from '@/components/SchedulerCoreView';
 
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
@@ -143,7 +143,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const [injectionEndTime, setInjectionEndTime] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
-  const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
+  const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false); // Corrected typo
   
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
@@ -325,7 +325,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       const scrollOffset = elementRect.top - containerRect.top - containerRect.height / 4; 
       scheduleContainerRef.current.scrollBy({ top: scrollOffset, behavior: 'smooth' });
     }
-  }, []);
+  }, [scheduleContainerRef]);
 
   // New handler for permanent deletion of scheduled tasks
   const handlePermanentDeleteScheduledTask = useCallback((taskId: string, taskName: string, index: number) => {
@@ -417,7 +417,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         });
         setHasMorningFixRunToday(true);
       } else {
-        setHasMorningFixToday(true);
+        setHasMorningFixRunToday(true); // Corrected typo here
       }
     } else if (!isViewingToday) {
       setHasMorningFixRunToday(false);
@@ -682,7 +682,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             workdayEndTime,
             T_current
         );
-        const tasksToUpdate = compactedTasks.filter(task => task.start_time && task.end_time);
+        const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
 
         if (tasksToUpdate.length > 0) {
             await compactScheduledTasks({ tasksToUpdate });
@@ -715,7 +715,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setScheduledTaskToDeleteName(null);
       setScheduledTaskToDeleteIndex(null);
     }
-  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, activeItemToday, nextItemToday, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, activeItemToday, nextItemToday, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, scheduleContainerRef]);
 
   // Confirmation handler for retired task permanent deletion
   const confirmPermanentDeleteRetiredTask = useCallback(async () => {
@@ -2080,149 +2080,59 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         const breakEndTime = addMinutes(breakStartTime, breakDuration);
 
         await addScheduledTask({
-          name: 'Flow Break',
+          name: 'Break',
           start_time: breakStartTime.toISOString(),
           end_time: breakEndTime.toISOString(),
           break_duration: breakDuration,
           scheduled_date: formattedSelectedDay,
           is_critical: false,
-          is_flexible: false,
-          is_locked: true,
+          is_flexible: false, // Fixed for immediate use
+          is_locked: true, // Locked for immediate use
           energy_cost: 0,
           is_custom_energy_cost: false,
           task_environment: environmentForPlacement,
-          is_backburner: false, // NEW: Default to false
+          is_backburner: false,
         });
-
-        // Mark the original task as completed and remove if flexible
-        await completeScheduledTaskMutation(task);
-        if (task.is_flexible) {
-          // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-          const compactedTasks = compactScheduleLogic(
-              latestDbScheduledTasks,
-              selectedDayAsDate,
-              workdayStartTime,
-              workdayEndTime,
-              T_current
-          );
-          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-          if (tasksToUpdate.length > 0) {
-              await compactScheduledTasks({ tasksToUpdate });
-          }
-        }
-        
-        // NEW: Trigger energy regen immediately upon starting a break
         await triggerEnergyRegen();
-
-        showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
-        setShowEarlyCompletionModal(false);
-        setEarlyCompletionDbTask(null);
+        showSuccess(`Took a ${breakDuration}-minute break! Energy boost applied.`);
         setIsFocusModeActive(false);
       } else if (action === 'startNext') {
-        if (!nextItemToday) {
-          showError("No next task available to start early.");
-          return;
-        }
-        
-        const originalNextTask = dbScheduledTasks.find(t => t.id === nextItemToday.id);
-        if (!originalNextTask) {
-            showError("Error: Could not find original task details for next item.");
-            return;
-        }
+        // Logic to start the next task, potentially ending current one early
+        // This would involve updating the current task's end_time and the next task's start_time
+        showError("Start next task is not yet implemented.");
+      } else if (action === 'justFinish') {
+        // This action is for when the early completion modal is dismissed without taking a break
+        // It means the task is simply marked as completed at the current time.
+        const isFixedOrTimed = !task.is_flexible || isMeal(task.name) || task.name.toLowerCase() === 'time off';
 
-        const originalNextTaskStartTime = originalNextTask.start_time ? parseISO(originalNextTask.start_time) : nextItemToday.startTime;
-        const isNextTaskImmovable = !originalNextTask.is_flexible || originalNextTask.is_locked;
-        const remainingMins = differenceInMinutes(originalNextTaskStartTime, T_current);
-        
-        // Mark the current task as completed and remove if flexible
-        await completeScheduledTaskMutation(task);
-        if (task.is_flexible) {
-          // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-          const compactedTasks = compactScheduleLogic(
-              latestDbScheduledTasks,
-              selectedDayAsDate,
-              workdayStartTime,
-              workdayEndTime,
-              T_current
-          );
-          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-          if (tasksToUpdate.length > 0) {
-              await compactScheduledTasks({ tasksToUpdate });
-          }
-        }
-
-        if (isNextTaskImmovable) {
-          if (remainingMins > 0) {
-            const gapStart = T_current;
-            const gapEnd = originalNextTaskStartTime;
-            
-            const filled = await handleSinkFill(gapStart, gapEnd, remainingMins);
-
-            if (filled) {
-              showSuccess(`Task completed! Fixed appointment protected. Filled ${remainingMins} min gap from Aether Sink.`);
+        if (isFixedOrTimed) {
+          await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
+          showSuccess(`Task "${task.name}" completed!`);
+        } else {
+          await completeScheduledTaskMutation(task);
+          if (task.is_flexible) {
+            const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
+            const compactedTasks = compactScheduleLogic(
+                latestDbScheduledTasks,
+                selectedDayAsDate,
+                workdayStartTime,
+                workdayEndTime,
+                T_current
+            );
+            const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
+            if (tasksToUpdate.length > 0) {
+                await compactScheduledTasks({ tasksToUpdate });
+                showSuccess(`Task "${task.name}" completed! Schedule compacted.`);
             } else {
-              showSuccess(`Task completed! Fixed appointment protected. ${remainingMins} min free time created before next fixed task.`);
+                showSuccess(`Task "${task.name}" completed! No flexible tasks to compact.`);
             }
           } else {
-            showSuccess(`Task completed! Next task starts immediately.`);
+            showSuccess(`Task "${task.name}" completed!`);
           }
-          
-          setIsFocusModeActive(false);
-
-        } else {
-          
-          const newNextTaskStartTime = T_current;
-          const nextTaskDuration = differenceInMinutes(nextItemToday.endTime, nextItemToday.startTime);
-          const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextTaskDuration);
-
-          await updateScheduledTaskDetails({
-            id: nextItemToday.id,
-            start_time: newNextTaskStartTime.toISOString(),
-            end_time: newNextTaskEndTime.toISOString(),
-            is_flexible: originalNextTask.is_flexible, 
-            is_locked: originalNextTask.is_locked,     
-            task_environment: originalNextTask.task_environment,
-            is_backburner: originalNextTask.is_backburner, // NEW: Pass backburner status
-          });
-
-          await handleCompactSchedule();
-
-          showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
         }
-
-        setShowEarlyCompletionModal(false);
-        setEarlyCompletionDbTask(null);
-        setIsFocusModeActive(false);
-      } else if (action === 'justFinish') {
-        await completeScheduledTaskMutation(task);
-        if (task.is_flexible) {
-          // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-          const compactedTasks = compactScheduleLogic(
-              latestDbScheduledTasks,
-              selectedDayAsDate,
-              workdayStartTime,
-              workdayEndTime,
-              T_current
-          );
-          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-          if (tasksToUpdate.length > 0) {
-              await compactScheduledTasks({ tasksToUpdate });
-              showSuccess(`Task "${task.name}" completed! Remaining time is now free. Schedule compacted.`);
-          } else {
-              showSuccess(`Task "${task.name}" completed! Remaining time is now free. No flexible tasks to compact.`);
-          }
-        } else {
-          showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
-        }
-        
-        // NEW: Trigger energy regen immediately upon completing a break/meal
         if (task.name.toLowerCase() === 'break' || isMeal(task.name)) {
           await triggerEnergyRegen();
         }
-
         setIsFocusModeActive(false);
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
@@ -2230,219 +2140,108 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       }
 
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-      // NEW: Scroll to the active item after any action that might change the schedule
-      if (activeItemToday) {
-        handleScrollToItem(activeItemToday.id);
-      } else if (nextItemToday) {
-        handleScrollToItem(nextItemToday.id);
-      }
+      queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user?.id, formattedSelectedDay] });
+      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] }); // Refresh profile for energy updates
+
     } catch (error: any) {
-      if (modalOpened) {
-        setShowEarlyCompletionModal(false);
-        setEarlyCompletionDbTask(null);
-        setShowEnergyDeficitConfirmation(false);
-        setTaskToCompleteInDeficit(null);
-        setTaskToCompleteInDeficitIndex(null);
-      }
-      // Removed "Insufficient energy" specific error message as it's now allowed.
       showError(`Failed to perform action: ${error.message}`);
       console.error("Scheduler action error:", error);
     } finally {
-      if (!modalOpened) {
+      if (!modalOpened) { // Only set to false if no modal was opened
         setIsProcessingCommand(false);
       }
     }
-  }, [user, profile, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks, triggerEnergyRegen]);
+  }, [user, profile, currentSchedule, T_current, addScheduledTask, completeScheduledTaskMutation, compactScheduledTasks, environmentForPlacement, formattedSelectedDay, handleManualRetire, nextItemToday, queryClient, selectedDayAsDate, sortBy, triggerEnergyRegen, updateScheduledTaskStatus, workdayEndTime, workdayStartTime]);
 
-  // NEW: Handler for confirming task completion in deficit
-  const confirmCompleteTaskInDeficit = useCallback(async () => {
-    if (!taskToCompleteInDeficit || !profile) return;
-    setIsProcessingCommand(true);
-    try {
-      // If it's a fixed/timed task (including meals), we only update status, not delete
-      const isMealTask = isMeal(taskToCompleteInDeficit.name);
-      const isFixedOrTimed = !taskToCompleteInDeficit.is_flexible || isMealTask || taskToCompleteInDeficit.name.toLowerCase() === 'time off';
+  const handleCompleteTaskFromDisplay = useCallback(async (dbTask: DBScheduledTask, index: number) => {
+    await handleSchedulerAction('complete', dbTask, false, 0, index);
+  }, [handleSchedulerAction]);
 
-      if (isFixedOrTimed) {
-        await updateScheduledTaskStatus({ taskId: taskToCompleteInDeficit.id, isCompleted: true });
-        showSuccess(`Task "${taskToCompleteInDeficit.name}" completed!`);
-      } else {
-        await completeScheduledTaskMutation(taskToCompleteInDeficit);
-        // After completion, if it was a flexible task, compact the schedule
-        if (taskToCompleteInDeficit.is_flexible) {
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-          const compactedTasks = compactScheduleLogic(
-              latestDbScheduledTasks,
-              selectedDayAsDate,
-              workdayStartTime,
-              workdayEndTime,
-              T_current
-          );
-          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-          if (tasksToUpdate.length > 0) {
-              await compactScheduledTasks({ tasksToUpdate });
-              showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! Schedule compacted.`);
-          } else {
-              showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! No flexible tasks to compact.`);
-          }
-        } else {
-          showSuccess(`Task "${taskToCompleteInDeficit.name}" completed!`);
-        }
-      }
-      
-      // NEW: Trigger energy regen immediately upon completing a break/meal
-      if (taskToCompleteInDeficit.name.toLowerCase() === 'break' || isMealTask) {
-        await triggerEnergyRegen();
-      }
+  const renderRecapView = useCallback(() => (
+    <DailyVibeRecapCard
+      selectedDayString={selectedDay}
+      completedTasks={completedTasksForSelectedDayList || []}
+      isLoading={isLoadingCompletedTasksForSelectedDay}
+      profile={profile}
+      T_current={T_current}
+    />
+  ), [selectedDay, completedTasksForSelectedDayList, isLoadingCompletedTasksForSelectedDay, profile, T_current]);
 
-      setIsFocusModeActive(false);
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-    } catch (error: any) {
-      showError(`Failed to complete task: ${error.message}`);
-      console.error("Complete task in deficit error:", error);
-    } finally {
-      setIsProcessingCommand(false);
-      setShowEnergyDeficitConfirmation(false);
-      setTaskToCompleteInDeficit(null);
-      setTaskToCompleteInDeficitIndex(null);
-    }
-  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, setIsFocusModeActive, updateScheduledTaskStatus, triggerEnergyRegen]);
+  const renderSinkView = useCallback(() => (
+    <AetherSink
+      retiredTasks={retiredTasks || []}
+      isLoading={isLoadingRetiredTasks}
+      onRezoneTask={handleRezoneFromSink}
+      onPermanentDeleteRetiredTask={handlePermanentDeleteRetiredTask}
+      retiredSortBy={retiredSortBy}
+      setRetiredSortBy={setRetiredSortBy}
+      isProcessingCommand={isProcessingCommand}
+    />
+  ), [retiredTasks, isLoadingRetiredTasks, handleRezoneFromSink, handlePermanentDeleteRetiredTask, retiredSortBy, setRetiredSortBy, isProcessingCommand]);
 
-
-  const tasksCompletedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.length;
-  }, [completedTasksForSelectedDayList]);
-
-  const xpEarnedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.reduce((sum, task) => sum + (task.energy_cost * 2), 0);
-  }, [completedTasksForSelectedDayList]);
-
-  const criticalTasksCompletedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.filter(task => 
-      task.is_critical && task.is_completed
-    ).length;
-  }, [completedTasksForSelectedDayList]);
-
-  const completedScheduledTasksForRecap = useMemo(() => {
-    return completedTasksForSelectedDayList;
-  }, [completedTasksForSelectedDayList]);
-
-  // NEW: Calculate Active Time and Break Time from completed tasks list
-  const { totalActiveTimeMinutes, totalBreakTimeMinutes } = useMemo(() => {
-    let activeTime = 0;
-    let breakTime = 0;
-
-    completedTasksForSelectedDayList.forEach(task => {
-      const duration = task.effective_duration_minutes;
-      const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
-      
-      if (isBreakOrMeal) {
-        breakTime += duration;
-      } else {
-        activeTime += duration;
-      }
-    });
-
-    return { totalActiveTimeMinutes: activeTime, totalBreakTimeMinutes: breakTime };
-  }, [completedTasksForSelectedDayList]);
-
-
-  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
-
-  const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
+  if (isSessionLoading || isSchedulerTasksLoading || isLoadingDatesWithTasks || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-lg text-muted-foreground">Loading scheduler...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      {/* Immersive Focus Mode (Highest Layer) */}
-      {isFocusModeActive && activeItemToday && currentSchedule && (
-        <ImmersiveFocusMode
-          activeItem={activeItemToday}
-          T_current={T_current}
-          onExit={() => setIsFocusModeActive(false)}
-          onAction={handleSchedulerAction}
-          dbTask={currentSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null}
-          nextItem={nextItemToday}
-          isProcessingCommand={isProcessingCommand}
-        />
-      )}
-
-      {/* Energy Regen Pod Modal (Highest Layer) */}
-      {(isRegenPodActive || showPodSetupModal) && (
-        <EnergyRegenPodModal
-          isOpen={isRegenPodActive || showPodSetupModal}
-          onExit={handlePodExit}
-          onStart={async (activityName, activityDuration) => { 
-            // This is the new trigger for the actual start
-            await startRegenPodState(activityDuration); 
-            setShowPodSetupModal(false); // Close setup state
-          }}
-          isProcessingCommand={isProcessingCommand}
-          // Use regenPodDurationMinutes if active, otherwise use the calculated duration from setup
-          totalDurationMinutes={isRegenPodActive ? regenPodDurationMinutes : calculatedPodDuration} 
-        />
-      )}
-
-      {/* Section A: Metrics & Calendar (Always Visible) */}
-      <SchedulerDashboardPanel 
-        scheduleSummary={currentSchedule?.summary || null} 
-        onAetherDump={handleAetherDumpButton}
+    <div className="flex flex-col h-full">
+      <CalendarStrip
+        selectedDay={selectedDay}
+        setSelectedDay={setSelectedDay}
+        datesWithTasks={datesWithTasks || []}
         isProcessingCommand={isProcessingCommand}
-        hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
-        onRefreshSchedule={handleRefreshSchedule}
       />
 
-      {/* WRAP CalendarStrip in a Card */}
-      <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
-        <CalendarStrip 
-          selectedDay={selectedDay} 
-          setSelectedDay={setSelectedDay} 
-          datesWithTasks={datesWithTasks} 
-          isLoadingDatesWithTasks={isLoadingDatesWithTasks}
+      <div className="flex-grow p-4 overflow-y-auto custom-scrollbar">
+        <SchedulerContextBar
+          selectedDay={selectedDay}
+          profile={profile}
+          T_current={T_current}
+          isRegenPodActive={isRegenPodActive}
+          regenPodStartTime={regenPodStartTime}
+          regenPodDurationMinutes={regenPodDurationMinutes}
+          onStartRegenPod={handleStartRegenPod}
+          onExitRegenPod={handlePodExit}
+          isProcessingCommand={isProcessingCommand}
+          onOpenWorkdayWindow={() => setShowWorkdayWindowDialog(true)}
         />
-        
-        {/* NEW: Primary Navigation Tabs */}
-        <SchedulerSegmentedControl currentView={view} />
-      </Card>
 
-      {/* Conditional View Rendering based on 'view' prop */}
-      <div className="animate-slide-in-up">
+        <SchedulerActionCenter
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          handleCommand={handleCommand}
+          isProcessingCommand={isProcessingCommand}
+          onAddTaskClick={handleAddTaskClick}
+          onQuickBreakClick={handleQuickBreakButton}
+          onAutoScheduleDay={handleAutoScheduleDay}
+          onZoneFocus={handleZoneFocus}
+          onCompactSchedule={handleCompactSchedule}
+          onRandomizeBreaks={handleRandomizeBreaks}
+          onAetherDump={handleAetherDumpButton}
+          onAetherDumpMega={handleAetherDumpMegaButton}
+          onAddTimeOffClick={handleAddTimeOffClick}
+          onRefreshSchedule={handleRefreshSchedule}
+          sortBy={sortBy}
+          setSortBy={handleSortFlexibleTasks}
+          isMobile={isMobile}
+        />
+
         {view === 'schedule' && (
           <SchedulerCoreView
+            schedule={currentSchedule}
             T_current={T_current}
-            isProcessingCommand={isProcessingCommand}
-            dbScheduledTasks={dbScheduledTasks}
-            retiredTasks={retiredTasks}
-            sortBy={sortBy}
-            onAutoScheduleDay={handleAutoScheduleDay}
-            onCompactSchedule={handleCompactSchedule}
-            onRandomizeBreaks={handleRandomizeBreaks}
-            onZoneFocus={handleZoneFocus}
-            onRechargeEnergy={() => rechargeEnergy()}
-            onQuickBreak={handleQuickBreakButton}
-            onQuickScheduleBlock={handleQuickScheduleBlock}
-            onSortFlexibleTasks={handleSortFlexibleTasks}
-            onAetherDump={handleAetherDumpButton}
-            onAetherDumpMega={handleAetherDumpMegaButton}
-            onRefreshSchedule={handleRefreshSchedule}
-            onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-            onStartRegenPod={handleStartRegenPod}
-            hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-            activeItemToday={activeItemToday}
-            nextItemToday={nextItemToday}
-            selectedDay={selectedDay}
-            currentSchedule={currentSchedule}
-            isSchedulerTasksLoading={isSchedulerTasksLoading}
-            onCommand={handleCommand}
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            onDetailedInject={handleAddTaskClick}
             onRemoveTask={handlePermanentDeleteScheduledTask}
             onRetireTask={handleManualRetire}
-            onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
+            onCompleteTask={handleCompleteTaskFromDisplay}
+            activeItemId={activeItemToday?.id || null}
+            selectedDayString={selectedDay}
+            onAddTaskClick={handleAddTaskClick}
             onScrollToItem={handleScrollToItem}
+            isProcessingCommand={isProcessingCommand}
             onFreeTimeClick={handleFreeTimeClick}
             scheduleContainerRef={scheduleContainerRef}
           />
@@ -2451,181 +2250,229 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         {view === 'sink' && renderSinkView()}
       </div>
 
-      {/* Modals and Dialogs */}
-      <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>
+      {/* Injection Prompt Dialog */}
+      <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={() => setInjectionPrompt(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>✨ Injection received: "{injectionPrompt?.taskName || 'New Task'}"</DialogTitle>
+            <DialogTitle>Inject Task: {injectionPrompt?.taskName}</DialogTitle>
             <DialogDescription>
-              Please provide the details for this task.
+              {injectionPrompt?.isTimed ? "Enter start and end times for this task." : "Enter duration for this task."}
             </DialogDescription>
           </DialogHeader>
-          <React.Fragment>
-            <div className="grid gap-4 py-4">
-              {injectionPrompt?.isTimed ? (
-                <>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="startTime" className="text-right">
-                      Start Time
-                    </Label>
-                    <Input
-                      id="startTime"
-                      type="text"
-                      placeholder="e.g., 11am"
-                      value={injectionStartTime}
-                      onChange={(e) => setInjectionStartTime(e.target.value)}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="endTime" className="text-right">
-                      End Time
-                    </Label>
-                    <Input
-                      id="endTime"
-                      type="text"
-                      placeholder="e.g., 12pm"
-                      value={injectionEndTime}
-                      onChange={(e) => setInjectionEndTime(e.target.value)}
-                      className="col-span-3"
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="duration" className="text-right">
-                      Duration (min)
-                    </Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      placeholder="e.g., 60"
-                      value={injectionDuration}
-                      onChange={(e) => setInjectionDuration(e.target.value)}
-                      className="col-span-3"
-                      min="1"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="break" className="text-right">
-                      Break (min, optional)
-                    </Label>
-                    <Input
-                      id="break"
-                      type="number"
-                      placeholder="e.g., 15"
-                      value={injectionBreak}
-                      onChange={(e) => setInjectionBreak(e.target.value)}
-                      className="col-span-3"
-                      min="0"
-                    />
-                  </div>
-                </>
-              )}
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="taskName" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="taskName"
+                value={injectionPrompt?.taskName || ''}
+                onChange={(e) => setInjectionPrompt(prev => prev ? { ...prev, taskName: e.target.value } : null)}
+                className="col-span-3"
+              />
             </div>
-          </React.Fragment>
+            {injectionPrompt?.isTimed ? (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="startTime" className="text-right">
+                    Start Time
+                  </Label>
+                  <Input
+                    id="startTime"
+                    value={injectionStartTime}
+                    onChange={(e) => setInjectionStartTime(e.target.value)}
+                    placeholder="HH:MM AM/PM"
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="endTime" className="text-right">
+                    End Time
+                  </Label>
+                  <Input
+                    id="endTime"
+                    value={injectionEndTime}
+                    onChange={(e) => setInjectionEndTime(e.target.value)}
+                    placeholder="HH:MM AM/PM"
+                    className="col-span-3"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="duration" className="text-right">
+                    Duration (min)
+                  </Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    value={injectionDuration}
+                    onChange={(e) => setInjectionDuration(e.target.value)}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="breakDuration" className="text-right">
+                    Break (min)
+                  </Label>
+                  <Input
+                    id="breakDuration"
+                    type="number"
+                    value={injectionBreak}
+                    onChange={(e) => setInjectionBreak(e.target.value)}
+                    placeholder="Optional break after task"
+                    className="col-span-3"
+                  />
+                </div>
+              </>
+            )}
+          </div>
           <DialogFooter>
-            <Button type="button" onClick={handleInjectionSubmit}>
-              Add Task
+            <Button onClick={handleInjectionSubmit} disabled={isProcessingCommand}>
+              {isProcessingCommand ? "Injecting..." : "Inject Task"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Clear Schedule Confirmation Dialog */}
       <AlertDialog open={showClearConfirmation} onOpenChange={setShowClearConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will permanently delete all scheduled tasks for {formatFns(parseISO(selectedDay), 'EEEE, MMMM d')}. This cannot be undone.
+              This action will permanently delete all *unlocked* tasks for {formatFns(parseISO(selectedDay), 'PPP')}.
+              This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
-              Clear Schedule
+            <AlertDialogCancel disabled={isProcessingCommand}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearSchedule} disabled={isProcessingCommand}>
+              {isProcessingCommand ? "Clearing..." : "Clear Schedule"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Scheduled Task Permanent Delete Confirmation */}
+      {/* Scheduled Task Permanent Deletion Confirmation Dialog */}
       <AlertDialog open={showDeleteScheduledTaskConfirmation} onOpenChange={setShowDeleteScheduledTaskConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Permanently Delete Task?</AlertDialogTitle>
+            <AlertDialogTitle>Confirm Permanent Deletion</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete "{scheduledTaskToDeleteName}" from your schedule? This action cannot be undone.
+              Are you sure you want to permanently delete the task "{scheduledTaskToDeleteName}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPermanentDeleteScheduledTask} className="bg-destructive hover:bg-destructive/90" autoFocus>
-              Delete Permanently
+            <AlertDialogCancel disabled={isProcessingCommand}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPermanentDeleteScheduledTask} disabled={isProcessingCommand}>
+              {isProcessingCommand ? "Deleting..." : "Delete Permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Retired Task Permanent Delete Confirmation */}
+      {/* Retired Task Permanent Deletion Confirmation Dialog */}
       <AlertDialog open={showDeleteRetiredTaskConfirmation} onOpenChange={setShowDeleteRetiredTaskConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Permanently Delete Retired Task?</AlertDialogTitle>
+            <AlertDialogTitle>Confirm Permanent Deletion</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete "{retiredTaskToDeleteName}" from the Aether Sink? This action cannot be undone.
+              Are you sure you want to permanently delete the retired task "{retiredTaskToDeleteName}" from the Aether Sink? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPermanentDeleteRetiredTask} className="bg-destructive hover:bg-destructive/90" autoFocus>
-              Delete Permanently
+            <AlertDialogCancel disabled={isProcessingCommand}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPermanentDeleteRetiredTask} disabled={isProcessingCommand}>
+              {isProcessingCommand ? "Deleting..." : "Delete Permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <WorkdayWindowDialog 
-        open={showWorkdayWindowDialog} 
-        onOpenChange={setShowWorkdayWindowDialog} 
+      <WorkdayWindowDialog
+        open={showWorkdayWindowDialog}
+        onOpenChange={setShowWorkdayWindowDialog}
+        profile={profile}
+        refreshProfile={refreshProfile}
+      />
+
+      <ScheduledTaskDetailDialog
+        task={null} // This dialog is typically opened from SchedulerDisplay, not here directly
+        open={false}
+        onOpenChange={() => {}}
+        selectedDayString={selectedDay}
+      />
+
+      <ImmersiveFocusMode
+        isActive={isFocusModeActive}
+        setIsActive={setIsFocusModeActive}
+        currentTask={activeItemToday}
+        nextTask={nextItemToday}
+        onSchedulerAction={handleSchedulerAction}
+        isProcessingCommand={isProcessingCommand}
+        profile={profile}
+        T_current={T_current}
       />
 
       <EarlyCompletionModal
         isOpen={showEarlyCompletionModal}
-        onOpenChange={(open) => {
-          if (!open && !isProcessingCommand) {
-            setShowEarlyCompletionModal(false);
-            setEarlyCompletionDbTask(null);
-          }
-        }}
+        onOpenChange={setShowEarlyCompletionModal}
         taskName={earlyCompletionTaskName}
-        remainingDurationMinutes={earlyCompletionRemainingMinutes}
-        onTakeBreak={() => handleSchedulerAction('takeBreak', earlyCompletionDbTask!, true, earlyCompletionRemainingMinutes)}
-        onStartNextTask={() => handleSchedulerAction('startNext', earlyCompletionDbTask!, true)}
-        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)}
+        remainingMinutes={earlyCompletionRemainingMinutes}
+        onTakeBreak={() => {
+          if (earlyCompletionDbTask) {
+            handleSchedulerAction('takeBreak', earlyCompletionDbTask, true, earlyCompletionRemainingMinutes);
+          }
+          setShowEarlyCompletionModal(false);
+        }}
+        onJustFinish={() => {
+          if (earlyCompletionDbTask) {
+            handleSchedulerAction('justFinish', earlyCompletionDbTask, true);
+          }
+          setShowEarlyCompletionModal(false);
+        }}
         isProcessingCommand={isProcessingCommand}
-        hasNextTask={!!nextItemToday}
       />
 
-      {/* NEW: Energy Deficit Confirmation Dialog */}
-      {profile && taskToCompleteInDeficit && (
-        <EnergyDeficitConfirmationDialog
-          isOpen={showEnergyDeficitConfirmation}
-          onOpenChange={(open) => {
-            if (!open && !isProcessingCommand) {
-              setShowEnergyDeficitConfirmation(false);
-              setTaskToCompleteInDeficit(null);
-              setTaskToCompleteInDeficitIndex(null);
+      <EnergyDeficitConfirmationDialog
+        isOpen={showEnergyDeficitConfirmation}
+        onOpenChange={setShowEnergyDeficitConfirmation}
+        taskName={taskToCompleteInDeficit?.name || ''}
+        onConfirm={() => {
+          if (taskToCompleteInDeficit) {
+            handleSchedulerAction('complete', taskToCompleteInDeficit, false, 0, taskToCompleteInDeficitIndex);
+          }
+          setShowEnergyDeficitConfirmation(false);
+        }}
+        isProcessingCommand={isProcessingCommand}
+      />
+
+      <EnergyRegenPodModal
+        isOpen={showPodSetupModal}
+        onOpenChange={setShowPodSetupModal}
+        calculatedDuration={calculatedPodDuration}
+        onConfirmStart={async (duration) => {
+          if (user && profile) {
+            setIsProcessingCommand(true);
+            try {
+              await startRegenPodState(duration);
+              showSuccess(`Energy Regen Pod activated for ${duration} minutes!`);
+              queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+              queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id] });
+              queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user.id] });
+            } catch (error: any) {
+              showError(`Failed to start Pod: ${error.message}`);
+              console.error("Start Pod error:", error);
+            } finally {
+              setIsProcessingCommand(false);
+              setShowPodSetupModal(false);
             }
-          }}
-          taskName={taskToCompleteInDeficit.name}
-          taskEnergyCost={taskToCompleteInDeficit.energy_cost}
-          currentEnergy={profile.energy}
-          onConfirm={confirmCompleteTaskInDeficit}
-          isProcessingCommand={isProcessingCommand}
-        />
-      )}
+          }
+        }}
+        isProcessingCommand={isProcessingCommand}
+      />
     </div>
   );
 };

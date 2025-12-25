@@ -1,15 +1,14 @@
 import React from 'react';
-import { CheckCircle, Zap, Sparkles, Clock, Utensils } from 'lucide-react'; // Added Utensils icon
+import { CheckCircle, Zap, Sparkles, Clock, Utensils } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { DBScheduledTask } from '@/types/scheduler'; // FIX: Import DBScheduledTask
+import { CompletedTaskLogEntry } from '@/types/scheduler'; // FIX: Import CompletedTaskLogEntry
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { getEmojiHue, assignEmoji, isMeal } from '@/lib/scheduler-utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CompletedTaskLogItemProps {
-  // Note: This component now receives data that is structurally compatible with DBScheduledTask,
-  // but the duration fields are guaranteed to be accurate for display (effective_duration_minutes).
-  task: DBScheduledTask & { effective_duration_minutes?: number };
+  // FIX: The task prop should be of type CompletedTaskLogEntry
+  task: CompletedTaskLogEntry;
 }
 
 const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => {
@@ -17,12 +16,8 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
   const ambientBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`;
   const accentBorderColor = `hsl(${hue} 70% 50%)`;
 
-  // Use effective_duration_minutes if available, otherwise fall back to calculation/default
-  const timeUsedMinutes = task.effective_duration_minutes ?? (
-    task.start_time && task.end_time
-      ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time))
-      : task.break_duration || 0
-  ); 
+  // Use effective_duration_minutes which is guaranteed to be present in CompletedTaskLogEntry
+  const timeUsedMinutes = task.effective_duration_minutes; 
 
   const xpEarned = task.energy_cost * 2;
   const completedTime = task.updated_at ? format(parseISO(task.updated_at), 'h:mm a') : 'N/A';

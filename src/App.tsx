@@ -18,11 +18,6 @@ import ModelPage from "./pages/ModelPage";
 
 const queryClient = new QueryClient();
 
-// Define the props for SchedulerPage to be used in the routes
-interface SchedulerPageProps {
-  view: 'schedule' | 'sink' | 'recap';
-}
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

@@ -9,7 +9,11 @@ import { differenceInMinutes, parseISO, isAfter, addMinutes } from 'date-fns';
 import EnergyFeedbackSlider from '@/components/EnergyFeedbackSlider';
 import { analyzeEnergyPatterns } from '@/lib/learning-engine';
 
-const SchedulerPage = () => {
+interface SchedulerPageProps {
+  view: 'schedule' | 'sink' | 'recap';
+}
+
+const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   // Mock state and variables for context
   const [showEnergyFeedback, setShowEnergyFeedback] = useState(false);
   const [feedbackTask, setFeedbackTask] = useState<DBScheduledTask | null>(null);

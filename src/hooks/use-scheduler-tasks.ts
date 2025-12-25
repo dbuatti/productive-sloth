@@ -65,6 +65,7 @@ export const useSchedulerTasks = (selectedDay: string, scheduleContainerRef: any
   const updateScheduledTaskDetails = useCallback(async (props: any) => {}, []);
   const deleteTask = useCallback(async (props: any) => {}, []);
   const addScheduledTask = useCallback(async (props: any) => {}, []);
+  const toggleRetiredTaskLock = useCallback(async (props: any) => {}, []); // Added missing function
 
   return {
     updateScheduledTaskStatus,
@@ -81,5 +82,6 @@ export const useSchedulerTasks = (selectedDay: string, scheduleContainerRef: any
     deleteTask,
     addScheduledTask,
     submitEnergyFeedback: submitEnergyFeedbackMutation.mutate,
+    toggleRetiredTaskLock, // Added to return object
   };
 };

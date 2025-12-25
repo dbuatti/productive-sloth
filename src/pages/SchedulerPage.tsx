@@ -34,23 +34,21 @@ export interface SchedulerPageProps {
 }
 
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
+  // Fix 3: Ensure profile is destructured here so it's available in the entire component scope
   const { 
-    user, rechargeEnergy, T_current, 
+    user, profile, rechargeEnergy, T_current, 
     activeItemToday, nextItemToday 
   } = useSession();
   
   const isMobile = useIsMobile();
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
   
-  // State
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
   const [showWorkdayDialog, setShowWorkdayDialog] = useState(false);
-  const [injectionPrompt, setInjectionPrompt] = useState<any>(null);
 
-  // Scheduler Hook
   const { 
     dbScheduledTasks, isLoading: isTasksLoading, retiredTasks,
     datesWithTasks, isLoadingDatesWithTasks, isLoadingRetiredTasks,
@@ -60,12 +58,19 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const handleCommand = async (input: string) => {
-    // Logic implementation for command parsing
     console.log("Command received:", input);
+    // Implementation logic here
   };
+
+  // Fix 2: Wrap rezoneTask to handle the object-to-string conversion
+  const onRezoneTaskHandler = useCallback(async (task: RetiredTask) => {
+    await rezoneTask(task.id);
+  }, [rezoneTask]);
 
   const renderScheduleCore = () => (
     <div className="space-y-6">
+      {/* Fix 1: SchedulerContextBar only receives T_current. 
+          Input props moved to SchedulerInput below. */}
       <div className="hidden lg:block">
         <SchedulerContextBar T_current={T_current} />
       </div>
@@ -88,7 +93,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             inputValue={inputValue}
             setInputValue={setInputValue}
             placeholder="Add task (e.g., 'Gym 60')"
-            onDetailedInject={() => setInjectionPrompt({ isOpen: true })}
+            onDetailedInject={() => {}}
           />
         </CardContent>
       </Card>
@@ -124,23 +129,19 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 bg-background/20">
-          {isTasksLoading ? (
-            <div className="flex justify-center py-20"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>
-          ) : (
-            <SchedulerDisplay 
-              schedule={null} 
-              T_current={T_current} 
-              onRemoveTask={() => {}}
-              onRetireTask={() => {}}
-              onCompleteTask={(task) => completeScheduledTask(task)}
-              activeItemId={activeItemToday?.id || null} 
-              selectedDayString={selectedDay} 
-              onAddTaskClick={() => {}}
-              onScrollToItem={() => {}}
-              isProcessingCommand={isProcessing}
-              onFreeTimeClick={() => {}}
-            />
-          )}
+          <SchedulerDisplay 
+            schedule={null} 
+            T_current={T_current} 
+            onRemoveTask={() => {}}
+            onRetireTask={() => {}}
+            onCompleteTask={(task) => completeScheduledTask(task)}
+            activeItemId={activeItemToday?.id || null} 
+            selectedDayString={selectedDay} 
+            onAddTaskClick={() => {}}
+            onScrollToItem={() => {}}
+            isProcessingCommand={isProcessing}
+            onFreeTimeClick={() => {}}
+          />
         </CardContent>
       </Card>
     </div>
@@ -148,6 +149,19 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-24 px-4">
+      {/* Immersive Focus Overlay */}
+      {isFocusModeActive && activeItemToday && (
+        <ImmersiveFocusMode
+          activeItem={activeItemToday}
+          T_current={T_current}
+          onExit={() => setIsFocusModeActive(false)}
+          onAction={() => {}}
+          dbTask={dbScheduledTasks.find(t => t.id === activeItemToday.id) || null}
+          nextItem={nextItemToday}
+          isProcessingCommand={isProcessing}
+        />
+      )}
+
       <SchedulerDashboardPanel 
         scheduleSummary={null} 
         onAetherDump={aetherDump}
@@ -170,12 +184,14 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         {view === 'schedule' && renderScheduleCore()}
         {view === 'sink' && (
           <AetherSink 
-            retiredTasks={retiredTasks} onRezoneTask={rezoneTask} 
+            retiredTasks={retiredTasks} 
+            onRezoneTask={onRezoneTaskHandler} // Fix 2: Used the wrapper handler
             onRemoveRetiredTask={(id) => removeRetiredTask(id)} 
             isLoading={isLoadingRetiredTasks} 
             isProcessingCommand={isProcessing} 
-            profileEnergy={profile?.energy || 0}
-            retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy}
+            profileEnergy={profile?.energy || 0} // Fix 3/4: profile is now in scope
+            retiredSortBy={retiredSortBy} 
+            setRetiredSortBy={setRetiredSortBy}
             onAutoScheduleSink={() => {}}
           />
         )}
@@ -184,7 +200,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
              tasksCompletedToday={0} xpEarnedToday={0} 
              selectedDayString={selectedDay} completedScheduledTasks={[]}
              totalActiveTimeMinutes={0} totalBreakTimeMinutes={0}
-             scheduleSummary={null} profileEnergy={profile?.energy || 0}
+             scheduleSummary={null} profileEnergy={profile?.energy || 0} // Fix 4: profile in scope
              criticalTasksCompletedToday={0}
           />
         )}

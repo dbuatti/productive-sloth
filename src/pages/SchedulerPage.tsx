@@ -48,11 +48,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     completeScheduledTask
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
-  // Handlers
+  // Logic Handlers
   const handleCommand = async (input: string) => {
     if (!input.trim()) return;
     console.log("Terminal Syncing Command:", input);
-    // Add parsing logic here
+    // Add command parsing logic here
   };
 
   const onRezoneTaskHandler = useCallback(async (task: RetiredTask) => {
@@ -61,12 +61,13 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
   const renderScheduleCore = () => (
     <div className="space-y-6">
-      {/* 1. Dashboard HUD: Information Only (Displays Time, Weather, Filter) */}
+      {/* MODULE 1: Dashboard HUD (Display Only) */}
       <div className="hidden lg:block">
+        {/* FIX: Only pass T_current here */}
         <SchedulerContextBar T_current={T_current} />
       </div>
 
-      {/* 2. Command Terminal: Interaction Only (Handles Inputs & Logic) */}
+      {/* MODULE 2: Command Terminal (Logic Only) */}
       <Card className="p-4 shadow-md animate-hover-lift bg-card/40 backdrop-blur-sm border-primary/10">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -74,7 +75,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {/* THE FIX: These logic props are now correctly passed to SchedulerInput */}
+          {/* THE FIX: Logic props moved from ContextBar to SchedulerInput */}
           <SchedulerInput 
             onCommand={async (val) => { 
               setIsProcessing(true); 
@@ -91,7 +92,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         </CardContent>
       </Card>
 
-      {/* 3. Action Center & Display */}
+      {/* Action Center & Timeline Hub */}
       <div className="hidden lg:block animate-slide-in-up">
         <SchedulerActionCenter 
           isProcessingCommand={isProcessing}

@@ -5,44 +5,42 @@
 @layer base {
   :root {
     /* AetherFlow - Light Theme */
-    --background: 220 30% 97%; /* Very light, cool grey-blue */
-    --foreground: 220 15% 10%; /* Deep, rich charcoal */
+    --background: 220 30% 97%;
+    --foreground: 220 15% 10%;
 
-    --card: 0 0% 100%; /* Crisp white cards */
+    --card: 0 0% 100%;
     --card-foreground: 220 15% 10%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 10%;
 
-    --primary: 190 80% 40%; /* Luminous Teal */
-    --primary-foreground: 0 0% 100%; /* White text on primary */
+    --primary: 190 80% 40%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 20% 92%; /* Soft light grey-blue */
-    --secondary-foreground: 220 10% 30%; /* Medium dark grey */
+    --secondary: 220 20% 92%;
+    --secondary-foreground: 220 10% 30%;
 
-    --muted: 220 18% 88%; /* Muted light grey */
-    --muted-foreground: 220 10% 50%; /* Medium grey */
+    --muted: 220 18% 88%;
+    --muted-foreground: 220 10% 50%;
 
-    --accent: 340 80% 60%; /* Vibrant Magenta/Coral */
-    --accent-foreground: 0 0% 100%; /* White text on accent */
+    --accent: 340 80% 60%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 80% 55%; /* Bold Red */
+    --destructive: 0 80% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 10% 80%; /* Light grey border */
-    --input: 220 10% 80%; /* Light grey input border */
-    --ring: 190 80% 40%; /* Primary luminous teal ring */
+    --border: 220 10% 80%;
+    --input: 220 10% 80%;
+    --ring: 190 80% 40%;
 
-    --radius: 0.6rem; /* Slightly more refined radius */
+    --radius: 0.75rem;
 
-    /* Custom colors for specific elements, adjusted for AetherFlow */
-    --logo-yellow: 45 100% 65%; /* Bright, energetic yellow */
-    --logo-orange: 25 100% 60%; /* Fiery orange */
-    --logo-green: 140 80% 45%; /* Vibrant green for LOW priority */
-    --live-progress: 180 100% 50%; /* Vibrant Cyan for live progress */
-    --always-light-text: 0 0% 95%; /* Consistently light text for dark backgrounds */
+    --logo-yellow: 45 100% 65%;
+    --logo-orange: 25 100% 60%;
+    --logo-green: 140 80% 45%;
+    --live-progress: 180 100% 50%;
+    --always-light-text: 0 0% 95%;
 
-    /* Sidebar variables (consistent with new palette) */
     --sidebar-background: 220 20% 95%;
     --sidebar-foreground: 220 15% 10%;
     --sidebar-primary: 190 80% 35%;
@@ -53,19 +51,18 @@
     --sidebar-ring: 190 80% 40%;
   }
 
-  /* AetherFlow - Dark Theme */
   .dark {
-    --background: 240 15% 8%; /* Deep, sophisticated dark purple-blue */
-    --foreground: 220 20% 95%; /* Luminous off-white */
+    --background: 240 15% 8%;
+    --foreground: 220 20% 95%;
 
-    --card: 240 15% 12%; /* Darker card background */
+    --card: 240 15% 12%;
     --card-foreground: 220 20% 95%;
 
     --popover: 240 15% 12%;
     --popover-foreground: 220 20% 95%;
 
-    --primary: 190 70% 55%; /* Brighter, glowing Teal for dark mode */
-    --primary-foreground: 240 15% 10%; /* Dark text on primary */
+    --primary: 190 70% 55%;
+    --primary-foreground: 240 15% 10%;
 
     --secondary: 240 15% 18%;
     --secondary-foreground: 220 10% 80%;
@@ -73,24 +70,22 @@
     --muted: 240 15% 15%;
     --muted-foreground: 220 10% 60%;
 
-    --accent: 340 70% 70%; /* Lighter, glowing Magenta/Coral for dark mode */
+    --accent: 340 70% 70%;
     --accent-foreground: 240 15% 10%;
 
-    --destructive: 0 70% 50%; /* Slightly softer red */
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 240 15% 25%;
     --input: 240 15% 25%;
-    --ring: 190 70% 55%; /* Primary luminous teal ring */
+    --ring: 190 70% 55%;
 
-    /* Custom colors for specific elements, adjusted for AetherFlow */
-    --logo-yellow: 45 90% 55%; /* Muted bright yellow */
-    --logo-orange: 25 90% 50%; /* Muted fiery orange */
-    --logo-green: 140 70% 35%; /* Muted vibrant green */
-    --live-progress: 180 100% 65%; /* Brighter Cyan for dark mode */
-    --always-light-text: 0 0% 95%; /* Consistently light text for dark backgrounds */
+    --logo-yellow: 45 90% 55%;
+    --logo-orange: 25 90% 50%;
+    --logo-green: 140 70% 35%;
+    --live-progress: 180 100% 65%;
+    --always-light-text: 0 0% 95%;
 
-    /* Sidebar variables (consistent with new palette) */
     --sidebar-background: 240 15% 10%;
     --sidebar-foreground: 220 20% 95%;
     --sidebar-primary: 190 70% 45%;
@@ -104,25 +99,23 @@
 
 @layer base {
   body {
-    @apply bg-background text-foreground;
-    /* Subtle, animated background gradient for energy flow */
+    @apply bg-background text-foreground antialiased;
     background: radial-gradient(
         circle at top left,
-        hsl(var(--primary) / 0.05) 0%,
-        transparent 30%
+        hsl(var(--primary) / 0.08) 0%,
+        transparent 40%
       ),
       radial-gradient(
         circle at bottom right,
-        hsl(var(--accent) / 0.05) 0%,
-        transparent 30%
+        hsl(var(--accent) / 0.08) 0%,
+        transparent 40%
       ),
       linear-gradient(
         135deg,
         hsl(var(--background)) 0%,
         hsl(var(--background)) 100%
       );
-    background-size: 200% 200%; /* Larger than viewport for animation */
-    animation: background-pan 20s ease-in-out infinite alternate; /* Slow, subtle pan */
+    background-attachment: fixed;
   }
 
   * {
@@ -131,155 +124,67 @@
 }
 
 @layer utilities {
-  /* Custom animations for dynamic elements */
+  .glass-card {
+    @apply bg-background/60 backdrop-blur-md border border-white/10 shadow-lg;
+  }
+
+  .glass-header {
+    @apply bg-background/80 backdrop-blur-lg border-b border-white/5;
+  }
+
   @keyframes pulse-glow {
     0%, 100% {
-      box-shadow: 0 0 0px hsl(var(--primary) / 0.3); /* Softer glow */
+      box-shadow: 0 0 5px hsl(var(--primary) / 0.2);
     }
     50% {
-      box-shadow: 0 0 8px hsl(var(--primary) / 0.6); /* Softer glow */
+      box-shadow: 0 0 15px hsl(var(--primary) / 0.5);
     }
   }
 
-  /* New subtle pulse for active scheduler row */
   @keyframes pulse-active-row {
     0%, 100% {
-      box-shadow: 0 0 0px hsl(var(--live-progress) / 0.1); /* Softer pulse */
-      border-color: hsl(var(--live-progress) / 0.3); /* Softer border */
-      transform: translateY(0px);
-    }
-    50% {
-      box-shadow: 0 0 8px hsl(var(--live-progress) / 0.3); /* Softer pulse */
-      border-color: hsl(var(--live-progress) / 0.8); /* Softer border */
-      transform: translateY(-1px); /* More subtle lift */
-    }
-  }
-
-  /* New subtle pulse-glow for active cards */
-  @keyframes pulse-glow-subtle {
-    0%, 100% {
-      box-shadow: 0 0 0px hsl(var(--primary) / 0.1);
-    }
-    50% {
-      box-shadow: 0 0 5px hsl(var(--primary) / 0.3);
-    }
-  }
-
-  @keyframes slide-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes pop-in {
-    from {
-      opacity: 0;
-      transform: scale(0.8);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes background-pan {
-    0% {
-      background-position: 0% 0%;
-    }
-    100% {
-      background-position: 100% 100%;
-    }
-  }
-  
-  /* New animation for XP gain */
-  @keyframes fade-out-up {
-    0% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    50% {
-      opacity: 1;
-      transform: translateY(-10px);
-    }
-    100% {
-      opacity: 0;
-      transform: translateY(-30px);
-    }
-  }
-
-  /* NEW: Animation for Immersive Focus Mode text pulse */
-  @keyframes pulse-text {
-    0%, 100% {
-      opacity: 1;
+      box-shadow: 0 0 0px hsl(var(--live-progress) / 0.2);
       transform: scale(1);
     }
     50% {
-      opacity: 0.8;
-      transform: scale(1.02);
+      box-shadow: 0 0 10px hsl(var(--live-progress) / 0.4);
+      transform: scale(1.005);
     }
-  }
-
-  /* NEW: Subtle gradient wash for visual bridge */
-  .bg-primary-wash {
-    background: radial-gradient(
-      circle at 50% 0%,
-      hsl(var(--primary) / 0.08) 0%,
-      transparent 50%
-    );
   }
 
   .animate-pulse-glow {
-    animation: pulse-glow 2s infinite ease-in-out;
+    animation: pulse-glow 3s infinite ease-in-out;
   }
 
   .animate-pulse-active-row {
     animation: pulse-active-row 2s infinite ease-in-out;
   }
 
-  .animate-pulse-glow-subtle {
-    animation: pulse-glow-subtle 2s infinite ease-in-out;
+  .animate-hover-lift {
+    @apply transition-all duration-300 ease-out;
   }
-
-  .animate-slide-in-up {
-    animation: slide-in-up 0.5s ease-out forwards;
+  
+  .animate-hover-lift:hover {
+    @apply -translate-y-1 shadow-xl border-primary/30;
   }
 
   .animate-pop-in {
-    animation: pop-in 0.3s ease-out forwards;
+    animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   }
 
-  .animate-background-pan {
-    animation: background-pan 20s ease-in-out infinite alternate;
-  }
-  
-  .animate-fade-out-up {
-    animation: fade-out-up 1.5s ease-out forwards;
-  }
-
-  /* NEW: Fade in animation */
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  .animate-fade-in {
-    animation: fade-in 0.3s ease-out forwards;
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 
-  .animate-hover-lift {
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  }
-  .animate-hover-lift:hover {
-    transform: translateY(-3px); /* Increased lift */
-    box-shadow: 0 10px 15px -3px hsl(var(--foreground) / 0.1), 0 4px 6px -4px hsl(var(--foreground) / 0.1); /* Stronger shadow */
-  }
-
-  /* NEW: Apply pulse-text animation */
-  .animate-pulse-text {
-    animation: pulse-text 2s infinite ease-in-out;
+  /* Custom Status Bar styling */
+  .status-bar-track {
+    @apply bg-secondary/50 rounded-full h-3 overflow-hidden border border-white/5 shadow-inner;
   }
 }

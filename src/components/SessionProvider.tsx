@@ -284,10 +284,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (newUserId && newUserId !== oldUserId) {
           await fetchProfile(newUserId);
         }
-        // If there's a session, redirect to '/' if not already there
-        if (currentSession && location.pathname !== '/') {
+        // If there's a session, and the user is currently on the login page, redirect to '/'
+        if (currentSession && location.pathname === '/login') {
             setRedirectPath('/');
         }
+        // Otherwise, if already on an authenticated page, do nothing (don't redirect)
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
@@ -314,10 +315,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         if (initialSession?.user) {
           await fetchProfile(initialSession.user.id);
-          // If there's an initial session, redirect to '/' if not already there
-          if (location.pathname !== '/') {
+          // If there's an initial session, and the user is currently on the login page, redirect to '/'
+          if (location.pathname === '/login') {
             setRedirectPath('/');
           }
+          // Otherwise, if already on an authenticated page, do nothing (don't redirect)
         } else {
           // If no initial session, redirect to '/login' if not already there
           if (location.pathname !== '/login') {
@@ -340,7 +342,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchProfile, queryClient, location.pathname]); // Added location.pathname to dependencies
+  }, [fetchProfile, queryClient, location.pathname]);
 
   // Dedicated useEffect for handling redirection
   useEffect(() => {

@@ -27,13 +27,12 @@ import { useSession } from '@/hooks/use-session';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { DBScheduledTask } from '@/types/scheduler';
 
-// FIX: Define the missing Props interface
+// FIX: Restore the Page Props Interface
 export interface SchedulerPageProps {
   view: 'schedule' | 'sink' | 'recap';
 }
 
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
-  // FIX: Restore Hooks
   const { 
     user, profile, rechargeEnergy, T_current, 
     activeItemToday, nextItemToday 
@@ -47,26 +46,28 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // FIX: Restore Task logic from hook
+  // Scheduler Hook
   const { 
     dbScheduledTasks, isLoading: isTasksLoading, retiredTasks,
     datesWithTasks, isLoadingDatesWithTasks, isLoadingRetiredTasks,
     sortBy, setSortBy, retiredSortBy, setRetiredSortBy,
-    aetherDump, aetherDumpMega, completeScheduledTask
+    aetherDump, aetherDumpMega, rezoneTask, removeRetiredTask,
+    completeScheduledTask
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const handleCommand = async (input: string) => {
-    console.log("Command processing:", input);
+    // Implement your command logic here
+    console.log("Command Input:", input);
   };
 
   const renderScheduleCore = () => (
     <div className="space-y-6">
-      {/* FIX: SchedulerContextBar only receives T_current */}
+      {/* 1. Context HUD - Strictly Time/Weather */}
       <div className="hidden lg:block">
         <SchedulerContextBar T_current={T_current} />
       </div>
 
-      {/* FIX: SchedulerInput receives the command logic props */}
+      {/* 2. Command Input - Strictly Logic/Input */}
       <Card className="p-4 shadow-md animate-hover-lift bg-card/50 border-primary/10">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -90,7 +91,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         </CardContent>
       </Card>
 
-      {/* FIX: Restore Action Center props */}
+      {/* 3. Action Center */}
       <div className="hidden lg:block animate-slide-in-up">
         <SchedulerActionCenter 
           isProcessingCommand={isProcessing}
@@ -114,6 +115,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         />
       </div>
 
+      {/* 4. Display */}
       <Card className="animate-pop-in border-white/10 shadow-xl overflow-hidden">
         <CardContent className="p-4 bg-background/20">
           <SchedulerDisplay 
@@ -158,20 +160,27 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         {view === 'schedule' && renderScheduleCore()}
         {view === 'sink' && (
           <AetherSink 
-            retiredTasks={retiredTasks} 
-            onRezoneTask={async () => {}} 
-            onRemoveRetiredTask={() => {}} 
+            retiredTasks={retiredTasks} onRezoneTask={rezoneTask} 
+            onRemoveRetiredTask={(id) => removeRetiredTask(id)} 
             isLoading={isLoadingRetiredTasks} 
             isProcessingCommand={isProcessing} 
             profileEnergy={profile?.energy || 0}
-            retiredSortBy={retiredSortBy} 
-            setRetiredSortBy={setRetiredSortBy}
+            retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy}
             onAutoScheduleSink={() => {}}
+          />
+        )}
+        {view === 'recap' && (
+          <DailyVibeRecapCard 
+            tasksCompletedToday={0} xpEarnedToday={0} 
+            selectedDayString={selectedDay} completedScheduledTasks={[]}
+            totalActiveTimeMinutes={0} totalBreakTimeMinutes={0}
+            scheduleSummary={null} profileEnergy={profile?.energy || 0}
+            criticalTasksCompletedToday={0}
           />
         )}
       </div>
 
-      {/* FIX: Mobile Controls Drawer */}
+      {/* Floating Mobile Controls */}
       {isMobile && view === 'schedule' && (
         <Drawer>
           <DrawerTrigger asChild>
@@ -181,6 +190,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           </DrawerTrigger>
           <DrawerContent className="bg-background/95 backdrop-blur-xl">
             <div className="p-6 space-y-6">
+              {/* Correct Mobile Call: Clock in the Bar, Buttons in ActionCenter */}
               <SchedulerContextBar T_current={T_current} />
               <SchedulerActionCenter 
                  isProcessingCommand={isProcessing}

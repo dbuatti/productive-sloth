@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2, Menu } from 'lucide-react';
-import SchedulerInput from '@/components/SchedulerInput';
-import SchedulerDisplay from '@/components/SchedulerDisplay';
+import { Card } from '@/components/ui/card';
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock, TaskEnvironment, CompletedTaskLogEntry } from '@/types/scheduler';
 import {
   calculateSchedule,
@@ -66,6 +63,7 @@ import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 import { cn } from '@/lib/utils';
+import SchedulerCoreView from '@/components/SchedulerCoreView'; // NEW IMPORT
 
 const DURATION_BUCKETS = [5, 10, 15, 20, 25, 30, 45, 60, 75, 90];
 const LONG_TASK_THRESHOLD = 90;
@@ -419,7 +417,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         });
         setHasMorningFixRunToday(true);
       } else {
-        setHasMorningFixRunToday(true);
+        setHasMorningFixToday(true);
       }
     } else if (!isViewingToday) {
       setHasMorningFixRunToday(false);
@@ -487,7 +485,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     }
   }, [workdayStartTime, workdayEndTime, dbScheduledTasks, selectedDayAsDate, effectiveWorkdayStart]);
 
-  const handleRefreshSchedule = () => {
+  const handleRefreshSchedule = useCallback(() => {
     if (user?.id) {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
@@ -495,7 +493,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] });
       showSuccess("Schedule data refreshed.");
     }
-  };
+  }, [user?.id, queryClient, formattedSelectedDay, sortBy]);
 
   const handleQuickScheduleBlock = useCallback(async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
     if (!user || !profile) {
@@ -2356,142 +2354,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
   const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
 
-  // --- Conditional View Rendering ---
-
-  const renderScheduleCore = () => (
-    <>
-      {/* Info Panel Card (Desktop Only) */}
-      <div className="hidden lg:block">
-        <SchedulerContextBar T_current={T_current} />
-      </div>
-
-      {/* Schedule Input Card (Now visible on all screens) */}
-      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift">
-        <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-            <ListTodo className="h-6 w-6 text-primary" /> Quick Add
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <SchedulerInput 
-            onCommand={handleCommand} 
-            isLoading={overallLoading} 
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            placeholder={`Add task (e.g., 'Gym 60', '-Clean desk') or command`}
-            onDetailedInject={handleAddTaskClick}
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            Examples: "Gym 60", "-Clean desk 30", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Action Center (Desktop Only) */}
-      <div className="animate-slide-in-up hidden lg:block">
-        <SchedulerActionCenter 
-          isProcessingCommand={isProcessingCommand}
-          dbScheduledTasks={dbScheduledTasks}
-          retiredTasksCount={retiredTasks.length}
-          sortBy={sortBy}
-          onAutoSchedule={handleAutoScheduleDay}
-          onCompactSchedule={handleCompactSchedule}
-          onRandomizeBreaks={handleRandomizeBreaks}
-          onZoneFocus={handleZoneFocus}
-          onRechargeEnergy={() => rechargeEnergy()}
-          onQuickBreak={handleQuickBreakButton}
-          onQuickScheduleBlock={handleQuickScheduleBlock}
-          onSortFlexibleTasks={handleSortFlexibleTasks}
-          onAetherDump={handleAetherDumpButton}
-          onAetherDumpMega={handleAetherDumpMegaButton}
-          onRefreshSchedule={handleRefreshSchedule}
-          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-          onStartRegenPod={handleStartRegenPod}
-          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-        />
-      </div>
-
-      {/* Now Focus Card (Always visible) */}
-      {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="pb-4 animate-slide-in-up">
-          <NowFocusCard 
-            activeItem={activeItemToday} 
-            nextItem={nextItemToday} 
-            T_current={T_current} 
-            onEnterFocusMode={() => setIsFocusModeActive(true)}
-          />
-        </div>
-      )}
-      
-      {currentSchedule?.summary.unscheduledCount > 0 && (
-        <Card className="animate-pop-in animate-hover-lift">
-          <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="animate-pop-in animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {formatFns(parseISO(selectedDay), 'EEEE, MMMM d')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4">
-          {isSchedulerTasksLoading ? (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <SchedulerDisplay 
-              schedule={currentSchedule} 
-              T_current={T_current} 
-              onRemoveTask={handlePermanentDeleteScheduledTask}
-              onRetireTask={(task) => handleSchedulerAction('skip', task)}
-              onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
-              activeItemId={activeItemToday?.id || null} 
-              selectedDayString={selectedDay} 
-              onAddTaskClick={handleAddTaskClick}
-              onScrollToItem={handleScrollToItem}
-              isProcessingCommand={isProcessingCommand}
-              onFreeTimeClick={handleFreeTimeClick}
-            />
-          )}
-        </CardContent>
-      </Card>
-    </>
-  );
-
-  const renderSinkView = () => (
-    <AetherSink 
-      retiredTasks={retiredTasks} 
-      onRezoneTask={handleRezoneFromSink} 
-      onRemoveRetiredTask={handlePermanentDeleteRetiredTask}
-      onAutoScheduleSink={handleAutoScheduleSinkWrapper}
-      isLoading={isLoadingRetiredTasks}
-      isProcessingCommand={isProcessingCommand}
-      hideTitle={false} 
-      profileEnergy={profile?.energy || 0}
-      retiredSortBy={retiredSortBy} 
-      setRetiredSortBy={setRetiredSortBy} 
-    />
-  );
-
-  const renderRecapView = () => (
-    <DailyVibeRecapCard
-      scheduleSummary={currentSchedule?.summary || null}
-      tasksCompletedToday={tasksCompletedForSelectedDay}
-      xpEarnedToday={xpEarnedForSelectedDay}
-      profileEnergy={profile?.energy || 0}
-      criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
-      selectedDayString={selectedDay}
-      completedScheduledTasks={completedScheduledTasksForRecap}
-      totalActiveTimeMinutes={totalActiveTimeMinutes}
-      totalBreakTimeMinutes={totalBreakTimeMinutes}
-    />
-  );
-
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Immersive Focus Mode (Highest Layer) */}
@@ -2547,63 +2409,47 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
       {/* Conditional View Rendering based on 'view' prop */}
       <div className="animate-slide-in-up">
-        {view === 'schedule' && renderScheduleCore()}
+        {view === 'schedule' && (
+          <SchedulerCoreView
+            T_current={T_current}
+            isProcessingCommand={isProcessingCommand}
+            dbScheduledTasks={dbScheduledTasks}
+            retiredTasks={retiredTasks}
+            sortBy={sortBy}
+            onAutoScheduleDay={handleAutoScheduleDay}
+            onCompactSchedule={handleCompactSchedule}
+            onRandomizeBreaks={handleRandomizeBreaks}
+            onZoneFocus={handleZoneFocus}
+            onRechargeEnergy={() => rechargeEnergy()}
+            onQuickBreak={handleQuickBreakButton}
+            onQuickScheduleBlock={handleQuickScheduleBlock}
+            onSortFlexibleTasks={handleSortFlexibleTasks}
+            onAetherDump={handleAetherDumpButton}
+            onAetherDumpMega={handleAetherDumpMegaButton}
+            onRefreshSchedule={handleRefreshSchedule}
+            onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
+            onStartRegenPod={handleStartRegenPod}
+            hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
+            activeItemToday={activeItemToday}
+            nextItemToday={nextItemToday}
+            selectedDay={selectedDay}
+            currentSchedule={currentSchedule}
+            isSchedulerTasksLoading={isSchedulerTasksLoading}
+            onCommand={handleCommand}
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            onDetailedInject={handleAddTaskClick}
+            onRemoveTask={handlePermanentDeleteScheduledTask}
+            onRetireTask={handleManualRetire}
+            onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
+            onScrollToItem={handleScrollToItem}
+            onFreeTimeClick={handleFreeTimeClick}
+            scheduleContainerRef={scheduleContainerRef}
+          />
+        )}
         {view === 'recap' && renderRecapView()}
         {view === 'sink' && renderSinkView()}
       </div>
-
-      {/* Mobile Controls Drawer (Hidden on desktop) */}
-      {isMobile && view === 'schedule' && (
-          <Drawer>
-              <DrawerTrigger asChild>
-                  <Button
-                      variant="default"
-                      size="icon"
-                      className={cn(
-                          "fixed bottom-28 right-4 z-50 h-14 w-14 rounded-full shadow-xl bg-accent hover:bg-accent/90 transition-all duration-200",
-                          isProcessingCommand && "opacity-70 cursor-not-allowed"
-                      )}
-                      disabled={isProcessingCommand}
-                  >
-                      <Settings2 className="h-6 w-6" />
-                      <span className="sr-only">Open Schedule Controls</span>
-                  </Button>
-              </DrawerTrigger>
-              <DrawerContent className="max-h-[90vh]">
-                  <DrawerHeader className="text-left">
-                      <DrawerTitle className="flex items-center gap-2 text-xl font-bold">
-                          <Settings2 className="h-6 w-6 text-primary" /> Schedule Controls
-                      </DrawerTitle>
-                  </DrawerHeader>
-                  <div className="p-4 overflow-y-auto space-y-4">
-                      {/* Mobile Context Bar */}
-                      <SchedulerContextBar T_current={T_current} />
-                      
-                      {/* Mobile Action Center */}
-                      <SchedulerActionCenter 
-                          isProcessingCommand={isProcessingCommand}
-                          dbScheduledTasks={dbScheduledTasks}
-                          retiredTasksCount={retiredTasks.length}
-                          sortBy={sortBy}
-                          onAutoSchedule={handleAutoScheduleDay}
-                          onCompactSchedule={handleCompactSchedule}
-                          onRandomizeBreaks={handleRandomizeBreaks}
-                          onZoneFocus={handleZoneFocus}
-                          onRechargeEnergy={() => rechargeEnergy()}
-                          onQuickBreak={handleQuickBreakButton}
-                          onQuickScheduleBlock={handleQuickScheduleBlock}
-                          onSortFlexibleTasks={handleSortFlexibleTasks}
-                          onAetherDump={handleAetherDumpButton}
-                          onAetherDumpMega={handleAetherDumpMegaButton}
-                          onRefreshSchedule={handleRefreshSchedule}
-                          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-                          onStartRegenPod={handleStartRegenPod}
-                          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-                      />
-                  </div>
-              </DrawerContent>
-          </Drawer>
-      )}
 
       {/* Modals and Dialogs */}
       <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>

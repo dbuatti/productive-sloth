@@ -308,14 +308,24 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       initialSessionLoadedRef.current = true;
 
       try {
-        const { data, error: getSessionError } = await supabase.auth.getSession(); // Corrected destructuring
-        const initialSession = data.session;
-        
+        // --- MODIFICATION START ---
+        // First, try to refresh the session to get the latest data after a potential redirect.
+        // This is crucial for handling the login flow correctly.
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        let initialSession = refreshData.session;
+
+        // If refresh failed or returned no session, fall back to getting the current session.
+        if (refreshError || !initialSession) {
+            const { data, error: getSessionError } = await supabase.auth.getSession();
+            initialSession = data.session;
+            if (getSessionError) {
+                console.error('[SessionProvider] loadInitialSession: Error getting session:', getSessionError);
+            }
+        }
+        // --- MODIFICATION END ---
+
         console.log('[SessionProvider] loadInitialSession: initialSession:', initialSession);
         console.log('[SessionProvider] loadInitialSession: initialSession?.user:', initialSession?.user);
-        if (getSessionError) {
-          console.error('[SessionProvider] loadInitialSession: Error getting session:', getSessionError);
-        }
 
         setSession(initialSession);
         setUser(initialSession?.user ?? null);

@@ -159,7 +159,7 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
               <AccordionContent className="space-y-3 pt-4 px-1">
                 {completedScheduledTasks.map(task => (
                   <div key={task.id} className="animate-pop-in">
-                    <CompletedTaskLogItem task={task as unknown as DBScheduledTask} />
+                    <CompletedTaskLogItem task={task} />
                   </div>
                 ))}
               </AccordionContent>

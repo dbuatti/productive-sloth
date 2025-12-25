@@ -272,20 +272,19 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 
-      // Only handle profile fetching and redirection for specific events
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
         if (newUserId && newUserId !== oldUserId) {
           await fetchProfile(newUserId);
         }
-        // If we have a session, we should be on the dashboard
-        if (currentSession) {
+        // If there's a session, redirect to '/' if not already there
+        if (currentSession && location.pathname !== '/') {
             setRedirectPath('/');
         }
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
-        // If we don't have a session, we should be on login
-        if (!currentSession) {
+        // If there's no session, redirect to '/login' if not already there
+        if (!currentSession && location.pathname !== '/login') {
             setRedirectPath('/login');
         }
       }
@@ -307,16 +306,22 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         if (initialSession?.user) {
           await fetchProfile(initialSession.user.id);
-          // If we have a session, we should be on the dashboard
-          setRedirectPath('/');
+          // If there's an initial session, redirect to '/' if not already there
+          if (location.pathname !== '/') {
+            setRedirectPath('/');
+          }
         } else {
-          // If we don't have a session, we should be on login
-          setRedirectPath('/login');
+          // If no initial session, redirect to '/login' if not already there
+          if (location.pathname !== '/login') {
+            setRedirectPath('/login');
+          }
         }
       } catch (error) {
         console.error("Error during initial session load:", error);
-        // On error, force to login
-        setRedirectPath('/login');
+        // On error, redirect to '/login' if not already there
+        if (location.pathname !== '/login') {
+          setRedirectPath('/login');
+        }
       } finally {
         setIsAuthLoading(false);
       }
@@ -327,7 +332,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchProfile, queryClient]); // Removed user dependency to avoid re-subscription
+  }, [fetchProfile, queryClient, location.pathname]); // Added location.pathname to dependencies
 
   // Dedicated useEffect for handling redirection
   useEffect(() => {

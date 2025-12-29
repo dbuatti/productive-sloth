@@ -1,5 +1,6 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
+import { UserProfile } from '@/hooks/use-session'; // Import UserProfile
 
 // --- Constants ---
 export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break']; // Added 'eat' and 'coffee break'
@@ -617,12 +618,56 @@ export const isSlotFree = (
   return true; // No overlaps found
 };
 
+// NEW: Helper function to generate meal time blocks from profile settings
+export const getMealTimeBlocks = (
+  profile: UserProfile,
+  dayDate: Date, // The local date for which to generate meal blocks
+  workdayStart: Date, // The effective workday start for intersection
+  workdayEnd: Date    // The effective workday end for intersection
+): TimeBlock[] => {
+  const mealBlocks: TimeBlock[] = [];
+
+  const addMealBlock = (name: string, timeStr: string | null, duration: number | null) => {
+    if (timeStr && duration !== null && duration > 0) {
+      let mealStart = setTimeOnDate(dayDate, timeStr);
+      let mealEnd = addMinutes(mealStart, duration);
+
+      // Handle meal spanning midnight
+      if (isBefore(mealEnd, mealStart)) {
+        mealEnd = addDays(mealEnd, 1);
+      }
+
+      // Calculate the intersection with the provided workday window
+      const intersectionStart = max([mealStart, workdayStart]);
+      const intersectionEnd = min([mealEnd, workdayEnd]);
+
+      const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+      if (effectiveDuration > 0) { // Only add if there's a valid intersection
+        mealBlocks.push({
+          start: intersectionStart,
+          end: intersectionEnd,
+          duration: effectiveDuration,
+        });
+      }
+    }
+  };
+
+  addMealBlock('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+  addMealBlock('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+  addMealBlock('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
+  return mealBlocks;
+};
+
+
 export const compactScheduleLogic = (
   dbTasks: DBScheduledTask[],
   selectedDayAsDate: Date,
   workdayStartTime: Date,
   workdayEndTime: Date,
   T_current: Date,
+  mealBlocks: TimeBlock[], // NEW PARAMETER
   tasksToPlace?: DBScheduledTask[] // Optional: specific tasks to place, if not all flexible tasks
 ): DBScheduledTask[] => {
   const isTodaySelected = isSameDay(selectedDayAsDate, T_current);
@@ -633,42 +678,33 @@ export const compactScheduleLogic = (
   let flexibleTasksToCompact: DBScheduledTask[];
 
   if (tasksToPlace) {
-    // If tasksToPlace is provided (e.g., from auto-balance), use it, but ensure it's not completed
     flexibleTasksToCompact = tasksToPlace.filter(task => !task.is_completed);
   } else {
-    // If no tasksToPlace provided (e.g., manual 'compact' command), filter from current DB tasks
     flexibleTasksToCompact = dbTasks.filter(task => task.is_flexible && !task.is_locked && !task.is_completed);
   }
 
-  // CRITICAL FIX: If today is selected, filter out tasks whose end time is already past T_current.
-  // These tasks should be retired, not compacted/moved forward.
   if (isTodaySelected) {
     flexibleTasksToCompact = flexibleTasksToCompact.filter(task => {
       if (!task.start_time) return true; 
       const taskEndTime = parseISO(task.end_time!);
-      // Only keep tasks that end AFTER the current time
       return isAfter(taskEndTime, T_current);
     });
   }
   
-  // Sort flexible tasks by priority (critical first), then duration (longest first)
   flexibleTasksToCompact.sort((a, b) => {
-    // 1. Critical tasks first
     if (a.is_critical && !b.is_critical) return -1;
     if (!a.is_critical && b.is_critical) return 1;
     
-    // 2. Backburner tasks last
     if (a.is_backburner && !b.is_backburner) return 1;
     if (!a.is_backburner && b.is_backburner) return -1;
 
-    // 3. Tie-breaker: Duration (Longest first)
     const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
     const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
     return durationB - durationA; 
   });
 
-  let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
-    fixedAndLockedTasks
+  let initialOccupiedBlocks: TimeBlock[] = [
+    ...fixedAndLockedTasks
       .filter(task => task.start_time && task.end_time)
       .map(task => {
         const utcStart = parseISO(task.start_time!);
@@ -681,8 +717,11 @@ export const compactScheduleLogic = (
           localEnd = addDays(localEnd, 1);
         }
         return { start: localStart, end: localEnd, duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)) };
-      })
-  );
+      }),
+    ...mealBlocks // ADD MEAL BLOCKS HERE
+  ];
+
+  let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(initialOccupiedBlocks);
 
   const newFlexibleTaskPlacements: DBScheduledTask[] = [];
   let currentPlacementCursor = effectiveWorkdayStart;
@@ -718,14 +757,11 @@ export const compactScheduleLogic = (
           break;
         }
       }
-      // If no suitable block found from current searchStartTime, advance searchStartTime
-      // to the end of the next occupied block or the start of the next free block
       if (!placed) {
         const nextOccupiedBlock = currentOccupiedBlocks.find(block => isAfter(block.start, searchStartTime));
         if (nextOccupiedBlock) {
           searchStartTime = nextOccupiedBlock.end;
         } else {
-          // No more occupied blocks, so no more free blocks to check
           break;
         }
       }
@@ -748,9 +784,9 @@ export const calculateSchedule = (
   breakfastTimeStr: string | null, // NEW: Breakfast time from profile
   lunchTimeStr: string | null,     // NEW: Lunch time from profile
   dinnerTimeStr: string | null,    // NEW: Dinner time from profile
-  breakfastDuration: number | null, // NEW: Breakfast duration from profile
-  lunchDuration: number | null,     // NEW: Lunch duration from profile
-  dinnerDuration: number | null     // NEW: Dinner duration from profile
+  breakfastDuration: number | null, // NEW: Added breakfast duration
+  lunchDuration: number | null,     // NEW: Added lunch duration
+  dinnerDuration: number | null     // NEW: Added dinner duration
 ): FormattedSchedule => {
   const items: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
@@ -758,6 +794,8 @@ export const calculateSchedule = (
   let criticalTasksRemaining = 0;
   let unscheduledCount = 0;
   let sessionEnd = workdayStart; // Initialize with workdayStart
+
+  // Declare these variables locally
   let extendsPastMidnight = false;
   let midnightRolloverMessage: string | null = null;
 
@@ -878,8 +916,8 @@ export const calculateSchedule = (
     // Handle rollover past midnight
     if (isBefore(endTime, startTime)) {
       endTime = addDays(endTime, 1);
-      extendsPastMidnight = true;
-      midnightRolloverMessage = "Schedule extends past midnight.";
+      // extendsPastMidnight = true; // Removed, as this is handled by sessionEnd check
+      // midnightRolloverMessage = "Schedule extends past midnight."; // Removed
     }
 
     const duration = differenceInMinutes(endTime, startTime);
@@ -943,6 +981,14 @@ export const calculateSchedule = (
 
   // Re-sort all items (including the dynamically added Pod item and meals) by start time
   items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+  // Check if sessionEnd extends past midnight relative to the selectedDayDate
+  extendsPastMidnight = !isSameDay(sessionEnd, selectedDayDate) && isAfter(sessionEnd, workdayEnd);
+  if (extendsPastMidnight) {
+    midnightRolloverMessage = `Schedule extends into ${format(sessionEnd, 'MMM d')}.`;
+  } else {
+    midnightRolloverMessage = null;
+  }
 
   const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);
   const totalActiveTimeMins = totalActiveTimeMinutes % 60;

@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
 import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy, CompletedTaskLogEntry } from '@/types/scheduler';
-import { useSession } from './use-session';
+import { useSession, UserProfile } from './use-session'; // Import UserProfile
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
-import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, getMealTimeBlocks } from '@/lib/scheduler-utils'; // NEW: Import getMealTimeBlocks
 import { useTasks } from './use-tasks';
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
@@ -752,11 +752,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   });
 
   const randomizeBreaksMutation = useMutation({
-    mutationFn: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }: {
+    mutationFn: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks, mealBlocks }: { // NEW: Add mealBlocks
       selectedDate: string;
       workdayStartTime: Date;
       workdayEndTime: Date;
       currentDbTasks: DBScheduledTask[];
+      mealBlocks: TimeBlock[]; // NEW: mealBlocks parameter
     }) => {
       if (!userId) throw new Error("User not authenticated.");
 
@@ -776,14 +777,17 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const placedBreaks: DBScheduledTask[] = [];
       const failedToPlaceBreaks: DBScheduledTask[] = [];
 
-      let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
-        currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked)
+      let initialOccupiedBlocks: TimeBlock[] = [ // NEW: Combine with mealBlocks
+        ...currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked)
           .map(task => ({
             start: parseISO(task.start_time!),
             end: parseISO(task.end_time!),
             duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
-          }))
-      );
+          })),
+        ...mealBlocks // NEW: Add meal blocks here
+      ];
+
+      let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(initialOccupiedBlocks);
 
       for (const breakTask of breakTasksToRandomize) {
         const breakDuration = breakTask.break_duration || 15;

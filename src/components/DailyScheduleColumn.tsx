@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler'; // Import ScheduledItem
-import { format, isToday, isPast, isBefore, parseISO, setHours, setMinutes, addDays, differenceInMinutes, isAfter, addHours, addMinutes } from 'date-fns'; // Added addHours, addMinutes
+import { format, isToday, isPast, isBefore, parseISO, setHours, setMinutes, addDays, differenceInMinutes, isAfter, addHours, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
-import { Clock, Utensils, Coffee, Target } from 'lucide-react'; // Added Utensils, Coffee, Target
-import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils'; // Added isMeal
+import { Clock, Utensils, Coffee, Target } from 'lucide-react';
+import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils';
 
 interface DailyScheduleColumnProps {
   dayDate: Date; // The date for this column
@@ -62,7 +62,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     let currentTime = dayStart;
     while (isBefore(currentTime, dayEnd)) {
       labels.push(format(currentTime, 'h a'));
-      currentTime = addHours(currentTime, 1); // Fixed: addHours imported
+      currentTime = addHours(currentTime, 1);
     }
     return labels;
   }, [dayStart, dayEnd]);
@@ -73,136 +73,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     const addMealItem = (name: string, timeStr: string | null, emoji: string, duration: number) => {
       if (timeStr && duration > 0) {
         let mealStart = setTimeOnDate(dayDate, timeStr);
-        let mealEnd = addMinutes(mealStart, duration); // Fixed: addMinutes imported
-
-        // Adjust for meals that might cross midnight if workday spans it
-        if (isBefore(mealEnd, mealStart) && isAfter(mealStart, dayStart) && isBefore(mealEnd, dayEnd)) {
-          mealEnd = addDays(mealEnd, 1);
-        } else if (isBefore(mealStart, dayStart) && isAfter(mealEnd, dayStart) && isBefore(mealEnd, dayEnd)) {
-          mealStart = dayStart;
-        } else if (isBefore(mealStart, dayEnd) && isAfter(mealEnd, dayEnd)) {
-          mealEnd = dayEnd;
-        }
-
-        if (isBefore(mealStart, dayEnd) && isAfter(mealEnd, dayStart)) {
-          items.push({
-            id: `meal-${name.toLowerCase()}-${timeStr}-${dayDate.toISOString()}`,
-            type: 'meal',
-            name: name,
-            duration: differenceInMinutes(mealEnd, mealStart),
-            startTime: mealStart,
-            endTime: mealEnd,
-            emoji: emoji,
-            description: `${name} time`,
-            isTimedEvent: true,
-            isCritical: false,
-            isFlexible: false,
-            isLocked: true,
-            energyCost: -10,
-            isCompleted: false,
-            isCustomEnergyCost: false,
-            taskEnvironment: 'home',
-            sourceCalendarId: null,
-            isBackburner: false,
-          });
-        }
-      }
-    };
-
-    addMealItem<dyad-problem-report summary="2 problems">
-<problem file="src/components/DailyScheduleColumn.tsx" line="65" column="21" code="2304">Cannot find name 'addHours'.</problem>
-<problem file="src/components/DailyScheduleColumn.tsx" line="76" column="23" code="2304">Cannot find name 'addMinutes'.</problem>
-</dyad-problem-report><think>**Debugging TypeScript Errors**
-
-I've hit a snag.  It seems the `DailyScheduleColumn.tsx` file is throwing TypeScript compile-time errors. Specifically, it's complaining about `addHours` and `addMinutes` not being defined.  I'll need to figure out where to get these functions, or how to import them properly.  I'm looking for the correct import statements now to resolve the "cannot find name" errors.
-
-
-**Verifying Import Corrections**
-
-I'm checking that the corrected import statements for `addHours` and `addMinutes` are properly reflected in the `DailyScheduleColumn.tsx` file. I've re-output the file to ensure the user has the latest version. It's possible a caching issue or propagation delay is causing the user to still see the compile-time errors. I want to rule that out as the issue.
-
-
-</think>It looks like these two errors were already addressed in the previous update! I've added `addHours` and `addMinutes` to the import statement in `src/components/DailyScheduleColumn.tsx`.
-
-Sometimes, the build system might cache files, or the changes might take a moment to reflect. I'll re-send the corrected file to ensure you have the latest version.
-
-<dyad-write path="src/components/DailyScheduleColumn.tsx" description="Ensuring addHours and addMinutes are imported from date-fns.">
-import React, { useMemo } from 'react';
-import { DBScheduledTask, ScheduledItem } from '@/types/scheduler'; // Import ScheduledItem
-import { format, isToday, isPast, isBefore, parseISO, setHours, setMinutes, addDays, differenceInMinutes, isAfter, addHours, addMinutes } from 'date-fns'; // Added addHours, addMinutes
-import { cn } from '@/lib/utils';
-import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
-import { Clock, Utensils, Coffee, Target } from 'lucide-react'; // Added Utensils, Coffee, Target
-import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils'; // Added isMeal
-
-interface DailyScheduleColumnProps {
-  dayDate: Date; // The date for this column
-  tasks: DBScheduledTask[];
-  workdayStartTime: string; // HH:MM string from profile
-  workdayEndTime: string;   // HH:MM string from profile
-  isDetailedView: boolean;
-  T_current: Date; // Current time from SessionProvider
-  zoomLevel: number; // Vertical zoom level prop
-  columnWidth: number; // NEW: Horizontal zoom (column width) prop
-  breakfastTime: string | null; // NEW
-  breakfastDuration: number;    // NEW
-  lunchTime: string | null;     // NEW
-  lunchDuration: number;        // NEW
-  dinnerTime: string | null;    // NEW
-  dinnerDuration: number;       // NEW
-}
-
-const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
-
-const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
-  dayDate,
-  tasks,
-  workdayStartTime,
-  workdayEndTime,
-  isDetailedView,
-  T_current,
-  zoomLevel, // Vertical zoom level
-  columnWidth, // NEW: Destructure columnWidth
-  breakfastTime,
-  breakfastDuration,
-  lunchTime,
-  lunchDuration,
-  dinnerTime,
-  dinnerDuration,
-}) => {
-  const isCurrentDay = isToday(dayDate);
-
-  const dayStart = setTimeOnDate(dayDate, workdayStartTime);
-  let dayEnd = setTimeOnDate(dayDate, workdayEndTime);
-  
-  // Ensure dayEnd is always after dayStart, even if they are the same time initially
-  // This handles cases where start and end times are identical (e.g., 09:00 - 09:00)
-  // or if the end time is on the next day (e.g., 22:00 - 06:00)
-  if (!isAfter(dayEnd, dayStart)) {
-    dayEnd = addDays(dayEnd, 1);
-  }
-
-  const totalDayMinutes = differenceInMinutes(dayEnd, dayStart);
-  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel; // Calculate dynamic height
-
-  // Only generate time slots if totalDayMinutes is positive
-  const timeLabels = useMemo(() => {
-    const labels: string[] = [];
-    let currentTime = dayStart;
-    while (isBefore(currentTime, dayEnd)) {
-      labels.push(format(currentTime, 'h a'));
-      currentTime = addHours(currentTime, 1); // Fixed: addHours imported
-    }
-    return labels;
-  }, [dayStart, dayEnd]);
-
-  const allItemsForDay = useMemo(() => {
-    const items: (DBScheduledTask | ScheduledItem)[] = [...tasks];
-
-    const addMealItem = (name: string, timeStr: string | null, emoji: string, duration: number) => {
-      if (timeStr && duration > 0) {
-        let mealStart = setTimeOnDate(dayDate, timeStr);
-        let mealEnd = addMinutes(mealStart, duration); // Fixed: addMinutes imported
+        let mealEnd = addMinutes(mealStart, duration);
 
         // Adjust for meals that might cross midnight if workday spans it
         if (isBefore(mealEnd, mealStart) && isAfter(mealStart, dayStart) && isBefore(mealEnd, dayEnd)) {

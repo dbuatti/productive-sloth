@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
 import WeeklyScheduleGrid from '@/components/WeeklyScheduleGrid';
-import { format, startOfWeek, isSameDay } from 'date-fns'; // Added isSameDay
+import { format, startOfWeek, isSameDay, parseISO } from 'date-fns'; // Added parseISO
 import { cn } from '@/lib/utils';
 
 const SimplifiedSchedulePage: React.FC = () => {

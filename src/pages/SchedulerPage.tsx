@@ -223,7 +223,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   }, [user, profile, T_current, addScheduledTask, environmentForPlacement, triggerEnergyRegen, queryClient]);
 
 
-  const selectedDayAsDate = useMemo(() => parseISO(selectedDay), [selectedDay]);
+  const selectedDayAsDate = useMemo(() => {
+    const [year, month, day] = selectedDay.split('-').map(Number);
+    return new Date(year, month - 1, day); // Creates a local Date object for 00:00:00 of that day
+  }, [selectedDay]);
 
   const occupiedBlocks = useMemo(() => {
     if (!dbScheduledTasks) return [];
@@ -233,8 +236,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         const utcStart = parseISO(task.start_time!);
         const utcEnd = parseISO(task.end_time!);
 
-        let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getMinutes()), utcStart.getHours());
-        let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getMinutes()), utcEnd.getHours());
+        let localStart = setTimeOnDate(selectedDayAsDate, format(utcStart, 'HH:mm'));
+        let localEnd = setTimeOnDate(selectedDayAsDate, format(utcEnd, 'HH:mm'));
 
         if (isBefore(localEnd, localStart)) {
           localEnd = addDays(localEnd, 1);
@@ -445,8 +448,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         const utcStart = parseISO(task.start_time!);
         const utcEnd = parseISO(task.end_time!);
 
-        let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getMinutes()), utcStart.getHours());
-        let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getMinutes()), utcEnd.getHours());
+        let localStart = setTimeOnDate(selectedDayAsDate, format(utcStart, 'HH:mm'));
+        let localEnd = setTimeOnDate(selectedDayAsDate, format(utcEnd, 'HH:mm'));
 
         if (isBefore(localEnd, localStart)) {
           localEnd = addDays(localEnd, 1);
@@ -1195,7 +1198,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       };
 
       await autoBalanceSchedule(payload);
-      showSuccess(`Schedule re-balanced for ${targetDate}!`);
+      showSuccess(`Schedule auto-balanced for ${targetDate}!`);
       setSortBy('TIME_EARLIEST_TO_LATEST');
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       setIsProcessingCommand(false);
@@ -1427,8 +1430,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           }
 
         } else {
-          let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.startTime!.getMinutes()), parsedInput.startTime!.getHours());
-          let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), parsedInput.endTime!.getMinutes()), parsedInput.endTime!.getHours());
+          let startTime = setTimeOnDate(selectedDayAsDate, format(parsedInput.startTime!, 'HH:mm'));
+          let endTime = setTimeOnDate(selectedDayAsDate, format(parsedInput.endTime!, 'HH:mm'));
           
           if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
             showError("Invalid time format for start/end times.");
@@ -1621,6 +1624,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           setInjectionEndTime(formatFns(addHours(T_current, 1), 'h:mm a'));
           setInjectionDuration('');
           setInjectionBreak('');
+          setInputValue('');
           success = true;
           break;
         case 'aether dump':
@@ -1699,8 +1703,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       const tempStartTime = parseFlexibleTime(injectionStartTime, selectedDayAsDate);
       const tempEndTime = parseFlexibleTime(injectionEndTime, selectedDayAsDate);
 
-      let startTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempStartTime.getMinutes()), tempStartTime.getHours());
-      let endTime = setHours(setMinutes(startOfDay(selectedDayAsDate), tempEndTime.getMinutes()), tempEndTime.getHours());
+      let startTime = setTimeOnDate(selectedDayAsDate, format(tempStartTime, 'HH:mm'));
+      let endTime = setTimeOnDate(selectedDayAsDate, format(tempEndTime, 'HH:mm'));
 
       if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
         showError("Invalid time format for start/end times.");

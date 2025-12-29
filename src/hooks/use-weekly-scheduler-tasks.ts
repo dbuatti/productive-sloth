@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask } from '@/types/scheduler';
 import { useSession } from './use-session';
-import { format, startOfWeek, addDays } from 'date-fns';
+import { format, startOfWeek, addDays, parseISO } from 'date-fns'; // Added parseISO
 
 interface WeeklyTasks {
   [key: string]: DBScheduledTask[]; // Key is 'yyyy-MM-dd'
@@ -12,6 +12,7 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
   const { user } = useSession();
   const userId = user?.id;
 
+  // Ensure weekStart is treated as a local date for formatting
   const formattedWeekStart = format(startOfWeek(weekStart, { weekStartsOn: 0 }), 'yyyy-MM-dd'); // Ensure week starts on Sunday
 
   const queryKey = ['weeklyScheduledTasks', userId, formattedWeekStart];
@@ -19,6 +20,7 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
   const fetchWeeklyTasks = async (): Promise<WeeklyTasks> => {
     if (!userId) return {};
 
+    // Calculate weekEnd based on the local weekStart
     const weekEnd = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), 6); // End of the week (Saturday)
 
     const { data, error } = await supabase
@@ -41,7 +43,8 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
     }
 
     (data as DBScheduledTask[]).forEach(task => {
-      const dateKey = format(new Date(task.scheduled_date), 'yyyy-MM-dd');
+      // Ensure task.scheduled_date is parsed as a local date for consistent key generation
+      const dateKey = format(parseISO(task.scheduled_date), 'yyyy-MM-dd');
       if (tasksByDay[dateKey]) {
         tasksByDay[dateKey].push(task);
       }

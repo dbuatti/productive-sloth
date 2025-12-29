@@ -1,24 +1,23 @@
 import React from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
-import { format, isToday, isPast, isBefore, parseISO, setHours, setMinutes, addDays, differenceInMinutes, isAfter } from 'date-fns';
+import { format, isToday, isPast, isBefore, parseISO, setHours, setMinutes, addDays, differenceInMinutes, isAfter, addHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
 import { Clock } from 'lucide-react';
 import { setTimeOnDate } from '@/lib/scheduler-utils';
 
 interface DailyScheduleColumnProps {
-  dayDate: Date; // The date for this column
+  dayDate: Date; // The date for this column (local Date object for 00:00:00)
   tasks: DBScheduledTask[];
   workdayStartTime: string; // HH:MM string from profile
   workdayEndTime: string;   // HH:MM string from profile
   isDetailedView: boolean;
   T_current: Date; // Current time from SessionProvider
   zoomLevel: number; // Vertical zoom level prop
-  columnWidth: number; // NEW: Horizontal zoom (column width) prop
+  columnWidth: number; // Horizontal zoom (column width) prop
 }
 
 const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
-// Removed MAX_TASK_HEIGHT_MINUTES as tasks should occupy their full time slot
 
 const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   dayDate,
@@ -28,59 +27,47 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   isDetailedView,
   T_current,
   zoomLevel, // Vertical zoom level
-  columnWidth, // NEW: Destructure columnWidth
+  columnWidth, // Destructure columnWidth
 }) => {
   const isCurrentDay = isToday(dayDate);
 
-  const dayStart = setTimeOnDate(dayDate, workdayStartTime);
-  let dayEnd = setTimeOnDate(dayDate, workdayEndTime);
-  
-  // Ensure dayEnd is always after dayStart, even if they are the same time initially
-  // This handles cases where start and end times are identical (e.g., 09:00 - 09:00)
-  // or if the end time is on the next day (e.g., 22:00 - 06:00)
-  if (!isAfter(dayEnd, dayStart)) { // Changed from isBefore to !isAfter
-    dayEnd = addDays(dayEnd, 1);
+  // Always use a full 24-hour period for the grid's internal timeline
+  const gridStart = setHours(setMinutes(dayDate, 0), 0); // 00:00 local time
+  const gridEnd = addDays(gridStart, 1); // 24:00 local time (next day's 00:00)
+  const totalGridMinutes = differenceInMinutes(gridEnd, gridStart);
+  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel;
+
+  // Calculate workday start and end as local Date objects for the current dayDate
+  const localWorkdayStart = setTimeOnDate(dayDate, workdayStartTime);
+  let localWorkdayEnd = setTimeOnDate(dayDate, workdayEndTime);
+  if (isBefore(localWorkdayEnd, localWorkdayStart)) {
+    localWorkdayEnd = addDays(localWorkdayEnd, 1);
   }
 
-  const totalDayMinutes = differenceInMinutes(dayEnd, dayStart);
-  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel; // Calculate dynamic height
-
-  // Only generate time slots if totalDayMinutes is positive
-  const timeSlots = totalDayMinutes > 0 ? Array.from({ length: Math.ceil(totalDayMinutes / 60) }).map((_, i) => {
-    const hour = addDays(setHours(setMinutes(dayStart, 0), dayStart.getHours() + i), 0);
+  // Generate time slots for every hour across the 24-hour grid
+  const timeSlots = Array.from({ length: 24 }).map((_, i) => {
+    const hour = addHours(gridStart, i);
     return format(hour, 'h a');
-  }) : [];
-
-  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] ---`);
-  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] workdayStartTime: ${workdayStartTime}, workdayEndTime: ${workdayEndTime}`);
-  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] dayStart: ${dayStart.toISOString()}, dayEnd: ${dayEnd.toISOString()}`);
-  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] totalDayMinutes: ${totalDayMinutes}`);
-  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] zoomLevel: ${zoomLevel}, dynamicMinuteHeight: ${dynamicMinuteHeight}`);
-  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] columnWidth: ${columnWidth}`);
-  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] Tasks for day (${tasks.length}):`, tasks.map(t => t.name));
-
+  });
 
   const getTaskPositionAndHeight = (task: DBScheduledTask) => {
-    const taskStart = task.start_time ? parseISO(task.start_time) : dayStart;
-    const taskEnd = task.end_time ? parseISO(task.end_time) : dayStart;
+    const taskStartUTC = parseISO(task.start_time!);
+    const taskEndUTC = parseISO(task.end_time!);
 
-    // Adjust task times to be relative to the current dayDate's local time
-    let localTaskStart = setTimeOnDate(dayDate, format(taskStart, 'HH:mm'));
-    let localTaskEnd = setTimeOnDate(dayDate, format(taskEnd, 'HH:mm'));
+    // Convert UTC task times to local times relative to the current dayDate
+    let localTaskStart = setTimeOnDate(dayDate, format(taskStartUTC, 'HH:mm'));
+    let localTaskEnd = setTimeOnDate(dayDate, format(taskEndUTC, 'HH:mm'));
+    
+    // Handle tasks that span across midnight
     if (isBefore(localTaskEnd, localTaskStart)) {
       localTaskEnd = addDays(localTaskEnd, 1);
     }
 
-    const offsetMinutes = differenceInMinutes(localTaskStart, dayStart);
+    const offsetMinutes = differenceInMinutes(localTaskStart, gridStart);
     const durationMinutes = differenceInMinutes(localTaskEnd, localTaskStart);
 
     const top = offsetMinutes * dynamicMinuteHeight;
-    const height = durationMinutes * dynamicMinuteHeight; // Use full duration for height
-
-    console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] Task "${task.name}" - start_time: ${task.start_time}, end_time: ${task.end_time}`);
-    console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}]   localTaskStart: ${localTaskStart.toISOString()}, localTaskEnd: ${localTaskEnd.toISOString()}`);
-    console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}]   offsetMinutes: ${offsetMinutes}, durationMinutes: ${durationMinutes}`);
-    console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}]   Calculated: top=${top}, height=${height}`);
+    const height = durationMinutes * dynamicMinuteHeight;
 
     return { top, height, durationMinutes };
   };
@@ -88,42 +75,53 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   return (
     <div 
       className="relative flex-shrink-0 border-r border-border/50 last:border-r-0"
-      style={{ width: `${columnWidth}px` }} // NEW: Apply dynamic width
+      style={{ width: `${columnWidth}px` }}
     >
       {/* Day Header */}
       <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm p-2 border-b border-border/50 text-center">
         <p className={cn(
-          "text-[9px] sm:text-[10px] font-black uppercase tracking-widest", // Adjusted text size for mobile
+          "text-[9px] sm:text-[10px] font-black uppercase tracking-widest",
           isCurrentDay ? "text-primary" : "text-muted-foreground/60"
         )}>
           {format(dayDate, 'EEE')}
         </p>
         <p className={cn(
-          "text-base sm:text-lg font-black tracking-tighter leading-none", // Adjusted text size for mobile
+          "text-base sm:text-lg font-black tracking-tighter leading-none",
           isCurrentDay ? "text-foreground" : "text-muted-foreground/80"
         )}>
           {format(dayDate, 'd')}
         </p>
       </div>
 
-      {/* Time Grid Lines (Optional, for visual alignment) */}
+      {/* Time Grid Lines */}
       <div className="absolute inset-0">
         {timeSlots.map((_, i) => (
           <div
             key={i}
             className="absolute left-0 right-0 border-t border-dashed border-border/20"
-            style={{ top: `${(i * 60) * dynamicMinuteHeight}px` }} // Use dynamic height
+            style={{ top: `${(i * 60) * dynamicMinuteHeight}px` }}
           />
         ))}
       </div>
+
+      {/* Workday Window Highlight */}
+      {totalGridMinutes > 0 && (
+        <div
+          className="absolute left-0 right-0 bg-primary/5 z-0"
+          style={{
+            top: `${differenceInMinutes(localWorkdayStart, gridStart) * dynamicMinuteHeight}px`,
+            height: `${differenceInMinutes(localWorkdayEnd, localWorkdayStart) * dynamicMinuteHeight}px`,
+          }}
+        />
+      )}
 
       {/* Current Time Indicator (only for today) */}
       {isCurrentDay && (
         <div
           className="absolute left-0 right-0 h-0.5 bg-live-progress z-20 animate-pulse"
           style={{
-            top: `${differenceInMinutes(T_current, dayStart) * dynamicMinuteHeight}px`, // Use dynamic height
-            display: isBefore(T_current, dayEnd) && isAfter(T_current, dayStart) ? 'block' : 'none'
+            top: `${differenceInMinutes(T_current, gridStart) * dynamicMinuteHeight}px`,
+            display: isBefore(T_current, gridEnd) && isAfter(T_current, gridStart) ? 'block' : 'none'
           }}
         >
           <div className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full bg-live-progress shadow-[0_0_10px_hsl(var(--live-progress))]" />
@@ -131,24 +129,23 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       )}
 
       {/* Tasks */}
-      <div className="relative px-1" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}> {/* Adjusted horizontal padding */}
+      <div className="relative px-1" style={{ height: `${totalGridMinutes * dynamicMinuteHeight}px` }}>
         {tasks.map((task) => {
           const { top, height, durationMinutes } = getTaskPositionAndHeight(task);
-          const isPastTask = isPast(parseISO(task.end_time!)) && !isCurrentDay; // Only mark as past if not today
+          const isPastTask = isPast(parseISO(task.end_time!)) && !isCurrentDay;
           const isCurrentlyActive = isCurrentDay && T_current >= parseISO(task.start_time!) && T_current < parseISO(task.end_time!);
 
           return (
             <div
               key={task.id}
               className={cn(
-                "absolute left-1 right-1 rounded-md p-0.5 transition-all duration-300", // Adjusted padding
+                "absolute left-1 right-1 rounded-md p-0.5 transition-all duration-300",
                 "bg-card/60 border border-white/5",
-                isPastTask && "opacity-40 grayscale pointer-events-none" // Apply pointer-events-none for past tasks
+                isPastTask && "opacity-40 grayscale pointer-events-none"
               )}
               style={{ top: `${top}px`, height: `${height}px` }}
             >
               <SimplifiedScheduledTaskItem task={task} isDetailedView={isDetailedView} isCurrentlyActive={isCurrentlyActive} />
-              {/* Removed the conditional message for hidden duration */}
             </div>
           );
         })}

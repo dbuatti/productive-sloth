@@ -107,7 +107,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const days = useMemo(() => {
     const generatedDays = Array.from({ length: numDaysVisible }).map((_, i) => addDays(currentWeekStart, i));
-    console.log("[WeeklyScheduleGrid] Generated days:", generatedDays.map(d => format(d, 'yyyy-MM-dd')));
     return generatedDays;
   }, [currentWeekStart, numDaysVisible]);
 
@@ -135,32 +134,20 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     setNumDaysVisible(days);
   };
 
-  const dayStartForTimeAxis = setTimeOnDate(currentWeekStart, workdayStartTime);
-  let dayEndForTimeAxis = setTimeOnDate(currentWeekStart, workdayEndTime);
-  if (!isAfter(dayEndForTimeAxis, dayStartForTimeAxis)) { // Ensure dayEnd is after dayStart for time axis
-    dayEndForTimeAxis = addDays(dayEndForTimeAxis, 1);
-  }
-  const totalDayMinutesForTimeAxis = differenceInMinutes(dayEndForTimeAxis, dayStartForTimeAxis);
+  // Time axis now spans a full 24 hours
+  const timeAxisStart = setHours(setMinutes(currentWeekStart, 0), 0); // 00:00 local time
+  const timeAxisEnd = addDays(timeAxisStart, 1); // 24:00 local time (next day's 00:00)
+  const totalDayMinutesForTimeAxis = differenceInMinutes(timeAxisEnd, timeAxisStart);
 
   const timeLabels = useMemo(() => {
     const labels: string[] = [];
-    let currentTime = dayStartForTimeAxis;
-    while (isBefore(currentTime, dayEndForTimeAxis)) {
+    let currentTime = timeAxisStart;
+    while (isBefore(currentTime, timeAxisEnd)) {
       labels.push(format(currentTime, 'h a'));
       currentTime = addHours(currentTime, 1);
     }
     return labels;
-  }, [dayStartForTimeAxis, dayEndForTimeAxis]);
-
-  console.log("[WeeklyScheduleGrid] currentWeekStart:", format(currentWeekStart, 'yyyy-MM-dd'));
-  console.log("[WeeklyScheduleGrid] numDaysVisible:", numDaysVisible);
-  console.log("[WeeklyScheduleGrid] currentVerticalZoomFactor:", currentVerticalZoomFactor);
-  console.log("[WeeklyScheduleGrid] dynamicMinuteHeight:", dynamicMinuteHeight);
-  console.log("[WeeklyScheduleGrid] gridContainerWidth:", gridContainerWidth);
-  console.log("[WeeklyScheduleGrid] currentColumnWidth:", currentColumnWidth);
-  console.log("[WeeklyScheduleGrid] workdayStartTime:", workdayStartTime, "workdayEndTime:", workdayEndTime);
-  console.log("[WeeklyScheduleGrid] dayStartForTimeAxis:", dayStartForTimeAxis.toISOString(), "dayEndForTimeAxis:", dayEndForTimeAxis.toISOString()); // NEW LOG
-  console.log("[WeeklyScheduleGrid] totalDayMinutesForTimeAxis:", totalDayMinutesForTimeAxis); // NEW LOG
+  }, [timeAxisStart, timeAxisEnd]);
 
 
   return (

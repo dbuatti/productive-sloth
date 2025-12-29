@@ -178,6 +178,7 @@ export const formatDateTime = (date: Date): string => format(date, 'MMM d, h:mm 
 
 export const setTimeOnDate = (date: Date, timeString: string): Date => {
   const [hours, minutes] = timeString.split(':').map(Number);
+  // Use local setters for consistency with local time display
   return setMinutes(setHours(date, hours), minutes);
 };
 
@@ -643,8 +644,8 @@ export const compactScheduleLogic = (
   // These tasks should be retired, not compacted/moved forward.
   if (isTodaySelected) {
     flexibleTasksToCompact = flexibleTasksToCompact.filter(task => {
-      if (!task.end_time) return true; 
-      const taskEndTime = parseISO(task.end_time);
+      if (!task.start_time) return true; 
+      const taskEndTime = parseISO(task.end_time!);
       // Only keep tasks that end AFTER the current time
       return isAfter(taskEndTime, T_current);
     });
@@ -673,8 +674,8 @@ export const compactScheduleLogic = (
         const utcStart = parseISO(task.start_time!);
         const utcEnd = parseISO(task.end_time!);
 
-        let localStart = setHours(setMinutes(selectedDayAsDate, utcStart.getMinutes()), utcStart.getHours());
-        let localEnd = setHours(setMinutes(selectedDayAsDate, utcEnd.getMinutes()), utcEnd.getHours());
+        let localStart = setTimeOnDate(selectedDayAsDate, format(utcStart, 'HH:mm'));
+        let localEnd = setTimeOnDate(selectedDayAsDate, format(utcEnd, 'HH:mm'));
 
         if (isBefore(localEnd, localStart)) {
           localEnd = addDays(localEnd, 1);
@@ -737,9 +738,9 @@ export const compactScheduleLogic = (
 
 export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
-  selectedDay: string,
-  workdayStart: Date,
-  workdayEnd: Date,
+  selectedDay: string, // 'yyyy-MM-dd' string
+  workdayStart: Date, // Local Date object
+  workdayEnd: Date,   // Local Date object
   isRegenPodActive: boolean, // NEW: Pod state
   regenPodStartTime: Date | null, // NEW: Pod start time
   regenPodDurationMinutes: number, // NEW: Pod duration
@@ -757,10 +758,12 @@ export const calculateSchedule = (
   let extendsPastMidnight = false;
   let midnightRolloverMessage: string | null = null;
 
-  const selectedDayDate = parseISO(selectedDay);
+  // Create a local Date object for the start of the selected day
+  const [year, month, day] = selectedDay.split('-').map(Number);
+  const selectedDayDate = new Date(year, month - 1, day); 
 
   // --- NEW: Add Meal Times as Fixed Tasks ---
-  const addMealTask = (name: string, timeStr: string, emoji: string, duration: number) => {
+  const addMealTask = (name: string, timeStr: string | null, emoji: string, duration: number) => {
     if (timeStr) {
       let mealStart = setTimeOnDate(selectedDayDate, timeStr);
       let mealEnd = addMinutes(mealStart, duration);

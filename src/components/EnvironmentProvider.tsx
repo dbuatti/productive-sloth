@@ -17,7 +17,7 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (e) {
-        console.error("Failed to parse stored environments:", e);
+        // console.error("Failed to parse stored environments:", e);
       }
     }
     return []; // Default to NO environment selected

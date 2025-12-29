@@ -54,7 +54,7 @@ export const useRecoveryActivities = () => {
   useEffect(() => {
     if (userId && !isLoading && activities.length === 0) {
       const initializeDefaults = async () => {
-        console.log("Initializing default recovery activities...");
+        // console.log("Initializing default recovery activities...");
         const activitiesToInsert = DEFAULT_ACTIVITIES.map(activity => ({
           ...activity,
           user_id: userId,
@@ -65,7 +65,7 @@ export const useRecoveryActivities = () => {
           .insert(activitiesToInsert);
 
         if (error) {
-          console.error("Failed to insert default recovery activities:", error.message);
+          // console.error("Failed to insert default recovery activities:", error.message);
         } else {
           queryClient.invalidateQueries({ queryKey });
         }

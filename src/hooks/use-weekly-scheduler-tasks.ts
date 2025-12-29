@@ -30,7 +30,7 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
       .order('start_time', { ascending: true });
 
     if (error) {
-      console.error("Error fetching weekly scheduled tasks:", error.message);
+      // console.error("Error fetching weekly scheduled tasks:", error.message);
       throw new Error(error.message);
     }
 

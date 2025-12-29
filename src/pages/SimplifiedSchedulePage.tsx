@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,13 @@ const SimplifiedSchedulePage: React.FC = () => {
   const { weeklyTasks, isLoading: isWeeklyTasksLoading } = useWeeklySchedulerTasks(currentWeekStart);
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
+
+  useEffect(() => {
+    console.log("[SimplifiedSchedulePage] Page loaded.");
+    console.log("[SimplifiedSchedulePage] currentWeekStart:", format(currentWeekStart, 'yyyy-MM-dd'));
+    console.log("[SimplifiedSchedulePage] weeklyTasks (raw):", weeklyTasks);
+    console.log("[SimplifiedSchedulePage] isLoading:", isLoading);
+  }, [currentWeekStart, weeklyTasks, isLoading]);
 
   if (isLoading) {
     return (

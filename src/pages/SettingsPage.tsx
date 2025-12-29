@@ -136,7 +136,7 @@ const SettingsPage: React.FC = () => {
       showSuccess("Profile updated successfully!");
     } catch (error: any) {
       showError(`Failed to update profile: ${error.message}`);
-      console.error("Profile update error:", error);
+      // console.error("Profile update error:", error);
     }
   };
 
@@ -190,7 +190,7 @@ const SettingsPage: React.FC = () => {
       window.location.reload();
     } catch (error: any) {
       showError(`Failed to reset game progress: ${error.message}`);
-      console.error("Reset game progress error:", error);
+      // console.error("Reset game progress error:", error);
     }
   };
 
@@ -223,7 +223,7 @@ const SettingsPage: React.FC = () => {
       showSuccess("App settings reset to default!");
     } catch (error: any) {
       showError(`Failed to reset app settings: ${error.message}`);
-      console.error("Reset app settings error:", error);
+      // console.error("Reset app settings error:", error);
     }
   };
 
@@ -253,7 +253,7 @@ const SettingsPage: React.FC = () => {
       return;
     }
     showError("Account deletion is not yet implemented client-side. Please contact support or use the Supabase dashboard.");
-    console.warn("Attempted client-side account deletion for user:", user.id);
+    // console.warn("Attempted client-side account deletion for user:", user.id);
   };
 
   const handleSignOut = async () => {

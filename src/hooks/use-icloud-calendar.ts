@@ -15,6 +15,7 @@ export const useICloudCalendar = () => {
   const queryClient = useQueryClient();
   const { user, session } = useSession();
   const userId = user?.id;
+
   const syncQueryKey = ['iCloudUserCalendars', userId];
 
   // --- 1. Fetch User's Selected/Synced Calendars (from DB) ---

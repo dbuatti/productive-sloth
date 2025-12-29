@@ -114,14 +114,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy],
     queryFn: async () => {
       if (!userId) {
-        console.log("useSchedulerTasks: No user ID, returning empty array.");
         return [];
       }
       if (!formattedSelectedDate) {
-        console.log("useSchedulerTasks: No selected date, returning empty array.");
         return [];
       }
-      console.log("useSchedulerTasks: Fetching scheduled tasks for user:", userId, "on date:", formattedSelectedDate, "sorted by:", sortBy);
       let query = supabase
         .from('scheduled_tasks')
         .select('*')
@@ -151,10 +148,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { data, error } = await query;
 
       if (error) {
-        console.error("useSchedulerTasks: Error fetching scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched tasks:", data.map(t => ({ id: t.id, name: t.name, scheduled_date: t.scheduled_date, start_time: t.start_time, end_time: t.end_time, is_critical: t.is_critical, is_flexible: t.is_flexible, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, source_calendar_id: t.source_calendar_id })));
       
       // Client-side sorting for EMOJI
       if (sortBy === 'EMOJI') {
@@ -180,7 +175,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .eq('user_id', userId);
 
       if (error) {
-        console.error("useSchedulerTasks: Error fetching dates with tasks:", error.message);
         throw new Error(error.message);
       }
       const uniqueDates = Array.from(new Set(data.map(item => format(parseISO(item.scheduled_date), 'yyyy-MM-dd'))));
@@ -193,7 +187,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     queryKey: ['retiredTasks', userId, retiredSortBy],
     queryFn: async () => {
       if (!userId) return [];
-      console.log("useSchedulerTasks: Fetching retired tasks for user:", userId, "sorted by:", retiredSortBy);
       let query = supabase
         .from('aethersink')
         .select('*')
@@ -253,10 +246,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { data, error } = await query;
 
       if (error) {
-        console.error("useSchedulerTasks: Error fetching retired tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully fetched retired tasks:", data.map(t => ({ id: t.id, name: t.name, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost, is_completed: t.is_completed, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment })));
       
       // Client-side sorting for EMOJI
       if (retiredSortBy === 'EMOJI') {
@@ -284,10 +275,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const selectedDayStartUTC = new Date(Date.UTC(selectedDayDate.getFullYear(), selectedDayDate.getMonth(), selectedDayDate.getDate())).toISOString();
       const selectedDayEndUTC = new Date(Date.UTC(selectedDayDate.getFullYear(), selectedDayDate.getMonth(), selectedDayDate.getDate() + 1)).toISOString();
 
-      console.log("useSchedulerTasks: Fetching completed tasks for selected day. User ID:", userId, "Selected Day:", formattedSelectedDate);
-      console.log("useSchedulerTasks: Selected Day Start UTC:", selectedDayStartUTC);
-      console.log("useSchedulerTasks: Selected Day End UTC:", selectedDayEndUTC);
-
       // Fetch completed scheduled tasks for selected day
       const { data: scheduled, error: scheduledError } = await supabase
         .from('scheduled_tasks')
@@ -298,10 +285,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .lt('updated_at', selectedDayEndUTC);
 
       if (scheduledError) {
-        console.error('useSchedulerTasks: Error fetching completed scheduled tasks for selected day:', scheduledError);
         throw new Error(scheduledError.message);
       }
-      console.log("useSchedulerTasks: Completed Scheduled Tasks for selected day:", scheduled);
 
       // Fetch completed retired tasks for selected day
       const { data: retired, error: retiredError } = await supabase
@@ -313,10 +298,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .lt('retired_at', selectedDayEndUTC);
 
       if (retiredError) {
-        console.error('useSchedulerTasks: Error fetching completed retired tasks for selected day:', retiredError);
         throw new Error(retiredError.message);
       }
-      console.log("useSchedulerTasks: Completed Retired Tasks for selected day:", retired);
 
       // Fetch completed general tasks for selected day
       const { data: generalTasks, error: generalTasksError } = await supabase
@@ -328,10 +311,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .lt('updated_at', selectedDayEndUTC);
 
       if (generalTasksError) {
-        console.error('useSchedulerTasks: Error fetching completed general tasks for selected day:', generalTasksError);
         throw new Error(generalTasksError.message);
       }
-      console.log("useSchedulerTasks: Completed General Tasks for selected day:", generalTasks);
 
       // Helper to calculate effective duration
       const calculateEffectiveDuration = (task: any, source: 'scheduled_tasks' | 'aethersink' | 'tasks'): number => {
@@ -397,9 +378,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         })),
       ];
 
-      console.log("useSchedulerTasks: Combined Tasks for selected day (before sorting):", combinedTasks);
-      combinedTasks.forEach(task => console.log(`useSchedulerTasks: Task: ${task.name}, Duration: ${task.effective_duration_minutes}, Energy Cost: ${task.energy_cost}, Source: ${task.original_source}`));
-
       // Sort by updated_at/retired_at descending (most recent first)
       return combinedTasks.sort((a, b) => {
         const timeA = parseISO(a.updated_at || a.created_at).getTime();
@@ -425,13 +403,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
       const taskToInsert = { ...newTask, user_id: userId, energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop', source_calendar_id: newTask.source_calendar_id ?? null, is_backburner: newTask.is_backburner ?? false };
-      console.log("useSchedulerTasks: Attempting to insert new task:", taskToInsert);
       const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) {
-        console.error("useSchedulerTasks: Error inserting task:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully inserted task:", data);
       return data as DBScheduledTask;
     },
     onMutate: async (newTask: NewDBScheduledTask) => {
@@ -465,13 +440,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
       const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop', is_backburner: newTask.is_backburner ?? false };
-      console.log("useSchedulerTasks: Attempting to insert new retired task:", taskToInsert);
       const { data, error } = await supabase.from('aethersink').insert(taskToInsert).select().single();
       if (error) {
-        console.error("useSchedulerTasks: Error inserting retired task:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully inserted retired task:", data);
       return data as RetiredTask;
     },
     onMutate: async (newTask: NewRetiredTask) => {
@@ -510,13 +482,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const removeScheduledTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`[DEBUG] Attempting to delete scheduled task with ID: ${taskId} for user: ${userId}`);
       const { error } = await supabase.from('scheduled_tasks').delete().eq('id', taskId).eq('user_id', userId);
       if (error) {
-        console.error(`[DEBUG] Error deleting scheduled task ${taskId}:`, error.message);
         throw new Error(error.message);
       }
-      console.log(`[DEBUG] Successfully deleted scheduled task with ID: ${taskId}`);
     },
     onMutate: async (taskId: string) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
@@ -533,10 +502,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       if (error) {
         showError(`Failed to remove task from schedule: ${error.message}`);
-        console.error(`[DEBUG] removeScheduledTaskMutation onSettled with error for task ID: ${variables}:`, error);
       } else {
         // Success message is now handled in SchedulerPage.tsx after compaction attempt
-        console.log(`[DEBUG] removeScheduledTaskMutation onSettled success for task ID: ${variables}`);
       }
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
@@ -547,13 +514,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const removeRetiredTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`[DEBUG] Attempting to delete retired task with ID: ${taskId} for user: ${userId}`);
       const { error } = await supabase.from('aethersink').delete().eq('id', taskId).eq('user_id', userId);
       if (error) {
-        console.error(`[DEBUG] Error deleting retired task ${taskId}:`, error.message);
         throw new Error(error.message);
       }
-      console.log(`[DEBUG] Successfully deleted retired task with ID: ${taskId}`);
     },
     onMutate: async (taskId: string) => {
       await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
@@ -569,10 +533,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
       if (error) {
         showError(`Failed to remove retired task: ${error.message}`);
-        console.error(`[DEBUG] removeRetiredTaskMutation onSettled with error for task ID: ${variables}:`, error);
       } else {
         showSuccess('Retired task permanently deleted.');
-        console.log(`[DEBUG] removeRetiredTaskMutation onSettled success for task ID: ${variables}`);
       }
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
@@ -583,13 +545,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const clearScheduledTasksMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Attempting to clear all scheduled tasks for user:", userId);
       const { error } = await supabase.from('scheduled_tasks').delete().eq('user_id', userId).eq('scheduled_date', formattedSelectedDate);
       if (error) {
-        console.error("useSchedulerTasks: Error clearing scheduled tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully cleared all scheduled tasks for user:", userId, "on date:", formattedSelectedDate);
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
@@ -757,10 +716,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
 
       if (error) {
-        console.error("useSchedulerTasks: Error compacting tasks:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully compacted tasks.");
     },
     onMutate: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
@@ -916,7 +873,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           .delete()
           .in('id', failedToPlaceBreaks.map(task => task.id))
           .eq('user_id', userId);
-        if (deleteError) console.error("Failed to delete unplaced breaks:", deleteError.message);
+        if (deleteError) {} 
       }
 
       return { placedBreaks, failedToPlaceBreaks };
@@ -960,7 +917,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const toggleScheduledTaskLockMutation = useMutation({
     mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to toggle lock for task ID: ${taskId} to ${isLocked}`);
       const { data, error } = await supabase
         .from('scheduled_tasks')
         .update({ is_locked: isLocked, updated_at: new Date().toISOString() })
@@ -969,10 +925,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error toggling task lock:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully toggled lock for task:", data);
       return data as DBScheduledTask;
     },
     onMutate: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
@@ -1008,7 +962,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const toggleRetiredTaskLockMutation = useMutation({
     mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to toggle lock for retired task ID: ${taskId} to ${isLocked}`);
       const { data, error } = await supabase
         .from('aethersink')
         .update({ is_locked: isLocked, retired_at: new Date().toISOString() })
@@ -1017,10 +970,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error toggling retired task lock:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully toggled lock for retired task:", data);
       return data as RetiredTask;
     },
     onMutate: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
@@ -1242,16 +1193,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
       if (!session?.access_token) throw new Error("User session token not available.");
 
-      console.log("autoBalanceScheduleMutation: Payload received:", {
-        scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
-        retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
-        tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked })),
-        tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name })),
-        selectedDate: payload.selectedDate,
-      });
-
-      console.log(`autoBalanceScheduleMutation: Sending token (masked) to Edge Function: ${session.access_token.substring(0, 10)}...${session.access_token.substring(session.access_token.length - 10)}`);
-
       const { data, error } = await supabase.functions.invoke('auto-balance-schedule', {
         body: payload,
         headers: {
@@ -1260,12 +1201,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       });
 
       if (error) {
-        console.error("autoBalanceScheduleMutation: Error invoking Edge Function:", error);
         throw new Error(error.message);
       }
 
       if (data.error) {
-        console.error("autoBalanceScheduleMutation: Edge Function returned error:", data.error);
         throw new Error(data.error);
       }
 
@@ -1418,7 +1357,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           original_source: 'scheduled_tasks',
           original_scheduled_date: task.scheduled_date,
         });
-      if (completedLogError) console.error("Failed to log completed task:", completedLogError.message);
+      if (completedLogError) {}
 
       // DELETE the task from scheduled_tasks
       const { error: deleteTaskError } = await supabase
@@ -1465,7 +1404,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const updateScheduledTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<DBScheduledTask> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Attempting to update scheduled task details:", task);
       const { data, error } = await supabase
         .from('scheduled_tasks')
         .update({ ...task, updated_at: new Date().toISOString() })
@@ -1474,10 +1412,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error updating scheduled task details:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully updated scheduled task details:", data);
       return data as DBScheduledTask;
     },
     onMutate: async (task: Partial<DBScheduledTask> & { id: string }) => {
@@ -1514,8 +1450,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const updateScheduledTaskStatusMutation = useMutation({
     mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to update completion status for scheduled task ID: ${taskId} to ${isCompleted}`);
-
       const { data: currentTask, error: fetchError } = await supabase
         .from('scheduled_tasks')
         .select('*')
@@ -1581,7 +1515,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const updateRetiredTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<RetiredTask> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Attempting to update retired task details:", task);
       const { data, error } = await supabase
         .from('aethersink')
         .update({ ...task, retired_at: new Date().toISOString() })
@@ -1590,10 +1523,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         .select()
         .single();
       if (error) {
-        console.error("useSchedulerTasks: Error updating retired task details:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully updated retired task details:", data);
       return data as RetiredTask;
     },
     onMutate: async (task: Partial<RetiredTask> & { id: string }) => {
@@ -1628,8 +1559,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const updateRetiredTaskStatusMutation = useMutation({
     mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`useSchedulerTasks: Attempting to update completion status for retired task ID: ${taskId} to ${isCompleted}`);
-
       const { data: currentTask, error: fetchError } = await supabase
         .from('aethersink')
         .select('*')
@@ -1731,7 +1660,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           original_source: 'aethersink',
           original_scheduled_date: task.original_scheduled_date,
         });
-      if (completedLogError) console.error("Failed to log completed retired task:", completedLogError.message);
+      if (completedLogError) {}
 
       // DELETE the task from aethersink
       const { error: deleteTaskError } = await supabase
@@ -1780,13 +1709,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const triggerAetherSinkBackupMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("useSchedulerTasks: Triggering Aether Sink backup for user:", userId);
       const { data, error } = await supabase.rpc('backup_aethersink_for_user', { p_user_id: userId });
       if (error) {
-        console.error("useSchedulerTasks: Error triggering Aether Sink backup:", error.message);
         throw new Error(error.message);
       }
-      console.log("useSchedulerTasks: Successfully triggered Aether Sink backup.");
       return data;
     },
     onMutate: async () => {

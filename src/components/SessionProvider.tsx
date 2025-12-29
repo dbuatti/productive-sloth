@@ -56,7 +56,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .single();
 
       if (error) {
-        console.error('[SessionProvider] Error fetching profile:', error);
+        // console.error('[SessionProvider] Error fetching profile:', error);
         setProfile(null);
       } else if (data) {
         setProfile(data as UserProfile);
@@ -70,7 +70,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
     } catch (e) {
-        console.error('[SessionProvider] Unexpected error during profile fetch:', e);
+        // console.error('[SessionProvider] Unexpected error during profile fetch:', e);
         setProfile(null);
     } finally {
         setIsProfileLoading(false);
@@ -88,7 +88,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!error) await refreshProfile();
   }, [user, profile, refreshProfile]);
 
-  const triggerLevelUp = useCallback((level: number) => { setLevelUpLevel(level); setShowLevelUp(true); }, []);
+  const triggerLevelUp = useCallback((level: number) => { setShowLevelUp(true); setLevelUpLevel(level); }, []);
   const resetLevelUp = useCallback(() => { setShowLevelUp(false); setLevelUpLevel(0); }, []);
 
   const resetDailyStreak = useCallback(async () => {

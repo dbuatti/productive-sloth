@@ -32,7 +32,7 @@ export const useEnergyRegenTrigger = () => {
 
     if (shouldTrigger) {
       setIsTriggering(true); // Set state to true
-      console.log(`[EnergyRegen] Triggering server-side energy regeneration for user ${user.id}.`);
+      // console.log(`[EnergyRegen] Triggering server-side energy regeneration for user ${user.id}.`);
       
       const triggerRegen = async () => {
         try {
@@ -50,10 +50,10 @@ export const useEnergyRegenTrigger = () => {
           
           // Force a profile refresh to get the new energy value
           await refreshProfile();
-          console.log("[EnergyRegen] Energy regeneration complete and profile refreshed.");
+          // console.log("[EnergyRegen] Energy regeneration complete and profile refreshed.");
 
         } catch (e: any) {
-          console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
+          // console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
         } finally {
           setIsTriggering(false); // Set state to false
         }

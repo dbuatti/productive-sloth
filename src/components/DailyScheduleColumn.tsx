@@ -13,9 +13,10 @@ interface DailyScheduleColumnProps {
   workdayEndTime: string;   // HH:MM string from profile
   isDetailedView: boolean;
   T_current: Date; // Current time from SessionProvider
+  zoomLevel: number; // NEW: Zoom level prop
 }
 
-const MINUTE_HEIGHT = 2.5; // 1 minute = 2.5px height
+const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
 
 const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   dayDate,
@@ -24,6 +25,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   workdayEndTime,
   isDetailedView,
   T_current,
+  zoomLevel, // NEW: Destructure zoomLevel
 }) => {
   const isCurrentDay = isToday(dayDate);
 
@@ -34,6 +36,8 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   }
 
   const totalDayMinutes = differenceInMinutes(dayEnd, dayStart);
+  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel; // Calculate dynamic height
+
   const timeSlots = Array.from({ length: totalDayMinutes / 60 }).map((_, i) => {
     const hour = addDays(setHours(setMinutes(dayStart, 0), dayStart.getHours() + i), 0);
     return format(hour, 'h a');
@@ -53,8 +57,8 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     const offsetMinutes = differenceInMinutes(localTaskStart, dayStart);
     const durationMinutes = differenceInMinutes(localTaskEnd, localTaskStart);
 
-    const top = offsetMinutes * MINUTE_HEIGHT;
-    const height = durationMinutes * MINUTE_HEIGHT;
+    const top = offsetMinutes * dynamicMinuteHeight; // Use dynamic height
+    const height = durationMinutes * dynamicMinuteHeight; // Use dynamic height
 
     return { top, height };
   };
@@ -83,7 +87,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
           <div
             key={i}
             className="absolute left-0 right-0 border-t border-dashed border-border/20"
-            style={{ top: `${(i * 60) * MINUTE_HEIGHT}px` }}
+            style={{ top: `${(i * 60) * dynamicMinuteHeight}px` }} // Use dynamic height
           />
         ))}
       </div>
@@ -93,7 +97,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
         <div
           className="absolute left-0 right-0 h-0.5 bg-live-progress z-20 animate-pulse"
           style={{
-            top: `${differenceInMinutes(T_current, dayStart) * MINUTE_HEIGHT}px`,
+            top: `${differenceInMinutes(T_current, dayStart) * dynamicMinuteHeight}px`, // Use dynamic height
             display: isBefore(T_current, dayEnd) && isAfter(T_current, dayStart) ? 'block' : 'none'
           }}
         >
@@ -102,7 +106,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       )}
 
       {/* Tasks */}
-      <div className="relative p-2" style={{ height: `${totalDayMinutes * MINUTE_HEIGHT}px` }}>
+      <div className="relative p-2" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}> {/* Use dynamic height */}
         {tasks.map((task) => {
           const { top, height } = getTaskPositionAndHeight(task);
           const isPastTask = isPast(parseISO(task.end_time!)) && !isCurrentDay; // Only mark as past if not today

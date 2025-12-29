@@ -18,7 +18,8 @@ interface WeeklyScheduleGridProps {
   T_current: Date; // Current time from SessionProvider
 }
 
-const MINUTE_HEIGHT = 2.5; // 1 minute = 2.5px height allotment
+const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
+const ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00]; // Available zoom factors
 
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
@@ -29,8 +30,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   isLoading,
   T_current,
 }) => {
-  const [isDetailedView, setIsDetailedView] = useState(false);
-  const [scrollPosition, setScrollPosition] = useState(0); // For horizontal scroll in portrait
+  const [isDetailedView, setIsDetailedView] = useState(false); // For task item content detail
+  const [currentZoomIndex, setCurrentZoomIndex] = useState(3); // Default to 1.00 (100%) zoom
+  const currentZoomFactor = ZOOM_LEVELS[currentZoomIndex];
+  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * currentZoomFactor;
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
@@ -46,6 +49,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const handleGoToToday = () => {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+  };
+
+  const handleToggleZoom = () => {
+    setCurrentZoomIndex((prevIndex) => (prevIndex + 1) % ZOOM_LEVELS.length);
   };
 
   const dayStart = setTimeOnDate(currentWeekStart, workdayStartTime);
@@ -64,10 +71,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
     return labels;
   }, [dayStart, dayEnd]);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    setScrollPosition(e.currentTarget.scrollLeft);
-  };
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -102,19 +105,35 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           </Tooltip>
         </div>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsDetailedView(!isDetailedView)}
-              className="ml-auto"
-            >
-              {isDetailedView ? <ZoomOut className="h-4 w-4" /> : <ZoomIn className="h-4 w-4" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{isDetailedView ? "Compact View" : "Detailed View"}</TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsDetailedView(!isDetailedView)}
+              >
+                {isDetailedView ? <ZoomOut className="h-4 w-4" /> : <ZoomIn className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{isDetailedView ? "Compact Task Details" : "Detailed Task Info"}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleZoom}
+                className="ml-auto flex items-center gap-1"
+              >
+                <span className="text-xs font-bold font-mono">{Math.round(currentZoomFactor * 100)}%</span>
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Adjust Schedule Vertical Zoom</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Schedule Grid Container */}
@@ -129,12 +148,12 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             {/* Time Axis (Fixed on left for landscape, hidden in portrait) */}
             <div className="hidden sm:block w-14 flex-shrink-0 border-r border-border/50 bg-background/90 backdrop-blur-sm sticky left-0 z-10">
               <div className="h-[60px] border-b border-border/50" /> {/* Spacer for header */}
-              <div className="relative">
+              <div className="relative" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}>
                 {timeLabels.map((label, i) => (
                   <div
                     key={label + i}
                     className="absolute right-2 text-[10px] font-mono text-muted-foreground/60"
-                    style={{ top: `${(i * 60) * MINUTE_HEIGHT}px`, transform: 'translateY(-50%)' }}
+                    style={{ top: `${(i * 60) * dynamicMinuteHeight}px`, transform: 'translateY(-50%)' }}
                   >
                     {label}
                   </div>
@@ -156,6 +175,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     workdayEndTime={workdayEndTime}
                     isDetailedView={isDetailedView}
                     T_current={T_current}
+                    zoomLevel={currentZoomFactor} // Pass zoom level
                   />
                 );
               })}

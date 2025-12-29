@@ -18,7 +18,7 @@ interface DailyScheduleColumnProps {
 }
 
 const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
-const MAX_TASK_HEIGHT_MINUTES = 120; // Max visual height for a task in minutes (2 hours)
+// Removed MAX_TASK_HEIGHT_MINUTES as tasks should occupy their full time slot
 
 const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   dayDate,
@@ -75,8 +75,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     const durationMinutes = differenceInMinutes(localTaskEnd, localTaskStart);
 
     const top = offsetMinutes * dynamicMinuteHeight;
-    const visualDurationMinutes = Math.min(durationMinutes, MAX_TASK_HEIGHT_MINUTES);
-    const height = visualDurationMinutes * dynamicMinuteHeight;
+    const height = durationMinutes * dynamicMinuteHeight; // Use full duration for height
 
     console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] Task "${task.name}" - start_time: ${task.start_time}, end_time: ${task.end_time}`);
     console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}]   localTaskStart: ${localTaskStart.toISOString()}, localTaskEnd: ${localTaskEnd.toISOString()}`);
@@ -149,11 +148,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
               style={{ top: `${top}px`, height: `${height}px` }}
             >
               <SimplifiedScheduledTaskItem task={task} isDetailedView={isDetailedView} isCurrentlyActive={isCurrentlyActive} />
-              {durationMinutes > MAX_TASK_HEIGHT_MINUTES && (
-                <div className="absolute bottom-0 left-0 right-0 text-center text-[8px] text-muted-foreground/50 bg-background/50 rounded-b-md py-0.5">
-                  ({durationMinutes - MAX_TASK_HEIGHT_MINUTES}m hidden)
-                </div>
-              )}
+              {/* Removed the conditional message for hidden duration */}
             </div>
           );
         })}

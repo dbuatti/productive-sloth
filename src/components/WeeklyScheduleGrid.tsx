@@ -106,7 +106,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
 
   const days = useMemo(() => {
-    return Array.from({ length: numDaysVisible }).map((_, i) => addDays(currentWeekStart, i));
+    const generatedDays = Array.from({ length: numDaysVisible }).map((_, i) => addDays(currentWeekStart, i));
+    console.log("[WeeklyScheduleGrid] Generated days:", generatedDays.map(d => format(d, 'yyyy-MM-dd')));
+    return generatedDays;
   }, [currentWeekStart, numDaysVisible]);
 
 
@@ -149,6 +151,15 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
     return labels;
   }, [dayStart, dayEnd]);
+
+  console.log("[WeeklyScheduleGrid] currentWeekStart:", format(currentWeekStart, 'yyyy-MM-dd'));
+  console.log("[WeeklyScheduleGrid] numDaysVisible:", numDaysVisible);
+  console.log("[WeeklyScheduleGrid] currentVerticalZoomFactor:", currentVerticalZoomFactor);
+  console.log("[WeeklyScheduleGrid] dynamicMinuteHeight:", dynamicMinuteHeight);
+  console.log("[WeeklyScheduleGrid] gridContainerWidth:", gridContainerWidth);
+  console.log("[WeeklyScheduleGrid] currentColumnWidth:", currentColumnWidth);
+  console.log("[WeeklyScheduleGrid] workdayStartTime:", workdayStartTime, "workdayEndTime:", workdayEndTime);
+
 
   return (
     <div className="flex flex-col w-full h-full">

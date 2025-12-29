@@ -46,6 +46,15 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     return format(hour, 'h a');
   });
 
+  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] ---`);
+  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] workdayStartTime: ${workdayStartTime}, workdayEndTime: ${workdayEndTime}`);
+  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] dayStart: ${dayStart.toISOString()}, dayEnd: ${dayEnd.toISOString()}`);
+  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] totalDayMinutes: ${totalDayMinutes}`);
+  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] zoomLevel: ${zoomLevel}, dynamicMinuteHeight: ${dynamicMinuteHeight}`);
+  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] columnWidth: ${columnWidth}`);
+  console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] Tasks for day (${tasks.length}):`, tasks.map(t => t.name));
+
+
   const getTaskPositionAndHeight = (task: DBScheduledTask) => {
     const taskStart = task.start_time ? parseISO(task.start_time) : dayStart;
     const taskEnd = task.end_time ? parseISO(task.end_time) : dayStart;
@@ -60,13 +69,16 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     const offsetMinutes = differenceInMinutes(localTaskStart, dayStart);
     const durationMinutes = differenceInMinutes(localTaskEnd, localTaskStart);
 
-    const top = offsetMinutes * dynamicMinuteHeight; // Use dynamic height
-    
-    // Calculate visual height, capping it at MAX_TASK_HEIGHT_MINUTES
+    const top = offsetMinutes * dynamicMinuteHeight;
     const visualDurationMinutes = Math.min(durationMinutes, MAX_TASK_HEIGHT_MINUTES);
-    const height = visualDurationMinutes * dynamicMinuteHeight; // Use dynamic height
+    const height = visualDurationMinutes * dynamicMinuteHeight;
 
-    return { top, height, durationMinutes }; // Return actual duration for display
+    console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] Task "${task.name}" - start_time: ${task.start_time}, end_time: ${task.end_time}`);
+    console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}]   localTaskStart: ${localTaskStart.toISOString()}, localTaskEnd: ${localTaskEnd.toISOString()}`);
+    console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}]   offsetMinutes: ${offsetMinutes}, durationMinutes: ${durationMinutes}`);
+    console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}]   Calculated: top=${top}, height=${height}`);
+
+    return { top, height, durationMinutes };
   };
 
   return (

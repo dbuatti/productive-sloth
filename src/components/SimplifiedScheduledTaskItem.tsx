@@ -42,7 +42,7 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
   return (
     <div
       className={cn(
-        "relative flex items-center gap-2 p-1 rounded-md border border-transparent transition-all duration-200", // Reduced padding
+        "relative flex items-center gap-2 p-1 rounded-md border border-transparent transition-all duration-200 h-full", // Added h-full
         "bg-card/30 hover:bg-card/50",
         task.is_locked && "border-primary/20 bg-primary/[0.03]",
         task.is_completed && "opacity-50 grayscale",

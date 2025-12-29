@@ -1,18 +1,44 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useSession } from './use-session';
 import { parseISO, differenceInMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
 
-const REGEN_COOLDOWN_MINUTES = 5; // Only trigger if last regen was more than 5 minutes ago
+const REGEN_COOLDOWN_MINUTES = 5;
 
 export const useEnergyRegenTrigger = () => {
   const { user, profile, refreshProfile } = useSession();
-  const isTriggeringRef = useRef(false); // Use ref to prevent re-triggering effect on state change
+  const isTriggeringRef = useRef(false);
+
+  const triggerRegen = useCallback(async () => {
+    if (!user || !profile || isTriggeringRef.current) {
+      return;
+    }
+
+    isTriggeringRef.current = true; // Set ref to true when starting
+    try {
+      const { error } = await supabase.functions.invoke('trigger-energy-regen', {
+        method: 'POST',
+        body: {},
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Add a small delay to ensure profile refresh has time to propagate
+      await new Promise(resolve => setTimeout(resolve, 2000)); 
+      await refreshProfile();
+
+    } catch (e: any) {
+      // console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
+    } finally {
+      isTriggeringRef.current = false; // Reset ref to false
+    }
+  }, [user, profile, refreshProfile]); // Dependencies for triggerRegen
 
   useEffect(() => {
-    // If no user/profile, or if a trigger is already in progress, exit.
-    if (!user || !profile || isTriggeringRef.current) {
+    if (!user || !profile) {
       return;
     }
 
@@ -31,30 +57,7 @@ export const useEnergyRegenTrigger = () => {
     }
 
     if (shouldTrigger) {
-      isTriggeringRef.current = true; // Set ref to true
-      
-      const triggerRegen = async () => {
-        try {
-          const { error } = await supabase.functions.invoke('trigger-energy-regen', {
-            method: 'POST',
-            body: {},
-          });
-
-          if (error) {
-            throw new Error(error.message);
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 2000)); 
-          await refreshProfile();
-
-        } catch (e: any) {
-          // console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
-        } finally {
-          isTriggeringRef.current = false; // Reset ref to false
-        }
-      };
-
       triggerRegen();
     }
-  }, [user, profile, refreshProfile]); // Removed isTriggering from dependencies
+  }, [user, profile, triggerRegen]); // Dependencies for useEffect
 };

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useSession } from './use-session';
-import { parseISO, differenceInMinutes } from 'date-fns';
+import { parseISO, differenceInMinutes, format } from 'date-fns'; // Import format
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
 
@@ -9,9 +9,16 @@ const REGEN_COOLDOWN_MINUTES = 5;
 export const useEnergyRegenTrigger = () => {
   const { user, profile, refreshProfile } = useSession();
   const isTriggeringRef = useRef(false);
+  const profileRef = useRef(profile); // Keep a ref to the latest profile
+
+  // Update the ref whenever the profile object changes
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   const triggerRegen = useCallback(async () => {
-    if (!user || !profile || isTriggeringRef.current) {
+    const currentProfile = profileRef.current; // Use the ref to get the latest profile
+    if (!user || !currentProfile || isTriggeringRef.current) {
       return;
     }
 
@@ -35,7 +42,7 @@ export const useEnergyRegenTrigger = () => {
     } finally {
       isTriggeringRef.current = false; // Reset ref to false
     }
-  }, [user, profile, refreshProfile]); // Dependencies for triggerRegen
+  }, [user, refreshProfile]); // Removed 'profile' from dependencies
 
   useEffect(() => {
     if (!user || !profile) {
@@ -59,5 +66,5 @@ export const useEnergyRegenTrigger = () => {
     if (shouldTrigger) {
       triggerRegen();
     }
-  }, [user, profile, triggerRegen]); // Dependencies for useEffect
+  }, [user, profile?.last_energy_regen_at ? format(parseISO(profile.last_energy_regen_at), 'yyyy-MM-dd HH:mm') : null, triggerRegen]); // Stabilized dependency to minute precision
 };

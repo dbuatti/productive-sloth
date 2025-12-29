@@ -51,7 +51,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, regen_pod_start_time, breakfast_time, lunch_time, dinner_time')
+        .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, regen_pod_start_time, breakfast_time, lunch_time, dinner_time, breakfast_duration_minutes, lunch_duration_minutes, dinner_duration_minutes') // NEW: Added meal durations
         .eq('id', userId)
         .single();
 
@@ -223,7 +223,22 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_start_time) : startOfDay(T_current);
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_end_time) : addHours(startOfDay(T_current), 17);
     if (isBefore(end, start)) end = addDays(end, 1);
-    return calculateSchedule(dbScheduledTasksToday, format(new Date(), 'yyyy-MM-dd'), start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time);
+    return calculateSchedule(
+      dbScheduledTasksToday, 
+      format(new Date(), 'yyyy-MM-dd'), 
+      start, 
+      end, 
+      profile.is_in_regen_pod, 
+      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, 
+      regenPodDurationMinutes, 
+      T_current, 
+      profile.breakfast_time, 
+      profile.lunch_time, 
+      profile.dinner_time,
+      profile.breakfast_duration_minutes, // NEW
+      profile.lunch_duration_minutes,     // NEW
+      profile.dinner_duration_minutes     // NEW
+    );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current]);
 
   const activeItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => T_current >= i.startTime && T_current < i.endTime) || null, [calculatedScheduleToday, T_current]);

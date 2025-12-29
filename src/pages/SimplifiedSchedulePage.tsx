@@ -63,7 +63,7 @@ const SimplifiedSchedulePage: React.FC = () => {
       </div>
 
       {/* Weekly Schedule Grid */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-auto"> {/* Changed from overflow-hidden to overflow-auto */}
         <WeeklyScheduleGrid
           weeklyTasks={weeklyTasks}
           currentWeekStart={currentWeekStart}

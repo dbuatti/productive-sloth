@@ -1,20 +1,20 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react'; // Changed useRef to useState
 import { useSession } from './use-session';
 import { parseISO, differenceInMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
 
-// Supabase Project ID is needed to invoke the Edge Function
-const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
-const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 const REGEN_COOLDOWN_MINUTES = 5; // Only trigger if last regen was more than 5 minutes ago
 
 export const useEnergyRegenTrigger = () => {
   const { user, profile, refreshProfile } = useSession();
-  const isTriggeringRef = useRef(false);
+  const [isTriggering, setIsTriggering] = useState(false); // Changed to state
 
   useEffect(() => {
-    if (!user || !profile || isTriggeringRef.current) return;
+    // If already triggering, or no user/profile, exit immediately.
+    if (!user || !profile || isTriggering) { // Check state variable
+      return;
+    }
 
     const lastRegenAt = profile.last_energy_regen_at ? parseISO(profile.last_energy_regen_at) : null;
     const now = new Date();
@@ -22,7 +22,6 @@ export const useEnergyRegenTrigger = () => {
     let shouldTrigger = false;
 
     if (!lastRegenAt) {
-      // If last_energy_regen_at is null, trigger immediately
       shouldTrigger = true;
     } else {
       const minutesSinceLastRegen = differenceInMinutes(now, lastRegenAt);
@@ -32,12 +31,11 @@ export const useEnergyRegenTrigger = () => {
     }
 
     if (shouldTrigger) {
-      isTriggeringRef.current = true;
+      setIsTriggering(true); // Set state to true
       console.log(`[EnergyRegen] Triggering server-side energy regeneration for user ${user.id}.`);
       
       const triggerRegen = async () => {
         try {
-          // We call the trigger-energy-regen function which internally calls energy-regen
           const { error } = await supabase.functions.invoke('trigger-energy-regen', {
             method: 'POST',
             body: {},
@@ -56,13 +54,12 @@ export const useEnergyRegenTrigger = () => {
 
         } catch (e: any) {
           console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
-          // showError("Failed to update energy. Please try refreshing.");
         } finally {
-          isTriggeringRef.current = false;
+          setIsTriggering(false); // Set state to false
         }
       };
 
       triggerRegen();
     }
-  }, [user, profile, refreshProfile]);
+  }, [user, profile, refreshProfile, isTriggering]); // Add isTriggering to dependencies
 };

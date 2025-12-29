@@ -487,7 +487,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     }
   }, [workdayStartTime, workdayEndTime, dbScheduledTasks, selectedDayAsDate, effectiveWorkdayStart]);
 
-  const handleRefreshSchedule = () => {
+  const handleRefreshSchedule = useCallback(() => {
     if (user?.id) {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id, formattedSelectedDay, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
@@ -495,7 +495,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDayList', user.id, formattedSelectedDay] });
       showSuccess("Schedule data refreshed.");
     }
-  };
+  }, [user?.id, queryClient, formattedSelectedDay, sortBy]);
 
   const handleQuickScheduleBlock = useCallback(async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
     if (!user || !profile) {
@@ -737,7 +737,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     }
   }, [retiredTaskToDeleteId, retiredTaskToDeleteName, user, removeRetiredTask]);
 
-  const handleAetherDumpButton = async () => {
+  const handleAetherDumpButton = useCallback(async () => {
     if (!user) {
       showError("You must be logged in to perform Aether Dump.");
       return;
@@ -752,10 +752,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  };
+  }, [user, aetherDump, queryClient]);
 
   // FIX: Define handleAetherDumpMegaButton
-  const handleAetherDumpMegaButton = async () => {
+  const handleAetherDumpMegaButton = useCallback(async () => {
     if (!user) {
       showError("You must be logged in to perform Aether Dump Mega.");
       return;
@@ -770,9 +770,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  };
+  }, [user, aetherDumpMega, queryClient]);
 
-  const handleClearSchedule = async () => {
+  const handleClearSchedule = useCallback(async () => {
     if (!user) {
       showError("You must be logged in to clear your schedule.");
       return;
@@ -804,7 +804,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     setIsProcessingCommand(false);
     setShowClearConfirmation(false);
     setInputValue('');
-  };
+  }, [user, dbScheduledTasks, formattedSelectedDay]);
 
   const handleSinkFill = useCallback(async (
     gapStart: Date,
@@ -1334,7 +1334,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
   }, [user, profile, isRegenPodActive, exitRegenPodState, queryClient, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
 
 
-  const handleCommand = async (input: string) => {
+  const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to use the scheduler.");
       setIsProcessingCommand(false);
@@ -1653,9 +1653,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     if (success) {
       setInputValue('');
     }
-  };
+  }, [user, profile, selectedDayAsDate, formattedSelectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, addRetiredTask, addScheduledTask, environmentForPlacement, T_current, handlePermanentDeleteScheduledTask, dbScheduledTasks, aetherDump, queryClient, handleAetherDumpMegaButton, triggerEnergyRegen]);
 
-  const handleInjectionSubmit = async () => {
+  const handleInjectionSubmit = useCallback(async () => {
     if (!user || !profile) {
       showError("You must be logged in and your profile loaded to use the scheduler.");
       return;
@@ -1791,9 +1791,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     }
     setIsProcessingCommand(false);
-  };
+  }, [user, profile, injectionPrompt, injectionStartTime, injectionEndTime, injectionDuration, injectionBreak, formattedSelectedDay, selectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, addScheduledTask, environmentForPlacement, T_current, findFreeSlotForTask, queryClient]);
 
-  const handleRezoneFromSink = async (retiredTask: RetiredTask) => {
+  const handleRezoneFromSink = useCallback(async (retiredTask: RetiredTask) => {
     if (!user) {
       showError("You must be logged in to rezone tasks.");
       return;
@@ -1853,7 +1853,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  };
+  }, [user, retiredTasks, selectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, rezoneTask, addScheduledTask, formattedSelectedDay, findFreeSlotForTask, queryClient]);
 
   const handleManualRetire = useCallback(async (task: DBScheduledTask) => {
     if (!user) {
@@ -1877,7 +1877,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     }
   }, [user, retireTask, queryClient]);
   
-  const handleRandomizeBreaks = async () => {
+  const handleRandomizeBreaks = useCallback(async () => {
     if (!user || !profile || !dbScheduledTasks) return;
     setIsProcessingCommand(true);
 
@@ -1897,9 +1897,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
     queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     setIsProcessingCommand(false);
-  };
+  }, [user, profile, dbScheduledTasks, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, randomizeBreaks, queryClient]);
 
-  const handleAddTaskClick = () => {
+  const handleAddTaskClick = useCallback(() => {
     setInjectionPrompt({ 
       taskName: '',
       isOpen: true, 
@@ -1920,9 +1920,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     setInjectionStartTime('');
     setInjectionEndTime('');
     setInputValue('');
-  };
+  }, [environmentForPlacement]);
 
-  const handleAddTimeOffClick = () => {
+  const handleAddTimeOffClick = useCallback(() => {
     setInjectionPrompt({ 
       taskName: 'Time Off', 
       isOpen: true, 
@@ -1942,7 +1942,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     setInjectionDuration('');
     setInjectionBreak('');
     setInputValue('');
-  };
+  }, [T_current]);
 
   // NEW: Handler for clicking a free time block
   const handleFreeTimeClick = useCallback((startTime: Date, endTime: Date) => {

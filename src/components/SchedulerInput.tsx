@@ -13,7 +13,7 @@ interface SchedulerInputProps {
   onDetailedInject: () => void;
 }
 
-const SchedulerInput: React.FC<SchedulerInputProps> = ({
+const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
   onCommand,
   isLoading,
   inputValue,
@@ -57,6 +57,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = ({
       </Tooltip>
     </div>
   );
-};
+});
+
+SchedulerInput.displayName = 'SchedulerInput'; // Added for better debugging
 
 export default SchedulerInput;

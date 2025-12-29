@@ -35,10 +35,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
   currentWeekStart,
   setCurrentWeekStart,
-  workdayStartTime,
-  workdayEndTime,
   isLoading,
   T_current,
+  workdayStartTime,
+  workdayEndTime,
 }) => {
   const [isDetailedView, setIsDetailedView] = useState(false); // For task item content detail
 
@@ -98,9 +98,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   // Calculate dynamic column width based on container width and number of days visible
   const currentColumnWidth = useMemo(() => {
-    // Subtract the width of the time axis (w-14) if it's visible (sm:block)
-    // On mobile (below sm), time axis is hidden, so effectiveContainerWidth is full width.
-    const timeAxisWidth = window.innerWidth >= 640 ? 56 : 0; // 56px for w-14
+    // The time axis is now always visible, with width w-10 (40px) on small screens and w-14 (56px) on sm+
+    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56; // 40px for w-10, 56px for w-14
     const effectiveContainerWidth = gridContainerWidth - timeAxisWidth;
     return effectiveContainerWidth > 0 ? effectiveContainerWidth / numDaysVisible : 0;
   }, [gridContainerWidth, numDaysVisible]);
@@ -149,7 +148,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       currentTime = addHours(currentTime, 1);
     }
     return labels;
-  }, [dayStart, dayEnd, dynamicMinuteHeight]);
+  }, [dayStart, dayEnd]);
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -278,14 +277,14 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           </div>
         ) : (
           <div className="flex h-full">
-            {/* Time Axis (Fixed on left for landscape, hidden in portrait) */}
-            <div className="hidden sm:block w-14 flex-shrink-0 border-r border-border/50 bg-background/90 backdrop-blur-sm sticky left-0 z-10">
+            {/* Time Axis (Fixed on left for landscape, now always visible) */}
+            <div className="w-10 sm:w-14 flex-shrink-0 border-r border-border/50 bg-background/90 backdrop-blur-sm sticky left-0 z-10">
               <div className="h-[60px] border-b border-border/50" /> {/* Spacer for header */}
               <div className="relative" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}>
                 {timeLabels.map((label, i) => (
                   <div
                     key={label + i}
-                    className="absolute right-2 text-[10px] font-mono text-muted-foreground/60"
+                    className="absolute right-1 sm:right-2 text-[8px] sm:text-[10px] font-mono text-muted-foreground/60"
                     style={{ top: `${(i * 60) * dynamicMinuteHeight}px`, transform: 'translateY(-50%)' }}
                   >
                     {label}

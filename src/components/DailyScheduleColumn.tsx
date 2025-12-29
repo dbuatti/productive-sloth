@@ -115,7 +115,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       )}
 
       {/* Tasks */}
-      <div className="relative px-0.5" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}> {/* Adjusted horizontal padding */}
+      <div className="relative px-1" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}> {/* Adjusted horizontal padding */}
         {tasks.map((task) => {
           const { top, height, durationMinutes } = getTaskPositionAndHeight(task);
           const isPastTask = isPast(parseISO(task.end_time!)) && !isCurrentDay; // Only mark as past if not today
@@ -125,7 +125,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
             <div
               key={task.id}
               className={cn(
-                "absolute left-0.5 right-0.5 rounded-md p-0.5 transition-all duration-300", // Adjusted padding
+                "absolute left-1 right-1 rounded-md p-0.5 transition-all duration-300", // Adjusted padding
                 "bg-card/60 border border-white/5",
                 isPastTask && "opacity-40 grayscale pointer-events-none" // Apply pointer-events-none for past tasks
               )}

@@ -13,7 +13,7 @@ interface SimplifiedScheduledTaskItemProps {
 }
 
 const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
-  const iconClass = "h-3 w-3 opacity-70";
+  const iconClass = "h-3.5 w-3.5 opacity-70"; // Slightly increased icon size
   switch (environment) {
     case 'home': return <Home className={iconClass} />;
     case 'laptop': return <Laptop className={iconClass} />;
@@ -23,7 +23,7 @@ const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) =>
       return (
         <div className="relative">
           <Laptop className={iconClass} />
-          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
+          <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5" /> {/* Adjusted sub-icon size */}
         </div>
       );
     default: return null;
@@ -47,11 +47,11 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
         task.is_locked && "border-primary/20 bg-primary/[0.03]",
         task.is_completed && "opacity-50 grayscale",
         isCurrentlyActive && "animate-active-task border-live-progress/50 bg-live-progress/10 shadow-lg", // NEW: Active styling
-        "text-xs" // Base text size for simplified view
+        "text-sm" // Base text size for simplified view (increased from text-xs)
       )}
       style={{ borderLeft: task.is_locked ? '3px solid hsl(var(--primary))' : `3px solid ${accentColor}` }}
     >
-      <span className="text-base shrink-0">{emoji}</span> {/* Emoji is always visible */}
+      <span className="text-lg shrink-0">{emoji}</span> {/* Emoji is always visible (increased from text-base) */}
       
       <div className="flex flex-col min-w-0 flex-grow">
         <span className={cn("font-semibold truncate", task.is_completed && "line-through")}>
@@ -59,16 +59,16 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
         </span>
         
         {isDetailedView && (
-          <div className="flex items-center gap-2 text-muted-foreground/70 mt-0.5">
+          <div className="flex items-center gap-2 text-muted-foreground/70 mt-0.5 text-xs"> {/* Adjusted text size for details */}
             {startTime && endTime && (
               <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" /> {format(startTime, 'h:mm a')} - {format(endTime, 'h:mm a')} ({duration}m)
+                <Clock className="h-3.5 w-3.5" /> {format(startTime, 'h:mm a')} - {format(endTime, 'h:mm a')} ({duration}m) {/* Increased icon size */}
               </span>
             )}
             {task.is_critical && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Star className="h-3 w-3 fill-logo-yellow text-logo-yellow" />
+                  <Star className="h-3.5 w-3.5 fill-logo-yellow text-logo-yellow" /> {/* Increased icon size */}
                 </TooltipTrigger>
                 <TooltipContent>Critical Task</TooltipContent>
               </Tooltip>
@@ -77,7 +77,7 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="flex items-center gap-1 text-logo-yellow">
-                    {task.energy_cost}<Zap className="h-3 w-3" />
+                    {task.energy_cost}<Zap className="h-3.5 w-3.5" /> {/* Increased icon size */}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>Energy Cost</TooltipContent>

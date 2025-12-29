@@ -77,13 +77,13 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       {/* Day Header */}
       <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm p-2 border-b border-border/50 text-center">
         <p className={cn(
-          "text-[10px] font-black uppercase tracking-widest",
+          "text-[9px] sm:text-[10px] font-black uppercase tracking-widest", // Adjusted text size for mobile
           isCurrentDay ? "text-primary" : "text-muted-foreground/60"
         )}>
           {format(dayDate, 'EEE')}
         </p>
         <p className={cn(
-          "text-lg font-black tracking-tighter leading-none",
+          "text-base sm:text-lg font-black tracking-tighter leading-none", // Adjusted text size for mobile
           isCurrentDay ? "text-foreground" : "text-muted-foreground/80"
         )}>
           {format(dayDate, 'd')}
@@ -115,7 +115,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       )}
 
       {/* Tasks */}
-      <div className="relative p-2" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}> {/* Use dynamic height */}
+      <div className="relative px-0.5" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}> {/* Adjusted horizontal padding */}
         {tasks.map((task) => {
           const { top, height, durationMinutes } = getTaskPositionAndHeight(task);
           const isPastTask = isPast(parseISO(task.end_time!)) && !isCurrentDay; // Only mark as past if not today
@@ -125,7 +125,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
             <div
               key={task.id}
               className={cn(
-                "absolute left-1 right-1 rounded-md p-1 transition-all duration-300",
+                "absolute left-0.5 right-0.5 rounded-md p-0.5 transition-all duration-300", // Adjusted padding
                 "bg-card/60 border border-white/5",
                 isPastTask && "opacity-40 grayscale pointer-events-none" // Apply pointer-events-none for past tasks
               )}

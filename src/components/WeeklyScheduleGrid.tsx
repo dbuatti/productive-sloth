@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
-import DailyScheduleColumn from './DailyScheduleColumn';
+import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ListTodo, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -15,6 +15,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import DailyScheduleColumn from './DailyScheduleColumn'; // Import DailyScheduleColumn
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
@@ -97,8 +98,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   // Calculate dynamic column width based on container width and number of days visible
   const currentColumnWidth = useMemo(() => {
-    // Subtract the width of the time axis (w-14) if it's visible
-    const timeAxisWidth = window.innerWidth >= 640 ? 56 : 0; // 56px for w-14 (sm:block)
+    // Subtract the width of the time axis (w-14) if it's visible (sm:block)
+    // On mobile (below sm), time axis is hidden, so effectiveContainerWidth is full width.
+    const timeAxisWidth = window.innerWidth >= 640 ? 56 : 0; // 56px for w-14
     const effectiveContainerWidth = gridContainerWidth - timeAxisWidth;
     return effectiveContainerWidth > 0 ? effectiveContainerWidth / numDaysVisible : 0;
   }, [gridContainerWidth, numDaysVisible]);
@@ -153,42 +155,43 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     <div className="flex flex-col w-full h-full">
       {/* Top Controls */}
       <div className="flex items-center justify-between p-2 border-b border-border/50 bg-background/90 backdrop-blur-sm sticky top-0 z-20">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2"> {/* Adjusted gap for mobile */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handlePrevWeek}>
-                <ChevronLeft className="h-5 w-5" />
+              <Button variant="ghost" size="icon" onClick={handlePrevWeek} className="h-8 w-8 sm:h-10 sm:w-10"> {/* Smaller buttons for mobile */}
+                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Previous Week</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={handleGoToToday} className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4" />
-                <span className="hidden sm:inline">{format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, numDaysVisible - 1), 'MMM d')}</span>
-                <span className="inline sm:hidden">This Week</span>
+              <Button variant="outline" size="sm" onClick={handleGoToToday} className="flex items-center gap-1 h-8 px-2 sm:h-10 sm:px-3"> {/* Smaller button for mobile */}
+                <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline text-xs">{format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, numDaysVisible - 1), 'MMM d')}</span>
+                <span className="inline sm:hidden text-xs">This Week</span> {/* Always show "This Week" on mobile */}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Go to Current Week</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleNextWeek}>
-                <ChevronRight className="h-5 w-5" />
+              <Button variant="ghost" size="icon" onClick={handleNextWeek} className="h-8 w-8 sm:h-10 sm:w-10"> {/* Smaller buttons for mobile */}
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Next Week</TooltipContent>
           </Tooltip>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2"> {/* Adjusted gap for mobile */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => setIsDetailedView(!isDetailedView)}
+                className="h-8 w-8 sm:h-10 sm:w-10"
               >
                 <ListTodo className="h-4 w-4" />
               </Button>
@@ -204,10 +207,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="ml-auto flex items-center gap-1"
+                    className="ml-auto flex items-center gap-1 h-8 px-2 sm:h-10 sm:px-3"
                   >
                     <span className="text-xs font-bold font-mono">{numDaysVisible} Days</span>
-                    <CalendarDays className="h-4 w-4" />
+                    <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -238,10 +241,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="ml-auto flex items-center gap-1"
+                    className="ml-auto flex items-center gap-1 h-8 px-2 sm:h-10 sm:px-3"
                   >
                     <span className="text-xs font-bold font-mono">{Math.round(currentVerticalZoomFactor * 100)}%</span>
-                    <ZoomIn className="h-4 w-4" />
+                    <ZoomIn className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -270,7 +273,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       <div ref={gridContainerRef} className="flex-1 overflow-auto custom-scrollbar">
         {isLoading ? (
           <div className="flex items-center justify-center h-full min-h-[300px]">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
             <span className="ml-2 text-muted-foreground">Loading weekly schedule...</span>
           </div>
         ) : (

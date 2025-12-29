@@ -29,9 +29,6 @@ export interface UserProfile {
   breakfast_time: string | null; // NEW: Breakfast time
   lunch_time: string | null;     // NEW: Lunch time
   dinner_time: string | null;    // NEW: Dinner time
-  breakfast_duration_minutes: number | null; // NEW: Breakfast duration
-  lunch_duration_minutes: number | null;     // NEW: Lunch duration
-  dinner_duration_minutes: number | null;    // NEW: Dinner duration
 }
 
 interface SessionContextType {

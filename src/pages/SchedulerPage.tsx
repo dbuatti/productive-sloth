@@ -378,12 +378,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, // NEW
       regenPodDurationMinutes, // NEW
       T_current, // NEW
-      profile.breakfast_time, 
-      profile.lunch_time,     
-      profile.dinner_time,
-      profile.breakfast_duration_minutes, // NEW: Pass breakfast duration
-      profile.lunch_duration_minutes,     // NEW: Pass lunch duration
-      profile.dinner_duration_minutes     // NEW: Pass dinner duration
+      profile.breakfast_time, // NEW
+      profile.lunch_time,     // NEW
+      profile.dinner_time     // NEW
     );
     return newSchedule;
   }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile, regenPodDurationMinutes, T_current]);
@@ -587,7 +584,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                 end_time: proposedEndTime.toISOString(),
                 break_duration: task.break_duration,
                 scheduled_date: formattedSelectedDay,
-                is_critical: true, // Quick scheduled tasks are flexible by default
+                is_critical: task.is_critical,
                 is_flexible: true, // Quick scheduled tasks are flexible by default
                 is_locked: false,
                 energy_cost: task.energy_cost,
@@ -2505,7 +2502,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       profileEnergy={profile?.energy || 0}
       criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
       selectedDayString={selectedDay}
-      completedScheduledTasks={completedTasksForSelectedDayList}
+      completedScheduledTasks={completedScheduledTasksForRecap}
       totalActiveTimeMinutes={totalActiveTimeMinutes}
       totalBreakTimeMinutes={totalBreakTimeMinutes}
     />

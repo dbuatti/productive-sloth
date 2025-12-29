@@ -746,10 +746,7 @@ export const calculateSchedule = (
   T_current: Date, // NEW: Current time for dynamic calculation
   breakfastTimeStr: string | null, // NEW: Breakfast time from profile
   lunchTimeStr: string | null,     // NEW: Lunch time from profile
-  dinnerTimeStr: string | null,    // NEW: Dinner time from profile
-  breakfastDuration: number | null, // NEW: Breakfast duration from profile
-  lunchDuration: number | null,     // NEW: Lunch duration from profile
-  dinnerDuration: number | null     // NEW: Dinner duration from profile
+  dinnerTimeStr: string | null     // NEW: Dinner time from profile
 ): FormattedSchedule => {
   const items: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
@@ -763,13 +760,10 @@ export const calculateSchedule = (
   const selectedDayDate = parseISO(selectedDay);
 
   // --- NEW: Add Meal Times as Fixed Tasks ---
-  const addMealTask = (name: string, timeStr: string | null, emoji: string, defaultDuration: number, customDuration: number | null) => {
+  const addMealTask = (name: string, timeStr: string, emoji: string, duration: number) => {
     if (timeStr) {
-      const effectiveDuration = customDuration ?? defaultDuration;
-      if (effectiveDuration <= 0) return; // Don't add if duration is 0 or negative
-
       let mealStart = setTimeOnDate(selectedDayDate, timeStr);
-      let mealEnd = addMinutes(mealStart, effectiveDuration);
+      let mealEnd = addMinutes(mealStart, duration);
 
       // Adjust for meals that might cross midnight if workday spans it
       if (isBefore(mealEnd, mealStart) && isAfter(mealStart, workdayStart) && isBefore(mealEnd, workdayEnd)) {
@@ -809,9 +803,9 @@ export const calculateSchedule = (
     }
   };
 
-  addMealTask('Breakfast', breakfastTimeStr, '🥞', 30, breakfastDuration);
-  addMealTask('Lunch', lunchTimeStr, '🥗', 45, lunchDuration);
-  addMealTask('Dinner', dinnerTimeStr, '🍽️', 60, dinnerDuration);
+  addMealTask('Breakfast', breakfastTimeStr, '🥞', 30); // 30 min breakfast
+  addMealTask('Lunch', lunchTimeStr, '🥗', 45);       // 45 min lunch
+  addMealTask('Dinner', dinnerTimeStr, '🍽️', 60);      // 60 min dinner
   // --- END NEW: Add Meal Times as Fixed Tasks ---
 
 

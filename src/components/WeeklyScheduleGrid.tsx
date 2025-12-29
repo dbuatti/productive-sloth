@@ -16,7 +16,6 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import DailyScheduleColumn from './DailyScheduleColumn'; // Import DailyScheduleColumn
-import { useSession } from '@/hooks/use-session'; // NEW: Import useSession
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
@@ -41,7 +40,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   workdayStartTime,
   workdayEndTime,
 }) => {
-  const { profile } = useSession(); // NEW: Get profile from session
   const [isDetailedView, setIsDetailedView] = useState(false); // For task item content detail
 
   // Vertical Zoom (Times) - Persistence
@@ -324,13 +322,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     T_current={T_current}
                     zoomLevel={currentVerticalZoomFactor} // Pass vertical zoom level
                     columnWidth={currentColumnWidth} // Pass horizontal zoom (column width)
-                    // NEW: Pass meal times and durations
-                    breakfastTime={profile?.breakfast_time || null}
-                    breakfastDuration={profile?.breakfast_duration_minutes || 30}
-                    lunchTime={profile?.lunch_time || null}
-                    lunchDuration={profile?.lunch_duration_minutes || 45}
-                    dinnerTime={profile?.dinner_time || null}
-                    dinnerDuration={profile?.dinner_duration_minutes || 60}
                   />
                 );
               })}

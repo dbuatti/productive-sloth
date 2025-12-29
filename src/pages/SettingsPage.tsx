@@ -48,12 +48,9 @@ const profileSchema = z.object({
   avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')),
   default_auto_schedule_start_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
   default_auto_schedule_end_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  breakfast_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  lunch_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  dinner_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  breakfast_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(), // NEW
-  lunch_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),     // NEW
-  dinner_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),    // NEW
+  breakfast_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(), // NEW
+  lunch_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),     // NEW
+  dinner_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),    // NEW
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -90,12 +87,9 @@ const SettingsPage: React.FC = () => {
       avatar_url: '',
       default_auto_schedule_start_time: '09:00',
       default_auto_schedule_end_time: '17:00',
-      breakfast_time: '08:00',
+      breakfast_time: '08:00', // NEW: Default meal times
       lunch_time: '12:00',
       dinner_time: '18:00',
-      breakfast_duration_minutes: 30, // NEW: Default meal durations
-      lunch_duration_minutes: 45,
-      dinner_duration_minutes: 60,
     },
     mode: 'onChange',
   });
@@ -108,12 +102,9 @@ const SettingsPage: React.FC = () => {
         avatar_url: profile.avatar_url || '',
         default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '09:00',
         default_auto_schedule_end_time: profile.default_auto_schedule_end_time || '17:00',
-        breakfast_time: profile.breakfast_time || '08:00',
-        lunch_time: profile.lunch_time || '12:00',
-        dinner_time: profile.dinner_time || '18:00',
-        breakfast_duration_minutes: profile.breakfast_duration_minutes || 30, // NEW
-        lunch_duration_minutes: profile.lunch_duration_minutes || 45,         // NEW
-        dinner_duration_minutes: profile.dinner_duration_minutes || 60,        // NEW
+        breakfast_time: profile.breakfast_time || '08:00', // NEW
+        lunch_time: profile.lunch_time || '12:00',         // NEW
+        dinner_time: profile.dinner_time || '18:00',        // NEW
       });
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
@@ -138,12 +129,9 @@ const SettingsPage: React.FC = () => {
         avatar_url: values.avatar_url === '' ? null : values.avatar_url,
         default_auto_schedule_start_time: values.default_auto_schedule_start_time,
         default_auto_schedule_end_time: values.default_auto_schedule_end_time,
-        breakfast_time: values.breakfast_time,
-        lunch_time: values.lunch_time,
-        dinner_time: values.dinner_time,
-        breakfast_duration_minutes: values.breakfast_duration_minutes, // NEW
-        lunch_duration_minutes: values.lunch_duration_minutes,         // NEW
-        dinner_duration_minutes: values.dinner_duration_minutes,        // NEW
+        breakfast_time: values.breakfast_time, // NEW
+        lunch_time: values.lunch_time,         // NEW
+        dinner_time: values.dinner_time,        // NEW
       });
       showSuccess("Profile updated successfully!");
     } catch (error: any) {
@@ -177,12 +165,9 @@ const SettingsPage: React.FC = () => {
           enable_aethersink_backup: true,
           default_auto_schedule_start_time: '09:00',
           default_auto_schedule_end_time: '17:00',
-          breakfast_time: '08:00',
+          breakfast_time: '08:00', // NEW: Reset meal times
           lunch_time: '12:00',
           dinner_time: '18:00',
-          breakfast_duration_minutes: 30, // NEW: Reset meal durations
-          lunch_duration_minutes: 45,
-          dinner_duration_minutes: 60,
           last_energy_regen_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -223,12 +208,9 @@ const SettingsPage: React.FC = () => {
         enable_aethersink_backup: true,
         default_auto_schedule_start_time: '09:00',
         default_auto_schedule_end_time: '17:00',
-        breakfast_time: '08:00',
+        breakfast_time: '08:00', // NEW: Reset meal times
         lunch_time: '12:00',
         dinner_time: '18:00',
-        breakfast_duration_minutes: 30, // NEW: Reset meal durations
-        lunch_duration_minutes: 45,
-        dinner_duration_minutes: 60,
       });
 
       setTheme("system");
@@ -486,7 +468,7 @@ const SettingsPage: React.FC = () => {
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Last Name</FormLabel> {/* Corrected from <Label> */}
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -722,24 +704,6 @@ const SettingsPage: React.FC = () => {
             />
             <FormField
               control={form.control}
-              name="breakfast_duration_minutes" // NEW
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between">
-                  <div className="space-y-0.5">
-                    <FormLabel>Breakfast Duration (min)</FormLabel>
-                    <FormDescription className="text-sm text-muted-foreground">
-                      How long you typically spend on breakfast.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Input type="number" min="5" max="120" className="w-auto" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="lunch_time"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between">
@@ -758,24 +722,6 @@ const SettingsPage: React.FC = () => {
             />
             <FormField
               control={form.control}
-              name="lunch_duration_minutes" // NEW
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between">
-                  <div className="space-y-0.5">
-                    <FormLabel>Lunch Duration (min)</FormLabel>
-                    <FormDescription className="text-sm text-muted-foreground">
-                      How long you typically spend on lunch.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Input type="number" min="5" max="120" className="w-auto" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="dinner_time"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between">
@@ -787,24 +733,6 @@ const SettingsPage: React.FC = () => {
                   </div>
                   <FormControl>
                     <Input type="time" className="w-auto" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="dinner_duration_minutes" // NEW
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between">
-                  <div className="space-y-0.5">
-                    <FormLabel>Dinner Duration (min)</FormLabel>
-                    <FormDescription className="text-sm text-muted-foreground">
-                      How long you typically spend on dinner.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Input type="number" min="5" max="120" className="w-auto" {...field} value={field.value || ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

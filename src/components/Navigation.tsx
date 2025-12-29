@@ -8,7 +8,8 @@ import {
   Trash2, 
   CheckCircle, 
   Code, 
-  Sparkles 
+  Sparkles,
+  CalendarDays // NEW: Import CalendarDays icon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -90,6 +91,11 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
     { to: "/settings", icon: Settings, label: "Settings" },
   ];
 
+  // NEW: Add a "Views" section for Simplified Schedule
+  const viewNavItems = [
+    { to: "/simplified-schedule", icon: CalendarDays, label: "Weekly Vibe" },
+  ];
+
   const SectionLabel = ({ children, icon: Icon }: { children: string, icon?: any }) => (
     <div className={cn(
       "flex items-center gap-2 px-4 mb-2 mt-6 transition-all duration-300",
@@ -124,6 +130,19 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
       
       <SectionLabel>System Tools</SectionLabel>
       {secondaryNavItems.map((item) => (
+        <NavLinkItem
+          key={item.to}
+          to={item.to}
+          icon={item.icon}
+          label={item.label}
+          isCollapsed={isCollapsed}
+          onClick={onLinkClick}
+        />
+      ))}
+
+      {/* NEW: Views Section */}
+      <SectionLabel>Views</SectionLabel>
+      {viewNavItems.map((item) => (
         <NavLinkItem
           key={item.to}
           to={item.to}

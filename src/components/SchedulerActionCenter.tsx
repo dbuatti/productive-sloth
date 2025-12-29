@@ -236,13 +236,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   onClick={onRefreshSchedule}
                 />
             </div>
-            {/* NEW: Simplified Schedule View Button */}
-            <div className="grid grid-cols-1 gap-2">
-              <ActionButton
-                icon={CalendarDays} label="Weekly View" colorClass="text-primary" tooltip="View a simplified weekly schedule"
-                onClick={() => navigate('/simplified-schedule')} // Navigate to the new page
-              />
-            </div>
         </div>
       </CardContent>
     </Card>

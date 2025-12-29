@@ -24,6 +24,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
 
+  // Determine if we are on the simplified schedule page
+  const isSimplifiedSchedulePage = location.pathname === '/simplified-schedule';
+
   // Desktop sidebar state (always open on desktop, but can be collapsed)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -50,8 +53,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="flex min-h-screen w-full bg-background">
       
-      {/* Desktop Sidebar (Visible on large screens) */}
-      {!isMobile && (
+      {/* Desktop Sidebar (Visible on large screens, hidden on simplified schedule page) */}
+      {!isMobile && !isSimplifiedSchedulePage && (
         <div 
           className={cn(
             "fixed top-0 left-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-16",
@@ -67,30 +70,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       )}
 
-      {/* Desktop Header Controls (Visible on large screens) */}
-      {!isMobile && <DesktopHeaderControls />}
+      {/* Desktop Header Controls (Visible on large screens, hidden on simplified schedule page) */}
+      {!isMobile && !isSimplifiedSchedulePage && <DesktopHeaderControls />}
       
       {/* Main Content Area (Header + Progress Bar + Page Content) */}
-      <div className={cn("flex flex-col flex-1 min-w-0 w-full", contentPaddingLeft)}>
+      <div className={cn("flex flex-col flex-1 min-w-0 w-full", !isSimplifiedSchedulePage && contentPaddingLeft)}>
         
-        {/* Header (Only visible on mobile) */}
-        {isMobile && <AppHeader onMenuToggle={() => {}} />} {/* onMenuToggle is now a placeholder */}
+        {/* Header (Only visible on mobile, hidden on simplified schedule page) */}
+        {isMobile && !isSimplifiedSchedulePage && <AppHeader onMenuToggle={() => {}} />} {/* onMenuToggle is now a placeholder */}
         
-        {/* Progress Bar Header (Sticks below the header) */}
-        <ProgressBarHeader />
+        {/* Progress Bar Header (Sticks below the header, hidden on simplified schedule page) */}
+        {!isSimplifiedSchedulePage && <ProgressBarHeader />}
         
         {/* Page Content */}
         {mainContent}
         
-        {/* Desktop Focus Anchor (Hidden on mobile) */}
-        {shouldShowFocusAnchor && <FocusAnchor />}
+        {/* Desktop Focus Anchor (Hidden on mobile and simplified schedule page) */}
+        {shouldShowFocusAnchor && !isSimplifiedSchedulePage && <FocusAnchor />}
       </div>
       
-      {/* Mobile Status Indicator (Above Bottom Nav) */}
-      {isMobile && activeItemToday && <MobileStatusIndicator />}
+      {/* Mobile Status Indicator (Above Bottom Nav, hidden on simplified schedule page) */}
+      {isMobile && activeItemToday && !isSimplifiedSchedulePage && <MobileStatusIndicator />}
       
-      {/* Bottom Navigation Bar for Mobile */}
-      {isMobile && <BottomNavigationBar />}
+      {/* Bottom Navigation Bar for Mobile (Hidden on simplified schedule page) */}
+      {isMobile && !isSimplifiedSchedulePage && <BottomNavigationBar />}
     </div>
   );
 };

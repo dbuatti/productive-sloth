@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Trash2, Plus, CheckCircle, Coffee, ListTodo, Loader2, Clock } from 'lucide-react';
+import { Sparkles, Trash2, Plus, CheckCircle, Coffee, ListTodo, Loader2, Clock, CalendarDays } from 'lucide-react'; // NEW: Import CalendarDays
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { to: "/sink", icon: Trash2, label: "Sink", matchPath: '/sink' },
   { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' },
   { to: "/analytics", icon: Sparkles, label: "Stats", matchPath: '/analytics' },
+  { to: "/simplified-schedule", icon: CalendarDays, label: "Weekly", matchPath: '/simplified-schedule' }, // NEW NAV ITEM
 ];
 
 const BottomNavigationBar: React.FC = () => {
@@ -49,8 +50,8 @@ const BottomNavigationBar: React.FC = () => {
         scheduled_date: scheduledDate,
         is_critical: false,
         is_flexible: false, // Quick breaks are fixed/locked for immediate use
-        is_locked: true,
-        energy_cost: 0,
+        is_locked: true, // Locked for immediate use
+        energy_cost: 0, // Breaks have 0 energy cost (but trigger regen)
         is_custom_energy_cost: false,
         task_environment: 'away', // Default environment for breaks
       });

@@ -134,9 +134,12 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     setNumDaysVisible(days);
   };
 
-  // Time axis now spans a full 24 hours
-  const timeAxisStart = setHours(setMinutes(currentWeekStart, 0), 0); // 00:00 local time
-  const timeAxisEnd = addDays(timeAxisStart, 1); // 24:00 local time (next day's 00:00)
+  // Time axis now spans the workday window, not full 24 hours
+  const timeAxisStart = useMemo(() => setTimeOnDate(currentWeekStart, workdayStartTime), [currentWeekStart, workdayStartTime]);
+  let timeAxisEnd = useMemo(() => setTimeOnDate(currentWeekStart, workdayEndTime), [currentWeekStart, workdayEndTime]);
+  if (isBefore(timeAxisEnd, timeAxisStart)) {
+    timeAxisEnd = addDays(timeAxisEnd, 1);
+  }
   const totalDayMinutesForTimeAxis = differenceInMinutes(timeAxisEnd, timeAxisStart);
 
   const timeLabels = useMemo(() => {

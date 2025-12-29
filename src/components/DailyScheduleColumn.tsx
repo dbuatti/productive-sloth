@@ -38,7 +38,8 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     localWorkdayEnd = addDays(localWorkdayEnd, 1);
   }
 
-  const totalWorkdayMinutes = differenceInMinutes(localWorkdayEnd, localWorkdayStart);
+  // Calculate total minutes for the *display window*, which is now the workday window
+  const totalDisplayMinutes = differenceInMinutes(localWorkdayEnd, localWorkdayStart);
   const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel;
 
   // Generate time labels only for the workday window, every hour
@@ -65,7 +66,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       localTaskEnd = addDays(localTaskEnd, 1);
     }
 
-    // Calculate offset and duration relative to the workday start
+    // Calculate offset and duration relative to the *localWorkdayStart*
     const offsetMinutes = differenceInMinutes(localTaskStart, localWorkdayStart);
     const durationMinutes = differenceInMinutes(localTaskEnd, localTaskStart);
 
@@ -97,7 +98,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       </div>
 
       {/* Time Grid Lines and Tasks within Workday Window */}
-      <div className="relative px-1" style={{ height: `${totalWorkdayMinutes * dynamicMinuteHeight}px` }}>
+      <div className="relative px-1" style={{ height: `${totalDisplayMinutes * dynamicMinuteHeight}px` }}>
         {/* Time Grid Lines */}
         <div className="absolute inset-0">
           {timeLabels.map((_, i) => (
@@ -132,6 +133,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
           let taskEndLocal = setTimeOnDate(dayDate, format(parseISO(task.end_time!), 'HH:mm'));
           if (isBefore(taskEndLocal, taskStartLocal)) taskEndLocal = addDays(taskEndLocal, 1);
 
+          // Check if the task actually overlaps with the defined workday window
           const overlapsWorkday = isBefore(taskStartLocal, localWorkdayEnd) && isAfter(taskEndLocal, localWorkdayStart);
 
           if (!overlapsWorkday) return null;

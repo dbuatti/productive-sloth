@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu'; // NEW: Import DropdownMenu components
+} from '@/components/ui/dropdown-menu';
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
@@ -26,8 +26,9 @@ interface WeeklyScheduleGridProps {
   T_current: Date; // Current time from SessionProvider
 }
 
-const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
-const ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00]; // Available zoom factors
+const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% vertical zoom
+const VERTICAL_ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00]; // Available vertical zoom factors
+const COLUMN_WIDTH_LEVELS = [140, 180, 220]; // Available column widths in pixels for horizontal zoom
 
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
@@ -39,9 +40,40 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   T_current,
 }) => {
   const [isDetailedView, setIsDetailedView] = useState(false); // For task item content detail
-  const [currentZoomIndex, setCurrentZoomIndex] = useState(3); // Default to 1.00 (100%) zoom
-  const currentZoomFactor = ZOOM_LEVELS[currentZoomIndex];
-  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * currentZoomFactor; // Defined here
+
+  // Vertical Zoom (Times) - Persistence
+  const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const savedIndex = localStorage.getItem('weeklyScheduleVerticalZoomIndex');
+      return savedIndex ? parseInt(savedIndex, 10) : VERTICAL_ZOOM_LEVELS.indexOf(1.00); // Default to 1.00
+    }
+    return VERTICAL_ZOOM_LEVELS.indexOf(1.00);
+  });
+  const currentVerticalZoomFactor = VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex];
+  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * currentVerticalZoomFactor;
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('weeklyScheduleVerticalZoomIndex', currentVerticalZoomIndex.toString());
+    }
+  }, [currentVerticalZoomIndex]);
+
+  // Horizontal Zoom (Days/Columns) - Persistence
+  const [currentColumnWidthIndex, setCurrentColumnWidthIndex] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const savedIndex = localStorage.getItem('weeklyScheduleColumnWidthIndex');
+      return savedIndex ? parseInt(savedIndex, 10) : COLUMN_WIDTH_LEVELS.indexOf(180); // Default to 180px
+    }
+    return COLUMN_WIDTH_LEVELS.indexOf(180);
+  });
+  const currentColumnWidth = COLUMN_WIDTH_LEVELS[currentColumnWidthIndex];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('weeklyScheduleColumnWidthIndex', currentColumnWidthIndex.toString());
+    }
+  }, [currentColumnWidthIndex]);
+
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
@@ -59,10 +91,17 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
   };
 
-  const handleSelectZoom = (zoom: number) => {
-    const newIndex = ZOOM_LEVELS.indexOf(zoom);
+  const handleSelectVerticalZoom = (zoom: number) => {
+    const newIndex = VERTICAL_ZOOM_LEVELS.indexOf(zoom);
     if (newIndex !== -1) {
-      setCurrentZoomIndex(newIndex);
+      setCurrentVerticalZoomIndex(newIndex);
+    }
+  };
+
+  const handleSelectColumnWidth = (width: number) => {
+    const newIndex = COLUMN_WIDTH_LEVELS.indexOf(width);
+    if (newIndex !== -1) {
+      setCurrentColumnWidthIndex(newIndex);
     }
   };
 
@@ -81,7 +120,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       currentTime = addHours(currentTime, 1);
     }
     return labels;
-  }, [dayStart, dayEnd, dynamicMinuteHeight]); // Added dynamicMinuteHeight to dependencies
+  }, [dayStart, dayEnd, dynamicMinuteHeight]);
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -130,7 +169,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             <TooltipContent>{isDetailedView ? "Compact Task Details" : "Detailed Task Info"}</TooltipContent>
           </Tooltip>
 
-          {/* NEW: Zoom Dropdown Menu */}
+          {/* NEW: Day Width Dropdown Menu (Horizontal Zoom) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -140,21 +179,55 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     size="sm"
                     className="ml-auto flex items-center gap-1"
                   >
-                    <span className="text-xs font-bold font-mono">{Math.round(currentZoomFactor * 100)}%</span>
+                    <span className="text-xs font-bold font-mono">{currentColumnWidth}px</span>
+                    <CalendarDays className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
+                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Day Width</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-white/5" />
+                {COLUMN_WIDTH_LEVELS.map((width) => (
+                  <DropdownMenuItem 
+                    key={width} 
+                    onClick={() => handleSelectColumnWidth(width)}
+                    className={cn(
+                      "gap-3 font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20 cursor-pointer",
+                      currentColumnWidth === width && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    {width}px
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </Tooltip>
+          </DropdownMenu>
+
+          {/* Vertical Zoom Dropdown Menu (Times) */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto flex items-center gap-1"
+                  >
+                    <span className="text-xs font-bold font-mono">{Math.round(currentVerticalZoomFactor * 100)}%</span>
                     <ZoomIn className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
-                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Zoom Level</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Time Zoom</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/5" />
-                {ZOOM_LEVELS.map((zoom) => (
+                {VERTICAL_ZOOM_LEVELS.map((zoom) => (
                   <DropdownMenuItem 
                     key={zoom} 
-                    onClick={() => handleSelectZoom(zoom)}
+                    onClick={() => handleSelectVerticalZoom(zoom)}
                     className={cn(
                       "gap-3 font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20 cursor-pointer",
-                      currentZoomFactor === zoom && "bg-primary/10 text-primary"
+                      currentVerticalZoomFactor === zoom && "bg-primary/10 text-primary"
                     )}
                   >
                     {Math.round(zoom * 100)}%
@@ -205,7 +278,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     workdayEndTime={workdayEndTime}
                     isDetailedView={isDetailedView}
                     T_current={T_current}
-                    zoomLevel={currentZoomFactor} // Pass zoom level
+                    zoomLevel={currentVerticalZoomFactor} // Pass vertical zoom level
+                    columnWidth={currentColumnWidth} // Pass horizontal zoom (column width)
                   />
                 );
               })}

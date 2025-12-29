@@ -13,7 +13,8 @@ interface DailyScheduleColumnProps {
   workdayEndTime: string;   // HH:MM string from profile
   isDetailedView: boolean;
   T_current: Date; // Current time from SessionProvider
-  zoomLevel: number; // NEW: Zoom level prop
+  zoomLevel: number; // Vertical zoom level prop
+  columnWidth: number; // NEW: Horizontal zoom (column width) prop
 }
 
 const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
@@ -25,7 +26,8 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   workdayEndTime,
   isDetailedView,
   T_current,
-  zoomLevel, // NEW: Destructure zoomLevel
+  zoomLevel, // Vertical zoom level
+  columnWidth, // NEW: Destructure columnWidth
 }) => {
   const isCurrentDay = isToday(dayDate);
 
@@ -64,7 +66,10 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   };
 
   return (
-    <div className="relative flex-shrink-0 w-full sm:w-[180px] border-r border-border/50 last:border-r-0">
+    <div 
+      className="relative flex-shrink-0 border-r border-border/50 last:border-r-0"
+      style={{ width: `${columnWidth}px` }} // NEW: Apply dynamic width
+    >
       {/* Day Header */}
       <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm p-2 border-b border-border/50 text-center">
         <p className={cn(

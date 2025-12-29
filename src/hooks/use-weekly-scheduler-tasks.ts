@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask } from '@/types/scheduler';
 import { useSession } from './use-session';
-import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, isBefore, addMinutes, isAfter, differenceInMinutes } from 'date-fns'; // Added isAfter and differenceInMinutes
+import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max } from 'date-fns'; // Added isAfter, differenceInMinutes, min, max
 import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils'; // Import setTimeOnDate and isMeal
 
 interface WeeklyTasks {
@@ -55,44 +55,48 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
       const dayDate = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), i);
       const dateKey = format(dayDate, 'yyyy-MM-dd');
 
+      // Define workdayStart and workdayEnd for the current dayDate within this loop
+      const workdayStart = setTimeOnDate(dayDate, profile.default_auto_schedule_start_time || '00:00');
+      let workdayEnd = setTimeOnDate(dayDate, profile.default_auto_schedule_end_time || '23:59');
+      if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
+
       const addMealTask = (name: string, timeStr: string | null, duration: number | null) => {
         if (timeStr && duration !== null && duration > 0) {
           let mealStart = setTimeOnDate(dayDate, timeStr);
           let mealEnd = addMinutes(mealStart, duration);
 
-          // Ensure meal is within the workday window or overlaps significantly
-          const workdayStart = setTimeOnDate(dayDate, profile.default_auto_schedule_start_time || '00:00');
-          let workdayEnd = setTimeOnDate(dayDate, profile.default_auto_schedule_end_time || '23:59');
-          if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
+          // Ensure mealEnd is after mealStart, potentially spanning midnight
+          if (isBefore(mealEnd, mealStart)) {
+            mealEnd = addDays(mealEnd, 1);
+          }
 
-          if (isBefore(mealStart, workdayEnd) && isAfter(mealEnd, workdayStart)) {
-            // Adjust meal times to fit within workday if they extend beyond it
-            const effectiveMealStart = isBefore(mealStart, workdayStart) ? workdayStart : mealStart;
-            const effectiveMealEnd = isAfter(mealEnd, workdayEnd) ? workdayEnd : mealEnd;
-            const effectiveDuration = differenceInMinutes(effectiveMealEnd, effectiveMealStart);
+          // Calculate the intersection with the workday window
+          const intersectionStart = max([mealStart, workdayStart]);
+          const intersectionEnd = min([mealEnd, workdayEnd]);
 
-            if (effectiveDuration > 0) {
-              tasksByDay[dateKey].push({
-                id: `meal-${name.toLowerCase()}-${dateKey}`, // Unique ID for meal
-                user_id: userId,
-                name: name,
-                break_duration: null,
-                start_time: effectiveMealStart.toISOString(),
-                end_time: effectiveMealEnd.toISOString(),
-                scheduled_date: dateKey,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                is_critical: false,
-                is_flexible: false, // Meals are fixed
-                is_locked: true,   // Meals are locked
-                energy_cost: -10,  // Meals provide energy
-                is_completed: false,
-                is_custom_energy_cost: false,
-                task_environment: 'home', // Default environment for meals
-                source_calendar_id: null,
-                is_backburner: false,
-              });
-            }
+          const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+          if (effectiveDuration > 0) { // Only add if there's a valid intersection
+            tasksByDay[dateKey].push({
+              id: `meal-${name.toLowerCase()}-${dateKey}-${format(intersectionStart, 'HHmm')}`, // More unique ID
+              user_id: userId,
+              name: name,
+              break_duration: null,
+              start_time: intersectionStart.toISOString(),
+              end_time: intersectionEnd.toISOString(),
+              scheduled_date: dateKey,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              is_critical: false,
+              is_flexible: false, // Meals are fixed
+              is_locked: true,   // Meals are locked
+              energy_cost: -10,  // Meals provide energy
+              is_completed: false,
+              is_custom_energy_cost: false,
+              task_environment: 'home', // Default environment for meals
+              source_calendar_id: null,
+              is_backburner: false,
+            });
           }
         }
       };

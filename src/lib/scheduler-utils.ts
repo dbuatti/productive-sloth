@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
@@ -757,7 +757,7 @@ export const calculateSchedule = (
   let totalBreakTimeMinutes = 0;
   let criticalTasksRemaining = 0;
   let unscheduledCount = 0;
-  let sessionEnd = workdayStart;
+  let sessionEnd = workdayStart; // Initialize with workdayStart
   let extendsPastMidnight = false;
   let midnightRolloverMessage: string | null = null;
 
@@ -771,26 +771,25 @@ export const calculateSchedule = (
       let mealStart = setTimeOnDate(selectedDayDate, timeStr);
       let mealEnd = addMinutes(mealStart, duration);
 
-      // Adjust for meals that might cross midnight if workday spans it
-      if (isBefore(mealEnd, mealStart) && isAfter(mealStart, workdayStart) && isBefore(mealEnd, workdayEnd)) {
+      // Ensure mealEnd is after mealStart, potentially spanning midnight
+      if (isBefore(mealEnd, mealStart)) {
         mealEnd = addDays(mealEnd, 1);
-      } else if (isBefore(mealStart, workdayStart) && isAfter(mealEnd, workdayStart) && isBefore(mealEnd, workdayEnd)) {
-        // If meal starts before workday but ends within, adjust start to workday start
-        mealStart = workdayStart;
-      } else if (isBefore(mealStart, workdayEnd) && isAfter(mealEnd, workdayEnd)) {
-        // If meal starts within workday but ends after, adjust end to workday end
-        mealEnd = workdayEnd;
       }
 
-      // Only add if the meal is within the workday window or overlaps significantly
-      if (isBefore(mealStart, workdayEnd) && isAfter(mealEnd, workdayStart)) {
+      // Calculate the intersection with the provided workday window
+      const intersectionStart = max([mealStart, workdayStart]);
+      const intersectionEnd = min([mealEnd, workdayEnd]);
+
+      const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+      if (effectiveDuration > 0) { // Only add if there's a valid intersection
         const mealItem: ScheduledItem = {
-          id: `meal-${name.toLowerCase()}-${timeStr}`,
+          id: `meal-${name.toLowerCase()}-${format(intersectionStart, 'HHmm')}`, // More unique ID
           type: 'meal',
           name: name,
-          duration: differenceInMinutes(mealEnd, mealStart),
-          startTime: mealStart,
-          endTime: mealEnd,
+          duration: effectiveDuration,
+          startTime: intersectionStart,
+          endTime: intersectionEnd,
           emoji: emoji,
           description: `${name} time`,
           isTimedEvent: true,
@@ -805,6 +804,8 @@ export const calculateSchedule = (
           isBackburner: false,
         };
         items.push(mealItem);
+        totalBreakTimeMinutes += mealItem.duration; // Meals count as break time
+        sessionEnd = isAfter(mealItem.endTime, sessionEnd) ? mealItem.endTime : sessionEnd;
       }
     }
   };

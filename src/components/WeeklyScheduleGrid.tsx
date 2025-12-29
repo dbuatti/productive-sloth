@@ -28,7 +28,7 @@ interface WeeklyScheduleGridProps {
 
 const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% vertical zoom
 const VERTICAL_ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00]; // Available vertical zoom factors
-const VISIBLE_DAYS_OPTIONS = [3, 5, 7]; // Options for number of days visible
+const VISIBLE_DAYS_OPTIONS = [3, 5, 7, 14, 21]; // Options for number of days visible (UPDATED)
 
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
@@ -98,14 +98,15 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   // Calculate dynamic column width based on container width and number of days visible
   const currentColumnWidth = useMemo(() => {
     // Subtract the width of the time axis (w-14) if it's visible
-    const effectiveContainerWidth = gridContainerWidth - (window.innerWidth >= 640 ? 56 : 0); // 56px for w-14
+    const timeAxisWidth = window.innerWidth >= 640 ? 56 : 0; // 56px for w-14 (sm:block)
+    const effectiveContainerWidth = gridContainerWidth - timeAxisWidth;
     return effectiveContainerWidth > 0 ? effectiveContainerWidth / numDaysVisible : 0;
   }, [gridContainerWidth, numDaysVisible]);
 
 
   const days = useMemo(() => {
     return Array.from({ length: numDaysVisible }).map((_, i) => addDays(currentWeekStart, i));
-  }, [currentWeekStart, numDaysVisible]); // Dependency on numDaysVisible
+  }, [currentWeekStart, numDaysVisible]);
 
 
   const handlePrevWeek = () => {

@@ -4,7 +4,7 @@ import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, 
 import { cn } from '@/lib/utils';
 import DailyScheduleColumn from './DailyScheduleColumn';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ListTodo, Loader2 } from 'lucide-react'; // Changed ZoomOut to ListTodo
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setTimeOnDate } from '@/lib/scheduler-utils';
 import {
@@ -163,7 +163,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 size="icon"
                 onClick={() => setIsDetailedView(!isDetailedView)}
               >
-                {isDetailedView ? <ZoomOut className="h-4 w-4" /> : <ZoomIn className="h-4 w-4" />}
+                <ListTodo className="h-4 w-4" /> {/* Changed icon to ListTodo */}
               </Button>
             </TooltipTrigger>
             <TooltipContent>{isDetailedView ? "Compact Task Details" : "Detailed Task Info"}</TooltipContent>

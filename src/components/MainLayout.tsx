@@ -41,12 +41,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       "flex flex-1 flex-col gap-4 overflow-auto",
       // Apply horizontal padding only if NOT on the simplified schedule page
       !isSimplifiedSchedulePage && "px-4",
-      "pt-[100px]", // Adjusted top padding for both mobile and desktop (h-16 header + h-8 progress bar + gap)
+      // Adjusted top padding: pt-0 for simplified schedule, pt-[100px] otherwise
+      isSimplifiedSchedulePage ? "pt-0" : "pt-[100px]", 
       // Dynamic bottom padding for mobile navigation/status indicator
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4")
     )}>
       {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
-      {/* Remove max-w-5xl and mx-auto when on the simplified schedule page */}
       <div className={cn(
         "w-full",
         !isSimplifiedSchedulePage && "max-w-5xl mx-auto"

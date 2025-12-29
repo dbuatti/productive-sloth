@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import DailyScheduleColumn from './DailyScheduleColumn';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ListTodo, Loader2 } from 'lucide-react'; // Changed ZoomOut to ListTodo
+import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ListTodo, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setTimeOnDate } from '@/lib/scheduler-utils';
 import {
@@ -28,7 +28,7 @@ interface WeeklyScheduleGridProps {
 
 const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% vertical zoom
 const VERTICAL_ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00]; // Available vertical zoom factors
-const COLUMN_WIDTH_LEVELS = [140, 180, 220]; // Available column widths in pixels for horizontal zoom
+const VISIBLE_DAYS_OPTIONS = [3, 5, 7]; // Options for number of days visible
 
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
@@ -58,26 +58,55 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   }, [currentVerticalZoomIndex]);
 
-  // Horizontal Zoom (Days/Columns) - Persistence
-  const [currentColumnWidthIndex, setCurrentColumnWidthIndex] = useState<number>(() => {
+  // Days Visible (Horizontal Zoom) - Persistence
+  const [numDaysVisible, setNumDaysVisible] = useState<number>(() => {
     if (typeof window !== 'undefined') {
-      const savedIndex = localStorage.getItem('weeklyScheduleColumnWidthIndex');
-      return savedIndex ? parseInt(savedIndex, 10) : COLUMN_WIDTH_LEVELS.indexOf(180); // Default to 180px
+      const savedNumDays = localStorage.getItem('weeklyScheduleNumDaysVisible');
+      return savedNumDays ? parseInt(savedNumDays, 10) : 7; // Default to 7 days
     }
-    return COLUMN_WIDTH_LEVELS.indexOf(180);
+    return 7;
   });
-  const currentColumnWidth = COLUMN_WIDTH_LEVELS[currentColumnWidthIndex];
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('weeklyScheduleColumnWidthIndex', currentColumnWidthIndex.toString());
+      localStorage.setItem('weeklyScheduleNumDaysVisible', numDaysVisible.toString());
     }
-  }, [currentColumnWidthIndex]);
+  }, [numDaysVisible]);
+
+  // Ref to get the width of the scrollable grid container
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+  const [gridContainerWidth, setGridContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries[0]) {
+        setGridContainerWidth(entries[0].contentRect.width);
+      }
+    });
+
+    if (gridContainerRef.current) {
+      resizeObserver.observe(gridContainerRef.current);
+    }
+
+    return () => {
+      if (gridContainerRef.current) {
+        resizeObserver.unobserve(gridContainerRef.current);
+      }
+    };
+  }, []);
+
+  // Calculate dynamic column width based on container width and number of days visible
+  const currentColumnWidth = useMemo(() => {
+    // Subtract the width of the time axis (w-14) if it's visible
+    const effectiveContainerWidth = gridContainerWidth - (window.innerWidth >= 640 ? 56 : 0); // 56px for w-14
+    return effectiveContainerWidth > 0 ? effectiveContainerWidth / numDaysVisible : 0;
+  }, [gridContainerWidth, numDaysVisible]);
 
 
   const days = useMemo(() => {
-    return Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
-  }, [currentWeekStart]);
+    return Array.from({ length: numDaysVisible }).map((_, i) => addDays(currentWeekStart, i));
+  }, [currentWeekStart, numDaysVisible]); // Dependency on numDaysVisible
+
 
   const handlePrevWeek = () => {
     setCurrentWeekStart(addDays(currentWeekStart, -7));
@@ -98,11 +127,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   };
 
-  const handleSelectColumnWidth = (width: number) => {
-    const newIndex = COLUMN_WIDTH_LEVELS.indexOf(width);
-    if (newIndex !== -1) {
-      setCurrentColumnWidthIndex(newIndex);
-    }
+  const handleSelectNumDaysVisible = (days: number) => {
+    setNumDaysVisible(days);
   };
 
   const dayStart = setTimeOnDate(currentWeekStart, workdayStartTime);
@@ -139,7 +165,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             <TooltipTrigger asChild>
               <Button variant="outline" size="sm" onClick={handleGoToToday} className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4" />
-                <span className="hidden sm:inline">{format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 6), 'MMM d')}</span>
+                <span className="hidden sm:inline">{format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, numDaysVisible - 1), 'MMM d')}</span>
                 <span className="inline sm:hidden">This Week</span>
               </Button>
             </TooltipTrigger>
@@ -163,13 +189,13 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 size="icon"
                 onClick={() => setIsDetailedView(!isDetailedView)}
               >
-                <ListTodo className="h-4 w-4" /> {/* Changed icon to ListTodo */}
+                <ListTodo className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{isDetailedView ? "Compact Task Details" : "Detailed Task Info"}</TooltipContent>
           </Tooltip>
 
-          {/* NEW: Day Width Dropdown Menu (Horizontal Zoom) */}
+          {/* NEW: Days Visible Dropdown Menu (Horizontal Zoom) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -179,24 +205,24 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     size="sm"
                     className="ml-auto flex items-center gap-1"
                   >
-                    <span className="text-xs font-bold font-mono">{currentColumnWidth}px</span>
+                    <span className="text-xs font-bold font-mono">{numDaysVisible} Days</span>
                     <CalendarDays className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
-                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Day Width</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Days Visible</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/5" />
-                {COLUMN_WIDTH_LEVELS.map((width) => (
+                {VISIBLE_DAYS_OPTIONS.map((daysOption) => (
                   <DropdownMenuItem 
-                    key={width} 
-                    onClick={() => handleSelectColumnWidth(width)}
+                    key={daysOption} 
+                    onClick={() => handleSelectNumDaysVisible(daysOption)}
                     className={cn(
                       "gap-3 font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20 cursor-pointer",
-                      currentColumnWidth === width && "bg-primary/10 text-primary"
+                      numDaysVisible === daysOption && "bg-primary/10 text-primary"
                     )}
                   >
-                    {width}px
+                    {daysOption} Days
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -240,7 +266,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       </div>
 
       {/* Schedule Grid Container */}
-      <div className="flex-1 overflow-auto custom-scrollbar">
+      <div ref={gridContainerRef} className="flex-1 overflow-auto custom-scrollbar">
         {isLoading ? (
           <div className="flex items-center justify-center h-full min-h-[300px]">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2, Menu } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
-import SchedulerDisplay from '@/components/SchedulerDisplay';
+import SchedulerDisplay from '@/components/SchedulerDisplay'; // Corrected import
 import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock, TaskEnvironment, CompletedTaskLogEntry } from '@/types/scheduler';
 import {
   calculateSchedule,
@@ -2464,7 +2464,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               onRetireTask={(task) => handleSchedulerAction('skip', task)}
               onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
               activeItemId={activeItemToday?.id || null} 
-              selectedDayString={selectedDay} 
+              selectedDayString={selectedDay} // Passed selectedDayString
               onAddTaskClick={handleAddTaskClick}
               onScrollToItem={handleScrollToItem}
               isProcessingCommand={isProcessingCommand}

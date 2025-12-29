@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 interface SimplifiedScheduledTaskItemProps {
   task: DBScheduledTask;
   isDetailedView: boolean;
+  isCurrentlyActive: boolean; // NEW: Prop to indicate if this task is currently active
 }
 
 const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
@@ -29,7 +30,7 @@ const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) =>
   }
 };
 
-const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView }) => {
+const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView, isCurrentlyActive }) => {
   const hue = getEmojiHue(task.name);
   const accentColor = `hsl(${hue} 70% 50%)`;
   const emoji = assignEmoji(task.name);
@@ -45,6 +46,7 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
         "bg-card/30 hover:bg-card/50",
         task.is_locked && "border-primary/20 bg-primary/[0.03]",
         task.is_completed && "opacity-50 grayscale",
+        isCurrentlyActive && "animate-active-task border-live-progress/50 bg-live-progress/10 shadow-lg", // NEW: Active styling
         "text-xs" // Base text size for simplified view
       )}
       style={{ borderLeft: task.is_locked ? '3px solid hsl(var(--primary))' : `3px solid ${accentColor}` }}

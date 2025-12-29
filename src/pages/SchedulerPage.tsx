@@ -1251,13 +1251,25 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only');
   }, [user, profile, handleAutoScheduleAndSort]);
 
-  // NEW: Handler for general auto schedule button
-  const handleAutoScheduleDay = useCallback(async () => {
+  // NEW: Handler for general auto schedule button (now 'Re-balance Today')
+  const handleRebalanceToday = useCallback(async () => {
     if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to auto-schedule your day.");
+      showError("Please log in and ensure your profile is loaded to re-balance your day.");
       return;
     }
     // Auto-schedule all flexible tasks (from schedule and sink) with default priority sorting and no environment filters
+    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', []);
+  }, [user, profile, handleAutoScheduleAndSort]);
+
+  // NEW: Handler for 'Re-balance All Flexible' button (same as Re-balance Today for now)
+  const handleRebalanceAllFlexible = useCallback(async () => {
+    if (!user || !profile) {
+      showError("Please log in and ensure your profile is loaded to re-balance all flexible tasks.");
+      return;
+    }
+    // This will perform the same action as handleRebalanceToday for the current selected day.
+    // If a true "re-balance across all days" is needed, the autoBalanceSchedule edge function
+    // would need to be modified to accept a date range or iterate.
     await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', []);
   }, [user, profile, handleAutoScheduleAndSort]);
 
@@ -2394,7 +2406,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           dbScheduledTasks={dbScheduledTasks}
           retiredTasksCount={retiredTasks.length}
           sortBy={sortBy}
-          onAutoSchedule={handleAutoScheduleDay}
+          onAutoSchedule={handleRebalanceToday} // Renamed
+          onRebalanceAllFlexible={handleRebalanceAllFlexible} // NEW
           onCompactSchedule={handleCompactSchedule}
           onRandomizeBreaks={handleRandomizeBreaks}
           onZoneFocus={handleZoneFocus}
@@ -2585,7 +2598,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                           dbScheduledTasks={dbScheduledTasks}
                           retiredTasksCount={retiredTasks.length}
                           sortBy={sortBy}
-                          onAutoSchedule={handleAutoScheduleDay}
+                          onAutoSchedule={handleRebalanceToday} // Renamed
+                          onRebalanceAllFlexible={handleRebalanceAllFlexible} // NEW
                           onCompactSchedule={handleCompactSchedule}
                           onRandomizeBreaks={handleRandomizeBreaks}
                           onZoneFocus={handleZoneFocus}

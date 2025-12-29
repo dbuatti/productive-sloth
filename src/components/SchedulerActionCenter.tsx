@@ -25,7 +25,8 @@ interface SchedulerActionCenterProps {
   dbScheduledTasks: DBScheduledTask[];
   retiredTasksCount: number;
   sortBy: SortBy;
-  onAutoSchedule: () => Promise<void>;
+  onAutoSchedule: () => Promise<void>; // This is now 'Re-balance Today'
+  onRebalanceAllFlexible: () => Promise<void>; // NEW: For 'Re-balance All Flexible'
   onCompactSchedule: () => Promise<void>;
   onRandomizeBreaks: () => Promise<void>;
   onZoneFocus: () => Promise<void>;
@@ -46,7 +47,8 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   isProcessingCommand,
   dbScheduledTasks,
   retiredTasksCount,
-  onAutoSchedule,
+  onAutoSchedule, // Now 'Re-balance Today'
+  onRebalanceAllFlexible, // NEW
   onCompactSchedule,
   onRandomizeBreaks,
   onZoneFocus,
@@ -100,15 +102,41 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4 pb-4 border-b border-white/5">
           <div className="flex flex-col gap-1 w-full lg:w-auto">
             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/50 ml-1">Core Engine</span>
-            <Button
-              onClick={onAutoSchedule}
-              disabled={isProcessingCommand}
-              variant="aether"
-              className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95 shadow-lg shadow-primary/20"
-            >
-              {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Cpu className="h-5 w-5" />}
-              Sync Timeline
-            </Button>
+            <div className="flex gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={onAutoSchedule} // This is now 'Re-balance Today'
+                    disabled={isProcessingCommand}
+                    variant="aether"
+                    className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95 shadow-lg shadow-primary/20"
+                  >
+                    {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Cpu className="h-5 w-5" />}
+                    Re-balance Today
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="glass-card font-bold border-white/10">
+                  Re-balance Today: Consolidate and re-schedule all flexible tasks for the current day.
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={onRebalanceAllFlexible} // NEW: Re-balance All Flexible
+                    disabled={isProcessingCommand}
+                    variant="outline"
+                    className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95"
+                  >
+                    {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <ListTodo className="h-5 w-5" />}
+                    Re-balance All Flexible
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="glass-card font-bold border-white/10">
+                  Re-balance All Flexible: Consolidate and re-schedule all flexible tasks (from schedule and sink) for the current day.
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1 w-full lg:w-auto">

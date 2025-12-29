@@ -123,12 +123,11 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
               className={cn(
                 "absolute left-1 right-1 rounded-md p-1 transition-all duration-300",
                 "bg-card/60 border border-white/5",
-                isPastTask && "opacity-40 grayscale",
-                isCurrentlyActive && "animate-active-task border-primary/50 bg-primary/10 shadow-lg"
+                isPastTask && "opacity-40 grayscale pointer-events-none" // Apply pointer-events-none for past tasks
               )}
               style={{ top: `${top}px`, height: `${height}px` }}
             >
-              <SimplifiedScheduledTaskItem task={task} isDetailedView={isDetailedView} />
+              <SimplifiedScheduledTaskItem task={task} isDetailedView={isDetailedView} isCurrentlyActive={isCurrentlyActive} />
             </div>
           );
         })}

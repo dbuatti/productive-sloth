@@ -27,7 +27,7 @@ interface SchedulerDisplayProps {
   onRetireTask: (task: DBScheduledTask) => void;
   onCompleteTask: (task: DBScheduledTask, index?: number) => void;
   activeItemId: string | null;
-  selectedDayString: string;
+  selectedDayString: string; // Added selectedDayString prop
   onAddTaskClick: () => void;
   onScrollToItem: (itemId: string) => void;
   isProcessingCommand: boolean;
@@ -54,7 +54,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   onRetireTask,
   onCompleteTask,
   activeItemId,
-  selectedDayString,
+  selectedDayString, // Destructured selectedDayString
   onFreeTimeClick,
   onScrollToItem
 }) => {
@@ -157,6 +157,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
           const isPastItem = isPast(taskItem.endTime) && !isActive;
           const duration = differenceInMinutes(taskItem.endTime, taskItem.startTime);
 
+          const hue = getEmojiHue(taskItem.name);
+          const emojiBackgroundColor = `hsl(${hue} 50% 35% / 0.3)`; // Opaque version
+          const accentBorderColor = `hsl(${hue} 70% 50%)`; // For the left border
+
           return (
             <div key={taskItem.id} className="relative group flex gap-6 mb-4">
               <div className="w-10 text-right shrink-0 pt-1">
@@ -182,12 +186,21 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                   isActive ? "bg-primary/10 border-primary/40 shadow-2xl ring-1 ring-primary/20" : "bg-card/30 border-white/10 hover:border-primary/30",
                   isPastItem && "opacity-40 grayscale pointer-events-none"
                 )}
-                style={{ minHeight: `${duration * MINUTE_HEIGHT}px` }}
+                style={{ 
+                  minHeight: `${duration * MINUTE_HEIGHT}px`,
+                  backgroundColor: isActive ? undefined : emojiBackgroundColor, // Apply background only if not active
+                  borderLeft: isActive ? '4px solid hsl(var(--primary))' : `4px solid ${accentBorderColor}` // Dynamic left border
+                }}
                 onClick={() => dbTask && handleTaskClick(dbTask)}
               >
                 {isActive && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent animate-pulse" />}
 
-                <div className="flex justify-between items-start relative z-10 gap-4">
+                {/* Emoji at top-left */}
+                <div className="absolute top-4 left-4 text-3xl z-10 opacity-80 group-hover:scale-110 transition-transform duration-300">
+                  {taskItem.emoji}
+                </div>
+
+                <div className="flex justify-between items-start relative z-10 gap-4 pl-12"> {/* Added pl-12 */}
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={cn(
@@ -297,4 +310,5 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
 });
 
 SchedulerDisplay.displayName = 'SchedulerDisplay';
+
 export default SchedulerDisplay;

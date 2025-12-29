@@ -2406,7 +2406,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           dbScheduledTasks={dbScheduledTasks}
           retiredTasksCount={retiredTasks.length}
           sortBy={sortBy}
-          onAutoSchedule={handleRebalanceToday} // Renamed
+          onRebalanceToday={handleRebalanceToday} // Renamed
           onRebalanceAllFlexible={handleRebalanceAllFlexible} // NEW
           onCompactSchedule={handleCompactSchedule}
           onRandomizeBreaks={handleRandomizeBreaks}
@@ -2598,7 +2598,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                           dbScheduledTasks={dbScheduledTasks}
                           retiredTasksCount={retiredTasks.length}
                           sortBy={sortBy}
-                          onAutoSchedule={handleRebalanceToday} // Renamed
+                          onRebalanceToday={handleRebalanceToday} // Renamed
                           onRebalanceAllFlexible={handleRebalanceAllFlexible} // NEW
                           onCompactSchedule={handleCompactSchedule}
                           onRandomizeBreaks={handleRandomizeBreaks}

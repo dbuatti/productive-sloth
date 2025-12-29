@@ -25,7 +25,7 @@ interface SchedulerActionCenterProps {
   dbScheduledTasks: DBScheduledTask[];
   retiredTasksCount: number;
   sortBy: SortBy;
-  onAutoSchedule: () => Promise<void>; // This is now 'Re-balance Today'
+  onRebalanceToday: () => Promise<void>; // Renamed from onAutoSchedule
   onRebalanceAllFlexible: () => Promise<void>; // NEW: For 'Re-balance All Flexible'
   onCompactSchedule: () => Promise<void>;
   onRandomizeBreaks: () => Promise<void>;
@@ -47,7 +47,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   isProcessingCommand,
   dbScheduledTasks,
   retiredTasksCount,
-  onAutoSchedule, // Now 'Re-balance Today'
+  onRebalanceToday, // Renamed
   onRebalanceAllFlexible, // NEW
   onCompactSchedule,
   onRandomizeBreaks,
@@ -106,7 +106,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={onAutoSchedule} // This is now 'Re-balance Today'
+                    onClick={onRebalanceToday} // This is now 'Re-balance Today'
                     disabled={isProcessingCommand}
                     variant="aether"
                     className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95 shadow-lg shadow-primary/20"

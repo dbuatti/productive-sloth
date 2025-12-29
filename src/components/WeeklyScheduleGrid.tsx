@@ -7,6 +7,14 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setTimeOnDate } from '@/lib/scheduler-utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'; // NEW: Import DropdownMenu components
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
@@ -33,7 +41,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const [isDetailedView, setIsDetailedView] = useState(false); // For task item content detail
   const [currentZoomIndex, setCurrentZoomIndex] = useState(3); // Default to 1.00 (100%) zoom
   const currentZoomFactor = ZOOM_LEVELS[currentZoomIndex];
-  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * currentZoomFactor;
+  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * currentZoomFactor; // Defined here
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
@@ -51,8 +59,11 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
   };
 
-  const handleToggleZoom = () => {
-    setCurrentZoomIndex((prevIndex) => (prevIndex + 1) % ZOOM_LEVELS.length);
+  const handleSelectZoom = (zoom: number) => {
+    const newIndex = ZOOM_LEVELS.indexOf(zoom);
+    if (newIndex !== -1) {
+      setCurrentZoomIndex(newIndex);
+    }
   };
 
   const dayStart = setTimeOnDate(currentWeekStart, workdayStartTime);
@@ -70,7 +81,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       currentTime = addHours(currentTime, 1);
     }
     return labels;
-  }, [dayStart, dayEnd]);
+  }, [dayStart, dayEnd, dynamicMinuteHeight]); // Added dynamicMinuteHeight to dependencies
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -119,20 +130,39 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             <TooltipContent>{isDetailedView ? "Compact Task Details" : "Detailed Task Info"}</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleToggleZoom}
-                className="ml-auto flex items-center gap-1"
-              >
-                <span className="text-xs font-bold font-mono">{Math.round(currentZoomFactor * 100)}%</span>
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Adjust Schedule Vertical Zoom</TooltipContent>
-          </Tooltip>
+          {/* NEW: Zoom Dropdown Menu */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto flex items-center gap-1"
+                  >
+                    <span className="text-xs font-bold font-mono">{Math.round(currentZoomFactor * 100)}%</span>
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
+                <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Zoom Level</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-white/5" />
+                {ZOOM_LEVELS.map((zoom) => (
+                  <DropdownMenuItem 
+                    key={zoom} 
+                    onClick={() => handleSelectZoom(zoom)}
+                    className={cn(
+                      "gap-3 font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20 cursor-pointer",
+                      currentZoomFactor === zoom && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    {Math.round(zoom * 100)}%
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </Tooltip>
+          </DropdownMenu>
         </div>
       </div>
 

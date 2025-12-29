@@ -26,6 +26,9 @@ export interface UserProfile {
   last_energy_regen_at: string | null; // NEW: Added for energy regeneration tracking
   is_in_regen_pod: boolean; // NEW: Is user currently in a regen pod session
   regen_pod_start_time: string | null; // NEW: Timestamp when pod started
+  breakfast_time: string | null; // NEW: Breakfast time
+  lunch_time: string | null; // NEW: Lunch time
+  dinner_time: string | null; // NEW: Dinner time
 }
 
 interface SessionContextType {

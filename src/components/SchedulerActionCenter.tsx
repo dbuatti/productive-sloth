@@ -123,7 +123,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={onRebalanceAllFlexible} // NEW: Re-balance All Flexible
+                    onClick={() => onRebalanceAllFlexible()} // Call the new handler for 'Re-balance All Flexible'
                     disabled={isProcessingCommand}
                     variant="outline"
                     className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95"

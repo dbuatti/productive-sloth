@@ -2,7 +2,7 @@ import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, par
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
-export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break']; // Added 'eat' and 'coffee break'
+export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break']; // Added 'eat' and 'coffee break'
 
 export const EMOJI_MAP: { [key: string]: string } = {
   'gym': '🏋️', 'workout': '🏋️', 'run': '🏃', 'exercise': '🏋️', 'fitness': '💪',
@@ -743,7 +743,10 @@ export const calculateSchedule = (
   isRegenPodActive: boolean, // NEW: Pod state
   regenPodStartTime: Date | null, // NEW: Pod start time
   regenPodDurationMinutes: number, // NEW: Pod duration
-  T_current: Date // NEW: Current time for dynamic calculation
+  T_current: Date, // NEW: Current time for dynamic calculation
+  breakfastTimeStr: string | null, // NEW: Breakfast time from profile
+  lunchTimeStr: string | null,     // NEW: Lunch time from profile
+  dinnerTimeStr: string | null     // NEW: Dinner time from profile
 ): FormattedSchedule => {
   const items: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
@@ -754,6 +757,58 @@ export const calculateSchedule = (
   let extendsPastMidnight = false;
   let midnightRolloverMessage: string | null = null;
 
+  const selectedDayDate = parseISO(selectedDay);
+
+  // --- NEW: Add Meal Times as Fixed Tasks ---
+  const addMealTask = (name: string, timeStr: string, emoji: string, duration: number) => {
+    if (timeStr) {
+      let mealStart = setTimeOnDate(selectedDayDate, timeStr);
+      let mealEnd = addMinutes(mealStart, duration);
+
+      // Adjust for meals that might cross midnight if workday spans it
+      if (isBefore(mealEnd, mealStart) && isAfter(mealStart, workdayStart) && isBefore(mealEnd, workdayEnd)) {
+        mealEnd = addDays(mealEnd, 1);
+      } else if (isBefore(mealStart, workdayStart) && isAfter(mealEnd, workdayStart) && isBefore(mealEnd, workdayEnd)) {
+        // If meal starts before workday but ends within, adjust start to workday start
+        mealStart = workdayStart;
+      } else if (isBefore(mealStart, workdayEnd) && isAfter(mealEnd, workdayEnd)) {
+        // If meal starts within workday but ends after, adjust end to workday end
+        mealEnd = workdayEnd;
+      }
+
+      // Only add if the meal is within the workday window or overlaps significantly
+      if (isBefore(mealStart, workdayEnd) && isAfter(mealEnd, workdayStart)) {
+        const mealItem: ScheduledItem = {
+          id: `meal-${name.toLowerCase()}-${timeStr}`,
+          type: 'meal',
+          name: name,
+          duration: differenceInMinutes(mealEnd, mealStart),
+          startTime: mealStart,
+          endTime: mealEnd,
+          emoji: emoji,
+          description: `${name} time`,
+          isTimedEvent: true,
+          isCritical: false,
+          isFlexible: false, // Meals are fixed
+          isLocked: true,   // Meals are locked
+          energyCost: -10,  // Meals provide energy
+          isCompleted: false,
+          isCustomEnergyCost: false,
+          taskEnvironment: 'home', // Default environment for meals
+          sourceCalendarId: null,
+          isBackburner: false,
+        };
+        items.push(mealItem);
+      }
+    }
+  };
+
+  addMealTask('Breakfast', breakfastTimeStr, '🥞', 30); // 30 min breakfast
+  addMealTask('Lunch', lunchTimeStr, '🥗', 45);       // 45 min lunch
+  addMealTask('Dinner', dinnerTimeStr, '🍽️', 60);      // 60 min dinner
+  // --- END NEW: Add Meal Times as Fixed Tasks ---
+
+
   const sortedTasks = [...dbTasks].sort((a, b) => {
     if (a.start_time && b.start_time) {
       return parseISO(a.start_time).getTime() - parseISO(b.start_time).getTime();
@@ -762,7 +817,7 @@ export const calculateSchedule = (
   });
 
   // --- NEW: Insert Active Regen Pod Block ---
-  if (isRegenPodActive && regenPodStartTime && isSameDay(regenPodStartTime, parseISO(selectedDay))) {
+  if (isRegenPodActive && regenPodStartTime && isSameDay(regenPodStartTime, selectedDayDate)) {
     const podStart = regenPodStartTime;
     const podEnd = addMinutes(podStart, regenPodDurationMinutes);
     
@@ -810,7 +865,6 @@ export const calculateSchedule = (
     const endTimeUTC = parseISO(dbTask.end_time);
 
     // Convert UTC times to local times relative to the selected day
-    const selectedDayDate = parseISO(selectedDay);
     let startTime = setTimeOnDate(selectedDayDate, format(startTimeUTC, 'HH:mm'));
     let endTime = setTimeOnDate(selectedDayDate, format(endTimeUTC, 'HH:mm'));
 
@@ -880,7 +934,7 @@ export const calculateSchedule = (
     sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
   });
 
-  // Re-sort all items (including the dynamically added Pod item) by start time
+  // Re-sort all items (including the dynamically added Pod item and meals) by start time
   items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
   const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);

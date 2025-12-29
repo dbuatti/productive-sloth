@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw, Plug, CheckCircle } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw, Plug, CheckCircle, Utensils } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -40,12 +40,17 @@ import { useICloudCalendar } from '@/hooks/use-icloud-calendar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
+const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
 const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters.").nullable(),
   avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')),
-  default_auto_schedule_start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable(),
-  default_auto_schedule_end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable(),
+  default_auto_schedule_start_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
+  default_auto_schedule_end_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
+  breakfast_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(), // NEW
+  lunch_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),     // NEW
+  dinner_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),    // NEW
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -82,6 +87,9 @@ const SettingsPage: React.FC = () => {
       avatar_url: '',
       default_auto_schedule_start_time: '09:00',
       default_auto_schedule_end_time: '17:00',
+      breakfast_time: '08:00', // NEW: Default meal times
+      lunch_time: '12:00',
+      dinner_time: '18:00',
     },
     mode: 'onChange',
   });
@@ -94,6 +102,9 @@ const SettingsPage: React.FC = () => {
         avatar_url: profile.avatar_url || '',
         default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '09:00',
         default_auto_schedule_end_time: profile.default_auto_schedule_end_time || '17:00',
+        breakfast_time: profile.breakfast_time || '08:00', // NEW
+        lunch_time: profile.lunch_time || '12:00',         // NEW
+        dinner_time: profile.dinner_time || '18:00',        // NEW
       });
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
@@ -118,6 +129,9 @@ const SettingsPage: React.FC = () => {
         avatar_url: values.avatar_url === '' ? null : values.avatar_url,
         default_auto_schedule_start_time: values.default_auto_schedule_start_time,
         default_auto_schedule_end_time: values.default_auto_schedule_end_time,
+        breakfast_time: values.breakfast_time, // NEW
+        lunch_time: values.lunch_time,         // NEW
+        dinner_time: values.dinner_time,        // NEW
       });
       showSuccess("Profile updated successfully!");
     } catch (error: any) {
@@ -151,6 +165,9 @@ const SettingsPage: React.FC = () => {
           enable_aethersink_backup: true,
           default_auto_schedule_start_time: '09:00',
           default_auto_schedule_end_time: '17:00',
+          breakfast_time: '08:00', // NEW: Reset meal times
+          lunch_time: '12:00',
+          dinner_time: '18:00',
           last_energy_regen_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -191,6 +208,9 @@ const SettingsPage: React.FC = () => {
         enable_aethersink_backup: true,
         default_auto_schedule_start_time: '09:00',
         default_auto_schedule_end_time: '17:00',
+        breakfast_time: '08:00', // NEW: Reset meal times
+        lunch_time: '12:00',
+        dinner_time: '18:00',
       });
 
       setTheme("system");
@@ -448,7 +468,7 @@ const SettingsPage: React.FC = () => {
                   name="last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Last Name</FormLabel> {/* Corrected from <Label> */}
                       <FormControl>
                         <Input placeholder="Doe" {...field} value={field.value || ''} />
                       </FormControl>
@@ -645,6 +665,72 @@ const SettingsPage: React.FC = () => {
                           The latest time the auto-scheduler should place flexible tasks.
                         </FormDescription>
                       </div>
+                  <FormControl>
+                    <Input type="time" className="w-auto" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end pt-2">
+              <Button type="submit" disabled={isSubmitting || !isValid}>
+                Save Preferences
+              </Button>
+            </div>
+          </div>
+
+          {/* NEW: Meal Times Section */}
+          <div className="rounded-lg border p-3 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <Utensils className="h-4 w-4" /> Meal Times
+            </div>
+            <FormField
+              control={form.control}
+              name="breakfast_time"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between">
+                  <div className="space-y-0.5">
+                    <FormLabel>Breakfast Time</FormLabel>
+                    <FormDescription className="text-sm text-muted-foreground">
+                      When you typically have breakfast.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Input type="time" className="w-auto" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="lunch_time"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between">
+                  <div className="space-y-0.5">
+                    <FormLabel>Lunch Time</FormLabel>
+                    <FormDescription className="text-sm text-muted-foreground">
+                      When you typically have lunch.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Input type="time" className="w-auto" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dinner_time"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between">
+                  <div className="space-y-0.5">
+                    <FormLabel>Dinner Time</FormLabel>
+                    <FormDescription className="text-sm text-muted-foreground">
+                      When you typically have dinner.
+                    </FormDescription>
+                  </div>
                   <FormControl>
                     <Input type="time" className="w-auto" {...field} value={field.value || ''} />
                   </FormControl>

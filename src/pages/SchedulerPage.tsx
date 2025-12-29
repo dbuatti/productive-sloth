@@ -378,7 +378,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       profile.is_in_regen_pod, // NEW
       profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, // NEW
       regenPodDurationMinutes, // NEW
-      T_current // NEW
+      T_current, // NEW
+      profile.breakfast_time, // NEW
+      profile.lunch_time,     // NEW
+      profile.dinner_time     // NEW
     );
     return newSchedule;
   }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile, regenPodDurationMinutes, T_current]);

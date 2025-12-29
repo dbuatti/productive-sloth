@@ -14,7 +14,8 @@ import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
-import ModelPage from "./pages/ModelPage"; // NEW IMPORT
+import ModelPage from "./pages/ModelPage";
+import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage"; // NEW IMPORT
 
 const queryClient = new QueryClient();
 
@@ -32,12 +33,12 @@ const App = () => (
                   <Routes>
                     <Route path="/" element={<Navigate to="/scheduler" replace />} />
                     
-                    {/* Secondary Pages (Accessed via Settings) */}
+                    {/* Secondary Pages (Accessed via Settings or direct link) */}
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/documentation" element={<DocumentationPage />} />
-                    <Route path="/model" element={<ModelPage />} /> {/* NEW ROUTE */}
-                    
+                    <Route path="/model" element={<ModelPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/simplified-schedule" element={<SimplifiedSchedulePage />} /> {/* NEW ROUTE */}
                     
                     {/* SCHEDULER CORE VIEWS (Primary Navigation) */}
                     <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />

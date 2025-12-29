@@ -1,0 +1,101 @@
+import React from 'react';
+import { DBScheduledTask } from '@/types/scheduler';
+import { cn } from '@/lib/utils';
+import { format, parseISO, differenceInMinutes } from 'date-fns';
+import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
+import { Clock, Zap, Star, Home, Laptop, Globe, Music } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+
+interface SimplifiedScheduledTaskItemProps {
+  task: DBScheduledTask;
+  isDetailedView: boolean;
+}
+
+const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
+  const iconClass = "h-3 w-3 opacity-70";
+  switch (environment) {
+    case 'home': return <Home className={iconClass} />;
+    case 'laptop': return <Laptop className={iconClass} />;
+    case 'away': return <Globe className={iconClass} />;
+    case 'piano': return <Music className={iconClass} />;
+    case 'laptop_piano':
+      return (
+        <div className="relative">
+          <Laptop className={iconClass} />
+          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
+        </div>
+      );
+    default: return null;
+  }
+};
+
+const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView }) => {
+  const hue = getEmojiHue(task.name);
+  const accentColor = `hsl(${hue} 70% 50%)`;
+  const emoji = assignEmoji(task.name);
+
+  const startTime = task.start_time ? parseISO(task.start_time) : null;
+  const endTime = task.end_time ? parseISO(task.end_time) : null;
+  const duration = startTime && endTime ? differenceInMinutes(endTime, startTime) : 0;
+
+  return (
+    <div
+      className={cn(
+        "relative flex items-center gap-2 p-2 rounded-md border border-transparent transition-all duration-200",
+        "bg-card/30 hover:bg-card/50",
+        task.is_locked && "border-primary/20 bg-primary/[0.03]",
+        task.is_completed && "opacity-50 grayscale",
+        "text-xs" // Base text size for simplified view
+      )}
+      style={{ borderLeft: task.is_locked ? '3px solid hsl(var(--primary))' : `3px solid ${accentColor}` }}
+    >
+      <span className="text-base shrink-0">{emoji}</span> {/* Emoji is always visible */}
+      
+      <div className="flex flex-col min-w-0 flex-grow">
+        <span className={cn("font-semibold truncate", task.is_completed && "line-through")}>
+          {task.name}
+        </span>
+        
+        {isDetailedView && (
+          <div className="flex items-center gap-2 text-muted-foreground/70 mt-0.5">
+            {startTime && endTime && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" /> {format(startTime, 'h:mm a')} - {format(endTime, 'h:mm a')} ({duration}m)
+              </span>
+            )}
+            {task.is_critical && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Star className="h-3 w-3 fill-logo-yellow text-logo-yellow" />
+                </TooltipTrigger>
+                <TooltipContent>Critical Task</TooltipContent>
+              </Tooltip>
+            )}
+            {task.energy_cost > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 text-logo-yellow">
+                    {task.energy_cost}<Zap className="h-3 w-3" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Energy Cost</TooltipContent>
+              </Tooltip>
+            )}
+            {task.task_environment && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1">
+                    {getEnvironmentIcon(task.task_environment)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{task.task_environment}</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default SimplifiedScheduledTaskItem;

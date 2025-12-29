@@ -11,12 +11,13 @@ import {
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, Trash2, ListTodo, 
-  BatteryCharging, Target, Cpu, Coffee, Archive
+  BatteryCharging, Target, Cpu, Coffee, Archive, CalendarDays
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock';
 import { DBScheduledTask, SortBy } from '@/types/scheduler';
+import { useNavigate } from 'react-router-dom'; // NEW: Import useNavigate
 
 interface SchedulerActionCenterProps {
   isProcessingCommand: boolean;
@@ -61,6 +62,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
 }) => {
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
   const hasUnlockedFlexibleTasks = dbScheduledTasks.some(task => task.is_flexible && !task.is_locked);
+  const navigate = useNavigate(); // NEW: Initialize useNavigate
 
   const sortOptions: { value: SortBy, label: string, icon: React.ElementType }[] = [
     { value: 'TIME_EARLIEST_TO_LATEST', label: 'Chronological', icon: Clock },
@@ -233,6 +235,13 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   icon={Database} label="Sync" colorClass="text-muted-foreground" tooltip="Data Sync: Refresh local items"
                   onClick={onRefreshSchedule}
                 />
+            </div>
+            {/* NEW: Simplified Schedule View Button */}
+            <div className="grid grid-cols-1 gap-2">
+              <ActionButton
+                icon={CalendarDays} label="Weekly View" colorClass="text-primary" tooltip="View a simplified weekly schedule"
+                onClick={() => navigate('/simplified-schedule')} // Navigate to the new page
+              />
             </div>
         </div>
       </CardContent>

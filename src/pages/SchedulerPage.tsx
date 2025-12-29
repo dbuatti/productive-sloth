@@ -346,37 +346,43 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     setShowDeleteRetiredTaskConfirmation(true);
   }, []);
 
-  const workdayStartTime = useMemo(() => profile?.default_auto_schedule_start_time 
+  // Memoize workday start/end for the *currently selected day*
+  const workdayStartTimeForSelectedDay = useMemo(() => profile?.default_auto_schedule_start_time 
     ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) 
     : startOfDay(selectedDayAsDate), [profile?.default_auto_schedule_start_time, selectedDayAsDate]);
   
-  let workdayEndTime = useMemo(() => profile?.default_auto_schedule_end_time 
+  let workdayEndTimeForSelectedDay = useMemo(() => profile?.default_auto_schedule_end_time 
     ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) 
     : addHours(startOfDay(selectedDayAsDate), 17), [profile?.default_auto_schedule_end_time, selectedDayAsDate]);
 
-  workdayEndTime = useMemo(() => {
-    if (isBefore(workdayEndTime, workdayStartTime)) {
-      return addDays(workdayEndTime, 1);
+  workdayEndTimeForSelectedDay = useMemo(() => {
+    if (isBefore(workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay)) {
+      return addDays(workdayEndTimeForSelectedDay, 1);
     }
-    return workdayEndTime;
-  }, [workdayEndTime, workdayStartTime]);
+    return workdayEndTimeForSelectedDay;
+  }, [workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay]);
 
-  const effectiveWorkdayStart = useMemo(() => {
-    if (isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTime, T_current)) {
+  const effectiveWorkdayStartForSelectedDay = useMemo(() => {
+    if (isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTimeForSelectedDay, T_current)) {
       return T_current;
     }
-    return workdayStartTime;
-  }, [selectedDayAsDate, T_current, workdayStartTime]);
+    return workdayStartTimeForSelectedDay;
+  }, [selectedDayAsDate, T_current, workdayStartTimeForSelectedDay]);
 
   const previousCalculatedScheduleRef = useRef<FormattedSchedule | null>(null);
 
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null;
+    // Use workday window for the currently selected day
+    const currentDayDate = selectedDayAsDate;
+    const currentWorkdayStart = workdayStartTimeForSelectedDay;
+    const currentWorkdayEnd = workdayEndTimeForSelectedDay;
+
     const newSchedule = calculateSchedule(
       dbScheduledTasks, 
       selectedDay, 
-      workdayStartTime, 
-      workdayEndTime,
+      currentWorkdayStart, // Pass currentWorkdayStart
+      currentWorkdayEnd,   // Pass currentWorkdayEnd
       profile.is_in_regen_pod, // NEW
       profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, // NEW
       regenPodDurationMinutes, // NEW
@@ -389,7 +395,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       profile.dinner_duration_minutes     // NEW: Added dinner duration
     );
     return newSchedule;
-  }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile, regenPodDurationMinutes, T_current]);
+  }, [dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile, regenPodDurationMinutes, T_current]);
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   useEffect(() => {
@@ -440,8 +446,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     isFlexible: boolean,
     energyCost: number,
     existingOccupiedBlocks: TimeBlock[],
-    effectiveWorkdayStart: Date,
-    workdayEndTime: Date
+    currentDayDate: Date, // NEW
+    currentWorkdayStart: Date, // NEW
+    currentWorkdayEnd: Date // NEW
   ): Promise<{ proposedStartTime: Date | null, proposedEndTime: Date | null, message: string }> => {
     let proposedStartTime: Date | null = null;
     
@@ -451,8 +458,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         const utcStart = parseISO(task.start_time!);
         const utcEnd = parseISO(task.end_time!);
 
-        let localStart = setTimeOnDate(selectedDayAsDate, format(utcStart, 'HH:mm'));
-        let localEnd = setTimeOnDate(selectedDayAsDate, format(utcEnd, 'HH:mm'));
+        let localStart = setTimeOnDate(currentDayDate, format(utcStart, 'HH:mm')); // Use currentDayDate
+        let localEnd = setTimeOnDate(currentDayDate, format(utcEnd, 'HH:mm')); // Use currentDayDate
 
         if (isBefore(localEnd, localStart)) {
           localEnd = addDays(localEnd, 1);
@@ -467,7 +474,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
     const allOccupiedBlocks = mergeOverlappingTimeBlocks([...existingOccupiedBlocks, ...lockedTaskBlocks]);
-    const freeBlocks = getFreeTimeBlocks(allOccupiedBlocks, effectiveWorkdayStart, workdayEndTime);
+    const freeBlocks = getFreeTimeBlocks(allOccupiedBlocks, currentWorkdayStart, currentWorkdayEnd); // Use currentWorkdayStart/End
 
     if (isCritical) {
       for (const block of freeBlocks) {
@@ -489,10 +496,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       const proposedEndTime = addMinutes(proposedStartTime, taskDuration);
       return { proposedStartTime, proposedEndTime, message: "" };
     } else {
-      const message = `No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) for "${taskName}" (${taskDuration} min).`;
+      const message = `No available slot found within your workday (${formatTime(currentWorkdayStart)} - ${formatTime(currentWorkdayEnd)}) for "${taskName}" (${taskDuration} min).`;
       return { proposedStartTime: null, proposedEndTime: null, message: message };
     }
-  }, [workdayStartTime, workdayEndTime, dbScheduledTasks, selectedDayAsDate, effectiveWorkdayStart]);
+  }, [dbScheduledTasks]); // Dependencies for findFreeSlotForTask
 
   const handleRefreshSchedule = useCallback(() => {
     if (user?.id) {
@@ -552,15 +559,21 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           return;
       }
 
+      // Use workday window for the currently selected day
+      const currentDayDate = selectedDayAsDate;
+      const currentWorkdayStart = workdayStartTimeForSelectedDay;
+      const currentWorkdayEnd = workdayEndTimeForSelectedDay;
+      const currentEffectiveWorkdayStart = effectiveWorkdayStartForSelectedDay;
+
       // 4. Find the first available free slot large enough to hold the *first* task
       let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
-      let freeBlocks = getFreeTimeBlocks(currentOccupiedBlocksForScheduling, effectiveWorkdayStart, workdayEndTime);
+      let freeBlocks = getFreeTimeBlocks(currentOccupiedBlocksForScheduling, currentEffectiveWorkdayStart, currentWorkdayEnd); // Use currentEffectiveWorkdayStart, currentWorkdayEnd
       
       const firstTaskTotalDuration = tasksToPlace[0].totalDuration;
       const initialFreeBlock = freeBlocks.find(block => block.duration >= firstTaskTotalDuration);
 
       if (!initialFreeBlock) {
-          showError(`No available slot found within your workday (${formatTime(workdayStartTime)} - ${formatTime(workdayEndTime)}) to start the quick block.`);
+          showError(`No available slot found within your workday (${formatTime(currentWorkdayStart)} - ${formatTime(currentWorkdayEnd)}) to start the quick block.`); // Use currentWorkdayStart, currentWorkdayEnd
           return;
       }
 
@@ -577,7 +590,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
 
         // Check if the proposed slot is still within the workday and free
-        if (isAfter(proposedEndTime, workdayEndTime)) {
+        if (isAfter(proposedEndTime, currentWorkdayEnd)) { // Use currentWorkdayEnd
             break;
         }
         
@@ -626,7 +639,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, retiredTasks, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, addScheduledTask, rezoneTask, formattedSelectedDay, selectedDayAsDate, workdayStartTime, queryClient]);
+  }, [user, profile, retiredTasks, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addScheduledTask, rezoneTask, formattedSelectedDay, selectedDayAsDate, queryClient]);
 
   const handleCompactSchedule = useCallback(async () => {
     if (!user || !profile) {
@@ -646,8 +659,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         const compactedTasks = compactScheduleLogic(
             currentDbTasks, // Pass the current tasks
             selectedDayAsDate,
-            workdayStartTime,
-            workdayEndTime,
+            workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
+            workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
             T_current
         );
 
@@ -665,7 +678,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
         setIsProcessingCommand(false);
     }
-  }, [user, profile, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, queryClient, formattedSelectedDay, sortBy]);
+  }, [user, profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, queryClient, formattedSelectedDay, sortBy]);
 
   const confirmPermanentDeleteScheduledTask = useCallback(async () => {
     if (!scheduledTaskToDeleteId || !user || scheduledTaskToDeleteIndex === null) return;
@@ -682,8 +695,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         const compactedTasks = compactScheduleLogic(
             latestDbScheduledTasks,
             selectedDayAsDate,
-            workdayStartTime,
-            workdayEndTime,
+            workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
+            workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
             T_current
         );
         const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
@@ -717,7 +730,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setScheduledTaskToDeleteName(null);
       setScheduledTaskToDeleteIndex(null);
     }
-  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, activeItemToday, nextItemToday, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, activeItemToday, nextItemToday, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks]);
 
   // Confirmation handler for retired task permanent deletion
   const confirmPermanentDeleteRetiredTask = useCallback(async () => {
@@ -873,21 +886,21 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         showError(`Failed to fill gap with sink task: ${error.message}`);
         return false;
     }
-  }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime]);
+  }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay, occupiedBlocks]);
 
   // NEW: Generic auto-schedule and sort function
   const handleAutoScheduleAndSort = useCallback(async (
     sortPreference: SortBy,
     taskSource: 'all-flexible' | 'sink-only',
     environmentsToFilterBy: TaskEnvironment[] = [],
-    targetDate: string = formattedSelectedDay // NEW: Add targetDate parameter
+    targetDateString: string // Renamed to avoid confusion with Date object
   ) => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to auto-schedule.");
       return;
     }
 
-    const currentTargetDate = parseISO(targetDate);
+    const currentTargetDate = parseISO(targetDateString); // Use targetDateString
     const today = startOfDay(new Date());
     if (isBefore(currentTargetDate, today)) {
       showError("Cannot auto-schedule for a past day. Please select today or a future day.");
@@ -897,12 +910,24 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     setIsProcessingCommand(true);
 
     try {
+      // Derive workday start/end for the targetDateString
+      const targetWorkdayStart = profile?.default_auto_schedule_start_time 
+        ? setTimeOnDate(currentTargetDate, profile.default_auto_schedule_start_time) 
+        : startOfDay(currentTargetDate);
+      let targetWorkdayEnd = profile?.default_auto_schedule_end_time 
+        ? setTimeOnDate(startOfDay(currentTargetDate), profile.default_auto_schedule_end_time) 
+        : addHours(startOfDay(currentTargetDate), 17);
+      if (isBefore(targetWorkdayEnd, targetWorkdayStart)) {
+        targetWorkdayEnd = addDays(targetWorkdayEnd, 1);
+      }
+      const effectiveTargetWorkdayStart = isSameDay(currentTargetDate, T_current) && isBefore(targetWorkdayStart, T_current) ? T_current : targetWorkdayStart;
+
       // Fetch tasks for the targetDate specifically
       const { data: dbScheduledTasksForTargetDate, error: fetchScheduledError } = await supabase
         .from('scheduled_tasks')
         .select('*')
         .eq('user_id', user.id)
-        .eq('scheduled_date', targetDate);
+        .eq('scheduled_date', targetDateString); // Use targetDateString
 
       if (fetchScheduledError) throw new Error(`Failed to fetch scheduled tasks for target date: ${fetchScheduledError.message}`);
 
@@ -932,7 +957,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           is_completed: task.is_completed,
           is_custom_energy_cost: task.is_custom_energy_cost,
           task_environment: task.task_environment,
-          is_backburner: task.is_backburner, // NEW: Pass backburner status
+          is_backburner: task.is_backburner,
         });
       });
 
@@ -953,14 +978,14 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                   name: task.name,
                   duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
                   break_duration: task.break_duration,
-                  original_scheduled_date: targetDate,
+                  original_scheduled_date: targetDateString,
                   is_critical: task.is_critical,
                   is_locked: false,
                   energy_cost: task.energy_cost,
                   is_completed: false,
                   is_custom_energy_cost: task.is_custom_energy_cost,
                   task_environment: task.task_environment,
-                  is_backburner: task.is_backburner, // NEW: Pass backburner status
+                  is_backburner: task.is_backburner,
               });
           }
       });
@@ -981,7 +1006,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             break_duration: task.break_duration,
             is_critical: task.is_critical,
             is_flexible: true,
-            is_backburner: task.is_backburner, // NEW: Pass backburner status
+            is_backburner: task.is_backburner,
             energy_cost: task.energy_cost,
             source: 'scheduled',
             originalId: task.id,
@@ -1000,7 +1025,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           break_duration: task.break_duration,
           is_critical: task.is_critical,
           is_flexible: true, // <-- FIX: Retired tasks are flexible for scheduling
-          is_backburner: task.is_backburner, // NEW: Pass backburner status
+          is_backburner: task.is_backburner,
           energy_cost: task.energy_cost,
           source: 'retired',
           originalId: task.id,
@@ -1061,7 +1086,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         })
       );
 
-      let currentPlacementTime = effectiveWorkdayStart; // Use effectiveWorkdayStart for the current day
+      let currentPlacementTime = effectiveTargetWorkdayStart; // Use effectiveTargetWorkdayStart for the current day
 
       for (const task of sortedTasks) {
         let placed = false;
@@ -1075,14 +1100,14 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               name: task.name,
               duration: task.duration,
               break_duration: task.break_duration,
-              original_scheduled_date: targetDate,
+              original_scheduled_date: targetDateString,
               is_critical: task.is_critical,
               is_locked: false,
               energy_cost: task.energy_cost,
               is_completed: false,
               is_custom_energy_cost: task.is_custom_energy_cost,
               task_environment: task.task_environment,
-              is_backburner: task.is_backburner, // NEW: Pass backburner status
+              is_backburner: task.is_backburner,
             });
             scheduledTaskIdsToDelete.push(task.originalId);
           } else if (task.source === 'retired') {
@@ -1091,8 +1116,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           continue;
         }
 
-        while (isBefore(searchTime, workdayEndTime)) {
-          const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchTime, workdayEndTime);
+        while (isBefore(searchTime, targetWorkdayEnd)) {
+          const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchTime, targetWorkdayEnd);
           
           if (freeBlocks.length === 0) break;
 
@@ -1113,7 +1138,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                 start_time: proposedStartTime.toISOString(),
                 end_time: proposedEndTime.toISOString(),
                 break_duration: task.break_duration,
-                scheduled_date: targetDate,
+                scheduled_date: targetDateString,
                 is_critical: task.is_critical,
                 is_flexible: true,
                 is_locked: false,
@@ -1121,7 +1146,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                 is_completed: false,
                 is_custom_energy_cost: task.is_custom_energy_cost,
                 task_environment: task.task_environment,
-                is_backburner: task.is_backburner, // NEW: Pass backburner status
+                is_backburner: task.is_backburner,
               });
 
               currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
@@ -1147,14 +1172,14 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               name: task.name,
               duration: task.duration,
               break_duration: task.break_duration,
-              original_scheduled_date: targetDate,
+              original_scheduled_date: targetDateString,
               is_critical: task.is_critical,
               is_locked: false,
               energy_cost: task.energy_cost,
               is_completed: false,
               is_custom_energy_cost: task.is_custom_energy_cost,
               task_environment: task.task_environment,
-              is_backburner: task.is_backburner, // NEW: Pass backburner status
+              is_backburner: task.is_backburner,
             });
             scheduledTaskIdsToDelete.push(task.originalId);
           }
@@ -1175,14 +1200,14 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
               name: task.name,
               duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60)),
               break_duration: task.break_duration,
-              original_scheduled_date: targetDate,
+              original_scheduled_date: targetDateString,
               is_critical: task.is_critical,
               is_locked: false,
               energy_cost: task.energy_cost,
               is_completed: false,
               is_custom_energy_cost: task.is_custom_energy_cost,
               task_environment: task.task_environment,
-              is_backburner: task.is_backburner, // NEW: Pass backburner status
+              is_backburner: task.is_backburner,
             });
           }
         }
@@ -1197,11 +1222,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         retiredTaskIdsToDelete: uniqueRetiredTaskIdsToDelete,
         tasksToInsert: tasksToInsert,
         tasksToKeepInSink: tasksToKeepInSink,
-        selectedDate: targetDate, // Use targetDate here
+        selectedDate: targetDateString, // Use targetDateString
       };
 
       await autoBalanceSchedule(payload);
-      showSuccess(`Schedule auto-balanced for ${targetDate}!`);
+      showSuccess(`Schedule auto-balanced for ${targetDateString}!`); // Use targetDateString
       setSortBy('TIME_EARLIEST_TO_LATEST');
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
       setIsProcessingCommand(false);
@@ -1210,155 +1235,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, retiredTasks, selectedDayAsDate, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD, sortBy, T_current, dbScheduledTasks]); // Added dbScheduledTasks to dependencies
+  }, [user, profile, retiredTasks, T_current, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD]);
 
-  const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to sort tasks.");
-      return;
-    }
-
-    // If schedule is empty, treat it as a sink-only auto-schedule
-    if (dbScheduledTasks.length === 0) {
-      await handleAutoScheduleAndSort(newSortBy, 'sink-only');
-    } else {
-      // If schedule is not empty, re-balance existing flexible tasks and potentially pull from sink
-      await handleAutoScheduleAndSort(newSortBy, 'all-flexible');
-    }
-  }, [user, profile, dbScheduledTasks.length, handleAutoScheduleAndSort]);
-
-  const handleZoneFocus = useCallback(async () => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to use Zone Focus.");
-      return;
-    }
-    // Pass selectedEnvironments to filter by
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', selectedEnvironments);
-  }, [user, profile, selectedEnvironments, handleAutoScheduleAndSort]);
-
-  const handleAutoScheduleSinkWrapper = useCallback(async () => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to auto-schedule.");
-      return;
-    }
-    // Auto-schedule from sink, default sort by priority high to low
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only');
-  }, [user, profile, handleAutoScheduleAndSort]);
-
-  // NEW: Handler for general auto schedule button (now 'Re-balance Today')
-  const handleRebalanceToday = useCallback(async () => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to re-balance your day.");
-      return;
-    }
-    // Auto-schedule all flexible tasks (from schedule and sink) with default priority sorting and no environment filters
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', [], formattedSelectedDay);
-  }, [user, profile, handleAutoScheduleAndSort, formattedSelectedDay]);
-
-  // NEW: Handler for 'Re-balance All Flexible' button (multi-day rebalance)
-  const handleRebalanceAllFlexible = useCallback(async () => {
-    if (!user || !profile) {
-      showError("Please log in and ensure your profile is loaded to re-balance all flexible tasks.");
-      return;
-    }
-    setIsProcessingCommand(true);
-    try {
-      // 1. Perform a "Mega Dump" to move all flexible, unlocked tasks from all future schedules to the Aether Sink
-      await aetherDumpMega();
-      showSuccess("All flexible tasks moved to Aether Sink for multi-day re-balancing.");
-
-      // 2. Loop through the next 7 days (including today) and call handleAutoScheduleAndSort for each
-      const today = startOfDay(new Date());
-      const daysToRebalance = 7; // Rebalance for today and the next 6 days
-
-      for (let i = 0; i < daysToRebalance; i++) {
-        const targetDate = format(addDays(today, i), 'yyyy-MM-dd');
-        await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', [], targetDate);
-      }
-      showSuccess(`Multi-day re-balance complete for the next ${daysToRebalance} days!`);
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user?.id] });
-      setSelectedDay(format(new Date(), 'yyyy-MM-dd')); // Reset to today's view
-    } catch (error: any) {
-      showError(`Failed to perform multi-day re-balance: ${error.message}`);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  }, [user, profile, aetherDumpMega, handleAutoScheduleAndSort, queryClient]);
-
-  // NEW: Pod Start Handler (Now calculates dynamic duration and opens setup modal)
-  const handleStartRegenPod = useCallback(async () => {
-    if (!user || !profile) {
-      showError("Please log in to start the Energy Regen Pod.");
-      return;
-    }
-    if (isRegenPodActive) return;
-
-    setIsProcessingCommand(true);
-    
-    // 1. Calculate required duration to reach MAX_ENERGY, capped by MAX_DURATION
-    const energyNeeded = MAX_ENERGY - (profile.energy || 0);
-    
-    if (energyNeeded <= 0) {
-        showSuccess("Energy is already full! No need for the Pod.");
-        setIsProcessingCommand(false);
-        return;
-    }
-
-    const durationNeeded = Math.ceil(energyNeeded / REGEN_POD_RATE_PER_MINUTE);
-    const podDuration = Math.min(durationNeeded, REGEN_POD_MAX_DURATION_MINUTES);
-
-    // 2. Calculate duration and open the setup modal
-    setCalculatedPodDuration(podDuration);
-    setShowPodSetupModal(true); // Open the modal for setup
-    
-    setIsProcessingCommand(false);
-  }, [user, profile, isRegenPodActive]);
-
-  // NEW: Pod Exit Handler (Calls exitRegenPodState)
-  const handlePodExit = useCallback(async () => {
-    if (!user || !profile || !isRegenPodActive) {
-        // If we are just closing the setup modal
-        setShowPodSetupModal(false);
-        return;
-    }
-    setIsProcessingCommand(true);
-
-    try {
-      await exitRegenPodState(); // Triggers server calculation and profile reset
-      
-      // Invalidate queries to refresh schedule display (which now dynamically removes the Pod block)
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['datesWithTasks', user.id] });
-
-      // Run compaction logic to fill the gap left by the Pod
-      const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user.id, formattedSelectedDay, sortBy]) || [];
-      const compactedTasks = compactScheduleLogic(
-          latestDbScheduledTasks,
-          selectedDayAsDate,
-          workdayStartTime,
-          workdayEndTime,
-          T_current
-      );
-      const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-      if (tasksToUpdate.length > 0) {
-          await compactScheduledTasks({ tasksToUpdate });
-          showSuccess(`Schedule compacted after Pod exit.`);
-      } else {
-          showSuccess(`No flexible tasks to compact after Pod exit.`);
-      }
-
-    } catch (error: any) {
-      showError(`Failed to exit Pod: ${error.message}`);
-    } finally {
-      setIsProcessingCommand(false);
-      setShowPodSetupModal(false); // Ensure setup modal state is also reset
-    }
-  }, [user, profile, isRegenPodActive, exitRegenPodState, queryClient, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks]);
-
-
+  // Update calls to findFreeSlotForTask
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to use the scheduler.");
@@ -1375,6 +1254,12 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     const taskScheduledDate = formattedSelectedDay;
 
     let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+
+    // Use workday window for the currently selected day
+    const currentDayDate = selectedDayAsDate;
+    const currentWorkdayStart = workdayStartTimeForSelectedDay;
+    const currentWorkdayEnd = workdayEndTimeForSelectedDay;
+    const currentEffectiveWorkdayStart = effectiveWorkdayStartForSelectedDay;
 
 
     if (parsedInput) {
@@ -1405,8 +1290,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             parsedInput.isFlexible,
             parsedInput.energyCost,
             currentOccupiedBlocksForScheduling,
-            effectiveWorkdayStart,
-            workdayEndTime
+            currentDayDate, // Pass currentDayDate
+            currentEffectiveWorkdayStart, // Pass currentEffectiveWorkdayStart
+            currentWorkdayEnd // Pass currentWorkdayEnd
           );
           
           if (proposedStartTime && proposedEndTime) {
@@ -1495,8 +1381,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           injectCommand.isFlexible,
           calculatedEnergyCost,
           currentOccupiedBlocksForScheduling,
-          effectiveWorkdayStart,
-          workdayEndTime
+          currentDayDate, // Pass currentDayDate
+          currentEffectiveWorkdayStart, // Pass currentEffectiveWorkdayStart
+          currentWorkdayEnd // Pass currentWorkdayEnd
         );
 
         if (proposedStartTime && proposedEndTime) {
@@ -1617,7 +1504,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             endTime: formatFns(addHours(T_current, 1), 'h:mm a'),
             isCritical: false,
             isFlexible: false,
-            isBackburner: false, // NEW: Default to false
+            isBackburner: false,
             energyCost: 0,
             breakDuration: undefined,
             isCustomEnergyCost: false,
@@ -1659,7 +1546,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             energy_cost: 0,
             is_custom_energy_cost: false,
             task_environment: environmentForPlacement,
-            is_backburner: false, // NEW: Default to false
+            is_backburner: false,
           });
           
           // NEW: Trigger energy regen immediately upon starting a break
@@ -1679,7 +1566,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     if (success) {
       setInputValue('');
     }
-  }, [user, profile, selectedDayAsDate, formattedSelectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, addRetiredTask, addScheduledTask, environmentForPlacement, T_current, handlePermanentDeleteScheduledTask, dbScheduledTasks, aetherDump, queryClient, handleAetherDumpMegaButton, triggerEnergyRegen]);
+  }, [user, profile, selectedDayAsDate, formattedSelectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addRetiredTask, addScheduledTask, environmentForPlacement, T_current, handlePermanentDeleteScheduledTask, dbScheduledTasks, aetherDump, queryClient, handleAetherDumpMegaButton, triggerEnergyRegen, findFreeSlotForTask]);
 
   const handleInjectionSubmit = useCallback(async () => {
     if (!user || !profile) {
@@ -1695,6 +1582,12 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     let calculatedEnergyCost = 0;
 
     let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+
+    // Use workday window for the currently selected day
+    const currentDayDate = selectedDayAsDate;
+    const currentWorkdayStart = workdayStartTimeForSelectedDay;
+    const currentWorkdayEnd = workdayEndTimeForSelectedDay;
+    const currentEffectiveWorkdayStart = effectiveWorkdayStartForSelectedDay;
 
 
     if (injectionPrompt.isTimed) {
@@ -1746,7 +1639,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         energy_cost: calculatedEnergyCost,
         is_custom_energy_cost: false,
         task_environment: environmentForPlacement,
-        is_backburner: injectionPrompt.isBackburner, // NEW: Pass backburner status
+        is_backburner: injectionPrompt.isBackburner,
       }); 
       currentOccupiedBlocksForScheduling.push({ start: startTime, end: endTime, duration: duration });
       currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1779,8 +1672,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         injectionPrompt.isFlexible,
         calculatedEnergyCost,
         currentOccupiedBlocksForScheduling,
-        effectiveWorkdayStart,
-        workdayEndTime
+        currentDayDate, // Pass currentDayDate
+        currentEffectiveWorkdayStart, // Pass currentEffectiveWorkdayStart
+        currentWorkdayEnd // Pass currentWorkdayEnd
       );
 
       if (proposedStartTime && proposedEndTime) {
@@ -1795,7 +1689,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           energy_cost: calculatedEnergyCost,
           is_custom_energy_cost: false,
           task_environment: environmentForPlacement,
-          is_backburner: injectionPrompt.isBackburner, // NEW: Pass backburner status
+          is_backburner: injectionPrompt.isBackburner,
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1817,7 +1711,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     }
     setIsProcessingCommand(false);
-  }, [user, profile, injectionPrompt, injectionStartTime, injectionEndTime, injectionDuration, injectionBreak, formattedSelectedDay, selectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, addScheduledTask, environmentForPlacement, T_current, findFreeSlotForTask, queryClient]);
+  }, [user, profile, injectionPrompt, injectionStartTime, injectionEndTime, injectionDuration, injectionBreak, formattedSelectedDay, selectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addScheduledTask, environmentForPlacement, T_current, findFreeSlotForTask, queryClient]);
 
   const handleRezoneFromSink = useCallback(async (retiredTask: RetiredTask) => {
     if (!user) {
@@ -1836,6 +1730,12 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
       let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
 
+      // Use workday window for the currently selected day
+      const currentDayDate = selectedDayAsDate;
+      const currentWorkdayStart = workdayStartTimeForSelectedDay;
+      const currentWorkdayEnd = workdayEndTimeForSelectedDay;
+      const currentEffectiveWorkdayStart = effectiveWorkdayStartForSelectedDay;
+
 
       const { proposedStartTime, proposedEndTime, message } = await findFreeSlotForTask(
         retiredTask.name,
@@ -1844,8 +1744,9 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         true,
         retiredTask.energy_cost,
         currentOccupiedBlocksForScheduling,
-        effectiveWorkdayStart,
-        workdayEndTime
+        currentDayDate, // Pass currentDayDate
+        currentEffectiveWorkdayStart, // Pass currentEffectiveWorkdayStart
+        currentWorkdayEnd // Pass currentWorkdayEnd
       );
 
       if (proposedStartTime && proposedEndTime) {
@@ -1878,7 +1779,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, retiredTasks, selectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime, rezoneTask, addScheduledTask, formattedSelectedDay, findFreeSlotForTask, queryClient]);
+  }, [user, retiredTasks, selectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, rezoneTask, addScheduledTask, formattedSelectedDay, findFreeSlotForTask, queryClient]);
 
   const handleManualRetire = useCallback(async (task: DBScheduledTask) => {
     if (!user) {
@@ -1914,14 +1815,14 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
     await randomizeBreaks({
       selectedDate: formattedSelectedDay,
-      workdayStartTime: effectiveWorkdayStart,
-      workdayEndTime: workdayEndTime,
+      workdayStartTime: workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
+      workdayEndTime: workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
       currentDbTasks: dbScheduledTasks,
     });
 
     queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     setIsProcessingCommand(false);
-  }, [user, profile, dbScheduledTasks, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, randomizeBreaks, queryClient]);
+  }, [user, profile, dbScheduledTasks, formattedSelectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, randomizeBreaks, queryClient]);
 
   const handleAddTaskClick = useCallback(() => {
     setInjectionPrompt({ 
@@ -1933,7 +1834,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       endTime: undefined,
       isCritical: false,
       isFlexible: true,
-      isBackburner: false, // NEW: Default to false
+      isBackburner: false,
       energyCost: calculateEnergyCost(30, false),
       breakDuration: undefined,
       isCustomEnergyCost: false,
@@ -1955,7 +1856,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       endTime: formatFns(addHours(T_current, 1), 'h:mm a'),
       isCritical: false,
       isFlexible: false,
-      isBackburner: false, // NEW: Default to false
+      isBackburner: false,
       energyCost: 0,
       breakDuration: undefined,
       isCustomEnergyCost: false,
@@ -1981,7 +1882,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       endTime: undefined,
       isCritical: false,
       isFlexible: true,
-      isBackburner: false, // NEW: Default to false
+      isBackburner: false,
       energyCost: calculateEnergyCost(duration, false),
       breakDuration: undefined,
       isCustomEnergyCost: false,
@@ -2068,8 +1969,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
                 const compactedTasks = compactScheduleLogic(
                     latestDbScheduledTasks,
                     selectedDayAsDate,
-                    workdayStartTime,
-                    workdayEndTime,
+                    workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
+                    workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
                     T_current
                 );
                 const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
@@ -2117,7 +2018,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           energy_cost: 0,
           is_custom_energy_cost: false,
           task_environment: environmentForPlacement,
-          is_backburner: false, // NEW: Default to false
+          is_backburner: false,
         });
 
         // Mark the original task as completed and remove if flexible
@@ -2128,8 +2029,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           const compactedTasks = compactScheduleLogic(
               latestDbScheduledTasks,
               selectedDayAsDate,
-              workdayStartTime,
-              workdayEndTime,
+              workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
+              workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
               T_current
           );
           const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
@@ -2169,8 +2070,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           const compactedTasks = compactScheduleLogic(
               latestDbScheduledTasks,
               selectedDayAsDate,
-              workdayStartTime,
-              workdayEndTime,
+              workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
+              workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
               T_current
           );
           const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
@@ -2210,7 +2111,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             is_flexible: originalNextTask.is_flexible, 
             is_locked: originalNextTask.is_locked,     
             task_environment: originalNextTask.task_environment,
-            is_backburner: originalNextTask.is_backburner, // NEW: Pass backburner status
+            is_backburner: originalNextTask.is_backburner,
           });
 
           await handleCompactSchedule();
@@ -2229,8 +2130,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           const compactedTasks = compactScheduleLogic(
               latestDbScheduledTasks,
               selectedDayAsDate,
-              workdayStartTime,
-              workdayEndTime,
+              workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
+              workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
               T_current
           );
           const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
@@ -2277,7 +2178,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         setIsProcessingCommand(false);
       }
     }
-  }, [user, profile, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTime, workdayEndTime, effectiveWorkdayStart, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks, triggerEnergyRegen]);
+  }, [user, profile, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks, triggerEnergyRegen]);
 
   // NEW: Handler for confirming task completion in deficit
   const confirmCompleteTaskInDeficit = useCallback(async () => {
@@ -2299,8 +2200,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           const compactedTasks = compactScheduleLogic(
               latestDbScheduledTasks,
               selectedDayAsDate,
-              workdayStartTime,
-              workdayEndTime,
+              workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
+              workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
               T_current
           );
           const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
@@ -2330,7 +2231,47 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setTaskToCompleteInDeficit(null);
       setTaskToCompleteInDeficitIndex(null);
     }
-  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTime, workdayEndTime, T_current, compactScheduledTasks, setIsFocusModeActive, updateScheduledTaskStatus, triggerEnergyRegen]);
+  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, setIsFocusModeActive, updateScheduledTaskStatus, triggerEnergyRegen]);
+
+  // NEW: Handler for 'Re-balance Today' button
+  const handleRebalanceToday = useCallback(async () => {
+    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', selectedEnvironments, formattedSelectedDay);
+  }, [handleAutoScheduleAndSort, selectedEnvironments, formattedSelectedDay]);
+
+  // NEW: Handler for 'Re-balance All Flexible' button
+  const handleRebalanceAllFlexible = useCallback(async () => {
+    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', selectedEnvironments, formattedSelectedDay);
+  }, [handleAutoScheduleAndSort, selectedEnvironments, formattedSelectedDay]);
+
+  // NEW: Handler for 'Zone Focus' button
+  const handleZoneFocus = useCallback(async () => {
+    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only', selectedEnvironments, formattedSelectedDay);
+  }, [handleAutoScheduleAndSort, selectedEnvironments, formattedSelectedDay]);
+
+  // NEW: Handler for 'Sort Flexible Tasks' dropdown
+  const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
+    setSortBy(newSortBy);
+    showSuccess(`Flexible tasks sorted by ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
+    // No need to call auto-schedule here, as changing sortBy will trigger a refetch and re-render
+  }, [setSortBy]);
+
+  // NEW: Handler for 'Start Regen Pod' button
+  const handleStartRegenPod = useCallback(() => {
+    setShowPodSetupModal(true);
+    // Calculate a default duration for the pod setup modal if needed, e.g., 30 minutes
+    setCalculatedPodDuration(30); 
+  }, []);
+
+  // NEW: Handler for 'Auto Schedule Sink' button in AetherSink
+  const handleAutoScheduleSinkWrapper = useCallback(async () => {
+    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only', selectedEnvironments, formattedSelectedDay);
+  }, [handleAutoScheduleAndSort, selectedEnvironments, formattedSelectedDay]);
+
+  // NEW: Handler for exiting the Regen Pod modal
+  const handlePodExit = useCallback(async () => {
+    await exitRegenPodState();
+    setShowPodSetupModal(false);
+  }, [exitRegenPodState]);
 
 
   const tasksCompletedForSelectedDay = useMemo(() => {

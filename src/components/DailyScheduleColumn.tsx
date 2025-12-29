@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, isToday, isPast, isBefore, parseISO, setHours, setMinutes, addDays, differenceInMinutes, isAfter, addHours } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -31,12 +31,6 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
 }) => {
   const isCurrentDay = isToday(dayDate);
 
-  // Always use a full 24-hour period for the grid's internal timeline
-  const gridStart = setHours(setMinutes(dayDate, 0), 0); // 00:00 local time
-  const gridEnd = addDays(gridStart, 1); // 24:00 local time (next day's 00:00)
-  const totalGridMinutes = differenceInMinutes(gridEnd, gridStart);
-  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel;
-
   // Calculate workday start and end as local Date objects for the current dayDate
   const localWorkdayStart = setTimeOnDate(dayDate, workdayStartTime);
   let localWorkdayEnd = setTimeOnDate(dayDate, workdayEndTime);
@@ -44,11 +38,19 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     localWorkdayEnd = addDays(localWorkdayEnd, 1);
   }
 
-  // Generate time slots for every hour across the 24-hour grid
-  const timeSlots = Array.from({ length: 24 }).map((_, i) => {
-    const hour = addHours(gridStart, i);
-    return format(hour, 'h a');
-  });
+  const totalWorkdayMinutes = differenceInMinutes(localWorkdayEnd, localWorkdayStart);
+  const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel;
+
+  // Generate time labels only for the workday window, every hour
+  const timeLabels = useMemo(() => {
+    const labels: string[] = [];
+    let currentTime = localWorkdayStart;
+    while (isBefore(currentTime, localWorkdayEnd)) {
+      labels.push(format(currentTime, 'h a'));
+      currentTime = addHours(currentTime, 1);
+    }
+    return labels;
+  }, [localWorkdayStart, localWorkdayEnd]);
 
   const getTaskPositionAndHeight = (task: DBScheduledTask) => {
     const taskStartUTC = parseISO(task.start_time!);
@@ -63,7 +65,8 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       localTaskEnd = addDays(localTaskEnd, 1);
     }
 
-    const offsetMinutes = differenceInMinutes(localTaskStart, gridStart);
+    // Calculate offset and duration relative to the workday start
+    const offsetMinutes = differenceInMinutes(localTaskStart, localWorkdayStart);
     const durationMinutes = differenceInMinutes(localTaskEnd, localTaskStart);
 
     const top = offsetMinutes * dynamicMinuteHeight;
@@ -93,47 +96,45 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
         </p>
       </div>
 
-      {/* Time Grid Lines */}
-      <div className="absolute inset-0">
-        {timeSlots.map((_, i) => (
-          <div
-            key={i}
-            className="absolute left-0 right-0 border-t border-dashed border-border/20"
-            style={{ top: `${(i * 60) * dynamicMinuteHeight}px` }}
-          />
-        ))}
-      </div>
-
-      {/* Workday Window Highlight */}
-      {totalGridMinutes > 0 && (
-        <div
-          className="absolute left-0 right-0 bg-primary/5 z-0"
-          style={{
-            top: `${differenceInMinutes(localWorkdayStart, gridStart) * dynamicMinuteHeight}px`,
-            height: `${differenceInMinutes(localWorkdayEnd, localWorkdayStart) * dynamicMinuteHeight}px`,
-          }}
-        />
-      )}
-
-      {/* Current Time Indicator (only for today) */}
-      {isCurrentDay && (
-        <div
-          className="absolute left-0 right-0 h-0.5 bg-live-progress z-20 animate-pulse"
-          style={{
-            top: `${differenceInMinutes(T_current, gridStart) * dynamicMinuteHeight}px`,
-            display: isBefore(T_current, gridEnd) && isAfter(T_current, gridStart) ? 'block' : 'none'
-          }}
-        >
-          <div className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full bg-live-progress shadow-[0_0_10px_hsl(var(--live-progress))]" />
+      {/* Time Grid Lines and Tasks within Workday Window */}
+      <div className="relative px-1" style={{ height: `${totalWorkdayMinutes * dynamicMinuteHeight}px` }}>
+        {/* Time Grid Lines */}
+        <div className="absolute inset-0">
+          {timeLabels.map((_, i) => (
+            <div
+              key={i}
+              className="absolute left-0 right-0 border-t border-dashed border-border/20"
+              style={{ top: `${(i * 60) * dynamicMinuteHeight}px` }}
+            />
+          ))}
         </div>
-      )}
 
-      {/* Tasks */}
-      <div className="relative px-1" style={{ height: `${totalGridMinutes * dynamicMinuteHeight}px` }}>
+        {/* Current Time Indicator (only for today, within workday) */}
+        {isCurrentDay && isAfter(T_current, localWorkdayStart) && isBefore(T_current, localWorkdayEnd) && (
+          <div
+            className="absolute left-0 right-0 h-0.5 bg-live-progress z-20 animate-pulse"
+            style={{
+              top: `${differenceInMinutes(T_current, localWorkdayStart) * dynamicMinuteHeight}px`,
+            }}
+          >
+            <div className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full bg-live-progress shadow-[0_0_10px_hsl(var(--live-progress))]" />
+          </div>
+        )}
+
+        {/* Tasks */}
         {tasks.map((task) => {
           const { top, height, durationMinutes } = getTaskPositionAndHeight(task);
           const isPastTask = isPast(parseISO(task.end_time!)) && !isCurrentDay;
           const isCurrentlyActive = isCurrentDay && T_current >= parseISO(task.start_time!) && T_current < parseISO(task.end_time!);
+
+          // Only render tasks that fall within the workday window
+          const taskStartLocal = setTimeOnDate(dayDate, format(parseISO(task.start_time!), 'HH:mm'));
+          let taskEndLocal = setTimeOnDate(dayDate, format(parseISO(task.end_time!), 'HH:mm'));
+          if (isBefore(taskEndLocal, taskStartLocal)) taskEndLocal = addDays(taskEndLocal, 1);
+
+          const overlapsWorkday = isBefore(taskStartLocal, localWorkdayEnd) && isAfter(taskEndLocal, localWorkdayStart);
+
+          if (!overlapsWorkday) return null;
 
           return (
             <div

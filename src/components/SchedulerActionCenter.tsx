@@ -225,7 +225,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
                     <TooltipContent className="glass-card border-logo-orange/20">Mass Retire: Return tasks to Sink</TooltipContent>
-                    <DropdownMenuContent align="end" className="glass-card min-w-48 border-white/10 bg-background/95 backdrop-blur-xl">
+                    <DropdownMenuContent align="end" className="glass-card border-white/10 bg-background/95 backdrop-blur-xl min-w-[280px]">
                       <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-logo-orange/50 px-3 py-2">Temporal Flush Logic</DropdownMenuLabel>
                       <DropdownMenuSeparator className="bg-white/5" />
                       

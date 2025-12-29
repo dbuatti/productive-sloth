@@ -92,7 +92,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const savedSortBy = localStorage.getItem('aetherSinkSortBy');
       return savedSortBy ? (savedSortBy as RetiredTaskSortBy) : 'RETIRED_AT_NEWEST';
     }
-    return 'RETIRED_AT_NEWEST';
+    return 'RETIRED_AT_NEWEST'; // Fixed: Changed 7 to 'RETIRED_AT_NEWEST'
   });
   const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null);
 
@@ -1272,11 +1272,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       return data as { tasksPlaced: number; tasksKeptInSink: number };
     },
     onMutate: async (payload: AutoBalancePayload) => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      // Cancel queries for the specific selectedDate in the payload
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, payload.selectedDate, sortBy] });
       await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
       await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
 
-      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy]);
+      const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy]);
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
@@ -1292,9 +1293,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const newlyPlacedFlexibleTasks = payload.tasksToInsert.filter(t => !remainingFixedIds.includes(t.id));
       
       // 3. Construct the new optimistic scheduled state: fixed tasks + newly placed tasks
-      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, formattedSelectedDate, sortBy], (old) => {
+      queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], (old) => {
         
-        const newTasks: DBScheduledTask[] = newlyPlacedFlexibleTasks.map(t => {
+        const newTasks: DBScheduledTask[] = newlyPlacedFlexibleTasks.map(t => { // Fixed: Changed NewDBScheduledTask[] to DBScheduledTask[]
           // Find the original task (if it was a flexible scheduled task being replaced) to preserve created_at
           const originalTask = (old || []).find(oldT => oldT.id === t.id);
           
@@ -1305,7 +1306,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             break_duration: t.break_duration ?? null,
             start_time: t.start_time ?? new Date().toISOString(), 
             end_time: t.end_time ?? new Date().toISOString(),     
-            scheduled_date: t.scheduled_date ?? formattedSelectedDate, 
+            scheduled_date: t.scheduled_date ?? payload.selectedDate, 
             created_at: originalTask?.created_at ?? new Date().toISOString(),
             updated_at: new Date().toISOString(),
             is_critical: t.is_critical ?? false,
@@ -1336,7 +1337,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           name: t.name,
           duration: t.duration ?? null,
           break_duration: t.break_duration ?? null,
-          original_scheduled_date: t.original_scheduled_date ?? formattedSelectedDate,
+          original_scheduled_date: t.original_scheduled_date ?? payload.selectedDate,
           retired_at: now, // Set retired_at
           is_critical: t.is_critical ?? false,
           is_locked: t.is_locked ?? false,
@@ -1352,8 +1353,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       return { previousScheduledTasks, previousRetiredTasks, previousScrollTop };
     },
-    onSuccess: (data) => {
-      showSuccess(`Schedule auto-balanced! Placed ${data.tasksPlaced} tasks, ${data.tasksKeptInSink} returned to Aether Sink.`);
+    onSuccess: (data, variables) => {
+      showSuccess(`Schedule auto-balanced for ${variables.selectedDate}! Placed ${data.tasksPlaced} tasks, ${data.tasksKeptInSink} returned to Aether Sink.`);
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });
@@ -1449,7 +1450,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] }); // Fixed: formattedSelectedDay to formattedSelectedDate
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;

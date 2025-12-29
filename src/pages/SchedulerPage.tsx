@@ -383,7 +383,10 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       T_current, // NEW
       profile.breakfast_time, // NEW
       profile.lunch_time,     // NEW
-      profile.dinner_time     // NEW
+      profile.dinner_time,    // NEW
+      profile.breakfast_duration_minutes, // NEW: Added breakfast duration
+      profile.lunch_duration_minutes,     // NEW: Added lunch duration
+      profile.dinner_duration_minutes     // NEW: Added dinner duration
     );
     return newSchedule;
   }, [dbScheduledTasks, selectedDay, workdayStartTime, workdayEndTime, profile, regenPodDurationMinutes, T_current]);
@@ -852,13 +855,13 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           end_time: proposedEndTime.toISOString(),
           break_duration: taskToPlace.break_duration,
           scheduled_date: formattedSelectedDay,
-          is_critical: taskToPlace.is_critical, // Corrected from retiredTask.is_critical
+          is_critical: taskToPlace.is_critical, 
           is_flexible: true,
           is_locked: false,
-          energy_cost: taskToPlace.energy_cost, // Corrected from retiredTask.energy_cost
-          is_custom_energy_cost: taskToPlace.is_custom_energy_cost, // Corrected from retiredTask.is_custom_energy_cost
-          task_environment: taskToPlace.task_environment, // Corrected from retiredTask.task_environment
-          is_backburner: taskToPlace.is_backburner, // Corrected from retiredTask.is_backburner
+          energy_cost: taskToPlace.energy_cost, 
+          is_custom_energy_cost: taskToPlace.is_custom_energy_cost, 
+          task_environment: taskToPlace.task_environment, 
+          is_backburner: taskToPlace.is_backburner, 
         });
         // Declare currentOccupiedBlocksForScheduling locally within this function
         let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
@@ -1854,13 +1857,13 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           end_time: proposedEndTime.toISOString(),
           break_duration: retiredTask.break_duration,
           scheduled_date: formattedSelectedDay,
-          is_critical: retiredTask.is_critical,
+          is_critical: retiredTask.is_critical, 
           is_flexible: true,
           is_locked: false,
-          energy_cost: retiredTask.energy_cost,
-          is_custom_energy_cost: retiredTask.is_custom_energy_cost,
-          task_environment: retiredTask.task_environment,
-          is_backburner: retiredTask.is_backburner, // NEW: Pass backburner status
+          energy_cost: retiredTask.energy_cost, 
+          is_custom_energy_cost: retiredTask.is_custom_energy_cost, 
+          task_environment: retiredTask.task_environment, 
+          is_backburner: retiredTask.is_backburner, 
         });
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);

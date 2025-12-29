@@ -747,7 +747,10 @@ export const calculateSchedule = (
   T_current: Date, // NEW: Current time for dynamic calculation
   breakfastTimeStr: string | null, // NEW: Breakfast time from profile
   lunchTimeStr: string | null,     // NEW: Lunch time from profile
-  dinnerTimeStr: string | null     // NEW: Dinner time from profile
+  dinnerTimeStr: string | null,    // NEW: Dinner time from profile
+  breakfastDuration: number | null, // NEW: Breakfast duration from profile
+  lunchDuration: number | null,     // NEW: Lunch duration from profile
+  dinnerDuration: number | null     // NEW: Dinner duration from profile
 ): FormattedSchedule => {
   const items: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
@@ -763,8 +766,8 @@ export const calculateSchedule = (
   const selectedDayDate = new Date(year, month - 1, day); 
 
   // --- NEW: Add Meal Times as Fixed Tasks ---
-  const addMealTask = (name: string, timeStr: string | null, emoji: string, duration: number) => {
-    if (timeStr) {
+  const addMealTask = (name: string, timeStr: string | null, emoji: string, duration: number | null) => {
+    if (timeStr && duration !== null && duration > 0) {
       let mealStart = setTimeOnDate(selectedDayDate, timeStr);
       let mealEnd = addMinutes(mealStart, duration);
 
@@ -806,9 +809,9 @@ export const calculateSchedule = (
     }
   };
 
-  addMealTask('Breakfast', breakfastTimeStr, '🥞', 30); // 30 min breakfast
-  addMealTask('Lunch', lunchTimeStr, '🥗', 45);       // 45 min lunch
-  addMealTask('Dinner', dinnerTimeStr, '🍽️', 60);      // 60 min dinner
+  addMealTask('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
+  addMealTask('Lunch', lunchTimeStr, '🥗', lunchDuration);
+  addMealTask('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
   // --- END NEW: Add Meal Times as Fixed Tasks ---
 
 

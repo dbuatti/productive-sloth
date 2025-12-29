@@ -217,7 +217,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
         showError(`Failed to add quick break: ${error.message}`);
-        // console.error("Quick break error:", error);
     } finally {
         setIsProcessingCommand(false);
     }
@@ -416,7 +415,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       });
 
       if (tasksToRetire.length > 0) {
-        // console.log(`SchedulerPage: Automatically retiring ${tasksToRetire.length} past-due tasks from before workday start.`);
         tasksToRetire.forEach(task => {
           retireTask(task);
         });
@@ -574,7 +572,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
         // Check if the proposed slot is still within the workday and free
         if (isAfter(proposedEndTime, workdayEndTime)) {
-            // console.log(`QuickScheduleBlock: Task "${task.name}" exceeds workday end time. Stopping placement.`);
             break;
         }
         
@@ -602,8 +599,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             currentPlacementTime = proposedEndTime;
             tasksSuccessfullyPlaced++;
         } else {
-            // If the slot is no longer free (e.g., due to a fixed task starting in the middle of the block), stop.
-            // console.log(`QuickScheduleBlock: Slot for task "${task.name}" is no longer free. Stopping placement.`);
             break;
         }
       }
@@ -622,7 +617,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
     } catch (error: any) {
       showError(`Failed to quick schedule: ${error.message}`);
-      // console.error("Quick schedule error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -662,7 +656,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         }
     } catch (error: any) {
         showError(`Failed to compact schedule: ${error.message}`);
-        // console.error("Compact schedule error:", error);
     } finally {
         setIsProcessingCommand(false);
     }
@@ -697,7 +690,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         }
       } catch (compactionError: any) {
         showError(`Failed to compact schedule after deletion: ${compactionError.message}`);
-        // console.error("Compaction after deletion error:", compactionError);
       }
 
       // Scroll to the active item or the next item after deletion/compaction
@@ -712,7 +704,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
       showError(`Failed to delete task: ${error.message}`);
-      // console.error("Permanent delete scheduled task error:", error);
     } finally {
       setIsProcessingCommand(false);
       setShowDeleteScheduledTaskConfirmation(false);
@@ -731,7 +722,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       showSuccess(`Retired task "${retiredTaskToDeleteName}" permanently deleted.`);
     } catch (error: any) {
       showError(`Failed to delete retired task: ${error.message}`);
-      // console.error("Permanent delete retired task error:", error);
     } finally {
       setIsProcessingCommand(false);
       setShowDeleteRetiredTaskConfirmation(false);
@@ -751,7 +741,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       await aetherDump();
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error) {
-      // console.error("Aether Dump error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -769,7 +758,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       await aetherDumpMega();
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error) {
-      // console.error("Aether Dump Mega error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -799,7 +787,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
     if (error) {
       showError(`Failed to clear schedule: ${error.message}`);
-      // console.error("Clear schedule error:", error);
     } else {
       // Success toast and query invalidation are now handled in useSchedulerTasks' onSettled
     }
@@ -828,7 +815,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         .filter(task => task.totalDuration <= maxDuration);
 
     if (eligibleSinkTasks.length === 0) {
-        // console.log("SinkFill: No eligible tasks found in Aether Sink for the gap.");
         return false;
     }
 
@@ -863,13 +849,13 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           end_time: proposedEndTime.toISOString(),
           break_duration: taskToPlace.break_duration,
           scheduled_date: formattedSelectedDay,
-          is_critical: retiredTask.is_critical,
+          is_critical: taskToPlace.is_critical, // Corrected from retiredTask.is_critical
           is_flexible: true,
           is_locked: false,
-          energy_cost: retiredTask.energy_cost,
-          is_custom_energy_cost: retiredTask.is_custom_energy_cost,
-          task_environment: retiredTask.task_environment,
-          is_backburner: retiredTask.is_backburner, // NEW: Pass backburner status
+          energy_cost: taskToPlace.energy_cost, // Corrected from retiredTask.energy_cost
+          is_custom_energy_cost: taskToPlace.is_custom_energy_cost, // Corrected from retiredTask.is_custom_energy_cost
+          task_environment: taskToPlace.task_environment, // Corrected from retiredTask.task_environment
+          is_backburner: taskToPlace.is_backburner, // Corrected from retiredTask.is_backburner
         });
         // Declare currentOccupiedBlocksForScheduling locally within this function
         let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
@@ -879,7 +865,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         return true;
     } catch (error: any) {
         showError(`Failed to fill gap with sink task: ${error.message}`);
-        // console.error("Sink Fill Error:", error);
         return false;
     }
   }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay, occupiedBlocks, effectiveWorkdayStart, workdayEndTime]);
@@ -904,7 +889,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     }
 
     setIsProcessingCommand(true);
-    // console.log(`handleAutoScheduleAndSort: Starting with sort: ${sortPreference}, source: ${taskSource}, environments: ${environmentsToFilterBy.join(', ')}, targetDate: ${targetDate}`);
 
     try {
       // Fetch tasks for the targetDate specifically
@@ -1210,14 +1194,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         selectedDate: targetDate, // Use targetDate here
       };
 
-      // console.log("handleAutoScheduleAndSort: Final payload for autoBalanceSchedule mutation:", {
-      //   scheduledTaskIdsToDelete: payload.scheduledTaskIdsToDelete,
-      //   retiredTaskIdsToDelete: payload.retiredTaskIdsToDelete,
-      //   tasksToInsert: payload.tasksToInsert.map(t => ({ id: t.id, name: t.name, is_flexible: t.is_flexible, is_locked: t.is_locked, is_backburner: t.is_backburner })),
-      //   tasksToKeepInSink: payload.tasksToKeepInSink.map(t => ({ name: t.name, is_backburner: t.is_backburner })),
-      //   selectedDate: payload.selectedDate,
-      // });
-
       await autoBalanceSchedule(payload);
       showSuccess(`Schedule re-balanced for ${targetDate}!`);
       setSortBy('TIME_EARLIEST_TO_LATEST');
@@ -1225,10 +1201,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setIsProcessingCommand(false);
     } catch (error: any) {
       showError(`Failed to auto-schedule: ${error.message}`);
-      // console.error("Auto-schedule error:", error);
     } finally {
       setIsProcessingCommand(false);
-      // console.log("handleAutoScheduleAndSort: Auto-schedule process finished.");
     }
   }, [user, profile, retiredTasks, selectedDayAsDate, formattedSelectedDay, effectiveWorkdayStart, workdayEndTime, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD, sortBy, T_current, dbScheduledTasks]); // Added dbScheduledTasks to dependencies
 
@@ -1293,7 +1267,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
       for (let i = 0; i < daysToRebalance; i++) {
         const targetDate = format(addDays(today, i), 'yyyy-MM-dd');
-        // console.log(`Initiating auto-balance for day: ${targetDate}`);
         await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', [], targetDate);
       }
       showSuccess(`Multi-day re-balance complete for the next ${daysToRebalance} days!`);
@@ -1303,7 +1276,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setSelectedDay(format(new Date(), 'yyyy-MM-dd')); // Reset to today's view
     } catch (error: any) {
       showError(`Failed to perform multi-day re-balance: ${error.message}`);
-      // console.error("Multi-day re-balance error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -1374,7 +1346,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
     } catch (error: any) {
       showError(`Failed to exit Pod: ${error.message}`);
-      // console.error("Pod exit error:", error);
     } finally {
       setIsProcessingCommand(false);
       setShowPodSetupModal(false); // Ensure setup modal state is also reset
@@ -1897,7 +1868,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       }
     } catch (error: any) {
       showError(`Failed to rezone task: ${error.message}`);
-      // console.error("Rezone error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -1919,7 +1889,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       showSuccess(`Task "${task.name}" moved to Aether Sink.`);
     } catch (error: any) {
       showError(`Failed to retire task: ${error.message}`);
-      // console.error("Manual retire error:", error);
     } finally {
       setIsProcessingCommand(false);
     }
@@ -2296,7 +2265,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       }
       // Removed "Insufficient energy" specific error message as it's now allowed.
       showError(`Failed to perform action: ${error.message}`);
-      // console.error("Scheduler action error:", error);
     } finally {
       if (!modalOpened) {
         setIsProcessingCommand(false);
@@ -2349,7 +2317,6 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     } catch (error: any) {
       showError(`Failed to complete task: ${error.message}`);
-      // console.error("Complete task in deficit error:", error);
     } finally {
       setIsProcessingCommand(false);
       setShowEnergyDeficitConfirmation(false);

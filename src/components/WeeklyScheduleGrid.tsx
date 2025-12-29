@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
-import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes } from 'date-fns';
+import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
 import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
 import { Button } from '@/components/ui/button';
@@ -135,22 +135,22 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     setNumDaysVisible(days);
   };
 
-  const dayStart = setTimeOnDate(currentWeekStart, workdayStartTime);
-  let dayEnd = setTimeOnDate(currentWeekStart, workdayEndTime);
-  if (isBefore(dayEnd, dayStart)) {
-    dayEnd = addDays(dayEnd, 1);
+  const dayStartForTimeAxis = setTimeOnDate(currentWeekStart, workdayStartTime);
+  let dayEndForTimeAxis = setTimeOnDate(currentWeekStart, workdayEndTime);
+  if (!isAfter(dayEndForTimeAxis, dayStartForTimeAxis)) { // Ensure dayEnd is after dayStart for time axis
+    dayEndForTimeAxis = addDays(dayEndForTimeAxis, 1);
   }
-  const totalDayMinutes = differenceInMinutes(dayEnd, dayStart);
+  const totalDayMinutesForTimeAxis = differenceInMinutes(dayEndForTimeAxis, dayStartForTimeAxis);
 
   const timeLabels = useMemo(() => {
     const labels: string[] = [];
-    let currentTime = dayStart;
-    while (isBefore(currentTime, dayEnd)) {
+    let currentTime = dayStartForTimeAxis;
+    while (isBefore(currentTime, dayEndForTimeAxis)) {
       labels.push(format(currentTime, 'h a'));
       currentTime = addHours(currentTime, 1);
     }
     return labels;
-  }, [dayStart, dayEnd]);
+  }, [dayStartForTimeAxis, dayEndForTimeAxis]);
 
   console.log("[WeeklyScheduleGrid] currentWeekStart:", format(currentWeekStart, 'yyyy-MM-dd'));
   console.log("[WeeklyScheduleGrid] numDaysVisible:", numDaysVisible);
@@ -159,6 +159,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   console.log("[WeeklyScheduleGrid] gridContainerWidth:", gridContainerWidth);
   console.log("[WeeklyScheduleGrid] currentColumnWidth:", currentColumnWidth);
   console.log("[WeeklyScheduleGrid] workdayStartTime:", workdayStartTime, "workdayEndTime:", workdayEndTime);
+  console.log("[WeeklyScheduleGrid] dayStartForTimeAxis:", dayStartForTimeAxis.toISOString(), "dayEndForTimeAxis:", dayEndForTimeAxis.toISOString()); // NEW LOG
+  console.log("[WeeklyScheduleGrid] totalDayMinutesForTimeAxis:", totalDayMinutesForTimeAxis); // NEW LOG
 
 
   return (
@@ -291,7 +293,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             {/* Time Axis (Fixed on left for landscape, now always visible) */}
             <div className="w-10 sm:w-14 flex-shrink-0 border-r border-border/50 bg-background/90 backdrop-blur-sm sticky left-0 z-10">
               <div className="h-[60px] border-b border-border/50" /> {/* Spacer for header */}
-              <div className="relative" style={{ height: `${totalDayMinutes * dynamicMinuteHeight}px` }}>
+              <div className="relative" style={{ height: `${totalDayMinutesForTimeAxis * dynamicMinuteHeight}px` }}>
                 {timeLabels.map((label, i) => (
                   <div
                     key={label + i}

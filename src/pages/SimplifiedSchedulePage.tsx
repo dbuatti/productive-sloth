@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
 import WeeklyScheduleGrid from '@/components/WeeklyScheduleGrid';
-import { format, startOfWeek } from 'date-fns';
+import { format, startOfWeek, isSameDay } from 'date-fns'; // Added isSameDay
 import { cn } from '@/lib/utils';
 
 const SimplifiedSchedulePage: React.FC = () => {
@@ -49,6 +49,11 @@ const SimplifiedSchedulePage: React.FC = () => {
 
   const workdayStartTime = profile.default_auto_schedule_start_time || '09:00';
   const workdayEndTime = profile.default_auto_schedule_end_time || '17:00';
+
+  // NEW: Add a warning if workday start and end times are identical
+  if (workdayStartTime === workdayEndTime) {
+    console.warn("[SimplifiedSchedulePage] Workday start and end times are identical in profile settings. This will result in a 0-minute workday window. Please adjust in Settings.");
+  }
 
   return (
     <div className="flex flex-col h-full w-full">

@@ -34,17 +34,22 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
 
   const dayStart = setTimeOnDate(dayDate, workdayStartTime);
   let dayEnd = setTimeOnDate(dayDate, workdayEndTime);
-  if (isBefore(dayEnd, dayStart)) {
+  
+  // Ensure dayEnd is always after dayStart, even if they are the same time initially
+  // This handles cases where start and end times are identical (e.g., 09:00 - 09:00)
+  // or if the end time is on the next day (e.g., 22:00 - 06:00)
+  if (!isAfter(dayEnd, dayStart)) { // Changed from isBefore to !isAfter
     dayEnd = addDays(dayEnd, 1);
   }
 
   const totalDayMinutes = differenceInMinutes(dayEnd, dayStart);
   const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel; // Calculate dynamic height
 
-  const timeSlots = Array.from({ length: totalDayMinutes / 60 }).map((_, i) => {
+  // Only generate time slots if totalDayMinutes is positive
+  const timeSlots = totalDayMinutes > 0 ? Array.from({ length: Math.ceil(totalDayMinutes / 60) }).map((_, i) => {
     const hour = addDays(setHours(setMinutes(dayStart, 0), dayStart.getHours() + i), 0);
     return format(hour, 'h a');
-  });
+  }) : [];
 
   console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] ---`);
   console.log(`[DailyScheduleColumn - ${format(dayDate, 'yyyy-MM-dd')}] workdayStartTime: ${workdayStartTime}, workdayEndTime: ${workdayEndTime}`);

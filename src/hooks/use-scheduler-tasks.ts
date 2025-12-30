@@ -92,7 +92,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const savedSortBy = localStorage.getItem('aetherSinkSortBy');
       return savedSortBy ? (savedSortBy as RetiredTaskSortBy) : 'RETIRED_AT_NEWEST';
     }
-    return 'RETIRED_AT_NEWEST'; // Fixed: Changed 7 to 'RETIRED_AT_NEWEST'
+    return 'RETIRED_AT_NEWEST';
   });
   const [xpGainAnimation, setXpGainAnimation] = useState<{ taskId: string, xpAmount: number } | null>(null);
 
@@ -264,7 +264,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     placeholderData: (previousData) => previousData,
   });
 
-  // Renamed from completedTasksTodayList to completedTasksForSelectedDayList
   const { data: completedTasksForSelectedDayList = [], isLoading: isLoadingCompletedTasksForSelectedDay } = useQuery<CompletedTaskLogEntry[]>({
     queryKey: ['completedTasksForSelectedDayList', userId, formattedSelectedDate],
     queryFn: async () => {
@@ -595,7 +594,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_completed: taskToRetire.is_completed ?? false,
         is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false,
         task_environment: taskToRetire.task_environment,
-        is_backburner: taskToRetire.is_backburner, // NEW: Pass backburner status
+        is_backburner: taskToRetire.is_backburner,
       };
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTask);
       if (insertError) throw new Error(`Failed to move task to Aether Sink: ${insertError.message}`);
@@ -709,7 +708,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_custom_energy_cost: task.is_custom_energy_cost ?? false,
         task_environment: task.task_environment,
         source_calendar_id: task.source_calendar_id,
-        is_backburner: task.is_backburner, // NEW: Pass backburner status
+        is_backburner: task.is_backburner,
         updated_at: new Date().toISOString(),
       }));
 
@@ -826,7 +825,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 is_custom_energy_cost: breakTask.is_custom_energy_cost ?? false,
                 task_environment: breakTask.task_environment,
                 source_calendar_id: breakTask.source_calendar_id,
-                is_backburner: breakTask.is_backburner, // NEW: Pass backburner status
+                is_backburner: breakTask.is_backburner,
                 updated_at: new Date().toISOString(),
               };
               placedBreaks.push(newBreakTask);
@@ -860,7 +859,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           is_custom_energy_cost: task.is_custom_energy_cost ?? false,
           task_environment: task.task_environment,
           source_calendar_id: task.source_calendar_id,
-          is_backburner: task.is_backburner, // NEW: Pass backburner status
+          is_backburner: task.is_backburner,
           updated_at: new Date().toISOString(),
         }));
         const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
@@ -878,7 +877,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       return { placedBreaks, failedToPlaceBreaks };
     },
-    onMutate: async ({ selectedDate, currentDbTasks }) => { // Removed unused workdayStartTime, workdayEndTime
+    onMutate: async ({ selectedDate, currentDbTasks }) => {
       await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId, selectedDate, sortBy] });
       const previousScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', userId, selectedDate, sortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
@@ -1037,7 +1036,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_completed: task.is_completed ?? false,
         is_custom_energy_cost: task.is_custom_energy_cost ?? false,
         task_environment: task.task_environment,
-        is_backburner: task.is_backburner, // NEW: Pass backburner status
+        is_backburner: task.is_backburner,
       }));
 
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTasks);
@@ -1124,7 +1123,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_completed: task.is_completed ?? false,
         is_custom_energy_cost: task.is_custom_energy_cost ?? false,
         task_environment: task.task_environment,
-        is_backburner: task.is_backburner, // NEW: Pass backburner status
+        is_backburner: task.is_backburner,
       }));
 
       const { error: insertError } = await supabase.from('aethersink').insert(newRetiredTasks);
@@ -1138,18 +1137,18 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (deleteError) throw new Error(`Failed to remove tasks from schedule (Mega): ${deleteError.message}`);
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId] }); // Cancel all scheduled tasks queries
+      await queryClient.cancelQueries({ queryKey: ['scheduledTasks', userId] });
       await queryClient.cancelQueries({ queryKey: ['retiredTasks', userId, retiredSortBy] });
       await queryClient.cancelQueries({ queryKey: ['datesWithTasks', userId] });
 
       const previousScheduledTasks = queryClient.getQueriesData<DBScheduledTask[]>({ queryKey: ['scheduledTasks', userId] })
-        .flatMap(([_key, data]) => data || []); // Get all scheduled tasks across all query keys
+        .flatMap(([_key, data]) => data || []);
       const previousRetiredTasks = queryClient.getQueryData<RetiredTask[]>(['retiredTasks', userId, retiredSortBy]);
       const previousScrollTop = scrollRef?.current?.scrollTop;
 
       // Optimistically remove all flexible, unlocked tasks from today and future days
       queryClient.setQueriesData<DBScheduledTask[]>(
-        { queryKey: ['scheduledTasks', userId] }, // Target all scheduledTasks queries for this user
+        { queryKey: ['scheduledTasks', userId] },
         (old) => {
           if (!old) return [];
           const now = startOfDay(new Date());
@@ -1234,7 +1233,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       // 3. Construct the new optimistic scheduled state: fixed tasks + newly placed tasks
       queryClient.setQueryData<DBScheduledTask[]>(['scheduledTasks', userId, payload.selectedDate, sortBy], (old) => {
         
-        const newTasks: DBScheduledTask[] = newlyPlacedFlexibleTasks.map(t => { // Fixed: Changed NewDBScheduledTask[] to DBScheduledTask[]
+        const newTasks: DBScheduledTask[] = newlyPlacedFlexibleTasks.map(t => {
           // Find the original task (if it was a flexible scheduled task being replaced) to preserve created_at
           const originalTask = (old || []).find(oldT => oldT.id === t.id);
           
@@ -1255,8 +1254,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             is_completed: t.is_completed ?? false,
             is_custom_energy_cost: t.is_custom_energy_cost ?? false,
             task_environment: t.task_environment ?? 'laptop',
-            source_calendar_id: null, // FIX: Added missing required property
-            is_backburner: t.is_backburner ?? false, // FIX: Added missing property
+            source_calendar_id: null,
+            is_backburner: t.is_backburner ?? false,
           };
         });
         
@@ -1277,14 +1276,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           duration: t.duration ?? null,
           break_duration: t.break_duration ?? null,
           original_scheduled_date: t.original_scheduled_date ?? payload.selectedDate,
-          retired_at: now, // Set retired_at
+          retired_at: now,
           is_critical: t.is_critical ?? false,
           is_locked: t.is_locked ?? false,
           energy_cost: t.energy_cost ?? 0,
           is_completed: t.is_completed ?? false,
           is_custom_energy_cost: t.is_custom_energy_cost ?? false,
           task_environment: t.task_environment ?? 'laptop',
-          is_backburner: t.is_backburner ?? false, // FIX: Added missing property
+          is_backburner: t.is_backburner ?? false,
         }));
         return [...remainingRetired, ...newSinkTasks];
       });
@@ -1325,7 +1324,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const newXp = profile.xp + (task.energy_cost * 2);
       const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
-      const newEnergy = profile.energy - task.energy_cost; // Energy can now go negative
+      const newEnergy = profile.energy - task.energy_cost;
 
       const { error: profileError } = await supabase
         .from('profiles')
@@ -1350,7 +1349,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           task_name: task.name,
           original_id: task.id,
           duration_scheduled: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION,
-          duration_used: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, // For now, assume scheduled duration
+          duration_used: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION,
           xp_earned: task.energy_cost * 2,
           energy_cost: task.energy_cost,
           is_critical: task.is_critical,
@@ -1389,7 +1388,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
     },
     onSettled: (_data, _error, _variables, context: MutationContext | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] }); // Fixed: formattedSelectedDay to formattedSelectedDate
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy] });
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
       if (scrollRef?.current && context?.previousScrollTop !== undefined) {
         scrollRef.current.scrollTop = context.previousScrollTop;
@@ -1628,7 +1627,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const newXp = profile.xp + (task.energy_cost * 2);
       const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
-      const newEnergy = profile.energy - task.energy_cost; // Energy can now go negative
+      const newEnergy = profile.energy - task.energy_cost;
 
       const { error: profileError } = await supabase
         .from('profiles')
@@ -1766,6 +1765,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutateAsync,
     completeRetiredTask: completeRetiredTaskMutation.mutateAsync,
     removeRetiredTask: removeRetiredTaskMutation.mutateAsync,
-    triggerAetherSinkBackup: triggerAetherSinkBackupMutation.mutateAsync, // NEW: Export backup trigger
+    triggerAetherSinkBackup: triggerAetherSinkBackupMutation.mutateAsync,
   };
 };

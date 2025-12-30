@@ -5,15 +5,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react"; // Added Music icon
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, CheckCircle2, Archive, Trash2 } from "lucide-react";
 
 import {
-  Dialog, // Changed from Sheet
-  DialogContent, // Changed from SheetContent
-  DialogDescription, // Changed from SheetDescription
-  DialogHeader, // Changed from SheetHeader
-  DialogTitle, // Changed from SheetTitle
-} from "@/components/ui/dialog"; // Changed from sheet
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -25,15 +26,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler"; // Import TaskEnvironment
+import { Switch } from '@/components/ui/switch';
+import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
-import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
-import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
+import { environmentOptions } from '@/hooks/use-environment-context';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Added missing imports
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -45,25 +45,34 @@ const formSchema = z.object({
   is_locked: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'), // UPDATED: Add new environments
+  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'),
+  is_backburner: z.boolean().default(false), // Added is_backburner to schema
 });
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
 
-interface ScheduledTaskDetailDialogProps { // Changed from SheetProps
+interface ScheduledTaskDetailDialogProps {
   task: DBScheduledTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDayString: string;
+  onCompleteTask: (task: DBScheduledTask) => void;
+  onRetireTask: (task: DBScheduledTask) => void;
+  onRemoveTask: (taskId: string, taskName: string) => void;
+  isProcessingCommand: boolean;
 }
 
-const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ // Changed from Sheet
+const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   task,
   open,
   onOpenChange,
   selectedDayString,
+  onCompleteTask,
+  onRetireTask,
+  onRemoveTask,
+  isProcessingCommand,
 }) => {
-  const { updateScheduledTaskDetails } = useSchedulerTasks(selectedDayString);
+  const { updateScheduledTaskDetails, toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString);
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<ScheduledTaskDetailFormValues>({
@@ -78,7 +87,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
       is_locked: false,
       energy_cost: 0,
       is_custom_energy_cost: false,
-      task_environment: 'laptop', // NEW: Default value
+      task_environment: 'laptop',
+      is_backburner: false, // Default value for is_backburner
     },
   });
 
@@ -96,7 +106,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         is_locked: task.is_locked,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
-        task_environment: task.task_environment, // NEW: Set environment
+        task_environment: task.task_environment,
+        is_backburner: task.is_backburner, // Set initial backburner status
       });
       if (!task.is_custom_energy_cost) {
         const selectedDayDate = parseISO(selectedDayString);
@@ -104,7 +115,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         let eTime = setTimeOnDate(selectedDayDate, endTime);
         if (isBefore(eTime, sTime)) eTime = addDays(eTime, 1);
         const duration = Math.floor((eTime.getTime() - sTime.getTime()) / (1000 * 60));
-        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical));
+        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical, task.is_backburner));
       } else {
         setCalculatedEnergyCost(task.energy_cost);
       }
@@ -113,10 +124,11 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      if (!value.is_custom_energy_cost && (name === 'start_time' || name === 'end_time' || name === 'is_critical')) {
+      if (!value.is_custom_energy_cost && (name === 'start_time' || name === 'end_time' || name === 'is_critical' || name === 'is_backburner')) {
         const startTimeStr = value.start_time;
         const endTimeStr = value.end_time;
         const isCritical = value.is_critical;
+        const isBackburner = value.is_backburner;
 
         if (startTimeStr && endTimeStr) {
           const selectedDayDate = parseISO(selectedDayString);
@@ -127,7 +139,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
             endTime = addDays(endTime, 1);
           }
           const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
+          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
           setCalculatedEnergyCost(newEnergyCost);
           form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
         }
@@ -135,6 +147,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         const startTimeStr = form.getValues('start_time');
         const endTimeStr = form.getValues('end_time');
         const isCritical = form.getValues('is_critical');
+        const isBackburner = form.getValues('is_backburner');
 
         if (startTimeStr && endTimeStr) {
           const selectedDayDate = parseISO(selectedDayString);
@@ -145,7 +158,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
             endTime = addDays(endTime, 1);
           }
           const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false);
+          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
           setCalculatedEnergyCost(newEnergyCost);
           form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
         }
@@ -178,7 +191,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         is_locked: values.is_locked,
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
-        task_environment: values.task_environment, // NEW: Save environment
+        task_environment: values.task_environment,
+        is_backburner: values.is_backburner, // Pass is_backburner
       });
       showSuccess("Scheduled task updated successfully!");
       onOpenChange(false);
@@ -186,6 +200,11 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
       showError("Failed to save scheduled task.");
       console.error("Failed to save scheduled task:", error);
     }
+  };
+
+  const handleToggleLock = async () => {
+    if (!task) return;
+    await toggleScheduledTaskLock({ taskId: task.id, isLocked: !task.is_locked });
   };
 
   const isSubmitting = form.formState.isSubmitting;
@@ -200,16 +219,16 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
     : 'N/A';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}> {/* Changed from Sheet */}
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in"> {/* Changed from SheetContent, added styling */}
-        <DialogHeader className="border-b pb-4 mb-6"> {/* Changed from SheetHeader */}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in">
+        <DialogHeader className="border-b pb-4 mb-6">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle> {/* Changed from SheetTitle */}
+            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <DialogDescription className="text-sm text-muted-foreground"> {/* Changed from SheetDescription */}
+          <DialogDescription className="text-sm text-muted-foreground">
             Last updated: {formattedLastUpdated}
           </DialogDescription>
         </DialogHeader>
@@ -379,6 +398,28 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
                 )}
               />
 
+              {/* Is Backburner Switch */}
+              <FormField
+                control={form.control}
+                name="is_backburner"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Backburner Task</FormLabel>
+                      <FormDescription>
+                        Mark this task as low-orbit filler (P: Low).
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
               {/* Custom Energy Cost Switch */}
               <FormField
                 control={form.control}
@@ -437,10 +478,10 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
               />
             </div>
               
-            <div className="sticky bottom-0 bg-card pt-4 border-t shrink-0">
+            <DialogFooter className="flex flex-col gap-2 pt-4 border-t">
               <Button 
                 type="submit" 
-                disabled={isSubmitting || !isValid} 
+                disabled={isSubmitting || !isValid || isProcessingCommand} 
                 className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
               >
                 {isSubmitting ? (
@@ -450,7 +491,65 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
                 )}
                 Save Changes
               </Button>
-            </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => onCompleteTask(task)} 
+                      disabled={isProcessingCommand || task.is_completed}
+                      className="flex items-center gap-2 text-logo-green hover:bg-logo-green/10"
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> Complete
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Mark task as completed</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => onRetireTask(task)} 
+                      disabled={isProcessingCommand || task.is_locked}
+                      className="flex items-center gap-2 text-logo-orange hover:bg-logo-orange/10"
+                    >
+                      <Archive className="h-4 w-4" /> Retire
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Move task to Aether Sink</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={handleToggleLock} 
+                      disabled={isProcessingCommand}
+                      className="flex items-center gap-2 text-primary hover:bg-primary/10"
+                    >
+                      {task.is_locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />} {task.is_locked ? 'Unlock' : 'Lock'}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{task.is_locked ? 'Unlock task (allow scheduler to move)' : 'Lock task (prevent scheduler from moving)'}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      onClick={() => onRemoveTask(task.id, task.name)} 
+                      disabled={isProcessingCommand || task.is_locked}
+                      className="flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Permanently delete task</TooltipContent>
+                </Tooltip>
+              </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

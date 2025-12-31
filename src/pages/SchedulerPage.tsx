@@ -94,7 +94,7 @@ const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes, triggerEnergyRegen } = useSession();
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes, triggerEnergyRegen, dynamicMealBlocksToday } = useSession(); // NEW: Get dynamicMealBlocksToday
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
@@ -473,7 +473,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
-    const allOccupiedBlocks = mergeOverlappingTimeBlocks([...existingOccupiedBlocks, ...lockedTaskBlocks]);
+    const allOccupiedBlocks = mergeOverlappingTimeBlocks([...existingOccupiedBlocks, ...lockedTaskBlocks, ...dynamicMealBlocksToday]); // NEW: Include dynamicMealBlocksToday
     const freeBlocks = getFreeTimeBlocks(allOccupiedBlocks, currentWorkdayStart, currentWorkdayEnd); // Use currentWorkdayStart/End
 
     if (isCritical) {
@@ -499,7 +499,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       const message = `No available slot found within your workday (${formatTime(currentWorkdayStart)} - ${formatTime(currentWorkdayEnd)}) for "${taskName}" (${taskDuration} min).`;
       return { proposedStartTime: null, proposedEndTime: null, message: message };
     }
-  }, [dbScheduledTasks]); // Dependencies for findFreeSlotForTask
+  }, [dbScheduledTasks, dynamicMealBlocksToday]); // Dependencies for findFreeSlotForTask
 
   const handleRefreshSchedule = useCallback(() => {
     if (user?.id) {
@@ -566,7 +566,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       const currentEffectiveWorkdayStart = effectiveWorkdayStartForSelectedDay;
 
       // 4. Find the first available free slot large enough to hold the *first* task
-      let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+      let currentOccupiedBlocksForScheduling = [...occupiedBlocks, ...dynamicMealBlocksToday]; // NEW: Include dynamicMealBlocksToday
       let freeBlocks = getFreeTimeBlocks(currentOccupiedBlocksForScheduling, currentEffectiveWorkdayStart, currentWorkdayEnd); // Use currentEffectiveWorkdayStart, currentWorkdayEnd
       
       const firstTaskTotalDuration = tasksToPlace[0].totalDuration;
@@ -639,7 +639,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, retiredTasks, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addScheduledTask, rezoneTask, formattedSelectedDay, selectedDayAsDate, queryClient]);
+  }, [user, profile, retiredTasks, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addScheduledTask, rezoneTask, formattedSelectedDay, selectedDayAsDate, queryClient, dynamicMealBlocksToday]);
 
   const handleCompactSchedule = useCallback(async () => {
     if (!user || !profile) {
@@ -661,7 +661,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             selectedDayAsDate,
             workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
             workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
-            T_current
+            T_current,
+            dynamicMealBlocksToday // NEW: Pass dynamicMealBlocksToday
         );
 
         const tasksToUpdate = compactedTasks.filter(task => task.start_time && task.end_time);
@@ -678,7 +679,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
         setIsProcessingCommand(false);
     }
-  }, [user, profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, queryClient, formattedSelectedDay, sortBy]);
+  }, [user, profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, queryClient, formattedSelectedDay, sortBy, dynamicMealBlocksToday]);
 
   const confirmPermanentDeleteScheduledTask = useCallback(async () => {
     if (!scheduledTaskToDeleteId || !user || scheduledTaskToDeleteIndex === null) return;
@@ -697,7 +698,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             selectedDayAsDate,
             workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
             workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
-            T_current
+            T_current,
+            dynamicMealBlocksToday // NEW: Pass dynamicMealBlocksToday
         );
         const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
 
@@ -730,7 +732,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       setScheduledTaskToDeleteName(null);
       setScheduledTaskToDeleteIndex(null);
     }
-  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, activeItemToday, nextItemToday, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks]);
+  }, [scheduledTaskToDeleteId, scheduledTaskToDeleteName, scheduledTaskToDeleteIndex, user, removeScheduledTask, activeItemToday, nextItemToday, queryClient, handleScrollToItem, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, dynamicMealBlocksToday]);
 
   // Confirmation handler for retired task permanent deletion
   const confirmPermanentDeleteRetiredTask = useCallback(async () => {
@@ -877,7 +879,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
           is_backburner: taskToPlace.is_backburner, 
         });
         // Declare currentOccupiedBlocksForScheduling locally within this function
-        let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+        let currentOccupiedBlocksForScheduling = [...occupiedBlocks, ...dynamicMealBlocksToday]; // NEW: Include dynamicMealBlocksToday
         currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: taskDuration });
         currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
 
@@ -886,7 +888,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         showError(`Failed to fill gap with sink task: ${error.message}`);
         return false;
     }
-  }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay, occupiedBlocks]);
+  }, [user, profile, retiredTasks, rezoneTask, addScheduledTask, formattedSelectedDay, occupiedBlocks, dynamicMealBlocksToday]);
 
   // NEW: Generic auto-schedule and sort function
   const handleAutoScheduleAndSort = useCallback(async (
@@ -1076,15 +1078,21 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       });
       // --- END NEW: Tiered Sorting Logic ---
 
-      let currentOccupiedBlocks = mergeOverlappingTimeBlocks(existingFixedTasks
-        .filter(task => task.start_time && task.end_time)
-        .map(task => {
-          const start = setTimeOnDate(currentTargetDate, formatFns(parseISO(task.start_time!), 'HH:mm'));
-          let end = setTimeOnDate(currentTargetDate, formatFns(parseISO(task.end_time!), 'HH:mm'));
-          if (isBefore(end, start)) end = addDays(end, 1);
-          return { start, end, duration: differenceInMinutes(end, start) };
-        })
-      );
+      let currentOccupiedBlocks = mergeOverlappingTimeBlocks([
+        ...existingFixedTasks
+          .filter(task => task.start_time && task.end_time)
+          .map(task => {
+            const start = setTimeOnDate(currentTargetDate, formatFns(parseISO(task.start_time!), 'HH:mm'));
+            let end = setTimeOnDate(currentTargetDate, formatFns(parseISO(task.end_time!), 'HH:mm'));
+            if (isBefore(end, start)) end = addDays(end, 1);
+            return { start, end, duration: differenceInMinutes(end, start) };
+          }),
+        ...dynamicMealBlocksToday.map(block => ({ // NEW: Include dynamicMealBlocksToday
+          start: block.start,
+          end: block.end,
+          duration: block.duration,
+        }))
+      ]);
 
       let currentPlacementTime = effectiveTargetWorkdayStart; // Use effectiveTargetWorkdayStart for the current day
 
@@ -1223,6 +1231,11 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
         tasksToInsert: tasksToInsert,
         tasksToKeepInSink: tasksToKeepInSink,
         selectedDate: targetDateString, // Use targetDateString
+        dynamicOccupiedBlocks: dynamicMealBlocksToday.map(block => ({ // NEW: Pass dynamic occupied blocks
+          start: block.start.toISOString(),
+          end: block.end.toISOString(),
+          duration: block.duration,
+        })),
       };
 
       await autoBalanceSchedule(payload);
@@ -1235,9 +1248,8 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, retiredTasks, T_current, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD]);
+  }, [user, profile, retiredTasks, T_current, autoBalanceSchedule, queryClient, LOW_ENERGY_THRESHOLD, dynamicMealBlocksToday]);
 
-  // Update calls to findFreeSlotForTask
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) {
       showError("Please log in and ensure your profile is loaded to use the scheduler.");
@@ -1253,7 +1265,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     let success = false;
     const taskScheduledDate = formattedSelectedDay;
 
-    let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+    let currentOccupiedBlocksForScheduling = [...occupiedBlocks, ...dynamicMealBlocksToday]; // NEW: Include dynamicMealBlocksToday
 
     // Use workday window for the currently selected day
     const currentDayDate = selectedDayAsDate;
@@ -1398,7 +1410,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
             energy_cost: calculatedEnergyCost,
             is_custom_energy_cost: false,
             task_environment: environmentForPlacement,
-            is_backburner: injectCommand.isBackburner, // NEW: Pass backburner status
+            is_backburner: injectCommand.isBackburner,
           });
           currentOccupiedBlocksForScheduling.push({ start: proposedStartTime, end: proposedEndTime, duration: injectedTaskDuration });
           currentOccupiedBlocksForScheduling = mergeOverlappingTimeBlocks(currentOccupiedBlocksForScheduling);
@@ -1566,7 +1578,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     if (success) {
       setInputValue('');
     }
-  }, [user, profile, selectedDayAsDate, formattedSelectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addRetiredTask, addScheduledTask, environmentForPlacement, T_current, handlePermanentDeleteScheduledTask, dbScheduledTasks, aetherDump, queryClient, handleAetherDumpMegaButton, triggerEnergyRegen, findFreeSlotForTask]);
+  }, [user, profile, selectedDayAsDate, formattedSelectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addRetiredTask, addScheduledTask, environmentForPlacement, T_current, handlePermanentDeleteScheduledTask, dbScheduledTasks, aetherDump, queryClient, handleAetherDumpMegaButton, triggerEnergyRegen, findFreeSlotForTask, dynamicMealBlocksToday]);
 
   const handleInjectionSubmit = useCallback(async () => {
     if (!user || !profile) {
@@ -1581,7 +1593,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     
     let calculatedEnergyCost = 0;
 
-    let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+    let currentOccupiedBlocksForScheduling = [...occupiedBlocks, ...dynamicMealBlocksToday]; // NEW: Include dynamicMealBlocksToday
 
     // Use workday window for the currently selected day
     const currentDayDate = selectedDayAsDate;
@@ -1711,7 +1723,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     }
     setIsProcessingCommand(false);
-  }, [user, profile, injectionPrompt, injectionStartTime, injectionEndTime, injectionDuration, injectionBreak, formattedSelectedDay, selectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addScheduledTask, environmentForPlacement, T_current, findFreeSlotForTask, queryClient]);
+  }, [user, profile, injectionPrompt, injectionStartTime, injectionEndTime, injectionDuration, injectionBreak, formattedSelectedDay, selectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, addScheduledTask, environmentForPlacement, T_current, findFreeSlotForTask, queryClient, dynamicMealBlocksToday]);
 
   const handleRezoneFromSink = useCallback(async (retiredTask: RetiredTask) => {
     if (!user) {
@@ -1728,7 +1740,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       const taskDuration = retiredTask.duration || 30;
       const selectedDayAsDate = parseISO(selectedDay);
 
-      let currentOccupiedBlocksForScheduling = [...occupiedBlocks];
+      let currentOccupiedBlocksForScheduling = [...occupiedBlocks, ...dynamicMealBlocksToday]; // NEW: Include dynamicMealBlocksToday
 
       // Use workday window for the currently selected day
       const currentDayDate = selectedDayAsDate;
@@ -1779,7 +1791,7 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, retiredTasks, selectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, rezoneTask, addScheduledTask, formattedSelectedDay, findFreeSlotForTask, queryClient]);
+  }, [user, retiredTasks, selectedDay, occupiedBlocks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, rezoneTask, addScheduledTask, formattedSelectedDay, findFreeSlotForTask, queryClient, dynamicMealBlocksToday]);
 
   const handleManualRetire = useCallback(async (task: DBScheduledTask) => {
     if (!user) {
@@ -1818,11 +1830,12 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
       workdayStartTime: workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
       workdayEndTime: workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
       currentDbTasks: dbScheduledTasks,
+      dynamicOccupiedBlocks: dynamicMealBlocksToday, // NEW: Pass dynamicMealBlocksToday
     });
 
     queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
     setIsProcessingCommand(false);
-  }, [user, profile, dbScheduledTasks, formattedSelectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, randomizeBreaks, queryClient]);
+  }, [user, profile, dbScheduledTasks, formattedSelectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, randomizeBreaks, queryClient, dynamicMealBlocksToday]);
 
   const handleAddTaskClick = useCallback(() => {
     setInjectionPrompt({ 
@@ -1849,904 +1862,528 @@ const SchedulerPage: React.FC<SchedulerPageProps> = ({ view }) => {
 
   const handleAddTimeOffClick = useCallback(() => {
     setInjectionPrompt({ 
-      taskName: 'Time Off', 
-      isOpen: true, 
-      isTimed: true,
-      startTime: formatFns(T_current, 'h:mm a'),
-      endTime: formatFns(addHours(T_current, 1), 'h:mm a'),
-      isCritical: false,
-      isFlexible: false,
-      isBackburner: false,
-      energyCost: 0,
-      breakDuration: undefined,
-      isCustomEnergyCost: false,
-      taskEnvironment: 'away',
-    });
-    setInjectionStartTime(formatFns(T_current, 'h:mm a'));
-    setInjectionEndTime(formatFns(addHours(T_current, 1), 'h:mm a'));
-    setInjectionDuration('');
-    setInjectionBreak('');
-    setInputValue('');
-  }, [T_current]);
-
-  // NEW: Handler for clicking a free time block
-  const handleFreeTimeClick = useCallback((startTime: Date, endTime: Date) => {
-    const duration = differenceInMinutes(endTime, startTime);
-    
-    setInjectionPrompt({ 
-      taskName: '',
-      isOpen: true, 
-      isTimed: false,
-      duration: duration,
-      startTime: undefined,
-      endTime: undefined,
-      isCritical: false,
-      isFlexible: true,
-      isBackburner: false,
-      energyCost: calculateEnergyCost(duration, false),
-      breakDuration: undefined,
-      isCustomEnergyCost: false,
-      taskEnvironment: environmentForPlacement,
-    });
-    setInjectionDuration(String(duration));
-    setInjectionBreak('');
-    setInjectionStartTime('');
-    setInjectionEndTime('');
-    setInputValue('');
-    showSuccess(`Injected ${duration} min free slot into task creation.`);
-  }, [environmentForPlacement]);
-
-  const handleSchedulerAction = useCallback(async (
-    action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'justFinish' | 'exitFocus',
-    task: DBScheduledTask,
-    isEarlyCompletion: boolean = false,
-    remainingDurationMinutes: number = 0,
-    index: number | null = null
-  ) => {
-    if (!user || !profile) {
-      showError("You must be logged in to perform this action.");
-      return;
-    }
-    if (task.is_locked && action !== 'exitFocus') {
-      showError(`Cannot perform action on locked task "${task.name}". Unlock it first.`);
-      return;
-    }
-    
-    setIsProcessingCommand(true);
-    let modalOpened = false;
-
-    try {
-      if (action === 'complete') {
-        const isMealTask = isMeal(task.name);
-
-        // NEW: Energy Deficit Check (Bypass if it's a meal, as meals provide energy)
-        if (!isMealTask && profile.energy < 0) {
-          setTaskToCompleteInDeficit(task);
-          setTaskToCompleteInDeficitIndex(index);
-          setShowEnergyDeficitConfirmation(true);
-          modalOpened = true;
-          setIsFocusModeActive(false);
-          setIsProcessingCommand(false);
-          return;
-        }
-
-        const activeItem = currentSchedule?.items.find(item => item.id === task.id);
-        
-        const isCurrentlyActive = activeItem && isSameDay(activeItem.startTime, T_current) && T_current >= activeItem.startTime && T_current < activeItem.endTime;
-        
-        let shouldOpenEarlyCompletionModal = false;
-        let remainingMins = 0;
-
-        if (isCurrentlyActive) {
-            remainingMins = activeItem ? differenceInMinutes(activeItem.endTime, T_current) : 0;
-            if (remainingMins > 0) {
-                shouldOpenEarlyCompletionModal = true;
-            }
-        }
-        
-        if (shouldOpenEarlyCompletionModal && !isMealTask) { // Bypass early completion modal for meals
-            setEarlyCompletionTaskName(task.name);
-            setEarlyCompletionRemainingMinutes(remainingMins);
-            setEarlyCompletionDbTask(task);
-            setShowEarlyCompletionModal(true);
-            modalOpened = true;
-            setIsFocusModeActive(false);
-            setIsProcessingCommand(false); 
-            return;
-        } else {
-            // If it's a fixed/timed task (including meals), we only update status, not delete
-            const isFixedOrTimed = !task.is_flexible || isMealTask || task.name.toLowerCase() === 'time off';
-
-            if (isFixedOrTimed) {
-              await updateScheduledTaskStatus({ taskId: task.id, isCompleted: true });
-              showSuccess(`Task "${task.name}" completed!`);
-            } else {
-              // If it's a flexible task, complete and delete
-              await completeScheduledTaskMutation(task);
-              // After completion, if it was a flexible task, compact the schedule
-              if (task.is_flexible) {
-                const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-                const compactedTasks = compactScheduleLogic(
-                    latestDbScheduledTasks,
-                    selectedDayAsDate,
-                    workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
-                    workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
-                    T_current
-                );
-                const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-                if (tasksToUpdate.length > 0) {
-                    await compactScheduledTasks({ tasksToUpdate });
-                    showSuccess(`Task "${task.name}" completed! Schedule compacted.`);
-                } else {
-                    showSuccess(`Task "${task.name}" completed! No flexible tasks to compact.`);
-                }
-              } else {
-                showSuccess(`Task "${task.name}" completed!`);
-              }
-            }
-            
-            // NEW: Trigger energy regen immediately upon completing a break/meal
-            if (task.name.toLowerCase() === 'break' || isMealTask) {
-              await triggerEnergyRegen();
-            }
-
-            if (isCurrentlyActive) {
-                if (!nextItemToday || isAfter(nextItemToday.startTime, addMinutes(T_current, 5))) {
-                  setIsFocusModeActive(false);
-                }
-            }
-        }
-        
-      } else if (action === 'skip') {
-        await handleManualRetire(task);
-        showSuccess(`Task "${task.name}" skipped and moved to Aether Sink.`);
-        setIsFocusModeActive(false);
-      } else if (action === 'takeBreak') {
-        const breakDuration = remainingDurationMinutes;
-        const breakStartTime = T_current;
-        const breakEndTime = addMinutes(breakStartTime, breakDuration);
-
-        await addScheduledTask({
-          name: 'Flow Break',
-          start_time: breakStartTime.toISOString(),
-          end_time: breakEndTime.toISOString(),
-          break_duration: breakDuration,
-          scheduled_date: formattedSelectedDay,
-          is_critical: false,
-          is_flexible: false,
-          is_locked: true,
-          energy_cost: 0,
-          is_custom_energy_cost: false,
-          task_environment: environmentForPlacement,
-          is_backburner: false,
-        });
-
-        // Mark the original task as completed and remove if flexible
-        await completeScheduledTaskMutation(task);
-        if (task.is_flexible) {
-          // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-          const compactedTasks = compactScheduleLogic(
-              latestDbScheduledTasks,
-              selectedDayAsDate,
-              workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
-              workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
-              T_current
-          );
-          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-          if (tasksToUpdate.length > 0) {
-              await compactScheduledTasks({ tasksToUpdate });
-          }
-        }
-        
-        // NEW: Trigger energy regen immediately upon starting a break
-        await triggerEnergyRegen();
-
-        showSuccess(`Took a ${breakDuration}-minute Flow Break!`);
-        setShowEarlyCompletionModal(false);
-        setEarlyCompletionDbTask(null);
-        setIsFocusModeActive(false);
-      } else if (action === 'startNext') {
-        if (!nextItemToday) {
-          showError("No next task available to start early.");
-          return;
-        }
-        
-        const originalNextTask = dbScheduledTasks.find(t => t.id === nextItemToday.id);
-        if (!originalNextTask) {
-            showError("Error: Could not find original task details for next item.");
-            return;
-        }
-
-        const originalNextTaskStartTime = originalNextTask.start_time ? parseISO(originalNextTask.start_time) : nextItemToday.startTime;
-        const isNextTaskImmovable = !originalNextTask.is_flexible || originalNextTask.is_locked;
-        const remainingMins = differenceInMinutes(originalNextTaskStartTime, T_current);
-        
-        // Mark the current task as completed and remove if flexible
-        await completeScheduledTaskMutation(task);
-        if (task.is_flexible) {
-          // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-          const compactedTasks = compactScheduleLogic(
-              latestDbScheduledTasks,
-              selectedDayAsDate,
-              workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
-              workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
-              T_current
-          );
-          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-          if (tasksToUpdate.length > 0) {
-              await compactScheduledTasks({ tasksToUpdate });
-          }
-        }
-
-        if (isNextTaskImmovable) {
-          if (remainingMins > 0) {
-            const gapStart = T_current;
-            const gapEnd = originalNextTaskStartTime;
-            
-            const filled = await handleSinkFill(gapStart, gapEnd, remainingMins);
-
-            if (filled) {
-              showSuccess(`Task completed! Fixed appointment protected. Filled ${remainingMins} min gap from Aether Sink.`);
-            } else {
-              showSuccess(`Task completed! Fixed appointment protected. ${remainingMins} min free time created before next fixed task.`);
-            }
-          } else {
-            showSuccess(`Task completed! Next task starts immediately.`);
-          }
-          
-          setIsFocusModeActive(false);
-
-        } else {
-          
-          const newNextTaskStartTime = T_current;
-          const nextTaskDuration = differenceInMinutes(nextItemToday.endTime, nextItemToday.startTime);
-          const newNextTaskEndTime = addMinutes(newNextTaskStartTime, nextTaskDuration);
-
-          await updateScheduledTaskDetails({
-            id: nextItemToday.id,
-            start_time: newNextTaskStartTime.toISOString(),
-            end_time: newNextTaskEndTime.toISOString(),
-            is_flexible: originalNextTask.is_flexible, 
-            is_locked: originalNextTask.is_locked,     
-            task_environment: originalNextTask.task_environment,
-            is_backburner: originalNextTask.is_backburner,
-          });
-
-          await handleCompactSchedule();
-
-          showSuccess(`Started "${nextItemToday.name}" early! Schedule compacted.`);
-        }
-
-        setShowEarlyCompletionModal(false);
-        setEarlyCompletionDbTask(null);
-        setIsFocusModeActive(false);
-      } else if (action === 'justFinish') {
-        await completeScheduledTaskMutation(task);
-        if (task.is_flexible) {
-          // After completion, if it was a flexible task, compact the schedule
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-          const compactedTasks = compactScheduleLogic(
-              latestDbScheduledTasks,
-              selectedDayAsDate,
-              workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
-              workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
-              T_current
-          );
-          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-          if (tasksToUpdate.length > 0) {
-              await compactScheduledTasks({ tasksToUpdate });
-              showSuccess(`Task "${task.name}" completed! Remaining time is now free. Schedule compacted.`);
-          } else {
-              showSuccess(`Task "${task.name}" completed! Remaining time is now free. No flexible tasks to compact.`);
-          }
-        } else {
-          showSuccess(`Task "${task.name}" completed! Remaining time is now free.`);
-        }
-        
-        // NEW: Trigger energy regen immediately upon completing a break/meal
-        if (task.name.toLowerCase() === 'break' || isMeal(task.name)) {
-          await triggerEnergyRegen();
-        }
-
-        setIsFocusModeActive(false);
-      } else if (action === 'exitFocus') {
-        setIsFocusModeActive(false);
-        showSuccess("Exited focus mode.");
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-      // NEW: Scroll to the active item after any action that might change the schedule
-      if (activeItemToday) {
-        handleScrollToItem(activeItemToday.id);
-      } else if (nextItemToday) {
-        handleScrollToItem(nextItemToday.id);
-      }
-    } catch (error: any) {
-      if (modalOpened) {
-        setShowEarlyCompletionModal(false);
-        setEarlyCompletionDbTask(null);
-        setShowEnergyDeficitConfirmation(false);
-        setTaskToCompleteInDeficit(null);
-        setTaskToCompleteInDeficitIndex(null);
-      }
-      // Removed "Insufficient energy" specific error message as it's now allowed.
-      showError(`Failed to perform action: ${error.message}`);
-    } finally {
-      if (!modalOpened) {
-        setIsProcessingCommand(false);
-      }
-    }
-  }, [user, profile, T_current, formattedSelectedDay, nextItemToday, completeScheduledTaskMutation, removeScheduledTask, updateScheduledTaskStatus, addScheduledTask, handleManualRetire, updateScheduledTaskDetails, handleCompactSchedule, queryClient, currentSchedule, dbScheduledTasks, handleSinkFill, setIsFocusModeActive, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, effectiveWorkdayStartForSelectedDay, environmentForPlacement, activeItemToday, handleScrollToItem, sortBy, compactScheduledTasks, triggerEnergyRegen]);
-
-  // NEW: Handler for confirming task completion in deficit
-  const confirmCompleteTaskInDeficit = useCallback(async () => {
-    if (!taskToCompleteInDeficit || !profile) return;
-    setIsProcessingCommand(true);
-    try {
-      // If it's a fixed/timed task (including meals), we only update status, not delete
-      const isMealTask = isMeal(taskToCompleteInDeficit.name);
-      const isFixedOrTimed = !taskToCompleteInDeficit.is_flexible || isMealTask || taskToCompleteInDeficit.name.toLowerCase() === 'time off';
-
-      if (isFixedOrTimed) {
-        await updateScheduledTaskStatus({ taskId: taskToCompleteInDeficit.id, isCompleted: true });
-        showSuccess(`Task "${taskToCompleteInDeficit.name}" completed!`);
-      } else {
-        await completeScheduledTaskMutation(taskToCompleteInDeficit);
-        // After completion, if it was a flexible task, compact the schedule
-        if (taskToCompleteInDeficit.is_flexible) {
-          const latestDbScheduledTasks = queryClient.getQueryData<DBScheduledTask[]>(['scheduledTasks', user?.id, formattedSelectedDay, sortBy]) || [];
-          const compactedTasks = compactScheduleLogic(
-              latestDbScheduledTasks,
-              selectedDayAsDate,
-              workdayStartTimeForSelectedDay, // Pass workdayStartTimeForSelectedDay
-              workdayEndTimeForSelectedDay,   // Pass workdayEndTimeForSelectedDay
-              T_current
-          );
-          const tasksToUpdate = compactedTasks.filter(t => t.start_time && t.end_time);
-          if (tasksToUpdate.length > 0) {
-              await compactScheduledTasks({ tasksToUpdate });
-              showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! Schedule compacted.`);
-          } else {
-              showSuccess(`Task "${taskToCompleteInDeficit.name}" completed! No flexible tasks to compact.`);
-          }
-        } else {
-          showSuccess(`Task "${taskToCompleteInDeficit.name}" completed!`);
-        }
-      }
-      
-      // NEW: Trigger energy regen immediately upon completing a break/meal
-      if (taskToCompleteInDeficit.name.toLowerCase() === 'break' || isMealTask) {
-        await triggerEnergyRegen();
-      }
-
-      setIsFocusModeActive(false);
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', user?.id] });
-    } catch (error: any) {
-      showError(`Failed to complete task: ${error.message}`);
-    } finally {
-      setIsProcessingCommand(false);
-      setShowEnergyDeficitConfirmation(false);
-      setTaskToCompleteInDeficit(null);
-      setTaskToCompleteInDeficitIndex(null);
-    }
-  }, [taskToCompleteInDeficit, profile, completeScheduledTaskMutation, queryClient, user?.id, formattedSelectedDay, sortBy, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, setIsFocusModeActive, updateScheduledTaskStatus, triggerEnergyRegen]);
-
-  // NEW: Handler for 'Re-balance Today' button
-  const handleRebalanceToday = useCallback(async () => {
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', selectedEnvironments, formattedSelectedDay);
-  }, [handleAutoScheduleAndSort, selectedEnvironments, formattedSelectedDay]);
-
-  // NEW: Handler for 'Re-balance All Flexible' button
-  const handleRebalanceAllFlexible = useCallback(async () => {
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'all-flexible', selectedEnvironments, formattedSelectedDay);
-  }, [handleAutoScheduleAndSort, selectedEnvironments, formattedSelectedDay]);
-
-  // NEW: Handler for 'Zone Focus' button
-  const handleZoneFocus = useCallback(async () => {
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only', selectedEnvironments, formattedSelectedDay);
-  }, [handleAutoScheduleAndSort, selectedEnvironments, formattedSelectedDay]);
-
-  // NEW: Handler for 'Sort Flexible Tasks' dropdown
-  const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
-    setSortBy(newSortBy);
-    showSuccess(`Flexible tasks sorted by ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
-    // No need to call auto-schedule here, as changing sortBy will trigger a refetch and re-render
-  }, [setSortBy]);
-
-  // NEW: Handler for 'Start Regen Pod' button
-  const handleStartRegenPod = useCallback(() => {
-    setShowPodSetupModal(true);
-    // Calculate a default duration for the pod setup modal if needed, e.g., 30 minutes
-    setCalculatedPodDuration(30); 
-  }, []);
-
-  // NEW: Handler for 'Auto Schedule Sink' button in AetherSink
-  const handleAutoScheduleSinkWrapper = useCallback(async () => {
-    await handleAutoScheduleAndSort('PRIORITY_HIGH_TO_LOW', 'sink-only', selectedEnvironments, formattedSelectedDay);
-  }, [handleAutoScheduleAndSort, selectedEnvironments, formattedSelectedDay]);
-
-  // NEW: Handler for exiting the Regen Pod modal
-  const handlePodExit = useCallback(async () => {
-    await exitRegenPodState();
-    setShowPodSetupModal(false);
-  }, [exitRegenPodState]);
-
-
-  const tasksCompletedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.length;
-  }, [completedTasksForSelectedDayList]);
-
-  const xpEarnedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.reduce((sum, task) => sum + (task.energy_cost * 2), 0);
-  }, [completedTasksForSelectedDayList]);
-
-  const criticalTasksCompletedForSelectedDay = useMemo(() => {
-    if (!completedTasksForSelectedDayList) return 0;
-    return completedTasksForSelectedDayList.filter(task => 
-      task.is_critical && task.is_completed
-    ).length;
-  }, [completedTasksForSelectedDayList]);
-
-  const completedScheduledTasksForRecap = useMemo(() => {
-    return completedTasksForSelectedDayList;
-  }, [completedTasksForSelectedDayList]);
-
-  // NEW: Calculate Active Time and Break Time from completed tasks list
-  const { totalActiveTimeMinutes, totalBreakTimeMinutes } = useMemo(() => {
-    let activeTime = 0;
-    let breakTime = 0;
-
-    completedTasksForSelectedDayList.forEach(task => {
-      const duration = task.effective_duration_minutes;
-      const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
-      
-      if (isBreakOrMeal) {
-        breakTime += duration;
-      } else {
-        activeTime += duration;
-      }
-    });
-
-    return { totalActiveTimeMinutes: activeTime, totalBreakTimeMinutes: breakTime };
-  }, [completedTasksForSelectedDayList]);
-
-
-  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
-
-  const hasFlexibleTasksOnCurrentDay = dbScheduledTasks.some(item => item.is_flexible && !item.is_locked);
-
-  // --- Conditional View Rendering ---
-
-  const renderScheduleCore = () => (
-    <>
-      {/* Info Panel Card (Desktop Only) */}
-      <div className="hidden lg:block">
-        <SchedulerContextBar T_current={T_current} />
-      </div>
-
-      {/* Schedule Input Card (Now visible on all screens) */}
-      <Card className="p-4 animate-slide-in-up shadow-md animate-hover-lift">
-        <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-            <ListTodo className="h-6 w-6 text-primary" /> Quick Add
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <SchedulerInput 
-            onCommand={handleCommand} 
-            isLoading={overallLoading} 
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            placeholder={`Add task (e.g., 'Gym 60', '-Clean desk') or command`}
-            onDetailedInject={handleAddTaskClick}
-          />
-          <p className="text-sm text-muted-foreground mt-2">
-            Examples: "Gym 60", "-Clean desk 30", "Meeting 11am-12pm", 'inject "Project X" 30', 'remove "Gym"', 'clear', 'compact', "Clean the sink 30 sink", "Time Off 2pm-3pm", "Aether Dump", "Aether Dump Mega"
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Action Center (Desktop Only) */}
-      <div className="animate-slide-in-up hidden lg:block">
-        <SchedulerActionCenter 
-          isProcessingCommand={isProcessingCommand}
-          dbScheduledTasks={dbScheduledTasks}
-          retiredTasksCount={retiredTasks.length}
-          sortBy={sortBy}
-          onRebalanceToday={handleRebalanceToday} // Renamed
-          onRebalanceAllFlexible={handleRebalanceAllFlexible} // NEW
-          onCompactSchedule={handleCompactSchedule}
-          onRandomizeBreaks={handleRandomizeBreaks}
-          onZoneFocus={handleZoneFocus}
-          onRechargeEnergy={() => rechargeEnergy()}
-          onQuickBreak={handleQuickBreakButton}
-          onQuickScheduleBlock={handleQuickScheduleBlock}
-          onSortFlexibleTasks={handleSortFlexibleTasks}
-          onAetherDump={handleAetherDumpButton}
-          onAetherDumpMega={handleAetherDumpMegaButton}
-          onRefreshSchedule={handleRefreshSchedule}
-          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-          onStartRegenPod={handleStartRegenPod}
-          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-        />
-      </div>
-
-      {/* Now Focus Card (Always visible) */}
-      {isSameDay(parseISO(selectedDay), T_current) && (
-        <div className="pb-4 animate-slide-in-up">
-          <NowFocusCard 
-            activeItem={activeItemToday} 
-            nextItem={nextItemToday} 
-            T_current={T_current} 
-            onEnterFocusMode={() => setIsFocusModeActive(true)}
-          />
-        </div>
-      )}
-      
-      {currentSchedule?.summary.unscheduledCount > 0 && (
-        <Card className="animate-pop-in animate-hover-lift">
-          <CardContent className="p-4 text-center text-orange-500 font-semibold flex items-center justify-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            <span>⚠️ {currentSchedule.summary.unscheduledCount} task{currentSchedule.summary.unscheduledCount > 1 ? 's' : ''} fall outside your workday window.</span>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="animate-pop-in animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="h-5 w-5 text-logo-yellow" /> Your Vibe Schedule for {formatFns(parseISO(selectedDay), 'EEEE, MMMM d')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4">
-          {isSchedulerTasksLoading ? (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <SchedulerDisplay 
-              schedule={currentSchedule} 
-              T_current={T_current} 
-              onRemoveTask={handlePermanentDeleteScheduledTask}
-              onRetireTask={(task) => handleSchedulerAction('skip', task)}
-              onCompleteTask={(task, index) => handleSchedulerAction('complete', task, false, 0, index)}
-              activeItemId={activeItemToday?.id || null} 
-              selectedDayString={selectedDay} // Passed selectedDayString
-              onAddTaskClick={handleAddTaskClick}
-              onScrollToItem={handleScrollToItem}
-              isProcessingCommand={isProcessingCommand}
-              onFreeTimeClick={handleFreeTimeClick}
-            />
-          )}
-        </CardContent>
-      </Card>
-    </>
-  );
-
-  const renderSinkView = () => (
-    <AetherSink 
-      retiredTasks={retiredTasks} 
-      onRezoneTask={handleRezoneFromSink} 
-      onRemoveRetiredTask={handlePermanentDeleteRetiredTask}
-      onAutoScheduleSink={handleAutoScheduleSinkWrapper}
-      isLoading={isLoadingRetiredTasks}
-      isProcessingCommand={isProcessingCommand}
-      hideTitle={false} 
-      profileEnergy={profile?.energy || 0}
-      retiredSortBy={retiredSortBy} 
-      setRetiredSortBy={setRetiredSortBy} 
-    />
-  );
-
-  const renderRecapView = () => (
-    <DailyVibeRecapCard
-      scheduleSummary={currentSchedule?.summary || null}
-      tasksCompletedToday={tasksCompletedForSelectedDay}
-      xpEarnedToday={xpEarnedForSelectedDay}
-      profileEnergy={profile?.energy || 0}
-      criticalTasksCompletedToday={criticalTasksCompletedForSelectedDay}
-      selectedDayString={selectedDay}
-      completedScheduledTasks={completedScheduledTasksForRecap}
-      totalActiveTimeMinutes={totalActiveTimeMinutes}
-      totalBreakTimeMinutes={totalBreakTimeMinutes}
-    />
-  );
-
-  return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      {/* Immersive Focus Mode (Highest Layer) */}
-      {isFocusModeActive && activeItemToday && currentSchedule && (
-        <ImmersiveFocusMode
-          activeItem={activeItemToday}
-          T_current={T_current}
-          onExit={() => setIsFocusModeActive(false)}
-          onAction={handleSchedulerAction}
-          dbTask={currentSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null}
-          nextItem={nextItemToday}
-          isProcessingCommand={isProcessingCommand}
-        />
-      )}
-
-      {/* Energy Regen Pod Modal (Highest Layer) */}
-      {(isRegenPodActive || showPodSetupModal) && (
-        <EnergyRegenPodModal
-          isOpen={isRegenPodActive || showPodSetupModal}
-          onExit={handlePodExit}
-          onStart={async (activityName, activityDuration) => { 
-            // This is the new trigger for the actual start
-            await startRegenPodState(activityDuration); 
-            setShowPodSetupModal(false); // Close setup state
-          }}
-          isProcessingCommand={isProcessingCommand}
-          // Use regenPodDurationMinutes if active, otherwise use the calculated duration from setup
-          totalDurationMinutes={isRegenPodActive ? regenPodDurationMinutes : calculatedPodDuration} 
-        />
-      )}
-
-      {/* Section A: Metrics & Calendar (Always Visible) */}
-      <SchedulerDashboardPanel 
-        scheduleSummary={currentSchedule?.summary || null} 
-        onAetherDump={handleAetherDumpButton}
-        isProcessingCommand={isProcessingCommand}
-        hasFlexibleTasks={hasFlexibleTasksOnCurrentDay}
-        onRefreshSchedule={handleRefreshSchedule}
-      />
-
-      {/* WRAP CalendarStrip in a Card */}
-      <Card className="p-4 space-y-4 animate-slide-in-up animate-hover-lift">
-        <CalendarStrip 
-          selectedDay={selectedDay} 
-          setSelectedDay={setSelectedDay} 
-          datesWithTasks={datesWithTasks} 
-          isLoadingDatesWithTasks={isLoadingDatesWithTasks}
-        />
-        
-        {/* NEW: Primary Navigation Tabs */}
-        <SchedulerSegmentedControl currentView={view} />
-      </Card>
-
-      {/* Conditional View Rendering based on 'view' prop */}
-      <div className="animate-slide-in-up">
-        {view === 'schedule' && renderScheduleCore()}
-        {view === 'recap' && renderRecapView()}
-        {view === 'sink' && renderSinkView()}
-      </div>
-
-      {/* Mobile Controls Drawer (Hidden on desktop) */}
-      {isMobile && view === 'schedule' && (
-          <Drawer>
-              <DrawerTrigger asChild>
-                  <Button
-                      variant="default"
-                      size="icon"
-                      className={cn(
-                          "fixed bottom-28 right-4 z-50 h-14 w-14 rounded-full shadow-xl bg-accent hover:bg-accent/90 transition-all duration-200",
-                          isProcessingCommand && "opacity-70 cursor-not-allowed"
-                      )}
-                      disabled={isProcessingCommand}
-                  >
-                      <Settings2 className="h-6 w-6" />
-                      <span className="sr-only">Open Schedule Controls</span>
-                  </Button>
-              </DrawerTrigger>
-              <DrawerContent className="max-h-[90vh]">
-                  <DrawerHeader className="text-left">
-                      <DrawerTitle className="flex items-center gap-2 text-xl font-bold">
-                          <Settings2 className="h-6 w-6 text-primary" /> Schedule Controls
-                      </DrawerTitle>
-                  </DrawerHeader>
-                  <div className="p-4 overflow-y-auto space-y-4">
-                      {/* Mobile Context Bar */}
-                      <SchedulerContextBar T_current={T_current} />
-                      
-                      {/* Mobile Action Center */}
-                      <SchedulerActionCenter 
-                          isProcessingCommand={isProcessingCommand}
-                          dbScheduledTasks={dbScheduledTasks}
-                          retiredTasksCount={retiredTasks.length}
-                          sortBy={sortBy}
-                          onRebalanceToday={handleRebalanceToday} // Renamed
-                          onRebalanceAllFlexible={handleRebalanceAllFlexible} // NEW
-                          onCompactSchedule={handleCompactSchedule}
-                          onRandomizeBreaks={handleRandomizeBreaks}
-                          onZoneFocus={handleZoneFocus}
-                          onRechargeEnergy={() => rechargeEnergy()}
-                          onQuickBreak={handleQuickBreakButton}
-                          onQuickScheduleBlock={handleQuickScheduleBlock}
-                          onSortFlexibleTasks={handleSortFlexibleTasks}
-                          onAetherDump={handleAetherDumpButton}
-                          onAetherDumpMega={handleAetherDumpMegaButton}
-                          onRefreshSchedule={handleRefreshSchedule}
-                          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)}
-                          onStartRegenPod={handleStartRegenPod}
-                          hasFlexibleTasksOnCurrentDay={hasFlexibleTasksOnCurrentDay}
-                      />
-                  </div>
-              </DrawerContent>
-          </Drawer>
-      )}
-
-      {/* Modals and Dialogs */}
-      <Dialog open={injectionPrompt?.isOpen || false} onOpenChange={(open) => !open && setInjectionPrompt(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>✨ Injection received: "{injectionPrompt?.taskName || 'New Task'}"</DialogTitle>
-            <DialogDescription>
-              Please provide the details for this task.
-            </DialogDescription>
-          </DialogHeader>
-          <React.Fragment>
-            <div className="grid gap-4 py-4">
-              {injectionPrompt?.isTimed ? (
-                <>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="startTime" className="text-right">
-                      Start Time
-                    </Label>
-                    <Input
-                      id="startTime"
-                      type="text"
-                      placeholder="e.g., 11am"
-                      value={injectionStartTime}
-                      onChange={(e) => setInjectionStartTime(e.target.value)}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="endTime" className="text-right">
-                      End Time
-                    </Label>
-                    <Input
-                      id="endTime"
-                      type="text"
-                      placeholder="e.g., 12pm"
-                      value={injectionEndTime}
-                      onChange={(e) => setInjectionEndTime(e.target.value)}
-                      className="col-span-3"
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="duration" className="text-right">
-                      Duration (min)
-                    </Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      placeholder="e.g., 60"
-                      value={injectionDuration}
-                      onChange={(e) => setInjectionDuration(e.target.value)}
-                      className="col-span-3"
-                      min="1"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="break" className="text-right">
-                      Break (min, optional)
-                    </Label>
-                    <Input
-                      id="break"
-                      type="number"
-                      placeholder="e.g., 15"
-                      value={injectionBreak}
-                      onChange={(e) => setInjectionBreak(e.target.value)}
-                      className="col-span-3"
-                      min="0"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </React.Fragment>
-          <DialogFooter>
-            <Button type="button" onClick={handleInjectionSubmit}>
-              Add Task
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={showClearConfirmation} onOpenChange={setShowClearConfirmation}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action will permanently delete all scheduled tasks for {formatFns(parseISO(selectedDay), 'EEEE, MMMM d')}. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive hover:bg-destructive/90">
-              Clear Schedule
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Scheduled Task Permanent Delete Confirmation */}
-      <AlertDialog open={showDeleteScheduledTaskConfirmation} onOpenChange={setShowDeleteScheduledTaskConfirmation}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Permanently Delete Task?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to permanently delete "{scheduledTaskToDeleteName}" from your schedule? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPermanentDeleteScheduledTask} className="bg-destructive hover:bg-destructive/90" autoFocus>
-              Delete Permanently
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Retired Task Permanent Delete Confirmation */}
-      <AlertDialog open={showDeleteRetiredTaskConfirmation} onOpenChange={setShowDeleteRetiredTaskConfirmation}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Permanently Delete Retired Task?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to permanently delete "{retiredTaskToDeleteName}" from the Aether Sink? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPermanentDeleteRetiredTask} className="bg-destructive hover:bg-destructive/90" autoFocus>
-              Delete Permanently
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <WorkdayWindowDialog 
-        open={showWorkdayWindowDialog} 
-        onOpenChange={setShowWorkdayWindowDialog} 
-      />
-
-      <EarlyCompletionModal
-        isOpen={showEarlyCompletionModal}
-        onOpenChange={(open) => {
-          if (!open && !isProcessingCommand) {
-            setShowEarlyCompletionModal(false);
-            setEarlyCompletionDbTask(null);
-          }
-        }}
-        taskName={earlyCompletionTaskName}
-        remainingDurationMinutes={earlyCompletionRemainingMinutes}
-        onTakeBreak={() => handleSchedulerAction('takeBreak', earlyCompletionDbTask!, true, earlyCompletionRemainingMinutes)}
-        onStartNextTask={() => handleSchedulerAction('startNext', earlyCompletionDbTask!, true)}
-        onJustFinish={() => handleSchedulerAction('justFinish', earlyCompletionDbTask!, true)}
-        isProcessingCommand={isProcessingCommand}
-        hasNextTask={!!nextItemToday}
-      />
-
-      {/* NEW: Energy Deficit Confirmation Dialog */}
-      {profile && taskToCompleteInDeficit && (
-        <EnergyDeficitConfirmationDialog
-          isOpen={showEnergyDeficitConfirmation}
-          onOpenChange={(open) => {
-            if (!open && !isProcessingCommand) {
-              setShowEnergyDeficitConfirmation(false);
-              setTaskToCompleteInDeficit(null);
-              setTaskToCompleteInDeficitIndex(null);
-            }
-          }}
-          taskName={taskToCompleteInDeficit.name}
-          taskEnergyCost={taskToCompleteInDeficit.energy_cost}
-          currentEnergy={profile.energy}
-          onConfirm={confirmCompleteTaskInDeficit}
-          isProcessingCommand={isProcessingCommand}
-        />
-      )}
-    </div>
-  );
-};
-
-export default SchedulerPage;
+      taskName:<dyad-problem-report summary="160 problems">
+<problem file="src/lib/scheduler-utils.ts" line="696" column="13" code="2304">Cannot find name 'isSlotFree'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="10" column="57" code="2305">Module '&quot;@/lib/scheduler-utils&quot;' has no exported member 'isSlotFree'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="132" column="28" code="2451">Cannot redeclare block-scoped variable 'completeScheduledTaskMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1253" column="9" code="2451">Cannot redeclare block-scoped variable 'completeScheduledTaskMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="18" column="3" code="2305">Module '&quot;@/lib/scheduler-utils&quot;' has no exported member 'isSlotFree'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="96" column="7" code="2322">Type '({ view }: SchedulerPageProps) =&gt; { dbScheduledTasks: DBScheduledTask[]; isLoading: any; addScheduledTask: any; addRetiredTask: any; removeScheduledTask: any; ... 27 more ...; triggerAetherSinkBackup: any; }' is not assignable to type 'FC&lt;SchedulerPageProps&gt;'.
+  Type '{ dbScheduledTasks: DBScheduledTask[]; isLoading: any; addScheduledTask: any; addRetiredTask: any; removeScheduledTask: any; clearScheduledTasks: any; datesWithTasks: string[]; ... 25 more ...; triggerAetherSinkBackup: any; }' is not assignable to type 'ReactNode'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1234" column="9" code="2322">Type '{ start: string; end: string; duration: number; }[]' is not assignable to type 'TimeBlock[]'.
+  Type '{ start: string; end: string; duration: number; }' is not assignable to type 'TimeBlock'.
+    Types of property 'start' are incompatible.
+      Type 'string' is not assignable to type 'Date'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1253" column="41" code="2304">Cannot find name 'useMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1255" column="12" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1263" column="43" code="2304">Cannot find name 'XP_PER_LEVEL'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1273" column="25" code="2304">Cannot find name 'isToday'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1277" column="19" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1285" column="20" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1288" column="140" code="2304">Cannot find name 'DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1289" column="135" code="2304">Cannot find name 'DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1303" column="24" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1310" column="70" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1311" column="101" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1312" column="33" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1315" column="70" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1322" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1324" column="9" code="2304">Cannot find name 'triggerLevelUp'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1327" column="53" code="2304">Cannot find name 'MutationContext'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1328" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1329" column="73" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1330" column="11" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1331" column="9" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1340" column="46" code="2304">Cannot find name 'useMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1342" column="12" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1347" column="24" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1356" column="70" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1357" column="101" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1358" column="33" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1360" column="70" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1368" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1369" column="73" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1370" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1373" column="53" code="2304">Cannot find name 'MutationContext'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1374" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1375" column="73" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1376" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1377" column="11" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1378" column="9" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1386" column="45" code="2304">Cannot find name 'useMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1388" column="12" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1393" column="24" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1401" column="45" code="2339">Property 'mutateAsync' does not exist on type 'UseMutateAsyncFunction&lt;{ newXp: number; newLevel: number; newEnergy: number; }, Error, DBScheduledTask, { previousScheduledTasks: DBScheduledTask[]; previousScrollTop: number; }&gt;'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1410" column="26" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1421" column="70" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1422" column="101" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1423" column="33" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1425" column="70" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1433" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1434" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1435" column="73" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1438" column="53" code="2304">Cannot find name 'MutationContext'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1439" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1440" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1441" column="73" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1442" column="11" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1443" column="9" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1451" column="44" code="2304">Cannot find name 'useMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1453" column="12" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1458" column="24" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1467" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1468" column="93" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1469" column="33" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1471" column="64" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1479" column="66" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1480" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1483" column="53" code="2304">Cannot find name 'MutationContext'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1484" column="66" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1485" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1486" column="11" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1487" column="9" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1495" column="43" code="2304">Cannot find name 'useMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1497" column="12" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1502" column="24" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1517" column="26" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1528" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1529" column="93" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1530" column="33" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1532" column="64" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1540" column="66" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1541" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1544" column="53" code="2304">Cannot find name 'MutationContext'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1545" column="66" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1546" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1547" column="11" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1548" column="9" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1556" column="39" code="2304">Cannot find name 'useMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1558" column="12" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1566" column="43" code="2304">Cannot find name 'XP_PER_LEVEL'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1576" column="25" code="2304">Cannot find name 'isToday'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1580" column="19" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1588" column="20" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1606" column="24" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1613" column="68" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1614" column="93" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1615" column="33" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1618" column="64" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1625" column="66" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1626" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1626" column="94" code="2304">Cannot find name 'formattedSelectedDate'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1628" column="9" code="2304">Cannot find name 'triggerLevelUp'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1631" column="53" code="2304">Cannot find name 'MutationContext'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1632" column="66" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1633" column="86" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1633" column="94" code="2304">Cannot find name 'formattedSelectedDate'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1634" column="11" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1635" column="9" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1645" column="43" code="2304">Cannot find name 'useMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1647" column="12" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1648" column="93" code="2304">Cannot find name 'userId'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1655" column="33" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1661" column="53" code="2304">Cannot find name 'MutationContext'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1662" column="11" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1663" column="9" code="2304">Cannot find name 'scrollRef'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1674" column="16" code="2304">Cannot find name 'isLoading'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1675" column="23" code="2552">Cannot find name 'addScheduledTaskMutation'. Did you mean 'addScheduledTask'?</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1676" column="21" code="2304">Cannot find name 'addRetiredTaskMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1677" column="26" code="2552">Cannot find name 'removeScheduledTaskMutation'. Did you mean 'removeScheduledTask'?</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1678" column="26" code="2552">Cannot find name 'clearScheduledTasksMutation'. Did you mean 'clearScheduledTasks'?</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1685" column="17" code="2304">Cannot find name 'retireTaskMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1686" column="17" code="2304">Cannot find name 'rezoneTaskMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1687" column="28" code="2552">Cannot find name 'compactScheduledTasksMutation'. Did you mean 'completeScheduledTaskMutation'?</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1688" column="22" code="2304">Cannot find name 'randomizeBreaksMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1689" column="30" code="2304">Cannot find name 'toggleScheduledTaskLockMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1690" column="28" code="2304">Cannot find name 'toggleRetiredTaskLockMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1691" column="17" code="2304">Cannot find name 'aetherDumpMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1692" column="21" code="2304">Cannot find name 'aetherDumpMegaMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1697" column="26" code="2304">Cannot find name 'autoBalanceScheduleMutation'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1698" column="58" code="2339">Property 'mutateAsync' does not exist on type 'UseMutateAsyncFunction&lt;{ newXp: number; newLevel: number; newEnergy: number; }, Error, DBScheduledTask, { previousScheduledTasks: DBScheduledTask[]; previousScrollTop: number; }&gt;'.</problem>
+<problem file="src/pages/SchedulerPage.tsx" line="1704" column="24" code="2304">Cannot find name 'removeRetiredTaskMutation'.</problem>
+<problem file="src/App.tsx" line="13" column="8" code="1192">Module '&quot;/Users/danielebuatti/dyad-apps/productive-sloth/src/pages/SchedulerPage&quot;' has no default export.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="1" column="206" code="2307">Cannot find module 'https://esm.sh/date-fns@2.30.0' or its corresponding type declarations.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="489" column="68" code="2304">Cannot find name 'NewRetiredTask'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="535" column="52" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="535" column="66" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="541" column="17" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="565" column="19" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="568" column="4" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="569" column="21" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="606" column="12" code="2304">Cannot find name 'DBScheduledTask'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="611" column="29" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="612" column="18" code="2304">Cannot find name 'DBScheduledTask'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="613" column="4" code="2304">Cannot find name 'DBScheduledTask'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="619" column="31" code="2304">Cannot find name 'DBScheduledTask'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="656" column="30" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="676" column="36" code="2304">Cannot find name 'DBScheduledTask'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="695" column="13" code="2304">Cannot find name 'isSlotFree'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="729" column="12" code="2304">Cannot find name 'DBScheduledTask'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="743" column="4" code="2304">Cannot find name 'FormattedSchedule'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="744" column="16" code="2304">Cannot find name 'ScheduledItem'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="752" column="32" code="2304">Cannot find name 'TimeBlock'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="776" column="25" code="2304">Cannot find name 'ScheduledItem'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="826" column="24" code="2304">Cannot find name 'ScheduledItem'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="887" column="19" code="2304">Cannot find name 'ScheduledItemType'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="900" column="17" code="2304">Cannot find name 'ScheduledItem'.</problem>
+<problem file="supabase/functions/_shared/scheduler-utils.ts" line="942" column="18" code="2304">Cannot find name 'ScheduleSummary'.</problem>
+</dyad-problem-report><think>**Fixing TypeScript Errors**
+
+I'm currently addressing 160 TypeScript compile-time errors. The bulk of these involve missing imports, variable redeclarations, and type inconsistencies, particularly with `TimeBlock` and `Scheduled` types. I'm focusing on resolving these errors methodically, starting with the most frequent and impactful ones to maintain code reliability.
+
+
+**Resolving Missing Imports**
+
+I'm making progress resolving missing imports, variable redeclarations, and type mismatches.  Specifically, I've identified that `isSlotFree` is unexported, and I am correcting that.  The errors were spread across `src/lib/scheduler-utils.ts`, `supabase/functions/_shared/scheduler-utils.ts`, and `src/pages/SchedulerPage.tsx`. I am methodically tracking these fixes.
+
+
+**Refining Type Declarations**
+
+I've been analyzing and categorizing the remaining TypeScript errors. I see that there are several type declaration errors, including those for the return values of  the `useSchedulerTasks` and `useUser` hooks, which are causing type inference issues, particularly for the components. This is coupled with a need to correctly manage imports and exports. I'm focusing on strengthening  the type definitions of all the variables and functions to ensure clear type assignments and resolution of type mismatches.
+
+
+**Prioritizing Remaining Issues**
+
+I've examined the remaining 160 TypeScript errors and divided them into categories. Many pertain to missing imports, particularly `isSlotFree` and the various mutation functions returned by `useSchedulerTasks`. Type mismatches, especially involving `TimeBlock` and related types, are also prevalent. I'll focus on these areas for efficient resolution. I'll start with exporting `isSlotFree`, and then fixing the `useSchedulerTasks` function.
+
+I'm now focusing on the `useSchedulerTasks` function because its return type is complex and is likely causing many of the other type errors. The function returns a complex object with various mutation functions, state, and other data, and this return type isn't correctly handled by the `SchedulerPage` component. I'm going to refine the typing of `useSchedulerTasks` hook's return value to ensure consistency with how it's used within the `SchedulerPage` component.
+
+
+**Refining Hook Typing**
+
+I'm now diving into the `useSchedulerTasks` hook, focusing on refining its complex return type to address numerous downstream type errors. Its return value is extensive, encompassing mutation functions, state, and other data, creating type inference problems with the `SchedulerPage` component. I'm scrutinizing the typing of all internal hooks and data structures to ensure clear type assignments and resolve mismatches with how the returned values are utilized within the component.
+
+
+**Analyzing Type Mismatches**
+
+I'm now diving into the remaining type mismatches, particularly focusing on `TimeBlock` and related types in the auto-balance schedule and related edge functions. There's inconsistency between `Date` objects and string ISO dates within the `AutoBalancePayload`, and I'm updating definitions in `src/types/scheduler.ts` and `supabase/functions/auto-balance-schedule/index.ts` to ensure consistency and correct data transformation during API calls.
+
+
+**Tackling Type Inference**
+
+I'm now focusing on resolving the most complex type errors, especially those linked to `useSchedulerTasks` and the `SchedulerPage` component. I'm scrutinizing how the return values of hooks are being used within the component.
+
+
+
+**Addressing Type Mismatches**
+
+I'm now focusing on resolving type mismatches related to `TimeBlock`, particularly around date serialization in edge functions. Inconsistent types exist between date objects and ISO strings, causing issues with auto-balance schedule calculations. I'm updating definitions in `src/types/scheduler.ts` and related edge function code to ensure data consistency and correct API call transformations, especially in the `AutoBalancePayload`.
+
+
+**Prioritizing Remaining Tasks**
+
+I am now focusing on refining the complex return type of the `useSchedulerTasks` hook and resolving the resulting type inference issues. I need to resolve the type conflicts surrounding TimeBlock and the AutoBalancePayload to ensure correct data serialization and avoid mismatches. I'm also addressing the missing import of `isSlotFree`.
+
+
+**Tackling Complex Types**
+
+I'm now focusing on resolving the type errors, particularly the complexities around `useSchedulerTasks` and `SchedulerPage`. The return types need refinement to align with their usage, resolving downstream mismatches. I'm carefully scrutinizing all related hooks and data structures to ensure clear and consistent typing across components.
+
+
+**Tackling Complex Type Issues**
+
+I'm now focusing on resolving type errors related to `useSchedulerTasks` return value. These are causing complex downstream issues, especially around how the component uses the hook's returned data. Refining the type structure of `useSchedulerTasks` will significantly improve type safety across the application and eliminate the type inference problems.
+
+
+**Addressing Complex Type Inference**
+
+I'm now focusing on resolving type mismatches within the `useSchedulerTasks` hook, specifically with `completeScheduledTaskMutation` and related functions. This should eliminate numerous downstream errors. I'll meticulously review the hook's return value and its use within the `SchedulerPage` component to ensure type consistency, particularly the mutations and their types.
+
+
+**Refining Hook Types**
+
+I'm working on the `useSchedulerTasks` hook, focusing on fixing type errors stemming from its complex return type. The hook returns several mutation functions and state, which has caused problems when being destructured and utilized within the `SchedulerPage` component. I'm carefully scrutinizing all related hooks and data structures to ensure clear type assignments and resolve mismatches with how the returned values are used within the component.
+
+
+**Resolving Type Mismatches**
+
+I'm starting to resolve the type conflicts, especially focusing on `TimeBlock` and `AutoBalancePayload`, ensuring consistent data formats during serialization and API calls within edge functions. I'll meticulously update the definitions in `src/types/scheduler.ts` and related code.
+
+
+**Tackling Complex Inference**
+
+I'm now wrestling with the complexities of type inference, particularly around `useSchedulerTasks` and its interactions with `SchedulerPage`. The type mismatches are proving trickier than anticipated. I'm focusing on ensuring data consistency and correctness throughout the application.
+
+
+**Tackling Complex Inference**
+
+I've been meticulously addressing the remaining type errors, particularly those concerning `useSchedulerTasks` return type. These issues span `TimeBlock` inconsistencies in date serialization to downstream problems with mutation function inference. I'm carefully scrutinizing all related hooks and data structures to ensure clear and consistent typing, resolving mismatches that are hindering code reliability.
+
+
+</think>It looks like there are several TypeScript errors related to missing imports, scope, and type definitions, especially concerning the shared utility functions and the `SchedulerPage` component. I'll go through and fix these issues to ensure the scheduling logic works correctly with meal times.
+
+Here's a summary of the changes I'll make:
+
+1.  **Export `isSlotFree`**: This utility function is used in multiple places but wasn't exported from `src/lib/scheduler-utils.ts` or `supabase/functions/_shared/scheduler-utils.ts`.
+2.  **Refactor `SchedulerPage` and `useSchedulerTasks`**:
+    *   I'll ensure all necessary hooks (`useMutation`, `useQueryClient`) and constants (`XP_PER_LEVEL`, `DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION`) are correctly imported in `src/hooks/use-scheduler-tasks.ts` and `src/pages/SchedulerPage.tsx`.
+    *   I'll fix the redeclaration of `completeScheduledTaskMutation` in `src/pages/SchedulerPage.tsx` by using the function returned by `useSchedulerTasks` directly.
+    *   I'll ensure `userId` and `profile` are correctly accessed within the mutation functions.
+    *   I'll export `MutationContext` from `src/hooks/use-scheduler-tasks.ts` so it can be used consistently.
+3.  **Adjust `AutoBalancePayload` for Edge Function communication**: The `dynamicOccupiedBlocks` in the payload sent to the edge function need to be serialized as strings, so I'll update the `AutoBalancePayload` type in `src/types/scheduler.ts` to reflect this.
+4.  **Correct `SchedulerPage` export**: `SchedulerPage` is currently defined as a named export but imported as a default. I'll change it to a default export.
+5.  **Create shared types for Supabase Edge Functions**: To avoid duplicating type definitions and ensure consistency, I'll create a new file `supabase/functions/_shared/types.ts` and move common scheduler-related types there. Then, `src/types/scheduler.ts` and the Supabase functions will import from this new shared types file.
+
+These changes will ensure that the scheduling logic correctly accounts for meal times and other dynamic blocks, and that the TypeScript compiler is happy!
+
+<dyad-write path="src/types/scheduler.ts" description="Updating the FormattedSchedule interface to include dynamic occupied blocks and adjusting AutoBalancePayload for string dates.">
+export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
+export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
+export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
+export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI' | 'NAME_ASC' | 'NAME_DESC'; // Updated SortBy
+
+// NEW: Type for task environment
+export type TaskEnvironment = 'home' | 'laptop' | 'away' | 'piano' | 'laptop_piano';
+
+// NEW: Type for sorting retired tasks
+export type RetiredTaskSortBy = 
+  'NAME_ASC' | 'NAME_DESC' |
+  'DURATION_ASC' | 'DURATION_DESC' |
+  'CRITICAL_FIRST' | 'CRITICAL_LAST' |
+  'LOCKED_FIRST' | 'LOCKED_LAST' |
+  'ENERGY_ASC' | 'ENERGY_DESC' |
+  'RETIRED_AT_NEWEST' | 'RETIRED_AT_OLDEST' |
+  'COMPLETED_FIRST' | 'COMPLETED_LAST' |
+  'EMOJI'; // Added EMOJI sort option
+
+export interface Task {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string; // Added description
+  is_completed: boolean;
+  priority: TaskPriority;
+  metadata_xp: number;
+  energy_cost: number; // Added energy_cost
+  due_date: string; // ISO date string
+  created_at: string;
+  updated_at: string; // Added updated_at
+  is_critical: boolean; // NEW: Critical Urgency Flag
+  is_custom_energy_cost: boolean; // NEW: Added for custom energy cost
+  is_backburner: boolean; // FIX: Added missing property
+}
+
+export interface NewTask {
+  title: string;
+  priority: TaskPriority;
+  metadata_xp: number;
+  energy_cost: number; // Added energy_cost to NewTask
+  due_date: string;
+  description?: string; // Added description to NewTask
+  is_critical?: boolean; // NEW: Critical Urgency Flag
+  is_custom_energy_cost?: boolean; // NEW: Added for custom energy cost
+  is_backburner?: boolean; // NEW: Backburner Urgency Flag
+}
+
+// --- Scheduler Types ---
+
+export interface RawTaskInput {
+  name: string;
+  duration: number; // in minutes
+  breakDuration?: number; // in minutes
+  isCritical?: boolean; // NEW: Critical Urgency Flag
+  isFlexible?: boolean; // NEW: Added isFlexible to RawTaskInput
+  isBackburner?: boolean; // NEW: Backburner Urgency Flag
+  energyCost: number; // NEW: Made energyCost required
+}
+
+// Supabase-specific types for scheduled tasks
+export interface DBScheduledTask {
+  id: string;
+  user_id: string;
+  name: string;
+  break_duration: number | null;
+  start_time: string | null; // New: ISO date string for timed events
+  end_time: string | null;   // New: ISO date string for timed events
+  scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
+  created_at: string;
+  updated_at: string; // NEW: Added updated_at
+  is_critical: boolean; // NEW: Critical Urgency Flag
+  is_flexible: boolean; // NEW: Flag for schedule compaction
+  is_locked: boolean; // NEW: Task Immutability Flag
+  energy_cost: number; // NEW: Made energyCost required
+  is_completed: boolean; // NEW: Added is_completed for scheduled tasks
+  is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
+  task_environment: TaskEnvironment; // NEW: Task environment
+  source_calendar_id: string | null; // NEW: Source calendar ID for read-only events
+  is_backburner: boolean; // NEW: Backburner Urgency Flag
+}
+
+export interface NewDBScheduledTask {
+  id?: string; // NEW: Added optional ID for upsert operations
+  name: string;
+  break_duration?: number;
+  start_time?: string; // Optional for duration-based tasks
+  end_time?: string;   // Optional for duration-based tasks
+  scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
+  is_critical?: boolean; // NEW: Critical Urgency Flag
+  is_flexible?: boolean; // NEW: Flag for schedule compaction
+  is_locked?: boolean; // NEW: Task Immutability Flag
+  energy_cost: number; // NEW: Made energyCost required
+  is_completed?: boolean; // NEW: Added is_completed for new scheduled tasks
+  is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
+  task_environment?: TaskEnvironment; // NEW: Task environment
+  source_calendar_id?: string | null; // NEW: Source calendar ID
+  is_backburner?: boolean; // NEW: Backburner Urgency Flag
+}
+
+// New types for retired tasks (Aether Sink)
+export interface RetiredTask {
+  id: string;
+  user_id: string;
+  name: string;
+  duration: number | null; // Duration in minutes (retained for re-zoning)
+  break_duration: number | null; // Break duration in minutes (retained for re-zoning)
+  original_scheduled_date: string; // The date it was originally scheduled for (YYYY-MM-DD)
+  retired_at: string; // Timestamp when it was moved to the sink
+  is_critical: boolean; // NEW: Critical Urgency Flag
+  is_locked: boolean; // NEW: Task Immutability Flag
+  energy_cost: number; // NEW: Made energyCost required
+  is_completed: boolean; // NEW: Added is_completed
+  is_custom_energy_cost: boolean; // NEW: Flag for custom energy cost
+  task_environment: TaskEnvironment; // NEW: Task environment
+  is_backburner: boolean; // NEW: Backburner Urgency Flag
+}
+
+export interface NewRetiredTask {
+  user_id: string;
+  name: string;
+  duration: number | null;
+  break_duration: number | null;
+  original_scheduled_date: string;
+  is_critical?: boolean; // NEW: Critical Urgency Flag
+  is_locked?: boolean; // NEW: Task Immutability Flag
+  energy_cost: number; // NEW: Made energyCost required
+  is_completed?: boolean; // NEW: Added is_completed
+  is_custom_energy_cost?: boolean; // NEW: Flag for custom energy cost
+  task_environment?: TaskEnvironment; // NEW: Task environment
+  is_backburner?: boolean; // NEW: Backburner Urgency Flag
+}
+
+// Helper type for unification (moved from SchedulerPage.tsx)
+export interface UnifiedTask {
+  id: string;
+  name: string;
+  duration: number;
+  break_duration: number | null;
+  is_critical: boolean;
+  is_flexible: boolean;
+  is_backburner: boolean; // NEW: Backburner Urgency Flag
+  energy_cost: number;
+  source: 'scheduled' | 'retired';
+  originalId: string; // ID in the source table
+  is_custom_energy_cost: boolean; // NEW: Add custom energy cost flag
+  created_at: string; // NEW: Add created_at for age sorting
+  task_environment: TaskEnvironment; // NEW: Task environment
+}
+
+// NEW: Payload for the atomic auto-balance mutation
+export interface AutoBalancePayload {
+  scheduledTaskIdsToDelete: string[];
+  retiredTaskIdsToDelete: string[];
+  tasksToInsert: NewDBScheduledTask[];
+  tasksToKeepInSink: NewRetiredTask[];
+  selectedDate: string;
+  // Changed to string for serialization over network
+  dynamicOccupiedBlocks: { start: string; end: string; duration: number }[]; 
+}
+
+export type ScheduledItemType = 'task' | 'break' | 'time-off' | 'meal' | 'calendar-event'; // UPDATED: Added 'calendar-event'
+
+export interface ScheduledItem {
+  id: string; // Unique ID for React keys
+  type: ScheduledItemType;
+  name: string; // Task name or "BREAK"
+  duration: number; // in minutes (calculated for timed events)
+  startTime: Date;
+  endTime: Date;
+  emoji: string;
+  description?: string; // For breaks
+  isTimedEvent: boolean; // New: Flag to differentiate
+  color?: string; // New: For custom colors (e.g., Tailwind class like 'bg-blue-500')
+  isCritical?: boolean; // NEW: Critical Urgency Flag
+  isFlexible?: boolean; // NEW: Flag for schedule compaction
+  isLocked?: boolean; // NEW: Task Immutability Flag
+  energyCost: number; // NEW: Made energyCost required
+  isCompleted: boolean; // NEW: Added isCompleted for scheduled items
+  isCustomEnergyCost: boolean; // NEW: Flag for custom energy cost
+  taskEnvironment: TaskEnvironment; // NEW: Task environment
+  sourceCalendarId: string | null; // NEW: Source calendar ID
+  isBackburner: boolean; // NEW: Backburner Urgency Flag
+}
+
+// NEW: Type for combined completed task log entry for recap metrics
+export interface CompletedTaskLogEntry {
+  id: string;
+  user_id: string;
+  name: string;
+  effective_duration_minutes: number; // Calculated duration for recap metrics
+  break_duration: number | null;
+  start_time: string | null;
+  end_time: string | null;
+  scheduled_date: string;
+  created_at: string;
+  updated_at: string;
+  is_critical: boolean;
+  is_flexible: boolean;
+  is_locked: boolean;
+  energy_cost: number;
+  is_completed: boolean;
+  is_custom_energy_cost: boolean;
+  task_environment: TaskEnvironment;
+  original_source: 'scheduled_tasks' | 'aethersink' | 'tasks';
+}
+
+export interface ScheduleSummary {
+  totalTasks: number;
+  activeTime: { hours: number; minutes: number };
+  breakTime: number; // in minutes
+  sessionEnd: Date;
+  extendsPastMidnight: boolean;
+  midnightRolloverMessage: string | null;
+  unscheduledCount: number; // New: Count of tasks that couldn't fit within the workday window
+  criticalTasksRemaining: number; // NEW: Count of critical tasks not yet completed
+}
+
+// New type for fixed time markers
+export interface TimeMarker {
+  id: string;
+  type: 'marker';
+  time: Date;
+  label: string;
+}
+
+// New type for free time blocks
+export interface FreeTimeItem {
+  id: string;
+  type: 'free-time';
+  startTime: Date;
+  endTime: Date;
+  duration: number; // in minutes
+  message: string;
+  suggestedTask?: RetiredTask | null; // NEW: Add suggested task
+}
+
+// New type for current time marker
+export interface CurrentTimeMarker {
+  id: string;
+  type: 'current-time';
+  time: Date;
+}
+
+// Define FormattedSchedule here
+export interface FormattedSchedule {
+  items: ScheduledItem[];
+  summary: ScheduleSummary;
+  dbTasks: DBScheduledTask[]; // Added for type safety in SchedulerDisplay
+  dynamicOccupiedBlocks: TimeBlock[]; // NEW: Add dynamic occupied blocks (meals, regen pod)
+}
+
+export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker; // Added CurrentTimeMarker
+
+// NEW: TimeBlock interface for scheduler utility functions
+export interface TimeBlock {
+  start: Date;
+  end: Date;
+  duration: number; // in minutes
+}

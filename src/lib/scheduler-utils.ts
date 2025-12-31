@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler'; // Importing from shared types
 
 // --- Constants ---
 export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break']; // Added 'eat' and 'coffee break'
@@ -92,14 +92,14 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
   'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40,
   'design': 320, 'writing': 320, 'art': 330, 'creative': 340, 'draw': 320,
-  'study': 150, // Updated hue for house organization context
+  'study': 150,
   'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260,
   'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40,
-  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, 'eat': 35, // UPDATED: Added 'eat'
+  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, 'eat': 35,
   'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
   'gaming': 0, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150, 
   'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150,
-  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, 'coffee break': 30, // UPDATED: Added 'coffee break'
+  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, 'coffee break': 30,
   'piano': 270, 'music': 270, 'practice': 270,
   'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200,
   'shop': 180, 'bank': 220, 'post': 240, 'errands': 210,
@@ -125,35 +125,35 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'channel': 160, 'anxious': 160,
   'recycling': 140, 'bin': 140,
   'milk': 40, 'cartons': 40,
-  'sync': 290, 'standup': 290, // Added back
+  'sync': 290, 'standup': 290,
   'tutorial': 60,
-  'tv': 10, // Explicitly set for 'TV to Brad'
-  'cobweb': 120, // Same as clean
-  'cables': 210, // Tech-related
-  'fold laundry': 130, // Same as laundry
-  'load of laundry': 130, // Same as laundry
-  'tidy': 140, // Same as organize
-  'room': 150, // Same as room
-  'book': 220, // General admin
-  'waitress': 220, // Same as book
-  'preparation': 220, // Same as book
-  'lego': 100, // Playful green
-  'organise': 200, // General organization
-  'shirts': 200, // Same as organise
-  'gigs': 200, // Same as organise
-  'charge': 210, // Tech-related
-  'vacuum': 210, // Same as charge
-  'put away': 140, // For 'Put away my new sheets'
-  'sheets': 140, // For 'Put away my new sheets'
-  'pants': 140, // For 'Put away my new pants'
-  'medication': 300, // For 'Put medication next to toothbrush'
-  'toothbrush': 300, // For 'Put medication next to toothbrush'
-  'return message': 245, // For 'Return Message To Damien'
-  'voice deal': 270, // For 'Voice Deal for Lydia'
-  'find location': 140, // For 'Find A Location For The Broom'
-  'broom': 120, // For 'Find A Location For The Broom'
-  'practise': 270, // For 'Piano Practise'
-  'track': 270, // For 'PIANO TRACK'
+  'tv': 10,
+  'cobweb': 120,
+  'cables': 210,
+  'fold laundry': 130,
+  'load of laundry': 130,
+  'tidy': 140,
+  'room': 150,
+  'book': 220,
+  'waitress': 220,
+  'preparation': 220,
+  'lego': 100,
+  'organise': 200,
+  'shirts': 200,
+  'gigs': 200,
+  'charge': 210,
+  'vacuum': 210,
+  'put away': 140,
+  'sheets': 140,
+  'pants': 140,
+  'medication': 300,
+  'toothbrush': 300,
+  'return message': 245,
+  'voice deal': 270,
+  'find location': 140,
+  'broom': 120,
+  'practise': 270,
+  'track': 270,
   'catch up': 290,
   'trim': 330,
   'cuticle': 330,
@@ -609,12 +609,12 @@ export const isSlotFree = (
   occupiedBlocks: TimeBlock[]
 ): boolean => {
   for (const block of occupiedBlocks) {
-    // Check for overlap: (StartA < EndB) and (EndA > StartB)
+    // Check for overlap: (start1 < end2) && (end1 > start2)
     if (proposedStart < block.end && proposedEnd > block.start) {
       return false; // Overlaps with an existing block
     }
   }
-  return true; // No overlaps found
+  return true; // No overlap found
 };
 
 export const compactScheduleLogic = (
@@ -623,6 +623,7 @@ export const compactScheduleLogic = (
   workdayStartTime: Date,
   workdayEndTime: Date,
   T_current: Date,
+  additionalOccupiedBlocks: TimeBlock[] = [], // NEW: Add additional occupied blocks
   tasksToPlace?: DBScheduledTask[] // Optional: specific tasks to place, if not all flexible tasks
 ): DBScheduledTask[] => {
   const isTodaySelected = isSameDay(selectedDayAsDate, T_current);
@@ -668,20 +669,23 @@ export const compactScheduleLogic = (
   });
 
   let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
-    fixedAndLockedTasks
-      .filter(task => task.start_time && task.end_time)
-      .map(task => {
-        const utcStart = parseISO(task.start_time!);
-        const utcEnd = parseISO(task.end_time!);
+    [
+      ...fixedAndLockedTasks
+        .filter(task => task.start_time && task.end_time)
+        .map(task => {
+          const utcStart = parseISO(task.start_time!);
+          const utcEnd = parseISO(task.end_time!);
 
-        let localStart = setTimeOnDate(selectedDayAsDate, format(utcStart, 'HH:mm'));
-        let localEnd = setTimeOnDate(selectedDayAsDate, format(utcEnd, 'HH:mm'));
+          let localStart = setTimeOnDate(selectedDayAsDate, format(utcStart, 'HH:mm'));
+          let localEnd = setTimeOnDate(selectedDayAsDate, format(utcEnd, 'HH:mm'));
 
-        if (isBefore(localEnd, localStart)) {
-          localEnd = addDays(localEnd, 1);
-        }
-        return { start: localStart, end: localEnd, duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)) };
-      })
+          if (isBefore(localEnd, localStart)) {
+            localEnd = addDays(localEnd, 1);
+          }
+          return { start: localStart, end: localEnd, duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)) };
+        }),
+      ...additionalOccupiedBlocks // NEW: Include additional occupied blocks
+    ]
   );
 
   const newFlexibleTaskPlacements: DBScheduledTask[] = [];
@@ -760,6 +764,7 @@ export const calculateSchedule = (
   let sessionEnd = workdayStart; // Initialize with workdayStart
   let extendsPastMidnight = false;
   let midnightRolloverMessage: string | null = null;
+  const dynamicOccupiedBlocks: TimeBlock[] = []; // NEW: Collect dynamic blocks here
 
   // Create a local Date object for the start of the selected day
   const [year, month, day] = selectedDay.split('-').map(Number);
@@ -804,6 +809,7 @@ export const calculateSchedule = (
           isBackburner: false,
         };
         items.push(mealItem);
+        dynamicOccupiedBlocks.push({ start: intersectionStart, end: intersectionEnd, duration: effectiveDuration }); // NEW: Add to dynamic blocks
         totalBreakTimeMinutes += mealItem.duration; // Meals count as break time
         sessionEnd = isAfter(mealItem.endTime, sessionEnd) ? mealItem.endTime : sessionEnd;
       }
@@ -854,6 +860,7 @@ export const calculateSchedule = (
             isBackburner: false, // NEW: Default to false
         };
         items.push(podItem);
+        dynamicOccupiedBlocks.push({ start: podStart, end: podEnd, duration: podItem.duration }); // NEW: Add to dynamic blocks
         totalBreakTimeMinutes += podItem.duration;
         sessionEnd = isAfter(podEnd, sessionEnd) ? podEnd : sessionEnd;
     }
@@ -962,5 +969,6 @@ export const calculateSchedule = (
     items: items,
     summary: summary,
     dbTasks: dbTasks,
+    dynamicOccupiedBlocks: dynamicOccupiedBlocks, // NEW: Return dynamic occupied blocks
   };
 };

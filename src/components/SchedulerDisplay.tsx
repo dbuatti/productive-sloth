@@ -78,11 +78,11 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   const finalDisplayItems = useMemo(() => {
     if (!schedule || schedule.items.length === 0) return [];
     const items = [...schedule.items];
-    const actualStart = min(schedule.items.map(i => i.startTime));
+    const actualStart = min(items.map(i => i.startTime));
     const processed: DisplayItem[] = [];
     let cursor = actualStart;
 
-    schedule.items.forEach(item => {
+    items.forEach(item => {
       if (differenceInMinutes(item.startTime, cursor) > 0) {
         processed.push({
           id: `gap-${cursor.getTime()}`,
@@ -154,7 +154,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
           const taskItem = item as ScheduledItem;
           const dbTask = schedule.dbTasks.find(t => t.id === taskItem.id);
           const isActive = taskItem.id === activeItemId;
-          const isPastItem = isPast(taskItem.endTime) && !isActive;
+          const isPastItem = isPast(taskItem.endTime) && !isActive; // Keep visual fade for past items, but allow interaction
           const duration = differenceInMinutes(taskItem.endTime, taskItem.startTime);
 
           const hue = getEmojiHue(taskItem.name);
@@ -176,7 +176,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 <div className={cn(
                   "h-3 w-3 rounded-full border-2 border-background transition-all duration-700",
                   isActive ? "bg-primary scale-150 shadow-[0_0_15px_rgba(var(--primary-rgb),0.6)]" : "bg-secondary border-primary/20",
-                  isPastItem && "opacity-30 grayscale"
+                  isPastItem && "opacity-30 grayscale" // Keep visual fade
                 )} />
               </div>
 
@@ -184,7 +184,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 className={cn(
                   "flex-1 rounded-2xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between p-4",
                   isActive ? "bg-primary/10 border-primary/40 shadow-2xl ring-1 ring-primary/20" : "bg-card/30 border-white/10 hover:border-primary/30",
-                  isPastItem && "opacity-40 grayscale pointer-events-none"
+                  isPastItem && "opacity-40 grayscale" // Keep visual fade, removed pointer-events-none
                 )}
                 style={{ 
                   minHeight: `${duration * MINUTE_HEIGHT}px`,
@@ -220,7 +220,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
 
                   {/* RESTORED & IMPROVED ACTIONS AREA */}
                   <div className="flex items-center gap-1.5 shrink-0 bg-background/40 p-1 rounded-lg border border-white/5">
-                    {dbTask && !isPastItem && (
+                    {dbTask && ( // Removed !isPastItem condition here
                       <>
                         <Tooltip>
                           <TooltipTrigger asChild>

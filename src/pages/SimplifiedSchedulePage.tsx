@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
 import WeeklyScheduleGrid from '@/components/WeeklyScheduleGrid';
-import { format, startOfWeek, isSameDay, parseISO } from 'date-fns'; // Added parseISO
+import { format, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const SimplifiedSchedulePage: React.FC = () => {
@@ -20,13 +20,6 @@ const SimplifiedSchedulePage: React.FC = () => {
   const { weeklyTasks, isLoading: isWeeklyTasksLoading } = useWeeklySchedulerTasks(currentWeekStart);
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
-
-  useEffect(() => {
-    console.log("[SimplifiedSchedulePage] Page loaded.");
-    console.log("[SimplifiedSchedulePage] currentWeekStart:", format(currentWeekStart, 'yyyy-MM-dd'));
-    console.log("[SimplifiedSchedulePage] weeklyTasks (raw):", weeklyTasks);
-    console.log("[SimplifiedSchedulePage] isLoading:", isLoading);
-  }, [currentWeekStart, weeklyTasks, isLoading]);
 
   if (isLoading) {
     return (
@@ -50,11 +43,6 @@ const SimplifiedSchedulePage: React.FC = () => {
   const workdayStartTime = profile.default_auto_schedule_start_time || '09:00';
   const workdayEndTime = profile.default_auto_schedule_end_time || '17:00';
 
-  // NEW: Add a warning if workday start and end times are identical
-  if (workdayStartTime === workdayEndTime) {
-    console.warn("[SimplifiedSchedulePage] Workday start and end times are identical in profile settings. This will result in a 0-minute workday window. Please adjust in Settings.");
-  }
-
   return (
     <div className="flex flex-col h-full w-full">
       {/* Header with Back Button */}
@@ -62,7 +50,7 @@ const SimplifiedSchedulePage: React.FC = () => {
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={() => navigate(-1)} // Go back to previous page
+          onClick={() => navigate(-1)} 
           className="h-10 w-10 text-muted-foreground hover:text-primary"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -71,11 +59,10 @@ const SimplifiedSchedulePage: React.FC = () => {
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
           <CalendarDays className="h-6 w-6 text-primary" /> Weekly Vibe
         </h1>
-        <div className="w-10" /> {/* Spacer for alignment */}
+        <div className="w-10" /> 
       </div>
 
-      {/* Weekly Schedule Grid */}
-      <div className="flex-1 overflow-auto"> {/* Changed from overflow-hidden to overflow-auto */}
+      <div className="flex-1 overflow-auto">
         <WeeklyScheduleGrid
           weeklyTasks={weeklyTasks}
           currentWeekStart={currentWeekStart}

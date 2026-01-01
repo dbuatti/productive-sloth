@@ -72,7 +72,7 @@ interface MutationContext {
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
-  const { user, profile, refreshProfile, triggerLevelUp, session, dynamicMealBlocksToday } = useSession(); // NEW: Get dynamicMealBlocksToday
+  const { user, profile, refreshProfile, triggerLevelUp, session } = useSession();
   const userId = user?.id;
 
   const formattedSelectedDate = selectedDate;
@@ -752,12 +752,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   });
 
   const randomizeBreaksMutation = useMutation({
-    mutationFn: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks, dynamicOccupiedBlocks }: { // NEW: Add dynamicOccupiedBlocks
+    mutationFn: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }: {
       selectedDate: string;
       workdayStartTime: Date;
       workdayEndTime: Date;
       currentDbTasks: DBScheduledTask[];
-      dynamicOccupiedBlocks: TimeBlock[]; // NEW
     }) => {
       if (!userId) throw new Error("User not authenticated.");
 
@@ -778,15 +777,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const failedToPlaceBreaks: DBScheduledTask[] = [];
 
       let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
-        [
-          ...currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked)
-            .map(task => ({
-              start: parseISO(task.start_time!),
-              end: parseISO(task.end_time!),
-              duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
-            })),
-          ...dynamicOccupiedBlocks // NEW: Include dynamic blocks
-        ]
+        currentDbTasks.filter(task => task.name.toLowerCase() !== 'break' || task.is_locked)
+          .map(task => ({
+            start: parseISO(task.start_time!),
+            end: parseISO(task.end_time!),
+            duration: Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60))
+          }))
       );
 
       for (const breakTask of breakTasksToRandomize) {

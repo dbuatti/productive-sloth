@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { ScheduledItem, TimeBlock } from '@/types/scheduler'; // Import ScheduledItem and TimeBlock
+import { ScheduledItem } from '@/types/scheduler'; // Import ScheduledItem
 
 export interface UserProfile {
   id: string;
@@ -57,7 +57,6 @@ interface SessionContextType {
   exitRegenPodState: () => Promise<void>; // NEW
   regenPodDurationMinutes: number; // NEW: Duration calculated on start
   triggerEnergyRegen: () => Promise<void>; // NEW
-  dynamicMealBlocksToday: TimeBlock[]; // NEW: Expose dynamic meal blocks for today
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

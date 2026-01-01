@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, differenceInMinutes, format, min, max } from 'date-fns';
+import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, differenceInMinutes, format } from 'date-fns';
 import { 
   MAX_ENERGY, 
   RECHARGE_BUTTON_AMOUNT, 
@@ -14,8 +14,8 @@ import {
   REGEN_POD_MAX_DURATION_MINUTES,
 } from '@/lib/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DBScheduledTask, ScheduledItem, TimeBlock } from '@/types/scheduler';
-import { calculateSchedule, setTimeOnDate, isMeal } from '@/lib/scheduler-utils';
+import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
+import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
@@ -243,7 +243,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const activeItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => T_current >= i.startTime && T_current < i.endTime) || null, [calculatedScheduleToday, T_current]);
   const nextItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => i.startTime > T_current) || null, [calculatedScheduleToday, T_current]);
-  const dynamicMealBlocksToday = useMemo(() => calculatedScheduleToday?.dynamicOccupiedBlocks || [], [calculatedScheduleToday]); // NEW: Expose dynamic blocks
 
   return (
     <SessionContext.Provider value={{ 
@@ -252,8 +251,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       resetDailyStreak, claimDailyReward, updateNotificationPreferences,
       updateProfile, updateSettings, triggerEnergyRegen,
       activeItemToday, nextItemToday, T_current,
-      startRegenPodState, exitRegenPodState, regenPodDurationMinutes,
-      dynamicMealBlocksToday // NEW: Provide dynamic meal blocks
+      startRegenPodState, exitRegenPodState, regenPodDurationMinutes
     }}>
       {!isAuthLoading ? children : null}
     </SessionContext.Provider>

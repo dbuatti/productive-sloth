@@ -45,7 +45,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   }, [sortBy]);
 
-  // NEW: Fetch meal assignments for the selected day
   const { data: mealAssignments = [] } = useQuery({
     queryKey: ['mealAssignments', userId, formattedSelectedDate],
     queryFn: async () => {
@@ -100,7 +99,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     enabled: !!userId && !!formattedSelectedDate,
   });
 
-  // MODIFIED: Inject meal assignment names into the scheduled tasks
   const dbScheduledTasksWithMeals = useMemo(() => {
     return dbScheduledTasks.map(task => {
       const isMealTask = ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
@@ -267,7 +265,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDateAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
-      // Map occupied blocks
       const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
         start: parseISO(t.start_time!),
         end: parseISO(t.end_time!),
@@ -281,7 +278,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         throw new Error("No free slot available in the schedule window.");
       }
 
-      // Move: Insert into scheduled_tasks and Delete from sink
       const { error: insertError } = await supabase.from('scheduled_tasks').insert({
         user_id: userId,
         name: task.name,
@@ -463,7 +459,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const completeScheduledTaskMutation = useMutation({
     mutationFn: async (task: DBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      // ENABLING completion even if locked: We just mark it as completed in history
       const { error } = await supabase.from('scheduled_tasks').delete().eq('id', task.id).eq('user_id', userId);
       if (error) throw new Error(error.message);
     },
@@ -515,13 +510,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
   const handleAutoScheduleAndSort = useCallback(async (
     sortPreference: SortBy,
-    taskSource: 'all-flexible' | 'sink-only',
+    taskSource: 'all-flexible' | 'sink-only' | 'sink-to-gaps',
     environmentsToFilterBy: TaskEnvironment[] = [],
     targetDateString: string
   ) => {
     if (!user || !profile) {
       return showError("Profile context missing.");
     }
+
+    console.log(`[SchedulerEngine] Initiating auto-schedule. Mode: ${taskSource}, Sort: ${sortPreference}`);
 
     const [year, month, day] = targetDateString.split('-').map(Number);
     const targetDayAsDate = new Date(year, month - 1, day);
@@ -540,9 +537,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDayAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
+      console.log(`[SchedulerEngine] Target Window: ${format(targetWorkdayStart, 'HH:mm')} to ${format(targetWorkdayEnd, 'HH:mm')}`);
+
       const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
       
-      const fixedBlocks: TimeBlock[] = (dbTasks || []).filter(t => (!t.is_flexible || t.is_locked) && t.start_time && t.end_time).map(t => {
+      const fixedBlocks: TimeBlock[] = (dbTasks || []).filter(t => {
+        if (taskSource === 'sink-to-gaps') return true; 
+        return (!t.is_flexible || t.is_locked);
+      }).filter(t => t.start_time && t.end_time).map(t => {
         const start = setTimeOnDate(targetDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
         let end = setTimeOnDate(targetDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
         if (isBefore(end, start)) end = addDays(end, 1);
@@ -573,6 +575,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
 
       let currentOccupied: TimeBlock[] = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
+      console.log(`[SchedulerEngine] Total Fixed Constraints: ${currentOccupied.length} blocks`);
 
       const totalWorkdayMinutes = differenceInMinutes(targetWorkdayEnd, effectiveStart);
       const occupiedInWindow = currentOccupied.reduce((acc, block) => {
@@ -583,6 +586,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }, 0);
       
       const netAvailableTime = totalWorkdayMinutes - occupiedInWindow;
+      console.log(`[SchedulerEngine] Available time in window: ${netAvailableTime} minutes`);
 
       const flexibleScheduled = (dbTasks || []).filter(t => t.is_flexible && !t.is_locked);
       const unlockedRetired = retiredTasks.filter(t => !t.is_locked);
@@ -592,11 +596,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const tasksToInsert: NewDBScheduledTask[] = [];
       const tasksToKeepInSink: NewRetiredTask[] = [];
 
-      (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => tasksToInsert.push({ ...t }));
+      if (taskSource !== 'sink-to-gaps') {
+          (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => tasksToInsert.push({ ...t }));
+      }
 
       const activeFlexible = flexibleScheduled.filter(t => {
         if (!t.start_time || t.is_completed) return true;
         if (isTodaySelected && isBefore(parseISO(t.end_time!), T_current)) {
+          if (taskSource === 'sink-to-gaps') return true; 
           scheduledIdsToDelete.push(t.id);
           tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)), break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
           return false;
@@ -607,9 +614,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (taskSource === 'all-flexible') {
         activeFlexible.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment }));
       }
+      
       unlockedRetired.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment }));
 
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
+      console.log(`[SchedulerEngine] Unlocked Unified Pool: ${unifiedPool.length} items. Filtering for ${environmentsToFilterBy.length || 'all'} environments -> ${tasksToConsider.length} items.`);
       
       let finalSortedPool: UnifiedTask[] = [];
       if (sortPreference === 'ENVIRONMENT_RATIO') {
@@ -688,6 +697,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
       }
       
+      console.log(`[SchedulerEngine] Processing placement for ${finalSortedPool.length} sorted items...`);
       let placementCursor = effectiveStart;
       for (const t of finalSortedPool) {
         let placed = false;
@@ -709,7 +719,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             const end = addMinutes(start, total);
             
             tasksToInsert.push({ 
-                id: t.originalId, name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), 
+                id: t.source === 'retired' ? undefined : t.originalId, 
+                name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), 
                 break_duration: t.break_duration, scheduled_date: targetDateString, is_critical: t.is_critical, 
                 is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, 
                 is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner 
@@ -722,6 +733,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             
             if (t.source === 'scheduled') scheduledIdsToDelete.push(t.originalId);
             else if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
+            console.log(`[SchedulerEngine] Placed: ${t.name} at ${format(start, 'HH:mm')}`);
             break;
           }
         }
@@ -729,9 +741,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         if (!placed && t.source === 'scheduled') {
           tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
           scheduledIdsToDelete.push(t.originalId);
+          console.log(`[SchedulerEngine] Failed to place: ${t.name}. Returning to Sink.`);
         }
       }
 
+      console.log(`[SchedulerEngine] Cycle Complete. Payload: ${tasksToInsert.length} inserts, ${tasksToKeepInSink.length} sink returns.`);
       const payload: AutoBalancePayload = { scheduledTaskIdsToDelete: Array.from(new Set(scheduledIdsToDelete)), retiredTaskIdsToDelete: Array.from(new Set(retiredIdsToDelete)), tasksToInsert, tasksToKeepInSink, selectedDate: targetDateString };
       await autoBalanceScheduleMutation.mutateAsync(payload);
     } catch (e: any) {
@@ -739,12 +753,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, queryClient]);
+  }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, queryClient, dbScheduledTasks]);
 
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
 
   return {
-    dbScheduledTasks: dbScheduledTasksWithMeals, // Return the tasks with meal names injected
+    dbScheduledTasks: dbScheduledTasksWithMeals,
     isLoading: isLoading || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay,
     addScheduledTask: addScheduledTaskMutation.mutateAsync,
     addRetiredTask: addRetiredTaskMutation.mutateAsync,

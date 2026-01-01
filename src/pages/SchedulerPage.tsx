@@ -1,83 +1,47 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListTodo, Sparkles, Loader2, AlertTriangle, Trash2, ChevronsUp, Star, ArrowDownWideNarrow, ArrowUpWideNarrow, Shuffle, CalendarOff, RefreshCcw, Globe, Zap, Settings2, Menu } from 'lucide-react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours, addDays, differenceInMinutes } from 'date-fns';
+import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { FormattedSchedule, DBScheduledTask, ScheduledItem, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TaskPriority, AutoBalancePayload, UnifiedTask, TimeBlock, TaskEnvironment, CompletedTaskLogEntry } from '@/types/scheduler';
+import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
-  parseInjectionCommand,
   parseCommand,
-  formatDateTime,
-  parseFlexibleTime,
-  formatTime,
   setTimeOnDate,
   compactScheduleLogic,
   mergeOverlappingTimeBlocks,
-  isSlotFree,
   getFreeTimeBlocks,
-  calculateEnergyCost,
-  getEmojiHue,
-  getBreakDescription,
-  isMeal,
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
-import { parse, startOfDay, setHours, setMinutes, format, isSameDay, addDays, addMinutes, parseISO, isBefore, isAfter, isPast, format as formatFns, subDays, differenceInMinutes, addHours } from 'date-fns';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useLocation, useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient, useQuery } from '@tanstack/react-query'; // Import useQuery
-import WeatherWidget from '@/components/WeatherWidget';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
-import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog';
 import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
-import EarlyCompletionModal from '@/components/EarlyCompletionModal';
-import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
-import { LOW_ENERGY_THRESHOLD, MAX_ENERGY, REGEN_POD_MAX_DURATION_MINUTES, REGEN_POD_RATE_PER_MINUTE } from '@/lib/constants';
-import EnvironmentMultiSelect from '@/components/EnvironmentMultiSelect';
-import { useEnvironmentContext } from '@/hooks/use-environment-context';
-import EnergyDeficitConfirmationDialog from '@/components/EnergyDeficitConfirmationDialog';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
-import { cn } from '@/lib/utils';
-import { MealAssignment } from '@/hooks/use-meals'; // Import MealAssignment type
+import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
+import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import { MealAssignment } from '@/hooks/use-meals';
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes, triggerEnergyRegen } = useSession();
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, regenPodDurationMinutes } = useSession();
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
 
   const { 
     dbScheduledTasks,
@@ -96,24 +60,17 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     rezoneTask,
     compactScheduledTasks,
     randomizeBreaks,
-    toggleScheduledTaskLock,
     aetherDump,
     aetherDumpMega,
     sortBy,
     setSortBy,
     retiredSortBy,
     setRetiredSortBy,
-    autoBalanceSchedule,
     completeScheduledTask: completeScheduledTaskMutation,
-    updateScheduledTaskDetails,
-    updateScheduledTaskStatus,
     removeRetiredTask,
     handleAutoScheduleAndSort,
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
-  const queryClient = useQueryClient();
-
-  // NEW: Fetch meal assignments for the selected day
   const { data: mealAssignments = [] } = useQuery<MealAssignment[]>({
     queryKey: ['mealAssignments', user?.id, selectedDay],
     queryFn: async () => {
@@ -144,41 +101,24 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   if (isBefore(workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay)) workdayEndTimeForSelectedDay = addDays(workdayEndTimeForSelectedDay, 1);
 
   const handleRebalanceToday = useCallback(async () => {
-    setIsProcessingCommand(true);
-    await handleAutoScheduleAndSort(sortBy, 'all-flexible', [], selectedDay);
-    setIsProcessingCommand(false);
+    await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
   }, [handleAutoScheduleAndSort, selectedDay, sortBy]);
 
-  const handleRebalanceAllFlexible = useCallback(async () => {
-    setIsProcessingCommand(true);
+  const handleReshuffleEverything = useCallback(async () => {
     await handleAutoScheduleAndSort(sortBy, 'all-flexible', [], selectedDay);
-    setIsProcessingCommand(false);
   }, [handleAutoScheduleAndSort, selectedDay, sortBy]);
 
   const handleZoneFocus = useCallback(async () => {
-    setIsProcessingCommand(true);
     await handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay);
-    setIsProcessingCommand(false);
   }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy]);
 
   const handleCompact = useCallback(async () => {
-    const tasksToUpdate = compactScheduleLogic(
-      dbScheduledTasks,
-      selectedDayAsDate,
-      workdayStartTimeForSelectedDay,
-      workdayEndTimeForSelectedDay,
-      T_current
-    );
+    const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current);
     await compactScheduledTasks({ tasksToUpdate });
   }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks]);
 
   const handleRandomize = useCallback(async () => {
-    await randomizeBreaks({
-      selectedDate: selectedDay,
-      workdayStartTime: workdayStartTimeForSelectedDay,
-      workdayEndTime: workdayEndTimeForSelectedDay,
-      currentDbTasks: dbScheduledTasks
-    });
+    await randomizeBreaks({ selectedDate: selectedDay, workdayStartTime: workdayStartTimeForSelectedDay, workdayEndTime: workdayEndTimeForSelectedDay, currentDbTasks: dbScheduledTasks });
   }, [selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, dbScheduledTasks, randomizeBreaks]);
 
   const handleRezone = useCallback(async (task: RetiredTask) => {
@@ -197,8 +137,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) return showError("Please log in.");
     setIsProcessingCommand(true);
-    console.log("[SchedulerPage] Processing input command:", input);
-
     try {
       const command = parseCommand(input);
       if (command) {
@@ -222,15 +160,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       const task = parseTaskInput(input, selectedDayAsDate);
       if (task) {
         if (task.shouldSink) {
-          await addRetiredTask({ 
-            user_id: user.id, name: task.name, duration: task.duration || 30, break_duration: task.breakDuration || null, 
-            original_scheduled_date: selectedDay, is_critical: task.isCritical, energy_cost: task.energyCost, 
-            task_environment: environmentForPlacement, is_backburner: task.isBackburner 
-          });
+          await addRetiredTask({ user_id: user.id, name: task.name, duration: task.duration || 30, break_duration: task.breakDuration || null, original_scheduled_date: selectedDay, is_critical: task.isCritical, energy_cost: task.energyCost, task_environment: environmentForPlacement, is_backburner: task.isBackburner });
         } else {
-          // FIX: If it's a duration-based task without explicit times, we need to auto-schedule it immediately.
           if (task.duration && !task.startTime) {
-            // 1. Find the next available slot starting from T_current or workday start
             const effectiveStart = isBefore(workdayStartTimeForSelectedDay, T_current) ? T_current : workdayStartTimeForSelectedDay;
             const occupiedBlocks = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => {
                 const start = setTimeOnDate(selectedDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
@@ -238,58 +170,33 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
                 if (isBefore(end, start)) end = addDays(end, 1);
                 return { start, end, duration: differenceInMinutes(end, start) };
             });
-            
             const totalDuration = (task.duration || 30) + (task.breakDuration || 0);
             const freeBlocks = getFreeTimeBlocks(occupiedBlocks, effectiveStart, workdayEndTimeForSelectedDay);
             const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
-
             if (suitableBlock) {
                 const proposedStartTime = suitableBlock.start;
                 const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
-
-                await addScheduledTask({ 
-                    name: task.name, 
-                    start_time: proposedStartTime.toISOString(), 
-                    end_time: proposedEndTime.toISOString(), 
-                    break_duration: task.breakDuration, 
-                    scheduled_date: selectedDay, 
-                    is_critical: task.isCritical, 
-                    is_flexible: task.isFlexible, 
-                    is_locked: !task.isFlexible, 
-                    energy_cost: task.energyCost, 
-                    task_environment: environmentForPlacement, 
-                    is_backburner: task.isBackburner 
-                });
+                await addScheduledTask({ name: task.name, start_time: proposedStartTime.toISOString(), end_time: proposedEndTime.toISOString(), break_duration: task.breakDuration, scheduled_date: selectedDay, is_critical: task.is_critical, is_flexible: task.is_flexible, is_locked: !task.is_flexible, energy_cost: task.energy_cost, task_environment: environmentForPlacement, is_backburner: task.is_backburner });
             } else {
-                showError("No free slot found in the workday window. Task sent to Aether Sink.");
-                await addRetiredTask({ 
-                    user_id: user.id, name: task.name, duration: task.duration || 30, break_duration: task.breakDuration || null, 
-                    original_scheduled_date: selectedDay, is_critical: task.isCritical, energy_cost: task.energyCost, 
-                    task_environment: environmentForPlacement, is_backburner: task.isBackburner 
-                });
+                showError("No free slot found. Sent to Sink.");
+                await addRetiredTask({ user_id: user.id, name: task.name, duration: task.duration || 30, break_duration: task.breakDuration || null, original_scheduled_date: selectedDay, is_critical: task.is_critical, energy_cost: task.energy_cost, task_environment: environmentForPlacement, is_backburner: task.is_backburner });
             }
           } else {
-            // Fixed time task
             const sStart = task.startTime ? task.startTime.toISOString() : undefined;
             const sEnd = task.endTime ? task.endTime.toISOString() : undefined;
-            await addScheduledTask({ 
-              name: task.name, start_time: sStart, end_time: sEnd, break_duration: task.breakDuration, 
-              scheduled_date: selectedDay, is_critical: task.isCritical, is_flexible: task.isFlexible, 
-              is_locked: !task.isFlexible, energy_cost: task.energyCost, task_environment: environmentForPlacement, 
-              is_backburner: task.isBackburner 
-            });
+            await addScheduledTask({ name: task.name, start_time: sStart, end_time: sEnd, break_duration: task.breakDuration, scheduled_date: selectedDay, is_critical: task.is_critical, is_flexible: task.is_flexible, is_locked: !task.is_flexible, energy_cost: task.energy_cost, task_environment: environmentForPlacement, is_backburner: task.is_backburner });
           }
         }
         setInputValue('');
       } else {
-        showError("Temporal mismatch: Task format unrecognized.");
+        showError("Invalid task format.");
       }
     } finally {
       setIsProcessingCommand(false);
     }
   }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay]);
 
-  const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'exitFocus', task: DBScheduledTask) => {
+  const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'exitFocus', task: DBScheduledTask) => {
     setIsProcessingCommand(true);
     try {
       if (action === 'complete') {
@@ -310,32 +217,13 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null;
-    return calculateSchedule(
-      dbScheduledTasks, 
-      selectedDay, 
-      workdayStartTimeForSelectedDay, 
-      workdayEndTimeForSelectedDay, 
-      profile.is_in_regen_pod, 
-      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, 
-      regenPodDurationMinutes, 
-      T_current, 
-      profile.breakfast_time, 
-      profile.lunch_time, 
-      profile.dinner_time, 
-      profile.breakfast_duration_minutes, 
-      profile.lunch_duration_minutes, 
-      profile.dinner_duration_minutes,
-      profile.reflection_count,
-      profile.reflection_times,
-      profile.reflection_durations,
-      mealAssignments // PASS MEAL ASSIGNMENTS
-    );
+    return calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments);
   }, [dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile, regenPodDurationMinutes, T_current, mealAssignments]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
-        <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={handleSchedulerAction} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
+        <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
       )}
       <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(i => i.is_flexible && !i.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
       <Card className="p-4 space-y-4 animate-slide-in-up">
@@ -356,7 +244,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               retiredTasksCount={retiredTasks.length} 
               sortBy={sortBy} 
               onRebalanceToday={handleRebalanceToday} 
-              onRebalanceAllFlexible={handleRebalanceAllFlexible} 
+              onReshuffleEverything={handleReshuffleEverything}
               onCompactSchedule={handleCompact} 
               onRandomizeBreaks={handleRandomize} 
               onZoneFocus={handleZoneFocus} 
@@ -380,7 +268,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             </Card>
           </>
         )}
-        {view === 'sink' && <AetherSink retiredTasks={retiredTasks} onRezoneTask={(t) => handleRezone(t)} onRemoveRetiredTask={(id) => removeRetiredTask(id)} onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} isLoading={isLoadingRetiredTasks} isProcessingCommand={isProcessingCommand} profileEnergy={profile?.energy || 0} retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy} />}
+        {view === 'sink' && <AetherSink retiredTasks={retiredTasks} onRezoneTask={(t) => handleRezone(t)} onRemoveRetiredTask={(id) => handleRemoveRetired(id, '')} onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} isLoading={isLoadingRetiredTasks} isProcessingCommand={isProcessingCommand} profileEnergy={profile?.energy || 0} retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy} />}
         {view === 'recap' && <DailyVibeRecapCard scheduleSummary={calculatedSchedule?.summary || null} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={0} totalBreakTimeMinutes={0} />}
       </div>
       <WorkdayWindowDialog open={showWorkdayWindowDialog} onOpenChange={setShowWorkdayWindowDialog} />

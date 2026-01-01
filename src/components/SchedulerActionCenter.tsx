@@ -11,13 +11,12 @@ import {
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, Trash2, ListTodo, 
-  BatteryCharging, Target, Cpu, Coffee, Archive, CalendarDays, Repeat
+  BatteryCharging, Target, Cpu, Coffee, Archive, Repeat, Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock';
 import { DBScheduledTask, SortBy } from '@/types/scheduler';
-import { useNavigate } from 'react-router-dom';
 
 interface SchedulerActionCenterProps {
   isProcessingCommand: boolean;
@@ -26,7 +25,7 @@ interface SchedulerActionCenterProps {
   retiredTasksCount: number;
   sortBy: SortBy;
   onRebalanceToday: () => Promise<void>;
-  onRebalanceAllFlexible: () => Promise<void>;
+  onReshuffleEverything: () => Promise<void>;
   onCompactSchedule: () => Promise<void>;
   onRandomizeBreaks: () => Promise<void>;
   onZoneFocus: () => Promise<void>;
@@ -48,7 +47,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   dbScheduledTasks,
   retiredTasksCount,
   onRebalanceToday,
-  onRebalanceAllFlexible,
+  onReshuffleEverything,
   onCompactSchedule,
   onRandomizeBreaks,
   onZoneFocus,
@@ -64,7 +63,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
 }) => {
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
   const hasUnlockedFlexibleTasks = dbScheduledTasks.some(task => task.is_flexible && !task.is_locked);
-  const navigate = useNavigate();
 
   const sortOptions: { value: SortBy, label: string, icon: React.ElementType, description: string }[] = [
     { value: 'ENVIRONMENT_RATIO', label: 'Environment Ratio', icon: Repeat, description: "Interleave environments 1:1" },
@@ -107,33 +105,33 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 <TooltipTrigger asChild>
                   <Button
                     onClick={onRebalanceToday}
-                    disabled={isProcessingCommand}
+                    disabled={isProcessingCommand || retiredTasksCount === 0}
                     variant="aether"
                     className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95 shadow-lg shadow-primary/20"
                   >
                     {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Cpu className="h-5 w-5" />}
-                    Re-balance Today
+                    Smart Fill Today
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="glass-card font-bold border-white/10">
-                  Re-balance Today: Consolidate and re-schedule all flexible tasks for the current day.
+                <TooltipContent className="glass-card font-bold border-white/10 max-w-xs">
+                  Smart Fill Today: Pulls tasks from the sink into your current free time slots without moving existing items.
                 </TooltipContent>
               </Tooltip>
 
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={() => onRebalanceAllFlexible()}
+                    onClick={onReshuffleEverything}
                     disabled={isProcessingCommand}
                     variant="outline"
-                    className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95"
+                    className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95 text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10"
                   >
-                    {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <ListTodo className="h-5 w-5" />}
-                    Re-balance All Flexible
+                    {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Layers className="h-5 w-5" />}
+                    Global Reshuffle
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="glass-card font-bold border-white/10">
-                  Re-balance All Flexible: Consolidate and re-schedule all flexible tasks (from schedule and sink) for the current day.
+                <TooltipContent className="glass-card font-bold border-white/10 max-w-xs">
+                  Global Reshuffle: Combines all flexible items (from schedule and sink) and regenerates your entire timeline.
                 </TooltipContent>
               </Tooltip>
             </div>

@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { ScheduledItem } from '@/types/scheduler'; // Import ScheduledItem
+import { ScheduledItem, TaskEnvironment } from '@/types/scheduler'; // Import TaskEnvironment
 
 export interface UserProfile {
   id: string;
@@ -22,16 +22,17 @@ export interface UserProfile {
   default_auto_schedule_start_time: string | null;
   default_auto_schedule_end_time: string | null;
   enable_delete_hotkeys: boolean;
-  enable_aethersink_backup: boolean; // NEW: Added for Aether Sink backup preference
-  last_energy_regen_at: string | null; // NEW: Added for energy regeneration tracking
-  is_in_regen_pod: boolean; // NEW: Is user currently in a regen pod session
-  regen_pod_start_time: string | null; // NEW: Timestamp when pod started
-  breakfast_time: string | null; // NEW: Breakfast time
-  lunch_time: string | null;     // NEW: Lunch time
-  dinner_time: string | null;    // NEW: Dinner time
-  breakfast_duration_minutes: number | null; // NEW: Breakfast duration
-  lunch_duration_minutes: number | null;     // NEW: Lunch duration
-  dinner_duration_minutes: number | null;    // NEW: Dinner duration
+  enable_aethersink_backup: boolean;
+  last_energy_regen_at: string | null;
+  is_in_regen_pod: boolean;
+  regen_pod_start_time: string | null;
+  breakfast_time: string | null;
+  lunch_time: string | null;
+  dinner_time: string | null;
+  breakfast_duration_minutes: number | null;
+  lunch_duration_minutes: number | null;
+  dinner_duration_minutes: number | null;
+  custom_environment_order: TaskEnvironment[] | null; // NEW: Custom order for environment sorting
 }
 
 interface SessionContextType {
@@ -53,10 +54,10 @@ interface SessionContextType {
   activeItemToday: ScheduledItem | null;
   nextItemToday: ScheduledItem | null;
   T_current: Date;
-  startRegenPodState: (durationMinutes: number) => Promise<void>; // NEW
-  exitRegenPodState: () => Promise<void>; // NEW
-  regenPodDurationMinutes: number; // NEW: Duration calculated on start
-  triggerEnergyRegen: () => Promise<void>; // NEW
+  startRegenPodState: (durationMinutes: number) => Promise<void>;
+  exitRegenPodState: () => Promise<void>;
+  regenPodDurationMinutes: number;
+  triggerEnergyRegen: () => Promise<void>;
 }
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);

@@ -11,13 +11,13 @@ import {
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, Trash2, ListTodo, 
-  BatteryCharging, Target, Cpu, Coffee, Archive, CalendarDays
+  BatteryCharging, Target, Cpu, Coffee, Archive, CalendarDays, Repeat
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock';
 import { DBScheduledTask, SortBy } from '@/types/scheduler';
-import { useNavigate } from 'react-router-dom'; // NEW: Import useNavigate
+import { useNavigate } from 'react-router-dom';
 
 interface SchedulerActionCenterProps {
   isProcessingCommand: boolean;
@@ -25,8 +25,8 @@ interface SchedulerActionCenterProps {
   dbScheduledTasks: DBScheduledTask[];
   retiredTasksCount: number;
   sortBy: SortBy;
-  onRebalanceToday: () => Promise<void>; // Renamed from onAutoSchedule
-  onRebalanceAllFlexible: () => Promise<void>; // NEW: For 'Re-balance All Flexible'
+  onRebalanceToday: () => Promise<void>;
+  onRebalanceAllFlexible: () => Promise<void>;
   onCompactSchedule: () => Promise<void>;
   onRandomizeBreaks: () => Promise<void>;
   onZoneFocus: () => Promise<void>;
@@ -34,8 +34,8 @@ interface SchedulerActionCenterProps {
   onQuickBreak: () => Promise<void>;
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>;
   onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
-  onAetherDump: () => Promise<void>; // Today + Future Sink Return
-  onAetherDumpMega: () => Promise<void>; // Full Timeline Sink Return
+  onAetherDump: () => Promise<void>;
+  onAetherDumpMega: () => Promise<void>;
   onRefreshSchedule: () => void;
   onOpenWorkdayWindowDialog: () => void;
   onStartRegenPod: () => void;
@@ -47,8 +47,8 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   isProcessingCommand,
   dbScheduledTasks,
   retiredTasksCount,
-  onRebalanceToday, // Renamed
-  onRebalanceAllFlexible, // NEW
+  onRebalanceToday,
+  onRebalanceAllFlexible,
   onCompactSchedule,
   onRandomizeBreaks,
   onZoneFocus,
@@ -64,13 +64,14 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
 }) => {
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
   const hasUnlockedFlexibleTasks = dbScheduledTasks.some(task => task.is_flexible && !task.is_locked);
-  const navigate = useNavigate(); // NEW: Initialize useNavigate
+  const navigate = useNavigate();
 
-  const sortOptions: { value: SortBy, label: string, icon: React.ElementType }[] = [
-    { value: 'TIME_EARLIEST_TO_LATEST', label: 'Chronological', icon: Clock },
-    { value: 'PRIORITY_HIGH_TO_LOW', label: 'Criticality', icon: Star },
-    { value: 'EMOJI', label: 'Vibe (Emoji)', icon: ListTodo },
-    { value: 'NAME_ASC', label: 'Alphabetical', icon: ArrowUpWideNarrow },
+  const sortOptions: { value: SortBy, label: string, icon: React.ElementType, description: string }[] = [
+    { value: 'ENVIRONMENT_RATIO', label: 'Environment Ratio', icon: Repeat, description: "Interleave environments 1:1" },
+    { value: 'PRIORITY_HIGH_TO_LOW', label: 'Criticality', icon: Star, description: "Highest priority first" },
+    { value: 'TIME_EARLIEST_TO_LATEST', label: 'Chronological', icon: Clock, description: "By scheduled time" },
+    { value: 'EMOJI', label: 'Vibe (Emoji)', icon: ListTodo, description: "Grouped by type" },
+    { value: 'NAME_ASC', label: 'Alphabetical', icon: ArrowUpWideNarrow, description: "A to Z" },
   ];
 
   const ActionButton = ({ icon: Icon, label, onClick, disabled, colorClass, tooltip }: any) => (
@@ -98,7 +99,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
     <Card glass className="animate-pop-in border-white/10 shadow-2xl overflow-hidden">
       <CardContent className="p-4 space-y-6">
         
-        {/* 1. PRIMARY COMMAND ROW */}
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4 pb-4 border-b border-white/5">
           <div className="flex flex-col gap-1 w-full lg:w-auto">
             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/50 ml-1">Core Engine</span>
@@ -106,7 +106,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={onRebalanceToday} // This is now 'Re-balance Today'
+                    onClick={onRebalanceToday}
                     disabled={isProcessingCommand}
                     variant="aether"
                     className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95 shadow-lg shadow-primary/20"
@@ -123,7 +123,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={() => onRebalanceAllFlexible()} // Call the new handler for 'Re-balance All Flexible'
+                    onClick={() => onRebalanceAllFlexible()}
                     disabled={isProcessingCommand}
                     variant="outline"
                     className="w-full lg:w-auto h-12 px-8 text-xs font-black uppercase tracking-[0.2em] gap-3 active:scale-95"
@@ -154,7 +154,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
           </div>
         </div>
 
-        {/* 2. OPERATIONAL GRID */}
         <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
                 <ActionButton 
@@ -176,17 +175,20 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                       <DropdownMenuTrigger asChild>
                         <Button variant="glass" disabled={isProcessingCommand} className="h-10 w-full text-[10px] font-black uppercase tracking-widest gap-2 hover:bg-white/5">
                           <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" />
-                          <span className="hidden md:inline">Balance</span>
+                          <span className="hidden md:inline">Balance Logic</span>
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent className="glass-card">Balance: Re-sort flexible objectives</TooltipContent>
-                    <DropdownMenuContent align="end" className="glass-card min-w-48 border-white/10 bg-background/95 backdrop-blur-xl">
+                    <TooltipContent className="glass-card">Configure how flexible tasks are re-ordered</TooltipContent>
+                    <DropdownMenuContent align="end" className="glass-card min-w-56 border-white/10 bg-background/95 backdrop-blur-xl">
                       <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Sort Parameters</DropdownMenuLabel>
                       <DropdownMenuSeparator className="bg-white/5" />
                       {sortOptions.map(opt => (
-                        <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20">
-                          <opt.icon className="h-4 w-4 text-primary/70" /> {opt.label}
+                        <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 flex flex-col items-start font-bold text-[10px] uppercase py-3 px-3 focus:bg-primary/20">
+                          <div className="flex items-center gap-2">
+                            <opt.icon className="h-4 w-4 text-primary/70" /> {opt.label}
+                          </div>
+                          <span className="text-[8px] opacity-50 lowercase tracking-normal font-medium italic pl-6">{opt.description}</span>
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>
@@ -199,7 +201,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 />
             </div>
 
-            {/* 3. BIO-SYSTEMS & PURGE (RETIRE) GRID */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
                 <ActionButton 
                   icon={Zap} label="Recharge" colorClass="text-logo-green" tooltip="Pulse: Immediate +25 Bio-Energy"
@@ -229,7 +230,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                       <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-logo-orange/50 px-3 py-2">Temporal Flush Logic</DropdownMenuLabel>
                       <DropdownMenuSeparator className="bg-white/5" />
                       
-                      {/* Standard Flush: Today + Future */}
                       <DropdownMenuItem 
                         onClick={onAetherDump} 
                         className="flex items-center justify-start text-logo-orange font-black text-[10px] uppercase gap-4 py-4 px-6 focus:bg-logo-orange/10 cursor-pointer"
@@ -243,7 +243,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
 
                       <DropdownMenuSeparator className="bg-white/5" />
 
-                      {/* Mega Flush: All Time */}
                       <DropdownMenuItem 
                         onClick={onAetherDumpMega} 
                         className="flex items-center justify-start text-destructive font-black text-[10px] uppercase gap-4 py-4 px-6 focus:bg-destructive/10 cursor-pointer"

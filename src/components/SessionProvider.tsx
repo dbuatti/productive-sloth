@@ -51,12 +51,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, regen_pod_start_time, breakfast_time, lunch_time, dinner_time, breakfast_duration_minutes, lunch_duration_minutes, dinner_duration_minutes')
+        .select('id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, regen_pod_start_time, breakfast_time, lunch_time, dinner_time, breakfast_duration_minutes, lunch_duration_minutes, dinner_duration_minutes, custom_environment_order')
         .eq('id', userId)
         .single();
 
       if (error) {
-        // console.error('[SessionProvider] Error fetching profile:', error);
         setProfile(null);
       } else if (data) {
         setProfile(data as UserProfile);
@@ -70,7 +69,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
     } catch (e) {
-        // console.error('[SessionProvider] Unexpected error during profile fetch:', e);
         setProfile(null);
     } finally {
         setIsProfileLoading(false);
@@ -158,7 +156,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // --- Auth Handlers ---
   useEffect(() => {
     const handleAuthChange = async (event: string, currentSession: Session | null) => {
       setSession(currentSession);
@@ -206,7 +203,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [redirectPath, navigate, location.pathname, isAuthLoading]);
 
-  // --- Query Logic ---
   const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasksToday', user?.id],
     queryFn: async () => {
@@ -235,9 +231,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.breakfast_time, 
       profile.lunch_time, 
       profile.dinner_time,
-      profile.breakfast_duration_minutes, // NEW
-      profile.lunch_duration_minutes,     // NEW
-      profile.dinner_duration_minutes     // NEW
+      profile.breakfast_duration_minutes,
+      profile.lunch_duration_minutes,
+      profile.dinner_duration_minutes
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current]);
 

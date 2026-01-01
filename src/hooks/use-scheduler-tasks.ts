@@ -451,7 +451,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       return showError("Profile context missing.");
     }
 
-    const currentTargetDate = parseISO(targetDateString);
     const [year, month, day] = targetDateString.split('-').map(Number);
     const targetDayAsDate = new Date(year, month - 1, day);
 
@@ -469,6 +468,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDayAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
+      // 1. Map Fixed Constraints
       console.log("[use-scheduler-tasks] Engine Step 1: Mapping Fixed Temporal Constraints...");
       const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
       
@@ -486,16 +486,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           let anchorStart = setTimeOnDate(targetDayAsDate, timeStr);
           let anchorEnd = addMinutes(anchorStart, duration);
           if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
-          
           if (isBefore(anchorStart, targetWorkdayEnd) && isAfter(anchorEnd, targetWorkdayStart)) {
             const intersectionStart = max([anchorStart, targetWorkdayStart]);
             const intersectionEnd = min([anchorEnd, targetWorkdayEnd]);
-            currentOccupied.push({ 
-              start: intersectionStart, 
-              end: intersectionEnd, 
-              duration: differenceInMinutes(intersectionEnd, intersectionStart) 
-            });
-            console.log(`[use-scheduler-tasks] Constraint Added: [${name}] Virtual Block at ${format(intersectionStart, 'HH:mm')}`);
+            currentOccupied.push({ start: intersectionStart, end: intersectionEnd, duration: differenceInMinutes(intersectionEnd, intersectionStart) });
           }
         }
       };
@@ -503,21 +497,16 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
       addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
       addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
-      
-      // NEW: INJECT REFLECTION CONSTRAINTS INTO ENGINE
       for (let r = 0; r < (profile.reflection_count || 0); r++) {
         const rTime = profile.reflection_times?.[r];
         const rDur = profile.reflection_durations?.[r];
-        if (rTime && rDur) {
-          addStaticConstraint(`Reflection ${r + 1}`, rTime, rDur);
-        }
+        if (rTime && rDur) addStaticConstraint(`Reflection ${r + 1}`, rTime, rDur);
       }
-
       currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
 
+      // 2. Unify Flexible Pool
       const flexibleScheduled = (dbTasks || []).filter(t => t.is_flexible && !t.is_locked);
       const unlockedRetired = retiredTasks.filter(t => !t.is_locked);
-
       const unifiedPool: UnifiedTask[] = [];
       const scheduledIdsToDelete: string[] = [];
       const retiredIdsToDelete: string[] = [];
@@ -526,156 +515,133 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => tasksToInsert.push({ ...t }));
 
-      const currentFlexible = flexibleScheduled.filter(t => {
+      const activeFlexible = flexibleScheduled.filter(t => {
         if (!t.start_time || t.is_completed) return true;
         if (isTodaySelected && isBefore(parseISO(t.end_time!), T_current)) {
           scheduledIdsToDelete.push(t.id);
-          tasksToKeepInSink.push({ 
-            user_id: user.id, name: t.name, duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)), 
-            break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, 
-            is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, 
-            task_environment: t.task_environment, is_backburner: t.is_backburner 
-          });
+          tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)), break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
           return false;
         }
         return true;
       });
 
       if (taskSource === 'all-flexible') {
-        currentFlexible.forEach(t => unifiedPool.push({ 
-          id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, 
-          break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, 
-          energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, 
-          created_at: t.created_at, task_environment: t.task_environment 
-        }));
+        activeFlexible.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment }));
       }
-      
-      unlockedRetired.forEach(t => unifiedPool.push({ 
-        id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, 
-        is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, 
-        is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment 
-      }));
+      unlockedRetired.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment }));
 
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
-      console.log(`[use-scheduler-tasks] Engine Step 2: Candidates identified: [${tasksToConsider.length}] items in pool.`);
-
-      let finalSortedPool: UnifiedTask[] = [];
       
+      // 3. Environment Distribution Logic
+      let finalSortedPool: UnifiedTask[] = [];
       if (sortPreference === 'ENVIRONMENT_RATIO') {
-        console.log("[use-scheduler-tasks] Sorting Strategy: ENVIRONMENT_RATIO", { chunking: profile.enable_environment_chunking, spread: profile.enable_macro_spread });
+        const chunking = profile.enable_environment_chunking ?? true;
+        const spread = profile.enable_macro_spread ?? false;
+        console.log("[use-scheduler-tasks] Sorting Strategy: ENVIRONMENT_RATIO", { chunking, spread });
+
         const groups: Record<TaskEnvironment, UnifiedTask[]> = { home: [], laptop: [], away: [], piano: [], laptop_piano: [] };
         tasksToConsider.forEach(t => groups[t.task_environment].push(t));
 
-        // Sort each individual group by priority/age
-        Object.keys(groups).forEach(env => {
-          groups[env as TaskEnvironment].sort((a, b) => {
+        const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env].length > 0);
+        const totalWorkdayMinutes = differenceInMinutes(targetWorkdayEnd, effectiveStart);
+        const quotaPerEnv = activeEnvs.length > 0 ? Math.floor(totalWorkdayMinutes / activeEnvs.length) : totalWorkdayMinutes;
+        
+        console.log(`[use-scheduler-tasks] Temporal Intelligence: [${totalWorkdayMinutes}m] available. Quota: [${quotaPerEnv}m] per environment.`);
+
+        // Sort each env group
+        activeEnvs.forEach(env => {
+          groups[env].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
             if (!a.is_critical && b.is_critical) return 1;
-            if (a.is_backburner && !b.is_backburner) return 1;
-            if (!a.is_backburner && b.is_backburner) return -1;
             return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           });
         });
 
         const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-        
-        // Step A: Seed Phase - take 1 from each to ensure representation
-        console.log("[use-scheduler-tasks] Phase 1: Representation Seeding...");
-        for (const env of envOrder) {
-          if (groups[env as TaskEnvironment].length > 0) {
-            finalSortedPool.push(groups[env as TaskEnvironment].shift()!);
-          }
-        }
+        const orderedEnvs = envOrder.filter(env => groups[env].length > 0);
 
-        // Step B: Main Sequence Building
-        let hasRemaining = true;
-        while (hasRemaining) {
-          hasRemaining = false;
-          for (const env of envOrder) {
-            const group = groups[env as TaskEnvironment];
-            if (group && group.length > 0) {
-              let countToTake = 1;
-              
-              if (profile.enable_environment_chunking) {
-                if (profile.enable_macro_spread) {
-                  // MACRO-SPREAD: Take roughly half of what's left for this env
-                  countToTake = Math.max(1, Math.ceil(group.length / 2));
-                } else {
-                  // FULL CHUNK: Take everything remaining for this env
-                  countToTake = group.length;
+        // Sequence Building
+        if (chunking) {
+            // Fill quotas sequentially
+            for (const env of orderedEnvs) {
+                let envTimeUsed = 0;
+                const group = groups[env];
+                
+                // If spreading is on, we take roughly half of the group now and half in a second pass
+                const itemsToTake = spread ? Math.max(1, Math.ceil(group.length / 2)) : group.length;
+                
+                for (let i = 0; i < itemsToTake && group.length > 0; i++) {
+                    const task = group.shift()!;
+                    finalSortedPool.push(task);
+                    envTimeUsed += (task.duration || 30) + (task.break_duration || 0);
                 }
-              }
-
-              for (let i = 0; i < countToTake && group.length > 0; i++) {
-                finalSortedPool.push(group.shift()!);
-              }
-              hasRemaining = true;
             }
-          }
+            // Second pass for spread/remaining
+            let hasRemaining = true;
+            while (hasRemaining) {
+                hasRemaining = false;
+                for (const env of orderedEnvs) {
+                    const group = groups[env];
+                    if (group.length > 0) {
+                        finalSortedPool.push(group.shift()!);
+                        hasRemaining = true;
+                    }
+                }
+            }
+        } else {
+            // Rotating 1:1
+            let hasRemaining = true;
+            while (hasRemaining) {
+                hasRemaining = false;
+                for (const env of orderedEnvs) {
+                    if (groups[env].length > 0) {
+                        finalSortedPool.push(groups[env].shift()!);
+                        hasRemaining = true;
+                    }
+                }
+            }
         }
         console.log(`[use-scheduler-tasks] Sequence Finalized: [${finalSortedPool.length}] total items ordered.`);
       } else {
         finalSortedPool = [...tasksToConsider].sort((a, b) => {
-          if (a.is_critical && !b.is_critical) return -1;
-          if (!a.is_critical && b.is_critical) return 1;
-          if (a.is_backburner && !b.is_backburner) return 1;
-          if (!a.is_backburner && b.is_backburner) return -1;
-
-          switch (sortPreference) {
-            case 'TIME_EARLIEST_TO_LATEST': return (a.duration || 0) - (b.duration || 0);
-            case 'TIME_LATEST_TO_EARLIEST': return (b.duration || 0) - (a.duration || 0);
-            case 'PRIORITY_HIGH_TO_LOW': return (b.energy_cost || 0) - (a.energy_cost || 0);
-            case 'PRIORITY_LOW_TO_HIGH': return (a.energy_cost || 0) - (b.energy_cost || 0);
-            case 'NAME_ASC': return a.name.localeCompare(b.name);
-            case 'EMOJI': return getEmojiHue(a.name) - getEmojiHue(b.name);
-            default: return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          }
+            if (a.is_critical && !b.is_critical) return -1;
+            if (!a.is_critical && b.is_critical) return 1;
+            switch (sortPreference) {
+              case 'TIME_EARLIEST_TO_LATEST': return (a.duration || 0) - (b.duration || 0);
+              case 'PRIORITY_HIGH_TO_LOW': return (b.energy_cost || 0) - (a.energy_cost || 0);
+              case 'NAME_ASC': return a.name.localeCompare(b.name);
+              case 'EMOJI': return getEmojiHue(a.name) - getEmojiHue(b.name);
+              default: return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            }
         });
       }
       
-      console.log(`[use-scheduler-tasks] Engine Step 3: Executing Placement Loop...`);
-
+      // 4. Placement Loop
       let placementCursor = effectiveStart;
-
       for (const t of finalSortedPool) {
         let placed = false;
         let searchTime = placementCursor;
-
         if (t.is_critical && profile.energy < LOW_ENERGY_THRESHOLD) {
-          console.log(`[use-scheduler-tasks] Placement Skipped: [${t.name}] - Reason: Energy below threshold.`);
           if (t.source === 'scheduled') {
-            tasksToKeepInSink.push({ 
-              user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, 
-              original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, 
-              energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, 
-              task_environment: t.task_environment, is_backburner: t.is_backburner 
-            });
+            tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
             scheduledIdsToDelete.push(t.originalId);
           }
           continue;
         }
-
         while (isBefore(searchTime, targetWorkdayEnd)) {
           const free = getFreeTimeBlocks(currentOccupied, searchTime, targetWorkdayEnd);
           if (free.length === 0) break;
           const total = (t.duration || 30) + (t.break_duration || 0);
           const slot = free.find(f => f.duration >= total);
-
           if (slot) {
             const start = slot.start;
             const end = addMinutes(start, total);
             if (isSlotFree(start, end, currentOccupied)) {
-              tasksToInsert.push({ 
-                id: t.originalId, name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), 
-                break_duration: t.break_duration, scheduled_date: targetDateString, is_critical: t.is_critical, 
-                is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, 
-                is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner 
-              });
+              tasksToInsert.push({ id: t.originalId, name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), break_duration: t.break_duration, scheduled_date: targetDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
               currentOccupied.push({ start, end, duration: total });
               currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
               placementCursor = end;
               placed = true;
-              console.log(`[use-scheduler-tasks] Placement Success: [${t.name}] at ${format(start, 'HH:mm')}`);
               if (t.source === 'scheduled') scheduledIdsToDelete.push(t.originalId);
               else if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
               break;
@@ -683,44 +649,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           }
           break;
         }
-
         if (!placed && t.source === 'scheduled') {
-          console.log(`[use-scheduler-tasks] Placement Failed: [${t.name}] - Reason: No suitable gap found. Retiring.`);
-          tasksToKeepInSink.push({ 
-            user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, 
-            original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, 
-            energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, 
-            task_environment: t.task_environment, is_backburner: t.is_backburner 
-          });
+          tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
           scheduledIdsToDelete.push(t.originalId);
         }
       }
 
-      flexibleScheduled.forEach(t => {
-        const considered = tasksToConsider.some(tc => tc.originalId === t.id && tc.source === 'scheduled');
-        const placed = tasksToInsert.some(ti => ti.id === t.id);
-        if (!considered || (considered && !placed)) {
-          if (!scheduledIdsToDelete.includes(t.id)) {
-            scheduledIdsToDelete.push(t.id);
-            tasksToKeepInSink.push({ 
-              user_id: user.id, name: t.name, duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)), 
-              break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, 
-              is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, 
-              task_environment: t.task_environment, is_backburner: t.is_backburner 
-            });
-          }
-        }
-      });
-
-      console.log(`[use-scheduler-tasks] Engine Finalizing: Purging [${scheduledIdsToDelete.length + retiredIdsToDelete.length}] items, Upserting [${tasksToInsert.length}].`);
-      const payload: AutoBalancePayload = { 
-        scheduledTaskIdsToDelete: Array.from(new Set(scheduledIdsToDelete)), 
-        retiredTaskIdsToDelete: Array.from(new Set(retiredIdsToDelete)), 
-        tasksToInsert, tasksToKeepInSink, selectedDate: targetDateString 
-      };
+      const payload: AutoBalancePayload = { scheduledTaskIdsToDelete: Array.from(new Set(scheduledIdsToDelete)), retiredTaskIdsToDelete: Array.from(new Set(retiredIdsToDelete)), tasksToInsert, tasksToKeepInSink, selectedDate: targetDateString };
       await autoBalanceScheduleMutation.mutateAsync(payload);
     } catch (e: any) {
-      console.error("[use-scheduler-tasks] ENGINE CRASH:", e);
       showError(`Engine Error: ${e.message}`);
     } finally {
       setIsProcessingCommand(false);

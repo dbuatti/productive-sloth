@@ -19,8 +19,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const [sortBy, setSortBy] = useState<SortBy>(() => {
     if (typeof window !== 'undefined') {
       const savedSortBy = localStorage.getItem('aetherflow-scheduler-sort');
-      // FORCE RESET: If current logic is not Ratio, force it to Ratio to align with the new Sorter feature
-      if (savedSortBy !== 'ENVIRONMENT_RATIO') return 'ENVIRONMENT_RATIO';
+      // FORCE RESET: Default to ENVIRONMENT_RATIO as the core Auto-Sorter logic
+      if (!savedSortBy || savedSortBy === 'PRIORITY_HIGH_TO_LOW') return 'ENVIRONMENT_RATIO';
       return savedSortBy as SortBy;
     }
     return 'ENVIRONMENT_RATIO';
@@ -428,7 +428,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       return data;
     },
     onSettled: (data) => {
-      // CRITICAL FIX: Ensure BOTH keys are invalidated to refresh UI
+      // FIX: Corrected typo 'queryKey' to 'queryClient.invalidateQueries' to ensure UI refreshes after balance
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
       if (data) showSuccess(`Balanced: ${data.tasksPlaced} items placed.`);

@@ -19,9 +19,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const [sortBy, setSortBy] = useState<SortBy>(() => {
     if (typeof window !== 'undefined') {
       const savedSortBy = localStorage.getItem('aetherflow-scheduler-sort');
-      return savedSortBy ? (savedSortBy as SortBy) : 'TIME_EARLIEST_TO_LATEST';
+      // NEW: Defaulting to ENVIRONMENT_RATIO as the primary Sorter intelligence
+      return savedSortBy ? (savedSortBy as SortBy) : 'ENVIRONMENT_RATIO';
     }
-    return 'TIME_EARLIEST_TO_LATEST';
+    return 'ENVIRONMENT_RATIO';
   });
   
   const [retiredSortBy, setRetiredSortBy] = useState<RetiredTaskSortBy>(() => {
@@ -427,7 +428,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: (data, error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
-      queryKey: ['retiredTasks'];
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
       if (data) showSuccess(`Balanced: ${data.tasksPlaced} items placed.`);
     }
   });
@@ -452,7 +453,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
 
     const currentTargetDate = parseISO(targetDateString);
-    if (isBefore(currentTargetDate, startOfDay(new Date()))) {
+    const [year, month, day] = targetDateString.split('-').map(Number);
+    const targetDayAsDate = new Date(year, month - 1, day);
+
+    if (isBefore(targetDayAsDate, startOfDay(new Date()))) {
       console.warn("[use-scheduler-tasks] ABORT: Cannot modify historical timelines.");
       return showError("Historical timelines are read-only.");
     }
@@ -460,11 +464,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     setIsProcessingCommand(true);
 
     try {
-      const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(currentTargetDate, profile.default_auto_schedule_start_time) : startOfDay(currentTargetDate);
-      let targetWorkdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(currentTargetDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(currentTargetDate), 17);
+      const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDayAsDate);
+      let targetWorkdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDayAsDate), 17);
       if (isBefore(targetWorkdayEnd, targetWorkdayStart)) targetWorkdayEnd = addDays(targetWorkdayEnd, 1);
       
-      const isTodaySelected = isSameDay(currentTargetDate, T_current);
+      const isTodaySelected = isSameDay(targetDayAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
       console.log("[use-scheduler-tasks] Step 1: Harvesting task pool...");
@@ -519,7 +523,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       // Apply environment filters if active
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
-      console.log(`[use-scheduler-tasks] Step 2: Sorting pool of [${tasksToConsider.length}] candidates...`);
+      console.log(`[use-scheduler-tasks] Step 2: Sorting pool of [${tasksToConsider.length}] candidates using logic [${sortPreference}]...`);
 
       let finalSortedPool: UnifiedTask[] = [];
       
@@ -537,6 +541,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             if (!a.is_backburner && b.is_backburner) return -1;
             return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           });
+          if (groups[env as TaskEnvironment].length > 0) {
+            console.log(`[use-scheduler-tasks] Bucket [${env}] pre-sorted with ${groups[env as TaskEnvironment].length} tasks.`);
+          }
         });
 
         const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
@@ -545,8 +552,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           hasRemaining = false;
           for (const env of envOrder) {
             if (groups[env as TaskEnvironment]?.length > 0) {
-              finalSortedPool.push(groups[env as TaskEnvironment].shift()!);
+              const task = groups[env as TaskEnvironment].shift()!;
+              finalSortedPool.push(task);
               hasRemaining = true;
+              console.log(`[use-scheduler-tasks] Interleaving: Added [${task.name}] from [${env}]`);
             }
           }
         }
@@ -573,8 +582,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log(`[use-scheduler-tasks] Step 3: Mapping [${finalSortedPool.length}] items to temporal window [${format(effectiveStart, 'HH:mm')} - ${format(targetWorkdayEnd, 'HH:mm')}]`);
 
       let currentOccupied = mergeOverlappingTimeBlocks(existingFixed.filter(t => t.start_time && t.end_time).map(t => {
-        const start = setTimeOnDate(currentTargetDate, format(parseISO(t.start_time!), 'HH:mm'));
-        let end = setTimeOnDate(currentTargetDate, format(parseISO(t.end_time!), 'HH:mm'));
+        const start = setTimeOnDate(targetDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
+        let end = setTimeOnDate(targetDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
         if (isBefore(end, start)) end = addDays(end, 1);
         return { start, end, duration: differenceInMinutes(end, start) };
       }));

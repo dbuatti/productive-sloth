@@ -229,7 +229,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
   }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement]);
 
-  const handleSchedulerAction = useCallback(async (action: any, task: DBScheduledTask) => {
+  const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'exitFocus', task: DBScheduledTask) => {
     setIsProcessingCommand(true);
     try {
       if (action === 'complete') {
@@ -253,29 +253,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     return calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes);
   }, [dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile, regenPodDurationMinutes, T_current]);
 
-  const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
-  useEffect(() => { setCurrentSchedule(calculatedSchedule); }, [calculatedSchedule]);
-
-  const handleQuickBreakButton = useCallback(async () => {
-    if (!user || !profile) return showError("Please log in.");
-    setIsProcessingCommand(true);
-    try {
-        const breakDuration = 15;
-        const breakStartTime = T_current;
-        const breakEndTime = addMinutes(breakStartTime, breakDuration);
-        const scheduledDate = formatFns(T_current, 'yyyy-MM-dd');
-        await addScheduledTask({ name: 'Quick Break', start_time: breakStartTime.toISOString(), end_time: breakEndTime.toISOString(), break_duration: breakDuration, scheduled_date: scheduledDate, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, is_custom_energy_cost: false, task_environment: 'away', is_backburner: false });
-        await triggerEnergyRegen();
-        showSuccess(`Scheduled a 15-minute Quick Break!`);
-    } finally { setIsProcessingCommand(false); }
-  }, [user, profile, T_current, addScheduledTask, triggerEnergyRegen]);
-
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {isFocusModeActive && activeItemToday && currentSchedule && (
-        <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={handleSchedulerAction} dbTask={currentSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
+      {isFocusModeActive && activeItemToday && calculatedSchedule && (
+        <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={handleSchedulerAction} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
       )}
-      <SchedulerDashboardPanel scheduleSummary={currentSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(i => i.is_flexible && !i.is_locked)} onRefreshSchedule={() => {}} />
+      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(i => i.is_flexible && !i.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
       <Card className="p-4 space-y-4 animate-slide-in-up">
         <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} />
         <SchedulerSegmentedControl currentView={view} />
@@ -299,27 +282,27 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               onRandomizeBreaks={handleRandomize} 
               onZoneFocus={handleZoneFocus} 
               onRechargeEnergy={() => rechargeEnergy()} 
-              onQuickBreak={handleQuickBreakButton} 
+              onQuickBreak={() => handleCommand('break 15')} 
               onQuickScheduleBlock={() => Promise.resolve()} 
               onSortFlexibleTasks={handleSortFlexibleTasks} 
               onAetherDump={aetherDump} 
               onAetherDumpMega={aetherDumpMega} 
-              onRefreshSchedule={() => {}} 
+              onRefreshSchedule={() => queryClient.invalidateQueries()} 
               onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} 
-              onStartRegenPod={() => setShowPodSetupModal(true)} 
+              onStartRegenPod={() => startRegenPodState(15)} 
               hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
             <Card className="animate-pop-in">
               <CardHeader><CardTitle>Your Vibe Schedule</CardTitle></CardHeader>
               <CardContent className="p-4">
-                <SchedulerDisplay schedule={currentSchedule} T_current={T_current} onRemoveTask={() => {}} onRetireTask={() => {}} onCompleteTask={() => {}} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
+                <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
               </CardContent>
             </Card>
           </>
         )}
-        {view === 'sink' && <AetherSink retiredTasks={retiredTasks} onRezoneTask={handleRezone} onRemoveRetiredTask={handleRemoveRetired} onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} isLoading={isLoadingRetiredTasks} isProcessingCommand={isProcessingCommand} profileEnergy={profile?.energy || 0} retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy} />}
-        {view === 'recap' && <DailyVibeRecapCard scheduleSummary={currentSchedule?.summary || null} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={0} totalBreakTimeMinutes={0} />}
+        {view === 'sink' && <AetherSink retiredTasks={retiredTasks} onRezoneTask={(t) => rezoneTask(t.id)} onRemoveRetiredTask={(id) => removeRetiredTask(id)} onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} isLoading={isLoadingRetiredTasks} isProcessingCommand={isProcessingCommand} profileEnergy={profile?.energy || 0} retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy} />}
+        {view === 'recap' && <DailyVibeRecapCard scheduleSummary={calculatedSchedule?.summary || null} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={0} totalBreakTimeMinutes={0} />}
       </div>
       <WorkdayWindowDialog open={showWorkdayWindowDialog} onOpenChange={setShowWorkdayWindowDialog} />
     </div>

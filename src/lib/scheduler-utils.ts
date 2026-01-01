@@ -738,7 +738,9 @@ export const calculateSchedule = (
         anchorEnd = addDays(anchorEnd, 1);
       }
 
-      const overlaps = isBefore(anchorStart, workdayEnd) && isAfter(anchorEnd, workdayStart);
+      // --- IMPROVED: Inclusive Overlap Logic ---
+      const overlaps = (isBefore(anchorStart, workdayEnd) || isEqual(anchorStart, workdayEnd)) && 
+                       (isAfter(anchorEnd, workdayStart) || isEqual(anchorEnd, workdayStart));
       
       if (overlaps) {
         const intersectionStart = max([anchorStart, workdayStart]);
@@ -773,12 +775,7 @@ export const calculateSchedule = (
             totalActiveTimeMinutes += item.duration;
           }
           sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
-          console.log(`[scheduler-utils] Anchor Injected: ${name} (${item.duration}m) at ${format(item.startTime, 'HH:mm')}`);
-        } else {
-            console.log(`[scheduler-utils] Anchor Skipped (0 effective duration): ${name}`);
         }
-      } else {
-          console.log(`[scheduler-utils] Anchor Skipped (outside window): ${name} starting at ${format(anchorStart, 'HH:mm')}`);
       }
     }
   };
@@ -788,12 +785,9 @@ export const calculateSchedule = (
   addStaticAnchor('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
 
   if (reflectionCount > 0 && reflectionTimes.length > 0) {
-    console.log("[scheduler-utils] Processing Reflections Loop:", { count: reflectionCount, times: reflectionTimes });
     for (let i = 0; i < reflectionCount; i++) {
       const time = reflectionTimes[i];
       const duration = reflectionDurations[i];
-      // Diagnostic log showing the raw evaluation before injection logic
-      console.log(`[scheduler-utils] Eval Reflection ${i+1}:`, { time, duration });
       if (time) {
         addStaticAnchor(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
       }

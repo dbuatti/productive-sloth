@@ -54,8 +54,13 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   }, [localWorkdayStart, localWorkdayEnd]);
 
   const getTaskPositionAndHeight = (task: DBScheduledTask) => {
-    const taskStartUTC = parseISO(task.start_time!);
-    const taskEndUTC = parseISO(task.end_time!);
+    if (!task.start_time || !task.end_time) {
+      // This task is invalid for the grid, return zero dimensions
+      return { top: 0, height: 0, durationMinutes: 0 };
+    }
+    
+    const taskStartUTC = parseISO(task.start_time);
+    const taskEndUTC = parseISO(task.end_time);
 
     // Convert UTC task times to local times relative to the current dayDate
     let localTaskStart = setTimeOnDate(dayDate, format(taskStartUTC, 'HH:mm'));
@@ -125,6 +130,13 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
         {/* Tasks */}
         {tasks.map((task) => {
           const { top, height, durationMinutes } = getTaskPositionAndHeight(task);
+          
+          // Skip rendering if task is invalid or has zero duration/height
+          if (!task.start_time || !task.end_time || durationMinutes <= 0) {
+            console.warn(`[DailyScheduleColumn] Skipping invalid task: ${task.name} (ID: ${task.id}) due to missing times or zero duration.`);
+            return null;
+          }
+          
           const isPastTask = isPast(parseISO(task.end_time!)) && !isCurrentDay;
           const isCurrentlyActive = isCurrentDay && T_current >= parseISO(task.start_time!) && T_current < parseISO(task.end_time!);
 

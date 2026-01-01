@@ -85,7 +85,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
-  'reflection': '✨',
+  'reflection': '340',
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -98,7 +98,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40,
   'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, 'eat': 35,
   'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
-  'gaming': 0, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150, 
+  'gaming': 100, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150, 
   'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150,
   'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, 'coffee break': 30,
   'piano': 270, 'music': 270, 'practice': 270,
@@ -727,7 +727,6 @@ export const calculateSchedule = (
   const selectedDayDate = new Date(year, month - 1, day); 
 
   const addStaticAnchor = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => {
-    // MODIFIED: Added safe default for duration (15m) if it's missing but a time exists
     const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
 
     if (timeStr && effectiveDuration > 0) {
@@ -738,7 +737,6 @@ export const calculateSchedule = (
         anchorEnd = addDays(anchorEnd, 1);
       }
 
-      // --- IMPROVED: Inclusive Overlap Logic ---
       const overlaps = (isBefore(anchorStart, workdayEnd) || isEqual(anchorStart, workdayEnd)) && 
                        (isAfter(anchorEnd, workdayStart) || isEqual(anchorEnd, workdayStart));
       
@@ -758,6 +756,7 @@ export const calculateSchedule = (
             emoji: emoji,
             description: `${name} window`,
             isTimedEvent: true,
+            color: type === 'meal' ? 'bg-logo-orange/20' : undefined, // Added color for visual debugging
             isCritical: false,
             isFlexible: false, 
             isLocked: true,   
@@ -775,6 +774,7 @@ export const calculateSchedule = (
             totalActiveTimeMinutes += item.duration;
           }
           sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
+          console.log(`[calculateSchedule] Added Static Anchor: ${item.name} (Type: ${type}, Start: ${format(item.startTime, 'HH:mm')}, End: ${format(item.endTime, 'HH:mm')})`);
         }
       }
     }
@@ -835,6 +835,7 @@ export const calculateSchedule = (
   sortedTasks.forEach((dbTask) => {
     if (!dbTask.start_time || !dbTask.end_time) {
       unscheduledCount++;
+      console.warn(`[calculateSchedule] Skipping unscheduled task: ${dbTask.name} (ID: ${dbTask.id})`);
       return;
     }
 
@@ -893,6 +894,8 @@ export const calculateSchedule = (
     };
 
     items.push(item);
+    console.log(`[calculateSchedule] Added DB Task: ${item.name} (Type: ${item.type}, Start: ${format(item.startTime, 'HH:mm')}, End: ${format(item.endTime, 'HH:mm')})`);
+
 
     if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { 
       totalActiveTimeMinutes += duration;

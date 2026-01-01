@@ -267,7 +267,7 @@ const SettingsPage: React.FC = () => {
                 </TabsContent>
 
                 <TabsContent value="reflections" className="space-y-6">
-                    <FormField control={form.control} name="reflection_count" render={({ field }) => (<FormItem className="flex items-center justify-between p-4 rounded-lg border bg-background/50"><FormLabel>Frequency</FormLabel><FormControl><Select onValueChange={(val) => { field.onChange(val); form.handleSubmit(onSubmit)(); }} defaultValue={field.value.toString()}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent></Select></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="reflection_count" render={({ field }) => (<FormItem className="flex items-center justify-between p-4 rounded-lg border bg-background/50"><FormLabel>Frequency</FormLabel><FormControl><Select onValueChange={(val) => { field.onChange(val); }} defaultValue={field.value.toString()}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent></Select></FormControl></FormItem>)} />
                     <div className="flex justify-end"><Button type="submit">Update Reflections</Button></div>
                 </TabsContent>
               </Tabs>

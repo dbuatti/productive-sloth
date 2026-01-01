@@ -468,7 +468,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDayAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
-      // 1. Map Fixed Constraints
       console.log("[use-scheduler-tasks] Engine Step 1: Mapping Fixed Temporal Constraints...");
       const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
       
@@ -515,7 +514,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       
       const netAvailableTime = totalWorkdayMinutes - occupiedInWindow;
 
-      // 2. Unify Flexible Pool
       const flexibleScheduled = (dbTasks || []).filter(t => t.is_flexible && !t.is_locked);
       const unlockedRetired = retiredTasks.filter(t => !t.is_locked);
       const unifiedPool: UnifiedTask[] = [];
@@ -543,7 +541,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
       
-      // 3. Environment Distribution Logic (QUOTA BASED)
+      // 3. Environment Distribution Logic (WINDOW BASED)
       let finalSortedPool: UnifiedTask[] = [];
       if (sortPreference === 'ENVIRONMENT_RATIO') {
         const chunking = profile.enable_environment_chunking ?? true;
@@ -554,10 +552,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         tasksToConsider.forEach(t => groups[t.task_environment].push(t));
 
         const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env].length > 0);
-        const quotaPerEnv = activeEnvs.length > 0 ? Math.floor(netAvailableTime / activeEnvs.length) : netAvailableTime;
         
-        console.log(`[use-scheduler-tasks] Temporal Intelligence: [${netAvailableTime}m] net available. Quota: [${quotaPerEnv}m] per environment.`);
+        // --- NEW TEMPORAL INTELLIGENCE: TIMELINE SEGMENTING ---
+        const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+        const orderedEnvs = envOrder.filter(env => groups[env].length > 0);
+        const quotaPerEnv = orderedEnvs.length > 0 ? Math.floor(netAvailableTime / orderedEnvs.length) : netAvailableTime;
 
+        console.log(`[use-scheduler-tasks] Temporal Segmenting: [${netAvailableTime}m] available. Quota: [${quotaPerEnv}m] per environment.`);
+
+        // Sort each env group by priority/age
         activeEnvs.forEach(env => {
           groups[env].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
@@ -566,10 +569,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           });
         });
 
-        const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-        const orderedEnvs = envOrder.filter(env => groups[env].length > 0);
-
-        // Sequence Building by Quota
         const fillQuotaPass = (quotaMinutes: number) => {
             for (const env of orderedEnvs) {
                 let envTimeUsed = 0;
@@ -587,23 +586,23 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                     
                     finalSortedPool.push(group.shift()!);
                     envTimeUsed += taskTotal;
+                    console.log(`[use-scheduler-tasks] Zone Window Assign: [${task.name}] to Segment [${env}] (${envTimeUsed}/${quotaMinutes}m)`);
                 }
-                console.log(`[use-scheduler-tasks] Quota Filled: [${env}] consumed [${envTimeUsed}m] of [${quotaMinutes}m].`);
             }
         };
 
         if (chunking && spread) {
-            // Macro-Spread: Two blocks per environment (50% quota each)
-            console.log("[use-scheduler-tasks] Mode: Macro-Spread (50/50 split)");
+            // Macro-Spread: Split quota into two segments (Morning/Afternoon)
+            console.log("[use-scheduler-tasks] Mode: Timeline Segmenting (Macro-Spread 50/50)");
             fillQuotaPass(Math.floor(quotaPerEnv / 2));
             fillQuotaPass(Math.floor(quotaPerEnv / 2));
         } else if (chunking) {
-            // Single Chunk: One large block per environment (100% quota)
-            console.log("[use-scheduler-tasks] Mode: Continuous Chunk (100%)");
+            // Continuous: One large segment per environment
+            console.log("[use-scheduler-tasks] Mode: Timeline Segmenting (Continuous 100%)");
             fillQuotaPass(quotaPerEnv);
         } else {
-            // Rotating 1:1
-            console.log("[use-scheduler-tasks] Mode: Rotating 1:1");
+            // Rotating 1:1 (No segmenting)
+            console.log("[use-scheduler-tasks] Mode: Rapid Rotation (1:1)");
             let hasRemaining = true;
             while (hasRemaining) {
                 hasRemaining = false;
@@ -616,12 +615,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             }
         }
         
-        // Final pass for any odd tasks that didn't fit into clean quota blocks but we still have time
+        // Final pass for remaining items that didn't fit into clean segments but we have time
         orderedEnvs.forEach(env => {
             while (groups[env].length > 0) finalSortedPool.push(groups[env].shift()!);
         });
 
-        console.log(`[use-scheduler-tasks] Sequence Finalized: [${finalSortedPool.length}] total items ordered.`);
+        console.log(`[use-scheduler-tasks] Sequence Segmented: [${finalSortedPool.length}] items ordered.`);
       } else {
         finalSortedPool = [...tasksToConsider].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
@@ -637,6 +636,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
       
       // 4. Placement Loop
+      console.log(`[use-scheduler-tasks] Engine Step 3: Executing Chrono-Placement...`);
       let placementCursor = effectiveStart;
       for (const t of finalSortedPool) {
         let placed = false;
@@ -648,28 +648,37 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           }
           continue;
         }
-        while (isBefore(searchTime, targetWorkdayEnd)) {
-          const free = getFreeTimeBlocks(currentOccupied, searchTime, targetWorkdayEnd);
-          if (free.length === 0) break;
-          const total = (t.duration || 30) + (t.break_duration || 0);
-          const slot = free.find(f => f.duration >= total);
-          if (slot) {
+
+        // --- NEW PLACEMENT LOGIC: STRONGER GAP SEARCH ---
+        const freeBlocks = getFreeTimeBlocks(currentOccupied, searchTime, targetWorkdayEnd);
+        const total = (t.duration || 30) + (t.break_duration || 0);
+        
+        for (const slot of freeBlocks) {
+          if (slot.duration >= total) {
             const start = slot.start;
             const end = addMinutes(start, total);
-            if (isSlotFree(start, end, currentOccupied)) {
-              tasksToInsert.push({ id: t.originalId, name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), break_duration: t.break_duration, scheduled_date: targetDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
-              currentOccupied.push({ start, end, duration: total });
-              currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
-              placementCursor = end;
-              placed = true;
-              if (t.source === 'scheduled') scheduledIdsToDelete.push(t.originalId);
-              else if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
-              break;
-            }
+            
+            tasksToInsert.push({ 
+                id: t.originalId, name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), 
+                break_duration: t.break_duration, scheduled_date: targetDateString, is_critical: t.is_critical, 
+                is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, 
+                is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner 
+            });
+            
+            currentOccupied.push({ start, end, duration: total });
+            currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+            placementCursor = end;
+            placed = true;
+            console.log(`[use-scheduler-tasks] Placed: [${t.name}] at ${format(start, 'HH:mm')} (${t.task_environment})`);
+            
+            if (t.source === 'scheduled') scheduledIdsToDelete.push(t.originalId);
+            else if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
+            break;
           }
-          break;
         }
+
         if (!placed && t.source === 'scheduled') {
+          console.warn(`[use-scheduler-tasks] Overflow: [${t.name}] retired to Sink.`);
           tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
           scheduledIdsToDelete.push(t.originalId);
         }
@@ -678,6 +687,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const payload: AutoBalancePayload = { scheduledTaskIdsToDelete: Array.from(new Set(scheduledIdsToDelete)), retiredTaskIdsToDelete: Array.from(new Set(retiredIdsToDelete)), tasksToInsert, tasksToKeepInSink, selectedDate: targetDateString };
       await autoBalanceScheduleMutation.mutateAsync(payload);
     } catch (e: any) {
+      console.error("[use-scheduler-tasks] ENGINE FAILURE:", e);
       showError(`Engine Error: ${e.message}`);
     } finally {
       setIsProcessingCommand(false);

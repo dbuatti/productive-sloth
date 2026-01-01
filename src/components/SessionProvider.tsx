@@ -233,7 +233,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.dinner_time,
       profile.breakfast_duration_minutes,
       profile.lunch_duration_minutes,
-      profile.dinner_duration_minutes
+      profile.dinner_duration_minutes,
+      profile.reflection_count,
+      profile.reflection_times,
+      profile.reflection_durations
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current]);
 

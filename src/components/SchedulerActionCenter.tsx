@@ -10,7 +10,7 @@ import {
 import { 
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
-  Database, Trash2, ListTodo, 
+  Database, ListTodo, 
   BatteryCharging, Target, Cpu, Coffee, Archive, Repeat, Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -94,7 +94,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   );
 
   return (
-    <Card glass className="animate-pop-in border-white/10 shadow-2xl overflow-hidden">
+    <Card glass className="animate-pop-in border-white/10 shadow-2xl relative z-10">
       <CardContent className="p-4 space-y-6">
         
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4 pb-4 border-b border-white/5">

@@ -33,7 +33,7 @@ import {
   LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, 
   ExternalLink, Loader2, Keyboard, Database, TrendingUp, 
   BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor,
-  Layers
+  Layers, Split
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
@@ -61,6 +61,7 @@ const profileSchema = z.object({
   dinner_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),
   reflection_count: z.coerce.number().min(1).max(5),
   enable_environment_chunking: z.boolean().default(true),
+  enable_macro_spread: z.boolean().default(false),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -94,6 +95,7 @@ const SettingsPage: React.FC = () => {
       dinner_duration_minutes: 60,
       reflection_count: 1,
       enable_environment_chunking: true,
+      enable_macro_spread: false,
     },
     mode: 'onChange',
   });
@@ -114,6 +116,7 @@ const SettingsPage: React.FC = () => {
         dinner_duration_minutes: profile.dinner_duration_minutes || 60,
         reflection_count: profile.reflection_count || 1,
         enable_environment_chunking: profile.enable_environment_chunking ?? true,
+        enable_macro_spread: profile.enable_macro_spread ?? false,
       });
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
@@ -162,6 +165,7 @@ const SettingsPage: React.FC = () => {
         reflection_times: finalTimes,
         reflection_durations: finalDurations,
         enable_environment_chunking: values.enable_environment_chunking,
+        enable_macro_spread: values.enable_macro_spread,
       });
       showSuccess("Profile updated successfully!");
     } catch (error: any) {
@@ -172,7 +176,7 @@ const SettingsPage: React.FC = () => {
   const handleResetGameProgress = async () => {
     if (!user) return;
     try {
-      const { error } = await supabase.from('profiles').update({ xp: 0, level: 1, daily_streak: 0, last_streak_update: null, energy: MAX_ENERGY, tasks_completed_today: 0, last_daily_reward_claim: null, last_daily_reward_notification: null, last_low_energy_notification: null, enable_daily_challenge_notifications: true, enable_low_energy_notifications: true, enable_delete_hotkeys: true, enable_aethersink_backup: true, default_auto_schedule_start_time: '09:00', default_auto_schedule_end_time: '17:00', breakfast_time: '08:00', lunch_time: '12:00', dinner_time: '18:00', breakfast_duration_minutes: 30, lunch_duration_minutes: 45, dinner_duration_minutes: 60, reflection_count: 1, reflection_times: ['12:00'], reflection_durations: [15], last_energy_regen_at: new Date().toISOString(), enable_environment_chunking: true }).eq('id', user.id);
+      const { error } = await supabase.from('profiles').update({ xp: 0, level: 1, daily_streak: 0, last_streak_update: null, energy: MAX_ENERGY, tasks_completed_today: 0, last_daily_reward_claim: null, last_daily_reward_notification: null, last_low_energy_notification: null, enable_daily_challenge_notifications: true, enable_low_energy_notifications: true, enable_delete_hotkeys: true, enable_aethersink_backup: true, default_auto_schedule_start_time: '09:00', default_auto_schedule_end_time: '17:00', breakfast_time: '08:00', lunch_time: '12:00', dinner_time: '18:00', breakfast_duration_minutes: 30, lunch_duration_minutes: 45, dinner_duration_minutes: 60, reflection_count: 1, reflection_times: ['12:00'], reflection_durations: [15], last_energy_regen_at: new Date().toISOString(), enable_environment_chunking: true, enable_macro_spread: false }).eq('id', user.id);
       if (error) throw error;
       await supabase.from('tasks').delete().eq('user_id', user.id);
       await refreshProfile();
@@ -318,16 +322,36 @@ const SettingsPage: React.FC = () => {
             <CardContent className="space-y-6">
               <EnvironmentOrderSettings />
               
-              <div className="pt-4 border-t border-white/5">
+              <div className="pt-4 border-t border-white/5 space-y-4">
                 <FormField control={form.control} name="enable_environment_chunking" render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <Layers className="h-4 w-4 text-primary" />
-                        <FormLabel className="text-base font-semibold">Sequence Chunking</FormLabel>
+                        <FormLabel className="text-base font-semibold">Environment Chunking</FormLabel>
                       </div>
                       <FormDescription className="text-xs">
-                        Group tasks from the same zone together (AA, BB) instead of alternating individually (A, B, A, B).
+                        Group tasks from the same zone together (AA, BB) instead of alternating individually.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        form.handleSubmit(onSubmit)();
+                      }} />
+                    </FormControl>
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="enable_macro_spread" render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Split className="h-4 w-4 text-primary" />
+                        <FormLabel className="text-base font-semibold">Macro-Spread Distribution</FormLabel>
+                      </div>
+                      <FormDescription className="text-xs">
+                        Divide chunks into two sessions (Morning/Afternoon) to spread all environments across the day.
                       </FormDescription>
                     </div>
                     <FormControl>

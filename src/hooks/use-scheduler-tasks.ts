@@ -562,7 +562,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       let finalSortedPool: UnifiedTask[] = [];
       
       if (sortPreference === 'ENVIRONMENT_RATIO') {
-        console.log("[use-scheduler-tasks] Sorting Strategy: ENVIRONMENT_RATIO", { chunking: profile.enable_environment_chunking });
+        console.log("[use-scheduler-tasks] Sorting Strategy: ENVIRONMENT_RATIO", { chunking: profile.enable_environment_chunking, spread: profile.enable_macro_spread });
         const groups: Record<TaskEnvironment, UnifiedTask[]> = { home: [], laptop: [], away: [], piano: [], laptop_piano: [] };
         tasksToConsider.forEach(t => groups[t.task_environment].push(t));
 
@@ -578,32 +578,42 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
 
         const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-        let hasRemaining = true;
         
-        // Define items per chunk based on setting
-        // MODIFIED: If chunking is enabled, we use "Macro Blocks" (half of each env's tasks at a time) to spread chunks
-        console.log(`[use-scheduler-tasks] Sequence Mode: ${profile.enable_environment_chunking ? 'MACRO-CHUNKED' : 'ROTATING'}`);
+        // Step A: Seed Phase - take 1 from each to ensure representation
+        console.log("[use-scheduler-tasks] Phase 1: Representation Seeding...");
+        for (const env of envOrder) {
+          if (groups[env as TaskEnvironment].length > 0) {
+            finalSortedPool.push(groups[env as TaskEnvironment].shift()!);
+          }
+        }
 
+        // Step B: Main Sequence Building
+        let hasRemaining = true;
         while (hasRemaining) {
           hasRemaining = false;
           for (const env of envOrder) {
             const group = groups[env as TaskEnvironment];
             if (group && group.length > 0) {
-              // Calculate dynamic chunk size: if chunking is enabled, take ~50% of remaining (min 1) to "spread" chunks per day
-              // if chunking is disabled, take exactly 1 (rotating)
-              const countToTake = profile.enable_environment_chunking 
-                ? Math.max(1, Math.ceil(group.length / 2)) 
-                : 1;
+              let countToTake = 1;
               
+              if (profile.enable_environment_chunking) {
+                if (profile.enable_macro_spread) {
+                  // MACRO-SPREAD: Take roughly half of what's left for this env
+                  countToTake = Math.max(1, Math.ceil(group.length / 2));
+                } else {
+                  // FULL CHUNK: Take everything remaining for this env
+                  countToTake = group.length;
+                }
+              }
+
               for (let i = 0; i < countToTake && group.length > 0; i++) {
-                const task = group.shift()!;
-                finalSortedPool.push(task);
-                console.log(`[use-scheduler-tasks] Sequence Append: [${task.name}] (Zone: ${task.task_environment})`);
+                finalSortedPool.push(group.shift()!);
               }
               hasRemaining = true;
             }
           }
         }
+        console.log(`[use-scheduler-tasks] Sequence Finalized: [${finalSortedPool.length}] total items ordered.`);
       } else {
         finalSortedPool = [...tasksToConsider].sort((a, b) => {
           if (a.is_critical && !b.is_critical) return -1;

@@ -2,14 +2,14 @@ import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, par
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
-export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break', 'reflection']; // Added 'reflection'
+export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break', 'reflection'];
 
 export const EMOJI_MAP: { [key: string]: string } = {
   'gym': '🏋️', 'workout': '🏋️', 'run': '🏃', 'exercise': '🏋️', 'fitness': '💪',
   'email': '📧', 'messages': '💬', 'calls': '📞', 'communication': '🗣️', 'admin': '⚙️', 'paperwork': '📄',
   'meeting': '💼', 'work': '💻', 'report': '📝', 'professional': '👔', 'project': '📊', 'coding': '💻', 'develop': '💻', 'code': '💻', 'bug': '🐛', 'fix': '🛠️',
   'design': '🎨', 'writing': '✍️', 'art': '🖼️', 'creative': '✨', 'draw': '✏️',
-  'study': '📦', // Updated to '📦' for house organization context
+  'study': '📦', 
   'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫',
   'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️',
   'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎', 'eat': '🍎', 
@@ -710,7 +710,6 @@ export const calculateSchedule = (
   breakfastDuration: number | null, 
   lunchDuration: number | null,     
   dinnerDuration: number | null,
-  // NEW: Reflection Point configuration (Safely defaulted to profile values if loading)
   reflectionCount: number = 0,
   reflectionTimes: string[] = [],
   reflectionDurations: number[] = []
@@ -736,39 +735,48 @@ export const calculateSchedule = (
         anchorEnd = addDays(anchorEnd, 1);
       }
 
-      const intersectionStart = max([anchorStart, workdayStart]);
-      const intersectionEnd = min([anchorEnd, workdayEnd]);
+      // Check if it overlaps at all with the workday window
+      const overlaps = isBefore(anchorStart, workdayEnd) && isAfter(anchorEnd, workdayStart);
+      
+      if (overlaps) {
+        const intersectionStart = max([anchorStart, workdayStart]);
+        const intersectionEnd = min([anchorEnd, workdayEnd]);
+        const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
 
-      const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
-
-      if (effectiveDuration > 0) { 
-        const item: ScheduledItem = {
-          id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}`,
-          type: type,
-          name: name,
-          duration: effectiveDuration,
-          startTime: intersectionStart,
-          endTime: intersectionEnd,
-          emoji: emoji,
-          description: `${name} window`,
-          isTimedEvent: true,
-          isCritical: false,
-          isFlexible: false, 
-          isLocked: true,   
-          energyCost: type === 'meal' ? -10 : 0,  
-          isCompleted: false,
-          isCustomEnergyCost: false,
-          taskEnvironment: 'home', 
-          sourceCalendarId: null,
-          isBackburner: false,
-        };
-        items.push(item);
-        if (type === 'meal' || type === 'break') {
-          totalBreakTimeMinutes += item.duration;
+        if (effectiveDuration > 0) { 
+          const item: ScheduledItem = {
+            id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}-${Math.random().toString(36).substr(2, 4)}`,
+            type: type,
+            name: name,
+            duration: effectiveDuration,
+            startTime: intersectionStart,
+            endTime: intersectionEnd,
+            emoji: emoji,
+            description: `${name} window`,
+            isTimedEvent: true,
+            isCritical: false,
+            isFlexible: false, 
+            isLocked: true,   
+            energyCost: type === 'meal' ? -10 : 0,  
+            isCompleted: false,
+            isCustomEnergyCost: false,
+            taskEnvironment: 'home', 
+            sourceCalendarId: null,
+            isBackburner: false,
+          };
+          items.push(item);
+          if (type === 'meal' || type === 'break') {
+            totalBreakTimeMinutes += item.duration;
+          } else {
+            totalActiveTimeMinutes += item.duration;
+          }
+          sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
+          console.log(`[scheduler-utils] Anchor Injected: ${name} (${item.duration}m) at ${format(item.startTime, 'HH:mm')}`);
         } else {
-          totalActiveTimeMinutes += item.duration;
+            console.log(`[scheduler-utils] Anchor Skipped (0 effective duration): ${name}`);
         }
-        sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
+      } else {
+          console.log(`[scheduler-utils] Anchor Skipped (outside window): ${name} starting at ${format(anchorStart, 'HH:mm')}`);
       }
     }
   };
@@ -777,9 +785,8 @@ export const calculateSchedule = (
   addStaticAnchor('Lunch', lunchTimeStr, '🥗', lunchDuration);
   addStaticAnchor('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
 
-  // --- IMPROVED: Safe Injection of Reflection Points ---
   if (reflectionCount > 0 && reflectionTimes.length > 0) {
-    console.log("[scheduler-utils] Injecting Reflection Points:", { count: reflectionCount, times: reflectionTimes });
+    console.log("[scheduler-utils] Processing Reflections Loop:", { count: reflectionCount, times: reflectionTimes });
     for (let i = 0; i < reflectionCount; i++) {
       const time = reflectionTimes[i];
       const duration = reflectionDurations[i];

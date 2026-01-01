@@ -472,15 +472,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log("[use-scheduler-tasks] Engine Step 1: Mapping Fixed Temporal Constraints...");
       const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
       
-      let currentOccupied: TimeBlock[] = mergeOverlappingTimeBlocks(
-        (dbTasks || []).filter(t => (!t.is_flexible || t.is_locked) && t.start_time && t.end_time).map(t => {
-          const start = setTimeOnDate(targetDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
-          let end = setTimeOnDate(targetDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
-          if (isBefore(end, start)) end = addDays(end, 1);
-          return { start, end, duration: differenceInMinutes(end, start) };
-        })
-      );
+      const fixedBlocks: TimeBlock[] = (dbTasks || []).filter(t => (!t.is_flexible || t.is_locked) && t.start_time && t.end_time).map(t => {
+        const start = setTimeOnDate(targetDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
+        let end = setTimeOnDate(targetDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
+        if (isBefore(end, start)) end = addDays(end, 1);
+        return { start, end, duration: differenceInMinutes(end, start) };
+      });
 
+      const staticConstraints: TimeBlock[] = [];
       const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
         if (timeStr && duration && duration > 0) {
           let anchorStart = setTimeOnDate(targetDayAsDate, timeStr);
@@ -489,7 +488,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           if (isBefore(anchorStart, targetWorkdayEnd) && isAfter(anchorEnd, targetWorkdayStart)) {
             const intersectionStart = max([anchorStart, targetWorkdayStart]);
             const intersectionEnd = min([anchorEnd, targetWorkdayEnd]);
-            currentOccupied.push({ start: intersectionStart, end: intersectionEnd, duration: differenceInMinutes(intersectionEnd, intersectionStart) });
+            staticConstraints.push({ start: intersectionStart, end: intersectionEnd, duration: differenceInMinutes(intersectionEnd, intersectionStart) });
           }
         }
       };
@@ -502,7 +501,19 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const rDur = profile.reflection_durations?.[r];
         if (rTime && rDur) addStaticConstraint(`Reflection ${r + 1}`, rTime, rDur);
       }
-      currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+
+      let currentOccupied: TimeBlock[] = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
+
+      // Calculate TRUE available time for quotas
+      const totalWorkdayMinutes = differenceInMinutes(targetWorkdayEnd, effectiveStart);
+      const occupiedInWindow = currentOccupied.reduce((acc, block) => {
+        const intersectionStart = max([block.start, effectiveStart]);
+        const intersectionEnd = min([block.end, targetWorkdayEnd]);
+        const dur = differenceInMinutes(intersectionEnd, intersectionStart);
+        return acc + (dur > 0 ? dur : 0);
+      }, 0);
+      
+      const netAvailableTime = totalWorkdayMinutes - occupiedInWindow;
 
       // 2. Unify Flexible Pool
       const flexibleScheduled = (dbTasks || []).filter(t => t.is_flexible && !t.is_locked);
@@ -532,7 +543,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
       
-      // 3. Environment Distribution Logic
+      // 3. Environment Distribution Logic (QUOTA BASED)
       let finalSortedPool: UnifiedTask[] = [];
       if (sortPreference === 'ENVIRONMENT_RATIO') {
         const chunking = profile.enable_environment_chunking ?? true;
@@ -543,12 +554,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         tasksToConsider.forEach(t => groups[t.task_environment].push(t));
 
         const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env].length > 0);
-        const totalWorkdayMinutes = differenceInMinutes(targetWorkdayEnd, effectiveStart);
-        const quotaPerEnv = activeEnvs.length > 0 ? Math.floor(totalWorkdayMinutes / activeEnvs.length) : totalWorkdayMinutes;
+        const quotaPerEnv = activeEnvs.length > 0 ? Math.floor(netAvailableTime / activeEnvs.length) : netAvailableTime;
         
-        console.log(`[use-scheduler-tasks] Temporal Intelligence: [${totalWorkdayMinutes}m] available. Quota: [${quotaPerEnv}m] per environment.`);
+        console.log(`[use-scheduler-tasks] Temporal Intelligence: [${netAvailableTime}m] net available. Quota: [${quotaPerEnv}m] per environment.`);
 
-        // Sort each env group
         activeEnvs.forEach(env => {
           groups[env].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
@@ -560,36 +569,41 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
         const orderedEnvs = envOrder.filter(env => groups[env].length > 0);
 
-        // Sequence Building
-        if (chunking) {
-            // Fill quotas sequentially
+        // Sequence Building by Quota
+        const fillQuotaPass = (quotaMinutes: number) => {
             for (const env of orderedEnvs) {
                 let envTimeUsed = 0;
                 const group = groups[env];
                 
-                // If spreading is on, we take roughly half of the group now and half in a second pass
-                const itemsToTake = spread ? Math.max(1, Math.ceil(group.length / 2)) : group.length;
-                
-                for (let i = 0; i < itemsToTake && group.length > 0; i++) {
-                    const task = group.shift()!;
-                    finalSortedPool.push(task);
-                    envTimeUsed += (task.duration || 30) + (task.break_duration || 0);
-                }
-            }
-            // Second pass for spread/remaining
-            let hasRemaining = true;
-            while (hasRemaining) {
-                hasRemaining = false;
-                for (const env of orderedEnvs) {
-                    const group = groups[env];
-                    if (group.length > 0) {
-                        finalSortedPool.push(group.shift()!);
-                        hasRemaining = true;
+                while (group.length > 0 && envTimeUsed < quotaMinutes) {
+                    const task = group[0];
+                    const taskTotal = (task.duration || 30) + (task.break_duration || 0);
+                    
+                    // If the first task alone exceeds quota, we still take it (ensure representation)
+                    // but if we already used some time and the NEXT task exceeds, we move on.
+                    if (envTimeUsed > 0 && (envTimeUsed + taskTotal > quotaMinutes)) {
+                        break; 
                     }
+                    
+                    finalSortedPool.push(group.shift()!);
+                    envTimeUsed += taskTotal;
                 }
+                console.log(`[use-scheduler-tasks] Quota Filled: [${env}] consumed [${envTimeUsed}m] of [${quotaMinutes}m].`);
             }
+        };
+
+        if (chunking && spread) {
+            // Macro-Spread: Two blocks per environment (50% quota each)
+            console.log("[use-scheduler-tasks] Mode: Macro-Spread (50/50 split)");
+            fillQuotaPass(Math.floor(quotaPerEnv / 2));
+            fillQuotaPass(Math.floor(quotaPerEnv / 2));
+        } else if (chunking) {
+            // Single Chunk: One large block per environment (100% quota)
+            console.log("[use-scheduler-tasks] Mode: Continuous Chunk (100%)");
+            fillQuotaPass(quotaPerEnv);
         } else {
             // Rotating 1:1
+            console.log("[use-scheduler-tasks] Mode: Rotating 1:1");
             let hasRemaining = true;
             while (hasRemaining) {
                 hasRemaining = false;
@@ -601,6 +615,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 }
             }
         }
+        
+        // Final pass for any odd tasks that didn't fit into clean quota blocks but we still have time
+        orderedEnvs.forEach(env => {
+            while (groups[env].length > 0) finalSortedPool.push(groups[env].shift()!);
+        });
+
         console.log(`[use-scheduler-tasks] Sequence Finalized: [${finalSortedPool.length}] total items ordered.`);
       } else {
         finalSortedPool = [...tasksToConsider].sort((a, b) => {

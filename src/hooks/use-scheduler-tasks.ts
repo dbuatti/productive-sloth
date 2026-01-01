@@ -562,9 +562,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       let finalSortedPool: UnifiedTask[] = [];
       
       if (sortPreference === 'ENVIRONMENT_RATIO') {
+        console.log("[use-scheduler-tasks] Sorting Strategy: ENVIRONMENT_RATIO", { chunking: profile.enable_environment_chunking });
         const groups: Record<TaskEnvironment, UnifiedTask[]> = { home: [], laptop: [], away: [], piano: [], laptop_piano: [] };
         tasksToConsider.forEach(t => groups[t.task_environment].push(t));
 
+        // Sort each individual group by priority/age
         Object.keys(groups).forEach(env => {
           groups[env as TaskEnvironment].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
@@ -577,12 +579,23 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
         const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
         let hasRemaining = true;
+        
+        // Define items per chunk based on setting
+        const itemsPerChunk = profile.enable_environment_chunking ? 2 : 1;
+        console.log(`[use-scheduler-tasks] Sequence Mode: ${profile.enable_environment_chunking ? 'CHUNKED' : 'ROTATING'} (${itemsPerChunk} per cycle)`);
+
         while (hasRemaining) {
           hasRemaining = false;
           for (const env of envOrder) {
-            if (groups[env as TaskEnvironment]?.length > 0) {
-              const task = groups[env as TaskEnvironment].shift()!;
-              finalSortedPool.push(task);
+            const group = groups[env as TaskEnvironment];
+            if (group && group.length > 0) {
+              // Take up to N items for the chunk
+              const countToTake = Math.min(group.length, itemsPerChunk);
+              for (let i = 0; i < countToTake; i++) {
+                const task = group.shift()!;
+                finalSortedPool.push(task);
+                console.log(`[use-scheduler-tasks] Sequence Append: [${task.name}] (Zone: ${task.task_environment})`);
+              }
               hasRemaining = true;
             }
           }

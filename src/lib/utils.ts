@@ -17,3 +17,12 @@ export const calculateLevelInfo = (totalXp: number) => {
   const progressPercentage = (xpTowardsNextLevel / xpNeededForNextLevel) * 100;
   return { level, xpTowardsNextLevel, xpNeededForNextLevel, progressPercentage };
 };
+
+/**
+ * Utility to ensure an array has a specific length by filling or trimming.
+ */
+export const adjustArrayLength = <T>(arr: T[], length: number, fillValue: T): T[] => {
+  if (arr.length === length) return arr;
+  if (arr.length > length) return arr.slice(0, length);
+  return [...arr, ...Array(length - arr.length).fill(fillValue)];
+};

@@ -19,7 +19,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const [sortBy, setSortBy] = useState<SortBy>(() => {
     if (typeof window !== 'undefined') {
       const savedSortBy = localStorage.getItem('aetherflow-scheduler-sort');
-      // FORCE RESET: Default to ENVIRONMENT_RATIO as the core Auto-Sorter logic
       if (!savedSortBy || savedSortBy === 'PRIORITY_HIGH_TO_LOW') return 'ENVIRONMENT_RATIO';
       return savedSortBy as SortBy;
     }
@@ -385,6 +384,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const completeScheduledTaskMutation = useMutation({
     mutationFn: async (task: DBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
+      // ENABLING completion even if locked: We just mark it as completed in history
       const { error } = await supabase.from('scheduled_tasks').delete().eq('id', task.id).eq('user_id', userId);
       if (error) throw new Error(error.message);
     },
@@ -440,7 +440,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     environmentsToFilterBy: TaskEnvironment[] = [],
     targetDateString: string
   ) => {
-    // --- CRITICAL ENGINE LOG START ---
     console.log("[use-scheduler-tasks] !!! AUTO-SORTER ENGINE INITIALIZED !!!", { 
       logic: sortPreference, 
       source: taskSource, 
@@ -470,7 +469,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDayAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
-      // 1. HARVEST FIXED BLOCKS (Including Meals)
       console.log("[use-scheduler-tasks] Engine Step 1: Mapping Fixed Temporal Constraints...");
       const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
       
@@ -483,16 +481,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         })
       );
 
-      // --- NEW: INJECT MEAL CONSTRAINTS INTO ENGINE ---
-      const addMealConstraint = (name: string, timeStr: string | null, duration: number | null) => {
+      const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
         if (timeStr && duration && duration > 0) {
-          let mealStart = setTimeOnDate(targetDayAsDate, timeStr);
-          let mealEnd = addMinutes(mealStart, duration);
-          if (isBefore(mealEnd, mealStart)) mealEnd = addDays(mealEnd, 1);
+          let anchorStart = setTimeOnDate(targetDayAsDate, timeStr);
+          let anchorEnd = addMinutes(anchorStart, duration);
+          if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
           
-          if (isBefore(mealStart, targetWorkdayEnd) && isAfter(mealEnd, targetWorkdayStart)) {
-            const intersectionStart = max([mealStart, targetWorkdayStart]);
-            const intersectionEnd = min([mealEnd, targetWorkdayEnd]);
+          if (isBefore(anchorStart, targetWorkdayEnd) && isAfter(anchorEnd, targetWorkdayStart)) {
+            const intersectionStart = max([anchorStart, targetWorkdayStart]);
+            const intersectionEnd = min([anchorEnd, targetWorkdayEnd]);
             currentOccupied.push({ 
               start: intersectionStart, 
               end: intersectionEnd, 
@@ -503,12 +500,21 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }
       };
 
-      addMealConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
-      addMealConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
-      addMealConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+      addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+      addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+      addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+      
+      // NEW: INJECT REFLECTION CONSTRAINTS INTO ENGINE
+      for (let r = 0; r < (profile.reflection_count || 0); r++) {
+        const rTime = profile.reflection_times?.[r];
+        const rDur = profile.reflection_durations?.[r];
+        if (rTime && rDur) {
+          addStaticConstraint(`Reflection ${r + 1}`, rTime, rDur);
+        }
+      }
+
       currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
 
-      // 2. POPULATE FLEXIBLE CANDIDATE POOL
       const flexibleScheduled = (dbTasks || []).filter(t => t.is_flexible && !t.is_locked);
       const unlockedRetired = retiredTasks.filter(t => !t.is_locked);
 
@@ -518,7 +524,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const tasksToInsert: NewDBScheduledTask[] = [];
       const tasksToKeepInSink: NewRetiredTask[] = [];
 
-      // Preserve fixed DB tasks (not meals, which are virtual)
       (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => tasksToInsert.push({ ...t }));
 
       const currentFlexible = flexibleScheduled.filter(t => {
@@ -554,7 +559,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
       console.log(`[use-scheduler-tasks] Engine Step 2: Candidates identified: [${tasksToConsider.length}] items in pool.`);
 
-      // 3. SORTING LOGIC
       let finalSortedPool: UnifiedTask[] = [];
       
       if (sortPreference === 'ENVIRONMENT_RATIO') {
@@ -602,7 +606,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
       }
       
-      // 4. PLACEMENT EXECUTION
       console.log(`[use-scheduler-tasks] Engine Step 3: Executing Placement Loop...`);
 
       let placementCursor = effectiveStart;
@@ -611,7 +614,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         let placed = false;
         let searchTime = placementCursor;
 
-        // Energy safety check
         if (t.is_critical && profile.energy < LOW_ENERGY_THRESHOLD) {
           console.log(`[use-scheduler-tasks] Placement Skipped: [${t.name}] - Reason: Energy below threshold.`);
           if (t.source === 'scheduled') {
@@ -667,7 +669,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }
       }
 
-      // Cleanup: Ensure scheduled items not in pool are correctly handled
       flexibleScheduled.forEach(t => {
         const considered = tasksToConsider.some(tc => tc.originalId === t.id && tc.source === 'scheduled');
         const placed = tasksToInsert.some(ti => ti.id === t.id);

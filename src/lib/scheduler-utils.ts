@@ -2,7 +2,7 @@ import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, par
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
-export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break']; // Added 'eat' and 'coffee break'
+export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break', 'reflection']; // Added 'reflection'
 
 export const EMOJI_MAP: { [key: string]: string } = {
   'gym': '🏋️', 'workout': '🏋️', 'run': '🏃', 'exercise': '🏋️', 'fitness': '💪',
@@ -12,11 +12,11 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'study': '📦', // Updated to '📦' for house organization context
   'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫',
   'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️',
-  'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎', 'eat': '🍎', // UPDATED: Added 'eat'
+  'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎', 'eat': '🍎', 
   'brainstorm': '💡', 'strategy': '📈', 'review': '🔍', 'plan': '🗓️',
   'gaming': '🎮', 'hobbies': '🎲', 'leisure': '😌', 'movie': '🎬', 'relax': '🧘', 'chill': '🛋️',
   'meditation': '🧘', 'yoga': '🧘', 'self-care': '🛀', 'wellness': '🌸', 'mindfulness': '🧠', 'nap': '😴', 'rest': '🛌',
-  'break': '☕️', 'coffee': '☕️', 'walk': '🚶', 'stretch': '🤸', 'coffee break': '☕️', // UPDATED: Added 'coffee break'
+  'break': '☕️', 'coffee': '☕️', 'walk': '🚶', 'stretch': '🤸', 'coffee break': '☕️',
   'piano': '🎹', 'music': '🎶', 'practice': '🎼',
   'commute': '🚗', 'drive': '🚗', 'bus': '🚌', 'train': '🚆', 'travel': '✈️',
   'shop': '🛍️', 'bank': '🏦', 'post': '✉️', 'errands': '🏃‍♀️',
@@ -85,6 +85,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
+  'reflection': '✨',
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -92,14 +93,14 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
   'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40,
   'design': 320, 'writing': 320, 'art': 330, 'creative': 340, 'draw': 320,
-  'study': 150, // Updated hue for house organization context
+  'study': 150, 
   'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260,
   'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40,
-  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, 'eat': 35, // UPDATED: Added 'eat'
+  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, 'eat': 35,
   'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
   'gaming': 0, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150, 
   'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150,
-  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, 'coffee break': 30, // UPDATED: Added 'coffee break'
+  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, 'coffee break': 30,
   'piano': 270, 'music': 270, 'practice': 270,
   'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200,
   'shop': 180, 'bank': 220, 'post': 240, 'errands': 210,
@@ -125,35 +126,35 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'channel': 160, 'anxious': 160,
   'recycling': 140, 'bin': 140,
   'milk': 40, 'cartons': 40,
-  'sync': 290, 'standup': 290, // Added back
+  'sync': 290, 'standup': 290,
   'tutorial': 60,
-  'tv': 10, // Explicitly set for 'TV to Brad'
-  'cobweb': 120, // Same as clean
-  'cables': 210, // Tech-related
-  'fold laundry': 130, // Same as laundry
-  'load of laundry': 130, // Same as laundry
-  'tidy': 140, // Same as organize
-  'room': 150, // Same as room
-  'book': 220, // General admin
-  'waitress': 220, // Same as book
-  'preparation': 220, // Same as book
-  'lego': 100, // Playful green
-  'organise': 200, // General organization
-  'shirts': 200, // Same as organise
-  'gigs': 200, // Same as organise
-  'charge': 210, // Tech-related
-  'vacuum': 210, // Same as charge
-  'put away': 140, // For 'Put away my new sheets'
-  'sheets': 140, // For 'Put away my new sheets'
-  'pants': 140, // For 'Put away my new pants'
-  'medication': 300, // For 'Put medication next to toothbrush'
-  'toothbrush': 300, // For 'Put medication next to toothbrush'
-  'return message': 245, // For 'Return Message To Damien'
-  'voice deal': 270, // For 'Voice Deal for Lydia'
-  'find location': 140, // For 'Find A Location For The Broom'
-  'broom': 120, // For 'Find A Location For The Broom'
-  'practise': 270, // For 'Piano Practise'
-  'track': 270, // For 'PIANO TRACK'
+  'tv': 10,
+  'cobweb': 120,
+  'cables': 210,
+  'fold laundry': 130,
+  'load of laundry': 130,
+  'tidy': 140,
+  'room': 150,
+  'book': 220,
+  'waitress': 220,
+  'preparation': 220,
+  'lego': 100,
+  'organise': 200,
+  'shirts': 200,
+  'gigs': 200,
+  'charge': 210,
+  'vacuum': 210,
+  'put away': 140,
+  'sheets': 140,
+  'pants': 140,
+  'medication': 300,
+  'toothbrush': 300,
+  'return message': 245,
+  'voice deal': 270,
+  'find location': 140,
+  'broom': 120,
+  'practise': 270,
+  'track': 270,
   'catch up': 290,
   'trim': 330,
   'cuticle': 330,
@@ -168,6 +169,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'coil': 210,
   'write up': 320,
   'notes': 320,
+  'reflection': 340,
 };
 
 // --- Utility Functions ---
@@ -178,7 +180,6 @@ export const formatDateTime = (date: Date): string => format(date, 'MMM d, h:mm 
 
 export const setTimeOnDate = (date: Date, timeString: string): Date => {
   const [hours, minutes] = timeString.split(':').map(Number);
-  // Use local setters for consistency with local time display
   return setMinutes(setHours(date, hours), minutes);
 };
 
@@ -189,7 +190,7 @@ export const assignEmoji = (taskName: string): string => {
       return EMOJI_MAP[keyword];
     }
   }
-  return '📋'; // Default emoji
+  return '📋'; 
 };
 
 export const getEmojiHue = (taskName: string): number => {
@@ -199,7 +200,7 @@ export const getEmojiHue = (taskName: string): number => {
       return EMOJI_HUE_MAP[keyword];
     }
   }
-  return 220; // Default hue (blue)
+  return 220; 
 };
 
 export const getBreakDescription = (duration: number): string => {
@@ -215,44 +216,37 @@ export const isMeal = (taskName: string): boolean => {
 };
 
 export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false): number => {
-  // Meals provide positive energy
-  if (isMeal('meal')) { // Check against a generic meal keyword or rely on the caller to pass a meal task name
-    return -10; // Fixed positive energy gain (e.g., +10 Energy)
+  if (isMeal('meal')) { 
+    return -10; 
   }
 
-  let baseCost = Math.ceil(duration / 15) * 5; // 5 energy per 15 minutes
+  let baseCost = Math.ceil(duration / 15) * 5; 
   
   if (isCritical) {
-    baseCost = Math.ceil(baseCost * 1.5); // Critical tasks cost 50% more energy
+    baseCost = Math.ceil(baseCost * 1.5); 
   } else if (isBackburner) {
-    // Backburner tasks cost 25% less energy
     baseCost = Math.ceil(baseCost * 0.75);
   }
   
-  return Math.max(5, baseCost); // Minimum energy cost of 5
+  return Math.max(5, baseCost); 
 };
 
 export const parseFlexibleTime = (timeString: string, baseDate: Date): Date => {
   const lowerCaseTimeString = timeString.toLowerCase();
   let parsedDate: Date;
 
-  // Try parsing with h:mma (e.g., "12:15pm", "1am")
   parsedDate = parse(lowerCaseTimeString, 'h:mma', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
 
-  // Try parsing with h:mm a (e.g., "12:15 pm", "1 am")
   parsedDate = parse(lowerCaseTimeString, 'h:mm a', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
 
-  // Try parsing with ha (e.g., "12pm", "1am")
   parsedDate = parse(lowerCaseTimeString, 'ha', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
 
-  // Try parsing 24-hour format (e.g., "13:00", "09:30")
   parsedDate = parse(lowerCaseTimeString, 'HH:mm', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
 
-  // Try parsing simple hour inputs (e.g., "9", "14")
   const hourMatch = lowerCaseTimeString.match(/^(\d{1,2})$/);
   if (hourMatch) {
     const hour = parseInt(hourMatch[1], 10);
@@ -261,9 +255,7 @@ export const parseFlexibleTime = (timeString: string, baseDate: Date): Date => {
     }
   }
 
-  // If all parsing attempts fail, log an error and return the baseDate
-  console.error(`Failed to parse time string "${timeString}". Returning baseDate.`);
-  return baseDate; // Fallback to baseDate, not current time
+  return baseDate; 
 };
 
 export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
@@ -274,46 +266,41 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   endTime?: Date;
   isCritical: boolean;
   isFlexible: boolean;
-  isBackburner: boolean; // NEW: Backburner flag
+  isBackburner: boolean; 
   shouldSink: boolean;
   energyCost: number;
 } | null => {
   let rawInput = input.trim();
   let lowerInput = rawInput.toLowerCase();
   let isCritical = false;
-  let isBackburner = false; // NEW: Backburner flag
+  let isBackburner = false; 
   let shouldSink = false;
-  let isFlexible = true; // Default to flexible
+  let isFlexible = true; 
 
-  // Check for critical flag (suffix)
   if (lowerInput.endsWith(' !')) {
     isCritical = true;
     rawInput = rawInput.slice(0, -2).trim();
     lowerInput = rawInput.toLowerCase();
   }
 
-  // Check for Backburner flag (prefix)
   if (lowerInput.startsWith('-')) {
     isBackburner = true;
     rawInput = rawInput.slice(1).trim();
     lowerInput = rawInput.toLowerCase();
   }
 
-  // Check for sink flag (suffix)
   if (lowerInput.endsWith(' sink')) {
     shouldSink = true;
     rawInput = rawInput.slice(0, -5).trim();
     lowerInput = rawInput.toLowerCase();
   }
 
-  // Check for fixed flag (suffix)
   if (lowerInput.endsWith(' fixed')) {
     isFlexible = false;
     rawInput = rawInput.slice(0, -6).trim();
     lowerInput = rawInput.toLowerCase();
   }
   
-  // Re-check for critical/backburner after removing other suffixes
   if (rawInput.endsWith(' !')) {
     isCritical = true;
     rawInput = rawInput.slice(0, -2).trim();
@@ -325,7 +312,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     lowerInput = rawInput.toLowerCase();
   }
   
-  // Time Off (always fixed, no energy cost)
   const timeOffMatch = rawInput.match(/^(time off)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeOffMatch) {
     const name = timeOffMatch[1];
@@ -345,13 +331,12 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
       endTime: endTime,
       isCritical: false,
       isBackburner: false,
-      isFlexible: false, // Time Off is always fixed
+      isFlexible: false, 
       shouldSink: false,
-      energyCost: 0, // Time Off has no energy cost
+      energyCost: 0, 
     };
   }
 
-  // Timed task: "Task Name 10am-11am"
   const timeRangeMatch = rawInput.match(/^(.*?)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeRangeMatch) {
     const name = timeRangeMatch[1].trim();
@@ -367,11 +352,10 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
       const isMealTask = isMeal(name);
       const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner);
 
-      return { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost }; // Timed tasks are implicitly fixed
+      return { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost }; 
     }
   }
 
-  // Duration-based task: "Task Name 60 [10]"
   const durationMatch = rawInput.match(/^(.*?)\s+(\d+)(?:\s+(\d+))?$/);
   if (durationMatch) {
     const name = durationMatch[1].trim();
@@ -396,11 +380,10 @@ export const parseInjectionCommand = (input: string): {
   endTime?: string;
   isCritical?: boolean;
   isFlexible?: boolean;
-  isBackburner?: boolean; // NEW: Backburner flag
+  isBackburner?: boolean; 
   energyCost: number;
 } | null => {
   const lowerInput = input.toLowerCase().trim();
-  // Regex updated to capture the Backburner flag (-) and ensure it's handled correctly
   const injectMatch = lowerInput.match(/^inject\s+"([^"]+)"(?:\s+(\d+))?(?:\s+(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s+(!))?(?:\s+(-))?(?:\s+(fixed))?$/);
 
   if (injectMatch) {
@@ -409,8 +392,8 @@ export const parseInjectionCommand = (input: string): {
     const startTime = injectMatch[3] || undefined;
     const endTime = injectMatch[6] || undefined;
     const isCritical = !!injectMatch[9];
-    const isBackburner = !!injectMatch[10]; // Capture the Backburner flag
-    const isFlexible = !injectMatch[11]; // If 'fixed' flag is present, it's not flexible
+    const isBackburner = !!injectMatch[10]; 
+    const isFlexible = !injectMatch[11]; 
 
     let calculatedEnergyCost = 0;
     const isMealTask = isMeal(taskName);
@@ -420,7 +403,7 @@ export const parseInjectionCommand = (input: string): {
     } else if (duration) {
       calculatedEnergyCost = calculateEnergyCost(duration, isCritical, isBackburner);
     } else {
-      calculatedEnergyCost = calculateEnergyCost(30, isCritical, isBackburner); // Default for unknown duration
+      calculatedEnergyCost = calculateEnergyCost(30, isCritical, isBackburner); 
     }
 
     return {
@@ -449,7 +432,7 @@ export const parseCommand = (input: string): { type: string; target?: string; in
       if (parts[1] === 'index' && parts.length > 2) {
         const index = parseInt(parts[2], 10);
         if (!isNaN(index)) {
-          return { type: 'remove', index: index - 1 }; // Convert to 0-based index
+          return { type: 'remove', index: index - 1 }; 
         }
       } else {
         return { type: 'remove', target: parts.slice(1).join(' ') };
@@ -482,7 +465,7 @@ export const parseCommand = (input: string): { type: string; target?: string; in
         return { type: 'break', duration: duration };
       }
     }
-    return { type: 'break', duration: 15 }; // Default to 15 min break
+    return { type: 'break', duration: 15 }; 
   }
   return null;
 };
@@ -491,21 +474,18 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   let name = input.trim();
   let duration: number | null = null;
   let isCritical = false;
-  let isBackburner = false; // NEW: Backburner flag
+  let isBackburner = false; 
 
-  // Check for critical flag (suffix)
   if (name.endsWith(' !')) {
     isCritical = true;
     name = name.slice(0, -2).trim();
   }
 
-  // Check for Backburner flag (prefix)
   if (name.startsWith('-')) {
     isBackburner = true;
     name = name.slice(1).trim();
   }
 
-  // Check for duration
   const durationMatch = name.match(/^(.*?)\s+(\d+)$/);
   if (durationMatch) {
     name = durationMatch[1].trim();
@@ -515,28 +495,27 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   if (!name) return null;
 
   const isMealTask = isMeal(name);
-  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner); // Default to 30 min if no duration
+  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner); 
 
   return {
     user_id: userId,
     name: name,
     duration: duration,
-    break_duration: null, // Default to no break for sink tasks
-    original_scheduled_date: format(new Date(), 'yyyy-MM-dd'), // Default to today
+    break_duration: null, 
+    original_scheduled_date: format(new Date(), 'yyyy-MM-dd'), 
     is_critical: isCritical,
     is_locked: false,
     energy_cost: energyCost,
     is_completed: false,
     is_custom_energy_cost: false,
-    task_environment: 'laptop', // Default environment for sink tasks
-    is_backburner: isBackburner, // NEW: Include backburner status
+    task_environment: 'laptop', 
+    is_backburner: isBackburner, 
   };
 };
 
 export const mergeOverlappingTimeBlocks = (blocks: TimeBlock[]): TimeBlock[] => {
   if (blocks.length === 0) return [];
 
-  // Sort blocks by start time
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
   const merged: TimeBlock[] = [];
@@ -545,19 +524,15 @@ export const mergeOverlappingTimeBlocks = (blocks: TimeBlock[]): TimeBlock[] => 
   for (let i = 1; i < blocks.length; i++) {
     const nextBlock = blocks[i];
 
-    // If the current merged block overlaps with the next block
     if (currentMergedBlock.end >= nextBlock.start) {
-      // Extend the current merged block to include the next block's end time
       currentMergedBlock.end = new Date(Math.max(currentMergedBlock.end.getTime(), nextBlock.end.getTime()));
       currentMergedBlock.duration = Math.floor((currentMergedBlock.end.getTime() - currentMergedBlock.start.getTime()) / (1000 * 60));
     } else {
-      // No overlap, add the current merged block to the result and start a new one
       merged.push(currentMergedBlock);
       currentMergedBlock = { ...nextBlock };
     }
   }
 
-  // Add the last merged block
   merged.push(currentMergedBlock);
   return merged;
 };
@@ -573,7 +548,6 @@ export const getFreeTimeBlocks = (
   const sortedOccupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks);
 
   for (const occupiedBlock of sortedOccupiedBlocks) {
-    // If there's a gap between the current cursor and the start of the occupied block
     if (currentFreeTimeCursor < occupiedBlock.start) {
       const duration = Math.floor((occupiedBlock.start.getTime() - currentFreeTimeCursor.getTime()) / (1000 * 60));
       if (duration > 0) {
@@ -584,11 +558,9 @@ export const getFreeTimeBlocks = (
         });
       }
     }
-    // Move the cursor past the end of the occupied block
     currentFreeTimeCursor = new Date(Math.max(currentFreeTimeCursor.getTime(), occupiedBlock.end.getTime()));
   }
 
-  // Add any remaining free time after the last occupied block until workday end
   if (currentFreeTimeCursor < workdayEnd) {
     const duration = Math.floor((workdayEnd.getTime() - currentFreeTimeCursor.getTime()) / (1000 * 60));
     if (duration > 0) {
@@ -609,12 +581,11 @@ export const isSlotFree = (
   occupiedBlocks: TimeBlock[]
 ): boolean => {
   for (const block of occupiedBlocks) {
-    // Check for overlap: (StartA < EndB) and (EndA > StartB)
     if (proposedStart < block.end && proposedEnd > block.start) {
-      return false; // Overlaps with an existing block
+      return false; 
     }
   }
-  return true; // No overlaps found
+  return true; 
 };
 
 export const compactScheduleLogic = (
@@ -623,7 +594,7 @@ export const compactScheduleLogic = (
   workdayStartTime: Date,
   workdayEndTime: Date,
   T_current: Date,
-  tasksToPlace?: DBScheduledTask[] // Optional: specific tasks to place, if not all flexible tasks
+  tasksToPlace?: DBScheduledTask[] 
 ): DBScheduledTask[] => {
   const isTodaySelected = isSameDay(selectedDayAsDate, T_current);
   const effectiveWorkdayStart = isTodaySelected && isBefore(workdayStartTime, T_current) ? T_current : workdayStartTime;
@@ -633,35 +604,26 @@ export const compactScheduleLogic = (
   let flexibleTasksToCompact: DBScheduledTask[];
 
   if (tasksToPlace) {
-    // If tasksToPlace is provided (e.g., from auto-balance), use it, but ensure it's not completed
     flexibleTasksToCompact = tasksToPlace.filter(task => !task.is_completed);
   } else {
-    // If no tasksToPlace provided (e.g., manual 'compact' command), filter from current DB tasks
     flexibleTasksToCompact = dbTasks.filter(task => task.is_flexible && !task.is_locked && !task.is_completed);
   }
 
-  // CRITICAL FIX: If today is selected, filter out tasks whose end time is already past T_current.
-  // These tasks should be retired, not compacted/moved forward.
   if (isTodaySelected) {
     flexibleTasksToCompact = flexibleTasksToCompact.filter(task => {
       if (!task.start_time) return true; 
       const taskEndTime = parseISO(task.end_time!);
-      // Only keep tasks that end AFTER the current time
       return isAfter(taskEndTime, T_current);
     });
   }
   
-  // Sort flexible tasks by priority (critical first), then duration (longest first)
   flexibleTasksToCompact.sort((a, b) => {
-    // 1. Critical tasks first
     if (a.is_critical && !b.is_critical) return -1;
     if (!a.is_critical && b.is_critical) return 1;
     
-    // 2. Backburner tasks last
     if (a.is_backburner && !b.is_backburner) return 1;
     if (!a.is_backburner && b.is_backburner) return -1;
 
-    // 3. Tie-breaker: Duration (Longest first)
     const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
     const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
     return durationB - durationA; 
@@ -678,7 +640,7 @@ export const compactScheduleLogic = (
         let localEnd = setTimeOnDate(selectedDayAsDate, format(utcEnd, 'HH:mm'));
 
         if (isBefore(localEnd, localStart)) {
-          localEnd = addDays(localEnd, 1);
+          localStart = addDays(localStart, 0); // local Date
         }
         return { start: localStart, end: localEnd, duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)) };
       })
@@ -718,14 +680,11 @@ export const compactScheduleLogic = (
           break;
         }
       }
-      // If no suitable block found from current searchStartTime, advance searchStartTime
-      // to the end of the next occupied block or the start of the next free block
       if (!placed) {
         const nextOccupiedBlock = currentOccupiedBlocks.find(block => isAfter(block.start, searchStartTime));
         if (nextOccupiedBlock) {
           searchStartTime = nextOccupiedBlock.end;
         } else {
-          // No more occupied blocks, so no more free blocks to check
           break;
         }
       }
@@ -738,83 +697,95 @@ export const compactScheduleLogic = (
 
 export const calculateSchedule = (
   dbTasks: DBScheduledTask[],
-  selectedDay: string, // 'yyyy-MM-dd' string
-  workdayStart: Date, // Local Date object
-  workdayEnd: Date,   // Local Date object
-  isRegenPodActive: boolean, // NEW: Pod state
-  regenPodStartTime: Date | null, // NEW: Pod start time
-  regenPodDurationMinutes: number, // NEW: Pod duration
-  T_current: Date, // NEW: Current time for dynamic calculation
-  breakfastTimeStr: string | null, // NEW: Breakfast time from profile
-  lunchTimeStr: string | null,     // NEW: Lunch time from profile
-  dinnerTimeStr: string | null,    // NEW: Dinner time from profile
-  breakfastDuration: number | null, // NEW: Breakfast duration from profile
-  lunchDuration: number | null,     // NEW: Lunch duration from profile
-  dinnerDuration: number | null     // NEW: Dinner duration from profile
+  selectedDay: string, 
+  workdayStart: Date, 
+  workdayEnd: Date,   
+  isRegenPodActive: boolean, 
+  regenPodStartTime: Date | null, 
+  regenPodDurationMinutes: number, 
+  T_current: Date, 
+  breakfastTimeStr: string | null, 
+  lunchTimeStr: string | null,     
+  dinnerTimeStr: string | null,    
+  breakfastDuration: number | null, 
+  lunchDuration: number | null,     
+  dinnerDuration: number | null,
+  // NEW: Reflection Point configuration
+  reflectionCount: number = 0,
+  reflectionTimes: string[] = [],
+  reflectionDurations: number[] = []
 ): FormattedSchedule => {
   const items: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
   let totalBreakTimeMinutes = 0;
   let criticalTasksRemaining = 0;
   let unscheduledCount = 0;
-  let sessionEnd = workdayStart; // Initialize with workdayStart
+  let sessionEnd = workdayStart; 
   let extendsPastMidnight = false;
   let midnightRolloverMessage: string | null = null;
 
-  // Create a local Date object for the start of the selected day
   const [year, month, day] = selectedDay.split('-').map(Number);
   const selectedDayDate = new Date(year, month - 1, day); 
 
-  // --- NEW: Add Meal Times as Fixed Tasks ---
-  const addMealTask = (name: string, timeStr: string | null, emoji: string, duration: number | null) => {
+  const addStaticAnchor = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => {
     if (timeStr && duration !== null && duration > 0) {
-      let mealStart = setTimeOnDate(selectedDayDate, timeStr);
-      let mealEnd = addMinutes(mealStart, duration);
+      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
+      let anchorEnd = addMinutes(anchorStart, duration);
 
-      // Ensure mealEnd is after mealStart, potentially spanning midnight
-      if (isBefore(mealEnd, mealStart)) {
-        mealEnd = addDays(mealEnd, 1);
+      if (isBefore(anchorEnd, anchorStart)) {
+        anchorEnd = addDays(anchorEnd, 1);
       }
 
-      // Calculate the intersection with the provided workday window
-      const intersectionStart = max([mealStart, workdayStart]);
-      const intersectionEnd = min([mealEnd, workdayEnd]);
+      const intersectionStart = max([anchorStart, workdayStart]);
+      const intersectionEnd = min([anchorEnd, workdayEnd]);
 
       const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
 
-      if (effectiveDuration > 0) { // Only add if there's a valid intersection
-        const mealItem: ScheduledItem = {
-          id: `meal-${name.toLowerCase()}-${format(intersectionStart, 'HHmm')}`, // More unique ID
-          type: 'meal',
+      if (effectiveDuration > 0) { 
+        const item: ScheduledItem = {
+          id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}`,
+          type: type,
           name: name,
           duration: effectiveDuration,
           startTime: intersectionStart,
           endTime: intersectionEnd,
           emoji: emoji,
-          description: `${name} time`,
+          description: `${name} window`,
           isTimedEvent: true,
           isCritical: false,
-          isFlexible: false, // Meals are fixed
-          isLocked: true,   // Meals are locked
-          energyCost: -10,  // Meals provide energy
+          isFlexible: false, 
+          isLocked: true,   
+          energyCost: type === 'meal' ? -10 : 0,  
           isCompleted: false,
           isCustomEnergyCost: false,
-          taskEnvironment: 'home', // Default environment for meals
+          taskEnvironment: 'home', 
           sourceCalendarId: null,
           isBackburner: false,
         };
-        items.push(mealItem);
-        totalBreakTimeMinutes += mealItem.duration; // Meals count as break time
-        sessionEnd = isAfter(mealItem.endTime, sessionEnd) ? mealItem.endTime : sessionEnd;
+        items.push(item);
+        if (type === 'meal' || type === 'break') {
+          totalBreakTimeMinutes += item.duration;
+        } else {
+          totalActiveTimeMinutes += item.duration;
+        }
+        sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
       }
     }
   };
 
-  addMealTask('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
-  addMealTask('Lunch', lunchTimeStr, '🥗', lunchDuration);
-  addMealTask('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
-  // --- END NEW: Add Meal Times as Fixed Tasks ---
+  addStaticAnchor('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
+  addStaticAnchor('Lunch', lunchTimeStr, '🥗', lunchDuration);
+  addStaticAnchor('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
 
+  // --- NEW: Inject Reflection Points ---
+  console.log("[scheduler-utils] Injecting Reflection Points:", { count: reflectionCount, times: reflectionTimes });
+  for (let i = 0; i < reflectionCount; i++) {
+    const time = reflectionTimes[i];
+    const duration = reflectionDurations[i];
+    if (time && duration) {
+      addStaticAnchor(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
+    }
+  }
 
   const sortedTasks = [...dbTasks].sort((a, b) => {
     if (a.start_time && b.start_time) {
@@ -823,22 +794,17 @@ export const calculateSchedule = (
     return 0;
   });
 
-  // --- NEW: Insert Active Regen Pod Block ---
   if (isRegenPodActive && regenPodStartTime && isSameDay(regenPodStartTime, selectedDayDate)) {
     const podStart = regenPodStartTime;
     const podEnd = addMinutes(podStart, regenPodDurationMinutes);
     
-    // Only display the Pod if it's currently running or scheduled for the future today
-    if (isBefore(podEnd, T_current)) {
-        // Pod is finished, do not display
-    } else {
+    if (!isBefore(podEnd, T_current)) {
         const podItem: ScheduledItem = {
             id: 'regen-pod-active',
-            type: 'break', // Treat as a break for scheduling purposes
+            type: 'break', 
             name: 'Energy Regen Pod',
             duration: differenceInMinutes(podEnd, podStart),
             startTime: podStart,
-            // If the pod is currently running, the end time is the calculated end time
             endTime: podEnd, 
             emoji: '🔋',
             description: getBreakDescription(regenPodDurationMinutes),
@@ -851,18 +817,15 @@ export const calculateSchedule = (
             isCustomEnergyCost: false,
             taskEnvironment: 'away',
             sourceCalendarId: null,
-            isBackburner: false, // NEW: Default to false
+            isBackburner: false, 
         };
         items.push(podItem);
         totalBreakTimeMinutes += podItem.duration;
         sessionEnd = isAfter(podEnd, sessionEnd) ? podEnd : sessionEnd;
     }
   }
-  // --- END NEW: Insert Active Regen Pod Block ---
 
-
-  sortedTasks.forEach((dbTask, index) => {
-    
+  sortedTasks.forEach((dbTask) => {
     if (!dbTask.start_time || !dbTask.end_time) {
       unscheduledCount++;
       return;
@@ -871,11 +834,9 @@ export const calculateSchedule = (
     const startTimeUTC = parseISO(dbTask.start_time);
     const endTimeUTC = parseISO(dbTask.end_time);
 
-    // Convert UTC times to local times relative to the selected day
     let startTime = setTimeOnDate(selectedDayDate, format(startTimeUTC, 'HH:mm'));
     let endTime = setTimeOnDate(selectedDayDate, format(endTimeUTC, 'HH:mm'));
 
-    // Handle rollover past midnight
     if (isBefore(endTime, startTime)) {
       endTime = addDays(endTime, 1);
       extendsPastMidnight = true;
@@ -883,17 +844,15 @@ export const calculateSchedule = (
     }
 
     const duration = differenceInMinutes(endTime, startTime);
-    const breakDuration = dbTask.break_duration || 0;
-
     if (duration <= 0) return;
 
     const isTimeOff = dbTask.name.toLowerCase() === 'time off';
     const isBreak = dbTask.name.toLowerCase() === 'break';
     const isMealTask = isMeal(dbTask.name);
-    const isCalendarEvent = !!dbTask.source_calendar_id; // NEW: Check for calendar source
+    const isCalendarEvent = !!dbTask.source_calendar_id; 
 
     let itemType: ScheduledItemType;
-    if (isCalendarEvent) { // NEW: Highest priority type check
+    if (isCalendarEvent) { 
       itemType = 'calendar-event';
     } else if (isTimeOff) {
       itemType = 'time-off';
@@ -912,7 +871,7 @@ export const calculateSchedule = (
       duration: duration,
       startTime: startTime,
       endTime: endTime,
-      emoji: isCalendarEvent ? '📅' : assignEmoji(dbTask.name), // NEW: Use calendar emoji for sync events
+      emoji: isCalendarEvent ? '📅' : assignEmoji(dbTask.name), 
       description: isBreak ? getBreakDescription(duration) : undefined,
       isTimedEvent: true,
       isCritical: dbTask.is_critical,
@@ -922,13 +881,13 @@ export const calculateSchedule = (
       isCompleted: dbTask.is_completed,
       isCustomEnergyCost: dbTask.is_custom_energy_cost,
       taskEnvironment: dbTask.task_environment,
-      sourceCalendarId: dbTask.source_calendar_id, // NEW: Pass source calendar ID
-      isBackburner: dbTask.is_backburner, // NEW: Pass backburner status
+      sourceCalendarId: dbTask.source_calendar_id, 
+      isBackburner: dbTask.is_backburner, 
     };
 
     items.push(item);
 
-    if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { // UPDATED: Calendar events count as active time
+    if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { 
       totalActiveTimeMinutes += duration;
     } else if (item.type === 'break' || item.type === 'meal') {
       totalBreakTimeMinutes += duration;
@@ -941,7 +900,6 @@ export const calculateSchedule = (
     sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
   });
 
-  // Re-sort all items (including the dynamically added Pod item and meals) by start time
   items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
   const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);

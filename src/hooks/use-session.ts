@@ -33,6 +33,10 @@ export interface UserProfile {
   lunch_duration_minutes: number | null;
   dinner_duration_minutes: number | null;
   custom_environment_order: TaskEnvironment[] | null; // NEW: Custom order for environment sorting
+  // NEW: Reflection Point configurations
+  reflection_count: number;
+  reflection_times: string[];
+  reflection_durations: number[];
 }
 
 interface SessionContextType {

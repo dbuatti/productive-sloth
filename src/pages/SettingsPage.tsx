@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw, Plug, CheckCircle, Utensils, ListOrdered } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, RefreshCcw, Zap, Flame, Clock, Code, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, CalendarDays, RefreshCw, Plug, CheckCircle, Utensils, ListOrdered, Sparkles } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -40,6 +40,8 @@ import { useICloudCalendar } from '@/hooks/use-icloud-calendar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { adjustArrayLength } from '@/lib/utils';
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -55,6 +57,7 @@ const profileSchema = z.object({
   breakfast_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),
   lunch_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),
   dinner_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),
+  reflection_count: z.coerce.number().min(1).max(5),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -69,15 +72,12 @@ const SettingsPage: React.FC = () => {
   const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
   const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
   
-  const [isICloudConnected, setIsICloudConnected] = useState(false);
+  // Local state for reflection arrays (RHF handles the count)
+  const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
+  const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
 
   const { 
-    availableCalendars, 
     userCalendars, 
-    isLoadingAvailableCalendars, 
-    isSyncing, 
-    toggleCalendarSelection, 
-    triggerSync 
   } = useICloudCalendar();
 
 
@@ -95,6 +95,7 @@ const SettingsPage: React.FC = () => {
       breakfast_duration_minutes: 30,
       lunch_duration_minutes: 45,
       dinner_duration_minutes: 60,
+      reflection_count: 1,
     },
     mode: 'onChange',
   });
@@ -113,17 +114,36 @@ const SettingsPage: React.FC = () => {
         breakfast_duration_minutes: profile.breakfast_duration_minutes || 30,
         lunch_duration_minutes: profile.lunch_duration_minutes || 45,
         dinner_duration_minutes: profile.dinner_duration_minutes || 60,
+        reflection_count: profile.reflection_count || 1,
       });
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
       setEnableDeleteHotkeys(profile.enable_delete_hotkeys);
       setEnableAetherSinkBackup(profile.enable_aethersink_backup);
-      setIsICloudConnected(userCalendars.length > 0);
+      setReflectionTimes(profile.reflection_times || ['12:00']);
+      setReflectionDurations(profile.reflection_durations || [15]);
     }
-  }, [profile, form, userCalendars.length]);
+  }, [profile, form]);
+
+  const handleReflectionTimeChange = (index: number, value: string) => {
+    const newTimes = [...reflectionTimes];
+    newTimes[index] = value;
+    setReflectionTimes(newTimes);
+  };
+
+  const handleReflectionDurationChange = (index: number, value: number) => {
+    const newDurations = [...reflectionDurations];
+    newDurations[index] = value;
+    setReflectionDurations(newDurations);
+  };
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user) return showError("User required.");
+    
+    // Adjust arrays based on count before saving
+    const finalTimes = adjustArrayLength(reflectionTimes, values.reflection_count, '12:00');
+    const finalDurations = adjustArrayLength(reflectionDurations, values.reflection_count, 15);
+
     try {
       await updateProfile({
         first_name: values.first_name,
@@ -137,6 +157,9 @@ const SettingsPage: React.FC = () => {
         breakfast_duration_minutes: values.breakfast_duration_minutes,
         lunch_duration_minutes: values.lunch_duration_minutes,
         dinner_duration_minutes: values.dinner_duration_minutes,
+        reflection_count: values.reflection_count,
+        reflection_times: finalTimes,
+        reflection_durations: finalDurations,
       });
       showSuccess("Profile updated successfully!");
     } catch (error: any) {
@@ -147,7 +170,7 @@ const SettingsPage: React.FC = () => {
   const handleResetGameProgress = async () => {
     if (!user) return;
     try {
-      const { error } = await supabase.from('profiles').update({ xp: 0, level: 1, daily_streak: 0, last_streak_update: null, energy: MAX_ENERGY, tasks_completed_today: 0, last_daily_reward_claim: null, last_daily_reward_notification: null, last_low_energy_notification: null, enable_daily_challenge_notifications: true, enable_low_energy_notifications: true, enable_delete_hotkeys: true, enable_aethersink_backup: true, default_auto_schedule_start_time: '09:00', default_auto_schedule_end_time: '17:00', breakfast_time: '08:00', lunch_time: '12:00', dinner_time: '18:00', breakfast_duration_minutes: 30, lunch_duration_minutes: 45, dinner_duration_minutes: 60, last_energy_regen_at: new Date().toISOString() }).eq('id', user.id);
+      const { error } = await supabase.from('profiles').update({ xp: 0, level: 1, daily_streak: 0, last_streak_update: null, energy: MAX_ENERGY, tasks_completed_today: 0, last_daily_reward_claim: null, last_daily_reward_notification: null, last_low_energy_notification: null, enable_daily_challenge_notifications: true, enable_low_energy_notifications: true, enable_delete_hotkeys: true, enable_aethersink_backup: true, default_auto_schedule_start_time: '09:00', default_auto_schedule_end_time: '17:00', breakfast_time: '08:00', lunch_time: '12:00', dinner_time: '18:00', breakfast_duration_minutes: 30, lunch_duration_minutes: 45, dinner_duration_minutes: 60, reflection_count: 1, reflection_times: ['12:00'], reflection_durations: [15], last_energy_regen_at: new Date().toISOString() }).eq('id', user.id);
       if (error) throw error;
       await supabase.from('tasks').delete().eq('user_id', user.id);
       await refreshProfile();
@@ -161,7 +184,7 @@ const SettingsPage: React.FC = () => {
   const handleResetAppSettings = async () => {
     if (!user) return;
     try {
-      await updateSettings({ enable_daily_challenge_notifications: true, enable_low_energy_notifications: true, enable_delete_hotkeys: true, enable_aethersink_backup: true, default_auto_schedule_start_time: '09:00', default_auto_schedule_end_time: '17:00', breakfast_time: '08:00', lunch_time: '12:00', dinner_time: '18:00', breakfast_duration_minutes: 30, lunch_duration_minutes: 45, dinner_duration_minutes: 60 });
+      await updateSettings({ enable_daily_challenge_notifications: true, enable_low_energy_notifications: true, enable_delete_hotkeys: true, enable_aethersink_backup: true, default_auto_schedule_start_time: '09:00', default_auto_schedule_end_time: '17:00', breakfast_time: '08:00', lunch_time: '12:00', dinner_time: '18:00', breakfast_duration_minutes: 30, lunch_duration_minutes: 45, dinner_duration_minutes: 60, reflection_count: 1, reflection_times: ['12:00'], reflection_durations: [15] });
       setTheme("system");
       showSuccess("App settings reset!");
     } catch (error: any) {
@@ -179,13 +202,14 @@ const SettingsPage: React.FC = () => {
   const handleAetherSinkBackupChange = async (checked: boolean) => { setEnableAetherSinkBackup(checked); await updateSettings({ enable_aethersink_backup: checked }); };
 
   const handleSignOut = async () => { await supabase.auth.signOut(); };
-  const handleConnectICloud = () => { setIsICloudConnected(true); showSuccess("iCloud connected!"); };
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
 
   if (isSessionLoading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!user || !profile) return null;
+
+  const reflectionCount = form.watch('reflection_count');
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 animate-slide-in-up">
@@ -198,7 +222,6 @@ const SettingsPage: React.FC = () => {
         </Button>
       </div>
       
-      {/* Environment Logic Card (NEW) */}
       <Card className="animate-hover-lift border-primary/20 bg-primary/[0.02]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -235,6 +258,78 @@ const SettingsPage: React.FC = () => {
                 <FormField control={form.control} name="last_name" render={({ field }) => (<FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
               </div>
               <div className="flex justify-end pt-4"><Button type="submit" disabled={isSubmitting || !isValid}>Save Profile Changes</Button></div>
+            </CardContent>
+          </Card>
+
+          {/* NEW: Reflection Points Calibration Card */}
+          <Card className="animate-hover-lift border-logo-yellow/20 bg-logo-yellow/[0.02]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Sparkles className="h-5 w-5 text-logo-yellow" /> Reflection Calibration
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Define the recurring periods in your day dedicated to introspection and calibration.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <FormField
+                control={form.control}
+                name="reflection_count"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between">
+                    <div className="space-y-0.5">
+                      <FormLabel>Reflection Frequency</FormLabel>
+                      <FormDescription>How many times per day do you want to reflect?</FormDescription>
+                    </div>
+                    <FormControl>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value.toString()}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Count" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5].map(n => (
+                            <SelectItem key={n} value={n.toString()}>{n} Time{n > 1 ? 's' : ''}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-4">
+                {Array.from({ length: reflectionCount }).map((_, i) => (
+                  <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg border bg-background/50 animate-pop-in">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-widest opacity-50">Point 0{i + 1} Time</Label>
+                      <Input 
+                        type="time" 
+                        value={reflectionTimes[i] || '12:00'} 
+                        onChange={(e) => handleReflectionTimeChange(i, e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-widest opacity-50">Duration (Minutes)</Label>
+                      <Input 
+                        type="number" 
+                        min="5" 
+                        max="120"
+                        value={reflectionDurations[i] || 15} 
+                        onChange={(e) => handleReflectionDurationChange(i, parseInt(e.target.value, 10))}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button type="submit" disabled={isSubmitting || !isValid}>
+                  Update Reflection Sequence
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

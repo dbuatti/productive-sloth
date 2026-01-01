@@ -2,27 +2,25 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask } from '@/types/scheduler';
 import { useSession } from './use-session';
-import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max } from 'date-fns'; // Added isAfter, differenceInMinutes, min, max
-import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils'; // Import setTimeOnDate and isMeal
+import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max } from 'date-fns'; 
+import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils'; 
 
 interface WeeklyTasks {
   [key: string]: DBScheduledTask[]; // Key is 'yyyy-MM-dd'
 }
 
 export const useWeeklySchedulerTasks = (weekStart: Date) => {
-  const { user, profile } = useSession(); // Get profile from session
+  const { user, profile } = useSession(); 
   const userId = user?.id;
 
-  // Ensure weekStart is treated as a local date for formatting
-  const formattedWeekStart = format(startOfWeek(weekStart, { weekStartsOn: 0 }), 'yyyy-MM-dd'); // Ensure week starts on Sunday
+  const formattedWeekStart = format(startOfWeek(weekStart, { weekStartsOn: 0 }), 'yyyy-MM-dd'); 
 
-  const queryKey = ['weeklyScheduledTasks', userId, formattedWeekStart, profile?.breakfast_time, profile?.lunch_time, profile?.dinner_time, profile?.breakfast_duration_minutes, profile?.lunch_duration_minutes, profile?.dinner_duration_minutes]; // Added profile meal times to query key
+  const queryKey = ['weeklyScheduledTasks', userId, formattedWeekStart, profile?.breakfast_time, profile?.lunch_time, profile?.dinner_time, profile?.breakfast_duration_minutes, profile?.lunch_duration_minutes, profile?.dinner_duration_minutes, profile?.reflection_count, profile?.reflection_times, profile?.reflection_durations]; 
 
   const fetchWeeklyTasks = async (): Promise<WeeklyTasks> => {
     if (!userId || !profile) return {};
 
-    // Calculate weekEnd based on the local weekStart
-    const weekEnd = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), 6); // End of the week (Saturday)
+    const weekEnd = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), 6); 
 
     const { data, error } = await supabase
       .from('scheduled_tasks')
@@ -43,42 +41,37 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
     }
 
     (data as DBScheduledTask[]).forEach(task => {
-      // Ensure task.scheduled_date is parsed as a local date for consistent key generation
       const dateKey = format(parseISO(task.scheduled_date), 'yyyy-MM-dd');
       if (tasksByDay[dateKey]) {
         tasksByDay[dateKey].push(task);
       }
     });
 
-    // Inject meal tasks from profile into each day's schedule
     for (let i = 0; i < 7; i++) {
       const dayDate = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), i);
       const dateKey = format(dayDate, 'yyyy-MM-dd');
 
-      // Define workdayStart and workdayEnd for the current dayDate within this loop
       const workdayStart = setTimeOnDate(dayDate, profile.default_auto_schedule_start_time || '00:00');
       let workdayEnd = setTimeOnDate(dayDate, profile.default_auto_schedule_end_time || '23:59');
       if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
 
-      const addMealTask = (name: string, timeStr: string | null, duration: number | null) => {
+      const addStaticTask = (name: string, timeStr: string | null, duration: number | null, isMealTask: boolean = true) => {
         if (timeStr && duration !== null && duration > 0) {
-          let mealStart = setTimeOnDate(dayDate, timeStr);
-          let mealEnd = addMinutes(mealStart, duration);
+          let anchorStart = setTimeOnDate(dayDate, timeStr);
+          let anchorEnd = addMinutes(anchorStart, duration);
 
-          // Ensure mealEnd is after mealStart, potentially spanning midnight
-          if (isBefore(mealEnd, mealStart)) {
-            mealEnd = addDays(mealEnd, 1);
+          if (isBefore(anchorEnd, anchorStart)) {
+            anchorEnd = addDays(anchorEnd, 1);
           }
 
-          // Calculate the intersection with the workday window
-          const intersectionStart = max([mealStart, workdayStart]);
-          const intersectionEnd = min([mealEnd, workdayEnd]);
+          const intersectionStart = max([anchorStart, workdayStart]);
+          const intersectionEnd = min([anchorEnd, workdayEnd]);
 
           const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
 
-          if (effectiveDuration > 0) { // Only add if there's a valid intersection
+          if (effectiveDuration > 0) { 
             tasksByDay[dateKey].push({
-              id: `meal-${name.toLowerCase()}-${dateKey}-${format(intersectionStart, 'HHmm')}`, // More unique ID
+              id: `${isMealTask ? 'meal' : 'reflection'}-${name.toLowerCase().replace(/\s/g, '-')}-${dateKey}-${format(intersectionStart, 'HHmm')}`,
               user_id: userId,
               name: name,
               break_duration: null,
@@ -88,12 +81,12 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               is_critical: false,
-              is_flexible: false, // Meals are fixed
-              is_locked: true,   // Meals are locked
-              energy_cost: -10,  // Meals provide energy
+              is_flexible: false, 
+              is_locked: true,   
+              energy_cost: isMealTask ? -10 : 0,  
               is_completed: false,
               is_custom_energy_cost: false,
-              task_environment: 'home', // Default environment for meals
+              task_environment: isMealTask ? 'home' : 'laptop', 
               source_calendar_id: null,
               is_backburner: false,
             });
@@ -101,12 +94,20 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
         }
       };
 
-      addMealTask('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
-      addMealTask('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
-      addMealTask('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+      addStaticTask('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+      addStaticTask('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+      addStaticTask('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
+      // Inject Reflections
+      for (let r = 0; r < (profile.reflection_count || 0); r++) {
+        const rTime = profile.reflection_times?.[r];
+        const rDur = profile.reflection_durations?.[r];
+        if (rTime && rDur) {
+          addStaticTask(`Reflection Point ${r + 1}`, rTime, rDur, false);
+        }
+      }
     }
 
-    // Sort all tasks (including injected meals) by start time for each day
     Object.keys(tasksByDay).forEach(dateKey => {
       tasksByDay[dateKey].sort((a, b) => {
         if (a.start_time && b.start_time) {
@@ -122,9 +123,9 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
   const { data: weeklyTasks = {}, isLoading, error } = useQuery<WeeklyTasks, Error>({
     queryKey,
     queryFn: fetchWeeklyTasks,
-    enabled: !!userId && !!profile, // Only enable if user and profile are loaded
-    staleTime: 5 * 60 * 1000, // 5 minutes stale time
-    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection time
+    enabled: !!userId && !!profile, 
+    staleTime: 5 * 60 * 1000, 
+    gcTime: 10 * 60 * 1000, 
   });
 
   return {

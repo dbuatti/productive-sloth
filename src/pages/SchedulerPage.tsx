@@ -115,7 +115,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const [inputValue, setInputValue] = useState('');
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
-  const [showPodSetupModal, setShowPodSetupModal] = useState(false); 
 
   const selectedDayAsDate = useMemo(() => {
     const [year, month, day] = selectedDay.split('-').map(Number);
@@ -250,7 +249,25 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null;
-    return calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes);
+    return calculateSchedule(
+      dbScheduledTasks, 
+      selectedDay, 
+      workdayStartTimeForSelectedDay, 
+      workdayEndTimeForSelectedDay, 
+      profile.is_in_regen_pod, 
+      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, 
+      regenPodDurationMinutes, 
+      T_current, 
+      profile.breakfast_time, 
+      profile.lunch_time, 
+      profile.dinner_time, 
+      profile.breakfast_duration_minutes, 
+      profile.lunch_duration_minutes, 
+      profile.dinner_duration_minutes,
+      profile.reflection_count,
+      profile.reflection_times,
+      profile.reflection_durations
+    );
   }, [dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile, regenPodDurationMinutes, T_current]);
 
   return (

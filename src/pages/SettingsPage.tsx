@@ -41,7 +41,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { adjustArrayLength } from '@/lib/utils';
+import { adjustArrayLength, cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -72,14 +73,9 @@ const SettingsPage: React.FC = () => {
   const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
   const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
   
-  // Local state for reflection arrays (RHF handles the count)
+  // Local state for reflection arrays
   const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
-
-  const { 
-    userCalendars, 
-  } = useICloudCalendar();
-
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -140,7 +136,6 @@ const SettingsPage: React.FC = () => {
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user) return showError("User required.");
     
-    // Adjust arrays based on count before saving
     const finalTimes = adjustArrayLength(reflectionTimes, values.reflection_count, '12:00');
     const finalDurations = adjustArrayLength(reflectionDurations, values.reflection_count, 15);
 
@@ -181,35 +176,18 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleResetAppSettings = async () => {
-    if (!user) return;
-    try {
-      await updateSettings({ enable_daily_challenge_notifications: true, enable_low_energy_notifications: true, enable_delete_hotkeys: true, enable_aethersink_backup: true, default_auto_schedule_start_time: '09:00', default_auto_schedule_end_time: '17:00', breakfast_time: '08:00', lunch_time: '12:00', dinner_time: '18:00', breakfast_duration_minutes: 30, lunch_duration_minutes: 45, dinner_duration_minutes: 60, reflection_count: 1, reflection_times: ['12:00'], reflection_durations: [15] });
-      setTheme("system");
-      showSuccess("App settings reset!");
-    } catch (error: any) {
-      showError(`Reset failed: ${error.message}`);
-    }
-  };
-
   const handleNotificationChange = async (key: 'enable_daily_challenge_notifications' | 'enable_low_energy_notifications', checked: boolean) => {
     if (key === 'enable_daily_challenge_notifications') setDailyChallengeNotifications(checked);
     else setLowEnergyNotifications(checked);
     await updateNotificationPreferences({ [key]: checked });
   };
 
-  const handleDeleteHotkeysChange = async (checked: boolean) => { setEnableDeleteHotkeys(checked); await updateSettings({ enable_delete_hotkeys: checked }); };
-  const handleAetherSinkBackupChange = async (checked: boolean) => { setEnableAetherSinkBackup(checked); await updateSettings({ enable_aethersink_backup: checked }); };
-
-  const handleSignOut = async () => { await supabase.auth.signOut(); };
-
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
+  const reflectionCount = form.watch('reflection_count');
 
   if (isSessionLoading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!user || !profile) return null;
-
-  const reflectionCount = form.watch('reflection_count');
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 animate-slide-in-up">
@@ -222,34 +200,9 @@ const SettingsPage: React.FC = () => {
         </Button>
       </div>
       
-      <Card className="animate-hover-lift border-primary/20 bg-primary/[0.02]">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ListOrdered className="h-5 w-5 text-primary" /> Auto-Balance Intelligence
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Configure how the system prioritizes and interleaves tasks across different zones.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <EnvironmentOrderSettings />
-        </CardContent>
-      </Card>
-
-      <Card className="animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ExternalLink className="h-5 w-5 text-primary" /> Secondary Views
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Button variant="outline" onClick={() => navigate('/analytics')} className="flex items-center justify-start gap-3 h-12 text-base"><TrendingUp className="h-5 w-5 text-logo-yellow" /> Analytics & Progress</Button>
-          <Button variant="outline" onClick={() => navigate('/documentation')} className="flex items-center justify-start gap-3 h-12 text-base"><BookOpen className="h-5 w-5 text-logo-green" /> App Documentation</Button>
-        </CardContent>
-      </Card>
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          
           <Card className="animate-hover-lift">
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><User className="h-5 w-5 text-primary" /> Profile</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -261,92 +214,99 @@ const SettingsPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* NEW: Reflection Points Calibration Card */}
+          {/* Temporal Anchors (Meals) */}
+          <Card className="animate-hover-lift border-logo-orange/20 bg-logo-orange/[0.02]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Utensils className="h-5 w-5 text-logo-orange" /> Resource Synchronization (Meals)
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Configure your daily meal windows. These act as fixed recovery blocks.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {[
+                { label: 'Breakfast', timeKey: 'breakfast_time' as const, durKey: 'breakfast_duration_minutes' as const },
+                { label: 'Lunch', timeKey: 'lunch_time' as const, durKey: 'lunch_duration_minutes' as const },
+                { label: 'Dinner', timeKey: 'dinner_time' as const, durKey: 'dinner_duration_minutes' as const }
+              ].map(({ label, timeKey, durKey }) => (
+                <div key={label} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg border bg-background/50">
+                  <FormField control={form.control} name={timeKey} render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold uppercase tracking-widest opacity-50">{label} Start Time</FormLabel>
+                      <FormControl><Input type="time" {...field} value={field.value || ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name={durKey} render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold uppercase tracking-widest opacity-50">Duration (Min)</FormLabel>
+                      <FormControl><Input type="number" {...field} value={field.value || ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              ))}
+              <div className="flex justify-end"><Button type="submit" disabled={isSubmitting || !isValid}>Update Meal Windows</Button></div>
+            </CardContent>
+          </Card>
+
+          {/* Reflection Calibration */}
           <Card className="animate-hover-lift border-logo-yellow/20 bg-logo-yellow/[0.02]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Sparkles className="h-5 w-5 text-logo-yellow" /> Reflection Calibration
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Define the recurring periods in your day dedicated to introspection and calibration.
+                Define recurring periods dedicated to introspection and system calibration.
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              <FormField
-                control={form.control}
-                name="reflection_count"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between">
-                    <div className="space-y-0.5">
-                      <FormLabel>Reflection Frequency</FormLabel>
-                      <FormDescription>How many times per day do you want to reflect?</FormDescription>
-                    </div>
-                    <FormControl>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value.toString()}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue placeholder="Count" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[1, 2, 3, 4, 5].map(n => (
-                            <SelectItem key={n} value={n.toString()}>{n} Time{n > 1 ? 's' : ''}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="reflection_count" render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between">
+                  <div className="space-y-0.5"><FormLabel>Reflection Frequency</FormLabel><FormDescription>Daily occurrences (1-5)</FormDescription></div>
+                  <FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value.toString()}>
+                      <SelectTrigger className="w-32"><SelectValue placeholder="Count" /></SelectTrigger>
+                      <SelectContent>{[1, 2, 3, 4, 5].map(n => (<SelectItem key={n} value={n.toString()}>{n} Time{n > 1 ? 's' : ''}</SelectItem>))}</SelectContent>
+                    </Select>
+                  </FormControl>
+                </FormItem>
+              )} />
 
               <div className="space-y-4">
                 {Array.from({ length: reflectionCount }).map((_, i) => (
                   <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg border bg-background/50 animate-pop-in">
                     <div className="space-y-2">
                       <Label className="text-xs font-bold uppercase tracking-widest opacity-50">Point 0{i + 1} Time</Label>
-                      <Input 
-                        type="time" 
-                        value={reflectionTimes[i] || '12:00'} 
-                        onChange={(e) => handleReflectionTimeChange(i, e.target.value)}
-                      />
+                      <Input type="time" value={reflectionTimes[i] || '12:00'} onChange={(e) => handleReflectionTimeChange(i, e.target.value)} />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-bold uppercase tracking-widest opacity-50">Duration (Minutes)</Label>
-                      <Input 
-                        type="number" 
-                        min="5" 
-                        max="120"
-                        value={reflectionDurations[i] || 15} 
-                        onChange={(e) => handleReflectionDurationChange(i, parseInt(e.target.value, 10))}
-                      />
+                      <Input type="number" min="5" max="120" value={reflectionDurations[i] || 15} onChange={(e) => handleReflectionDurationChange(i, parseInt(e.target.value, 10))} />
                     </div>
                   </div>
                 ))}
               </div>
-
-              <div className="flex justify-end pt-2">
-                <Button type="submit" disabled={isSubmitting || !isValid}>
-                  Update Reflection Sequence
-                </Button>
-              </div>
+              <div className="flex justify-end pt-2"><Button type="submit" disabled={isSubmitting || !isValid}>Update Reflection Sequence</Button></div>
             </CardContent>
           </Card>
 
+          {/* Core Controls */}
           <Card className="animate-hover-lift">
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Settings className="h-5 w-5 text-primary" /> Preferences</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm"><Label>Theme</Label><ThemeToggle /></div>
               <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><Label>Daily Challenge Notifications</Label></div><Switch checked={dailyChallengeNotifications} onCheckedChange={(checked) => handleNotificationChange('enable_daily_challenge_notifications', checked)} /></div>
               <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><Label>Low Energy Notifications</Label></div><Switch checked={lowEnergyNotifications} onCheckedChange={(checked) => handleNotificationChange('enable_low_energy_notifications', checked)} /></div>
-              <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><Label className="flex items-center gap-2"><Keyboard className="h-4 w-4" /> Enable Delete Hotkeys</Label></div><Switch checked={enableDeleteHotkeys} onCheckedChange={handleDeleteHotkeysChange} /></div>
-              <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><Label className="flex items-center gap-2"><Database className="h-4 w-4" /> Enable Daily Sink Backup</Label></div><Switch checked={enableAetherSinkBackup} onCheckedChange={handleAetherSinkBackupChange} /></div>
 
-              <div className="rounded-lg border p-3 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 text-base font-semibold text-foreground"><Clock className="h-4 w-4" /> Auto-Schedule Window</div>
-                <FormField control={form.control} name="default_auto_schedule_start_time" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between"><div className="space-y-0.5"><FormLabel>Default Workday Start Time</FormLabel></div><FormControl><Input type="time" className="w-auto" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="default_auto_schedule_end_time" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between"><div className="space-y-0.5"><FormLabel>Default Workday End Time</FormLabel></div><FormControl><Input type="time" className="w-auto" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                <div className="flex justify-end pt-2"><Button type="submit" disabled={isSubmitting || !isValid}>Save Preferences</Button></div>
+              <div className="rounded-lg border p-4 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 text-base font-semibold text-foreground"><Clock className="h-4 w-4" /> Workday Operating Window</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="default_auto_schedule_start_time" render={({ field }) => (<FormItem><FormLabel>Start Time</FormLabel><FormControl><Input type="time" {...field} value={field.value || ''} /></FormControl></FormItem>)} />
+                  <FormField control={form.control} name="default_auto_schedule_end_time" render={({ field }) => (<FormItem><FormLabel>End Time</FormLabel><FormControl><Input type="time" {...field} value={field.value || ''} /></FormControl></FormItem>)} />
+                </div>
+                <div className="flex justify-end pt-2"><Button type="submit" disabled={isSubmitting || !isValid}>Save Operating Window</Button></div>
               </div>
             </CardContent>
           </Card>
@@ -355,7 +315,7 @@ const SettingsPage: React.FC = () => {
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg text-destructive"><Trash2 className="h-5 w-5" /> Danger Zone</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <AlertDialog><AlertDialogTrigger asChild><Button variant="destructive" className="w-full flex items-center gap-2"><Gamepad2 className="h-4 w-4" /> Reset All Game Progress & Tasks</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>This action will reset your XP, Level, Daily Streak, Energy, and delete ALL your tasks.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">Confirm Reset</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-              <Button variant="outline" className="w-full flex items-center gap-2" onClick={handleSignOut}><LogOut className="h-4 w-4" /> Sign Out</Button>
+              <Button variant="outline" className="w-full flex items-center gap-2" onClick={() => supabase.auth.signOut()}><LogOut className="h-4 w-4" /> Sign Out</Button>
             </CardContent>
           </Card>
         </form>

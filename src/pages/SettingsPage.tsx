@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useSession, UserProfile } from '@/hooks/use-session'; // Added UserProfile import
+import { useSession, UserProfile } from '@/hooks/use-session';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Label } from '@/components/ui/label';
@@ -33,7 +33,7 @@ import {
   LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, 
   ExternalLink, Loader2, Keyboard, Database, TrendingUp, 
   BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor,
-  Layers, Split
+  Layers, Split, ListTodo
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
@@ -44,6 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { adjustArrayLength } from '@/lib/utils';
 import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import MealIdeasTab from '@/components/MealIdeasTab'; // NEW IMPORT
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -227,10 +228,12 @@ const SettingsPage: React.FC = () => {
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Anchor className="h-5 w-5 text-primary" /> Temporal Anchors</CardTitle></CardHeader>
             <CardContent>
               <Tabs defaultValue="meals">
-                <TabsList className="grid w-full grid-cols-2 h-12 p-1 bg-secondary rounded-lg mb-6">
-                  <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest">Meals</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-secondary rounded-lg mb-6">
+                  <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest">Times</TabsTrigger>
+                  <TabsTrigger value="ideas" className="text-xs font-black uppercase tracking-widest">Ideas</TabsTrigger>
                   <TabsTrigger value="reflections" className="text-xs font-black uppercase tracking-widest">Reflections</TabsTrigger>
                 </TabsList>
+                
                 <TabsContent value="meals" className="space-y-6">
                     <div className="grid gap-4">
                     {[
@@ -256,8 +259,13 @@ const SettingsPage: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-end"><Button type="submit">Update Meals</Button></div>
+                  <div className="flex justify-end"><Button type="submit">Update Times</Button></div>
                 </TabsContent>
+
+                <TabsContent value="ideas" className="animate-pop-in">
+                  <MealIdeasTab />
+                </TabsContent>
+
                 <TabsContent value="reflections" className="space-y-6">
                     <FormField control={form.control} name="reflection_count" render={({ field }) => (<FormItem className="flex items-center justify-between p-4 rounded-lg border bg-background/50"><FormLabel>Frequency</FormLabel><FormControl><Select onValueChange={(val) => { field.onChange(val); form.handleSubmit(onSubmit)(); }} defaultValue={field.value.toString()}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent></Select></FormControl></FormItem>)} />
                     <div className="flex justify-end"><Button type="submit">Update Reflections</Button></div>

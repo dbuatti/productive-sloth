@@ -45,6 +45,22 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   }, [sortBy]);
 
+  // NEW: Fetch meal assignments for the selected day
+  const { data: mealAssignments = [] } = useQuery({
+    queryKey: ['mealAssignments', userId, formattedSelectedDate],
+    queryFn: async () => {
+      if (!userId || !formattedSelectedDate) return [];
+      const { data, error } = await supabase
+        .from('meal_assignments')
+        .select('*, meal_idea:meal_ideas(*)')
+        .eq('assigned_date', formattedSelectedDate)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId && !!formattedSelectedDate,
+  });
+
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasks', userId, formattedSelectedDate, sortBy],
     queryFn: async () => {
@@ -83,6 +99,20 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     enabled: !!userId && !!formattedSelectedDate,
   });
+
+  // MODIFIED: Inject meal assignment names into the scheduled tasks
+  const dbScheduledTasksWithMeals = useMemo(() => {
+    return dbScheduledTasks.map(task => {
+      const isMealTask = ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+      if (isMealTask) {
+        const assignment = mealAssignments.find(a => a.meal_type === task.name.toLowerCase());
+        if (assignment?.meal_idea?.name) {
+          return { ...task, name: assignment.meal_idea.name };
+        }
+      }
+      return task;
+    });
+  }, [dbScheduledTasks, mealAssignments]);
 
   const { data: datesWithTasks = [], isLoading: isLoadingDatesWithTasks } = useQuery<string[]>({
     queryKey: ['datesWithTasks', userId],
@@ -704,7 +734,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
 
   return {
-    dbScheduledTasks,
+    dbScheduledTasks: dbScheduledTasksWithMeals, // Return the tasks with meal names injected
     isLoading: isLoading || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay,
     addScheduledTask: addScheduledTaskMutation.mutateAsync,
     addRetiredTask: addRetiredTaskMutation.mutateAsync,

@@ -22,6 +22,14 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
 
     const weekEnd = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), 6); 
 
+    // Fetch meal assignments for the week
+    const { data: assignmentsData } = await supabase
+      .from('meal_assignments')
+      .select('*, meal_idea:meal_ideas(*)')
+      .eq('user_id', userId)
+      .gte('assigned_date', formattedWeekStart)
+      .lte('assigned_date', format(weekEnd, 'yyyy-MM-dd'));
+
     const { data, error } = await supabase
       .from('scheduled_tasks')
       .select('*')
@@ -43,6 +51,14 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
     (data as DBScheduledTask[]).forEach(task => {
       const dateKey = format(parseISO(task.scheduled_date), 'yyyy-MM-dd');
       if (tasksByDay[dateKey]) {
+        // Inject assigned meal name if it's a generic meal task
+        const isMealTask = ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+        if (isMealTask) {
+          const assignment = assignmentsData?.find(a => a.assigned_date === dateKey && a.meal_type === task.name.toLowerCase());
+          if (assignment?.meal_idea?.name) {
+            task.name = assignment.meal_idea.name;
+          }
+        }
         tasksByDay[dateKey].push(task);
       }
     });
@@ -70,10 +86,18 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
           const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
 
           if (effectiveDuration > 0) { 
+            let finalName = name;
+            if (isMealTask) {
+              const assignment = assignmentsData?.find(a => a.assigned_date === dateKey && a.meal_type === name.toLowerCase());
+              if (assignment?.meal_idea?.name) {
+                finalName = assignment.meal_idea.name;
+              }
+            }
+
             tasksByDay[dateKey].push({
               id: `${isMealTask ? 'meal' : 'reflection'}-${name.toLowerCase().replace(/\s/g, '-')}-${dateKey}-${format(intersectionStart, 'HHmm')}`,
               user_id: userId,
-              name: name,
+              name: finalName,
               break_duration: null,
               start_time: intersectionStart.toISOString(),
               end_time: intersectionEnd.toISOString(),

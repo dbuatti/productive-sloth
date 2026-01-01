@@ -805,7 +805,6 @@ export const calculateSchedule = (
             totalActiveTimeMinutes += item.duration;
           }
           sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
-          console.log(`[calculateSchedule] Added Static Anchor: ${item.name} (Type: ${type}, Start: ${format(item.startTime, 'HH:mm')}, End: ${format(item.endTime, 'HH:mm')})`);
         }
       }
     }
@@ -866,7 +865,6 @@ export const calculateSchedule = (
   sortedTasks.forEach((dbTask) => {
     if (!dbTask.start_time || !dbTask.end_time) {
       unscheduledCount++;
-      console.warn(`[calculateSchedule] Skipping unscheduled task: ${dbTask.name} (ID: ${dbTask.id})`);
       return;
     }
 
@@ -925,8 +923,6 @@ export const calculateSchedule = (
     };
 
     items.push(item);
-    console.log(`[calculateSchedule] Added DB Task: ${item.name} (Type: ${item.type}, Start: ${format(item.startTime, 'HH:mm')}, End: ${format(item.endTime, 'HH:mm')})`);
-
 
     if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { 
       totalActiveTimeMinutes += duration;

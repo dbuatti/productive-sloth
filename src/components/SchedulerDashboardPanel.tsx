@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListTodo, Zap, Coffee, Flag, ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown, RotateCcw, Clock, Hourglass } from 'lucide-react'; // Icons for the stat cards, added Hourglass
+import { ListTodo, Zap, Coffee, Flag, ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown, RotateCcw, Clock, Hourglass, AlertTriangle } from 'lucide-react'; // Icons for the stat cards, added Hourglass and AlertTriangle
 import { ScheduleSummary } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
@@ -30,6 +30,28 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
 
   return (
     <div className="space-y-4 animate-slide-in-up">
+      {/* ALERT FOR UNSCHEDULED TASKS */}
+      {scheduleSummary.unscheduledCount > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5 animate-pulse">
+            <CardContent className="p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    <p className="text-sm font-bold text-destructive">
+                        Temporal Drift Detected: {scheduleSummary.unscheduledCount} tasks have no assigned time slots.
+                    </p>
+                </div>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 text-[10px] font-black uppercase tracking-widest border-destructive/20 hover:bg-destructive/10"
+                    onClick={onRefreshSchedule}
+                >
+                    Recalibrate Timeline
+                </Button>
+            </CardContent>
+        </Card>
+      )}
+
       <Card className="animate-pop-in animate-hover-lift">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-2 pt-4">
           <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">

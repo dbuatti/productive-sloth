@@ -7,7 +7,7 @@ import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, LOW_ENERGY_THRESHOLD } from '@/lib/constants';
-import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, findFirstAvailableSlot, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
@@ -256,12 +256,61 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   });
 
   const rezoneTaskMutation = useMutation({
-    mutationFn: async (retiredTaskId: string) => {
-      if (!userId) throw new Error("User not authenticated.");
-      await supabase.from('aethersink').delete().eq('id', retiredTaskId).eq('user_id', userId);
+    mutationFn: async (task: RetiredTask) => {
+      if (!userId || !profile) throw new Error("User context missing.");
+      
+      const targetDateAsDate = parseISO(formattedSelectedDate);
+      const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDateAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDateAsDate);
+      let targetWorkdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDateAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDateAsDate), 17);
+      if (isBefore(targetWorkdayEnd, targetWorkdayStart)) targetWorkdayEnd = addDays(targetWorkdayEnd, 1);
+
+      const isTodaySelected = isSameDay(targetDateAsDate, T_current);
+      const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
+
+      // Map occupied blocks
+      const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
+        start: parseISO(t.start_time!),
+        end: parseISO(t.end_time!),
+        duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
+      }));
+
+      const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
+      const slot = findFirstAvailableSlot(taskTotalDuration, occupiedBlocks, effectiveStart, targetWorkdayEnd);
+
+      if (!slot) {
+        throw new Error("No free slot available in the schedule window.");
+      }
+
+      // Move: Insert into scheduled_tasks and Delete from sink
+      const { error: insertError } = await supabase.from('scheduled_tasks').insert({
+        user_id: userId,
+        name: task.name,
+        start_time: slot.start.toISOString(),
+        end_time: slot.end.toISOString(),
+        break_duration: task.break_duration,
+        scheduled_date: formattedSelectedDate,
+        is_critical: task.is_critical,
+        is_flexible: true,
+        is_locked: false,
+        energy_cost: task.energy_cost,
+        is_completed: task.is_completed,
+        is_custom_energy_cost: task.is_custom_energy_cost,
+        task_environment: task.task_environment,
+        is_backburner: task.is_backburner,
+      });
+
+      if (insertError) throw new Error(insertError.message);
+      
+      const { error: deleteError } = await supabase.from('aethersink').delete().eq('id', task.id).eq('user_id', userId);
+      if (deleteError) throw new Error(deleteError.message);
     },
-    onSettled: () => {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      showSuccess("Objective rezoned successfully!");
+    },
+    onError: (e) => {
+        showError(`Rezone failed: ${e.message}`);
     }
   });
 

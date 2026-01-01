@@ -44,7 +44,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'milk': '🥛', 'cartons': '🥛',
   'sync': '🤝', 'standup': '🤝',
   'tutorial': '💡',
-  'tv': '📺',
+  'tv': '10',
   'cobweb': '🕸️',
   'cables': '🔌',
   'fold laundry': '🧺',
@@ -85,7 +85,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
-  'reflection': '340',
+  'reflection': '✨',
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -573,6 +573,23 @@ export const getFreeTimeBlocks = (
   }
 
   return freeBlocks;
+};
+
+export const findFirstAvailableSlot = (
+  durationMinutes: number,
+  occupiedBlocks: TimeBlock[],
+  searchStart: Date,
+  workdayEnd: Date
+): { start: Date; end: Date } | null => {
+  const freeBlocks = getFreeTimeBlocks(occupiedBlocks, searchStart, workdayEnd);
+  const slot = freeBlocks.find(block => block.duration >= durationMinutes);
+  if (slot) {
+    return {
+      start: slot.start,
+      end: addMinutes(slot.start, durationMinutes)
+    };
+  }
+  return null;
 };
 
 export const isSlotFree = (

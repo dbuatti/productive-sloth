@@ -112,46 +112,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const queryClient = useQueryClient();
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
-  const [injectionPrompt, setInjectionPrompt] = useState<any>(null);
-  const [injectionDuration, setInjectionDuration] = useState('');
-  const [injectionBreak, setInjectionBreak] = useState('');
-  const [injectionStartTime, setInjectionStartTime] = useState('');
-  const [injectionEndTime, setInjectionEndTime] = useState('');
   const [inputValue, setInputValue] = useState('');
-  const [showClearConfirmation, setShowClearConfirmation] = useState(false);
-  const [hasMorningFixRunToday, setHasMorningFixRunToday] = useState(false);
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
-  const [showEarlyCompletionModal, setShowEarlyCompletionModal] = useState(false);
-  const [earlyCompletionTaskName, setEarlyCompletionTaskName] = useState('');
-  const [earlyCompletionRemainingMinutes, setEarlyCompletionRemainingMinutes] = useState(0);
-  const [earlyCompletionDbTask, setEarlyCompletionDbTask] = useState<DBScheduledTask | null>(null);
-  const [showDeleteScheduledTaskConfirmation, setShowDeleteScheduledTaskConfirmation] = useState(false);
-  const [scheduledTaskToDeleteId, setScheduledTaskToDeleteId] = useState<string | null>(null);
-  const [scheduledTaskToDeleteName, setScheduledTaskToDeleteName] = useState<string | null>(null);
-  const [scheduledTaskToDeleteIndex, setScheduledTaskToDeleteIndex] = useState<number | null>(null);
-  const [showDeleteRetiredTaskConfirmation, setShowDeleteRetiredTaskConfirmation] = useState(false);
-  const [retiredTaskToDeleteId, setRetiredTaskToDeleteId] = useState<string | null>(null);
-  const [retiredTaskToDeleteName, setRetiredTaskToDeleteName] = useState<string | null>(null);
-  const [showEnergyDeficitConfirmation, setShowEnergyDeficitConfirmation] = useState(false);
-  const [taskToCompleteInDeficit, setTaskToCompleteInDeficit] = useState<DBScheduledTask | null>(null);
-  const [taskToCompleteInDeficitIndex, setTaskToCompleteInDeficitIndex] = useState<number | null>(null);
   const [showPodSetupModal, setShowPodSetupModal] = useState(false); 
-  const [calculatedPodDuration, setCalculatedPodDuration] = useState(0); 
-
-  const handleQuickBreakButton = useCallback(async () => {
-    if (!user || !profile) return showError("Please log in.");
-    setIsProcessingCommand(true);
-    try {
-        const breakDuration = 15;
-        const breakStartTime = T_current;
-        const breakEndTime = addMinutes(breakStartTime, breakDuration);
-        const scheduledDate = formatFns(T_current, 'yyyy-MM-dd');
-        await addScheduledTask({ name: 'Quick Break', start_time: breakStartTime.toISOString(), end_time: breakEndTime.toISOString(), break_duration: breakDuration, scheduled_date: scheduledDate, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, is_custom_energy_cost: false, task_environment: environmentForPlacement, is_backburner: false });
-        await triggerEnergyRegen();
-        showSuccess(`Scheduled a 15-minute Quick Break!`);
-    } finally { setIsProcessingCommand(false); }
-  }, [user, profile, T_current, addScheduledTask, environmentForPlacement, triggerEnergyRegen]);
 
   const selectedDayAsDate = useMemo(() => {
     const [year, month, day] = selectedDay.split('-').map(Number);
@@ -161,7 +125,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const workdayStartTimeForSelectedDay = useMemo(() => profile?.default_auto_schedule_start_time ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(selectedDayAsDate), [profile?.default_auto_schedule_start_time, selectedDayAsDate]);
   let workdayEndTimeForSelectedDay = useMemo(() => profile?.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17), [profile?.default_auto_schedule_end_time, selectedDayAsDate]);
   if (isBefore(workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay)) workdayEndTimeForSelectedDay = addDays(workdayEndTimeForSelectedDay, 1);
-  const effectiveWorkdayStartForSelectedDay = useMemo(() => isSameDay(selectedDayAsDate, T_current) && isBefore(workdayStartTimeForSelectedDay, T_current) ? T_current : workdayStartTimeForSelectedDay, [selectedDayAsDate, T_current, workdayStartTimeForSelectedDay]);
 
   const handleRebalanceToday = useCallback(async () => {
     setIsProcessingCommand(true);
@@ -217,13 +180,71 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) return showError("Please log in.");
     setIsProcessingCommand(true);
-    // Command parsing and execution logic here
-    setIsProcessingCommand(false);
-  }, [user, profile]);
+    console.log("[SchedulerPage] Processing input command:", input);
 
-  const handleSchedulerAction = useCallback(async (action: any, task: any) => {
-    // Action handling logic here
-  }, []);
+    try {
+      const command = parseCommand(input);
+      if (command) {
+        switch (command.type) {
+          case 'clear': await clearScheduledTasks(); break;
+          case 'compact': await handleCompact(); break;
+          case 'aether dump': await aetherDump(); break;
+          case 'aether dump mega': await aetherDumpMega(); break;
+          case 'break':
+            const breakDur = command.duration || 15;
+            const bStart = T_current;
+            const bEnd = addMinutes(bStart, breakDur);
+            await addScheduledTask({ name: 'Break', start_time: bStart.toISOString(), end_time: bEnd.toISOString(), break_duration: breakDur, scheduled_date: selectedDay, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, task_environment: 'away' });
+            break;
+          default: showError("Unknown engine command.");
+        }
+        setInputValue('');
+        return;
+      }
+
+      const task = parseTaskInput(input, selectedDayAsDate);
+      if (task) {
+        if (task.shouldSink) {
+          await addRetiredTask({ 
+            user_id: user.id, name: task.name, duration: task.duration || 30, break_duration: task.breakDuration || null, 
+            original_scheduled_date: selectedDay, is_critical: task.isCritical, energy_cost: task.energyCost, 
+            task_environment: environmentForPlacement, is_backburner: task.isBackburner 
+          });
+        } else {
+          const sStart = task.startTime ? task.startTime.toISOString() : undefined;
+          const sEnd = task.endTime ? task.endTime.toISOString() : undefined;
+          await addScheduledTask({ 
+            name: task.name, start_time: sStart, end_time: sEnd, break_duration: task.breakDuration, 
+            scheduled_date: selectedDay, is_critical: task.isCritical, is_flexible: task.isFlexible, 
+            is_locked: !task.isFlexible, energy_cost: task.energyCost, task_environment: environmentForPlacement, 
+            is_backburner: task.isBackburner 
+          });
+        }
+        setInputValue('');
+      } else {
+        showError("Temporal mismatch: Task format unrecognized.");
+      }
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement]);
+
+  const handleSchedulerAction = useCallback(async (action: any, task: DBScheduledTask) => {
+    setIsProcessingCommand(true);
+    try {
+      if (action === 'complete') {
+        await completeScheduledTaskMutation(task);
+        await rechargeEnergy(-(task.energy_cost));
+        showSuccess(`Objective synchronized: +${task.energy_cost * 2} XP`);
+      } else if (action === 'skip') {
+        await retireTask(task);
+      } else if (action === 'exitFocus') {
+        setIsFocusModeActive(false);
+      }
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  }, [completeScheduledTaskMutation, rechargeEnergy, retireTask]);
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
@@ -234,6 +255,20 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const [currentSchedule, setCurrentSchedule] = useState<FormattedSchedule | null>(null);
   useEffect(() => { setCurrentSchedule(calculatedSchedule); }, [calculatedSchedule]);
+
+  const handleQuickBreakButton = useCallback(async () => {
+    if (!user || !profile) return showError("Please log in.");
+    setIsProcessingCommand(true);
+    try {
+        const breakDuration = 15;
+        const breakStartTime = T_current;
+        const breakEndTime = addMinutes(breakStartTime, breakDuration);
+        const scheduledDate = formatFns(T_current, 'yyyy-MM-dd');
+        await addScheduledTask({ name: 'Quick Break', start_time: breakStartTime.toISOString(), end_time: breakEndTime.toISOString(), break_duration: breakDuration, scheduled_date: scheduledDate, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, is_custom_energy_cost: false, task_environment: 'away', is_backburner: false });
+        await triggerEnergyRegen();
+        showSuccess(`Scheduled a 15-minute Quick Break!`);
+    } finally { setIsProcessingCommand(false); }
+  }, [user, profile, T_current, addScheduledTask, triggerEnergyRegen]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">

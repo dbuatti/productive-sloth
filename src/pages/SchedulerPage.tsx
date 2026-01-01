@@ -160,7 +160,17 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       const task = parseTaskInput(input, selectedDayAsDate);
       if (task) {
         if (task.shouldSink) {
-          await addRetiredTask({ user_id: user.id, name: task.name, duration: task.duration || 30, break_duration: task.breakDuration || null, original_scheduled_date: selectedDay, is_critical: task.isCritical, energy_cost: task.energyCost, task_environment: environmentForPlacement, is_backburner: task.isBackburner });
+          await addRetiredTask({ 
+            user_id: user.id, 
+            name: task.name, 
+            duration: task.duration || 30, 
+            break_duration: task.breakDuration || null, 
+            original_scheduled_date: selectedDay, 
+            is_critical: task.isCritical, 
+            energy_cost: task.energyCost, 
+            task_environment: environmentForPlacement, 
+            is_backburner: task.isBackburner 
+          });
         } else {
           if (task.duration && !task.startTime) {
             const effectiveStart = isBefore(workdayStartTimeForSelectedDay, T_current) ? T_current : workdayStartTimeForSelectedDay;
@@ -176,15 +186,49 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             if (suitableBlock) {
                 const proposedStartTime = suitableBlock.start;
                 const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
-                await addScheduledTask({ name: task.name, start_time: proposedStartTime.toISOString(), end_time: proposedEndTime.toISOString(), break_duration: task.breakDuration, scheduled_date: selectedDay, is_critical: task.is_critical, is_flexible: task.is_flexible, is_locked: !task.is_flexible, energy_cost: task.energy_cost, task_environment: environmentForPlacement, is_backburner: task.is_backburner });
+                await addScheduledTask({ 
+                  name: task.name, 
+                  start_time: proposedStartTime.toISOString(), 
+                  end_time: proposedEndTime.toISOString(), 
+                  break_duration: task.breakDuration, 
+                  scheduled_date: selectedDay, 
+                  is_critical: task.isCritical, 
+                  is_flexible: task.isFlexible, 
+                  is_locked: !task.isFlexible, 
+                  energy_cost: task.energyCost, 
+                  task_environment: environmentForPlacement, 
+                  is_backburner: task.isBackburner 
+                });
             } else {
                 showError("No free slot found. Sent to Sink.");
-                await addRetiredTask({ user_id: user.id, name: task.name, duration: task.duration || 30, break_duration: task.breakDuration || null, original_scheduled_date: selectedDay, is_critical: task.is_critical, energy_cost: task.energy_cost, task_environment: environmentForPlacement, is_backburner: task.is_backburner });
+                await addRetiredTask({ 
+                  user_id: user.id, 
+                  name: task.name, 
+                  duration: task.duration || 30, 
+                  break_duration: task.breakDuration || null, 
+                  original_scheduled_date: selectedDay, 
+                  is_critical: task.isCritical, 
+                  energy_cost: task.energyCost, 
+                  task_environment: environmentForPlacement, 
+                  is_backburner: task.isBackburner 
+                });
             }
           } else {
             const sStart = task.startTime ? task.startTime.toISOString() : undefined;
             const sEnd = task.endTime ? task.endTime.toISOString() : undefined;
-            await addScheduledTask({ name: task.name, start_time: sStart, end_time: sEnd, break_duration: task.breakDuration, scheduled_date: selectedDay, is_critical: task.is_critical, is_flexible: task.is_flexible, is_locked: !task.is_flexible, energy_cost: task.energy_cost, task_environment: environmentForPlacement, is_backburner: task.is_backburner });
+            await addScheduledTask({ 
+              name: task.name, 
+              start_time: sStart, 
+              end_time: sEnd, 
+              break_duration: task.breakDuration, 
+              scheduled_date: selectedDay, 
+              is_critical: task.isCritical, 
+              is_flexible: task.isFlexible, 
+              is_locked: !task.isFlexible, 
+              energy_cost: task.energyCost, 
+              task_environment: environmentForPlacement, 
+              is_backburner: task.isBackburner 
+            });
           }
         }
         setInputValue('');

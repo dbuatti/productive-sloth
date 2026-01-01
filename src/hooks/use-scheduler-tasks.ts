@@ -581,17 +581,21 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         let hasRemaining = true;
         
         // Define items per chunk based on setting
-        const itemsPerChunk = profile.enable_environment_chunking ? 2 : 1;
-        console.log(`[use-scheduler-tasks] Sequence Mode: ${profile.enable_environment_chunking ? 'CHUNKED' : 'ROTATING'} (${itemsPerChunk} per cycle)`);
+        // MODIFIED: If chunking is enabled, we use "Macro Blocks" (half of each env's tasks at a time) to spread chunks
+        console.log(`[use-scheduler-tasks] Sequence Mode: ${profile.enable_environment_chunking ? 'MACRO-CHUNKED' : 'ROTATING'}`);
 
         while (hasRemaining) {
           hasRemaining = false;
           for (const env of envOrder) {
             const group = groups[env as TaskEnvironment];
             if (group && group.length > 0) {
-              // Take up to N items for the chunk
-              const countToTake = Math.min(group.length, itemsPerChunk);
-              for (let i = 0; i < countToTake; i++) {
+              // Calculate dynamic chunk size: if chunking is enabled, take ~50% of remaining (min 1) to "spread" chunks per day
+              // if chunking is disabled, take exactly 1 (rotating)
+              const countToTake = profile.enable_environment_chunking 
+                ? Math.max(1, Math.ceil(group.length / 2)) 
+                : 1;
+              
+              for (let i = 0; i < countToTake && group.length > 0; i++) {
                 const task = group.shift()!;
                 finalSortedPool.push(task);
                 console.log(`[use-scheduler-tasks] Sequence Append: [${task.name}] (Zone: ${task.task_environment})`);

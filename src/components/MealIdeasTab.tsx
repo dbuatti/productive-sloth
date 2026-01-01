@@ -19,8 +19,8 @@ const MealIdeasTab: React.FC = () => {
   const [assignDate, setAssignDate] = useState<Date | undefined>(new Date());
   const [assignType, setAssignType] = useState<'breakfast' | 'lunch' | 'dinner'>('dinner');
 
-  const handleAddIdea = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddIdea = (e: React.FormEvent | React.MouseEvent) => {
+    e.preventDefault(); // Ensure default form submission is prevented if it was a form
     if (!newMealName.trim()) return;
     addIdea({ name: newMealName, difficulty_rating: 2, has_ingredients: false });
     setNewMealName('');
@@ -40,17 +40,22 @@ const MealIdeasTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleAddIdea} className="flex gap-2">
+      <div className="flex gap-2"> {/* Changed from <form> to <div> to fix nesting warning */}
         <Input 
           placeholder="Enter a new meal idea..." 
           value={newMealName}
           onChange={(e) => setNewMealName(e.target.value)}
           className="flex-grow"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleAddIdea(e);
+            }
+          }}
         />
-        <Button type="submit" size="icon">
+        <Button type="button" onClick={handleAddIdea} size="icon"> {/* Changed type to button and added onClick */}
           <Plus className="h-5 w-5" />
         </Button>
-      </form>
+      </div>
 
       <div className="space-y-3">
         {mealIdeas.map((idea) => (

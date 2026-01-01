@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 
 // --- Constants ---
@@ -735,8 +735,9 @@ export const calculateSchedule = (
         anchorEnd = addDays(anchorEnd, 1);
       }
 
-      // Check if it overlaps at all with the workday window
-      const overlaps = isBefore(anchorStart, workdayEnd) && isAfter(anchorEnd, workdayStart);
+      // --- IMPROVED: Inclusive Overlap Logic ---
+      const overlaps = (isBefore(anchorStart, workdayEnd) || isEqual(anchorStart, workdayEnd)) && 
+                       (isAfter(anchorEnd, workdayStart) || isEqual(anchorEnd, workdayStart));
       
       if (overlaps) {
         const intersectionStart = max([anchorStart, workdayStart]);
@@ -776,8 +777,10 @@ export const calculateSchedule = (
             console.log(`[scheduler-utils] Anchor Skipped (0 effective duration): ${name}`);
         }
       } else {
-          console.log(`[scheduler-utils] Anchor Skipped (outside window): ${name} starting at ${format(anchorStart, 'HH:mm')}`);
+          console.log(`[scheduler-utils] Anchor Skipped (outside window): ${name} starting at ${format(anchorStart, 'HH:mm')}. Workday: ${format(workdayStart, 'HH:mm')}-${format(workdayEnd, 'HH:mm')}`);
       }
+    } else {
+        console.log(`[scheduler-utils] Anchor Skipped (invalid time/duration): ${name}`, { timeStr, duration });
     }
   };
 
@@ -790,6 +793,7 @@ export const calculateSchedule = (
     for (let i = 0; i < reflectionCount; i++) {
       const time = reflectionTimes[i];
       const duration = reflectionDurations[i];
+      console.log(`[scheduler-utils] Eval Reflection ${i+1}:`, { time, duration });
       if (time && duration) {
         addStaticAnchor(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
       }

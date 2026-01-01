@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import { MealAssignment } from '@/hooks/use-meals'; // Import MealAssignment type
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
@@ -40,6 +41,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const initialSessionLoadedRef = useRef(false);
 
   const isLoading = isAuthLoading || isProfileLoading;
+  const todayString = format(new Date(), 'yyyy-MM-dd');
 
   useEffect(() => {
     const interval = setInterval(() => setT_current(new Date()), 1000);
@@ -221,8 +223,24 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     queryFn: async () => {
       if (!user?.id) return [];
       const { data } = await supabase.from('scheduled_tasks').select('*')
-        .eq('user_id', user.id).eq('scheduled_date', format(new Date(), 'yyyy-MM-dd'));
+        .eq('user_id', user.id).eq('scheduled_date', todayString);
       return data as DBScheduledTask[];
+    },
+    enabled: !!user?.id && !isAuthLoading,
+  });
+  
+  // NEW: Fetch meal assignments for today
+  const { data: mealAssignmentsToday = [] } = useQuery<MealAssignment[]>({
+    queryKey: ['mealAssignmentsToday', user?.id, todayString],
+    queryFn: async () => {
+      if (!user?.id || !todayString) return [];
+      const { data, error } = await supabase
+        .from('meal_assignments')
+        .select('*, meal_idea:meal_ideas(*)')
+        .eq('assigned_date', todayString)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return data as MealAssignment[];
     },
     enabled: !!user?.id && !isAuthLoading,
   });
@@ -234,7 +252,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (isBefore(end, start)) end = addDays(end, 1);
     return calculateSchedule(
       dbScheduledTasksToday, 
-      format(new Date(), 'yyyy-MM-dd'), 
+      todayString, 
       start, 
       end, 
       profile.is_in_regen_pod, 
@@ -249,9 +267,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.dinner_duration_minutes,
       profile.reflection_count,
       profile.reflection_times,
-      profile.reflection_durations
+      profile.reflection_durations,
+      mealAssignmentsToday // PASS MEAL ASSIGNMENTS
     );
-  }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current]);
+  }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current, mealAssignmentsToday, todayString]);
 
   const activeItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => T_current >= i.startTime && T_current < i.endTime) || null, [calculatedScheduleToday, T_current]);
   const nextItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => i.startTime > T_current) || null, [calculatedScheduleToday, T_current]);

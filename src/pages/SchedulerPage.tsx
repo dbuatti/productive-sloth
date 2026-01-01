@@ -48,7 +48,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink';
 import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query'; // Import useQuery
 import WeatherWidget from '@/components/WeatherWidget';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -68,6 +68,7 @@ import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 import { cn } from '@/lib/utils';
+import { MealAssignment } from '@/hooks/use-meals'; // Import MealAssignment type
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, refreshProfile, session, startRegenPodState, exitRegenPodState, regenPodDurationMinutes, triggerEnergyRegen } = useSession();
@@ -111,6 +112,23 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const queryClient = useQueryClient();
+
+  // NEW: Fetch meal assignments for the selected day
+  const { data: mealAssignments = [] } = useQuery<MealAssignment[]>({
+    queryKey: ['mealAssignments', user?.id, selectedDay],
+    queryFn: async () => {
+      if (!user?.id || !selectedDay) return [];
+      const { data, error } = await supabase
+        .from('meal_assignments')
+        .select('*, meal_idea:meal_ideas(*)')
+        .eq('assigned_date', selectedDay)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return data as MealAssignment[];
+    },
+    enabled: !!user?.id && !!selectedDay,
+  });
+
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
@@ -210,14 +228,57 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             task_environment: environmentForPlacement, is_backburner: task.isBackburner 
           });
         } else {
-          const sStart = task.startTime ? task.startTime.toISOString() : undefined;
-          const sEnd = task.endTime ? task.endTime.toISOString() : undefined;
-          await addScheduledTask({ 
-            name: task.name, start_time: sStart, end_time: sEnd, break_duration: task.breakDuration, 
-            scheduled_date: selectedDay, is_critical: task.isCritical, is_flexible: task.isFlexible, 
-            is_locked: !task.isFlexible, energy_cost: task.energyCost, task_environment: environmentForPlacement, 
-            is_backburner: task.isBackburner 
-          });
+          // FIX: If it's a duration-based task without explicit times, we need to auto-schedule it immediately.
+          if (task.duration && !task.startTime) {
+            // 1. Find the next available slot starting from T_current or workday start
+            const effectiveStart = isBefore(workdayStartTimeForSelectedDay, T_current) ? T_current : workdayStartTimeForSelectedDay;
+            const occupiedBlocks = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => {
+                const start = setTimeOnDate(selectedDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
+                let end = setTimeOnDate(selectedDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
+                if (isBefore(end, start)) end = addDays(end, 1);
+                return { start, end, duration: differenceInMinutes(end, start) };
+            });
+            
+            const totalDuration = (task.duration || 30) + (task.breakDuration || 0);
+            const freeBlocks = getFreeTimeBlocks(occupiedBlocks, effectiveStart, workdayEndTimeForSelectedDay);
+            const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
+
+            if (suitableBlock) {
+                const proposedStartTime = suitableBlock.start;
+                const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
+
+                await addScheduledTask({ 
+                    name: task.name, 
+                    start_time: proposedStartTime.toISOString(), 
+                    end_time: proposedEndTime.toISOString(), 
+                    break_duration: task.breakDuration, 
+                    scheduled_date: selectedDay, 
+                    is_critical: task.isCritical, 
+                    is_flexible: task.isFlexible, 
+                    is_locked: !task.isFlexible, 
+                    energy_cost: task.energyCost, 
+                    task_environment: environmentForPlacement, 
+                    is_backburner: task.isBackburner 
+                });
+            } else {
+                showError("No free slot found in the workday window. Task sent to Aether Sink.");
+                await addRetiredTask({ 
+                    user_id: user.id, name: task.name, duration: task.duration || 30, break_duration: task.breakDuration || null, 
+                    original_scheduled_date: selectedDay, is_critical: task.isCritical, energy_cost: task.energyCost, 
+                    task_environment: environmentForPlacement, is_backburner: task.isBackburner 
+                });
+            }
+          } else {
+            // Fixed time task
+            const sStart = task.startTime ? task.startTime.toISOString() : undefined;
+            const sEnd = task.endTime ? task.endTime.toISOString() : undefined;
+            await addScheduledTask({ 
+              name: task.name, start_time: sStart, end_time: sEnd, break_duration: task.breakDuration, 
+              scheduled_date: selectedDay, is_critical: task.isCritical, is_flexible: task.isFlexible, 
+              is_locked: !task.isFlexible, energy_cost: task.energyCost, task_environment: environmentForPlacement, 
+              is_backburner: task.isBackburner 
+            });
+          }
         }
         setInputValue('');
       } else {
@@ -226,7 +287,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement]);
+  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay]);
 
   const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'exitFocus', task: DBScheduledTask) => {
     setIsProcessingCommand(true);
@@ -266,9 +327,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       profile.dinner_duration_minutes,
       profile.reflection_count,
       profile.reflection_times,
-      profile.reflection_durations
+      profile.reflection_durations,
+      mealAssignments // PASS MEAL ASSIGNMENTS
     );
-  }, [dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile, regenPodDurationMinutes, T_current]);
+  }, [dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile, regenPodDurationMinutes, T_current, mealAssignments]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">

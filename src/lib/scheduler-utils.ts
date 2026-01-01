@@ -712,7 +712,8 @@ export const calculateSchedule = (
   dinnerDuration: number | null,
   reflectionCount: number = 0,
   reflectionTimes: string[] = [],
-  reflectionDurations: number[] = []
+  reflectionDurations: number[] = [],
+  mealAssignments: any[] = [] // NEW: Accept meal assignments
 ): FormattedSchedule => {
   const items: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
@@ -726,7 +727,7 @@ export const calculateSchedule = (
   const [year, month, day] = selectedDay.split('-').map(Number);
   const selectedDayDate = new Date(year, month - 1, day); 
 
-  const addStaticAnchor = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => {
+  const addStaticAnchor = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => { // FIX: Changed mealType to generic name: string
     const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
 
     if (timeStr && effectiveDuration > 0) {
@@ -746,17 +747,30 @@ export const calculateSchedule = (
         const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
 
         if (finalDuration > 0) { 
+          // Determine meal type for lookup
+          const mealTypeKey = name.toLowerCase();
+          const isStandardMeal = ['breakfast', 'lunch', 'dinner'].includes(mealTypeKey);
+
+          // Check for assigned meal name
+          const assignment = isStandardMeal ? mealAssignments.find(a => a.meal_type === mealTypeKey) : undefined;
+          const assignedMealName = assignment?.meal_idea?.name;
+          
+          let finalName: string = name; // FIX: Explicitly type as string
+          if (assignedMealName) {
+            finalName = `${name}: ${assignedMealName}`;
+          }
+
           const item: ScheduledItem = {
             id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}-${Math.random().toString(36).substr(2, 4)}`,
             type: type,
-            name: name,
+            name: finalName, // Use the prefixed name
             duration: finalDuration,
             startTime: intersectionStart,
             endTime: intersectionEnd,
             emoji: emoji,
             description: `${name} window`,
             isTimedEvent: true,
-            color: type === 'meal' ? 'bg-logo-orange/20' : undefined, // Added color for visual debugging
+            color: type === 'meal' ? 'bg-logo-orange/20' : undefined,
             isCritical: false,
             isFlexible: false, 
             isLocked: true,   

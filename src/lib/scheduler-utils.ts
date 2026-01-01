@@ -710,7 +710,7 @@ export const calculateSchedule = (
   breakfastDuration: number | null, 
   lunchDuration: number | null,     
   dinnerDuration: number | null,
-  // NEW: Reflection Point configuration
+  // NEW: Reflection Point configuration (Safely defaulted to profile values if loading)
   reflectionCount: number = 0,
   reflectionTimes: string[] = [],
   reflectionDurations: number[] = []
@@ -777,13 +777,15 @@ export const calculateSchedule = (
   addStaticAnchor('Lunch', lunchTimeStr, '🥗', lunchDuration);
   addStaticAnchor('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
 
-  // --- NEW: Inject Reflection Points ---
-  console.log("[scheduler-utils] Injecting Reflection Points:", { count: reflectionCount, times: reflectionTimes });
-  for (let i = 0; i < reflectionCount; i++) {
-    const time = reflectionTimes[i];
-    const duration = reflectionDurations[i];
-    if (time && duration) {
-      addStaticAnchor(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
+  // --- IMPROVED: Safe Injection of Reflection Points ---
+  if (reflectionCount > 0 && reflectionTimes.length > 0) {
+    console.log("[scheduler-utils] Injecting Reflection Points:", { count: reflectionCount, times: reflectionTimes });
+    for (let i = 0; i < reflectionCount; i++) {
+      const time = reflectionTimes[i];
+      const duration = reflectionDurations[i];
+      if (time && duration) {
+        addStaticAnchor(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
+      }
     }
   }
 

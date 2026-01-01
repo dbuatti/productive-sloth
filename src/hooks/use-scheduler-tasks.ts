@@ -468,6 +468,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDayAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
+      // 1. Map Fixed Constraints
       console.log("[use-scheduler-tasks] Engine Step 1: Mapping Fixed Temporal Constraints...");
       const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
       
@@ -514,6 +515,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       
       const netAvailableTime = totalWorkdayMinutes - occupiedInWindow;
 
+      // 2. Unify Flexible Pool
       const flexibleScheduled = (dbTasks || []).filter(t => t.is_flexible && !t.is_locked);
       const unlockedRetired = retiredTasks.filter(t => !t.is_locked);
       const unifiedPool: UnifiedTask[] = [];
@@ -565,6 +567,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           groups[env].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
             if (!a.is_critical && b.is_critical) return 1;
+            if (a.is_backburner && !b.is_backburner) return 1;
+            if (!a.is_backburner && b.is_backburner) return -1;
             return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           });
         });
@@ -625,6 +629,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         finalSortedPool = [...tasksToConsider].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
             if (!a.is_critical && b.is_critical) return 1;
+            if (a.is_backburner && !b.is_backburner) return 1;
+            if (!a.is_backburner && b.is_backburner) return -1;
+
             switch (sortPreference) {
               case 'TIME_EARLIEST_TO_LATEST': return (a.duration || 0) - (b.duration || 0);
               case 'PRIORITY_HIGH_TO_LOW': return (b.energy_cost || 0) - (a.energy_cost || 0);

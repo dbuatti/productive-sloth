@@ -19,8 +19,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const [sortBy, setSortBy] = useState<SortBy>(() => {
     if (typeof window !== 'undefined') {
       const savedSortBy = localStorage.getItem('aetherflow-scheduler-sort');
-      // NEW: Defaulting to ENVIRONMENT_RATIO as the primary Sorter intelligence
-      return savedSortBy ? (savedSortBy as SortBy) : 'ENVIRONMENT_RATIO';
+      // If no valid or old logic is saved, default to ENVIRONMENT_RATIO
+      if (!savedSortBy || savedSortBy === 'PRIORITY_HIGH_TO_LOW') return 'ENVIRONMENT_RATIO';
+      return savedSortBy as SortBy;
     }
     return 'ENVIRONMENT_RATIO';
   });

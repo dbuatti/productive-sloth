@@ -727,29 +727,30 @@ export const calculateSchedule = (
   const selectedDayDate = new Date(year, month - 1, day); 
 
   const addStaticAnchor = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => {
-    if (timeStr && duration !== null && duration > 0) {
+    // MODIFIED: Added safe default for duration (15m) if it's missing but a time exists
+    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+
+    if (timeStr && effectiveDuration > 0) {
       let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
-      let anchorEnd = addMinutes(anchorStart, duration);
+      let anchorEnd = addMinutes(anchorStart, effectiveDuration);
 
       if (isBefore(anchorEnd, anchorStart)) {
         anchorEnd = addDays(anchorEnd, 1);
       }
 
-      // --- IMPROVED: Inclusive Overlap Logic ---
-      const overlaps = (isBefore(anchorStart, workdayEnd) || isEqual(anchorStart, workdayEnd)) && 
-                       (isAfter(anchorEnd, workdayStart) || isEqual(anchorEnd, workdayStart));
+      const overlaps = isBefore(anchorStart, workdayEnd) && isAfter(anchorEnd, workdayStart);
       
       if (overlaps) {
         const intersectionStart = max([anchorStart, workdayStart]);
         const intersectionEnd = min([anchorEnd, workdayEnd]);
-        const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+        const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
 
-        if (effectiveDuration > 0) { 
+        if (finalDuration > 0) { 
           const item: ScheduledItem = {
             id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}-${Math.random().toString(36).substr(2, 4)}`,
             type: type,
             name: name,
-            duration: effectiveDuration,
+            duration: finalDuration,
             startTime: intersectionStart,
             endTime: intersectionEnd,
             emoji: emoji,
@@ -777,10 +778,8 @@ export const calculateSchedule = (
             console.log(`[scheduler-utils] Anchor Skipped (0 effective duration): ${name}`);
         }
       } else {
-          console.log(`[scheduler-utils] Anchor Skipped (outside window): ${name} starting at ${format(anchorStart, 'HH:mm')}. Workday: ${format(workdayStart, 'HH:mm')}-${format(workdayEnd, 'HH:mm')}`);
+          console.log(`[scheduler-utils] Anchor Skipped (outside window): ${name} starting at ${format(anchorStart, 'HH:mm')}`);
       }
-    } else {
-        console.log(`[scheduler-utils] Anchor Skipped (invalid time/duration): ${name}`, { timeStr, duration });
     }
   };
 
@@ -793,8 +792,9 @@ export const calculateSchedule = (
     for (let i = 0; i < reflectionCount; i++) {
       const time = reflectionTimes[i];
       const duration = reflectionDurations[i];
+      // Diagnostic log showing the raw evaluation before injection logic
       console.log(`[scheduler-utils] Eval Reflection ${i+1}:`, { time, duration });
-      if (time && duration) {
+      if (time) {
         addStaticAnchor(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
       }
     }

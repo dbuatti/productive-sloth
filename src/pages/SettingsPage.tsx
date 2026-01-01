@@ -128,15 +128,20 @@ const SettingsPage: React.FC = () => {
 
   const handleReflectionDurationChange = (index: number, value: number) => {
     const newDurations = [...reflectionDurations];
-    newDurations[index] = value;
+    // MODIFIED: Ensure we never store NaN in state
+    newDurations[index] = isNaN(value) ? 15 : value;
     setReflectionDurations(newDurations);
   };
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user) return showError("User required.");
     
-    const finalTimes = adjustArrayLength(reflectionTimes, values.reflection_count, '12:00');
-    const finalDurations = adjustArrayLength(reflectionDurations, values.reflection_count, 15);
+    // MODIFIED: More robust handling for reflection array adjustment
+    const sanitisedTimes = reflectionTimes.map(t => t || '12:00');
+    const sanitisedDurations = reflectionDurations.map(d => (d !== null && d !== undefined && !isNaN(d)) ? d : 15);
+
+    const finalTimes = adjustArrayLength(sanitisedTimes, values.reflection_count, '12:00');
+    const finalDurations = adjustArrayLength(sanitisedDurations, values.reflection_count, 15);
 
     try {
       await updateProfile({

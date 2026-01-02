@@ -196,7 +196,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col h-full flex-1 min-w-[300px] max-w-[400px] flex-shrink-0 rounded-2xl transition-all duration-300",
+        "flex flex-col h-full flex-1 min-w-[300px] flex-shrink-0 rounded-2xl transition-all duration-300",
         receiverClasses
       )}
     >
@@ -214,7 +214,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-2 flex-1 overflow-y-auto custom-scrollbar min-h-[100px]">
+        <CardContent className="p-2 flex-1 overflow-y-auto custom-scrollbar min-h-[500px]"> {/* Added min-h-[500px] */}
           <SortableContext id={id} items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2 min-h-[50px]">
               <AnimatePresence>
@@ -354,8 +354,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       collisionDetection={closestCorners}
       onDragEnd={handleDragEnd}
     >
-      {/* Updated grid layout for horizontal scrolling and min-width columns */}
-      <div className="flex gap-4 pb-2"> {/* Removed overflow-x-auto here */}
+      {/* The Columns Container: flex w-full gap-6 items-start */}
+      <div className="flex w-full gap-6 items-start pb-2 overflow-x-auto custom-scrollbar"> 
         {config.options.map((option) => {
           const columnTasks = groupedTasks[option] || [];
           const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);

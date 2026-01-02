@@ -48,10 +48,11 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
         variant="ghost"
         onClick={() => setSelectedDay(formattedDay)}
         className={cn(
-          "flex flex-col items-center justify-center h-20 w-14 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative",
+          "flex flex-col items-center justify-center h-20 rounded-xl transition-all duration-300 ease-aether-out relative",
           "text-muted-foreground hover:text-primary hover:bg-primary/5",
           isSelected && "glass-card text-primary border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-110 z-10",
-          !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]"
+          !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]",
+          "flex-1" // Make each button take up equal space
         )}
       >
         <span className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">
@@ -76,7 +77,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
   });
 
   return (
-    <div className="flex items-center justify-between w-full gap-2 bg-secondary/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm"> {/* Removed mx-auto */}
+    <div className="flex items-center justify-between w-full gap-2 bg-secondary/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
       
       {/* Navigation Controls Left */}
       <div className="flex items-center gap-1">
@@ -110,13 +111,13 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
       </div>
 
       {/* Main Timeline Strip */}
-      <div className="flex-1 flex overflow-x-auto py-2 custom-scrollbar touch-pan-x"> {/* Changed touch-pan-y to touch-pan-x */}
+      <div className="flex-1 flex py-2 custom-scrollbar touch-pan-x"> {/* Removed overflow-x-auto as days will now fill */}
         {isLoadingDatesWithTasks ? (
           <div className="flex items-center justify-center h-20 w-full animate-pulse">
             <Loader2 className="h-6 w-6 animate-spin text-primary opacity-40" />
           </div>
         ) : (
-          <div className="flex items-center gap-2 whitespace-nowrap animate-pop-in"> {/* Changed gap-1 to gap-2 */}
+          <div className="flex items-center justify-between w-full gap-2 animate-pop-in"> {/* Added justify-between and w-full, changed gap-1 to gap-2 */}
             {days}
           </div>
         )}

@@ -219,7 +219,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                   </div>
 
                   {/* RESTORED & IMPROVED ACTIONS AREA */}
-                  <div className="flex items-center gap-1.5 shrink-0 bg-background/40 p-1 rounded-lg border border-white/5">
+                  <div className={cn(
+                    "flex items-center gap-1.5 shrink-0 bg-background/40 p-1 rounded-lg border border-white/5",
+                    "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" // Always visible on mobile, hover on desktop
+                  )}>
                     {dbTask && ( // Removed !isPastItem condition here
                       <>
                         <Tooltip>

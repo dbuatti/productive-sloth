@@ -52,8 +52,8 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
         </Card>
       )}
 
-      <Card className="animate-pop-in animate-hover-lift w-full"> {/* Added w-full */}
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-2 pt-4">
+      <Card className="animate-pop-in animate-hover-lift w-full px-4"> {/* Added w-full, px-4 */}
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4">
           <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard
           </CardTitle>
@@ -79,7 +79,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
         </CardHeader>
 
         {!isCollapsed && ( // Conditionally render content
-          <CardContent className="p-4 space-y-4">
+          <CardContent className="py-4 space-y-4">
             {/* Session Pacing Bar */}
             {totalScheduledMinutes > 0 && (
               <div className="relative h-2 w-full rounded-full bg-secondary overflow-hidden shadow-inner">

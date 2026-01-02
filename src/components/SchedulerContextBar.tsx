@@ -14,9 +14,9 @@ interface SchedulerContextBarProps {
 
 const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) => {
   return (
-    <Card className="glass-card p-2 animate-pop-in border-white/10 shadow-2xl overflow-hidden bg-background/40 backdrop-blur-md w-full"> {/* Added w-full */}
-      <CardContent className="p-0">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2">
+    <Card className="glass-card py-2 animate-pop-in border-white/10 shadow-2xl overflow-hidden bg-background/40 backdrop-blur-md w-full"> {/* Changed p-2 to py-2 */}
+      <CardContent className="px-0"> {/* Changed p-0 to px-0 */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 px-4"> {/* Added px-4 here */}
           
           {/* Time Module */}
           <div className="flex items-center gap-3 px-4 h-11 rounded-xl bg-primary/5 border border-primary/10 shrink-0">

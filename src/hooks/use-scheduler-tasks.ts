@@ -24,6 +24,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const userId = user?.id;
 
   const formattedSelectedDate = selectedDate;
+  const todayString = format(new Date(), 'yyyy-MM-dd');
+  const isSelectedDayToday = selectedDate === todayString;
 
   const [sortBy, setSortBy] = useState<SortBy>(() => {
     if (typeof window !== 'undefined') {
@@ -191,9 +193,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (error) throw new Error(error.message);
       return data as DBScheduledTask;
     },
-    onSettled: () => {
+    onSettled: (data, error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (isSelectedDayToday || variables.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
       showSuccess('Task added to schedule!');
     }
   });
@@ -208,6 +213,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      // If a task is added to sink, it might have been from today's schedule (e.g. failed placement)
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
       showSuccess('Task sent directly to Aether Sink!');
     }
   });
@@ -215,12 +222,26 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const removeScheduledTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
+      // Fetch the task to get its scheduled_date before deleting
+      const { data: taskToDelete, error: fetchError } = await supabase
+        .from('scheduled_tasks')
+        .select('scheduled_date')
+        .eq('id', taskId)
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError) throw new Error(fetchError.message);
+
       const { error } = await supabase.from('scheduled_tasks').delete().eq('id', taskId).eq('user_id', userId);
       if (error) throw new Error(error.message);
+      return taskToDelete; // Return the deleted task's info for onSettled
     },
-    onSettled: () => {
+    onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (data && data.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
     }
   });
 
@@ -232,6 +253,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (isSelectedDayToday) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
       showSuccess('Schedule cleared.');
     }
   });
@@ -255,9 +280,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       await supabase.from('aethersink').insert(newRetiredTask);
       await supabase.from('scheduled_tasks').delete().eq('id', taskToRetire.id).eq('user_id', userId);
     },
-    onSettled: () => {
+    onSettled: (data, error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (variables.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
       showSuccess('Task moved to Aether Sink.');
     }
   });
@@ -400,9 +429,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { error: deleteError } = await supabase.from('aethersink').delete().eq('id', task.id).eq('user_id', userId);
       if (deleteError) throw new Error(deleteError.message);
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (variables.original_scheduled_date === todayString) { // If rezoned to today
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
       showSuccess("Objective rezoned successfully!");
     },
     onError: (e) => {
@@ -419,6 +452,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      if (isSelectedDayToday) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
     }
   });
 
@@ -446,8 +482,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }
       if (placed.length > 0) await supabase.from('scheduled_tasks').upsert(placed.map(p => ({ ...p, user_id: userId })), { onConflict: 'id' });
     },
-    onSettled: () => {
+    onSettled: (data, error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      if (variables.selectedDate === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
       showSuccess('Breaks randomized!');
     }
   });
@@ -461,6 +500,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     },
     onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      if (data && data.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
     }
   });
 
@@ -488,6 +530,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (isSelectedDayToday) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
       showSuccess('Timeline flushed to Aether Sink.');
     }
   });
@@ -504,6 +550,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] }); // Always invalidate, as it affects all days
       showSuccess('All future timelines flushed.');
     }
   });
@@ -515,8 +563,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (error) throw new Error(error.message);
       return data as DBScheduledTask;
     },
-    onSettled: () => {
+    onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      if (data && data.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
     }
   });
 
@@ -527,8 +578,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (error) throw new Error(error.message);
       return data as DBScheduledTask;
     },
-    onSettled: () => {
+    onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      if (data && data.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
     }
   });
 
@@ -563,8 +617,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { error } = await supabase.from('scheduled_tasks').delete().eq('id', task.id).eq('user_id', userId);
       if (error) throw new Error(error.message);
     },
-    onSettled: () => {
+    onSettled: (data, error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (variables.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
     }
   });
 
@@ -602,9 +660,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (data.error) throw new Error(data.error);
       return data;
     },
-    onSettled: (data) => {
+    onSettled: (data, error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (variables.selectedDate === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
       if (data) showSuccess(`Balanced: ${data.tasksPlaced} items placed.`);
     }
   });
@@ -906,7 +968,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     } finally {
       // Note: isProcessingCommand reset is handled by the calling component (SchedulerPage)
     }
-  }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, queryClient, dbScheduledTasks]);
+  }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, queryClient, dbScheduledTasks, todayString]);
 
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
 

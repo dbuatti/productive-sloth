@@ -22,7 +22,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
   T_current: Date;
-  onRemoveTask: (taskId: string, taskName: string, index: number) => void;
+  onRemoveTask: (taskId: string) => void; // Changed signature
   onRetireTask: (task: DBScheduledTask) => void;
   onCompleteTask: (task: DBScheduledTask, index?: number) => void;
   activeItemId: string | null;
@@ -249,7 +249,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                           <TooltipTrigger asChild>
                             <Button 
                               variant="ghost" size="icon" className="h-7 w-7 rounded-md text-logo-green hover:bg-logo-green/20"
-                              onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask, index); }}
+                              onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask); }}
                             >
                               <CheckCircle2 className="h-4 w-4" />
                             </Button>
@@ -273,7 +273,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                           <TooltipTrigger asChild>
                             <Button 
                               variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
-                              onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id, dbTask.name, index); }}
+                              onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id); }}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>

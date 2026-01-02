@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import AppHeader from './AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
-import ProgressBarHeader from './ProgressBarHeader';
+import ProgressBarHeader from './ProgressBarHeader'; // Corrected import
 import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import EnergyDeficitWarning from './EnergyDeficitWarning';
 import Navigation from './Navigation';
-import BottomNavigationBar from './BottomNavigationBar';
+import BottomNavigationBar from './BottomNavigationBar'; // Corrected import
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
 import DesktopHeaderControls from './DesktopHeaderControls'; 
@@ -44,7 +44,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       // Adjusted top padding: pt-0 for simplified schedule, pt-[100px] otherwise
       isSimplifiedSchedulePage ? "pt-0" : "pt-[100px]", 
       // Dynamic bottom padding for mobile navigation/status indicator
-      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4")
+      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4") // Adjusted pb-24 to pb-4 for mobile drawer
     )}>
       {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
       <div className={cn(

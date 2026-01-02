@@ -16,6 +16,7 @@ import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
 import ModelPage from "./pages/ModelPage";
 import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage"; // NEW IMPORT
+import { Drawer } from "@/components/ui/drawer"; // NEW: Import Drawer
 
 const queryClient = new QueryClient();
 

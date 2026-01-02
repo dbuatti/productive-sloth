@@ -4,12 +4,13 @@ import React from 'react';
 import { useSession } from '@/hooks/use-session';
 import { CustomProgress } from './CustomProgress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sparkles, Zap, Trophy, BatteryCharging, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Sparkles, Zap, Trophy, BatteryCharging, AlertTriangle, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isToday, parseISO } from 'date-fns';
 import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { calculateLevelInfo, cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile'; 
+import { Drawer, DrawerContent, DrawerTrigger, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer'; // Import Drawer components
 
 const ProgressBarHeader: React.FC = () => {
   const { profile, rechargeEnergy } = useSession();
@@ -26,103 +27,96 @@ const ProgressBarHeader: React.FC = () => {
   const dailyChallengeProgress = Math.min((profile.tasks_completed_today / profile.daily_challenge_target) * 100, 100);
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
-  return (
-    <div className={cn(
-      "glass-header border-b py-3 transition-all duration-300 ease-aether-out",
-      "w-full z-40" // Ensuring it stacks correctly in MainLayout
-    )}>
-      <div className="w-full px-4 md:px-8"> {/* Changed max-w-5xl to w-full and adjusted padding */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
-          
-          {/* XP Status - Experience HUD */}
-          <div className="flex items-center gap-3 group cursor-help">
-            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-logo-yellow/10 text-logo-yellow border border-logo-yellow/20 shadow-[0_0_15px_rgba(var(--logo-yellow),0.1)] group-hover:scale-110 group-hover:bg-logo-yellow/20 transition-all duration-300">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div className="flex flex-col flex-grow gap-1.5">
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-0.5">
-                <span className="flex items-center gap-1">Level {level} <ChevronRight className="h-2 w-2" /></span>
-                <span className="font-mono text-primary">{xpTowardsNextLevel} / {xpNeededForNextLevel}</span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="status-bar-track group-hover:border-primary/40 transition-all duration-300">
-                    <CustomProgress 
-                      value={xpProgress} 
-                      className="h-full bg-transparent overflow-hidden"
-                      indicatorClassName="bg-gradient-to-r from-primary/60 via-primary to-primary/60 animate-shimmer shadow-[0_0_12px_hsl(var(--primary)/0.4)]"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="glass-card">
-                  <p className="font-medium">{xpNeededForNextLevel - xpTowardsNextLevel} XP remaining until transcendence to Level {level + 1}</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
+  // Define content here so it's available for both mobile and desktop rendering
+  const content = (
+    <div className="w-full px-4 md:px-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
+        
+        {/* XP Status - Experience HUD */}
+        <div className="flex items-center gap-3 group cursor-help">
+          <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-logo-yellow/10 text-logo-yellow border border-logo-yellow/20 shadow-[0_0_15px_rgba(var(--logo-yellow),0.1)] group-hover:scale-110 group-hover:bg-logo-yellow/20 transition-all duration-300">
+            <Sparkles className="h-4 w-4" />
           </div>
+          <div className="flex flex-col flex-grow gap-1.5">
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-0.5">
+              <span className="flex items-center gap-1">Level {level} <ChevronRight className="h-2 w-2" /></span>
+              <span className="font-mono text-primary">{xpTowardsNextLevel} / {xpNeededForNextLevel}</span>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="status-bar-track group-hover:border-primary/40 transition-all duration-300">
+                  <CustomProgress 
+                    value={xpProgress} 
+                    className="h-full bg-transparent overflow-hidden"
+                    indicatorClassName="bg-gradient-to-r from-primary/60 via-primary to-primary/60 animate-shimmer shadow-[0_0_12px_hsl(var(--primary)/0.4)]"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="glass-card">
+                <p className="font-medium">{xpNeededForNextLevel - xpTowardsNextLevel} XP remaining until transcendence to Level {level + 1}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
 
-          {/* Energy Status - Resource HUD */}
-          <div className="flex items-center gap-3 group cursor-help">
-            <div className={cn(
-              "flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-300 group-hover:scale-110",
-              isEnergyDeficit 
-                ? "bg-destructive/10 text-destructive border-destructive/20 shadow-[0_0_15px_rgba(var(--destructive),0.2)]" 
-                : "bg-logo-green/10 text-logo-green border-logo-green/20 shadow-[0_0_15px_rgba(var(--logo-green),0.1)]"
-            )}>
-              {isEnergyDeficit ? <AlertTriangle className="h-4 w-4 animate-pulse" /> : <Zap className={cn("h-4 w-4", isEnergyFull && "fill-current")} />}
+        {/* Energy Status - Resource HUD */}
+        <div className="flex items-center gap-3 group cursor-help">
+          <div className={cn(
+            "flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-300 group-hover:scale-110",
+            isEnergyDeficit 
+              ? "bg-destructive/10 text-destructive border-destructive/20 shadow-[0_0_15px_rgba(var(--destructive),0.2)]" 
+              : "bg-logo-green/10 text-logo-green border-logo-green/20 shadow-[0_0_15px_rgba(var(--logo-green),0.1)]"
+          )}>
+            {isEnergyDeficit ? <AlertTriangle className="h-4 w-4 animate-pulse" /> : <Zap className={cn("h-4 w-4", isEnergyFull && "fill-current")} />}
+          </div>
+          <div className="flex flex-col flex-grow gap-1.5">
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-0.5">
+              <span>Core Energy</span>
+              <span className={cn("font-mono", isEnergyDeficit && "text-destructive animate-pulse")}>
+                {profile.energy}⚡
+              </span>
             </div>
-            <div className="flex flex-col flex-grow gap-1.5">
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-0.5">
-                <span>Core Energy</span>
-                <span className={cn("font-mono", isEnergyDeficit && "text-destructive animate-pulse")}>
-                  {profile.energy}⚡
-                </span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={cn(
-                    "status-bar-track transition-all duration-300",
-                    isEnergyDeficit ? "border-destructive/30" : "group-hover:border-logo-green/40"
-                  )}>
-                    <CustomProgress 
-                      value={isEnergyDeficit ? 100 : energyPercentage}
-                      className="h-full bg-transparent"
-                      indicatorClassName={cn(
-                        "transition-all duration-700",
-                        isEnergyDeficit 
-                          ? "bg-destructive shadow-[0_0_12px_rgba(var(--destructive),0.5)]" 
-                          : "bg-gradient-to-r from-logo-green/60 to-logo-green shadow-[0_0_12px_hsl(var(--logo-green)/0.4)]",
-                        isEnergyFull && "animate-pulse-glow"
-                      )}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="glass-card w-56 p-3">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-semibold">Reserve Status</span>
-                      <span className="text-xs font-mono">{profile.energy} / {MAX_ENERGY}</span>
-                    </div>
-                    {isEnergyDeficit && (
-                      <div className="flex items-center gap-2 p-2 rounded bg-destructive/10 border border-destructive/20">
-                        <AlertTriangle className="h-3 w-3 text-destructive" />
-                        <p className="text-[10px] text-destructive font-bold uppercase">System Exhaustion</p>
-                      </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="status-bar-track transition-all duration-300">
+                  <CustomProgress 
+                    value={isEnergyDeficit ? 100 : energyPercentage}
+                    className="h-full bg-transparent"
+                    indicatorClassName={cn(
+                      "transition-all duration-700",
+                      isEnergyDeficit 
+                        ? "bg-destructive shadow-[0_0_12px_rgba(var(--destructive),0.5)]" 
+                        : "bg-gradient-to-r from-logo-green/60 to-logo-green shadow-[0_0_12px_hsl(var(--logo-green)/0.4)]",
+                      isEnergyFull && "animate-pulse-glow"
                     )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={(e) => { e.stopPropagation(); rechargeEnergy(RECHARGE_BUTTON_AMOUNT); }} 
-                      disabled={isEnergyFull}
-                      className="w-full h-8 text-[10px] uppercase font-black tracking-tighter hover:bg-primary/10 hover:text-primary transition-all"
-                    >
-                      <BatteryCharging className="h-3 w-3 mr-2" />
-                      Initiate Recharge
-                    </Button>
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="glass-card w-56 p-3">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-semibold">Reserve Status</span>
+                    <span className="text-xs font-mono">{profile.energy} / {MAX_ENERGY}</span>
                   </div>
-                </TooltipContent>
-              </Tooltip>
-            </div>
+                  {isEnergyDeficit && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-destructive/10 border border-destructive/20">
+                      <AlertTriangle className="h-3 w-3 text-destructive" />
+                      <p className="text-[10px] text-destructive font-bold uppercase">System Exhaustion</p>
+                    </div>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={(e) => { e.stopPropagation(); rechargeEnergy(RECHARGE_BUTTON_AMOUNT); }} 
+                    disabled={isEnergyFull}
+                    className="w-full h-8 text-[10px] uppercase font-black tracking-tighter hover:bg-primary/10 hover:text-primary transition-all"
+                  >
+                    <BatteryCharging className="h-3 w-3 mr-2" />
+                    Initiate Recharge
+                  </Button>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Quest Status - Achievement HUD */}
@@ -163,11 +157,37 @@ const ProgressBarHeader: React.FC = () => {
               </Tooltip>
             </div>
           </div>
-
         </div>
-      </div>
     </div>
   );
+
+  if (isMobile) {
+    return (
+      <Drawer>
+        <DrawerTrigger asChild>
+          <div className="fixed bottom-16 left-0 right-0 z-40 h-10 flex items-center justify-center bg-card border-t border-border shadow-lg lg:hidden animate-slide-in-up cursor-pointer">
+            <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground ml-2">Progress Overview</span>
+          </div>
+        </DrawerTrigger>
+        <DrawerContent className="h-auto max-h-[80vh] mt-24 rounded-t-[10px] flex flex-col bg-background border-t border-border/50 shadow-2xl animate-slide-in-up">
+          <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground/30 mb-4" />
+          <div className="flex-1 overflow-y-auto p-4">
+            {content}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  } else { // Added else block for desktop rendering
+    return (
+      <div className={cn(
+        "glass-header border-b py-3 transition-all duration-300 ease-aether-out",
+        "w-full z-40" // Ensuring it stacks correctly in MainLayout
+      )}>
+        {content}
+      </div>
+    );
+  }
 };
 
 export default ProgressBarHeader;

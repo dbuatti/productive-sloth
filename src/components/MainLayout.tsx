@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import AppHeader from './AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
-import ProgressBarHeader from './ProgressBarHeader'; // Corrected import
+import ProgressBarHeader from './ProgressBarHeader'; 
 import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';

@@ -379,8 +379,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       )}
 
       <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
-      <Card className="p-0 space-y-4 animate-slide-in-up border-none shadow-none bg-transparent"> {/* Removed p-4, border, and shadow */}
-        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} /> {/* Pass weekStartsOn */}
+      <Card className="p-0 space-y-4 animate-slide-in-up border-none shadow-none bg-transparent">
+        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} />
         <SchedulerSegmentedControl currentView={view} />
       </Card>
       {/* Removed px-4 md:px-8 from this div to prevent double padding */}
@@ -388,7 +388,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         {view === 'schedule' && (
           <>
             <SchedulerContextBar T_current={T_current} />
-            <Card className="py-4 shadow-md"> {/* Removed px-4 */}
+            <Card className="py-4 shadow-md">
               <CardHeader className="p-0 pb-4 px-4"><CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle></CardHeader>
               <CardContent className="p-0 px-4"><SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} /></CardContent>
             </Card>
@@ -415,7 +415,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               navigate={navigate}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
-            <Card className="animate-pop-in"> {/* Removed px-4 */}
+            <Card className="animate-pop-in">
               <CardHeader className="px-4"><CardTitle>Your Vibe Schedule</CardTitle></CardHeader>
               <CardContent className="py-4">
                 <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />

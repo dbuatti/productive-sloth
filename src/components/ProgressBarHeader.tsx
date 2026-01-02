@@ -4,13 +4,13 @@ import React from 'react';
 import { useSession } from '@/hooks/use-session';
 import { CustomProgress } from './CustomProgress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sparkles, Zap, Trophy, BatteryCharging, AlertTriangle, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
+import { Sparkles, Zap, Trophy, BatteryCharging, AlertTriangle, ChevronRight, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isToday, parseISO } from 'date-fns';
 import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { calculateLevelInfo, cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile'; 
-import { Drawer, DrawerContent, DrawerTrigger, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer'; // Import Drawer components
+import { Drawer, DrawerContent, DrawerTrigger, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 
 const ProgressBarHeader: React.FC = () => {
   const { profile, rechargeEnergy } = useSession();
@@ -27,7 +27,7 @@ const ProgressBarHeader: React.FC = () => {
   const dailyChallengeProgress = Math.min((profile.tasks_completed_today / profile.daily_challenge_target) * 100, 100);
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
-  // Define content here so it's available for both mobile and desktop rendering
+  // Define content JSX here, as a complete, self-contained block
   const content = (
     <div className="w-full px-4 md:px-8">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
@@ -78,7 +78,10 @@ const ProgressBarHeader: React.FC = () => {
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="status-bar-track transition-all duration-300">
+                <div className={cn(
+                  "status-bar-track transition-all duration-300",
+                  isEnergyDeficit ? "border-destructive/30" : "group-hover:border-logo-green/40"
+                )}>
                   <CustomProgress 
                     value={isEnergyDeficit ? 100 : energyPercentage}
                     className="h-full bg-transparent"
@@ -161,33 +164,29 @@ const ProgressBarHeader: React.FC = () => {
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <Drawer>
-        <DrawerTrigger asChild>
-          <div className="fixed bottom-16 left-0 right-0 z-40 h-10 flex items-center justify-center bg-card border-t border-border shadow-lg lg:hidden animate-slide-in-up cursor-pointer">
-            <ChevronUp className="h-5 w-5 text-muted-foreground" />
-            <span className="text-xs font-semibold text-muted-foreground ml-2">Progress Overview</span>
-          </div>
-        </DrawerTrigger>
-        <DrawerContent className="h-auto max-h-[80vh] mt-24 rounded-t-[10px] flex flex-col bg-background border-t border-border/50 shadow-2xl animate-slide-in-up">
-          <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground/30 mb-4" />
-          <div className="flex-1 overflow-y-auto p-4">
-            {content}
-          </div>
-        </DrawerContent>
-      </Drawer>
-    );
-  } else { // Added else block for desktop rendering
-    return (
-      <div className={cn(
-        "glass-header border-b py-3 transition-all duration-300 ease-aether-out",
-        "w-full z-40" // Ensuring it stacks correctly in MainLayout
-      )}>
-        {content}
-      </div>
-    );
-  }
+  return isMobile ? (
+    <Drawer>
+      <DrawerTrigger asChild>
+        <div className="fixed bottom-16 left-0 right-0 z-40 h-10 flex items-center justify-center bg-card border-t border-border shadow-lg lg:hidden animate-slide-in-up cursor-pointer">
+          <ChevronUp className="h-5 w-5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground ml-2">Progress Overview</span>
+        </div>
+      </DrawerTrigger>
+      <DrawerContent className="h-auto max-h-[80vh] mt-24 rounded-t-[10px] flex flex-col bg-background border-t border-border/50 shadow-2xl animate-slide-in-up">
+        <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-muted-foreground/30 mb-4" />
+        <div className="flex-1 overflow-y-auto p-4">
+          {content}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  ) : (
+    <div className={cn(
+      "glass-header border-b py-3 transition-all duration-300 ease-aether-out",
+      "w-full z-40"
+    )}>
+      {content}
+    </div>
+  );
 };
 
 export default ProgressBarHeader;

@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import AppHeader from './AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
-import ProgressBarHeader from './ProgressBarHeader';
+import AppUnifiedHeader from './AppUnifiedHeader'; // NEW IMPORT
 import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
@@ -10,8 +9,6 @@ import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
-import DesktopHeaderControls from './DesktopHeaderControls'; 
-import { Separator } from '@/components/ui/separator'; 
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -29,9 +26,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   // Desktop sidebar state (always open on desktop, but can be collapsed)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  // The mobile menu sheet is removed as navigation is handled by BottomNavigationBar.
-  // The AppHeader now only handles the logo/profile on mobile.
 
   const sidebarWidth = isSidebarCollapsed ? "w-[72px]" : "w-[250px]";
   const contentPaddingLeft = isSidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[250px]";
@@ -62,7 +56,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {!isMobile && !isSimplifiedSchedulePage && (
         <div 
           className={cn(
-            "fixed top-0 left-0 right-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-[92px]", // Adjusted pt for sidebar to match new header height
+            "fixed top-0 left-0 right-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-[64px]", // Adjusted pt for sidebar to match new header height
             sidebarWidth
           )}
         >
@@ -76,13 +70,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       )}
 
       {/* Consolidated Fixed Header */}
-      <ProgressBarHeader />
+      <div className={cn(
+        "fixed top-0 left-0 right-0 z-50",
+        !isSimplifiedSchedulePage && contentPaddingLeft // Apply sidebar padding to fixed header
+      )}>
+        <AppUnifiedHeader /> {/* Render the new unified header */}
+      </div>
       
       {/* Main Content Area */}
       <div className={cn(
         "flex flex-col flex-1 min-w-0 w-full", 
         !isSimplifiedSchedulePage && contentPaddingLeft,
-        "pt-[92px]" // Add padding-top here to push content below fixed header (h-16 + py-3 = ~92px)
+        "pt-[64px]" // Add padding-top here to push content below fixed header (h-16)
       )}>
         {mainContent}
         {shouldShowFocusAnchor && <FocusAnchor />}

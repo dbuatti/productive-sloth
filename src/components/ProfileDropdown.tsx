@@ -1,8 +1,10 @@
+"use client";
+
 import React from 'react';
 import { useSession } from '@/hooks/use-session';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Sparkles, Zap, Settings, LogOut } from 'lucide-react';
+import { Sparkles, Zap, Settings, LogOut, Trophy } from 'lucide-react';
 import { cn, calculateLevelInfo } from '@/lib/utils';
 import { MAX_ENERGY } from '@/lib/constants';
 import {
@@ -18,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { isToday, parseISO } from 'date-fns'; // Import for daily challenge logic
 
 const ProfileDropdown: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
@@ -49,6 +52,8 @@ const ProfileDropdown: React.FC = () => {
   const { level } = calculateLevelInfo(profile.xp);
   const isEnergyDeficit = profile.energy < 0;
   const energyDisplay = Math.max(0, profile.energy);
+  const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
+  const isDailyChallengeComplete = profile.tasks_completed_today >= profile.daily_challenge_target;
 
   // Determine the trigger content based on screen size
   const triggerContent = isMobile ? (
@@ -120,6 +125,17 @@ const ProfileDropdown: React.FC = () => {
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p>Current Energy ({profile.energy} / {MAX_ENERGY})</p>
+          </TooltipContent>
+        </Tooltip>
+        {/* NEW: Daily Challenge Stat */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={cn("flex items-center gap-1 font-mono", isDailyChallengeComplete && !hasClaimedDailyChallengeToday ? 'text-accent' : hasClaimedDailyChallengeToday ? 'text-logo-green' : 'text-muted-foreground')}>
+              <Trophy className="h-4 w-4" /> {profile.tasks_completed_today}/{profile.daily_challenge_target}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Daily Challenge Progress</p>
           </TooltipContent>
         </Tooltip>
       </div>

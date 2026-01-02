@@ -190,7 +190,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                   isPastItem && "opacity-40 grayscale"
                 )}
                 style={{ 
-                  minHeight: `${Math.max(duration * MINUTE_HEIGHT, 48)}px`, // Ensure minimum height for tap target
+                  height: `${duration * MINUTE_HEIGHT}px`, // Task height directly related to duration
                   borderLeft: `3px solid ${isActive ? 'hsl(var(--primary))' : accentColor}`
                 }}
                 onClick={() => dbTask && handleTaskClick(dbTask)}

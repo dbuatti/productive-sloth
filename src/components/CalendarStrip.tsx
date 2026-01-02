@@ -62,7 +62,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
           className={cn(
             "flex flex-col items-center justify-center h-16 w-11 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative", // Increased height to h-16
             "text-muted-foreground hover:text-primary hover:bg-primary/5",
-            isSelected && "glass-card text-primary-foreground border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-105 z-10",
+            isSelected && "glass-card text-foreground border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-105 z-10", // FIX: Changed text-primary-foreground to text-foreground
             !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]"
           )}
           data-date={formattedDay}
@@ -136,7 +136,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
         </Tooltip>
       </div>
 
-      <div className="flex-1 flex overflow-x-auto py-1 px-1 custom-scrollbar touch-pan-x"> {/* Added px-1 */}
+      <div className="flex-1 flex overflow-x-auto py-1 px-2 custom-scrollbar touch-pan-x"> {/* FIX: Increased px-1 to px-2 */}
         {isLoadingDatesWithTasks ? (
           <div className="flex items-center justify-center h-16 w-full animate-pulse">
             <Loader2 className="h-5 w-5 animate-spin text-primary opacity-40" />

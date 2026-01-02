@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours, addDays, differenceInMinutes, max, min, isAfter } from 'date-fns';
 import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
@@ -34,10 +34,12 @@ import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { MealAssignment } from '@/hooks/use-meals';
-import { cn } from '@/lib/utils'; // Import cn utility
+import { cn } from '@/lib/utils';
+import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; // NEW IMPORT
+import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; // NEW IMPORT
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, regenPodDurationMinutes } = useSession();
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
@@ -70,7 +72,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     setRetiredSortBy,
     completeScheduledTask: completeScheduledTaskMutation,
     removeRetiredTask,
-    handleAutoScheduleAndSort, // This is the engine we need to use
+    handleAutoScheduleAndSort,
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const { data: mealAssignments = [] } = useQuery<MealAssignment[]>({
@@ -92,6 +94,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const [inputValue, setInputValue] = useState('');
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
+  
+  // NEW: State to control the initial setup/running state of the Pod Modal
+  const [showRegenPodSetup, setShowRegenPodSetup] = useState(false); 
 
   const selectedDayAsDate = useMemo(() => {
     const [year, month, day] = selectedDay.split('-').map(Number);
@@ -101,6 +106,16 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const workdayStartTimeForSelectedDay = useMemo(() => profile?.default_auto_schedule_start_time ? setTimeOnDate(selectedDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(selectedDayAsDate), [profile?.default_auto_schedule_start_time, selectedDayAsDate]);
   let workdayEndTimeForSelectedDay = useMemo(() => profile?.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17), [profile?.default_auto_schedule_end_time, selectedDayAsDate]);
   if (isBefore(workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay)) workdayEndTimeForSelectedDay = addDays(workdayEndTimeForSelectedDay, 1);
+
+  // Determine if the Pod is currently running based on session state
+  const isRegenPodRunning = profile?.is_in_regen_pod ?? false;
+
+  // Effect to automatically open the modal if the pod is running (e.g., after refresh)
+  useEffect(() => {
+    if (isRegenPodRunning) {
+      setShowRegenPodSetup(true);
+    }
+  }, [isRegenPodRunning]);
 
   // --- NEW: Helper to get static constraints (Meals/Reflections) ---
   const getStaticConstraints = useCallback((): TimeBlock[] => {
@@ -114,8 +129,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
         
         // Check overlap with workday
-        const overlaps = (isBefore(anchorStart, workdayEndTimeForSelectedDay) || anchorStart.getTime() === workdayEndTimeForSelectedDay.getTime()) && 
-                         (isAfter(anchorEnd, workdayStartTimeForSelectedDay) || anchorEnd.getTime() === workdayStartTimeForSelectedDay.getTime());
+        const overlaps = (isBefore(anchorEnd, workdayEndTimeForSelectedDay) || anchorEnd.getTime() === workdayEndTimeForSelectedDay.getTime()) && 
+                         (isAfter(anchorStart, workdayStartTimeForSelectedDay) || anchorStart.getTime() === workdayStartTimeForSelectedDay.getTime());
         
         if (overlaps) {
           const intersectionStart = max([anchorStart, workdayStartTimeForSelectedDay]);
@@ -166,7 +181,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     await rezoneTask(task);
   }, [rezoneTask]);
 
-  const handleRemoveRetired = useCallback(async (taskId: string, taskName: string) => {
+  const handleRemoveRetired = useCallback(async (taskId: string) => {
     await removeRetiredTask(taskId);
   }, [removeRetiredTask]);
 
@@ -174,6 +189,48 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     setSortBy(newSortBy);
     showSuccess(`Balance logic set to ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
   }, [setSortBy]);
+
+  // NEW: Handler for starting the Pod session from the modal
+  const handleStartPodSession = useCallback(async (activityName: string, activityDuration: number) => {
+    if (!user || !profile) return;
+    setIsProcessingCommand(true);
+    try {
+        // 1. Start the session state (updates profile.is_in_regen_pod and regen_pod_start_time)
+        await startRegenPodState(activityDuration); 
+        
+        // 2. Add a fixed, locked task to the schedule for visibility
+        const start = T_current;
+        const end = addMinutes(start, activityDuration);
+        
+        await addScheduledTask({
+            name: `Regen Pod: ${activityName}`,
+            start_time: start.toISOString(),
+            end_time: end.toISOString(),
+            break_duration: activityDuration, // Use break_duration to store the planned duration
+            scheduled_date: selectedDay,
+            is_critical: false,
+            is_flexible: false, 
+            is_locked: true, 
+            energy_cost: 0, 
+            task_environment: 'away', 
+        });
+        
+        showSuccess(`Regen Pod activated for ${activityDuration} minutes!`);
+        // The modal remains open, transitioning to RUNNING state internally
+    } catch (e: any) {
+        showError(`Failed to start Regen Pod: ${e.message}`);
+    } finally {
+        setIsProcessingCommand(false);
+    }
+  }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask]);
+
+  // NEW: Handler for exiting the Pod session from the modal
+  const handleExitPodSession = useCallback(async () => {
+    // exitRegenPodState handles server calculation and profile refresh
+    await exitRegenPodState();
+    setShowRegenPodSetup(false);
+  }, [exitRegenPodState]);
+
 
   // --- CRITICAL UPDATE: handleCommand now does Client-Side Placement ---
   const handleCommand = useCallback(async (input: string) => {
@@ -192,7 +249,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             const breakDur = command.duration || 15;
             const bStart = T_current;
             const bEnd = addMinutes(bStart, breakDur);
-            await addScheduledTask({ name: 'Break', start_time: bStart.toISOString(), end_time: bEnd.toISOString(), break_duration: breakDur, scheduled_date: selectedDay, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, task_environment: 'away' });
+            await addScheduledTask({ name: 'Quick Break', start_time: bStart.toISOString(), end_time: bEnd.toISOString(), break_duration: breakDur, scheduled_date: selectedDay, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, task_environment: 'away' });
             break;
           default: showError("Unknown engine command.");
         }
@@ -325,13 +382,25 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   return (
     <div className={cn(
-      "w-full space-y-6 pb-24 transition-all duration-500", // Removed max-w-5xl
-      // Removed conditional padding here, relying on MainLayout's padding
+      "w-full space-y-6 pb-24 transition-all duration-500",
     )}>
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
       )}
-      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(i => i.is_flexible && !i.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
+      
+      {/* NEW: Energy Regen Pod Modal */}
+      {(showRegenPodSetup || isRegenPodRunning) && (
+        <EnergyRegenPodModal 
+          isOpen={showRegenPodSetup || isRegenPodRunning}
+          onExit={handleExitPodSession}
+          onStart={handleStartPodSession}
+          isProcessingCommand={overallLoading}
+          // Pass the remaining duration if running, or max duration if setting up
+          totalDurationMinutes={isRegenPodRunning ? regenPodDurationMinutes : REGEN_POD_MAX_DURATION_MINUTES}
+        />
+      )}
+
+      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
       <Card className="p-4 space-y-4 animate-slide-in-up">
         <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} />
         <SchedulerSegmentedControl currentView={view} />
@@ -362,7 +431,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               onAetherDumpMega={aetherDumpMega} 
               onRefreshSchedule={() => queryClient.invalidateQueries()} 
               onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} 
-              onStartRegenPod={() => startRegenPodState(15)} 
+              onStartRegenPod={() => setShowRegenPodSetup(true)} // UPDATED: Open modal instead of immediate start
               hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
@@ -375,13 +444,13 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
           </>
         )}
         {view === 'sink' && (
-          <div className="w-full overflow-x-auto pb-4"> {/* Added overflow-x-auto for Kanban */}
+          <div className="w-full overflow-x-auto pb-4">
             <AetherSink 
               retiredTasks={retiredTasks} 
-              onRezoneTask={(t) => handleRezone(t)} 
-              onRemoveRetiredTask={(id) => handleRemoveRetired(id, '')} 
+              onRezoneTask={(t) => rezoneTask(t)} 
+              onRemoveRetiredTask={(id) => removeRetiredTask(id)} 
               onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} 
-              isLoading={isLoadingRetiredTasks} 
+              isLoading={overallLoading} 
               isProcessingCommand={isProcessingCommand} 
               profile={profile} 
               retiredSortBy={retiredSortBy} 
@@ -389,7 +458,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             />
           </div>
         )}
-        {view === 'recap' && <DailyVibeRecapCard scheduleSummary={calculatedSchedule?.summary || null} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={0} totalBreakTimeMinutes={0} />}
+        {view === 'recap' && calculatedSchedule && <DailyVibeRecapCard scheduleSummary={calculatedSchedule.summary} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={calculatedSchedule.summary.activeTime.hours * 60 + calculatedSchedule.summary.activeTime.minutes} totalBreakTimeMinutes={calculatedSchedule.summary.breakTime} />}
       </div>
       <WorkdayWindowDialog open={showWorkdayWindowDialog} onOpenChange={setShowWorkdayWindowDialog} />
     </div>

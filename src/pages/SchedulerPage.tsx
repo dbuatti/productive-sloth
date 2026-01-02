@@ -23,7 +23,6 @@ import { useSession } from '@/hooks/use-session';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
 import CalendarStrip from '@/components/CalendarStrip';
-import AetherSink from '@/components/AetherSink';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
@@ -37,7 +36,8 @@ import { MealAssignment } from '@/hooks/use-meals';
 import { cn } from '@/lib/utils';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; 
 import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; 
-import { useNavigate } from 'react-router-dom'; // NEW: Import useNavigate
+import { useNavigate } from 'react-router-dom';
+import AetherSink from '@/components/AetherSink'; // Import AetherSink
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
@@ -47,7 +47,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
-  const navigate = useNavigate(); // NEW: Initialize useNavigate
+  const navigate = useNavigate();
 
   const { 
     dbScheduledTasks,
@@ -97,7 +97,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const [showWorkdayWindowDialog, setShowWorkdayWindowDialog] = useState(false);
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
   
-  // NEW: State to control the initial setup/running state of the Pod Modal
   const [showRegenPodSetup, setShowRegenPodSetup] = useState(false); 
 
   const selectedDayAsDate = useMemo(() => {
@@ -109,17 +108,14 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   let workdayEndTimeForSelectedDay = useMemo(() => profile?.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17), [profile?.default_auto_schedule_end_time, selectedDayAsDate]);
   if (isBefore(workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay)) workdayEndTimeForSelectedDay = addDays(workdayEndTimeForSelectedDay, 1);
 
-  // Determine if the Pod is currently running based on session state
   const isRegenPodRunning = profile?.is_in_regen_pod ?? false;
 
-  // Effect to automatically open the modal if the pod is running (e.g., after refresh)
   useEffect(() => {
     if (isRegenPodRunning) {
       setShowRegenPodSetup(true);
     }
   }, [isRegenPodRunning]);
 
-  // --- NEW: Helper to get static constraints (Meals/Reflections) ---
   const getStaticConstraints = useCallback((): TimeBlock[] => {
     if (!profile) return [];
     const constraints: TimeBlock[] = [];
@@ -130,7 +126,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         let anchorEnd = addMinutes(anchorStart, effectiveDuration);
         if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
         
-        // Check overlap with workday
         const overlaps = (isBefore(anchorEnd, workdayEndTimeForSelectedDay) || anchorEnd.getTime() === workdayEndTimeForSelectedDay.getTime()) && 
                          (isAfter(anchorStart, workdayStartTimeForSelectedDay) || anchorStart.getTime() === workdayStartTimeForSelectedDay.getTime());
         
@@ -192,15 +187,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     showSuccess(`Balance logic set to ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
   }, [setSortBy]);
 
-  // NEW: Handler for starting the Pod session from the modal
   const handleStartPodSession = useCallback(async (activityName: string, activityDuration: number) => {
     if (!user || !profile) return;
     setIsProcessingCommand(true);
     try {
-        // 1. Start the session state (updates profile.is_in_regen_pod and regen_pod_start_time)
         await startRegenPodState(activityDuration); 
         
-        // 2. Add a fixed, locked task to the schedule for visibility
         const start = T_current;
         const end = addMinutes(start, activityDuration);
         
@@ -208,7 +200,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             name: `Regen Pod: ${activityName}`,
             start_time: start.toISOString(),
             end_time: end.toISOString(),
-            break_duration: activityDuration, // Use break_duration to store the planned duration
+            break_duration: activityDuration,
             scheduled_date: selectedDay,
             is_critical: false,
             is_flexible: false, 
@@ -218,7 +210,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         });
         
         showSuccess(`Regen Pod activated for ${activityDuration} minutes!`);
-        // The modal remains open, transitioning to RUNNING state internally
     } catch (e: any) {
         showError(`Failed to start Regen Pod: ${e.message}`);
     } finally {
@@ -226,20 +217,16 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
   }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask]);
 
-  // NEW: Handler for exiting the Pod session from the modal
   const handleExitPodSession = useCallback(async () => {
-    // exitRegenPodState handles server calculation and profile refresh
     await exitRegenPodState();
     setShowRegenPodSetup(false);
   }, [exitRegenPodState]);
 
 
-  // --- CRITICAL UPDATE: handleCommand now does Client-Side Placement ---
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) return showError("Please log in.");
     setIsProcessingCommand(true);
     try {
-      // 1. Check if it's a system command (clear, compact, etc.)
       const command = parseCommand(input);
       if (command) {
         switch (command.type) {
@@ -259,11 +246,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         return;
       }
 
-      // 2. Parse the task input
       const task = parseTaskInput(input, selectedDayAsDate);
       if (task) {
         if (task.shouldSink) {
-          // If user explicitly says "sink", add to retired tasks
           await addRetiredTask({ 
             user_id: user.id, 
             name: task.name, 
@@ -276,25 +261,20 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             is_backburner: task.isBackburner 
           });
         } else if (task.duration) {
-          // --- CLIENT SIDE PLACEMENT LOGIC ---
           console.log(`[QuickAdd] Processing: "${task.name}" (${task.duration}m)`);
           
-          // 1. Get current schedule constraints (Fixed/Locked tasks)
           const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
             start: parseISO(t.start_time!),
             end: parseISO(t.end_time!),
             duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
           }));
           
-          // 2. Get Static Constraints (Meals/Reflections)
           const staticConstraints = getStaticConstraints();
           
-          // 3. Merge all constraints
           const allConstraints = mergeOverlappingTimeBlocks([...occupiedBlocks, ...staticConstraints]);
           console.log(`[QuickAdd] Total Constraints: ${allConstraints.length} blocks`);
           allConstraints.forEach(c => console.log(`[QuickAdd] Constraint: ${format(c.start, 'HH:mm')}-${format(c.end, 'HH:mm')}`));
 
-          // 4. Find the next available slot
           const taskTotalDuration = task.duration + (task.breakDuration || 0);
           const searchStart = isBefore(workdayStartTimeForSelectedDay, T_current) && isSameDay(selectedDayAsDate, new Date()) ? T_current : workdayStartTimeForSelectedDay;
           
@@ -318,7 +298,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             showSuccess(`Scheduled "${task.name}" at ${format(slot.start, 'h:mm a')}`);
           } else {
             showError(`No slot found for "${task.name}" within constraints. Sending to Sink.`);
-            // Optional: Send to sink if no slot found
             await addRetiredTask({
               user_id: user.id,
               name: task.name,
@@ -332,7 +311,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             });
           }
         } else {
-          // Handle time-based tasks (e.g., "Coffee 10am-11am") - Direct Insert
           await addScheduledTask({
             name: task.name,
             start_time: task.startTime!.toISOString(),
@@ -341,7 +319,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             scheduled_date: selectedDay,
             is_critical: task.isCritical,
             is_flexible: false,
-            is_locked: true, // Time-based tasks are locked by default
+            is_locked: true,
             energy_cost: task.energyCost,
             task_environment: environmentForPlacement,
             is_backburner: task.isBackburner,
@@ -390,24 +368,22 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
       )}
       
-      {/* NEW: Energy Regen Pod Modal */}
       {(showRegenPodSetup || isRegenPodRunning) && (
         <EnergyRegenPodModal 
           isOpen={showRegenPodSetup || isRegenPodRunning}
           onExit={handleExitPodSession}
           onStart={handleStartPodSession}
           isProcessingCommand={overallLoading}
-          // Pass the remaining duration if running, or max duration if setting up
           totalDurationMinutes={isRegenPodRunning ? regenPodDurationMinutes : REGEN_POD_MAX_DURATION_MINUTES}
         />
       )}
 
       <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
-      <Card className="p-4 space-y-4 animate-slide-in-up">
-        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} />
+      <Card className="p-0 space-y-4 animate-slide-in-up border-none shadow-none bg-transparent"> {/* Removed p-4, border, and shadow */}
+        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} /> {/* Pass weekStartsOn */}
         <SchedulerSegmentedControl currentView={view} />
       </Card>
-      <div className="animate-slide-in-up">
+      <div className="animate-slide-in-up px-4 md:px-8"> {/* Added back horizontal padding here */}
         {view === 'schedule' && (
           <>
             <SchedulerContextBar T_current={T_current} />
@@ -435,7 +411,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} 
               onStartRegenPod={() => setShowRegenPodSetup(true)} 
               hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
-              navigate={navigate} // NEW: Pass navigate function
+              navigate={navigate}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
             <Card className="animate-pop-in">

@@ -1,34 +1,36 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { format, addDays, isToday, parseISO, addWeeks, subDays } from 'date-fns';
+import { format, addDays, isToday, parseISO, addWeeks, subDays, startOfWeek } from 'date-fns'; // Added startOfWeek
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CalendarCheck, ChevronLeft, ChevronRight, Loader2, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Day } from 'date-fns'; // Import Day type
 
 interface CalendarStripProps {
   selectedDay: string; 
   setSelectedDay: (dateString: string) => void; 
   datesWithTasks: string[]; 
   isLoadingDatesWithTasks: boolean; 
+  weekStartsOn: number; // NEW: Add weekStartsOn prop
 }
 
 const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({ 
   selectedDay, 
   setSelectedDay, 
   datesWithTasks, 
-  isLoadingDatesWithTasks 
+  isLoadingDatesWithTasks,
+  weekStartsOn // Destructure new prop
 }) => {
   const daysToDisplay = 7;
   const [weekOffset, setWeekOffset] = useState(0);
 
   const currentWeekStart = useMemo(() => {
     const today = new Date();
-    // Start of the current week (Sunday)
-    const startOfWeek = subDays(today, today.getDay()); 
-    return addWeeks(startOfWeek, weekOffset);
-  }, [weekOffset]);
+    // Use startOfWeek with the user's preference
+    return addWeeks(startOfWeek(today, { weekStartsOn: weekStartsOn as Day }), weekOffset);
+  }, [weekOffset, weekStartsOn]); // Depend on weekStartsOn
 
   const handleGoToToday = () => {
     setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
@@ -48,7 +50,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
         variant="ghost"
         onClick={() => setSelectedDay(formattedDay)}
         className={cn(
-          "flex flex-col items-center justify-center h-20 w-14 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative", // Restored w-14 shrink-0
+          "flex flex-col items-center justify-center h-20 w-14 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative",
           "text-muted-foreground hover:text-primary hover:bg-primary/5",
           isSelected && "glass-card text-primary border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-110 z-10",
           !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]"
@@ -110,7 +112,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
       </div>
 
       {/* Main Timeline Strip */}
-      <div className="flex-1 flex overflow-x-auto py-2 custom-scrollbar touch-pan-x"> {/* Re-added overflow-x-auto */}
+      <div className="flex-1 flex overflow-x-auto py-2 custom-scrollbar touch-pan-x">
         {isLoadingDatesWithTasks ? (
           <div className="flex items-center justify-center h-20 w-full animate-pulse">
             <Loader2 className="h-6 w-6 animate-spin text-primary opacity-40" />

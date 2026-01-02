@@ -383,7 +383,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} /> {/* Pass weekStartsOn */}
         <SchedulerSegmentedControl currentView={view} />
       </Card>
-      <div className="animate-slide-in-up px-4 md:px-8"> {/* Added back horizontal padding here */}
+      {/* Removed px-4 md:px-8 from this div to prevent double padding */}
+      <div className="animate-slide-in-up"> 
         {view === 'schedule' && (
           <>
             <SchedulerContextBar T_current={T_current} />

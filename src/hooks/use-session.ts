@@ -40,6 +40,8 @@ export interface UserProfile {
   reflection_times: string[];
   reflection_durations: number[];
   week_starts_on: number; // NEW: 0 for Sunday, 1 for Monday
+  num_days_visible: number; // NEW: For Simplified Schedule view preference
+  vertical_zoom_index: number; // NEW: For Simplified Schedule view preference
 }
 
 interface SessionContextType {

@@ -19,7 +19,11 @@ const SimplifiedSchedulePage: React.FC = () => {
   const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(() => 
     startOfWeek(new Date(), { weekStartsOn }) 
   );
-  const [numDaysVisible, setNumDaysVisible] = useState<number>(7);
+  // Initialize numDaysVisible from profile, default to 7
+  const [numDaysVisible, setNumDaysVisible] = useState<number>(profile?.num_days_visible ?? 7); 
+
+  // Initialize currentVerticalZoomIndex from profile, default to 3 (for 1.00 zoom)
+  const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(profile?.vertical_zoom_index ?? 3);
 
   // Pass currentPeriodStart as the centerDate to the hook
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStart);
@@ -28,6 +32,8 @@ const SimplifiedSchedulePage: React.FC = () => {
 
   // Adjust currentPeriodStart when numDaysVisible changes to keep "today" in view
   useEffect(() => {
+    if (!profile) return; // Wait for profile to load
+
     const today = new Date();
     let newStart: Date;
     if (numDaysVisible === 1) {
@@ -37,10 +43,18 @@ const SimplifiedSchedulePage: React.FC = () => {
     } else if (numDaysVisible === 5) {
       newStart = subDays(startOfDay(today), 2); 
     } else { // 7, 14, 21 days
-      newStart = startOfWeek(today, { weekStartsOn });
+      newStart = startOfWeek(today, { weekStartsOn: profile.week_starts_on as Day });
     }
     setCurrentPeriodStart(newStart);
-  }, [numDaysVisible, weekStartsOn]);
+  }, [numDaysVisible, profile?.week_starts_on, profile]); // Depend on profile.week_starts_on and profile
+
+  // Update numDaysVisible and currentVerticalZoomIndex when profile loads/changes
+  useEffect(() => {
+    if (profile) {
+      setNumDaysVisible(profile.num_days_visible ?? 7);
+      setCurrentVerticalZoomIndex(profile.vertical_zoom_index ?? 3);
+    }
+  }, [profile]);
 
   // Callback for WeeklyScheduleGrid to request a period shift
   const handlePeriodShift = useCallback((shiftDays: number) => {
@@ -99,9 +113,11 @@ const SimplifiedSchedulePage: React.FC = () => {
           isLoading={isWeeklyTasksLoading}
           T_current={T_current}
           weekStartsOn={weekStartsOn}
-          onPeriodShift={handlePeriodShift} // NEW: Pass the shift handler
-          fetchWindowStart={fetchWindowStart} // NEW: Pass fetch window bounds
-          fetchWindowEnd={fetchWindowEnd}     // NEW: Pass fetch window bounds
+          onPeriodShift={handlePeriodShift} 
+          fetchWindowStart={fetchWindowStart} 
+          fetchWindowEnd={fetchWindowEnd}     
+          currentVerticalZoomIndex={currentVerticalZoomIndex} // NEW: Pass vertical zoom index
+          setCurrentVerticalZoomIndex={setCurrentVerticalZoomIndex} // NEW: Pass vertical zoom index setter
         />
       </div>
     </div>

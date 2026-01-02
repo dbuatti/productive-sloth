@@ -4,7 +4,7 @@ import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, 
 import { cn } from '@/lib/utils';
 import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ListTodo, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ListTodo, Loader2, Save } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setTimeOnDate } from '@/lib/scheduler-utils';
 import {
@@ -16,6 +16,9 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import DailyScheduleColumn from './DailyScheduleColumn';
+import { useSession } from '@/hooks/use-session';
+import { showSuccess, showError } from '@/utils/toast';
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // NEW: Import useSchedulerTasks
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
@@ -31,6 +34,8 @@ interface WeeklyScheduleGridProps {
   onPeriodShift: (shiftDays: number) => void; 
   fetchWindowStart: Date; 
   fetchWindowEnd: Date;   
+  currentVerticalZoomIndex: number; 
+  setCurrentVerticalZoomIndex: React.Dispatch<React.SetStateAction<number>>; 
 }
 
 const BASE_MINUTE_HEIGHT = 2.5; 
@@ -52,22 +57,14 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   onPeriodShift,
   fetchWindowStart,
   fetchWindowEnd,   
+  currentVerticalZoomIndex,
+  setCurrentVerticalZoomIndex,
 }) => {
+  const { updateProfile, isLoading: isSessionLoading, rechargeEnergy } = useSession(); // Added rechargeEnergy
+  const { completeScheduledTask } = useSchedulerTasks(''); // NEW: Use completeScheduledTask
   const [isDetailedView, setIsDetailedView] = useState(false);
-  const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const savedIndex = localStorage.getItem('weeklyScheduleVerticalZoomIndex');
-      return savedIndex ? parseInt(savedIndex, 10) : VERTICAL_ZOOM_LEVELS.indexOf(1.00);
-    }
-    return VERTICAL_ZOOM_LEVELS.indexOf(1.00);
-  });
+  
   const currentVerticalZoomFactor = VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex];
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('weeklyScheduleVerticalZoomIndex', currentVerticalZoomIndex.toString());
-    }
-  }, [currentVerticalZoomIndex]);
 
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const [gridContainerWidth, setGridContainerWidth] = useState(0);
@@ -148,6 +145,33 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const handleSelectNumDaysVisible = (daysOption: number) => {
     setNumDaysVisible(daysOption);
   };
+
+  const handleSaveViewPreferences = async () => {
+    try {
+      await updateProfile({
+        num_days_visible: numDaysVisible,
+        vertical_zoom_index: currentVerticalZoomIndex,
+      });
+      showSuccess("View preferences saved!");
+    } catch (error) {
+      showError("Failed to save view preferences.");
+      console.error("Failed to save view preferences:", error);
+    }
+  };
+
+  // NEW: Handler for completing a scheduled task from the grid
+  const handleCompleteScheduledTask = useCallback(async (task: DBScheduledTask) => {
+    if (task.is_completed) return; // Already completed
+    try {
+      await completeScheduledTask(task); // Mark as completed in DB
+      await rechargeEnergy(-(task.energy_cost)); // Deduct energy
+      showSuccess(`Task "${task.name}" completed! +${task.energy_cost * 2} XP`);
+    } catch (error) {
+      showError(`Failed to complete task: ${task.name}`);
+      console.error("Error completing task from weekly grid:", error);
+    }
+  }, [completeScheduledTask, rechargeEnergy]);
+
 
   const timeAxisStart = useMemo(() => setTimeOnDate(currentPeriodStart, workdayStartTime), [currentPeriodStart, workdayStartTime]);
   let timeAxisEnd = useMemo(() => setTimeOnDate(currentPeriodStart, workdayEndTime), [currentPeriodStart, workdayEndTime]);
@@ -297,6 +321,22 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
               </DropdownMenuContent>
             </Tooltip>
           </DropdownMenu>
+
+          {/* NEW: Save View Preferences Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSaveViewPreferences}
+                disabled={isSessionLoading}
+                className="h-8 w-8 sm:h-10 sm:w-10 text-primary hover:bg-primary/10"
+              >
+                <Save className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Save View Preferences</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -326,7 +366,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             </div>
 
             {/* Daily Columns (This is the horizontally scrollable content) */}
-            <div className="flex"> {/* REMOVED flex-1 to allow content to dictate width */}
+            <div className="flex">
               {displayedDays.map((day) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
                 const tasksForDay = weeklyTasks[dateKey] || [];
@@ -341,6 +381,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     T_current={T_current}
                     zoomLevel={currentVerticalZoomFactor}
                     columnWidth={currentColumnWidth}
+                    onCompleteTask={handleCompleteScheduledTask} // NEW: Pass the handler
                   />
                 );
               })}

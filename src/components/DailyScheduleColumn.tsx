@@ -15,6 +15,7 @@ interface DailyScheduleColumnProps {
   T_current: Date; // Current time from SessionProvider
   zoomLevel: number; // Vertical zoom level prop
   columnWidth: number; // Horizontal zoom (column width) prop
+  onCompleteTask: (task: DBScheduledTask) => Promise<void>; // NEW: onCompleteTask prop
 }
 
 const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
@@ -28,6 +29,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   T_current,
   zoomLevel, // Vertical zoom level
   columnWidth, // Destructure columnWidth
+  onCompleteTask, // Destructure new prop
 }) => {
   const isCurrentDay = isToday(dayDate);
 
@@ -160,7 +162,12 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
               )}
               style={{ top: `${top}px`, height: `${height}px` }}
             >
-              <SimplifiedScheduledTaskItem task={task} isDetailedView={isDetailedView} isCurrentlyActive={isCurrentlyActive} />
+              <SimplifiedScheduledTaskItem 
+                task={task} 
+                isDetailedView={isDetailedView} 
+                isCurrentlyActive={isCurrentlyActive} 
+                onCompleteTask={onCompleteTask} // NEW: Pass onCompleteTask
+              />
             </div>
           );
         })}

@@ -59,8 +59,8 @@ const ProgressBarHeader: React.FC = () => {
 
   return (
     <div className={cn(
-      "glass-header border-b py-2 transition-all duration-300 ease-aether-out",
-      "w-full z-40"
+      "w-full transition-all duration-300 ease-aether-out", // Removed glass-header and z-40
+      "border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm py-3" // Adjusted padding and added styling
     )}>
       <div className="w-full px-4 md:px-8">
         <div className={cn(

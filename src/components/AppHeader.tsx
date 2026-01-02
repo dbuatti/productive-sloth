@@ -20,8 +20,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onMenuToggle }) => {
 
   return (
     <header className={cn(
-      "fixed top-0 left-0 right-0 z-50",
-      "glass-header h-16 transition-all duration-300 ease-aether-out"
+      "h-16 transition-all duration-300 ease-aether-out", // Removed fixed positioning and glass-header
+      "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm" // Added header styling
     )}>
       <div className="mx-auto max-w-5xl h-full px-4 flex items-center">
         

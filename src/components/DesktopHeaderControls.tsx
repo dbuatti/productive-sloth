@@ -11,7 +11,7 @@ const DesktopHeaderControls: React.FC = () => {
 
   return (
     <header className={cn(
-      "fixed top-0 left-0 right-0 z-20 h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+      "h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", // Removed fixed positioning
       "hidden lg:flex items-center justify-between px-6 shadow-sm"
     )}>
       {/* Left: Logo/Title */}

@@ -42,8 +42,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       // Apply horizontal padding only if NOT on the simplified schedule page
       // Use smaller padding on mobile for a more expansive feel
       !isSimplifiedSchedulePage && "px-3 md:px-8", 
-      // Adjusted top padding: pt-0 for simplified schedule, pt-[100px] otherwise
-      isSimplifiedSchedulePage ? "pt-0" : "pt-[100px]", 
+      // Removed pt-[100px] from here, padding is now handled by the parent div
       // Dynamic bottom padding for mobile navigation/status indicator
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4")
     )}>
@@ -63,7 +62,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {!isMobile && !isSimplifiedSchedulePage && (
         <div 
           className={cn(
-            "fixed top-0 left-0 right-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-16",
+            "fixed top-0 left-0 right-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-[112px]", // Adjusted pt for sidebar
             sidebarWidth
           )}
         >
@@ -76,22 +75,23 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       )}
 
-      {/* Desktop Header Controls (Visible on large screens) */}
-      {!isMobile && <DesktopHeaderControls />}
-      
-      {/* Main Content Area (Header + Progress Bar + Page Content) */}
-      <div className={cn("flex flex-col flex-1 min-w-0 w-full", !isSimplifiedSchedulePage && contentPaddingLeft)}>
-        
-        {/* Header (Only visible on mobile) */}
+      {/* Combined Fixed Header */}
+      <div className={cn(
+        "fixed top-0 left-0 right-0 z-50", // Make this container fixed
+        !isSimplifiedSchedulePage && contentPaddingLeft // Apply sidebar padding to fixed header
+      )}>
         {isMobile && <AppHeader onMenuToggle={() => {}} />}
-        
-        {/* Progress Bar Header (Sticks below the header) */}
+        {!isMobile && <DesktopHeaderControls />}
         <ProgressBarHeader />
-        
-        {/* Page Content */}
+      </div>
+      
+      {/* Main Content Area */}
+      <div className={cn(
+        "flex flex-col flex-1 min-w-0 w-full", 
+        !isSimplifiedSchedulePage && contentPaddingLeft,
+        "pt-[112px]" // Add padding-top here to push content below fixed header
+      )}>
         {mainContent}
-        
-        {/* Desktop Focus Anchor (Hidden on mobile) */}
         {shouldShowFocusAnchor && <FocusAnchor />}
       </div>
       

@@ -68,7 +68,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     setRetiredSortBy,
     completeScheduledTask: completeScheduledTaskMutation,
     removeRetiredTask,
-    handleAutoScheduleAndSort,
+    handleAutoScheduleAndSort, // This is the engine we need to use
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const { data: mealAssignments = [] } = useQuery<MealAssignment[]>({
@@ -134,10 +134,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     showSuccess(`Balance logic set to ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
   }, [setSortBy]);
 
+  // --- CRITICAL UPDATE: handleCommand now uses the Engine ---
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) return showError("Please log in.");
     setIsProcessingCommand(true);
     try {
+      // 1. Check if it's a system command (clear, compact, etc.)
       const command = parseCommand(input);
       if (command) {
         switch (command.type) {
@@ -157,9 +159,11 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         return;
       }
 
+      // 2. Parse the task input
       const task = parseTaskInput(input, selectedDayAsDate);
       if (task) {
         if (task.shouldSink) {
+          // If user explicitly says "sink", add to retired tasks
           await addRetiredTask({ 
             user_id: user.id, 
             name: task.name, 
@@ -172,73 +176,47 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             is_backburner: task.isBackburner 
           });
         } else {
-          if (task.duration && !task.startTime) {
-            const effectiveStart = isBefore(workdayStartTimeForSelectedDay, T_current) ? T_current : workdayStartTimeForSelectedDay;
-            const occupiedBlocks = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => {
-                const start = setTimeOnDate(selectedDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
-                let end = setTimeOnDate(selectedDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
-                if (isBefore(end, start)) end = addDays(end, 1);
-                return { start, end, duration: differenceInMinutes(end, start) };
-            });
-            const totalDuration = (task.duration || 30) + (task.breakDuration || 0);
-            const freeBlocks = getFreeTimeBlocks(occupiedBlocks, effectiveStart, workdayEndTimeForSelectedDay);
-            const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
-            if (suitableBlock) {
-                const proposedStartTime = suitableBlock.start;
-                const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
-                await addScheduledTask({ 
-                  name: task.name, 
-                  start_time: proposedStartTime.toISOString(), 
-                  end_time: proposedEndTime.toISOString(), 
-                  break_duration: task.breakDuration, 
-                  scheduled_date: selectedDay, 
-                  is_critical: task.isCritical, 
-                  is_flexible: task.isFlexible, 
-                  is_locked: !task.isFlexible, 
-                  energy_cost: task.energyCost, 
-                  task_environment: environmentForPlacement, 
-                  is_backburner: task.isBackburner 
-                });
-            } else {
-                showError("No free slot found. Sent to Sink.");
-                await addRetiredTask({ 
-                  user_id: user.id, 
-                  name: task.name, 
-                  duration: task.duration || 30, 
-                  break_duration: task.breakDuration || null, 
-                  original_scheduled_date: selectedDay, 
-                  is_critical: task.isCritical, 
-                  energy_cost: task.energyCost, 
-                  task_environment: environmentForPlacement, 
-                  is_backburner: task.isBackburner 
-                });
-            }
-          } else {
-            const sStart = task.startTime ? task.startTime.toISOString() : undefined;
-            const sEnd = task.endTime ? task.endTime.toISOString() : undefined;
-            await addScheduledTask({ 
-              name: task.name, 
-              start_time: sStart, 
-              end_time: sEnd, 
-              break_duration: task.breakDuration, 
-              scheduled_date: selectedDay, 
-              is_critical: task.isCritical, 
-              is_flexible: task.isFlexible, 
-              is_locked: !task.isFlexible, 
-              energy_cost: task.energyCost, 
-              task_environment: environmentForPlacement, 
-              is_backburner: task.isBackburner 
-            });
-          }
+          // If it's a duration-based task, we need to find a slot.
+          // We will use the engine to place it.
+          
+          // First, create a temporary "retired task" to represent this new task
+          const tempRetiredTask = {
+            user_id: user.id,
+            name: task.name,
+            duration: task.duration || 30,
+            break_duration: task.breakDuration || null,
+            original_scheduled_date: selectedDay,
+            is_critical: task.isCritical,
+            energy_cost: task.energyCost,
+            task_environment: environmentForPlacement,
+            is_backburner: task.isBackburner,
+            id: `temp-${Date.now()}`, // Temporary ID
+            retired_at: new Date().toISOString(),
+            is_locked: false,
+            is_completed: false,
+            is_custom_energy_cost: false,
+          };
+
+          // Add this temporary task to the retired list in the database (or handle it in memory)
+          // To keep it simple and robust, we will add it to the sink first, then run the engine.
+          // This ensures the engine sees it and places it correctly.
+          
+          // Add to sink
+          const { data: insertedTask } = await supabase.from('aethersink').insert(tempRetiredTask).select().single();
+          
+          // Run engine: Sink-to-Gaps (places new sink items into schedule gaps)
+          await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
         }
         setInputValue('');
       } else {
         showError("Invalid task format.");
       }
+    } catch (e: any) {
+      showError(`Command failed: ${e.message}`);
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay]);
+  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, handleAutoScheduleAndSort, sortBy]);
 
   const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'exitFocus', task: DBScheduledTask) => {
     setIsProcessingCommand(true);

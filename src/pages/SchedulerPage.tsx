@@ -420,7 +420,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               navigate={navigate}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
-            <div className="p-4 bg-card rounded-xl shadow-sm"> {/* Replaced Card with div, adjusted padding/styling */}
+            <div className="p-0 bg-transparent rounded-none shadow-none"> {/* Removed Card with div, adjusted padding/styling */}
               <h2 className="text-xl font-bold mb-4">Your Vibe Schedule</h2>
               <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
             </div>

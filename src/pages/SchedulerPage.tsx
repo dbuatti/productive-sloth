@@ -34,6 +34,7 @@ import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { MealAssignment } from '@/hooks/use-meals';
+import { cn } from '@/lib/utils'; // Import cn utility
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, regenPodDurationMinutes } = useSession();
@@ -323,7 +324,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile, regenPodDurationMinutes, T_current, mealAssignments]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className={cn(
+      "mx-auto space-y-6 pb-24 px-4 transition-all duration-500",
+      view === 'sink' ? "max-w-[98%]" : "max-w-5xl" 
+    )}>
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
       )}

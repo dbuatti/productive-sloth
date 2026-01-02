@@ -102,7 +102,6 @@ const SortableCard: React.FC<SortableCardProps> = ({ task, onRemove, onRezone, o
   return (
     <motion.div
       ref={setNodeRef}
-      style={style}
       layout // Framer Motion layout animation
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -284,17 +283,18 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       collisionDetection={closestCorners}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      {/* Updated grid layout for horizontal scrolling and min-width columns */}
+      <div className="flex overflow-x-auto custom-scrollbar gap-4 pb-2">
         {config.options.map((option) => {
           const columnTasks = groupedTasks[option] || [];
           const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
-          const totalDuration = columnTasks.reduce((sum, t) => sum + (t.duration || 0), 0);
+          // const totalDuration = columnTasks.reduce((sum, t) => sum + (t.duration || 0), 0); // Not used
 
           return (
             <div
               key={option}
               id={option} // Important for DnD context
-              className="flex flex-col h-full min-h-[300px]"
+              className="flex flex-col h-full min-w-[280px] flex-shrink-0" // Added min-w-[280px] and flex-shrink-0
             >
               <Card className="bg-background/60 backdrop-blur-md border-white/10 shadow-sm flex flex-col h-full overflow-hidden">
                 <CardHeader className="p-3 border-b border-white/5 bg-background/40">

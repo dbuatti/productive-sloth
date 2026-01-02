@@ -128,9 +128,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
         </Button>
       )}
 
-      <div ref={containerRef} className="relative pl-12 pr-2 py-4 custom-scrollbar">
+      <div ref={containerRef} className="relative pl-8 pr-2 py-4 custom-scrollbar"> {/* Adjusted pl-12 to pl-8 */}
         {/* Timeline Axis */}
-        <div className="absolute left-[3.25rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" />
+        <div className="absolute left-[2.25rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" /> {/* Adjusted left-[3.25rem] to left-[2.25rem] */}
 
         {finalDisplayItems.map((item, index) => {
           if (item.type === 'free-time') {
@@ -142,7 +142,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 style={{ height: `${gap.duration * MINUTE_HEIGHT}px` }}
                 onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
               >
-                <div className="w-10 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
+                <div className="w-8 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div> {/* Adjusted w-10 to w-8 */}
                 <div className="flex-1 flex items-center justify-center border border-dashed border-white/5 rounded-lg hover:bg-white/[0.02] transition-colors">
                   <span className="opacity-0 group-hover:opacity-100 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 transition-opacity">
                     +{gap.duration}m
@@ -164,7 +164,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
           return (
             <div key={taskItem.id} className="relative group flex gap-4 mb-3">
               {/* Time Marker */}
-              <div className="w-10 text-right shrink-0 pt-1.5">
+              <div className="w-8 text-right shrink-0 pt-0.5"> {/* Adjusted w-10 to w-8, pt-1.5 to pt-0.5 */}
                 <span className={cn(
                   "text-[9px] font-bold font-mono leading-none transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground/40"
@@ -185,7 +185,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               {/* Task Card */}
               <div 
                 className={cn(
-                  "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col p-3", // Removed justify-between
+                  "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col px-3 pt-1 pb-3", // Adjusted p-3 to px-3 pt-1 pb-3, removed justify-between
                   isActive ? "bg-primary/10 shadow-md ring-1 ring-primary/20" : "bg-card/40 hover:bg-primary/5", // Adjusted hover background
                   isPastItem && "opacity-40 grayscale"
                 )}
@@ -197,7 +197,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               >
                 {isActive && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent animate-pulse" />}
 
-                <div className="flex items-start justify-between gap-3 py-2"> {/* Reverted items-center to items-start, added py-2 */}
+                <div className="flex items-start justify-between gap-3 pr-16"> {/* Reverted items-center to items-start, added pr-16 for action button space */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-lg leading-none">{taskItem.emoji}</span>
@@ -221,69 +221,67 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                       {getEnvironmentIcon(taskItem.taskEnvironment)}
                     </div>
                   </div>
+                </div>
 
-                  {/* Actions - Visible on hover/tap */}
+                {/* Actions - Absolutely positioned at bottom-right */}
+                {dbTask && (
                   <div className={cn(
-                    "flex flex-col gap-1 shrink-0",
+                    "absolute bottom-1 right-1 flex flex-row gap-1 shrink-0", // Changed to flex-row
                     "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   )}>
-                    {dbTask && (
-                      <>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" size="icon" 
-                              className={cn(
-                                "h-7 w-7 rounded-md transition-colors",
-                                dbTask.is_locked ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
-                              )}
-                              onClick={(e) => { e.stopPropagation(); toggleScheduledTaskLock({ taskId: dbTask.id, isLocked: !dbTask.is_locked }); }}
-                            >
-                              {dbTask.is_locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5 opacity-50" />}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Lock</TooltipContent>
-                        </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" size="icon" 
+                          className={cn(
+                            "h-6 w-6 rounded-md transition-colors", // Reduced button size
+                            dbTask.is_locked ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+                          )}
+                          onClick={(e) => { e.stopPropagation(); toggleScheduledTaskLock({ taskId: dbTask.id, isLocked: !dbTask.is_locked }); }}
+                        >
+                          {dbTask.is_locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3 opacity-50" />} {/* Reduced icon size */}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Lock</TooltipContent>
+                    </Tooltip>
 
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" size="icon" className="h-7 w-7 rounded-md text-logo-green hover:bg-logo-green/20"
-                              onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask); }}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Complete</TooltipContent>
-                        </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-logo-green hover:bg-logo-green/20" // Reduced button size
+                          onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask); }}
+                        >
+                          <CheckCircle2 className="h-3 w-3" /> {/* Reduced icon size */}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Complete</TooltipContent>
+                    </Tooltip>
 
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" size="icon" className="h-7 w-7 rounded-md text-logo-orange hover:bg-logo-orange/20"
-                              onClick={(e) => { e.stopPropagation(); onRetireTask(dbTask); }}
-                            >
-                              <Archive className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Archive</TooltipContent>
-                        </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-logo-orange hover:bg-logo-orange/20" // Reduced button size
+                          onClick={(e) => { e.stopPropagation(); onRetireTask(dbTask); }}
+                        >
+                          <Archive className="h-3 w-3" /> {/* Reduced icon size */}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Archive</TooltipContent>
+                    </Tooltip>
 
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
-                              onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id); }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Delete</TooltipContent>
-                        </Tooltip>
-                      </>
-                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10" // Reduced button size
+                          onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id); }}
+                        >
+                          <Trash2 className="h-3 w-3" /> {/* Reduced icon size */}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           );

@@ -12,7 +12,7 @@ import {
   CheckCircle2, Star, Home, Laptop, Globe, Music, 
   Info, Target
 } from 'lucide-react';
-import { format, differenceInMinutes, parseISO, min, max, isPast, addMinutes, intervalToDuration, formatDuration } from 'date-fns'; // Added intervalToDuration, formatDuration
+import { format, differenceInMinutes, parseISO, min, max, isPast, addMinutes } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
@@ -33,9 +33,7 @@ interface SchedulerDisplayProps {
   onFreeTimeClick: (startTime: Date, endTime: Date) => void;
 }
 
-const MINUTE_HEIGHT = 2.0; // Height for scheduled tasks
-const FREE_TIME_MINUTE_HEIGHT = 0.5; // Height for free time gaps (more compact)
-const MIN_GAP_VISUAL_HEIGHT_PX = 30; // Minimum visual height for a gap, even if duration is small
+const MINUTE_HEIGHT = 2.0; // Slightly more compact
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3 w-3 opacity-70";
@@ -46,19 +44,6 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
     case 'piano': return <Music className={iconClass} />;
     default: return null;
   }
-};
-
-// Helper function to format minutes into hours and minutes
-const formatMinutesToHoursMinutes = (totalMinutes: number): string => {
-  if (totalMinutes <= 0) return '0m';
-  const duration = intervalToDuration({ start: 0, end: totalMinutes * 60 * 1000 });
-  const h = duration.hours || 0;
-  const m = duration.minutes || 0;
-
-  if (h > 0) {
-    return `${h}h ${m}m`;
-  }
-  return `${m}m`;
 };
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
@@ -150,22 +135,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
         {finalDisplayItems.map((item, index) => {
           if (item.type === 'free-time') {
             const gap = item as FreeTimeItem;
-            const displayHeight = Math.max(MIN_GAP_VISUAL_HEIGHT_PX, gap.duration * FREE_TIME_MINUTE_HEIGHT);
-
             return (
               <div 
                 key={gap.id}
                 className="group relative flex gap-4 mb-3 cursor-crosshair"
-                style={{ height: `${displayHeight}px` }}
+                style={{ height: `${gap.duration * MINUTE_HEIGHT}px` }}
                 onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
               >
                 <div className="w-10 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
-                <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-lg bg-secondary/10 hover:bg-secondary/20 transition-colors">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">
-                    Free Time
-                  </span>
-                  <span className="text-sm font-bold font-mono text-primary/70 mt-1">
-                    +{formatMinutesToHoursMinutes(gap.duration)}
+                <div className="flex-1 flex items-center justify-center border border-dashed border-white/5 rounded-lg hover:bg-white/[0.02] transition-colors">
+                  <span className="opacity-0 group-hover:opacity-100 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 transition-opacity">
+                    +{gap.duration}m
                   </span>
                 </div>
               </div>
@@ -205,7 +185,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               {/* Task Card */}
               <div 
                 className={cn(
-                  "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col justify-between p-3", // Removed border, changed rounded-lg to rounded-xl
+                  "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col p-3", // Removed justify-between
                   isActive ? "bg-primary/10 shadow-md ring-1 ring-primary/20" : "bg-card/40 hover:bg-primary/5", // Adjusted hover background
                   isPastItem && "opacity-40 grayscale"
                 )}
@@ -217,7 +197,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               >
                 {isActive && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent animate-pulse" />}
 
-                <div className="flex items-center justify-between gap-3"> {/* Changed items-start to items-center */}
+                <div className="flex items-start justify-between gap-3 py-2"> {/* Reverted items-center to items-start, added py-2 */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-lg leading-none">{taskItem.emoji}</span>

@@ -15,13 +15,16 @@ export const useSinkView = () => {
       const saved = localStorage.getItem('aetherflow_sink_view');
       if (saved) {
         try {
-          return JSON.parse(saved) as SinkViewSettings;
+          const parsed = JSON.parse(saved) as SinkViewSettings;
+          console.log(`[useSinkView] Loaded settings from localStorage:`, parsed);
+          return parsed;
         } catch (e) {
-          // Reset if corrupted
+          console.warn(`[useSinkView] Corrupted settings found, resetting to default.`);
           return { viewMode: 'list', groupBy: 'environment' };
         }
       }
     }
+    console.log(`[useSinkView] No saved settings, using default: { viewMode: 'list', groupBy: 'environment' }`);
     return { viewMode: 'list', groupBy: 'environment' };
   });
 
@@ -29,14 +32,17 @@ export const useSinkView = () => {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('aetherflow_sink_view', JSON.stringify(settings));
+      console.log(`[useSinkView] Settings updated and saved to localStorage:`, settings);
     }
   }, [settings]);
 
   const setViewMode = (mode: SinkViewMode) => {
+    console.log(`[useSinkView] setViewMode called with: ${mode}`);
     setSettings(prev => ({ ...prev, viewMode: mode }));
   };
 
   const setGroupBy = (groupBy: GroupingOption) => {
+    console.log(`[useSinkView] setGroupBy called with: ${groupBy}`);
     setSettings(prev => ({ ...prev, groupBy }));
   };
 

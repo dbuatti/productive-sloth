@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils';
 import { 
   getEmojiHue, 
   assignEmoji, 
-  calculateEnergyCost 
 } from '@/lib/scheduler-utils';
 import { 
   Home, Laptop, Globe, Music, 
@@ -112,9 +111,14 @@ const SortableCard: React.FC<SortableCardProps> = ({ task, onRemove, onRezone, o
         "group relative p-3 rounded-xl border bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all cursor-grab active:cursor-grabbing",
         "hover:border-primary/40 hover:shadow-lg",
         task.is_locked && "border-primary/30 bg-primary/[0.03]",
-        task.is_completed && "opacity-50 grayscale"
+        task.is_completed && "opacity-50 grayscale",
+        `border-l-[4px]` // Merged border-left style into className
       )}
-      style={{ borderLeft: `4px solid ${accentColor}` }}
+      style={{ 
+        borderColor: `transparent`, // Reset border color to use border-l-[4px] instead
+        borderLeftColor: accentColor, // Apply color only to the left side
+        ...style // Re-apply DnD transform style
+      }}
       {...attributes}
       {...listeners}
     >
@@ -182,6 +186,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   onRezoneTask,
   updateRetiredTask,
 }) => {
+  console.log(`[SinkKanbanBoard] Rendering with groupBy: ${groupBy}, task count: ${retiredTasks.length}`);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -191,6 +197,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
 
   // Group tasks based on the selected grouping option
   const groupedTasks = useMemo(() => {
+    console.log(`[SinkKanbanBoard] Recalculating grouped tasks...`);
     const groups: Record<string, RetiredTask[]> = {};
     
     // Initialize all possible groups to ensure columns are always visible
@@ -215,38 +222,59 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       groups[groupKey].push(task);
     });
 
+    console.log(`[SinkKanbanBoard] Grouped Tasks:`, groups);
     return groups;
   }, [retiredTasks, groupBy, config.options]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    console.log(`[SinkKanbanBoard] DragEnd event triggered:`, { activeId: active?.id, overId: over?.id });
+
+    if (!over) {
+      console.log(`[SinkKanbanBoard] Drag ended without a target. Ignoring.`);
+      return;
+    }
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
     // Find the task being dragged
     const activeTask = retiredTasks.find(t => t.id === activeId);
-    if (!activeTask) return;
+    if (!activeTask) {
+      console.error(`[SinkKanbanBoard] Could not find task with id: ${activeId}`);
+      return;
+    }
 
     // Determine the new value based on the grouping type
     let updateData: Partial<RetiredTask> = {};
 
     if (groupBy === 'environment') {
       // The overId is the column ID (e.g., 'home', 'laptop')
-      if (config.options.includes(overId as TaskEnvironment)) {
+      // FIX: Cast config.options to the correct type to avoid TS2345
+      if ((config.options as readonly string[]).includes(overId)) {
         updateData = { task_environment: overId as TaskEnvironment };
+        console.log(`[SinkKanbanBoard] Environment change detected: ${activeTask.task_environment} -> ${overId}`);
       }
     } else {
       // Priority grouping
-      if (overId === 'critical') updateData = { is_critical: true, is_backburner: false };
-      else if (overId === 'backburner') updateData = { is_critical: false, is_backburner: true };
-      else if (overId === 'standard') updateData = { is_critical: false, is_backburner: false };
+      if (overId === 'critical') {
+        updateData = { is_critical: true, is_backburner: false };
+        console.log(`[SinkKanbanBoard] Priority change detected: -> Critical`);
+      } else if (overId === 'backburner') {
+        updateData = { is_critical: false, is_backburner: true };
+        console.log(`[SinkKanbanBoard] Priority change detected: -> Backburner`);
+      } else if (overId === 'standard') {
+        updateData = { is_critical: false, is_backburner: false };
+        console.log(`[SinkKanbanBoard] Priority change detected: -> Standard`);
+      }
     }
 
     // If we found a valid update, trigger the mutation
     if (Object.keys(updateData).length > 0) {
+      console.log(`[SinkKanbanBoard] Triggering updateRetiredTask for ${activeTask.name} with:`, updateData);
       updateRetiredTask({ id: activeId, ...updateData });
+    } else {
+      console.log(`[SinkKanbanBoard] No valid update data found for drop target: ${overId}`);
     }
   };
 

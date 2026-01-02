@@ -443,6 +443,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
   const updateRetiredTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<RetiredTask> & { id: string }) => {
+      console.log(`[useSchedulerTasks] updateRetiredTaskDetails called for task ${task.id}:`, task);
       if (!userId) throw new Error("User not authenticated.");
       const { data, error } = await supabase.from('aethersink').update({ ...task, retired_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId).select().single();
       if (error) throw new Error(error.message);

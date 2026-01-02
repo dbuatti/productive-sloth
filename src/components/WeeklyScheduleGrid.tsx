@@ -20,7 +20,7 @@ import DailyScheduleColumn from './DailyScheduleColumn';
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
   currentPeriodStart: Date; 
-  setCurrentPeriodStart: React.Dispatch<React.SetStateAction<Date>>; // FIX: Updated type to allow functional updates
+  setCurrentPeriodStart: React.Dispatch<React.SetStateAction<Date>>; 
   numDaysVisible: number; 
   setNumDaysVisible: (days: number) => void; 
   workdayStartTime: string; 
@@ -28,9 +28,9 @@ interface WeeklyScheduleGridProps {
   isLoading: boolean;
   T_current: Date; 
   weekStartsOn: number; 
-  onPeriodShift: (shiftDays: number) => void; // NEW: Callback to shift the period
-  fetchWindowStart: Date; // NEW: Start of the data fetch window
-  fetchWindowEnd: Date;   // NEW: End of the data fetch window
+  onPeriodShift: (shiftDays: number) => void; 
+  fetchWindowStart: Date; 
+  fetchWindowEnd: Date;   
 }
 
 const BASE_MINUTE_HEIGHT = 2.5; 
@@ -49,9 +49,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   numDaysVisible,
   setNumDaysVisible,
   weekStartsOn,
-  onPeriodShift, // Destructure new prop
-  fetchWindowStart, // Destructure new prop
-  fetchWindowEnd,   // Destructure new prop
+  onPeriodShift,
+  fetchWindowStart,
+  fetchWindowEnd,   
 }) => {
   const [isDetailedView, setIsDetailedView] = useState(false);
   const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(() => {
@@ -96,23 +96,19 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     return effectiveContainerWidth > 0 ? effectiveContainerWidth / numDaysVisible : 0;
   }, [gridContainerWidth, numDaysVisible]);
 
-  // Generate all days within the *fetched* window
   const allDaysInFetchWindow = useMemo(() => {
     const days: Date[] = [];
     let current = fetchWindowStart;
-    while (isBefore(current, addDays(fetchWindowEnd, 1))) { // Include fetchWindowEnd
+    while (isBefore(current, addDays(fetchWindowEnd, 1))) {
       days.push(current);
       current = addDays(current, 1);
     }
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
-  // Determine which subset of days to *display* based on currentPeriodStart and numDaysVisible
   const displayedDays = useMemo(() => {
     const startIndex = allDaysInFetchWindow.findIndex(day => isSameDay(day, currentPeriodStart));
     if (startIndex === -1) {
-      // This should ideally not happen if currentPeriodStart is always within the fetch window
-      // Fallback: find the closest day or reset to fetchWindowStart
       console.warn("currentPeriodStart not found in fetched window, resetting display to fetchWindowStart.");
       return allDaysInFetchWindow.slice(0, numDaysVisible);
     }
@@ -151,7 +147,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const handleSelectNumDaysVisible = (daysOption: number) => {
     setNumDaysVisible(daysOption);
-    // The useEffect in SimplifiedSchedulePage will handle setting currentPeriodStart based on this new numDaysVisible
   };
 
   const timeAxisStart = useMemo(() => setTimeOnDate(currentPeriodStart, workdayStartTime), [currentPeriodStart, workdayStartTime]);
@@ -171,26 +166,20 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     return labels;
   }, [timeAxisStart, timeAxisEnd]);
 
-  // --- Horizontal Scroll Detection for "Endless" Scrolling ---
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
     const { scrollWidth, scrollLeft, clientWidth } = event.currentTarget;
 
-    // Define scroll thresholds (e.g., 2 columns from edge)
     const scrollThreshold = currentColumnWidth * SCROLL_BUFFER_DAYS;
 
-    // Scrolling left (towards earlier dates)
     if (scrollLeft < scrollThreshold) {
-      // Check if currentPeriodStart is already at the beginning of the fetched window
       if (isSameDay(currentPeriodStart, fetchWindowStart)) {
-        onPeriodShift(-numDaysVisible); // Request parent to shift the period back
+        onPeriodShift(-numDaysVisible);
       }
     }
-    // Scrolling right (towards later dates)
     else if (scrollLeft + clientWidth > scrollWidth - scrollThreshold) {
-      // Check if the last displayed day is already at the end of the fetched window
       const lastDisplayedDay = displayedDays[displayedDays.length - 1];
       if (lastDisplayedDay && isSameDay(lastDisplayedDay, fetchWindowEnd)) {
-        onPeriodShift(numDaysVisible); // Request parent to shift the period forward
+        onPeriodShift(numDaysVisible);
       }
     }
   }, [currentColumnWidth, numDaysVisible, currentPeriodStart, fetchWindowStart, fetchWindowEnd, displayedDays, onPeriodShift]);
@@ -336,8 +325,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
               </div>
             </div>
 
-            {/* Daily Columns (Scrollable horizontally in portrait) */}
-            <div className="flex flex-1"> {/* Removed overflow-x-auto here, it's on the parent */}
+            {/* Daily Columns (This is the horizontally scrollable content) */}
+            <div className="flex"> {/* REMOVED flex-1 to allow content to dictate width */}
               {displayedDays.map((day) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
                 const tasksForDay = weeklyTasks[dateKey] || [];

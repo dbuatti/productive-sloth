@@ -582,13 +582,27 @@ export const findFirstAvailableSlot = (
   workdayEnd: Date
 ): { start: Date; end: Date } | null => {
   const freeBlocks = getFreeTimeBlocks(occupiedBlocks, searchStart, workdayEnd);
-  const slot = freeBlocks.find(block => block.duration >= durationMinutes);
-  if (slot) {
-    return {
-      start: slot.start,
-      end: addMinutes(slot.start, durationMinutes)
-    };
+  
+  // --- SAFETY CHECK: Verify slot does not overlap with any occupied block ---
+  for (const slot of freeBlocks) {
+    if (slot.duration >= durationMinutes) {
+      const proposedStart = slot.start;
+      const proposedEnd = addMinutes(proposedStart, durationMinutes);
+      
+      // Double check against original occupied blocks to ensure no overlap
+      const isSafe = occupiedBlocks.every(block => {
+        return proposedEnd <= block.start || proposedStart >= block.end;
+      });
+
+      if (isSafe) {
+        return {
+          start: proposedStart,
+          end: proposedEnd
+        };
+      }
+    }
   }
+  
   return null;
 };
 

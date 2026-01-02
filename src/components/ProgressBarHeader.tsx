@@ -26,144 +26,126 @@ const ProgressBarHeader: React.FC = () => {
   const dailyChallengeProgress = Math.min((profile.tasks_completed_today / profile.daily_challenge_target) * 100, 100);
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
 
+  // Define the stat cards data to map over
+  const stats = [
+    {
+      key: 'xp',
+      icon: Sparkles,
+      label: 'Level',
+      value: `Lvl ${level}`,
+      subLabel: `${xpTowardsNextLevel} / ${xpNeededForNextLevel}`,
+      progress: xpProgress,
+      tooltip: `${xpNeededForNextLevel - xpTowardsNextLevel} XP remaining until transcendence to Level ${level + 1}`,
+      color: 'logo-yellow',
+      isDeficit: false,
+      action: null,
+    },
+    {
+      key: 'energy',
+      icon: Zap,
+      label: 'Energy',
+      value: `${profile.energy}⚡`,
+      subLabel: isEnergyDeficit ? 'Exhausted' : 'Core',
+      progress: isEnergyDeficit ? 100 : energyPercentage,
+      tooltip: isEnergyDeficit ? 'System Exhaustion: Recharge required.' : `Reserve: ${profile.energy} / ${MAX_ENERGY}`,
+      color: isEnergyDeficit ? 'destructive' : 'logo-green',
+      isDeficit: isEnergyDeficit,
+      action: () => rechargeEnergy(RECHARGE_BUTTON_AMOUNT),
+    },
+    {
+      key: 'quest',
+      icon: Trophy,
+      label: 'Quest',
+      value: `${profile.tasks_completed_today}/${profile.daily_challenge_target}`,
+      subLabel: hasClaimedDailyChallengeToday ? 'Complete' : 'In Progress',
+      progress: dailyChallengeProgress,
+      tooltip: hasClaimedDailyChallengeToday ? 'Quest Complete: Reward Claimed' : `Sync ${profile.daily_challenge_target - profile.tasks_completed_today} more tasks`,
+      color: hasClaimedDailyChallengeToday ? 'logo-green' : 'accent',
+      isDeficit: false,
+      action: null,
+    },
+  ];
+
   return (
     <div className={cn(
       "glass-header border-b py-3 transition-all duration-300 ease-aether-out",
-      "w-full z-40" // Ensuring it stacks correctly in MainLayout
+      "w-full z-40"
     )}>
-      <div className="w-full px-4 md:px-8"> {/* Changed max-w-5xl to w-full and adjusted padding */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
-          
-          {/* XP Status - Experience HUD */}
-          <div className="flex items-center gap-3 group cursor-help">
-            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-logo-yellow/10 text-logo-yellow border border-logo-yellow/20 shadow-[0_0_15px_rgba(var(--logo-yellow),0.1)] group-hover:scale-110 group-hover:bg-logo-yellow/20 transition-all duration-300">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div className="flex flex-col flex-grow gap-1.5">
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-0.5">
-                <span className="flex items-center gap-1">Level {level} <ChevronRight className="h-2 w-2" /></span>
-                <span className="font-mono text-primary">{xpTowardsNextLevel} / {xpNeededForNextLevel}</span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="status-bar-track group-hover:border-primary/40 transition-all duration-300">
-                    <CustomProgress 
-                      value={xpProgress} 
-                      className="h-full bg-transparent overflow-hidden"
-                      indicatorClassName="bg-gradient-to-r from-primary/60 via-primary to-primary/60 animate-shimmer shadow-[0_0_12px_hsl(var(--primary)/0.4)]"
-                    />
+      <div className="w-full px-4 md:px-8">
+        {/* Mobile: Scrollable Row, Desktop: Grid */}
+        <div className={cn(
+          "flex gap-4",
+          isMobile ? "overflow-x-auto pb-2 snap-x snap-mandatory" : "grid grid-cols-3"
+        )}>
+          {stats.map((stat) => {
+            const Icon = stat.icon;
+            const isActionable = stat.action && !isEnergyFull && !hasClaimedDailyChallengeToday;
+            
+            return (
+              <div 
+                key={stat.key}
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-3 group cursor-help min-w-[260px] snap-center",
+                  isMobile ? "w-[85vw]" : "w-auto"
+                )}
+              >
+                <div className={cn(
+                  "flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-300 group-hover:scale-110",
+                  stat.isDeficit 
+                    ? "bg-destructive/10 text-destructive border-destructive/20 shadow-[0_0_15px_rgba(var(--destructive),0.2)]" 
+                    : `bg-${stat.color}/10 text-${stat.color} border-${stat.color}/20 shadow-[0_0_15px_rgba(var(--${stat.color}),0.1)]`
+                )}>
+                  {stat.isDeficit ? <AlertTriangle className="h-4 w-4 animate-pulse" /> : <Icon className={cn("h-4 w-4", isEnergyFull && stat.key === 'energy' && "fill-current")} />}
+                </div>
+                <div className="flex flex-col flex-grow gap-1.5 min-w-0">
+                  <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-0.5">
+                    <span className="flex items-center gap-1">{stat.label} {stat.action && <ChevronRight className="h-2 w-2" />}</span>
+                    <span className={cn("font-mono", stat.isDeficit && "text-destructive animate-pulse")}>{stat.value}</span>
                   </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="glass-card">
-                  <p className="font-medium">{xpNeededForNextLevel - xpTowardsNextLevel} XP remaining until transcendence to Level {level + 1}</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-
-          {/* Energy Status - Resource HUD */}
-          <div className="flex items-center gap-3 group cursor-help">
-            <div className={cn(
-              "flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-300 group-hover:scale-110",
-              isEnergyDeficit 
-                ? "bg-destructive/10 text-destructive border-destructive/20 shadow-[0_0_15px_rgba(var(--destructive),0.2)]" 
-                : "bg-logo-green/10 text-logo-green border-logo-green/20 shadow-[0_0_15px_rgba(var(--logo-green),0.1)]"
-            )}>
-              {isEnergyDeficit ? <AlertTriangle className="h-4 w-4 animate-pulse" /> : <Zap className={cn("h-4 w-4", isEnergyFull && "fill-current")} />}
-            </div>
-            <div className="flex flex-col flex-grow gap-1.5">
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-0.5">
-                <span>Core Energy</span>
-                <span className={cn("font-mono", isEnergyDeficit && "text-destructive animate-pulse")}>
-                  {profile.energy}⚡
-                </span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={cn(
-                    "status-bar-track transition-all duration-300",
-                    isEnergyDeficit ? "border-destructive/30" : "group-hover:border-logo-green/40"
-                  )}>
-                    <CustomProgress 
-                      value={isEnergyDeficit ? 100 : energyPercentage}
-                      className="h-full bg-transparent"
-                      indicatorClassName={cn(
-                        "transition-all duration-700",
-                        isEnergyDeficit 
-                          ? "bg-destructive shadow-[0_0_12px_rgba(var(--destructive),0.5)]" 
-                          : "bg-gradient-to-r from-logo-green/60 to-logo-green shadow-[0_0_12px_hsl(var(--logo-green)/0.4)]",
-                        isEnergyFull && "animate-pulse-glow"
-                      )}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="glass-card w-56 p-3">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-semibold">Reserve Status</span>
-                      <span className="text-xs font-mono">{profile.energy} / {MAX_ENERGY}</span>
-                    </div>
-                    {isEnergyDeficit && (
-                      <div className="flex items-center gap-2 p-2 rounded bg-destructive/10 border border-destructive/20">
-                        <AlertTriangle className="h-3 w-3 text-destructive" />
-                        <p className="text-[10px] text-destructive font-bold uppercase">System Exhaustion</p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className={cn(
+                        "status-bar-track transition-all duration-300",
+                        stat.isDeficit ? "border-destructive/30" : `group-hover:border-${stat.color}/40`
+                      )}>
+                        <CustomProgress 
+                          value={stat.progress}
+                          className="h-full bg-transparent"
+                          indicatorClassName={cn(
+                            "transition-all duration-700",
+                            stat.isDeficit 
+                              ? "bg-destructive shadow-[0_0_12px_rgba(var(--destructive),0.5)]" 
+                              : `bg-gradient-to-r from-${stat.color}/60 to-${stat.color} shadow-[0_0_12px_hsl(var(--${stat.color})/0.4)]`,
+                            (stat.key === 'energy' && isEnergyFull) && "animate-pulse-glow"
+                          )}
+                        />
                       </div>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={(e) => { e.stopPropagation(); rechargeEnergy(RECHARGE_BUTTON_AMOUNT); }} 
-                      disabled={isEnergyFull}
-                      className="w-full h-8 text-[10px] uppercase font-black tracking-tighter hover:bg-primary/10 hover:text-primary transition-all"
-                    >
-                      <BatteryCharging className="h-3 w-3 mr-2" />
-                      Initiate Recharge
-                    </Button>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-
-          {/* Quest Status - Achievement HUD */}
-          <div className="flex items-center gap-3 group cursor-help">
-            <div className={cn(
-              "flex items-center justify-center h-9 w-9 rounded-xl border transition-all duration-300 group-hover:scale-110",
-              hasClaimedDailyChallengeToday 
-                ? "bg-logo-green/10 text-logo-green border-logo-green/20" 
-                : "bg-accent/10 text-accent border-accent/20 shadow-[0_0_15px_rgba(var(--accent),0.1)]"
-            )}>
-              <Trophy className={cn("h-4 w-4", hasClaimedDailyChallengeToday && "fill-current")} />
-            </div>
-            <div className="flex flex-col flex-grow gap-1.5">
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 px-0.5">
-                <span>Daily Quest</span>
-                <span className="font-mono text-accent">{profile.tasks_completed_today} / {profile.daily_challenge_target}</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="glass-card w-56 p-3">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold">{stat.label} Status</span>
+                          <span className="text-xs font-mono">{stat.subLabel}</span>
+                        </div>
+                        <p className="text-[10px]">{stat.tooltip}</p>
+                        {isActionable && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => { e.stopPropagation(); stat.action!(); }} 
+                            className="w-full h-8 text-[10px] uppercase font-black tracking-tighter hover:bg-primary/10 hover:text-primary transition-all"
+                          >
+                            <BatteryCharging className="h-3 w-3 mr-2" />
+                            Initiate Recharge
+                          </Button>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="status-bar-track group-hover:border-accent/40 transition-all duration-300">
-                    <CustomProgress 
-                      value={dailyChallengeProgress} 
-                      className="h-full bg-transparent"
-                      indicatorClassName={cn(
-                        "bg-gradient-to-r from-accent/60 via-accent to-accent/60 shadow-[0_0_12px_hsl(var(--accent)/0.4)]",
-                        hasClaimedDailyChallengeToday && "from-logo-green to-logo-green shadow-[0_0_12px_hsl(var(--logo-green)/0.3)]"
-                      )}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="glass-card">
-                  <p className="font-medium">
-                    {hasClaimedDailyChallengeToday 
-                      ? 'Quest Complete: Transcendence Reward Claimed' 
-                      : `Sync ${profile.daily_challenge_target - profile.tasks_completed_today} more tasks to unlock daily bonus`}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-
+            );
+          })}
         </div>
       </div>
     </div>

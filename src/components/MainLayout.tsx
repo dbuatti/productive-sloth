@@ -40,7 +40,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <main className={cn(
       "flex flex-1 flex-col gap-4 overflow-auto",
       // Apply horizontal padding only if NOT on the simplified schedule page
-      !isSimplifiedSchedulePage && "px-4 md:px-8", // Increased desktop padding
+      // Use smaller padding on mobile for a more expansive feel
+      !isSimplifiedSchedulePage && "px-3 md:px-8", 
       // Adjusted top padding: pt-0 for simplified schedule, pt-[100px] otherwise
       isSimplifiedSchedulePage ? "pt-0" : "pt-[100px]", 
       // Dynamic bottom padding for mobile navigation/status indicator

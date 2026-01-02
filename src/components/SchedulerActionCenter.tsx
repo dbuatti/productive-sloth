@@ -83,13 +83,13 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
           onClick={onClick}
           disabled={disabled || isProcessingCommand}
           className={cn(
-            "h-14 w-full flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest transition-all duration-300", // Increased height, font size
+            "h-14 w-full flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest transition-all duration-300 rounded-2xl", // Softer, larger radius
             colorClass,
             (disabled || isProcessingCommand) && "opacity-30 cursor-not-allowed grayscale"
           )}
         >
           <Icon className="h-5 w-5 shrink-0" /> {/* Increased icon size */}
-          <span>{label}</span> {/* Removed hidden md:inline */}
+          <span>{label}</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent className="glass-card font-bold border-white/10">{tooltip}</TooltipContent>
@@ -110,7 +110,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                     onClick={onRebalanceToday}
                     disabled={isProcessingCommand || retiredTasksCount === 0}
                     variant="aether"
-                    className="w-full h-14 px-8 text-sm font-black uppercase tracking-[0.2em] gap-3 active:scale-95 shadow-lg shadow-primary/20" // Increased height, font size
+                    className="w-full h-14 px-8 text-sm font-black uppercase tracking-[0.2em] gap-3 active:scale-95 shadow-lg shadow-primary/20 rounded-2xl" // Increased height, font size, rounded-2xl
                   >
                     {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Cpu className="h-5 w-5" />}
                     Smart Fill Today
@@ -127,7 +127,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                     onClick={onReshuffleEverything}
                     disabled={isProcessingCommand}
                     variant="outline"
-                    className="w-full h-14 px-8 text-sm font-black uppercase tracking-[0.2em] gap-3 active:scale-95 text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10" // Increased height, font size
+                    className="w-full h-14 px-8 text-sm font-black uppercase tracking-[0.2em] gap-3 active:scale-95 text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10 rounded-2xl" // Increased height, font size, rounded-2xl
                   >
                     {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Layers className="h-5 w-5" />}
                     Global Reshuffle
@@ -142,7 +142,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
 
           <div className="flex flex-col gap-1 w-full lg:w-auto">
              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1">Mass Injection</span>
-            <div className="grid grid-cols-3 gap-2 w-full h-auto bg-background/40 p-1.5 rounded-xl border border-white/5"> {/* Changed to grid-cols-3, removed fixed height */}
+            <div className="grid grid-cols-3 gap-2 w-full h-auto bg-background/40 p-2 rounded-2xl border border-white/5"> {/* Increased padding, rounded-2xl */}
               {DURATION_BUCKETS.map(duration => (
                 <QuickScheduleBlock
                   key={duration}
@@ -156,7 +156,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
         </div>
 
         <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2"> {/* Changed to grid-cols-2 for all screen sizes */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4"> {/* Increased gap for more breathing room */}
                 <ActionButton 
                   icon={ChevronsUp} label="Compact" colorClass="text-primary" tooltip="Compact: Snap flexible tasks to eliminate gaps"
                   onClick={onCompactSchedule} disabled={!hasUnlockedFlexibleTasks}
@@ -174,9 +174,9 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="glass" disabled={isProcessingCommand} className="h-14 w-full text-sm font-black uppercase tracking-widest gap-2 hover:bg-white/5"> {/* Increased height, font size */}
+                        <Button variant="glass" disabled={isProcessingCommand} className="h-14 w-full text-sm font-black uppercase tracking-widest gap-2 hover:bg-white/5 rounded-2xl"> {/* Increased height, font size, rounded-2xl */}
                           <ArrowDownWideNarrow className="h-5 w-5 text-muted-foreground" /> {/* Increased icon size */}
-                          <span>Balance Logic</span> {/* Removed hidden md:inline */}
+                          <span>Balance Logic</span>
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
@@ -202,7 +202,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-2"> {/* Changed to grid-cols-2 for all screen sizes */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4"> {/* Increased gap for more breathing room */}
                 <ActionButton 
                   icon={Zap} label="Recharge" colorClass="text-logo-green" tooltip="Pulse: Immediate +25 Bio-Energy"
                   onClick={onRechargeEnergy}
@@ -220,9 +220,9 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="glass" disabled={isProcessingCommand} className="h-14 w-full text-sm font-black uppercase tracking-widest text-logo-orange hover:bg-logo-orange/10 gap-2 border-logo-orange/20"> {/* Increased height, font size */}
+                        <Button variant="glass" disabled={isProcessingCommand} className="h-14 w-full text-sm font-black uppercase tracking-widest text-logo-orange hover:bg-logo-orange/10 gap-2 border-logo-orange/20 rounded-2xl"> {/* Increased height, font size, rounded-2xl */}
                           <Archive className="h-5 w-5" /> {/* Increased icon size */}
-                          <span>Flush</span> {/* Removed hidden md:inline */}
+                          <span>Flush</span>
                         </Button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>

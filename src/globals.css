@@ -113,12 +113,20 @@
 }
 
 @layer utilities {
-  /* Ethereal Surfaces */
+  /* Ethereal Surfaces - Updated for a softer, more expansive feel */
   .glass-card {
-    background-color: hsl(var(--background) / 0.4);
+    background-color: hsl(var(--background) / 0.5);
     backdrop-filter: blur(24px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15);
+    /* Less rounded on desktop, more rounded on mobile for a softer feel */
+    border-radius: 0.85rem;
+  }
+  @media (max-width: 768px) {
+    .glass-card {
+      border-radius: 1.25rem; /* Much softer on mobile */
+      background-color: hsl(var(--background) / 0.6); /* More blur on mobile */
+    }
   }
 
   .glass-header {

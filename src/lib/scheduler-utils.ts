@@ -169,7 +169,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'coil': 210,
   'write up': 320,
   'notes': 320,
-  'reflection': 340,
+  'reflection': 60,
 };
 
 // --- Utility Functions ---
@@ -620,109 +620,78 @@ export const isSlotFree = (
 };
 
 export const compactScheduleLogic = (
-  dbTasks: DBScheduledTask[],
-  selectedDayAsDate: Date,
+  currentDbTasks: DBScheduledTask[],
+  selectedDayDate: Date,
   workdayStartTime: Date,
   workdayEndTime: Date,
-  T_current: Date,
-  tasksToPlace?: DBScheduledTask[] 
+  T_current: Date
 ): DBScheduledTask[] => {
-  const isTodaySelected = isSameDay(selectedDayAsDate, T_current);
-  const effectiveWorkdayStart = isTodaySelected && isBefore(workdayStartTime, T_current) ? T_current : workdayStartTime;
-
-  const fixedAndLockedTasks = dbTasks.filter(task => !task.is_flexible || task.is_locked);
-  
-  let flexibleTasksToCompact: DBScheduledTask[];
-
-  if (tasksToPlace) {
-    flexibleTasksToCompact = tasksToPlace.filter(task => !task.is_completed);
-  } else {
-    flexibleTasksToCompact = dbTasks.filter(task => task.is_flexible && !task.is_locked && !task.is_completed);
-  }
-
-  if (isTodaySelected) {
-    flexibleTasksToCompact = flexibleTasksToCompact.filter(task => {
-      if (!task.start_time) return true; 
-      const taskEndTime = parseISO(task.end_time!);
-      return isAfter(taskEndTime, T_current);
-    });
-  }
-  
-  flexibleTasksToCompact.sort((a, b) => {
-    if (a.is_critical && !b.is_critical) return -1;
-    if (!a.is_critical && b.is_critical) return 1;
-    
-    if (a.is_backburner && !b.is_backburner) return 1;
-    if (!a.is_backburner && b.is_backburner) return -1;
-
-    const durationA = Math.floor((parseISO(a.end_time!).getTime() - parseISO(a.start_time!).getTime()) / (1000 * 60));
-    const durationB = Math.floor((parseISO(b.end_time!).getTime() - parseISO(b.start_time!).getTime()) / (1000 * 60));
-    return durationB - durationA; 
-  });
-
-  let currentOccupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks(
-    fixedAndLockedTasks
-      .filter(task => task.start_time && task.end_time)
-      .map(task => {
-        const utcStart = parseISO(task.start_time!);
-        const utcEnd = parseISO(task.end_time!);
-
-        let localStart = setTimeOnDate(selectedDayAsDate, format(utcStart, 'HH:mm'));
-        let localEnd = setTimeOnDate(selectedDayAsDate, format(utcEnd, 'HH:mm'));
-
-        if (isBefore(localEnd, localStart)) {
-          localStart = addDays(localStart, 0); // local Date
-        }
-        return { start: localStart, end: localEnd, duration: Math.floor((localEnd.getTime() - localStart.getTime()) / (1000 * 60)) };
-      })
+  // 1. Separate tasks: Fixed/Locked/Completed stay put. Flexible/Incomplete move.
+  const fixedTasks = currentDbTasks.filter(
+    t => t.is_locked || !t.is_flexible || t.is_completed
   );
+  
+  const flexibleTasks = currentDbTasks
+    .filter(t => t.is_flexible && !t.is_locked && !t.is_completed)
+    .sort((a, b) => {
+      // Prioritize by original chronological order
+      return new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime();
+    });
 
-  const newFlexibleTaskPlacements: DBScheduledTask[] = [];
-  let currentPlacementCursor = effectiveWorkdayStart;
+  // 2. Determine the starting point for compaction
+  // If viewing today, start from Now. If viewing future, start from Workday Start.
+  const isToday = isSameDay(selectedDayDate, new Date());
+  let insertionCursor = isToday ? max([workdayStartTime, T_current]) : workdayStartTime;
 
-  for (const task of flexibleTasksToCompact) {
-    const taskDuration = Math.floor((parseISO(task.end_time!).getTime() - parseISO(task.start_time!).getTime()) / (1000 * 60));
-    const breakDuration = task.break_duration || 0;
-    const totalDuration = taskDuration + breakDuration;
+  const updatedTasks: DBScheduledTask[] = [...fixedTasks];
+
+  // 3. Re-place flexible tasks chronologically
+  flexibleTasks.forEach((task) => {
+    const duration = differenceInMinutes(
+      parseISO(task.end_time!),
+      parseISO(task.start_time!)
+    );
+    const totalDuration = duration + (task.break_duration || 0);
 
     let placed = false;
-    let searchStartTime = currentPlacementCursor;
+    let currentCursor = insertionCursor; // Use a local cursor for the loop
 
-    while (isBefore(searchStartTime, workdayEndTime)) {
-      const freeBlocks = getFreeTimeBlocks(currentOccupiedBlocks, searchStartTime, workdayEndTime);
-      const suitableBlock = freeBlocks.find(block => block.duration >= totalDuration);
+    while (!placed && isBefore(currentCursor, workdayEndTime)) {
+      const proposedEnd = addMinutes(currentCursor, totalDuration);
 
-      if (suitableBlock) {
-        const proposedStartTime = suitableBlock.start;
-        const proposedEndTime = addMinutes(proposedStartTime, totalDuration);
+      // Check for collisions with fixed/locked tasks
+      const collidingTask = fixedTasks.find(fixed => {
+        const fStart = parseISO(fixed.start_time!);
+        const fEnd = parseISO(fixed.end_time!);
+        // Collision occurs if the proposed slot overlaps with the fixed task
+        return (
+          (isAfter(proposedEnd, fStart) && isBefore(currentCursor, fEnd))
+        );
+      });
 
-        if (isSlotFree(proposedStartTime, proposedEndTime, currentOccupiedBlocks)) {
-          newFlexibleTaskPlacements.push({
-            ...task,
-            start_time: proposedStartTime.toISOString(),
-            end_time: proposedEndTime.toISOString(),
-            scheduled_date: format(selectedDayAsDate, 'yyyy-MM-dd'),
-            updated_at: new Date().toISOString(),
-          });
-          currentOccupiedBlocks.push({ start: proposedStartTime, end: proposedEndTime, duration: totalDuration });
-          currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
-          currentPlacementCursor = proposedEndTime;
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        const nextOccupiedBlock = currentOccupiedBlocks.find(block => isAfter(block.start, searchStartTime));
-        if (nextOccupiedBlock) {
-          searchStartTime = nextOccupiedBlock.end;
-        } else {
-          break;
+      if (!collidingTask) {
+        // No collision, place the task
+        updatedTasks.push({
+          ...task,
+          start_time: currentCursor.toISOString(),
+          end_time: proposedEnd.toISOString(),
+        });
+        insertionCursor = proposedEnd; // Move cursor to end of this task
+        placed = true;
+      } else {
+        // Find the end of the colliding fixed task and move cursor there
+        const collidingTaskEnd = parseISO(collidingTask.end_time!);
+        currentCursor = collidingTaskEnd;
+        
+        // Ensure the main insertion cursor is also updated if the collision pushes it further
+        if (isAfter(currentCursor, insertionCursor)) {
+            insertionCursor = currentCursor;
         }
       }
     }
-  }
+  });
 
-  return [...fixedAndLockedTasks, ...newFlexibleTaskPlacements];
+  return updatedTasks;
 };
 
 
@@ -769,8 +738,8 @@ export const calculateSchedule = (
         anchorEnd = addDays(anchorEnd, 1);
       }
 
-      const overlaps = (isBefore(anchorStart, workdayEnd) || isEqual(anchorStart, workdayEnd)) && 
-                       (isAfter(anchorEnd, workdayStart) || isEqual(anchorEnd, workdayStart));
+      const overlaps = (isBefore(anchorEnd, workdayEnd) || isEqual(anchorEnd, workdayEnd)) && 
+                       (isAfter(anchorStart, workdayStart) || isEqual(anchorStart, workdayStart));
       
       if (overlaps) {
         const intersectionStart = max([anchorStart, workdayStart]);

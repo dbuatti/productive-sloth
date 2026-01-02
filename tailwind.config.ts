@@ -104,6 +104,12 @@ export default {
             transform: "translateY(-1px)",
           },
         },
+        // NEW: Solidification Pulse Keyframe
+        "solidify-pulse": {
+          "0%": { boxShadow: "0 0 0 0px hsl(var(--primary) / 0.5)", transform: "scale(1)" },
+          "70%": { boxShadow: "0 0 0 10px hsl(var(--primary) / 0)", transform: "scale(1.01)" },
+          "100%": { boxShadow: "0 0 0 0px hsl(var(--primary) / 0)", transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -111,6 +117,8 @@ export default {
         "pop-in": "pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards",
         "shimmer": "shimmer 2s infinite",
         "active-task": "pulse-active 3s infinite ease-in-out",
+        // NEW: Solidification Pulse Animation
+        "solidify-pulse": "solidify-pulse 0.5s ease-out",
       },
     },
   },

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -111,7 +111,10 @@ const SortableCard: React.FC<SortableCardProps> = ({ task, onRemove, onRezone, o
         "hover:border-primary/40 hover:shadow-lg",
         task.is_locked && "border-primary/30 bg-primary/[0.03]",
         task.is_completed && "opacity-50 grayscale",
-        `border-l-[4px]` // Merged border-left style into className
+        `border-l-[4px]`,
+        // --- NEW: Lift State Classes ---
+        isDragging && "z-50 scale-[1.05] rotate-2 shadow-2xl shadow-primary/30 ring-2 ring-primary/50"
+        // -------------------------------
       )}
       style={{ 
         borderColor: `transparent`, // Reset border color to use border-l-[4px] instead
@@ -168,6 +171,71 @@ const SortableCard: React.FC<SortableCardProps> = ({ task, onRemove, onRezone, o
     </motion.div>
   );
 };
+
+// --- Kanban Column Component (Droppable) ---
+interface KanbanColumnProps {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  tasks: RetiredTask[];
+  totalEnergy: number;
+  onRemove: (id: string, name: string) => void;
+  onRezone: (task: RetiredTask) => void;
+  onToggleComplete: (task: RetiredTask) => void;
+}
+
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, totalEnergy, onRemove, onRezone, onToggleComplete }) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  // --- NEW: Receiver State Classes ---
+  const receiverClasses = isOver 
+    ? "bg-primary/10 border-primary/50 shadow-inner shadow-primary/10" 
+    : "bg-background/60 border-white/10";
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex flex-col h-full flex-1 min-w-[300px] max-w-[400px] flex-shrink-0 rounded-2xl transition-all duration-300",
+        receiverClasses
+      )}
+    >
+      <Card className="bg-transparent border-none shadow-none flex flex-col h-full overflow-hidden">
+        <CardHeader className="p-3 border-b border-white/5 bg-background/40">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {icon}
+              <CardTitle className="text-xs font-black uppercase tracking-widest">
+                {title}
+              </CardTitle>
+            </div>
+            <Badge variant="secondary" className="text-[9px] font-mono font-bold">
+              {tasks.length} | {totalEnergy}⚡
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-2 flex-1 overflow-y-auto custom-scrollbar min-h-[100px]">
+          <SortableContext id={id} items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2 min-h-[50px]">
+              <AnimatePresence>
+                {tasks.map((task) => (
+                  <SortableCard
+                    key={task.id}
+                    task={task}
+                    onRemove={onRemove}
+                    onRezone={onRezone}
+                    onToggleComplete={onToggleComplete}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          </SortableContext>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 
 // --- Main Kanban Board Component ---
 interface SinkKanbanBoardProps {
@@ -287,51 +355,23 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       onDragEnd={handleDragEnd}
     >
       {/* Updated grid layout for horizontal scrolling and min-width columns */}
-      <div className="flex overflow-x-auto custom-scrollbar gap-4 pb-2">
+      <div className="flex gap-4 pb-2"> {/* Removed overflow-x-auto here */}
         {config.options.map((option) => {
           const columnTasks = groupedTasks[option] || [];
           const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
-          // const totalDuration = columnTasks.reduce((sum, t) => sum + (t.duration || 0), 0); // Not used
 
           return (
-            <div
+            <KanbanColumn
               key={option}
-              // Use flex-1 to make columns stretch, min-w to ensure horizontal scroll on small screens
-              className="flex flex-col h-full flex-1 min-w-[300px] max-w-[400px] flex-shrink-0" 
-            >
-              <Card className="bg-background/60 backdrop-blur-md border-white/10 shadow-sm flex flex-col h-full overflow-hidden">
-                <CardHeader className="p-3 border-b border-white/5 bg-background/40">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {config.getIcon(option)}
-                      <CardTitle className="text-xs font-black uppercase tracking-widest">
-                        {config.getLabel(option)}
-                      </CardTitle>
-                    </div>
-                    <Badge variant="secondary" className="text-[9px] font-mono font-bold">
-                      {columnTasks.length} | {totalEnergy}⚡
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-2 flex-1 overflow-y-auto custom-scrollbar min-h-[100px]">
-                  <SortableContext id={option} items={columnTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-2 min-h-[50px]">
-                      <AnimatePresence>
-                        {columnTasks.map((task) => (
-                          <SortableCard
-                            key={task.id}
-                            task={task}
-                            onRemove={onRemoveRetiredTask}
-                            onRezone={onRezoneTask}
-                            onToggleComplete={(t) => updateRetiredTask({ id: t.id, is_completed: !t.is_completed })}
-                          />
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  </SortableContext>
-                </CardContent>
-              </Card>
-            </div>
+              id={option}
+              title={config.getLabel(option)}
+              icon={config.getIcon(option)}
+              tasks={columnTasks}
+              totalEnergy={totalEnergy}
+              onRemove={onRemoveRetiredTask}
+              onRezone={onRezoneTask}
+              onToggleComplete={(t) => updateRetiredTask({ id: t.id, is_completed: !t.is_completed })}
+            />
           );
         })}
       </div>

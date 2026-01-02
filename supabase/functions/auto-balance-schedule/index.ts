@@ -14,8 +14,8 @@ const corsHeaders = {
 interface AutoBalancePayload {
   scheduledTaskIdsToDelete: string[];
   retiredTaskIdsToDelete: string[];
-  tasksToInsert: any[]; // Use 'any' for now, as the structure is complex
-  tasksToKeepInSink: any[]; // Use 'any' for now
+  tasksToInsert: any[]; // Tasks to be inserted/updated
+  tasksToKeepInSink: any[]; // Tasks to be re-inserted into sink
   selectedDate: string;
 }
 
@@ -138,20 +138,32 @@ serve(async (req) => {
       console.log(`${functionName} Retired tasks deleted successfully.`);
     }
 
-    // 3. Insert/Upsert new scheduled tasks
+    // 3. Insert/Update new scheduled tasks
     if (tasksToInsert.length > 0) {
-      console.log(`${functionName} Inserting/Upserting new scheduled tasks: ${tasksToInsert.length}`);
       const tasksToInsertWithUserId = tasksToInsert.map(task => sanitizeScheduledTask(task, userId));
       
-      console.log(`${functionName} Sample sanitized task:`, tasksToInsertWithUserId[0]);
+      const tasksToUpdate = tasksToInsertWithUserId.filter(t => t.id);
+      const tasksToInsertNew = tasksToInsertWithUserId.filter(t => !t.id);
 
-      // Use upsert with onConflict: 'id' to handle both new insertions (where id is omitted) 
-      // and updates (where id is present).
-      const { error } = await supabaseClient
-        .from('scheduled_tasks')
-        .upsert(tasksToInsertWithUserId, { onConflict: 'id' }); 
-      if (error) throw new Error(`Failed to insert/upsert new scheduled tasks: ${error.message}`);
-      console.log(`${functionName} New scheduled tasks inserted/upserted successfully.`);
+      // 3a. Update existing tasks (where ID is present)
+      if (tasksToUpdate.length > 0) {
+        console.log(`${functionName} Updating existing scheduled tasks: ${tasksToUpdate.length}`);
+        const { error } = await supabaseClient
+          .from('scheduled_tasks')
+          .upsert(tasksToUpdate, { onConflict: 'id' }); 
+        if (error) throw new Error(`Failed to update existing scheduled tasks: ${error.message}`);
+        console.log(`${functionName} Existing scheduled tasks updated successfully.`);
+      }
+
+      // 3b. Insert new tasks (where ID is missing)
+      if (tasksToInsertNew.length > 0) {
+        console.log(`${functionName} Inserting new scheduled tasks: ${tasksToInsertNew.length}`);
+        const { error } = await supabaseClient
+          .from('scheduled_tasks')
+          .insert(tasksToInsertNew); 
+        if (error) throw new Error(`Failed to insert new scheduled tasks: ${error.message}`);
+        console.log(`${functionName} New scheduled tasks inserted successfully.`);
+      }
     }
 
     // 4. Insert tasks back into the sink (those that couldn't be placed)
@@ -175,8 +187,6 @@ serve(async (req) => {
         is_backburner: task.is_backburner ?? false,
       }));
       
-      console.log(`${functionName} Sample sink task to re-insert:`, tasksToKeepInSinkWithUserId[0]);
-
       const { error } = await supabaseClient
         .from('aethersink')
         .insert(tasksToKeepInSinkWithUserId);

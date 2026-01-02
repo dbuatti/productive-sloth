@@ -60,24 +60,24 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
           variant="ghost"
           onClick={() => setSelectedDay(formattedDay)}
           className={cn(
-            "flex flex-col items-center justify-center h-14 w-11 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative", // Adjusted height and width
+            "flex flex-col items-center justify-center h-16 w-11 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative", // Increased height to h-16
             "text-muted-foreground hover:text-primary hover:bg-primary/5",
-            isSelected && "glass-card text-primary border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-105 z-10", // FIX: Changed text-primary-foreground to text-primary
+            isSelected && "glass-card text-primary-foreground border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-105 z-10",
             !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]"
           )}
           data-date={formattedDay}
         >
-          <span className="text-[8px] font-black uppercase tracking-widest opacity-60 mb-1"> {/* Adjusted font size */}
+          <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1"> {/* Adjusted font size */}
             {format(day, 'EEE')}
           </span>
-          <span className="text-sm font-black tracking-tighter"> {/* Adjusted font size */}
+          <span className="text-base font-black tracking-tighter"> {/* Adjusted font size */}
             {format(day, 'd')}
           </span>
           
           {hasTasks && (
             <div className={cn(
-              "absolute bottom-1.5 h-1 w-1 rounded-full shadow-[0_0_8px_rgba(var(--logo-yellow),0.8)]",
-              "bg-logo-yellow" // FIX: Keep consistent yellow for task indicator
+              "absolute bottom-0.5 h-1 w-1 rounded-full shadow-[0_0_8px_rgba(var(--logo-yellow),0.8)] mx-auto", // Adjusted bottom and added mx-auto
+              "bg-logo-yellow"
             )} />
           )}
 
@@ -136,7 +136,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
         </Tooltip>
       </div>
 
-      <div className="flex-1 flex overflow-x-auto py-1 custom-scrollbar touch-pan-x">
+      <div className="flex-1 flex overflow-x-auto py-1 px-1 custom-scrollbar touch-pan-x"> {/* Added px-1 */}
         {isLoadingDatesWithTasks ? (
           <div className="flex items-center justify-center h-16 w-full animate-pulse">
             <Loader2 className="h-5 w-5 animate-spin text-primary opacity-40" />

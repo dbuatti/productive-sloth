@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ListTodo, Zap, Coffee, Flag, ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown, RotateCcw, Clock, Hourglass, AlertTriangle } from 'lucide-react'; // Icons for the stat cards, added Hourglass and AlertTriangle
 import { ScheduleSummary } from '@/types/scheduler';
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSession } from '@/hooks/use-session'; // NEW: Import useSession
 
 interface SchedulerDashboardPanelProps {
   scheduleSummary: ScheduleSummary | null;
@@ -18,7 +19,14 @@ interface SchedulerDashboardPanelProps {
 }
 
 const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ scheduleSummary, onAetherDump, isProcessingCommand, hasFlexibleTasks, onRefreshSchedule }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false); // NEW: State for collapse/expand
+  const { profile, updateProfile } = useSession(); // NEW: Get profile and updateProfile
+  const isCollapsed = profile?.is_dashboard_collapsed ?? false; // NEW: Read from profile
+
+  const handleToggleCollapse = async () => {
+    if (profile) {
+      await updateProfile({ is_dashboard_collapsed: !isCollapsed }); // NEW: Persist to profile
+    }
+  };
 
   if (!scheduleSummary || scheduleSummary.totalTasks === 0) {
     return null;
@@ -66,7 +74,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => setIsCollapsed(!isCollapsed)}
+                  onClick={handleToggleCollapse} // NEW: Use new handler
                   className="h-8 w-8 text-muted-foreground hover:bg-secondary/50"
                 >
                   {isCollapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}

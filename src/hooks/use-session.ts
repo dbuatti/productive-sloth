@@ -42,6 +42,7 @@ export interface UserProfile {
   week_starts_on: number; // NEW: 0 for Sunday, 1 for Monday
   num_days_visible: number; // NEW: For Simplified Schedule view preference
   vertical_zoom_index: number; // NEW: For Simplified Schedule view preference
+  is_dashboard_collapsed: boolean; // NEW: Dashboard collapsed state
 }
 
 interface SessionContextType {

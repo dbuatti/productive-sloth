@@ -16,7 +16,7 @@ import {
   Home, Laptop, Globe, Music, 
   Star, Zap, Lock, Unlock, 
   Trash2, RotateCcw, Info,
-  AlertCircle
+  AlertCircle, Plus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -187,9 +187,10 @@ interface KanbanColumnProps {
   onToggleComplete: (task: RetiredTask) => void;
   activeId: string | null;
   overId: string | null;
+  onAddTask: (columnId: string) => void;
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, totalEnergy, onRemove, onRezone, onToggleComplete, activeId, overId }) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, totalEnergy, onRemove, onRezone, onToggleComplete, activeId, overId, onAddTask }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   
   // Determine if the active item is currently over this column (or one of its children)
@@ -305,6 +306,22 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
               </AnimatePresence>
             </div>
           </SortableContext>
+          
+          {/* PERMANENT PLUS PLACEHOLDER */}
+          <button
+            onClick={() => onAddTask(id)} 
+            className={cn(
+              "w-full h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all duration-200 mt-4",
+              "border-white/10 bg-white/[0.02] hover:border-primary/40 hover:bg-primary/5 hover:scale-[0.99] group"
+            )}
+          >
+            <div className="p-2 rounded-full bg-white/5 group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+              <Plus className="h-5 w-5 opacity-40 group-hover:opacity-100" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest mt-2 opacity-50 group-hover:opacity-100 transition-opacity">
+              Quick Add Task
+            </span>
+          </button>
         </CardContent>
       </Card>
     </div>
@@ -319,6 +336,7 @@ interface SinkKanbanBoardProps {
   onRemoveRetiredTask: (id: string, name: string) => void;
   onRezoneTask: (task: RetiredTask) => void;
   updateRetiredTask: (updates: Partial<RetiredTask> & { id: string }) => Promise<void>;
+  onQuickAddTask: (groupKey: string) => void;
 }
 
 const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
@@ -327,6 +345,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   onRemoveRetiredTask,
   onRezoneTask,
   updateRetiredTask,
+  onQuickAddTask,
 }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -433,6 +452,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
               onToggleComplete={(t) => updateRetiredTask({ id: t.id, is_completed: !t.is_completed })}
               activeId={activeId}
               overId={overId}
+              onAddTask={onQuickAddTask}
             />
           );
         })}

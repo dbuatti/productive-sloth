@@ -296,8 +296,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
           return (
             <div
               key={option}
-              // The SortableContext ID is used as the container ID for drops
-              className="flex flex-col h-full min-w-[280px] flex-shrink-0" 
+              // Use flex-1 to make columns stretch, min-w to ensure horizontal scroll on small screens
+              className="flex flex-col h-full flex-1 min-w-[300px] max-w-[400px] flex-shrink-0" 
             >
               <Card className="bg-background/60 backdrop-blur-md border-white/10 shadow-sm flex flex-col h-full overflow-hidden">
                 <CardHeader className="p-3 border-b border-white/5 bg-background/40">

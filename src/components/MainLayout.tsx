@@ -40,7 +40,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <main className={cn(
       "flex flex-1 flex-col gap-4 overflow-auto",
       // Apply horizontal padding only if NOT on the simplified schedule page
-      !isSimplifiedSchedulePage && "px-4",
+      !isSimplifiedSchedulePage && "px-4 md:px-8", // Increased desktop padding
       // Adjusted top padding: pt-0 for simplified schedule, pt-[100px] otherwise
       isSimplifiedSchedulePage ? "pt-0" : "pt-[100px]", 
       // Dynamic bottom padding for mobile navigation/status indicator
@@ -48,8 +48,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     )}>
       {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
       <div className={cn(
-        "w-full",
-        !isSimplifiedSchedulePage && "max-w-5xl mx-auto"
+        "w-full" // Removed max-w-5xl here
       )}>
         {children}
       </div>

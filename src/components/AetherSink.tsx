@@ -95,7 +95,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
       await addRetiredTask(parsedTask);
       setSinkInputValue('');
     } else {
-      showError("Invalid task format. Use 'Task Name [Duration] [!] [-]'.");
+      showError("Invalid task format. Use 'Task Name [dur] [!] [-]'.");
     }
   };
 
@@ -179,7 +179,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   return (
     <>
-      <Card glass className="border-dashed border-muted-foreground/20 shadow-xl">
+      <Card glass className="border-dashed border-muted-foreground/20 shadow-xl w-full"> {/* Ensure Card is w-full */}
         <CardHeader className={cn("pb-4 flex flex-row items-center justify-between px-6 pt-8")}>
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-secondary/50">

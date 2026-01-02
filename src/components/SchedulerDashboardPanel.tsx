@@ -29,7 +29,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
   const breakTimePercentage = totalScheduledMinutes > 0 ? (scheduleSummary.breakTime / totalScheduledMinutes) * 100 : 0;
 
   return (
-    <div className="space-y-4 animate-slide-in-up">
+    <div className="space-y-4 animate-slide-in-up w-full"> {/* Added w-full */}
       {/* ALERT FOR UNSCHEDULED TASKS */}
       {scheduleSummary.unscheduledCount > 0 && (
         <Card className="border-destructive/50 bg-destructive/5 animate-pulse">
@@ -52,7 +52,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
         </Card>
       )}
 
-      <Card className="animate-pop-in animate-hover-lift">
+      <Card className="animate-pop-in animate-hover-lift w-full"> {/* Added w-full */}
         <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-2 pt-4">
           <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard

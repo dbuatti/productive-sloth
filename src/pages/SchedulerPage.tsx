@@ -258,7 +258,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             });
             showSuccess(`Scheduled "${task.name}" at ${format(slot.start, 'h:mm a')}`);
           } else {
-            showError(`No slot found for "${task.name}" within constraints.`);
+            showError(`No slot found for "${task.name}" within constraints. Sending to Sink.`);
             // Optional: Send to sink if no slot found
             await addRetiredTask({
               user_id: user.id,
@@ -325,8 +325,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   return (
     <div className={cn(
-      "mx-auto space-y-6 pb-24 px-4 transition-all duration-500",
-      view === 'sink' ? "max-w-[98%]" : "max-w-5xl" 
+      "w-full space-y-6 pb-24 transition-all duration-500", // Removed max-w-5xl
+      // Removed conditional padding here, relying on MainLayout's padding
     )}>
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
@@ -374,7 +374,21 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             </Card>
           </>
         )}
-        {view === 'sink' && <AetherSink retiredTasks={retiredTasks} onRezoneTask={(t) => handleRezone(t)} onRemoveRetiredTask={(id) => handleRemoveRetired(id, '')} onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} isLoading={isLoadingRetiredTasks} isProcessingCommand={isProcessingCommand} profile={profile} retiredSortBy={retiredSortBy} setRetiredSortBy={setRetiredSortBy} />}
+        {view === 'sink' && (
+          <div className="w-full overflow-x-auto pb-4"> {/* Added overflow-x-auto for Kanban */}
+            <AetherSink 
+              retiredTasks={retiredTasks} 
+              onRezoneTask={(t) => handleRezone(t)} 
+              onRemoveRetiredTask={(id) => handleRemoveRetired(id, '')} 
+              onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} 
+              isLoading={isLoadingRetiredTasks} 
+              isProcessingCommand={isProcessingCommand} 
+              profile={profile} 
+              retiredSortBy={retiredSortBy} 
+              setRetiredSortBy={setRetiredSortBy} 
+            />
+          </div>
+        )}
         {view === 'recap' && <DailyVibeRecapCard scheduleSummary={calculatedSchedule?.summary || null} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={0} totalBreakTimeMinutes={0} />}
       </div>
       <WorkdayWindowDialog open={showWorkdayWindowDialog} onOpenChange={setShowWorkdayWindowDialog} />

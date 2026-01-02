@@ -76,7 +76,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
   });
 
   return (
-    <div className="flex items-center justify-between w-full max-w-5xl mx-auto gap-2 bg-secondary/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
+    <div className="flex items-center justify-between w-full mx-auto gap-2 bg-secondary/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm"> {/* Removed max-w-5xl */}
       
       {/* Navigation Controls Left */}
       <div className="flex items-center gap-1">

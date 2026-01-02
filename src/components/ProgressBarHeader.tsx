@@ -31,7 +31,7 @@ const ProgressBarHeader: React.FC = () => {
       "glass-header border-b py-3 transition-all duration-300 ease-aether-out",
       "w-full z-40" // Ensuring it stacks correctly in MainLayout
     )}>
-      <div className="mx-auto max-w-5xl px-4 sm:px-6">
+      <div className="w-full px-4 md:px-8"> {/* Changed max-w-5xl to w-full and adjusted padding */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
           
           {/* XP Status - Experience HUD */}

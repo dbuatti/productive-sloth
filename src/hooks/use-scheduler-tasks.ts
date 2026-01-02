@@ -266,14 +266,17 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (task: RetiredTask) => {
       if (!userId || !profile) throw new Error("User context missing.");
       
-      if (!formattedSelectedDate) {
+      // CRITICAL FIX: Ensure formattedSelectedDate is valid, defaulting to today if empty
+      const effectiveSelectedDate = formattedSelectedDate || format(new Date(), 'yyyy-MM-dd');
+
+      if (!effectiveSelectedDate) {
         throw new Error("Target date is missing or invalid.");
       }
 
-      const targetDateAsDate = parseISO(formattedSelectedDate);
+      const targetDateAsDate = parseISO(effectiveSelectedDate);
       
       if (isNaN(targetDateAsDate.getTime())) {
-        throw new Error(`Invalid target date format: ${formattedSelectedDate}`);
+        throw new Error(`Invalid target date format: ${effectiveSelectedDate}`);
       }
 
       const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDateAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDateAsDate);
@@ -287,7 +290,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       // --- START DEBUG LOGGING ---
       console.log(`[REZONE DEBUG] Attempting to rezone task: ${task.name} (${taskTotalDuration}m)`);
-      console.log(`[REZONE DEBUG] Target Date: ${formattedSelectedDate}`);
+      console.log(`[REZONE DEBUG] Target Date: ${effectiveSelectedDate}`);
       console.log(`[REZONE DEBUG] Workday Window: ${format(targetWorkdayStart, 'HH:mm')} - ${format(targetWorkdayEnd, 'HH:mm')}`);
       console.log(`[REZONE DEBUG] Effective Search Start: ${format(effectiveStart, 'HH:mm')}`);
       // --- END DEBUG LOGGING ---
@@ -371,7 +374,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         start_time: slot.start.toISOString(),
         end_time: slot.end.toISOString(),
         break_duration: task.break_duration,
-        scheduled_date: formattedSelectedDate,
+        scheduled_date: effectiveSelectedDate, // Use effectiveSelectedDate
         is_critical: task.is_critical,
         is_flexible: true,
         is_locked: false,

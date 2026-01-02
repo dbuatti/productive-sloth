@@ -21,7 +21,7 @@ interface AutoBalancePayload {
 
 // Helper function to ensure required fields have defaults and handles 'id' correctly for upsert
 const sanitizeScheduledTask = (task: any, userId: string): any => {
-    const sanitized = {
+    const sanitized: any = {
         user_id: userId,
         name: task.name || 'Untitled Task',
         break_duration: task.break_duration || null,
@@ -39,9 +39,9 @@ const sanitizeScheduledTask = (task: any, userId: string): any => {
         is_backburner: task.is_backburner ?? false,
     };
 
-    // Only include ID if it is explicitly provided (for updates/re-insertions of existing scheduled tasks)
+    // CRITICAL FIX: Only include ID if it is explicitly provided AND truthy (for updates).
+    // If it's falsy (null/undefined), we rely on the database default for new insertions.
     if (task.id) {
-        // @ts-ignore
         sanitized.id = task.id;
     }
     
@@ -158,6 +158,7 @@ serve(async (req) => {
       // 3b. Insert new tasks (where ID is missing)
       if (tasksToInsertNew.length > 0) {
         console.log(`${functionName} Inserting new scheduled tasks: ${tasksToInsertNew.length}`);
+        // CRITICAL: Use insert() for new tasks to allow DB to generate UUID
         const { error } = await supabaseClient
           .from('scheduled_tasks')
           .insert(tasksToInsertNew); 

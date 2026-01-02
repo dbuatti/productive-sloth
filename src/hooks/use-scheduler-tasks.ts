@@ -286,31 +286,40 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDateAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
-      const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
-
       // --- START DEBUG LOGGING ---
-      console.log(`[REZONE DEBUG] Attempting to rezone task: ${task.name} (${taskTotalDuration}m)`);
+      console.log(`[REZONE DEBUG] Attempting to rezone task: ${task.name} (${(task.duration || 30) + (task.break_duration || 0)}m)`);
       console.log(`[REZONE DEBUG] Target Date: ${effectiveSelectedDate}`);
       console.log(`[REZONE DEBUG] Workday Window: ${format(targetWorkdayStart, 'HH:mm')} - ${format(targetWorkdayEnd, 'HH:mm')}`);
       console.log(`[REZONE DEBUG] Effective Search Start: ${format(effectiveStart, 'HH:mm')}`);
       // --- END DEBUG LOGGING ---
 
       // 1. Identify Fixed Blocks (Scheduled Tasks + Static Anchors)
-      const scheduledFixedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => {
-        const start = setTimeOnDate(targetDateAsDate, format(parseISO(t.start_time!), 'HH:mm'));
-        let end = setTimeOnDate(targetDateAsDate, format(parseISO(t.end_time!), 'HH:mm'));
-        if (isBefore(end, start)) end = addDays(end, 1);
-        return { start, end, duration: differenceInMinutes(end, start) };
-      });
+      
+      // Scheduled Fixed/Locked Tasks
+      // For a single rezone operation, treat ALL existing scheduled tasks as occupied blocks
+      // to prevent overlap, as we are not running a full re-balance.
+      const scheduledFixedBlocks: TimeBlock[] = dbScheduledTasks
+        .filter(t => t.start_time && t.end_time)
+        .map(t => {
+          const start = setTimeOnDate(targetDateAsDate, format(parseISO(t.start_time!), 'HH:mm'));
+          let end = setTimeOnDate(targetDateAsDate, format(parseISO(t.end_time!), 'HH:mm'));
+          if (isBefore(end, start)) end = addDays(end, 1);
+          return { start, end, duration: differenceInMinutes(end, start) };
+        });
 
       const staticConstraints: TimeBlock[] = [];
       const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
         const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+
         if (timeStr && effectiveDuration > 0) {
           let anchorStart = setTimeOnDate(targetDateAsDate, timeStr);
           let anchorEnd = addMinutes(anchorStart, effectiveDuration);
-          if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
-          
+
+          if (isBefore(anchorEnd, anchorStart)) {
+            anchorEnd = addDays(anchorEnd, 1);
+          }
+
+          // Check if the anchor overlaps with the workday window
           const overlaps = (isBefore(anchorEnd, targetWorkdayEnd) || isEqual(anchorEnd, targetWorkdayEnd)) && 
                            (isAfter(anchorStart, targetWorkdayStart) || isEqual(anchorStart, targetWorkdayStart));
           
@@ -349,6 +358,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       });
       // --- END DEBUG LOGGING ---
 
+      const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
       const slot = findFirstAvailableSlot(taskTotalDuration, occupiedBlocks, effectiveStart, targetWorkdayEnd);
 
       // --- START DEBUG LOGGING ---

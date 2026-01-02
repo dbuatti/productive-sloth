@@ -13,6 +13,7 @@ import {
   DialogDescription, // Changed from SheetDescription
   DialogHeader, // Changed from SheetHeader
   DialogTitle, // Changed from SheetTitle
+  DialogClose // Import DialogClose
 } from "@/components/ui/dialog"; // Changed from sheet
 import {
   Form,
@@ -213,9 +214,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         <DialogHeader className="border-b pb-4 mb-6"> {/* Changed from SheetHeader */}
           <div className="flex items-center justify-between">
             <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle> {/* Changed from SheetTitle */}
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-5 w-5" />
-            </Button>
+            {/* Removed the duplicate close button here */}
           </div>
           <DialogDescription className="text-sm text-muted-foreground"> {/* Changed from SheetDescription */}
             Last updated: {formattedLastUpdated}

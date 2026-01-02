@@ -184,9 +184,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         <SheetHeader className="border-b pb-4">
           <SheetTitle className="text-2xl font-bold flex items-center justify-between">
             Task Details
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-5 w-5" />
-            </Button>
+            {/* Removed the duplicate close button here */}
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
             Last updated: {formattedLastUpdated}

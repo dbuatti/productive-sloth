@@ -266,7 +266,16 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (task: RetiredTask) => {
       if (!userId || !profile) throw new Error("User context missing.");
       
+      if (!formattedSelectedDate) {
+        throw new Error("Target date is missing or invalid.");
+      }
+
       const targetDateAsDate = parseISO(formattedSelectedDate);
+      
+      if (isNaN(targetDateAsDate.getTime())) {
+        throw new Error(`Invalid target date format: ${formattedSelectedDate}`);
+      }
+
       const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDateAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDateAsDate);
       let targetWorkdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDateAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDateAsDate), 17);
       if (isBefore(targetWorkdayEnd, targetWorkdayStart)) targetWorkdayEnd = addDays(targetWorkdayEnd, 1);
@@ -649,8 +658,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           }
 
           // Check if the anchor overlaps with the workday window
-          const overlaps = (isBefore(anchorStart, targetWorkdayEnd) || isEqual(anchorStart, targetWorkdayEnd)) && 
-                           (isAfter(anchorEnd, targetWorkdayStart) || isEqual(anchorEnd, targetWorkdayStart));
+          const overlaps = (isBefore(anchorEnd, targetWorkdayEnd) || isEqual(anchorEnd, targetWorkdayEnd)) && 
+                           (isAfter(anchorStart, targetWorkdayStart) || isEqual(anchorStart, targetWorkdayStart));
           
           if (overlaps) {
             const intersectionStart = max([anchorStart, targetWorkdayStart]);

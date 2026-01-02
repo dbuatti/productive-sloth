@@ -23,14 +23,14 @@ const SchedulerSegmentedControl: React.FC<SchedulerSegmentedControlProps> = ({ c
 
   return (
     <Tabs value={currentView} onValueChange={handleValueChange} className="w-full animate-slide-in-up">
-      <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-secondary rounded-lg shadow-lg">
+      <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-secondary rounded-lg shadow-lg"> {/* Adjusted height */}
         {views.map(view => (
           <TabsTrigger 
             key={view.value}
             value={view.value}
             className={cn(
-              "h-10 px-4 py-2 text-base font-semibold rounded-md transition-all duration-200 flex items-center gap-2",
-              "text-muted-foreground hover:bg-muted/50",
+              "h-9 px-4 py-2 text-sm font-semibold rounded-md transition-all duration-200 flex items-center gap-2", // Adjusted height and font size
+              "text-foreground/70 hover:bg-muted/50", // Adjusted text color for better visibility
               "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md",
               "animate-hover-lift"
             )}

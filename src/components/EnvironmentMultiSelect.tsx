@@ -34,7 +34,7 @@ const EnvironmentMultiSelect: React.FC = () => {
   const renderSelectedBadges = () => {
     if (selectedOptions.length === 0) {
       return (
-        <div className="flex items-center gap-2 text-muted-foreground/50 italic font-medium text-[10px] uppercase tracking-widest">
+        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest"> {/* Adjusted text color and size */}
           <Zap className="h-3 w-3" /> All Zones
         </div>
       );

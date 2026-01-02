@@ -42,7 +42,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={isLoading}
-        className="flex-grow h-12 bg-background/40 font-medium placeholder:font-normal placeholder:opacity-40 text-sm rounded-2xl"
+        className="flex-grow h-11 bg-background/40 font-medium placeholder:font-normal placeholder:opacity-60 text-sm rounded-2xl" // Adjusted height and placeholder opacity
       />
       {/* On mobile, show a single, prominent action button. On desktop, keep the two separate for clarity. */}
       {isMobile ? (
@@ -52,9 +52,9 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
               onClick={() => inputValue.trim() ? onCommand(inputValue) : onDetailedInject()}
               disabled={isLoading}
               variant="aether"
-              className="h-12 w-14 shrink-0 rounded-2xl shadow-lg shadow-primary/20"
+              className="h-11 w-12 shrink-0 rounded-2xl shadow-md shadow-primary/10" // Adjusted height, width, and shadow
             >
-              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />} {/* Adjusted icon size */}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -69,9 +69,9 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
               disabled={isLoading}
               variant="outline"
               size="icon"
-              className="h-12 w-12 shrink-0 rounded-full"
+              className="h-11 w-11 shrink-0 rounded-full" // Adjusted height and width
             >
-              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} {/* Adjusted icon size */}
             </Button>
           </TooltipTrigger>
           <TooltipContent>Detailed Injection</TooltipContent>

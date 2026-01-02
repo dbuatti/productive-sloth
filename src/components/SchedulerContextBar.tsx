@@ -20,8 +20,8 @@ const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) 
           {/* Time Module - More Compact */}
           <div className="flex items-center gap-2 px-3 h-10 rounded-lg bg-primary/5 border border-primary/10 shrink-0">
             <Clock className="h-3.5 w-3.5 text-primary" />
-            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mr-1">Time</span>
-            <span className="text-xs font-bold font-mono text-foreground">
+            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/50 mr-1">Time</span> {/* Adjusted font size */}
+            <span className="text-[10px] font-bold font-mono text-foreground"> {/* Adjusted font size */}
               {formatDateTime(T_current)}
             </span>
           </div>

@@ -38,11 +38,11 @@ const WeatherWidget: React.FC = () => {
       <div className="flex items-center gap-2">
         {getWeatherIcon(weather.icon)}
         <div className="flex flex-col leading-none">
-          <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/50">
+          <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50"> {/* Adjusted font size */}
             Atmos
           </span>
           <div className="flex items-baseline gap-1 leading-none">
-            <span className="text-xs font-bold font-mono text-foreground">
+            <span className="text-[10px] font-bold font-mono text-foreground"> {/* Adjusted font size */}
               {Math.round(weather.temperature)}°
             </span>
           </div>

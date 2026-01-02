@@ -5,7 +5,7 @@ import {
   Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, 
   Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, 
   SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, 
-  Globe, Music 
+  Globe, Music, LayoutDashboard, List
 } from 'lucide-react';
 import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
+import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
+import SinkKanbanBoard from './SinkKanbanBoard';
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -53,7 +55,6 @@ interface AetherSinkProps {
   onAutoScheduleSink: () => void;
   isLoading: boolean;
   isProcessingCommand: boolean;
-  hideTitle?: boolean;
   profileEnergy: number;
   retiredSortBy: RetiredTaskSortBy;
   setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
@@ -61,14 +62,18 @@ interface AetherSinkProps {
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ 
   retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, 
-  isLoading, isProcessingCommand, hideTitle = false, 
+  isLoading, isProcessingCommand, profileEnergy, 
   retiredSortBy, setRetiredSortBy 
 }) => {
-  const { user, profile } = useSession();
+  const { user } = useSession();
   const { 
     toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, 
-    updateRetiredTaskStatus, triggerAetherSinkBackup 
+    updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails 
   } = useSchedulerTasks('');
+
+  // --- NEW: View Management ---
+  const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
+  // ----------------------------
 
   const [sinkInputValue, setSinkInputValue] = useState('');
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
@@ -110,6 +115,16 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     await triggerAetherSinkBackup();
   };
 
+  // --- NEW: Unified Update Handler for Kanban ---
+  const handleUpdateRetiredTask = useCallback(async (updates: Partial<RetiredTask> & { id: string }) => {
+    try {
+      await updateRetiredTaskDetails(updates);
+    } catch (error) {
+      showError("Failed to update task.");
+    }
+  }, [updateRetiredTaskDetails]);
+  // ---------------------------------------------
+
   const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
     <DropdownMenuItem 
       onClick={() => setRetiredSortBy(type)} 
@@ -119,63 +134,116 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     </DropdownMenuItem>
   );
 
+  const ViewToggle = () => (
+    <div className="flex bg-secondary/50 rounded-lg p-1 border border-white/5">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button 
+            variant={viewMode === 'list' ? 'default' : 'ghost'} 
+            size="icon" 
+            className={cn("h-8 w-8 rounded-md", viewMode === 'list' && "shadow-sm")}
+            onClick={() => setViewMode('list')}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>List View</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button 
+            variant={viewMode === 'kanban' ? 'default' : 'ghost'} 
+            size="icon" 
+            className={cn("h-8 w-8 rounded-md", viewMode === 'kanban' && "shadow-sm")}
+            onClick={() => setViewMode('kanban')}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Kanban View</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+
   return (
     <>
       <Card glass className="border-dashed border-muted-foreground/20 shadow-xl">
-        <CardHeader className={cn("pb-4 flex flex-row items-center justify-between px-6", hideTitle ? "pt-4" : "pt-8")}>
+        <CardHeader className={cn("pb-4 flex flex-row items-center justify-between px-6 pt-8")}>
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-secondary/50">
                 <Trash2 className="h-5 w-5 text-muted-foreground" />
             </div>
             <CardTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
-              {!hideTitle && <span>Aether Sink</span>}
+              <span>Aether Sink</span>
               <span className="text-xs font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
             </CardTitle>
           </div>
           
           <div className="flex items-center gap-2">
-            {profile?.enable_aethersink_backup && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="glass" size="icon" 
-                    onClick={handleManualAetherSinkBackup} 
-                    disabled={isProcessingCommand}
-                    className="h-10 w-10 text-primary"
-                  >
-                    {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            {/* View Toggle */}
+            <ViewToggle />
+
+            {/* Grouping Dropdown (Only for Kanban) */}
+            {viewMode === 'kanban' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 px-3 text-xs font-bold uppercase">
+                    Group: {groupBy === 'environment' ? 'Env' : 'Priority'}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>Manual Backup</TooltipContent>
-              </Tooltip>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
+                  <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Group By</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setGroupBy('environment')} className="font-bold text-xs uppercase py-2 px-3">Environment</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupBy('priority')} className="font-bold text-xs uppercase py-2 px-3">Priority</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="glass" disabled={retiredTasks.length === 0} className="h-10 w-10">
-                      <ArrowDownWideNarrow className="h-4 w-4" />
+            {/* Backup & Sort (Only for List View) */}
+            {viewMode === 'list' && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="glass" size="icon" 
+                      onClick={handleManualAetherSinkBackup} 
+                      disabled={isProcessingCommand}
+                      className="h-10 w-10 text-primary"
+                    >
+                      {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
                     </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Sort Terminal</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end" className="glass-card min-w-48 border-white/10 bg-background/95 backdrop-blur-xl">
-                <DropdownMenuLabel className="text-[10px] uppercase font-black tracking-[0.2em] opacity-50 mb-1">Sorting Logic</DropdownMenuLabel>
-                <SortItem type="RETIRED_AT_NEWEST" label="Retired (Newest)" icon={CalendarDays} />
-                <SortItem type="RETIRED_AT_OLDEST" label="Retired (Oldest)" icon={CalendarDays} />
-                <DropdownMenuSeparator className="my-2 bg-white/5" />
-                <SortItem type="DURATION_DESC" label="Duration (Long)" icon={Clock} />
-                <SortItem type="DURATION_ASC" label="Duration (Short)" icon={Clock} />
-                <DropdownMenuSeparator className="my-2 bg-white/5" />
-                <SortItem type="ENERGY_DESC" label="Energy (High)" icon={Zap} />
-                <SortItem type="ENERGY_ASC" label="Energy (Low)" icon={Zap} />
-                <DropdownMenuSeparator className="my-2 bg-white/5" />
-                <SortItem type="NAME_ASC" label="Name (A-Z)" icon={SortAsc} />
-                <SortItem type="EMOJI" label="Emoji Sync" icon={Smile} />
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  </TooltipTrigger>
+                  <TooltipContent>Manual Backup</TooltipContent>
+                </Tooltip>
+
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="glass" disabled={retiredTasks.length === 0} className="h-10 w-10">
+                          <ArrowDownWideNarrow className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Sort Terminal</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="glass-card min-w-48 border-white/10 bg-background/95 backdrop-blur-xl">
+                    <DropdownMenuLabel className="text-[10px] uppercase font-black tracking-[0.2em] opacity-50 mb-1">Sorting Logic</DropdownMenuLabel>
+                    <SortItem type="RETIRED_AT_NEWEST" label="Retired (Newest)" icon={CalendarDays} />
+                    <SortItem type="RETIRED_AT_OLDEST" label="Retired (Oldest)" icon={CalendarDays} />
+                    <DropdownMenuSeparator className="my-2 bg-white/5" />
+                    <SortItem type="DURATION_DESC" label="Duration (Long)" icon={Clock} />
+                    <SortItem type="DURATION_ASC" label="Duration (Short)" icon={Clock} />
+                    <DropdownMenuSeparator className="my-2 bg-white/5" />
+                    <SortItem type="ENERGY_DESC" label="Energy (High)" icon={Zap} />
+                    <SortItem type="ENERGY_ASC" label="Energy (Low)" icon={Zap} />
+                    <DropdownMenuSeparator className="my-2 bg-white/5" />
+                    <SortItem type="NAME_ASC" label="Name (A-Z)" icon={SortAsc} />
+                    <SortItem type="EMOJI" label="Emoji Sync" icon={Smile} />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -195,6 +263,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
         </CardHeader>
 
         <CardContent className="px-6 pb-6 space-y-6">
+          {/* Input Form */}
           <form onSubmit={handleAddSinkTask} className="flex gap-2">
             <Input
               placeholder="Inject objective: Name [dur] [!] [-]"
@@ -208,12 +277,14 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             </Button>
           </form>
 
+          {/* Loading State */}
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Sink...</p>
             </div>
           ) : retiredTasks.length === 0 ? (
+            /* Empty State */
             <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10">
               <Ghost className="h-12 w-12 text-muted-foreground/20" />
               <div className="space-y-1">
@@ -222,109 +293,120 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               </div>
             </div>
           ) : (
-            <div className="grid gap-2 pr-2 scrollbar-none"> {/* Removed max-h-[500px] and overflow-y-auto */}
-              {retiredTasks.map((task) => {
-                const hue = getEmojiHue(task.name);
-                const emoji = assignEmoji(task.name);
-                const accentColor = `hsl(${hue} 70% 50%)`;
-                const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted } = task;
+            /* View Content Toggle */
+            viewMode === 'list' ? (
+              <div className="grid gap-2 pr-2 scrollbar-none max-h-[600px] overflow-y-auto custom-scrollbar">
+                {retiredTasks.map((task) => {
+                  const hue = getEmojiHue(task.name);
+                  const emoji = assignEmoji(task.name);
+                  const accentColor = `hsl(${hue} 70% 50%)`;
+                  const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted } = task;
 
-                return (
-                  <div 
-                    key={task.id} 
-                    onMouseEnter={() => setHoveredItemId(task.id)}
-                    onMouseLeave={() => setHoveredItemId(null)}
-                    onClick={() => { setSelectedRetiredTask(task); setIsDialogOpen(true); }}
-                    className={cn(
-                      "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border transition-all duration-300 cursor-pointer animate-pop-in",
-                      "bg-card/40 hover:bg-secondary/40",
-                      isLocked ? "border-primary/20 bg-primary/[0.03]" : "border-transparent",
-                      isBackburner && !isLocked && "opacity-70",
-                      isCompleted && "opacity-40 grayscale"
-                    )}
-                    style={{ borderLeft: isLocked ? '4px solid hsl(var(--primary))' : `4px solid ${accentColor}` }}
-                  >
-                    <div className="flex items-center gap-4 flex-grow min-w-0">
-                      <Button 
-                        variant="ghost" size="icon" 
-                        onClick={(e) => handleAction(e, () => handleToggleComplete(task))}
-                        disabled={isLocked || isProcessingCommand}
-                        className={cn("h-9 w-9 shrink-0 rounded-full", isCompleted ? "text-logo-green bg-logo-green/10" : "bg-secondary/50 text-muted-foreground/30 hover:bg-logo-green/10 hover:text-logo-green")}
-                      >
-                        <CheckCircle className={cn("h-5 w-5 transition-transform duration-500", !isCompleted && "group-hover:scale-110")} />
-                      </Button>
+                  return (
+                    <div 
+                      key={task.id} 
+                      onMouseEnter={() => setHoveredItemId(task.id)}
+                      onMouseLeave={() => setHoveredItemId(null)}
+                      onClick={() => { setSelectedRetiredTask(task); setIsDialogOpen(true); }}
+                      className={cn(
+                        "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border transition-all duration-300 cursor-pointer animate-pop-in",
+                        "bg-card/40 hover:bg-secondary/40",
+                        isLocked ? "border-primary/20 bg-primary/[0.03]" : "border-transparent",
+                        isBackburner && !isLocked && "opacity-70",
+                        isCompleted && "opacity-40 grayscale"
+                      )}
+                      style={{ borderLeft: isLocked ? '4px solid hsl(var(--primary))' : `4px solid ${accentColor}` }}
+                    >
+                      <div className="flex items-center gap-4 flex-grow min-w-0">
+                        <Button 
+                          variant="ghost" size="icon" 
+                          onClick={(e) => handleAction(e, () => handleToggleComplete(task))}
+                          disabled={isLocked || isProcessingCommand}
+                          className={cn("h-9 w-9 shrink-0 rounded-full", isCompleted ? "text-logo-green bg-logo-green/10" : "bg-secondary/50 text-muted-foreground/30 hover:bg-logo-green/10 hover:text-logo-green")}
+                        >
+                          <CheckCircle className={cn("h-5 w-5 transition-transform duration-500", !isCompleted && "group-hover:scale-110")} />
+                        </Button>
 
-                      <div className="min-w-0 flex-grow">
-                        <div className="flex items-center gap-2 mb-1">
-                          {task.is_critical && <Star className="h-3.5 w-3.5 fill-logo-yellow text-logo-yellow shrink-0" />}
-                          {isBackburner && <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-muted-foreground/20 text-muted-foreground/60">Orbit</Badge>}
-                          <span className="text-xl shrink-0 group-hover:scale-125 transition-transform duration-500">{emoji}</span>
-                          <span className={cn("font-black uppercase tracking-tighter truncate text-sm sm:text-base", isCompleted && "line-through")}>
-                            {task.name}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
-                          <span className="flex items-center gap-1.5">{getEnvironmentIcon(task.task_environment)} <span className="opacity-40">{task.task_environment}</span></span>
-                          {task.duration && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {task.duration}m</span>}
-                          {task.energy_cost > 0 && <span className="flex items-center gap-1.5 text-primary/80">{task.energy_cost}<Zap className="h-3 w-3 fill-current" /></span>}
-                          <span className="hidden xs:inline text-[8px] opacity-20">|</span>
-                          <span className="text-[9px] opacity-40">{format(new Date(task.retired_at), 'MMM dd')}</span>
+                        <div className="min-w-0 flex-grow">
+                          <div className="flex items-center gap-2 mb-1">
+                            {task.is_critical && <Star className="h-3.5 w-3.5 fill-logo-yellow text-logo-yellow shrink-0" />}
+                            {isBackburner && <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-muted-foreground/20 text-muted-foreground/60">Orbit</Badge>}
+                            <span className="text-xl shrink-0 group-hover:scale-125 transition-transform duration-500">{emoji}</span>
+                            <span className={cn("font-black uppercase tracking-tighter truncate text-sm sm:text-base", isCompleted && "line-through")}>
+                              {task.name}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
+                            <span className="flex items-center gap-1.5">{getEnvironmentIcon(task.task_environment)} <span className="opacity-40">{task.task_environment}</span></span>
+                            {task.duration && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {task.duration}m</span>}
+                            {task.energy_cost > 0 && <span className="flex items-center gap-1.5 text-primary/80">{task.energy_cost}<Zap className="h-3 w-3 fill-current" /></span>}
+                            <span className="hidden xs:inline text-[8px] opacity-20">|</span>
+                            <span className="text-[9px] opacity-40">{format(new Date(task.retired_at), 'MMM dd')}</span>
+                          </div>
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-1 mt-4 sm:mt-0 ml-auto bg-background/50 sm:bg-transparent p-1.5 sm:p-0 rounded-xl">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" 
+                              onClick={(e) => handleAction(e, () => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked }))}
+                              className={cn("h-9 w-9 rounded-lg transition-all", isLocked ? "text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary),0.1)]" : "text-muted-foreground/30")}
+                            >
+                              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{isLocked ? "Secure" : "Accessible"}</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" 
+                              onClick={(e) => handleAction(e, () => onRezoneTask(task))}
+                              disabled={isLocked || isCompleted}
+                              className="h-9 w-9 text-primary/40 hover:text-primary hover:bg-primary/10 rounded-lg"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Re-zone Objective</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" 
+                              onClick={(e) => handleAction(e, () => onRemoveRetiredTask(task.id, task.name))}
+                              disabled={isLocked}
+                              className="h-9 w-9 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Purge from Aether</TooltipContent>
+                        </Tooltip>
+                      </div>
+
+                      <InfoChip 
+                        onClick={(e) => handleAction(e, () => { setSelectedRetiredTask(task); setIsDialogOpen(true); })}
+                        isHovered={hoveredItemId === task.id} 
+                      />
                     </div>
-
-                    <div className="flex items-center gap-1 mt-4 sm:mt-0 ml-auto bg-background/50 sm:bg-transparent p-1.5 sm:p-0 rounded-xl">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" size="icon" 
-                            onClick={(e) => handleAction(e, () => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked }))}
-                            className={cn("h-9 w-9 rounded-lg transition-all", isLocked ? "text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary),0.1)]" : "text-muted-foreground/30")}
-                          >
-                            {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>{isLocked ? "Secure" : "Accessible"}</TooltipContent>
-                      </Tooltip>
-
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" size="icon" 
-                            onClick={(e) => handleAction(e, () => onRezoneTask(task))}
-                            disabled={isLocked || isCompleted}
-                            className="h-9 w-9 text-primary/40 hover:text-primary hover:bg-primary/10 rounded-lg"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Re-zone Objective</TooltipContent>
-                      </Tooltip>
-
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" size="icon" 
-                            onClick={(e) => handleAction(e, () => onRemoveRetiredTask(task.id, task.name))}
-                            disabled={isLocked}
-                            className="h-9 w-9 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-lg"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Purge from Aether</TooltipContent>
-                      </Tooltip>
-                    </div>
-
-                    <InfoChip 
-                      onClick={(e) => handleAction(e, () => { setSelectedRetiredTask(task); setIsDialogOpen(true); })}
-                      isHovered={hoveredItemId === task.id} 
-                    />
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <SinkKanbanBoard
+                retiredTasks={retiredTasks}
+                groupBy={groupBy}
+                onRemoveRetiredTask={onRemoveRetiredTask}
+                onRezoneTask={onRezoneTask}
+                updateRetiredTask={handleUpdateRetiredTask}
+              />
+            )
           )}
         </CardContent>
       </Card>

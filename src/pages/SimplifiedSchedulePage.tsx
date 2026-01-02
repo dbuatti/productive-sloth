@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react'; // Added useCallback
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -12,16 +12,17 @@ const SimplifiedSchedulePage: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, isLoading: isSessionLoading, T_current } = useSession();
   
-  // Use profile.week_starts_on for startOfWeek option, default to 0 (Sunday)
   const weekStartsOn = (profile?.week_starts_on ?? 0) as Day;
 
-  // State for the start of the currently displayed week/period
+  // currentPeriodStart now represents the *center* of the fetched window for useWeeklySchedulerTasks
+  // and the *start* of the displayed window for WeeklyScheduleGrid.
   const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(() => 
-    startOfWeek(new Date(), { weekStartsOn }) // Default to current week, starting based on user preference
+    startOfWeek(new Date(), { weekStartsOn }) 
   );
-  const [numDaysVisible, setNumDaysVisible] = useState<number>(7); // Default to 7 days
+  const [numDaysVisible, setNumDaysVisible] = useState<number>(7);
 
-  const { weeklyTasks, isLoading: isWeeklyTasksLoading } = useWeeklySchedulerTasks(currentPeriodStart);
+  // Pass currentPeriodStart as the centerDate to the hook
+  const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStart);
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
 
@@ -32,15 +33,19 @@ const SimplifiedSchedulePage: React.FC = () => {
     if (numDaysVisible === 1) {
       newStart = startOfDay(today);
     } else if (numDaysVisible === 3) {
-      newStart = startOfDay(today); // Starts today, shows 2 days ahead
+      newStart = startOfDay(today); 
     } else if (numDaysVisible === 5) {
-      newStart = subDays(startOfDay(today), 2); // Shows 2 days before, today, 2 days after
+      newStart = subDays(startOfDay(today), 2); 
     } else { // 7, 14, 21 days
       newStart = startOfWeek(today, { weekStartsOn });
     }
     setCurrentPeriodStart(newStart);
   }, [numDaysVisible, weekStartsOn]);
 
+  // Callback for WeeklyScheduleGrid to request a period shift
+  const handlePeriodShift = useCallback((shiftDays: number) => {
+    setCurrentPeriodStart(prev => addDays(prev, shiftDays));
+  }, []);
 
   if (isLoading) {
     return (
@@ -66,7 +71,6 @@ const SimplifiedSchedulePage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full w-full">
-      {/* Header with Back Button */}
       <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background/90 backdrop-blur-sm sticky top-0 z-30">
         <Button 
           variant="ghost" 
@@ -86,15 +90,18 @@ const SimplifiedSchedulePage: React.FC = () => {
       <div className="flex-1 overflow-auto">
         <WeeklyScheduleGrid
           weeklyTasks={weeklyTasks}
-          currentPeriodStart={currentPeriodStart} // Renamed prop
-          setCurrentPeriodStart={setCurrentPeriodStart} // Renamed prop
-          numDaysVisible={numDaysVisible} // Pass numDaysVisible
-          setNumDaysVisible={setNumDaysVisible} // Pass setter
+          currentPeriodStart={currentPeriodStart} 
+          setCurrentPeriodStart={setCurrentPeriodStart} 
+          numDaysVisible={numDaysVisible} 
+          setNumDaysVisible={setNumDaysVisible} 
           workdayStartTime={workdayStartTime}
           workdayEndTime={workdayEndTime}
           isLoading={isWeeklyTasksLoading}
           T_current={T_current}
-          weekStartsOn={weekStartsOn} // Pass weekStartsOn
+          weekStartsOn={weekStartsOn}
+          onPeriodShift={handlePeriodShift} // NEW: Pass the shift handler
+          fetchWindowStart={fetchWindowStart} // NEW: Pass fetch window bounds
+          fetchWindowEnd={fetchWindowEnd}     // NEW: Pass fetch window bounds
         />
       </div>
     </div>

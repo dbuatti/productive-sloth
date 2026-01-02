@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
-import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter, startOfDay, subDays, Day } from 'date-fns';
+import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter, startOfDay, subDays, Day, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
 import { Button } from '@/components/ui/button';
@@ -15,24 +15,28 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import DailyScheduleColumn from './DailyScheduleColumn'; // Import DailyScheduleColumn
+import DailyScheduleColumn from './DailyScheduleColumn';
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
-  currentPeriodStart: Date; // Renamed from currentWeekStart
-  setCurrentPeriodStart: (date: Date) => void; // Renamed from setCurrentWeekStart
-  numDaysVisible: number; // NEW: Prop for number of days visible
-  setNumDaysVisible: (days: number) => void; // NEW: Setter for number of days visible
-  workdayStartTime: string; // HH:MM string from profile
-  workdayEndTime: string;   // HH:MM string from profile
+  currentPeriodStart: Date; 
+  setCurrentPeriodStart: React.Dispatch<React.SetStateAction<Date>>; // FIX: Updated type to allow functional updates
+  numDaysVisible: number; 
+  setNumDaysVisible: (days: number) => void; 
+  workdayStartTime: string; 
+  workdayEndTime: string;   
   isLoading: boolean;
-  T_current: Date; // Current time from SessionProvider
-  weekStartsOn: number; // NEW: 0 for Sunday, 1 for Monday, etc.
+  T_current: Date; 
+  weekStartsOn: number; 
+  onPeriodShift: (shiftDays: number) => void; // NEW: Callback to shift the period
+  fetchWindowStart: Date; // NEW: Start of the data fetch window
+  fetchWindowEnd: Date;   // NEW: End of the data fetch window
 }
 
-const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% vertical zoom
-const VERTICAL_ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00]; // Available vertical zoom factors
-const VISIBLE_DAYS_OPTIONS = [1, 3, 5, 7, 14, 21]; // Options for number of days visible (UPDATED)
+const BASE_MINUTE_HEIGHT = 2.5; 
+const VERTICAL_ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00]; 
+const VISIBLE_DAYS_OPTIONS = [1, 3, 5, 7, 14, 21]; 
+const SCROLL_BUFFER_DAYS = 2; // How many days from the edge to trigger a shift
 
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
@@ -42,17 +46,18 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   T_current,
   workdayStartTime,
   workdayEndTime,
-  numDaysVisible, // Destructure new prop
-  setNumDaysVisible, // Destructure new prop
-  weekStartsOn, // Destructure new prop
+  numDaysVisible,
+  setNumDaysVisible,
+  weekStartsOn,
+  onPeriodShift, // Destructure new prop
+  fetchWindowStart, // Destructure new prop
+  fetchWindowEnd,   // Destructure new prop
 }) => {
-  const [isDetailedView, setIsDetailedView] = useState(false); // For task item content detail
-
-  // Vertical Zoom (Times) - Persistence
+  const [isDetailedView, setIsDetailedView] = useState(false);
   const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const savedIndex = localStorage.getItem('weeklyScheduleVerticalZoomIndex');
-      return savedIndex ? parseInt(savedIndex, 10) : VERTICAL_ZOOM_LEVELS.indexOf(1.00); // Default to 1.00
+      return savedIndex ? parseInt(savedIndex, 10) : VERTICAL_ZOOM_LEVELS.indexOf(1.00);
     }
     return VERTICAL_ZOOM_LEVELS.indexOf(1.00);
   });
@@ -64,10 +69,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   }, [currentVerticalZoomIndex]);
 
-  // No longer need local state for numDaysVisible, it's passed as prop.
-  // No longer need local storage for numDaysVisible, it's managed by parent.
-
-  // Ref to get the width of the scrollable grid container
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const [gridContainerWidth, setGridContainerWidth] = useState(0);
 
@@ -89,26 +90,41 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     };
   }, []);
 
-  // Calculate dynamic column width based on container width and number of days visible
   const currentColumnWidth = useMemo(() => {
-    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56; // 40px for w-10, 56px for w-14
+    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
     const effectiveContainerWidth = gridContainerWidth - timeAxisWidth;
     return effectiveContainerWidth > 0 ? effectiveContainerWidth / numDaysVisible : 0;
   }, [gridContainerWidth, numDaysVisible]);
 
+  // Generate all days within the *fetched* window
+  const allDaysInFetchWindow = useMemo(() => {
+    const days: Date[] = [];
+    let current = fetchWindowStart;
+    while (isBefore(current, addDays(fetchWindowEnd, 1))) { // Include fetchWindowEnd
+      days.push(current);
+      current = addDays(current, 1);
+    }
+    return days;
+  }, [fetchWindowStart, fetchWindowEnd]);
 
-  const days = useMemo(() => {
-    const generatedDays = Array.from({ length: numDaysVisible }).map((_, i) => addDays(currentPeriodStart, i));
-    return generatedDays;
-  }, [currentPeriodStart, numDaysVisible]);
-
+  // Determine which subset of days to *display* based on currentPeriodStart and numDaysVisible
+  const displayedDays = useMemo(() => {
+    const startIndex = allDaysInFetchWindow.findIndex(day => isSameDay(day, currentPeriodStart));
+    if (startIndex === -1) {
+      // This should ideally not happen if currentPeriodStart is always within the fetch window
+      // Fallback: find the closest day or reset to fetchWindowStart
+      console.warn("currentPeriodStart not found in fetched window, resetting display to fetchWindowStart.");
+      return allDaysInFetchWindow.slice(0, numDaysVisible);
+    }
+    return allDaysInFetchWindow.slice(startIndex, startIndex + numDaysVisible);
+  }, [allDaysInFetchWindow, currentPeriodStart, numDaysVisible]);
 
   const handlePrevPeriod = () => {
-    setCurrentPeriodStart(addDays(currentPeriodStart, -numDaysVisible));
+    setCurrentPeriodStart((prev: Date) => subDays(prev, numDaysVisible));
   };
 
   const handleNextPeriod = () => {
-    setCurrentPeriodStart(addDays(currentPeriodStart, numDaysVisible));
+    setCurrentPeriodStart((prev: Date) => addDays(prev, numDaysVisible));
   };
 
   const handleGoToToday = () => {
@@ -117,9 +133,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     if (numDaysVisible === 1) {
       newStart = startOfDay(today);
     } else if (numDaysVisible === 3) {
-      newStart = startOfDay(today);
+      newStart = startOfDay(today); 
     } else if (numDaysVisible === 5) {
-      newStart = subDays(startOfDay(today), 2);
+      newStart = subDays(startOfDay(today), 2); 
     } else { // 7, 14, 21 days
       newStart = startOfWeek(today, { weekStartsOn: weekStartsOn as Day });
     }
@@ -138,7 +154,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     // The useEffect in SimplifiedSchedulePage will handle setting currentPeriodStart based on this new numDaysVisible
   };
 
-  // Time axis now spans the workday window, not full 24 hours
   const timeAxisStart = useMemo(() => setTimeOnDate(currentPeriodStart, workdayStartTime), [currentPeriodStart, workdayStartTime]);
   let timeAxisEnd = useMemo(() => setTimeOnDate(currentPeriodStart, workdayEndTime), [currentPeriodStart, workdayEndTime]);
   if (isBefore(timeAxisEnd, timeAxisStart)) {
@@ -156,15 +171,38 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     return labels;
   }, [timeAxisStart, timeAxisEnd]);
 
+  // --- Horizontal Scroll Detection for "Endless" Scrolling ---
+  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const { scrollWidth, scrollLeft, clientWidth } = event.currentTarget;
+
+    // Define scroll thresholds (e.g., 2 columns from edge)
+    const scrollThreshold = currentColumnWidth * SCROLL_BUFFER_DAYS;
+
+    // Scrolling left (towards earlier dates)
+    if (scrollLeft < scrollThreshold) {
+      // Check if currentPeriodStart is already at the beginning of the fetched window
+      if (isSameDay(currentPeriodStart, fetchWindowStart)) {
+        onPeriodShift(-numDaysVisible); // Request parent to shift the period back
+      }
+    }
+    // Scrolling right (towards later dates)
+    else if (scrollLeft + clientWidth > scrollWidth - scrollThreshold) {
+      // Check if the last displayed day is already at the end of the fetched window
+      const lastDisplayedDay = displayedDays[displayedDays.length - 1];
+      if (lastDisplayedDay && isSameDay(lastDisplayedDay, fetchWindowEnd)) {
+        onPeriodShift(numDaysVisible); // Request parent to shift the period forward
+      }
+    }
+  }, [currentColumnWidth, numDaysVisible, currentPeriodStart, fetchWindowStart, fetchWindowEnd, displayedDays, onPeriodShift]);
 
   return (
     <div className="flex flex-col w-full h-full">
       {/* Top Controls */}
       <div className="flex items-center justify-between p-2 border-b border-border/50 bg-background/90 backdrop-blur-sm sticky top-0 z-20">
-        <div className="flex items-center gap-1 sm:gap-2"> {/* Adjusted gap for mobile */}
+        <div className="flex items-center gap-1 sm:gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handlePrevPeriod} className="h-8 w-8 sm:h-10 sm:w-10"> {/* Smaller buttons for mobile */}
+              <Button variant="ghost" size="icon" onClick={handlePrevPeriod} className="h-8 w-8 sm:h-10 sm:w-10">
                 <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </TooltipTrigger>
@@ -172,17 +210,17 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={handleGoToToday} className="flex items-center gap-1 h-8 px-2 sm:h-10 sm:px-3"> {/* Smaller button for mobile */}
+              <Button variant="outline" size="sm" onClick={handleGoToToday} className="flex items-center gap-1 h-8 px-2 sm:h-10 sm:px-3">
                 <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline text-xs">Today</span>
-                <span className="inline sm:hidden text-xs">Today</span> {/* Always show "Today" on mobile */}
+                <span className="inline sm:hidden text-xs">Today</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Go to Today</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleNextPeriod} className="h-8 w-8 sm:h-10 sm:w-10"> {/* Smaller buttons for mobile */}
+              <Button variant="ghost" size="icon" onClick={handleNextPeriod} className="h-8 w-8 sm:h-10 sm:w-10">
                 <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </TooltipTrigger>
@@ -190,7 +228,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           </Tooltip>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2"> {/* Adjusted gap for mobile */}
+        <div className="flex items-center gap-1 sm:gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -205,7 +243,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             <TooltipContent>{isDetailedView ? "Compact Task Details" : "Detailed Task Info"}</TooltipContent>
           </Tooltip>
 
-          {/* NEW: Days Visible Dropdown Menu (Horizontal Zoom) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -239,7 +276,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             </Tooltip>
           </DropdownMenu>
 
-          {/* Vertical Zoom Dropdown Menu (Times) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -276,7 +312,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       </div>
 
       {/* Schedule Grid Container */}
-      <div ref={gridContainerRef} className="flex-1 overflow-auto custom-scrollbar">
+      <div ref={gridContainerRef} className="flex-1 overflow-auto custom-scrollbar" onScroll={handleScroll}>
         {isLoading ? (
           <div className="flex items-center justify-center h-full min-h-[300px]">
             <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
@@ -301,8 +337,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             </div>
 
             {/* Daily Columns (Scrollable horizontally in portrait) */}
-            <div className="flex flex-1 overflow-x-auto custom-scrollbar">
-              {days.map((day) => {
+            <div className="flex flex-1"> {/* Removed overflow-x-auto here, it's on the parent */}
+              {displayedDays.map((day) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
                 const tasksForDay = weeklyTasks[dateKey] || [];
                 return (
@@ -314,8 +350,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     workdayEndTime={workdayEndTime}
                     isDetailedView={isDetailedView}
                     T_current={T_current}
-                    zoomLevel={currentVerticalZoomFactor} // Pass vertical zoom level
-                    columnWidth={currentColumnWidth} // Pass horizontal zoom (column width)
+                    zoomLevel={currentVerticalZoomFactor}
+                    columnWidth={currentColumnWidth}
                   />
                 );
               })}

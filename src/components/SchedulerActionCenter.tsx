@@ -106,7 +106,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   );
 
   return (
-    <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in relative z-10"> {/* Replaced Card with div, adjusted padding/styling */}
+    <div className="w-full"> {/* Removed p-4 bg-card rounded-xl shadow-sm */}
       <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
         <h2 className="text-xl font-bold text-foreground flex items-center gap-2"> {/* Replaced CardTitle with h2 */}
           <Cpu className="h-6 w-6 text-primary" /> Action Center

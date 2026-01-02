@@ -13,7 +13,7 @@ interface SchedulerContextBarProps {
 
 const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) => {
   return (
-    <div className="p-2 animate-pop-in rounded-xl shadow-sm overflow-hidden bg-background/40 backdrop-blur-md w-full"> {/* Replaced Card with div, adjusted styling */}
+    <div className="w-full"> {/* Removed p-2 animate-pop-in rounded-xl shadow-sm overflow-hidden bg-background/40 backdrop-blur-md */}
       <div className="px-0"> {/* Replaced CardContent with div */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 px-3">
           

@@ -392,11 +392,16 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       <div className="space-y-6"> {/* Grouping related components for consistent spacing */}
         {view === 'schedule' && (
           <>
+            {/* SchedulerContextBar - Removed card styling */}
             <SchedulerContextBar T_current={T_current} />
-            <div className="p-4 bg-card rounded-xl shadow-sm"> {/* Replaced Card with div, adjusted padding/styling */}
+            
+            {/* Quick Add - Removed card styling */}
+            <div className="p-4"> {/* Removed bg-card rounded-xl shadow-sm */}
               <h2 className="text-xl font-bold flex items-center gap-2 mb-4"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</h2>
               <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} />
             </div>
+            
+            {/* SchedulerActionCenter - Removed card styling */}
             <SchedulerActionCenter 
               isProcessingCommand={overallLoading} 
               dbScheduledTasks={dbScheduledTasks} 
@@ -420,7 +425,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               navigate={navigate}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
-            <div className="p-0 bg-transparent rounded-none shadow-none"> {/* Removed Card with div, adjusted padding/styling */}
+            <div className="p-0 bg-transparent rounded-none shadow-none"> {/* This already has no card styling */}
               <h2 className="text-xl font-bold mb-4">Your Vibe Schedule</h2>
               <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
             </div>

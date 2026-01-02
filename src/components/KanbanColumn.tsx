@@ -20,9 +20,11 @@ interface KanbanColumnProps {
   activeTaskHeight?: number;
   activeId: string | null;
   overId: string | null;
+  // NEW: Prop for opening the detail dialog
+  onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, totalEnergy, onQuickAdd, activeTaskHeight = 80, activeId, overId }) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, totalEnergy, onQuickAdd, activeTaskHeight = 80, activeId, overId, onOpenDetailDialog }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [localInput, setLocalInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,7 +91,11 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
                 }
 
                 return (
-                    <SortableTaskCard key={task.id} task={task} />
+                    <SortableTaskCard 
+                      key={task.id} 
+                      task={task} 
+                      onOpenDetailDialog={onOpenDetailDialog} // Pass the handler
+                    />
                 );
             })}
             

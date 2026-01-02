@@ -17,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
-import InfoChip from './InfoChip';
 import RetiredTaskDetailDialog from './RetiredTaskDetailDialog';
 import {
   DropdownMenu,
@@ -72,11 +71,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails 
   } = useSchedulerTasks('');
 
-  // --- NEW: View Management ---
+  // --- View Management ---
   const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
   // ----------------------------
 
-  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
 
@@ -85,6 +83,11 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   const handleAction = useCallback((e: React.MouseEvent, action: () => void) => {
     e.stopPropagation();
     action();
+  }, []);
+
+  const handleOpenDetailDialog = useCallback((task: RetiredTask) => {
+    setSelectedRetiredTask(task);
+    setIsDialogOpen(true);
   }, []);
 
   const handleToggleComplete = async (task: RetiredTask) => {
@@ -291,9 +294,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   return (
                     <div 
                       key={task.id} 
-                      onMouseEnter={() => setHoveredItemId(task.id)}
-                      onMouseLeave={() => setHoveredItemId(null)}
-                      onClick={() => { setSelectedRetiredTask(task); setIsDialogOpen(true); }}
+                      onClick={() => handleOpenDetailDialog(task)} // Click to open details
                       className={cn(
                         "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border transition-all duration-300 cursor-pointer animate-pop-in",
                         "bg-card/40 hover:bg-secondary/40",
@@ -375,11 +376,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                           <TooltipContent>Purge from Aether</TooltipContent>
                         </Tooltip>
                       </div>
-
-                      <InfoChip 
-                        onClick={(e) => handleAction(e, () => { setSelectedRetiredTask(task); setIsDialogOpen(true); })}
-                        isHovered={hoveredItemId === task.id} 
-                      />
                     </div>
                   );
                 })}
@@ -391,6 +387,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 onRemoveRetiredTask={onRemoveRetiredTask}
                 onRezoneTask={onRezoneTask}
                 updateRetiredTask={handleUpdateRetiredTask}
+                onOpenDetailDialog={handleOpenDetailDialog} // Pass the handler
               />
             )
           )}

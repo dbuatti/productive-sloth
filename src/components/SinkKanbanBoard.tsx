@@ -60,6 +60,8 @@ interface SinkKanbanBoardProps {
   onRemoveRetiredTask: (id: string, name: string) => void;
   onRezoneTask: (task: RetiredTask) => void;
   updateRetiredTask: (updates: Partial<RetiredTask> & { id: string }) => Promise<void>;
+  // NEW: Handlers for opening the detail dialog
+  onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
 const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
@@ -68,6 +70,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   onRemoveRetiredTask,
   onRezoneTask,
   updateRetiredTask,
+  onOpenDetailDialog, // Destructure new prop
 }) => {
   const { user } = useSession();
   const { addRetiredTask } = useSchedulerTasks('');
@@ -75,6 +78,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
+  // Use distance constraint (5px) to differentiate click from drag
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -217,6 +221,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
               activeTaskHeight={activeTaskHeight}
               activeId={activeId}
               overId={overId}
+              onOpenDetailDialog={onOpenDetailDialog} // Pass the handler down
             />
           );
         })}

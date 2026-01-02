@@ -22,9 +22,11 @@ import { showError } from '@/utils/toast';
 
 interface SortableCardProps {
   task: RetiredTask;
+  // NEW: Prop to open the detail dialog
+  onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
-const SortableTaskCard: React.FC<SortableCardProps> = ({ task }) => {
+const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialog }) => {
   const {
     attributes,
     listeners,
@@ -54,6 +56,17 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task }) => {
   const handleAction = (e: React.MouseEvent, action: () => void) => {
     e.stopPropagation();
     action();
+  };
+  
+  // NEW: Handle click to open details, but only if not dragging
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Check if the drag operation is active or just finished (using isDragging as a proxy)
+    if (isDragging) return; 
+    
+    // Prevent opening if a button inside the card was clicked
+    if ((e.target as HTMLElement).closest('button')) return;
+
+    onOpenDetailDialog(task);
   };
 
   const handleToggleComplete = async () => {
@@ -95,7 +108,8 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task }) => {
         ...style 
       }}
       {...attributes}
-      {...listeners}
+      {...listeners} // Listeners handle the drag
+      onClick={handleCardClick} // Handle click for details
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-2 min-w-0">

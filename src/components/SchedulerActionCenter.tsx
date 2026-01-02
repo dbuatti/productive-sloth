@@ -10,9 +10,8 @@ import {
 import { 
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
-  Database, ListTodo, 
-  BatteryCharging, Target, Cpu, Coffee, Archive, Repeat, Layers,
-  CalendarDays // NEW: Import CalendarDays icon
+  Database, ListTodo, BatteryCharging, Target, Cpu, Coffee, 
+  Archive, Repeat, Layers, CalendarDays 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,7 +38,7 @@ interface SchedulerActionCenterProps {
   onRefreshSchedule: () => void;
   onOpenWorkdayWindowDialog: () => void;
   onStartRegenPod: () => void;
-  navigate: (path: string) => void; // NEW: Add navigate prop
+  navigate: (path: string) => void;
 }
 
 const DURATION_BUCKETS = [30, 60, 90];
@@ -62,7 +61,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   onRefreshSchedule,
   onOpenWorkdayWindowDialog,
   onStartRegenPod,
-  navigate, // NEW: Destructure navigate
+  navigate,
 }) => {
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
   const hasUnlockedFlexibleTasks = dbScheduledTasks.some(task => task.is_flexible && !task.is_locked);
@@ -79,16 +78,16 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant="glass"
+          variant="outline"
           onClick={onClick}
           disabled={disabled || isProcessingCommand}
           className={cn(
-            "h-14 w-full flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest transition-all duration-300 rounded-2xl", // Softer, larger radius
+            "h-12 w-full flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide rounded-full transition-all",
             colorClass,
-            (disabled || isProcessingCommand) && "opacity-30 cursor-not-allowed grayscale"
+            (disabled || isProcessingCommand) && "opacity-40 cursor-not-allowed grayscale"
           )}
         >
-          <Icon className="h-5 w-5 shrink-0" /> {/* Increased icon size */}
+          <Icon className="h-4 w-4 shrink-0" />
           <span>{label}</span>
         </Button>
       </TooltipTrigger>
@@ -97,52 +96,33 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   );
 
   return (
-    <Card glass className="animate-pop-in border-white/10 shadow-2xl relative z-10">
-      <CardContent className="p-4 space-y-6">
+    <Card glass className="animate-pop-in border-white/10 shadow-lg relative z-10">
+      <CardContent className="p-3 space-y-4">
         
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-4 pb-4 border-b border-white/5">
-          <div className="flex flex-col gap-1 w-full lg:w-auto">
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/50 ml-1">Core Engine</span>
-            <div className="flex flex-col sm:flex-row gap-2 w-full"> {/* Changed to flex-col on mobile, flex-row on sm+ */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={onRebalanceToday}
-                    disabled={isProcessingCommand || retiredTasksCount === 0}
-                    variant="aether"
-                    className="w-full h-14 px-8 text-sm font-black uppercase tracking-[0.2em] gap-3 active:scale-95 shadow-lg shadow-primary/20 rounded-2xl" // Increased height, font size, rounded-2xl
-                  >
-                    {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Cpu className="h-5 w-5" />}
-                    Smart Fill Today
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="glass-card font-bold border-white/10 max-w-xs">
-                  Smart Fill Today: Pulls tasks from the sink into your current free time slots without moving existing items.
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={onReshuffleEverything}
-                    disabled={isProcessingCommand}
-                    variant="outline"
-                    className="w-full h-14 px-8 text-sm font-black uppercase tracking-[0.2em] gap-3 active:scale-95 text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10 rounded-2xl" // Increased height, font size, rounded-2xl
-                  >
-                    {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Layers className="h-5 w-5" />}
-                    Global Reshuffle
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="glass-card font-bold border-white/10 max-w-xs">
-                  Global Reshuffle: Combines all flexible items (from schedule and sink) and regenerates your entire timeline.
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1 w-full lg:w-auto">
-             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1">Mass Injection</span>
-            <div className="grid grid-cols-3 gap-2 w-full h-auto bg-background/40 p-2 rounded-2xl border border-white/5"> {/* Increased padding, rounded-2xl */}
+        {/* Core Engine & Mass Injection */}
+        <div className="space-y-3">
+           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/50 ml-1 block">Engine</span>
+           <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                onClick={onRebalanceToday}
+                disabled={isProcessingCommand || retiredTasksCount === 0}
+                variant="aether"
+                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full"
+              >
+                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
+                Smart Fill
+              </Button>
+              <Button
+                onClick={onReshuffleEverything}
+                disabled={isProcessingCommand}
+                variant="outline"
+                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10"
+              >
+                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+                Reshuffle
+              </Button>
+           </div>
+           <div className="grid grid-cols-3 gap-2">
               {DURATION_BUCKETS.map(duration => (
                 <QuickScheduleBlock
                   key={duration}
@@ -151,125 +131,77 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   isProcessingCommand={isProcessingCommand}
                 />
               ))}
-            </div>
-          </div>
+           </div>
         </div>
 
-        <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 sm:gap-4"> {/* Increased gap for more breathing room */}
-                <ActionButton 
-                  icon={ChevronsUp} label="Compact" colorClass="text-primary" tooltip="Compact: Snap flexible tasks to eliminate gaps"
-                  onClick={onCompactSchedule} disabled={!hasUnlockedFlexibleTasks}
-                />
-                <ActionButton 
-                  icon={Shuffle} label="Shuffle" colorClass="text-logo-orange" tooltip="Shuffle: Randomize rest periods for better flow"
-                  onClick={onRandomizeBreaks} disabled={!hasUnlockedBreaks}
-                />
-                <ActionButton 
-                  icon={Target} label="Focus" colorClass="text-accent" tooltip="Focus: Pull prioritized tasks from Aether Sink"
-                  onClick={onZoneFocus} disabled={retiredTasksCount === 0}
-                />
-                
-                <DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="glass" disabled={isProcessingCommand} className="h-14 w-full text-sm font-black uppercase tracking-widest gap-2 hover:bg-white/5 rounded-2xl"> {/* Increased height, font size, rounded-2xl */}
-                          <ArrowDownWideNarrow className="h-5 w-5 text-muted-foreground" /> {/* Increased icon size */}
-                          <span>Balance Logic</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent className="glass-card">Configure how flexible tasks are re-ordered</TooltipContent>
-                    <DropdownMenuContent align="end" className="glass-card min-w-56 border-white/10 bg-background/95 backdrop-blur-xl">
-                      <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Sort Parameters</DropdownMenuLabel>
-                      <DropdownMenuSeparator className="bg-white/5" />
-                      {sortOptions.map(opt => (
-                        <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 flex flex-col items-start font-bold text-[10px] uppercase py-3 px-3 focus:bg-primary/20">
-                          <div className="flex items-center gap-2">
-                            <opt.icon className="h-4 w-4 text-primary/70" /> {opt.label}
-                          </div>
-                          <span className="text-[8px] opacity-50 lowercase tracking-normal font-medium italic pl-6">{opt.description}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </Tooltip>
-                </DropdownMenu>
-
-                <ActionButton 
-                  icon={Clock} label="Window" colorClass="text-muted-foreground" tooltip="Window: Adjust operating window"
-                  onClick={onOpenWorkdayWindowDialog}
-                />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:gap-4"> {/* Increased gap for more breathing room */}
-                <ActionButton 
-                  icon={Zap} label="Recharge" colorClass="text-logo-green" tooltip="Pulse: Immediate +25 Bio-Energy"
-                  onClick={onRechargeEnergy}
-                />
-                <ActionButton 
-                  icon={Coffee} label="Quick Rest" colorClass="text-logo-orange" tooltip="Buffer: Inject 15m Flow Break"
-                  onClick={onQuickBreak}
-                />
-                <ActionButton 
-                  icon={BatteryCharging} label="Regen Pod" colorClass="text-primary" tooltip="Deep Recovery: High-rate energy regen"
-                  onClick={onStartRegenPod}
-                />
-
-                <DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="glass" disabled={isProcessingCommand} className="h-14 w-full text-sm font-black uppercase tracking-widest text-logo-orange hover:bg-logo-orange/10 gap-2 border-logo-orange/20 rounded-2xl"> {/* Increased height, font size, rounded-2xl */}
-                          <Archive className="h-5 w-5" /> {/* Increased icon size */}
-                          <span>Flush</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent className="glass-card border-logo-orange/20">Mass Retire: Return tasks to Sink</TooltipContent>
-                    <DropdownMenuContent align="end" className="glass-card border-white/10 bg-background/95 backdrop-blur-xl min-w-[280px]">
-                      <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-logo-orange/50 px-3 py-2">Temporal Flush Logic</DropdownMenuLabel>
-                      <DropdownMenuSeparator className="bg-white/5" />
-                      
-                      <DropdownMenuItem 
-                        onClick={onAetherDump} 
-                        className="flex items-center justify-start text-logo-orange font-black text-[10px] uppercase gap-4 py-4 px-6 focus:bg-logo-orange/10 cursor-pointer"
-                      >
-                        <RefreshCcw className="h-5 w-5 shrink-0" /> 
-                        <div className="flex flex-col gap-0.5">
-                           <span>Flush Today + Future</span>
-                           <span className="text-[8px] opacity-50 lowercase tracking-normal font-medium italic">Returns items from current timeline to Sink</span>
-                        </div>
-                      </DropdownMenuItem>
-
-                      <DropdownMenuSeparator className="bg-white/5" />
-
-                      <DropdownMenuItem 
-                        onClick={onAetherDumpMega} 
-                        className="flex items-center justify-start text-destructive font-black text-[10px] uppercase gap-4 py-4 px-6 focus:bg-destructive/10 cursor-pointer"
-                      >
-                        <Globe className="h-5 w-5 shrink-0" /> 
-                        <div className="flex flex-col gap-0.5">
-                           <span>Global Timeline Flush</span>
-                           <span className="text-[8px] opacity-50 lowercase tracking-normal font-medium italic">Returns ALL historical and future items to Sink</span>
-                        </div>
-                      </DropdownMenuItem>
-
-                    </DropdownMenuContent>
-                  </Tooltip>
-                </DropdownMenu>
-
-                <ActionButton 
-                  icon={Database} label="Sync" colorClass="text-muted-foreground" tooltip="Data Sync: Refresh local items"
-                  onClick={onRefreshSchedule}
-                />
-                {/* NEW: Weekly Vibe Button */}
-                <ActionButton 
-                  icon={CalendarDays} label="Weekly Vibe" colorClass="text-primary" tooltip="View your schedule across multiple days"
-                  onClick={() => navigate('/simplified-schedule')}
-                />
-            </div>
+        {/* Quick Actions */}
+        <div className="space-y-3">
+           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1 block">Quick Actions</span>
+           <div className="grid grid-cols-2 gap-2">
+              <ActionButton icon={ChevronsUp} label="Compact" colorClass="text-primary" tooltip="Snap tasks to eliminate gaps" onClick={onCompactSchedule} disabled={!hasUnlockedFlexibleTasks} />
+              <ActionButton icon={Shuffle} label="Shuffle" colorClass="text-logo-orange" tooltip="Randomize breaks" onClick={onRandomizeBreaks} disabled={!hasUnlockedBreaks} />
+              <ActionButton icon={Target} label="Focus" colorClass="text-accent" tooltip="Pull from Sink" onClick={onZoneFocus} disabled={retiredTasksCount === 0} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full">
+                    <ArrowDownWideNarrow className="h-4 w-4" />
+                    Sort
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass-card min-w-56 border-white/10 bg-background/95 backdrop-blur-xl">
+                  <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Sort Parameters</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  {sortOptions.map(opt => (
+                    <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 flex items-center font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20">
+                      <opt.icon className="h-4 w-4 text-primary/70" /> {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ActionButton icon={Clock} label="Window" colorClass="text-muted-foreground" tooltip="Adjust workday" onClick={onOpenWorkdayWindowDialog} />
+           </div>
         </div>
+
+        {/* Utilities & System */}
+        <div className="space-y-3">
+           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1 block">Utilities</span>
+           <div className="grid grid-cols-2 gap-2">
+              <ActionButton icon={Zap} label="Recharge" colorClass="text-logo-green" tooltip="+25 Energy" onClick={onRechargeEnergy} />
+              <ActionButton icon={Coffee} label="Break" colorClass="text-logo-orange" tooltip="15m Rest" onClick={onQuickBreak} />
+              <ActionButton icon={BatteryCharging} label="Regen Pod" colorClass="text-primary" tooltip="Deep Recovery" onClick={onStartRegenPod} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-orange border-logo-orange/20 hover:bg-logo-orange/10">
+                    <Archive className="h-4 w-4" />
+                    Flush
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass-card border-white/10 bg-background/95 backdrop-blur-xl min-w-[240px]">
+                  <DropdownMenuItem onClick={onAetherDump} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-logo-orange/10 cursor-pointer text-logo-orange">
+                    <RefreshCcw className="h-4 w-4" /> Flush Today
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuItem onClick={onAetherDumpMega} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-destructive/10 cursor-pointer text-destructive">
+                    <Globe className="h-4 w-4" /> Global Flush
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ActionButton icon={Database} label="Sync" colorClass="text-muted-foreground" tooltip="Refresh Data" onClick={onRefreshSchedule} />
+           </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="pt-2 border-t border-white/5">
+           <Button 
+             variant="ghost" 
+             className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full hover:bg-primary/5"
+             onClick={() => navigate('/simplified-schedule')}
+           >
+             <CalendarDays className="h-4 w-4 text-primary" />
+             Weekly Vibe View
+           </Button>
+        </div>
+
       </CardContent>
     </Card>
   );

@@ -7,31 +7,23 @@ import { Clock } from 'lucide-react';
 import WeatherWidget from './WeatherWidget';
 import EnvironmentMultiSelect from './EnvironmentMultiSelect';
 
-// FIX: Define strictly what this component accepts
 interface SchedulerContextBarProps {
   T_current: Date;
 }
 
 const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) => {
   return (
-    <Card className="glass-card py-2 animate-pop-in border-white/10 shadow-2xl overflow-hidden bg-background/40 backdrop-blur-md w-full"> {/* Changed p-2 to py-2 */}
-      <CardContent className="px-0"> {/* Changed p-0 to px-0 */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 px-4"> {/* Added px-4 here */}
+    <Card className="glass-card py-2 animate-pop-in border-white/10 shadow-lg overflow-hidden bg-background/40 backdrop-blur-md w-full">
+      <CardContent className="px-0">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 px-3">
           
-          {/* Time Module */}
-          <div className="flex items-center gap-3 px-4 h-11 rounded-xl bg-primary/5 border border-primary/10 shrink-0">
-            <div className="relative">
-              <Clock className="h-4 w-4 text-primary" />
-              <div className="absolute inset-0 bg-primary/20 blur-md rounded-full animate-pulse" />
-            </div>
-            <div className="flex flex-col justify-center">
-              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none mb-1">
-                Current Time
-              </span>
-              <span className="text-xs font-black font-mono text-foreground leading-none">
-                {formatDateTime(T_current)}
-              </span>
-            </div>
+          {/* Time Module - More Compact */}
+          <div className="flex items-center gap-2 px-3 h-10 rounded-lg bg-primary/5 border border-primary/10 shrink-0">
+            <Clock className="h-3.5 w-3.5 text-primary" />
+            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mr-1">Time</span>
+            <span className="text-xs font-bold font-mono text-foreground">
+              {formatDateTime(T_current)}
+            </span>
           </div>
 
           {/* Environment Filter */}
@@ -40,7 +32,7 @@ const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) 
           </div>
 
           {/* Weather Module */}
-          <div className="lg:w-64 shrink-0">
+          <div className="lg:w-56 shrink-0">
             <WeatherWidget />
           </div>
 

@@ -18,7 +18,7 @@ const QuickScheduleBlock: React.FC<QuickScheduleBlockProps> = ({
   isProcessingCommand,
 }) => {
   return (
-    <div className="relative flex items-center justify-between h-14 rounded-full border border-input bg-background animate-hover-lift shadow-lg"> {/* Increased height to h-14 */}
+    <div className="relative flex items-center justify-between h-12 rounded-full border border-input bg-background hover:bg-secondary/50 transition-colors">
       {/* Left Button: Shortest First */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -27,29 +27,21 @@ const QuickScheduleBlock: React.FC<QuickScheduleBlockProps> = ({
             size="icon"
             onClick={() => onScheduleBlock(duration, 'shortestFirst')}
             disabled={isProcessingCommand}
-            className="h-full flex-1 rounded-full rounded-r-none text-primary hover:bg-primary/10" // Changed w-14 to flex-1
+            className="h-full flex-1 rounded-full rounded-r-none text-primary hover:bg-primary/10"
           >
-            <Feather className="h-5 w-5" /> {/* Increased icon size */}
-            <span className="sr-only">Schedule {duration} min (Shortest Tasks First)</span>
+            <Feather className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Schedule {duration} min (Shortest Tasks First)</p>
+          <p>Schedule {duration} min (Shortest First)</p>
         </TooltipContent>
       </Tooltip>
 
       {/* Center Duration Label */}
-      <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-10">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="h-14 w-14 rounded-full bg-primary flex items-center justify-center text-xl font-extrabold text-primary-foreground border-2 border-card shadow-xl transition-all duration-200 hover:scale-[1.05]"> {/* Increased height and width to h-14 w-14 */}
-              {duration}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Quick Schedule Block: {duration} minutes</p>
-          </TooltipContent>
-        </Tooltip>
+      <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+        <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center text-sm font-extrabold text-primary-foreground border-2 border-card shadow-sm">
+          {duration}
+        </div>
       </div>
 
       {/* Right Button: Longest First */}
@@ -60,14 +52,13 @@ const QuickScheduleBlock: React.FC<QuickScheduleBlockProps> = ({
             size="icon"
             onClick={() => onScheduleBlock(duration, 'longestFirst')}
             disabled={isProcessingCommand}
-            className="h-full flex-1 rounded-full rounded-l-none text-primary hover:bg-primary/10" // Changed w-14 to flex-1
+            className="h-full flex-1 rounded-full rounded-l-none text-primary hover:bg-primary/10"
           >
-            <Anchor className="h-5 w-5" /> {/* Increased icon size */}
-            <span className="sr-only">Schedule {duration} min (Longest Tasks First)</span>
+            <Anchor className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Schedule {duration} min (Longest Tasks First)</p>
+          <p>Schedule {duration} min (Longest First)</p>
         </TooltipContent>
       </Tooltip>
     </div>

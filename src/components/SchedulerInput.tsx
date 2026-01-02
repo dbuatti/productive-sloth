@@ -18,7 +18,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
   isLoading,
   inputValue,
   setInputValue,
-  placeholder = "Enter command...",
+  placeholder = "e.g., 'Gym 60' or '!Report 45'",
   onDetailedInject,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -39,7 +39,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={isLoading}
-        className="flex-grow h-12 bg-background/40 font-bold placeholder:font-medium placeholder:opacity-30"
+        className="flex-grow h-12 bg-background/40 font-medium placeholder:font-normal placeholder:opacity-40 text-sm"
       />
       <Tooltip>
         <TooltipTrigger asChild>
@@ -48,7 +48,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
             disabled={isLoading}
             variant="outline"
             size="icon"
-            className="h-12 w-12 shrink-0"
+            className="h-12 w-12 shrink-0 rounded-full"
           >
             {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
           </Button>
@@ -59,6 +59,6 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
   );
 });
 
-SchedulerInput.displayName = 'SchedulerInput'; // Added for better debugging
+SchedulerInput.displayName = 'SchedulerInput';
 
 export default SchedulerInput;

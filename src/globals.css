@@ -109,23 +109,36 @@
       radial-gradient(at 100% 100%, hsl(var(--primary) / 0.05) 0px, transparent 50%),
       radial-gradient(at 0% 100%, hsl(var(--accent) / 0.1) 0px, transparent 50%);
     background-attachment: fixed;
+    /* Refined base font size for better mobile readability */
+    font-size: 15px;
+  }
+  
+  /* Mobile-specific font adjustments */
+  @media (max-width: 640px) {
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.25rem; }
+    h3 { font-size: 1.1rem; }
+    .text-4xl { font-size: 2.25rem; }
+    .text-5xl { font-size: 2.75rem; }
+    .text-6xl { font-size: 3.25rem; }
   }
 }
 
 @layer utilities {
-  /* Ethereal Surfaces - Updated for a softer, more expansive feel */
+  /* Ethereal Surfaces - Professional Polish */
   .glass-card {
     background-color: hsl(var(--background) / 0.5);
     backdrop-filter: blur(24px) saturate(150%);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15);
-    /* Less rounded on desktop, more rounded on mobile for a softer feel */
     border-radius: 0.85rem;
   }
   @media (max-width: 768px) {
     .glass-card {
-      border-radius: 1.25rem; /* Much softer on mobile */
-      background-color: hsl(var(--background) / 0.6); /* More blur on mobile */
+      border-radius: 1.25rem;
+      background-color: hsl(var(--background) / 0.6);
+      /* Softer shadow on mobile for a more integrated feel */
+      box-shadow: 0 4px 15px -5px rgba(0, 0, 0, 0.1);
     }
   }
 
@@ -163,7 +176,7 @@
     animation: shimmer 2s infinite linear;
   }
 
-  /* Active Row Animation - Replaced @apply with standard CSS */
+  /* Active Row Animation */
   @keyframes pulse-active-row {
     0%, 100% {
       border-color: hsl(var(--live-progress) / 0.2);

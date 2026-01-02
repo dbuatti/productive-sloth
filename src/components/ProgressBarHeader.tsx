@@ -9,6 +9,9 @@ import { isToday, parseISO } from 'date-fns';
 import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT } from '@/lib/constants';
 import { calculateLevelInfo, cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile'; 
+import ThemeToggle from './ThemeToggle'; // Import ThemeToggle
+import ProfileDropdown from './ProfileDropdown'; // Import ProfileDropdown
+import { Link } from 'react-router-dom'; // Import Link for logo navigation
 
 const ProgressBarHeader: React.FC = () => {
   const { profile, rechargeEnergy } = useSession();
@@ -58,11 +61,39 @@ const ProgressBarHeader: React.FC = () => {
   ];
 
   return (
-    <div className={cn(
-      "w-full transition-all duration-300 ease-aether-out", // Removed glass-header and z-40
-      "border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm py-3" // Adjusted padding and added styling
+    <header className={cn(
+      "fixed top-0 left-0 right-0 z-50",
+      "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm"
     )}>
-      <div className="w-full px-4 md:px-8">
+      {/* Top Row: Logo, Title, ThemeToggle, ProfileDropdown */}
+      <div className="flex items-center justify-between h-16 px-4 md:px-8">
+        {/* Left: Logo/Title */}
+        <div className="flex items-center">
+          <Link 
+            to="/" 
+            className="flex items-center gap-2 group active:scale-95 transition-transform duration-200"
+          >
+            <div className="relative">
+              <img 
+                src="/aetherflow-logo.png" 
+                alt="AetherFlow Logo" 
+                className="h-9 w-auto drop-shadow-[0_0_8px_rgba(var(--primary),0.3)]"
+              />
+              <div className="absolute -inset-1 bg-primary/10 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <span className="ml-3 text-xl font-bold text-foreground hidden sm:inline">AetherFlow</span>
+          </Link>
+        </div>
+
+        {/* Right: ThemeToggle, ProfileDropdown */}
+        <div className="flex items-center space-x-3">
+          <ThemeToggle />
+          <ProfileDropdown />
+        </div>
+      </div>
+
+      {/* Bottom Row: Progress Bars */}
+      <div className="w-full px-4 md:px-8 py-3 border-t border-border/50">
         <div className={cn(
           "flex gap-3",
           isMobile ? "overflow-x-auto pb-1 snap-x snap-mandatory" : "grid grid-cols-3"
@@ -134,7 +165,7 @@ const ProgressBarHeader: React.FC = () => {
           })}
         </div>
       </div>
-    </div>
+    </header>
   );
 };
 

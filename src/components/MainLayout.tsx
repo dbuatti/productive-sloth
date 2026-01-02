@@ -62,7 +62,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {!isMobile && !isSimplifiedSchedulePage && (
         <div 
           className={cn(
-            "fixed top-0 left-0 right-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-[112px]", // Adjusted pt for sidebar
+            "fixed top-0 left-0 right-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-[92px]", // Adjusted pt for sidebar to match new header height
             sidebarWidth
           )}
         >
@@ -75,21 +75,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       )}
 
-      {/* Combined Fixed Header */}
-      <div className={cn(
-        "fixed top-0 left-0 right-0 z-50", // Make this container fixed
-        !isSimplifiedSchedulePage && contentPaddingLeft // Apply sidebar padding to fixed header
-      )}>
-        {isMobile && <AppHeader onMenuToggle={() => {}} />}
-        {!isMobile && <DesktopHeaderControls />}
-        <ProgressBarHeader />
-      </div>
+      {/* Consolidated Fixed Header */}
+      <ProgressBarHeader />
       
       {/* Main Content Area */}
       <div className={cn(
         "flex flex-col flex-1 min-w-0 w-full", 
         !isSimplifiedSchedulePage && contentPaddingLeft,
-        "pt-[112px]" // Add padding-top here to push content below fixed header
+        "pt-[92px]" // Add padding-top here to push content below fixed header (h-16 + py-3 = ~92px)
       )}>
         {mainContent}
         {shouldShowFocusAnchor && <FocusAnchor />}

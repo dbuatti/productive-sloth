@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -187,7 +187,7 @@ interface KanbanColumnProps {
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, totalEnergy, onRemove, onRezone, onToggleComplete }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
-  // --- NEW: Receiver State Classes ---
+  // --- Receiver State Classes ---
   const receiverClasses = isOver 
     ? "bg-primary/10 border-primary/50 shadow-inner shadow-primary/10" 
     : "bg-background/60 border-white/10";
@@ -214,7 +214,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-2 flex-1 overflow-y-auto custom-scrollbar min-h-[500px]"> {/* Added min-h-[500px] */}
+        <CardContent className="p-2 flex-1 overflow-y-auto custom-scrollbar min-h-[500px] overflow-x-hidden"> {/* Added overflow-x-hidden */}
           <SortableContext id={id} items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2 min-h-[50px]">
               <AnimatePresence>
@@ -228,6 +228,19 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
                   />
                 ))}
               </AnimatePresence>
+              {/* DYNAMIC PLACEHOLDER */}
+              {isOver && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: '80px' }} // Fixed height for visual effect
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full rounded-xl bg-primary/20 border-2 border-dashed border-primary/50 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
+                  style={{ height: '80px' }} // Fixed height for visual stability
+                >
+                  Drop Here
+                </motion.div>
+              )}
             </div>
           </SortableContext>
         </CardContent>

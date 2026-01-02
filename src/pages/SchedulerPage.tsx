@@ -166,9 +166,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy]);
 
   const handleCompact = useCallback(async () => {
-    const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current);
+    // Pass the profile object to compactScheduleLogic
+    const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile);
     await compactScheduledTasks({ tasksToUpdate });
-  }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks]);
+  }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile]);
 
   const handleRandomize = useCallback(async () => {
     await randomizeBreaks({ selectedDate: selectedDay, workdayStartTime: workdayStartTimeForSelectedDay, workdayEndTime: workdayEndTimeForSelectedDay, currentDbTasks: dbScheduledTasks });

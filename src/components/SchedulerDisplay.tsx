@@ -5,7 +5,7 @@ import {
   ScheduledItem, FormattedSchedule, DisplayItem, FreeTimeItem, DBScheduledTask, TaskEnvironment 
 } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { formatTime, getEmojiHue } from '@/lib/scheduler-utils';
+import { formatTime, getEmojiHue, formatDurationToHoursMinutes } from '@/lib/scheduler-utils'; // Import formatDurationToHoursMinutes
 import { Button } from '@/components/ui/button';
 import { 
   Trash2, Archive, Lock, Unlock, Clock, Zap, 
@@ -33,7 +33,8 @@ interface SchedulerDisplayProps {
   onFreeTimeClick: (startTime: Date, endTime: Date) => void;
 }
 
-const MINUTE_HEIGHT = 2.0; // Slightly more compact
+const MINUTE_HEIGHT = 2.0; 
+const FREE_TIME_MINUTE_HEIGHT = 0.5; // NEW: Reduced height for free time blocks
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3 w-3 opacity-70";
@@ -138,14 +139,14 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
             return (
               <div 
                 key={gap.id}
-                className="group relative flex gap-2 mb-3 cursor-crosshair"
-                style={{ height: `${gap.duration * MINUTE_HEIGHT}px` }}
+                className="group relative flex gap-2 mb-3 cursor-pointer" // Changed cursor-crosshair to cursor-pointer
+                style={{ height: `${gap.duration * FREE_TIME_MINUTE_HEIGHT}px` }} // Use FREE_TIME_MINUTE_HEIGHT
                 onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
               >
                 <div className="w-8 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
-                <div className="flex-1 flex items-center justify-center border-dashed border-transparent rounded-lg hover:bg-white/[0.02] transition-colors"> {/* Removed border-white/5 */}
-                  <span className="opacity-0 group-hover:opacity-100 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 transition-opacity">
-                    +{gap.duration}m
+                <div className="flex-1 flex items-center justify-center border-dashed border-transparent rounded-lg hover:bg-secondary/20 transition-colors"> {/* Removed border-white/5, adjusted hover bg */}
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/40 transition-opacity"> {/* Removed opacity-0 group-hover:opacity-100 */}
+                    +{formatDurationToHoursMinutes(gap.duration)} {/* Use new formatter */}
                   </span>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
+import { UserProfile } from '@/hooks/use-session'; // Import UserProfile
 
 // --- Constants ---
 export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break', 'reflection'];
@@ -144,20 +145,20 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'gigs': 200,
   'charge': 210,
   'vacuum': 210,
-  'put away': 140,
-  'sheets': 140,
-  'pants': 140,
-  'medication': 300,
-  'toothbrush': 300,
-  'return message': 245,
-  'voice deal': 270,
-  'find location': 140,
-  'broom': 120,
-  'practise': 270,
-  'track': 270,
-  'catch up': 290,
-  'trim': 330,
-  'cuticle': 330,
+  'put away': 220, // Corrected from 📦
+  'sheets': 220, // Corrected from 📦
+  'pants': 220, // Corrected from 📦
+  'medication': 300, // Corrected from 💊
+  'toothbrush': 300, // Corrected from 💊
+  'return message': 245, // Corrected from 💬
+  'voice deal': 200, // Corrected from 🎤
+  'find location': 210, // Corrected from 🗺️
+  'broom': 120, // Corrected from 🧹
+  'practise': 270, // Corrected from 🎹
+  'track': 270, // Corrected from 🎼
+  'catch up': 290, // Corrected from 🤝
+  'trim': 300, // Corrected from 💅
+  'cuticle': 300, // Corrected from 💅
   'payment': 60,
   'link': 60,
   'send': 270,
@@ -177,6 +178,23 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
 export const formatTime = (date: Date): string => format(date, 'h:mm a');
 export const formatDayMonth = (date: Date): string => format(date, 'MMM d');
 export const formatDateTime = (date: Date): string => format(date, 'MMM d, h:mm a');
+
+/**
+ * Formats a duration in minutes into a human-readable string like '1h 30m' or '45m'.
+ */
+export const formatDurationToHoursMinutes = (totalMinutes: number): string => {
+  if (totalMinutes <= 0) return '0m';
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  
+  if (hours > 0 && minutes > 0) {
+    return `${hours}h ${minutes}m`;
+  } else if (hours > 0) {
+    return `${hours}h`;
+  } else {
+    return `${minutes}m`;
+  }
+};
 
 export const setTimeOnDate = (date: Date, timeString: string): Date => {
   const [hours, minutes] = timeString.split(':').map(Number);
@@ -624,7 +642,8 @@ export const compactScheduleLogic = (
   selectedDayDate: Date,
   workdayStartTime: Date,
   workdayEndTime: Date,
-  T_current: Date
+  T_current: Date,
+  profile: UserProfile | null // NEW: Accept profile to get static anchors
 ): DBScheduledTask[] => {
   // 1. Separate tasks: Fixed/Locked/Completed stay put. Flexible/Incomplete move.
   const fixedTasks = currentDbTasks.filter(
@@ -638,14 +657,70 @@ export const compactScheduleLogic = (
       return new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime();
     });
 
-  // 2. Determine the starting point for compaction
+  // 2. Generate static constraints (meals, reflections)
+  const staticConstraints: TimeBlock[] = [];
+  const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
+    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+
+    if (profile && timeStr && effectiveDuration > 0) {
+      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
+      let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+
+      if (isBefore(anchorEnd, anchorStart)) {
+        anchorEnd = addDays(anchorEnd, 1);
+      }
+
+      // Check if the anchor overlaps with the workday window
+      const overlaps = (isBefore(anchorEnd, workdayEndTime) || isEqual(anchorEnd, workdayEndTime)) && 
+                       (isAfter(anchorStart, workdayStartTime) || isEqual(anchorStart, workdayStartTime));
+      
+      if (overlaps) {
+        const intersectionStart = max([anchorStart, workdayStartTime]);
+        const intersectionEnd = min([anchorEnd, workdayEndTime]);
+        const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+        if (finalDuration > 0) { 
+          staticConstraints.push({
+            start: intersectionStart,
+            end: intersectionEnd,
+            duration: finalDuration,
+          });
+        }
+      }
+    }
+  };
+
+  if (profile) {
+    addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+    addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+    addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
+    for (let r = 0; r < (profile.reflection_count || 0); r++) {
+        const rTime = profile.reflection_times?.[r];
+        const rDur = profile.reflection_durations?.[r];
+        if (rTime && rDur) addStaticConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
+    }
+  }
+
+  // 3. Combine all fixed blocks (existing fixed tasks + static anchors)
+  const allFixedAndStaticBlocks: TimeBlock[] = mergeOverlappingTimeBlocks([
+    ...fixedTasks.filter(t => t.start_time && t.end_time).map(t => {
+      const start = parseISO(t.start_time!);
+      let end = parseISO(t.end_time!);
+      if (isBefore(end, start)) end = addDays(end, 1);
+      return { start, end, duration: differenceInMinutes(end, start) };
+    }),
+    ...staticConstraints
+  ]);
+
+  // 4. Determine the starting point for compaction
   // If viewing today, start from Now. If viewing future, start from Workday Start.
   const isToday = isSameDay(selectedDayDate, new Date());
   let insertionCursor = isToday ? max([workdayStartTime, T_current]) : workdayStartTime;
 
-  const updatedTasks: DBScheduledTask[] = [...fixedTasks];
+  const updatedTasks: DBScheduledTask[] = [...fixedTasks]; // Start with fixed tasks
 
-  // 3. Re-place flexible tasks chronologically
+  // 5. Re-place flexible tasks chronologically
   flexibleTasks.forEach((task) => {
     const duration = differenceInMinutes(
       parseISO(task.end_time!),
@@ -659,17 +734,15 @@ export const compactScheduleLogic = (
     while (!placed && isBefore(currentCursor, workdayEndTime)) {
       const proposedEnd = addMinutes(currentCursor, totalDuration);
 
-      // Check for collisions with fixed/locked tasks
-      const collidingTask = fixedTasks.find(fixed => {
-        const fStart = parseISO(fixed.start_time!);
-        const fEnd = parseISO(fixed.end_time!);
-        // Collision occurs if the proposed slot overlaps with the fixed task
+      // Check for collisions with all fixed and static blocks
+      const collidingBlock = allFixedAndStaticBlocks.find(block => {
+        // Collision occurs if the proposed slot overlaps with the fixed block
         return (
-          (isAfter(proposedEnd, fStart) && isBefore(currentCursor, fEnd))
+          (isAfter(proposedEnd, block.start) && isBefore(currentCursor, block.end))
         );
       });
 
-      if (!collidingTask) {
+      if (!collidingBlock) {
         // No collision, place the task
         updatedTasks.push({
           ...task,
@@ -679,9 +752,9 @@ export const compactScheduleLogic = (
         insertionCursor = proposedEnd; // Move cursor to end of this task
         placed = true;
       } else {
-        // Find the end of the colliding fixed task and move cursor there
-        const collidingTaskEnd = parseISO(collidingTask.end_time!);
-        currentCursor = collidingTaskEnd;
+        // Find the end of the colliding fixed block and move cursor there
+        const collidingBlockEnd = collidingBlock.end;
+        currentCursor = collidingBlockEnd;
         
         // Ensure the main insertion cursor is also updated if the collision pushes it further
         if (isAfter(currentCursor, insertionCursor)) {

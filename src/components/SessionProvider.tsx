@@ -65,7 +65,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           dinner_time, breakfast_duration_minutes, lunch_duration_minutes, 
           dinner_duration_minutes, custom_environment_order, reflection_count, 
           reflection_times, reflection_durations, enable_environment_chunking, 
-          enable_macro_spread
+          enable_macro_spread, week_starts_on
         `)
         .eq('id', userId)
         .single();

@@ -39,6 +39,7 @@ export interface UserProfile {
   reflection_count: number;
   reflection_times: string[];
   reflection_durations: number[];
+  week_starts_on: number; // NEW: 0 for Sunday, 1 for Monday
 }
 
 interface SessionContextType {

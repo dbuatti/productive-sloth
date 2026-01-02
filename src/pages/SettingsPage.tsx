@@ -33,7 +33,7 @@ import {
   LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, 
   ExternalLink, Loader2, Keyboard, Database, TrendingUp, 
   BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor,
-  Layers, Split, ListTodo
+  Layers, Split, ListTodo, CalendarDays
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
@@ -63,6 +63,7 @@ const profileSchema = z.object({
   reflection_count: z.coerce.number().min(1).max(5),
   enable_environment_chunking: z.boolean(),
   enable_macro_spread: z.boolean(),
+  week_starts_on: z.coerce.number().min(0).max(6), // NEW: Week starts on (0 for Sunday, 1 for Monday, etc.)
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -97,6 +98,7 @@ const SettingsPage: React.FC = () => {
       reflection_count: 1,
       enable_environment_chunking: true,
       enable_macro_spread: false,
+      week_starts_on: 0, // Default to Sunday
     },
     mode: 'onChange',
   });
@@ -118,6 +120,7 @@ const SettingsPage: React.FC = () => {
         reflection_count: profile.reflection_count || 1,
         enable_environment_chunking: profile.enable_environment_chunking ?? true,
         enable_macro_spread: profile.enable_macro_spread ?? false,
+        week_starts_on: profile.week_starts_on ?? 0, // NEW: Set initial value
       });
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
@@ -164,6 +167,7 @@ const SettingsPage: React.FC = () => {
         reflection_durations: finalDurations,
         enable_environment_chunking: values.enable_environment_chunking,
         enable_macro_spread: values.enable_macro_spread,
+        week_starts_on: values.week_starts_on, // NEW: Save week_starts_on
       });
       showSuccess("Profile updated!");
     } catch (error: any) {
@@ -299,6 +303,44 @@ const SettingsPage: React.FC = () => {
                   </FormItem>
                 )} />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* NEW: Week Start Day Setting */}
+          <Card className="border-primary/20 bg-primary/[0.01]">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CalendarDays className="h-5 w-5 text-primary" /> Calendar Preferences</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="week_starts_on"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base font-semibold">Week Starts On</FormLabel>
+                      <FormDescription className="text-xs">
+                        Choose which day your weekly schedule view begins.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value, 10))} value={field.value.toString()}>
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="Select day" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Sunday</SelectItem>
+                          <SelectItem value="1">Monday</SelectItem>
+                          <SelectItem value="2">Tuesday</SelectItem>
+                          <SelectItem value="3">Wednesday</SelectItem>
+                          <SelectItem value="4">Thursday</SelectItem>
+                          <SelectItem value="5">Friday</SelectItem>
+                          <SelectItem value="6">Saturday</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end"><Button type="submit" disabled={isSubmitting || !isValid}>Save Calendar Settings</Button></div>
             </CardContent>
           </Card>
 

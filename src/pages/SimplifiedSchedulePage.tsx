@@ -5,21 +5,42 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
 import WeeklyScheduleGrid from '@/components/WeeklyScheduleGrid';
-import { format, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { format, startOfWeek, isSameDay, parseISO, subDays, addDays, startOfDay, Day } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const SimplifiedSchedulePage: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, isLoading: isSessionLoading, T_current } = useSession();
   
-  // State for the start of the currently displayed week (always a Sunday)
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => 
-    startOfWeek(new Date(), { weekStartsOn: 0 }) // Default to current week, starting Sunday
-  );
+  // Use profile.week_starts_on for startOfWeek option, default to 0 (Sunday)
+  const weekStartsOn = (profile?.week_starts_on ?? 0) as Day;
 
-  const { weeklyTasks, isLoading: isWeeklyTasksLoading } = useWeeklySchedulerTasks(currentWeekStart);
+  // State for the start of the currently displayed week/period
+  const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(() => 
+    startOfWeek(new Date(), { weekStartsOn }) // Default to current week, starting based on user preference
+  );
+  const [numDaysVisible, setNumDaysVisible] = useState<number>(7); // Default to 7 days
+
+  const { weeklyTasks, isLoading: isWeeklyTasksLoading } = useWeeklySchedulerTasks(currentPeriodStart);
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
+
+  // Adjust currentPeriodStart when numDaysVisible changes to keep "today" in view
+  useEffect(() => {
+    const today = new Date();
+    let newStart: Date;
+    if (numDaysVisible === 1) {
+      newStart = startOfDay(today);
+    } else if (numDaysVisible === 3) {
+      newStart = startOfDay(today); // Starts today, shows 2 days ahead
+    } else if (numDaysVisible === 5) {
+      newStart = subDays(startOfDay(today), 2); // Shows 2 days before, today, 2 days after
+    } else { // 7, 14, 21 days
+      newStart = startOfWeek(today, { weekStartsOn });
+    }
+    setCurrentPeriodStart(newStart);
+  }, [numDaysVisible, weekStartsOn]);
+
 
   if (isLoading) {
     return (
@@ -65,12 +86,15 @@ const SimplifiedSchedulePage: React.FC = () => {
       <div className="flex-1 overflow-auto">
         <WeeklyScheduleGrid
           weeklyTasks={weeklyTasks}
-          currentWeekStart={currentWeekStart}
-          setCurrentWeekStart={setCurrentWeekStart}
+          currentPeriodStart={currentPeriodStart} // Renamed prop
+          setCurrentPeriodStart={setCurrentPeriodStart} // Renamed prop
+          numDaysVisible={numDaysVisible} // Pass numDaysVisible
+          setNumDaysVisible={setNumDaysVisible} // Pass setter
           workdayStartTime={workdayStartTime}
           workdayEndTime={workdayEndTime}
           isLoading={isWeeklyTasksLoading}
           T_current={T_current}
+          weekStartsOn={weekStartsOn} // Pass weekStartsOn
         />
       </div>
     </div>

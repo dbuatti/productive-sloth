@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask } from '@/types/scheduler';
-import { useSession } from './use-session';
-import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max } from 'date-fns'; 
+import { useSession } from './use-session'; // FIX: Added missing import
+import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max, Day } from 'date-fns'; 
 import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils'; 
 
 interface WeeklyTasks {
@@ -13,14 +13,16 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
   const { user, profile } = useSession(); 
   const userId = user?.id;
 
-  const formattedWeekStart = format(startOfWeek(weekStart, { weekStartsOn: 0 }), 'yyyy-MM-dd'); 
+  // Use profile.week_starts_on for startOfWeek option, default to 0 (Sunday)
+  const weekStartsOn = (profile?.week_starts_on ?? 0) as Day;
+  const formattedWeekStart = format(startOfWeek(weekStart, { weekStartsOn }), 'yyyy-MM-dd'); 
 
-  const queryKey = ['weeklyScheduledTasks', userId, formattedWeekStart, profile?.breakfast_time, profile?.lunch_time, profile?.dinner_time, profile?.breakfast_duration_minutes, profile?.lunch_duration_minutes, profile?.dinner_duration_minutes, profile?.reflection_count, profile?.reflection_times, profile?.reflection_durations]; 
+  const queryKey = ['weeklyScheduledTasks', userId, formattedWeekStart, profile?.breakfast_time, profile?.lunch_time, profile?.dinner_time, profile?.breakfast_duration_minutes, profile?.lunch_duration_minutes, profile?.dinner_duration_minutes, profile?.reflection_count, profile?.reflection_times, profile?.reflection_durations, weekStartsOn]; 
 
   const fetchWeeklyTasks = async (): Promise<WeeklyTasks> => {
     if (!userId || !profile) return {};
 
-    const weekEnd = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), 6); 
+    const weekEnd = addDays(startOfWeek(weekStart, { weekStartsOn }), 6); 
 
     // Fetch meal assignments for the week
     const { data: assignmentsData } = await supabase
@@ -44,7 +46,7 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
 
     const tasksByDay: WeeklyTasks = {};
     for (let i = 0; i < 7; i++) {
-      const day = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), i);
+      const day = addDays(startOfWeek(weekStart, { weekStartsOn }), i);
       tasksByDay[format(day, 'yyyy-MM-dd')] = [];
     }
 
@@ -64,7 +66,7 @@ export const useWeeklySchedulerTasks = (weekStart: Date) => {
     });
 
     for (let i = 0; i < 7; i++) {
-      const dayDate = addDays(startOfWeek(weekStart, { weekStartsOn: 0 }), i);
+      const dayDate = addDays(startOfWeek(weekStart, { weekStartsOn }), i);
       const dateKey = format(dayDate, 'yyyy-MM-dd');
 
       const workdayStart = setTimeOnDate(dayDate, profile.default_auto_schedule_start_time || '00:00');

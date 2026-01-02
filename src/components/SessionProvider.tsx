@@ -16,7 +16,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
-import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Corrected import path
 import { MealAssignment } from '@/hooks/use-meals'; // Import MealAssignment type
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
@@ -66,7 +66,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           dinner_duration_minutes, custom_environment_order, reflection_count, 
           reflection_times, reflection_durations, enable_environment_chunking, 
           enable_macro_spread, week_starts_on, num_days_visible, vertical_zoom_index,
-          is_dashboard_collapsed
+          is_dashboard_collapsed, is_action_center_collapsed
         `)
         .eq('id', userId)
         .single();

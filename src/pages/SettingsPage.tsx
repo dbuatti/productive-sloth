@@ -33,7 +33,7 @@ import {
   LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, 
   ExternalLink, Loader2, Keyboard, Database, TrendingUp, 
   BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor,
-  Layers, Split, ListTodo, CalendarDays
+  Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu // Added Cpu icon
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
@@ -77,6 +77,8 @@ const SettingsPage: React.FC = () => {
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
   const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
   const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
+  const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(profile?.is_dashboard_collapsed ?? false); // NEW: Dashboard collapsed state
+  const [isActionCenterCollapsed, setIsActionCenterCollapsed] = useState(profile?.is_action_center_collapsed ?? false); // NEW: Action Center collapsed state
   
   const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
@@ -126,6 +128,8 @@ const SettingsPage: React.FC = () => {
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
       setEnableDeleteHotkeys(profile.enable_delete_hotkeys);
       setEnableAetherSinkBackup(profile.enable_aethersink_backup);
+      setIsDashboardCollapsed(profile.is_dashboard_collapsed); // NEW: Set dashboard collapsed state
+      setIsActionCenterCollapsed(profile.is_action_center_collapsed); // NEW: Set action center collapsed state
       setReflectionTimes(profile.reflection_times || ['12:00']);
       setReflectionDurations(profile.reflection_durations || [15]);
     }
@@ -178,7 +182,13 @@ const SettingsPage: React.FC = () => {
   const handleToggle = async (key: keyof UserProfile, value: boolean) => {
     try {
       await updateProfile({ [key]: value });
-      form.setValue(key as any, value);
+      // Update local state for immediate UI feedback
+      if (key === 'enable_daily_challenge_notifications') setDailyChallengeNotifications(value);
+      if (key === 'enable_low_energy_notifications') setLowEnergyNotifications(value);
+      if (key === 'enable_delete_hotkeys') setEnableDeleteHotkeys(value);
+      if (key === 'enable_aethersink_backup') setEnableAetherSinkBackup(value);
+      if (key === 'is_dashboard_collapsed') setIsDashboardCollapsed(value); // NEW: Update local state
+      if (key === 'is_action_center_collapsed') setIsActionCenterCollapsed(value); // NEW: Update local state
     } catch (error) {
         showError("Failed to save preference.");
     }
@@ -306,9 +316,9 @@ const SettingsPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* NEW: Week Start Day Setting */}
+          {/* NEW: Calendar Preferences & View Settings */}
           <Card className="border-primary/20 bg-primary/[0.01]">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CalendarDays className="h-5 w-5 text-primary" /> Calendar Preferences</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CalendarDays className="h-5 w-5 text-primary" /> Calendar & View Preferences</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <FormField
                 control={form.control}
@@ -340,6 +350,36 @@ const SettingsPage: React.FC = () => {
                   </FormItem>
                 )}
               />
+              {/* NEW: Dashboard Collapsed State */}
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" /><FormLabel className="text-base font-semibold">Dashboard Collapsed by Default</FormLabel></div>
+                  <FormDescription className="text-xs">
+                    Start with the main dashboard panel collapsed.
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={isDashboardCollapsed}
+                    onCheckedChange={(checked) => handleToggle('is_dashboard_collapsed', checked)}
+                  />
+                </FormControl>
+              </FormItem>
+              {/* NEW: Action Center Collapsed State */}
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2"><Cpu className="h-4 w-4 text-primary" /><FormLabel className="text-base font-semibold">Action Center Collapsed by Default</FormLabel></div>
+                  <FormDescription className="text-xs">
+                    Start with the scheduler action center collapsed.
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={isActionCenterCollapsed}
+                    onCheckedChange={(checked) => handleToggle('is_action_center_collapsed', checked)}
+                  />
+                </FormControl>
+              </FormItem>
               <div className="flex justify-end"><Button type="submit" disabled={isSubmitting || !isValid}>Save Calendar Settings</Button></div>
             </CardContent>
           </Card>

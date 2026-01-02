@@ -11,12 +11,13 @@ import {
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, ListTodo, BatteryCharging, Target, Cpu, Coffee, 
-  Archive, Repeat, Layers, CalendarDays 
+  Archive, Repeat, Layers, CalendarDays, ChevronUp, ChevronDown 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock';
 import { DBScheduledTask, SortBy } from '@/types/scheduler';
+import { useSession } from '@/hooks/use-session'; // NEW: Import useSession
 
 interface SchedulerActionCenterProps {
   isProcessingCommand: boolean;
@@ -63,6 +64,15 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   onStartRegenPod,
   navigate,
 }) => {
+  const { profile, updateProfile } = useSession(); // NEW: Get profile and updateProfile
+  const isCollapsed = profile?.is_action_center_collapsed ?? false; // NEW: Read from profile
+
+  const handleToggleCollapse = async () => {
+    if (profile) {
+      await updateProfile({ is_action_center_collapsed: !isCollapsed }); // NEW: Persist to profile
+    }
+  };
+
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
   const hasUnlockedFlexibleTasks = dbScheduledTasks.some(task => task.is_flexible && !task.is_locked);
 
@@ -97,107 +107,148 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
 
   return (
     <Card glass className="animate-pop-in border-white/10 shadow-xl relative z-10">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+        <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+          <Cpu className="h-6 w-6 text-primary" /> Action Center
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          {/* Collapse Metrics Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleToggleCollapse} 
+                className="h-8 w-8 text-muted-foreground hover:bg-secondary/50"
+              >
+                {isCollapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+                <span className="sr-only">{isCollapsed ? "Expand Actions" : "Collapse Actions"}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isCollapsed ? "Expand Actions" : "Collapse Actions"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </CardHeader>
+
       <CardContent className="p-3 space-y-4">
-        
-        <div className="space-y-3">
-           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/50 ml-1 block">Engine</span>
-           <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                onClick={onRebalanceToday}
-                disabled={isProcessingCommand || retiredTasksCount === 0}
-                variant="aether"
-                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-md"
-              >
-                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
-                Smart Fill
-              </Button>
-              <Button
-                onClick={onReshuffleEverything}
-                disabled={isProcessingCommand}
-                variant="outline"
-                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10 shadow-sm"
-              >
-                {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
-                Reshuffle
-              </Button>
-           </div>
-           <div className="grid grid-cols-3 gap-2">
-              {DURATION_BUCKETS.map(duration => (
-                <QuickScheduleBlock
-                  key={duration}
-                  duration={duration}
-                  onScheduleBlock={onQuickScheduleBlock}
-                  isProcessingCommand={isProcessingCommand}
-                />
-              ))}
-           </div>
-        </div>
+        {isCollapsed ? (
+          // Only show Smart Fill when collapsed
+          <div className="space-y-3">
+            <Button
+              onClick={onRebalanceToday}
+              disabled={isProcessingCommand || retiredTasksCount === 0}
+              variant="aether"
+              className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-md"
+            >
+              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
+              Smart Fill
+            </Button>
+          </div>
+        ) : (
+          // Show full content when expanded
+          <>
+            <div className="space-y-3">
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/50 ml-1 block">Engine</span>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={onRebalanceToday}
+                  disabled={isProcessingCommand || retiredTasksCount === 0}
+                  variant="aether"
+                  className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-md"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
+                  Smart Fill
+                </Button>
+                <Button
+                  onClick={onReshuffleEverything}
+                  disabled={isProcessingCommand}
+                  variant="outline"
+                  className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10 shadow-sm"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+                  Reshuffle
+                </Button>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {DURATION_BUCKETS.map(duration => (
+                  <QuickScheduleBlock
+                    key={duration}
+                    duration={duration}
+                    onScheduleBlock={onQuickScheduleBlock}
+                    isProcessingCommand={isProcessingCommand}
+                  />
+                ))}
+              </div>
+            </div>
 
-        <div className="space-y-3">
-           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1 block">Quick Actions</span>
-           <div className="grid grid-cols-2 gap-2">
-              <ActionButton icon={ChevronsUp} label="Compact" colorClass="text-primary" tooltip="Snap tasks to eliminate gaps" onClick={onCompactSchedule} disabled={!hasUnlockedFlexibleTasks} />
-              <ActionButton icon={Shuffle} label="Shuffle" colorClass="text-logo-orange" tooltip="Randomize breaks" onClick={onRandomizeBreaks} disabled={!hasUnlockedBreaks} />
-              <ActionButton icon={Target} label="Focus" colorClass="text-accent" tooltip="Pull from Sink" onClick={onZoneFocus} disabled={retiredTasksCount === 0} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-sm">
-                    <ArrowDownWideNarrow className="h-4 w-4" />
-                    Sort
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="glass-card min-w-56 border-white/10 bg-background/95 backdrop-blur-xl">
-                  <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Sort Parameters</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/5" />
-                  {sortOptions.map(opt => (
-                    <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 flex items-center font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20">
-                      <opt.icon className="h-4 w-4 text-primary/70" /> {opt.label}
+            <div className="space-y-3">
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1 block">Quick Actions</span>
+              <div className="grid grid-cols-2 gap-2">
+                <ActionButton icon={ChevronsUp} label="Compact" colorClass="text-primary" tooltip="Snap tasks to eliminate gaps" onClick={onCompactSchedule} disabled={!hasUnlockedFlexibleTasks} />
+                <ActionButton icon={Shuffle} label="Shuffle" colorClass="text-logo-orange" tooltip="Randomize breaks" onClick={onRandomizeBreaks} disabled={!hasUnlockedBreaks} />
+                <ActionButton icon={Target} label="Focus" colorClass="text-accent" tooltip="Pull from Sink" onClick={onZoneFocus} disabled={retiredTasksCount === 0} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-sm">
+                      <ArrowDownWideNarrow className="h-4 w-4" />
+                      Sort
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="glass-card min-w-56 border-white/10 bg-background/95 backdrop-blur-xl">
+                    <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Sort Parameters</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-white/5" />
+                    {sortOptions.map(opt => (
+                      <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 flex items-center font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20">
+                        <opt.icon className="h-4 w-4 text-primary/70" /> {opt.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <ActionButton icon={Clock} label="Window" colorClass="text-muted-foreground" tooltip="Adjust workday" onClick={onOpenWorkdayWindowDialog} />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1 block">Utilities</span>
+              <div className="grid grid-cols-2 gap-2">
+                <ActionButton icon={Zap} label="Recharge" colorClass="text-logo-green" tooltip="+25 Energy" onClick={onRechargeEnergy} />
+                <ActionButton icon={Coffee} label="Break" colorClass="text-logo-orange" tooltip="15m Rest" onClick={onQuickBreak} />
+                <ActionButton icon={BatteryCharging} label="Regen Pod" colorClass="text-primary" tooltip="Deep Recovery" onClick={onStartRegenPod} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-orange border-logo-orange/20 hover:bg-logo-orange/10 shadow-sm">
+                      <Archive className="h-4 w-4" />
+                      Flush
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="glass-card border-white/10 bg-background/95 backdrop-blur-xl min-w-[240px]">
+                    <DropdownMenuItem onClick={onAetherDump} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-logo-orange/10 cursor-pointer text-logo-orange">
+                      <RefreshCcw className="h-4 w-4" /> Flush Today
                     </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <ActionButton icon={Clock} label="Window" colorClass="text-muted-foreground" tooltip="Adjust workday" onClick={onOpenWorkdayWindowDialog} />
-           </div>
-        </div>
+                    <DropdownMenuSeparator className="bg-white/5" />
+                    <DropdownMenuItem onClick={onAetherDumpMega} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-destructive/10 cursor-pointer text-destructive">
+                      <Globe className="h-4 w-4" /> Global Flush
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <ActionButton icon={Database} label="Sync" colorClass="text-muted-foreground" tooltip="Refresh Data" onClick={onRefreshSchedule} />
+              </div>
+            </div>
 
-        <div className="space-y-3">
-           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1 block">Utilities</span>
-           <div className="grid grid-cols-2 gap-2">
-              <ActionButton icon={Zap} label="Recharge" colorClass="text-logo-green" tooltip="+25 Energy" onClick={onRechargeEnergy} />
-              <ActionButton icon={Coffee} label="Break" colorClass="text-logo-orange" tooltip="15m Rest" onClick={onQuickBreak} />
-              <ActionButton icon={BatteryCharging} label="Regen Pod" colorClass="text-primary" tooltip="Deep Recovery" onClick={onStartRegenPod} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-orange border-logo-orange/20 hover:bg-logo-orange/10 shadow-sm">
-                    <Archive className="h-4 w-4" />
-                    Flush
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="glass-card border-white/10 bg-background/95 backdrop-blur-xl min-w-[240px]">
-                  <DropdownMenuItem onClick={onAetherDump} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-logo-orange/10 cursor-pointer text-logo-orange">
-                    <RefreshCcw className="h-4 w-4" /> Flush Today
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/5" />
-                  <DropdownMenuItem onClick={onAetherDumpMega} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-destructive/10 cursor-pointer text-destructive">
-                    <Globe className="h-4 w-4" /> Global Flush
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <ActionButton icon={Database} label="Sync" colorClass="text-muted-foreground" tooltip="Refresh Data" onClick={onRefreshSchedule} />
-           </div>
-        </div>
-
-        <div className="pt-2 border-t border-white/5">
-           <Button 
-             variant="ghost" 
-             className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full hover:bg-primary/5 shadow-sm"
-             onClick={() => navigate('/simplified-schedule')}
-           >
-             <CalendarDays className="h-4 w-4 text-primary" />
-             Weekly Vibe View
-           </Button>
-        </div>
-
+            <div className="pt-2 border-t border-white/5">
+              <Button 
+                variant="ghost" 
+                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full hover:bg-primary/5 shadow-sm"
+                onClick={() => navigate('/simplified-schedule')}
+              >
+                <CalendarDays className="h-4 w-4 text-primary" />
+                Weekly Vibe View
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

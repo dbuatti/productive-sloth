@@ -62,7 +62,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {!isMobile && !isSimplifiedSchedulePage && (
         <div 
           className={cn(
-            "fixed top-0 left-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-16",
+            "fixed top-0 left-0 right-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-16",
             sidebarWidth
           )}
         >
@@ -75,30 +75,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       )}
 
-      {/* Desktop Header Controls (Visible on large screens, hidden on simplified schedule page) */}
-      {!isMobile && !isSimplifiedSchedulePage && <DesktopHeaderControls />}
+      {/* Desktop Header Controls (Visible on large screens) */}
+      {!isMobile && <DesktopHeaderControls />}
       
       {/* Main Content Area (Header + Progress Bar + Page Content) */}
       <div className={cn("flex flex-col flex-1 min-w-0 w-full", !isSimplifiedSchedulePage && contentPaddingLeft)}>
         
-        {/* Header (Only visible on mobile, hidden on simplified schedule page) */}
-        {isMobile && !isSimplifiedSchedulePage && <AppHeader onMenuToggle={() => {}} />} {/* onMenuToggle is now a placeholder */}
+        {/* Header (Only visible on mobile) */}
+        {isMobile && <AppHeader onMenuToggle={() => {}} />}
         
-        {/* Progress Bar Header (Sticks below the header, hidden on simplified schedule page) */}
-        {!isSimplifiedSchedulePage && <ProgressBarHeader />}
+        {/* Progress Bar Header (Sticks below the header) */}
+        <ProgressBarHeader />
         
         {/* Page Content */}
         {mainContent}
         
-        {/* Desktop Focus Anchor (Hidden on mobile and simplified schedule page) */}
-        {shouldShowFocusAnchor && !isSimplifiedSchedulePage && <FocusAnchor />}
+        {/* Desktop Focus Anchor (Hidden on mobile) */}
+        {shouldShowFocusAnchor && <FocusAnchor />}
       </div>
       
-      {/* Mobile Status Indicator (Above Bottom Nav, hidden on simplified schedule page) */}
-      {isMobile && activeItemToday && !isSimplifiedSchedulePage && <MobileStatusIndicator />}
+      {/* Mobile Status Indicator (Above Bottom Nav) */}
+      {isMobile && activeItemToday && <MobileStatusIndicator />}
       
-      {/* Bottom Navigation Bar for Mobile (Hidden on simplified schedule page) */}
-      {isMobile && !isSimplifiedSchedulePage && <BottomNavigationBar />}
+      {/* Bottom Navigation Bar for Mobile */}
+      {isMobile && <BottomNavigationBar />}
     </div>
   );
 };

@@ -5,7 +5,7 @@ import {
   Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, 
   Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, 
   SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, 
-  Globe, Music, LayoutDashboard, List, AlertCircle, Info
+  Globe, Music, LayoutDashboard, List
 } from 'lucide-react';
 import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useSession, UserProfile } from '@/hooks/use-session';
+import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import InfoChip from './InfoChip';
 import RetiredTaskDetailDialog from './RetiredTaskDetailDialog';
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
 import SinkKanbanBoard from './SinkKanbanBoard';
+import { UserProfile } from '@/hooks/use-session'; // Import UserProfile type
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -45,27 +46,6 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
         </div>
       );
     default: return null;
-  }
-};
-
-// Define GROUPING_CONFIG locally for use in handleQuickAddTask
-const GROUPING_CONFIG = {
-  environment: {
-    getLabel: (value: string) => {
-      const labels: Record<string, string> = {
-        home: '🏠 At Home', laptop: '💻 Laptop/Desk', away: '🗺️ Away/Errands', 
-        piano: '🎹 Piano', laptop_piano: '💻 + 🎹 Production'
-      };
-      return labels[value] || value;
-    },
-  },
-  priority: {
-    getLabel: (value: string) => {
-      const labels: Record<string, string> = {
-        critical: '🔥 Critical', standard: '⚪ Standard', backburner: '🔵 Backburner'
-      };
-      return labels[value] || value;
-    },
   }
 };
 
@@ -92,7 +72,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails 
   } = useSchedulerTasks('');
 
+  // --- NEW: View Management ---
   const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
+  // ----------------------------
+
   const [sinkInputValue, setSinkInputValue] = useState('');
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -133,6 +116,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     await triggerAetherSinkBackup();
   };
 
+  // --- Unified Update Handler for Kanban ---
   const handleUpdateRetiredTask = useCallback(async (updates: Partial<RetiredTask> & { id: string }) => {
     try {
       await updateRetiredTaskDetails(updates);
@@ -141,28 +125,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
       showError("Failed to update task.");
     }
   }, [updateRetiredTaskDetails]);
-
-  // --- NEW: Quick Add Handler for Kanban ---
-  const handleQuickAddTask = useCallback((groupKey: string) => {
-    let prefix = '';
-    
-    if (groupBy === 'priority') {
-      if (groupKey === 'critical') {
-        prefix = '! ';
-      } else if (groupKey === 'backburner') {
-        prefix = '- ';
-      }
-      // For 'standard', no prefix needed
-    } else if (groupBy === 'environment') {
-      // For environment, we use the key as a hint in brackets
-      const envKey = groupKey as TaskEnvironment;
-      prefix = `[${envKey}] `;
-    }
-
-    setSinkInputValue(`${prefix}New Task 30`);
-    showError("Fill in the task name and press Enter to inject.");
-  }, [groupBy]);
-  // -----------------------------------------
+  // ---------------------------------------------
 
   const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
     <DropdownMenuItem 
@@ -206,7 +169,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   return (
     <>
-      <Card glass className="border-dashed border-muted-foreground/20 shadow-xl w-full">
+      <Card glass className="border-dashed border-muted-foreground/20 shadow-xl w-full"> {/* Ensure Card is w-full */}
         <CardHeader className={cn("pb-4 flex flex-row items-center justify-between px-6 pt-8")}>
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-secondary/50">
@@ -316,7 +279,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             </Button>
           </form>
 
-          {/* Loading State / Empty State */}
+          {/* Loading State */}
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
@@ -370,7 +333,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                           <div className="flex items-center gap-2 mb-1">
                             {task.is_critical && <Star className="h-3.5 w-3.5 fill-logo-yellow text-logo-yellow shrink-0" />}
                             {isBackburner && <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-muted-foreground/20 text-muted-foreground/60">Orbit</Badge>}
-                            <span className="text-xl shrink-0 group-hover:scale-125 transition-transform duration-500">{assignEmoji(task.name)}</span>
+                            <span className="text-xl shrink-0 group-hover:scale-125 transition-transform duration-500">{emoji}</span>
                             <span className={cn("font-black uppercase tracking-tighter truncate text-sm sm:text-base", isCompleted && "line-through")}>
                               {task.name}
                             </span>
@@ -444,7 +407,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 onRemoveRetiredTask={onRemoveRetiredTask}
                 onRezoneTask={onRezoneTask}
                 updateRetiredTask={handleUpdateRetiredTask}
-                onQuickAddTask={handleQuickAddTask}
               />
             )
           )}

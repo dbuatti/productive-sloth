@@ -4,10 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
 import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy, CompletedTaskLogEntry, TaskEnvironment } from '@/types/scheduler';
 import { useSession } from './use-session';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast'; // Import existing toast utils
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min, isEqual } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, LOW_ENERGY_THRESHOLD } from '@/lib/constants';
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, findFirstAvailableSlot, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
+
+// Helper to log to both console and toast for visibility
+const engineLog = (message: string, type: 'info' | 'warn' | 'error' = 'info') => {
+  console.log(`[SchedulerEngine] ${message}`);
+  if (type === 'error') showError(message);
+  // We only toast info/warn if it's a significant event to avoid spamming, 
+  // but for debugging we can toast everything temporarily.
+  // For now, let's toast specific critical steps.
+};
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
@@ -518,6 +527,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       return showError("Profile context missing.");
     }
 
+    showSuccess("Engine: Starting...");
     console.log(`[SchedulerEngine] Initiating auto-schedule. Mode: ${taskSource}, Sort: ${sortPreference}`);
 
     const [year, month, day] = targetDateString.split('-').map(Number);
@@ -535,6 +545,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDayAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
+      showSuccess(`Window: ${format(targetWorkdayStart, 'HH:mm')} to ${format(targetWorkdayEnd, 'HH:mm')}`);
       console.log(`[SchedulerEngine] Target Window: ${format(targetWorkdayStart, 'HH:mm')} to ${format(targetWorkdayEnd, 'HH:mm')}`);
 
       const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
@@ -601,6 +612,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       // CRITICAL FIX: Merge all fixed blocks (scheduled + static constraints) before starting placement
       let currentOccupied: TimeBlock[] = mergeOverlappingTimeBlocks([...scheduledFixedBlocks, ...staticConstraints]);
       
+      showSuccess(`Fixed Constraints: ${currentOccupied.length} blocks`);
       console.log(`[SchedulerEngine] Total Fixed Constraints (Scheduled + Static): ${currentOccupied.length} blocks`);
       currentOccupied.forEach(block => {
         console.log(`[SchedulerEngine] Fixed Block: ${format(block.start, 'HH:mm')} - ${format(block.end, 'HH:mm')} (${block.duration}m)`);
@@ -615,6 +627,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       }, 0);
       
       const netAvailableTime = totalWorkdayMinutes - occupiedInWindow;
+      showSuccess(`Available Time: ${netAvailableTime} minutes`);
       console.log(`[SchedulerEngine] Available time in window: ${netAvailableTime} minutes`);
 
       // 2. Identify Pool of Tasks to Place
@@ -648,6 +661,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       unlockedRetired.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment }));
 
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
+      showSuccess(`Pool to Place: ${tasksToConsider.length} items`);
       console.log(`[SchedulerEngine] Unlocked Unified Pool: ${unifiedPool.length} items. Filtering for ${environmentsToFilterBy.length || 'all'} environments -> ${tasksToConsider.length} items.`);
       
       // 3. Sort the Pool
@@ -728,6 +742,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
       }
       
+      showSuccess(`Processing ${finalSortedPool.length} items...`);
       console.log(`[SchedulerEngine] Processing placement for ${finalSortedPool.length} sorted items...`);
       let placementCursor = effectiveStart;
       for (const t of finalSortedPool) {
@@ -790,6 +805,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           });
       }
 
+      showSuccess(`Cycle Complete. Payload: ${tasksToInsert.length} inserts.`);
       console.log(`[SchedulerEngine] Cycle Complete. Payload: ${tasksToInsert.length} inserts/updates, ${scheduledIdsToDelete.length} scheduled deletions, ${retiredIdsToDelete.length} retired deletions, ${tasksToKeepInSink.length} sink returns.`);
       const payload: AutoBalancePayload = { scheduledTaskIdsToDelete: Array.from(new Set(scheduledIdsToDelete)), retiredTaskIdsToDelete: Array.from(new Set(retiredIdsToDelete)), tasksToInsert, tasksToKeepInSink, selectedDate: targetDateString };
       await autoBalanceScheduleMutation.mutateAsync(payload);

@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours, addDays, differenceInMinutes } from 'date-fns';
+import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours, addDays, differenceInMinutes, max, min, isAfter } from 'date-fns'; // Added isAfter
 import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
+import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment, TimeBlock } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -14,6 +14,7 @@ import {
   compactScheduleLogic,
   mergeOverlappingTimeBlocks,
   getFreeTimeBlocks,
+  findFirstAvailableSlot, // Added findFirstAvailableSlot
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -100,6 +101,45 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   let workdayEndTimeForSelectedDay = useMemo(() => profile?.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17), [profile?.default_auto_schedule_end_time, selectedDayAsDate]);
   if (isBefore(workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay)) workdayEndTimeForSelectedDay = addDays(workdayEndTimeForSelectedDay, 1);
 
+  // --- NEW: Helper to get static constraints (Meals/Reflections) ---
+  const getStaticConstraints = useCallback((): TimeBlock[] => {
+    if (!profile) return [];
+    const constraints: TimeBlock[] = [];
+    const addConstraint = (name: string, timeStr: string | null, duration: number | null) => {
+      const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+      if (timeStr && effectiveDuration > 0) {
+        let anchorStart = setTimeOnDate(selectedDayAsDate, timeStr);
+        let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+        if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
+        
+        // Check overlap with workday
+        const overlaps = (isBefore(anchorStart, workdayEndTimeForSelectedDay) || anchorStart.getTime() === workdayEndTimeForSelectedDay.getTime()) && 
+                         (isAfter(anchorEnd, workdayStartTimeForSelectedDay) || anchorEnd.getTime() === workdayStartTimeForSelectedDay.getTime());
+        
+        if (overlaps) {
+          const intersectionStart = max([anchorStart, workdayStartTimeForSelectedDay]);
+          const intersectionEnd = min([anchorEnd, workdayEndTimeForSelectedDay]);
+          const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+          if (finalDuration > 0) {
+            constraints.push({ start: intersectionStart, end: intersectionEnd, duration: finalDuration });
+            console.log(`[QuickAdd] Constraint: ${name} (${finalDuration}m) ${format(intersectionStart, 'HH:mm')}-${format(intersectionEnd, 'HH:mm')}`);
+          }
+        }
+      }
+    };
+
+    addConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+    addConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+    addConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
+    for (let r = 0; r < (profile.reflection_count || 0); r++) {
+      const rTime = profile.reflection_times?.[r];
+      const rDur = profile.reflection_durations?.[r];
+      if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
+    }
+    return constraints;
+  }, [profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay]);
+
   const handleRebalanceToday = useCallback(async () => {
     await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
   }, [handleAutoScheduleAndSort, selectedDay, sortBy]);
@@ -134,7 +174,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     showSuccess(`Balance logic set to ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
   }, [setSortBy]);
 
-  // --- CRITICAL UPDATE: handleCommand now uses the Engine ---
+  // --- CRITICAL UPDATE: handleCommand now does Client-Side Placement ---
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) return showError("Please log in.");
     setIsProcessingCommand(true);
@@ -175,37 +215,77 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             task_environment: environmentForPlacement, 
             is_backburner: task.isBackburner 
           });
-        } else {
-          // If it's a duration-based task, we need to find a slot.
-          // We will use the engine to place it.
+        } else if (task.duration) {
+          // --- CLIENT SIDE PLACEMENT LOGIC ---
+          console.log(`[QuickAdd] Processing: "${task.name}" (${task.duration}m)`);
           
-          // First, create a temporary "retired task" to represent this new task
-          const tempRetiredTask = {
-            user_id: user.id,
+          // 1. Get current schedule constraints (Fixed/Locked tasks)
+          const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
+            start: parseISO(t.start_time!),
+            end: parseISO(t.end_time!),
+            duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
+          }));
+          
+          // 2. Get Static Constraints (Meals/Reflections)
+          const staticConstraints = getStaticConstraints();
+          
+          // 3. Merge all constraints
+          const allConstraints = mergeOverlappingTimeBlocks([...occupiedBlocks, ...staticConstraints]);
+          console.log(`[QuickAdd] Total Constraints: ${allConstraints.length} blocks`);
+          allConstraints.forEach(c => console.log(`[QuickAdd] Constraint: ${format(c.start, 'HH:mm')}-${format(c.end, 'HH:mm')}`));
+
+          // 4. Find the next available slot
+          const taskTotalDuration = task.duration + (task.breakDuration || 0);
+          const searchStart = isBefore(workdayStartTimeForSelectedDay, T_current) && isSameDay(selectedDayAsDate, new Date()) ? T_current : workdayStartTimeForSelectedDay;
+          
+          const slot = findFirstAvailableSlot(taskTotalDuration, allConstraints, searchStart, workdayEndTimeForSelectedDay);
+
+          if (slot) {
+            console.log(`[QuickAdd] Found Slot: ${format(slot.start, 'HH:mm')} - ${format(slot.end, 'HH:mm')}`);
+            await addScheduledTask({
+              name: task.name,
+              start_time: slot.start.toISOString(),
+              end_time: slot.end.toISOString(),
+              break_duration: task.breakDuration || null,
+              scheduled_date: selectedDay,
+              is_critical: task.isCritical,
+              is_flexible: true,
+              is_locked: false,
+              energy_cost: task.energyCost,
+              task_environment: environmentForPlacement,
+              is_backburner: task.isBackburner,
+            });
+            showSuccess(`Scheduled "${task.name}" at ${format(slot.start, 'h:mm a')}`);
+          } else {
+            showError(`No slot found for "${task.name}" within constraints.`);
+            // Optional: Send to sink if no slot found
+            await addRetiredTask({
+              user_id: user.id,
+              name: task.name,
+              duration: task.duration,
+              break_duration: task.breakDuration || null,
+              original_scheduled_date: selectedDay,
+              is_critical: task.isCritical,
+              energy_cost: task.energyCost,
+              task_environment: environmentForPlacement,
+              is_backburner: task.isBackburner,
+            });
+          }
+        } else {
+          // Handle time-based tasks (e.g., "Coffee 10am-11am") - Direct Insert
+          await addScheduledTask({
             name: task.name,
-            duration: task.duration || 30,
+            start_time: task.startTime!.toISOString(),
+            end_time: task.endTime!.toISOString(),
             break_duration: task.breakDuration || null,
-            original_scheduled_date: selectedDay,
+            scheduled_date: selectedDay,
             is_critical: task.isCritical,
+            is_flexible: false,
+            is_locked: true, // Time-based tasks are locked by default
             energy_cost: task.energyCost,
             task_environment: environmentForPlacement,
             is_backburner: task.isBackburner,
-            id: `temp-${Date.now()}`, // Temporary ID
-            retired_at: new Date().toISOString(),
-            is_locked: false,
-            is_completed: false,
-            is_custom_energy_cost: false,
-          };
-
-          // Add this temporary task to the retired list in the database (or handle it in memory)
-          // To keep it simple and robust, we will add it to the sink first, then run the engine.
-          // This ensures the engine sees it and places it correctly.
-          
-          // Add to sink
-          const { data: insertedTask } = await supabase.from('aethersink').insert(tempRetiredTask).select().single();
-          
-          // Run engine: Sink-to-Gaps (places new sink items into schedule gaps)
-          await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
+          });
         }
         setInputValue('');
       } else {
@@ -216,7 +296,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, handleAutoScheduleAndSort, sortBy]);
+  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, getStaticConstraints]);
 
   const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'exitFocus', task: DBScheduledTask) => {
     setIsProcessingCommand(true);

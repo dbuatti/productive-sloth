@@ -33,7 +33,9 @@ interface SchedulerDisplayProps {
   onFreeTimeClick: (startTime: Date, endTime: Date) => void;
 }
 
-const MINUTE_HEIGHT = 2.0; // Slightly more compact
+const MINUTE_HEIGHT = 2.0; // Height for scheduled tasks
+const FREE_TIME_MINUTE_HEIGHT = 0.5; // Height for free time gaps (more compact)
+const MIN_GAP_VISUAL_HEIGHT_PX = 30; // Minimum visual height for a gap, even if duration is small
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3 w-3 opacity-70";
@@ -135,16 +137,21 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
         {finalDisplayItems.map((item, index) => {
           if (item.type === 'free-time') {
             const gap = item as FreeTimeItem;
+            const displayHeight = Math.max(MIN_GAP_VISUAL_HEIGHT_PX, gap.duration * FREE_TIME_MINUTE_HEIGHT);
+
             return (
               <div 
                 key={gap.id}
                 className="group relative flex gap-4 mb-3 cursor-crosshair"
-                style={{ height: `${gap.duration * MINUTE_HEIGHT}px` }}
+                style={{ height: `${displayHeight}px` }}
                 onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
               >
                 <div className="w-10 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
-                <div className="flex-1 flex items-center justify-center border border-dashed border-white/5 rounded-lg hover:bg-white/[0.02] transition-colors">
-                  <span className="opacity-0 group-hover:opacity-100 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 transition-opacity">
+                <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-lg bg-secondary/10 hover:bg-secondary/20 transition-colors">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                    Free Time
+                  </span>
+                  <span className="text-sm font-bold font-mono text-primary/70 mt-1">
                     +{gap.duration}m
                   </span>
                 </div>

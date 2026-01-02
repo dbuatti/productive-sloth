@@ -29,7 +29,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
   const breakTimePercentage = totalScheduledMinutes > 0 ? (scheduleSummary.breakTime / totalScheduledMinutes) * 100 : 0;
 
   return (
-    <div className="space-y-4 animate-slide-in-up w-full"> {/* Added w-full */}
+    <div className="space-y-4 animate-slide-in-up"> {/* Removed w-full */}
       {/* ALERT FOR UNSCHEDULED TASKS */}
       {scheduleSummary.unscheduledCount > 0 && (
         <Card className="border-destructive/50 bg-destructive/5 animate-pulse">
@@ -52,8 +52,8 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
         </Card>
       )}
 
-      <Card className="animate-pop-in animate-hover-lift w-full"> {/* Removed px-4 */}
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4"> {/* Added px-4 here */}
+      <Card className="animate-pop-in animate-hover-lift"> {/* Removed w-full */}
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
           <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard
           </CardTitle>
@@ -79,7 +79,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
         </CardHeader>
 
         {!isCollapsed && ( // Conditionally render content
-          <CardContent className="py-4 px-4 space-y-4"> {/* Added px-4 here */}
+          <CardContent className="py-4 px-4 space-y-4">
             {/* Session Pacing Bar */}
             {totalScheduledMinutes > 0 && (
               <div className="relative h-2 w-full rounded-full bg-secondary overflow-hidden shadow-inner">

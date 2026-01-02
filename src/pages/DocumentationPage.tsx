@@ -15,7 +15,7 @@ const DocumentationPage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 text-center text-muted-foreground">
+      <div className="space-y-6 text-center text-muted-foreground">
         <h1 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up"> {/* Changed text-3xl to text-2xl */}
           <BookOpen className="h-7 w-7 text-primary" /> App Documentation
         </h1>
@@ -27,7 +27,7 @@ const DocumentationPage: React.FC = () => {
   const exampleDefaultEnergyCost = calculateEnergyCost(30, false);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 animate-slide-in-up">
+    <div className="space-y-8 animate-slide-in-up">
       <h1 className="text-3xl font-bold text-foreground flex items-center gap-3"> {/* Changed text-4xl to text-3xl */}
         <BookOpen className="h-9 w-9 text-primary" /> AetherFlow App Documentation
       </h1>

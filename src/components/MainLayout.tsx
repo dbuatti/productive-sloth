@@ -1,6 +1,8 @@
+"use client";
+
 import React, { useState, useCallback } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import AppUnifiedHeader from './AppUnifiedHeader'; // NEW IMPORT
+import AppUnifiedHeader from './AppUnifiedHeader';
 import FocusAnchor from './FocusAnchor';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
@@ -33,17 +35,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const mainContent = (
     <main className={cn(
       "flex flex-1 flex-col gap-4 overflow-auto",
-      // Apply horizontal padding only if NOT on the simplified schedule page
-      // Use smaller padding on mobile for a more expansive feel
-      !isSimplifiedSchedulePage && "px-3 md:px-8", 
-      // Removed pt-[100px] from here, padding is now handled by the parent div
       // Dynamic bottom padding for mobile navigation/status indicator
-      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4")
+      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4"),
+      // No horizontal padding here, it will be on the inner container
     )}>
-      {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
       <div className={cn(
-        "w-full" // Removed max-w-5xl here
+        "w-full",
+        "px-3 md:px-8", // Apply padding here
+        !isMobile && "max-w-4xl mx-auto" // Apply max-width and center for desktop
       )}>
+        {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
         {children}
       </div>
     </main>

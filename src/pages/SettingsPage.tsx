@@ -214,7 +214,7 @@ const SettingsPage: React.FC = () => {
   if (!user || !profile) return null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 animate-slide-in-up">
+    <div className="space-y-8 animate-slide-in-up">
       <div className="flex items-center justify-between border-b pb-4">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Settings className="h-7 w-7 text-primary" /> Settings

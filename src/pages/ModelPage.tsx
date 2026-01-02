@@ -90,7 +90,7 @@ const ModelPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 animate-slide-in-up">
+    <div className="space-y-8 animate-slide-in-up">
       <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
         <BookOpen className="h-9 w-9 text-primary" /> App Model & Reference
       </h1>

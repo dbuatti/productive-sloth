@@ -76,26 +76,11 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
   // ----------------------------
 
-  const [sinkInputValue, setSinkInputValue] = useState('');
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
 
   const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
-
-  const handleAddSinkTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return showError("You must be logged in.");
-    if (!sinkInputValue.trim()) return showError("Task name cannot be empty.");
-
-    const parsedTask = parseSinkTaskInput(sinkInputValue, user.id);
-    if (parsedTask) {
-      await addRetiredTask(parsedTask);
-      setSinkInputValue('');
-    } else {
-      showError("Invalid task format. Use 'Task Name [dur] [!] [-]'.");
-    }
-  };
 
   const handleAction = useCallback((e: React.MouseEvent, action: () => void) => {
     e.stopPropagation();
@@ -116,7 +101,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     await triggerAetherSinkBackup();
   };
 
-  // --- Unified Update Handler for Kanban ---
   const handleUpdateRetiredTask = useCallback(async (updates: Partial<RetiredTask> & { id: string }) => {
     try {
       await updateRetiredTaskDetails(updates);
@@ -125,7 +109,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
       showError("Failed to update task.");
     }
   }, [updateRetiredTaskDetails]);
-  // ---------------------------------------------
 
   const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
     <DropdownMenuItem 
@@ -169,7 +152,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   return (
     <>
-      <Card glass className="border-dashed border-muted-foreground/20 shadow-xl w-full"> {/* Ensure Card is w-full */}
+      <Card glass className="border-dashed border-muted-foreground/20 shadow-xl w-full">
         <CardHeader className={cn("pb-4 flex flex-row items-center justify-between px-6 pt-8")}>
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-secondary/50">
@@ -189,7 +172,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             {viewMode === 'kanban' && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 px-3 text-xs font-bold uppercase">
+                  <Button variant="outline" size="sm" className="h-10 px-3 text-xs font-bold uppercase tracking-widest">
                     Group: {groupBy === 'environment' ? 'Env' : 'Priority'}
                   </Button>
                 </DropdownMenuTrigger>
@@ -265,19 +248,20 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
         </CardHeader>
 
         <CardContent className="px-6 pb-6 space-y-6">
-          {/* Input Form */}
-          <form onSubmit={handleAddSinkTask} className="flex gap-2">
-            <Input
-              placeholder="Inject objective: Name [dur] [!] [-]"
-              value={sinkInputValue}
-              onChange={(e) => setSinkInputValue(e.target.value)}
-              disabled={isProcessingCommand}
-              className="flex-grow h-12 bg-background/40 font-bold placeholder:font-medium placeholder:opacity-30"
-            />
-            <Button type="submit" disabled={isProcessingCommand || !sinkInputValue.trim()} className="h-12 w-12 rounded-xl">
-              {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
-            </Button>
-          </form>
+          {/* Input Form (Removed for Kanban view, kept for list view consistency) */}
+          {viewMode === 'list' && (
+            <form onSubmit={(e) => { e.preventDefault(); showError("Quick add is disabled in List View. Switch to Kanban or use the Scheduler input."); }} className="flex gap-2">
+              <Input
+                placeholder="Quick add disabled in List View. Switch to Kanban."
+                value={""}
+                disabled={true}
+                className="flex-grow h-12 bg-background/40 font-bold placeholder:font-medium placeholder:opacity-30"
+              />
+              <Button type="submit" disabled={true} className="h-12 w-12 rounded-xl opacity-50">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </form>
+          )}
 
           {/* Loading State */}
           {isLoading ? (

@@ -1,27 +1,18 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable, useDraggable, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { RetiredTask, TaskEnvironment } from '@/types/scheduler';
-import { cn } from '@/lib/utils';
-import { 
-  getEmojiHue, 
-  assignEmoji, 
-} from '@/lib/scheduler-utils';
 import { 
   Home, Laptop, Globe, Music, 
-  Star, Zap, Lock, Unlock, 
-  Trash2, RotateCcw, Info,
-  AlertCircle
+  Star, Info, AlertCircle
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { motion, AnimatePresence } from 'framer-motion';
+import KanbanColumn from './KanbanColumn';
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { useSession } from '@/hooks/use-session';
+import { showError } from '@/utils/toast';
+import { parseSinkTaskInput } from '@/lib/scheduler-utils';
 
 // --- Grouping Configuration ---
 const GROUPING_CONFIG = {
@@ -62,256 +53,6 @@ const GROUPING_CONFIG = {
   }
 };
 
-// --- Sortable Card Component ---
-interface SortableCardProps {
-  task: RetiredTask;
-  onRemove: (id: string, name: string) => void;
-  onRezone: (task: RetiredTask) => void;
-  onToggleComplete: (task: RetiredTask) => void;
-}
-
-const SortableCard: React.FC<SortableCardProps> = ({ task, onRemove, onRezone, onToggleComplete }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  const hue = getEmojiHue(task.name);
-  const emoji = assignEmoji(task.name);
-  const accentColor = `hsl(${hue} 70% 50%)`;
-
-  if (isDragging) {
-    // Placeholder for the dragged item
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className="opacity-0 h-0 p-0 m-0" // Invisible placeholder to maintain sortable context
-      />
-    );
-  }
-
-  return (
-    <motion.div
-      ref={setNodeRef}
-      layout // Framer Motion layout animation
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.3 }}
-      className={cn(
-        "group relative p-3 rounded-xl border bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all cursor-grab active:cursor-grabbing",
-        "hover:border-primary/40 hover:shadow-lg",
-        task.is_locked && "border-primary/30 bg-primary/[0.03]",
-        task.is_completed && "opacity-50 grayscale",
-        `border-l-[4px]`,
-        "mb-2", // Added margin bottom for spacing
-        // --- Lift State Classes ---
-        isDragging && "z-50 scale-[1.05] rotate-2 shadow-2xl shadow-primary/30 ring-2 ring-primary/50"
-        // -------------------------------
-      )}
-      style={{ 
-        borderColor: `transparent`, 
-        borderLeftColor: accentColor, 
-        ...style 
-      }}
-      {...attributes}
-      {...listeners}
-    >
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xl shrink-0">{emoji}</span>
-          <span className={cn("font-bold text-sm truncate", task.is_completed && "line-through")}>
-            {task.name}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); onToggleComplete(task); }}>
-                <Zap className={cn("h-3.5 w-3.5", task.is_completed ? "text-logo-green fill-current" : "text-muted-foreground")} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Toggle Completion</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); onRezone(task); }}>
-                <RotateCcw className="h-3.5 w-3.5 text-primary" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Re-zone to Schedule</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:text-destructive" onClick={(e) => { e.stopPropagation(); onRemove(task.id, task.name); }}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Purge</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground/70">
-        {task.is_locked && <Lock className="h-3 w-3 text-primary" />}
-        {task.is_critical && <Star className="h-3 w-3 text-logo-yellow fill-current" />}
-        {task.is_backburner && <Badge variant="outline" className="px-1 h-4 text-[9px] font-black uppercase">Orbit</Badge>}
-        <span className="flex items-center gap-1">
-          {task.energy_cost > 0 ? `${task.energy_cost}⚡` : '0⚡'}
-        </span>
-        {task.duration && <span>{task.duration}m</span>}
-      </div>
-    </motion.div>
-  );
-};
-
-// --- Kanban Column Component (Droppable) ---
-interface KanbanColumnProps {
-  id: string;
-  title: string;
-  icon: React.ReactNode;
-  tasks: RetiredTask[];
-  totalEnergy: number;
-  onRemove: (id: string, name: string) => void;
-  onRezone: (task: RetiredTask) => void;
-  onToggleComplete: (task: RetiredTask) => void;
-  activeId: string | null;
-  overId: string | null;
-}
-
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, totalEnergy, onRemove, onRezone, onToggleComplete, activeId, overId }) => {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  
-  // Determine if the active item is currently over this column (or one of its children)
-  const isOverColumn = isOver || (overId && tasks.some(t => t.id === overId));
-
-  // --- Receiver State Classes ---
-  const receiverClasses = isOverColumn 
-    ? "bg-primary/10 border-primary/50 shadow-inner shadow-primary/10" 
-    : "bg-background/60 border-white/10";
-
-  // Find the task being dragged to determine placeholder height
-  const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
-  const placeholderHeight = activeTask ? 80 : 0; // Approximate height of a card + margin
-
-  // Determine where the placeholder should be inserted
-  const items = tasks.map(t => t.id);
-  const activeIndex = activeId ? items.indexOf(activeId) : -1;
-  const overIndex = overId ? items.indexOf(overId) : -1;
-  
-  let placeholderIndex = -1;
-  if (isOverColumn && activeId && activeIndex === -1) {
-    // Dragging a new item into this column
-    placeholderIndex = overIndex === -1 ? items.length : overIndex;
-  } else if (isOverColumn && activeId && activeIndex !== -1) {
-    // Moving an item within this column
-    placeholderIndex = overIndex;
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "flex flex-col h-full flex-1 min-w-[300px] rounded-2xl transition-all duration-300", // Changed w-[300px] to flex-1 min-w-[300px]
-        receiverClasses
-      )}
-    >
-      <Card className="bg-transparent border-none shadow-none flex flex-col h-full overflow-hidden">
-        <CardHeader className="p-3 border-b border-white/5 bg-background/40">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {icon}
-              <CardTitle className="text-xs font-black uppercase tracking-widest">
-                {title}
-              </CardTitle>
-            </div>
-            <Badge variant="secondary" className="text-[9px] font-mono font-bold">
-              {tasks.length} | {totalEnergy}⚡
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="p-2 flex-1 overflow-y-auto custom-scrollbar min-h-[500px] overflow-x-hidden">
-          <SortableContext id={id} items={items} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2 min-h-[50px]">
-              <AnimatePresence initial={false}>
-                {tasks.map((task, index) => {
-                  const isPlaceholder = activeId === task.id;
-                  
-                  // Render placeholder before the item if the item is not the one being dragged
-                  if (placeholderIndex === index && !isPlaceholder) {
-                    return (
-                      <motion.div
-                        key="placeholder"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: placeholderHeight }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest mb-2"
-                        style={{ height: placeholderHeight - 8, margin: '4px 0' }} // Adjusted height/margin to fit card size
-                      >
-                        Drop Here
-                      </motion.div>
-                    );
-                  }
-
-                  return (
-                    <SortableCard
-                      key={task.id}
-                      task={task}
-                      onRemove={onRemove}
-                      onRezone={onRezone}
-                      onToggleComplete={onToggleComplete}
-                    />
-                  );
-                })}
-                
-                {/* Render placeholder at the end if the column is empty or the drop target is the end */}
-                {isOverColumn && tasks.length === 0 && (
-                    <motion.div
-                        key="placeholder-empty"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: placeholderHeight }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
-                        style={{ height: placeholderHeight - 8, margin: '4px 0' }}
-                    >
-                        Drop Here
-                    </motion.div>
-                )}
-                {isOverColumn && tasks.length > 0 && placeholderIndex === tasks.length && (
-                    <motion.div
-                        key="placeholder-end"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: placeholderHeight }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
-                        style={{ height: placeholderHeight - 8, margin: '4px 0' }}
-                    >
-                        Drop Here
-                    </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </SortableContext>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-
 // --- Main Kanban Board Component ---
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
@@ -328,6 +69,9 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   onRezoneTask,
   updateRetiredTask,
 }) => {
+  const { user } = useSession();
+  const { addRetiredTask } = useSchedulerTasks('');
+  
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -405,6 +149,47 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       updateRetiredTask({ id: activeId, ...updateData });
     }
   };
+  
+  const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
+    if (!user) return showError("User context missing.");
+    
+    // 1. Parse the input string (Name [dur] [!] [-])
+    const parsedTask = parseSinkTaskInput(input, user.id);
+    
+    if (!parsedTask) {
+      return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
+    }
+    
+    // 2. Override environment/priority based on the column ID
+    let finalTask = { ...parsedTask };
+    
+    if (groupBy === 'environment') {
+      finalTask.task_environment = columnId as TaskEnvironment;
+    } else {
+      if (columnId === 'critical') {
+        finalTask.is_critical = true;
+        finalTask.is_backburner = false;
+      } else if (columnId === 'backburner') {
+        finalTask.is_critical = false;
+        finalTask.is_backburner = true;
+      } else { // standard
+        finalTask.is_critical = false;
+        finalTask.is_backburner = false;
+      }
+    }
+    
+    // 3. Add to retired tasks
+    await addRetiredTask(finalTask);
+  }, [user, groupBy, addRetiredTask]);
+
+  // Calculate the height of the active task for the drop indicator
+  const activeTaskHeight = useMemo(() => {
+    if (!activeId) return 0;
+    // Find the task being dragged
+    const task = retiredTasks.find(t => t.id === activeId);
+    // Approximate card height (based on SortableTaskCard styling)
+    return task ? 80 : 0; 
+  }, [activeId, retiredTasks]);
 
   return (
     <DndContext
@@ -428,9 +213,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
               icon={config.getIcon(option)}
               tasks={columnTasks}
               totalEnergy={totalEnergy}
-              onRemove={onRemoveRetiredTask}
-              onRezone={onRezoneTask}
-              onToggleComplete={(t) => updateRetiredTask({ id: t.id, is_completed: !t.is_completed })}
+              onQuickAdd={handleQuickAdd}
+              activeTaskHeight={activeTaskHeight}
               activeId={activeId}
               overId={overId}
             />

@@ -12,7 +12,7 @@ import {
   CheckCircle2, Star, Home, Laptop, Globe, Music, 
   Info, Target
 } from 'lucide-react';
-import { format, differenceInMinutes, parseISO, min, max, isPast, addMinutes } from 'date-fns';
+import { format, differenceInMinutes, parseISO, min, max, isPast, addMinutes, intervalToDuration, formatDuration } from 'date-fns'; // Added intervalToDuration, formatDuration
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
@@ -46,6 +46,19 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
     case 'piano': return <Music className={iconClass} />;
     default: return null;
   }
+};
+
+// Helper function to format minutes into hours and minutes
+const formatMinutesToHoursMinutes = (totalMinutes: number): string => {
+  if (totalMinutes <= 0) return '0m';
+  const duration = intervalToDuration({ start: 0, end: totalMinutes * 60 * 1000 });
+  const h = duration.hours || 0;
+  const m = duration.minutes || 0;
+
+  if (h > 0) {
+    return `${h}h ${m}m`;
+  }
+  return `${m}m`;
 };
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
@@ -152,7 +165,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                     Free Time
                   </span>
                   <span className="text-sm font-bold font-mono text-primary/70 mt-1">
-                    +{gap.duration}m
+                    +{formatMinutesToHoursMinutes(gap.duration)}
                   </span>
                 </div>
               </div>

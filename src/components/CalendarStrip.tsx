@@ -76,7 +76,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
   });
 
   return (
-    <div className="flex items-center justify-between w-full mx-auto gap-2 bg-secondary/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm"> {/* Removed max-w-5xl */}
+    <div className="flex items-center justify-between w-full gap-2 bg-secondary/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm"> {/* Removed mx-auto */}
       
       {/* Navigation Controls Left */}
       <div className="flex items-center gap-1">
@@ -110,13 +110,13 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
       </div>
 
       {/* Main Timeline Strip */}
-      <div className="flex-1 flex overflow-x-auto py-2 custom-scrollbar touch-pan-y"> {/* Added touch-pan-y */}
+      <div className="flex-1 flex overflow-x-auto py-2 custom-scrollbar touch-pan-x"> {/* Changed touch-pan-y to touch-pan-x */}
         {isLoadingDatesWithTasks ? (
           <div className="flex items-center justify-center h-20 w-full animate-pulse">
             <Loader2 className="h-6 w-6 animate-spin text-primary opacity-40" />
           </div>
         ) : (
-          <div className="flex items-center gap-1 whitespace-nowrap animate-pop-in"> {/* Added whitespace-nowrap and changed gap-2 to gap-1 */}
+          <div className="flex items-center gap-2 whitespace-nowrap animate-pop-in"> {/* Changed gap-1 to gap-2 */}
             {days}
           </div>
         )}

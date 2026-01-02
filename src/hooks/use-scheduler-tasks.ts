@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
 import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy, CompletedTaskLogEntry, TaskEnvironment } from '@/types/scheduler';
 import { useSession } from './use-session';
-import { showSuccess, showError } from '@/utils/toast'; // Import existing toast utils
+import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min, isEqual } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, LOW_ENERGY_THRESHOLD } from '@/lib/constants';
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, findFirstAvailableSlot, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
@@ -251,7 +251,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const retireTaskMutation = useMutation({
     mutationFn: async (taskToRetire: DBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const newRetiredTask: NewRetiredTask = { user_id: userId, name: taskToRetire.name, duration: taskToRetire.start_time && taskToRetire.end_time ? Math.floor((parseISO(taskToRetire.end_time).getTime() - parseISO(taskToRetire.start_time).getTime()) / (1000 * 60)) : null, break_duration: taskToRetire.break_duration, original_scheduled_date: taskToRetire.scheduled_date, is_critical: taskToRetire.is_critical, is_locked: taskToRetire.is_locked, energy_cost: taskToRetire.energy_cost ?? 0, is_completed: taskToRetire.is_completed ?? false, is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false, task_environment: taskToRetire.task_environment, is_backburner: taskToRetire.is_backburner };
+      const newRetiredTask: NewRetiredTask = { user_id: userId, name: taskToRetire.name, duration: taskToRetire.start_time && taskToRetire.end_time ? differenceInMinutes(parseISO(taskToRetire.end_time), parseISO(taskToRetire.start_time)) : 30, break_duration: taskToRetire.break_duration, original_scheduled_date: taskToRetire.scheduled_date, is_critical: taskToRetire.is_critical, is_locked: taskToRetire.is_locked, energy_cost: taskToRetire.energy_cost ?? 0, is_completed: taskToRetire.is_completed ?? false, is_custom_energy_cost: taskToRetire.is_custom_energy_cost ?? false, task_environment: taskToRetire.task_environment, is_backburner: taskToRetire.is_backburner };
       await supabase.from('aethersink').insert(newRetiredTask);
       await supabase.from('scheduled_tasks').delete().eq('id', taskToRetire.id).eq('user_id', userId);
     },
@@ -274,14 +274,83 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDateAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
-      const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
-        start: parseISO(t.start_time!),
-        end: parseISO(t.end_time!),
-        duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
-      }));
-
       const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
+
+      // --- START DEBUG LOGGING ---
+      console.log(`[REZONE DEBUG] Attempting to rezone task: ${task.name} (${taskTotalDuration}m)`);
+      console.log(`[REZONE DEBUG] Target Date: ${formattedSelectedDate}`);
+      console.log(`[REZONE DEBUG] Workday Window: ${format(targetWorkdayStart, 'HH:mm')} - ${format(targetWorkdayEnd, 'HH:mm')}`);
+      console.log(`[REZONE DEBUG] Effective Search Start: ${format(effectiveStart, 'HH:mm')}`);
+      // --- END DEBUG LOGGING ---
+
+      // 1. Identify Fixed Blocks (Scheduled Tasks + Static Anchors)
+      const scheduledFixedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => {
+        const start = setTimeOnDate(targetDateAsDate, format(parseISO(t.start_time!), 'HH:mm'));
+        let end = setTimeOnDate(targetDateAsDate, format(parseISO(t.end_time!), 'HH:mm'));
+        if (isBefore(end, start)) end = addDays(end, 1);
+        return { start, end, duration: differenceInMinutes(end, start) };
+      });
+
+      const staticConstraints: TimeBlock[] = [];
+      const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
+        const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+        if (timeStr && effectiveDuration > 0) {
+          let anchorStart = setTimeOnDate(targetDateAsDate, timeStr);
+          let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+          if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
+          
+          const overlaps = (isBefore(anchorEnd, targetWorkdayEnd) || isEqual(anchorEnd, targetWorkdayEnd)) && 
+                           (isAfter(anchorStart, targetWorkdayStart) || isEqual(anchorStart, targetWorkdayStart));
+          
+          if (overlaps) {
+            const intersectionStart = max([anchorStart, targetWorkdayStart]);
+            const intersectionEnd = min([anchorEnd, targetWorkdayEnd]);
+            const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+            if (finalDuration > 0) { 
+              staticConstraints.push({
+                start: intersectionStart,
+                end: intersectionEnd,
+                duration: finalDuration,
+              });
+            }
+          }
+        }
+      };
+
+      addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+      addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+      addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
+      for (let r = 0; r < (profile.reflection_count || 0); r++) {
+          const rTime = profile.reflection_times?.[r];
+          const rDur = profile.reflection_durations?.[r];
+          if (rTime && rDur) addStaticConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
+      }
+
+      const occupiedBlocks: TimeBlock[] = mergeOverlappingTimeBlocks([...scheduledFixedBlocks, ...staticConstraints]);
+      
+      // --- START DEBUG LOGGING ---
+      console.log(`[REZONE DEBUG] Total Occupied Blocks: ${occupiedBlocks.length}`);
+      occupiedBlocks.forEach((block, index) => {
+        console.log(`[REZONE DEBUG] Occupied Block ${index + 1}: ${format(block.start, 'HH:mm')} - ${format(block.end, 'HH:mm')} (${block.duration}m)`);
+      });
+      // --- END DEBUG LOGGING ---
+
       const slot = findFirstAvailableSlot(taskTotalDuration, occupiedBlocks, effectiveStart, targetWorkdayEnd);
+
+      // --- START DEBUG LOGGING ---
+      if (slot) {
+        console.log(`[REZONE DEBUG] SUCCESS: Found slot: ${format(slot.start, 'HH:mm')} - ${format(slot.end, 'HH:mm')}`);
+      } else {
+        const freeBlocks = getFreeTimeBlocks(occupiedBlocks, effectiveStart, targetWorkdayEnd);
+        console.log(`[REZONE DEBUG] FAILURE: No slot found for ${taskTotalDuration}m.`);
+        console.log(`[REZONE DEBUG] Available Free Blocks: ${freeBlocks.length}`);
+        freeBlocks.forEach((block, index) => {
+          console.log(`[REZONE DEBUG] Free Block ${index + 1}: ${format(block.start, 'HH:mm')} - ${format(block.end, 'HH:mm')} (Duration: ${block.duration}m)`);
+        });
+      }
+      // --- END DEBUG LOGGING ---
 
       if (!slot) {
         throw new Error("No free slot available in the schedule window.");

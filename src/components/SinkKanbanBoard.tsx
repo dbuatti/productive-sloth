@@ -222,7 +222,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col h-full min-w-[300px] flex-shrink-0 rounded-2xl transition-all duration-300",
+        "flex flex-col h-full w-[300px] flex-shrink-0 rounded-2xl transition-all duration-300", // Changed min-w-[300px] to w-[300px]
         receiverClasses
       )}
       style={{ flexShrink: 0 }} // Fix horizontal jitter

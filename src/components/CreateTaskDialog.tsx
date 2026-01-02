@@ -21,8 +21,10 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { calculateEnergyCost } from '@/lib/scheduler-utils'; // Import calculateEnergyCost
-import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // Import default duration
+import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'; // Assuming drawer component exists
 
 const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
@@ -30,8 +32,8 @@ const TaskCreationSchema = z.object({
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
   isCritical: z.boolean().default(false),
-  energy_cost: z.coerce.number().min(0).default(0), // NEW: Add energy_cost to schema
-  is_custom_energy_cost: z.boolean().default(false), // NEW: Add custom energy cost flag
+  energy_cost: z.coerce.number().min(0).default(0), 
+  is_custom_energy_cost: z.boolean().default(false), 
 });
 
 type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
@@ -45,7 +47,8 @@ interface CreateTaskDialogProps {
 const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, defaultDueDate, onTaskCreated }) => {
   const { addTask } = useTasks();
   const [isOpen, setIsOpen] = React.useState(false);
-  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0); // NEW: State for calculated energy cost
+  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0); 
+  const isMobile = useIsMobile();
   
   const form = useForm<TaskCreationFormValues>({
     resolver: zodResolver(TaskCreationSchema),
@@ -55,13 +58,12 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
       priority: defaultPriority,
       dueDate: defaultDueDate,
       isCritical: false,
-      energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false), // NEW: Default calculated cost
+      energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false),
       is_custom_energy_cost: false,
     },
     mode: 'onChange',
   });
 
-  // NEW: Effect to update calculated energy cost when isCritical changes
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (!value.is_custom_energy_cost && name === 'isCritical') {
@@ -69,7 +71,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
-        // If custom energy cost is turned OFF, immediately recalculate and set
         const isCritical = form.getValues('isCritical');
         const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical ?? false);
         setCalculatedEnergyCost(newEnergyCost);
@@ -79,14 +80,12 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
     return () => subscription.unsubscribe();
   }, [form]);
 
-  // NEW: Initialize calculated energy cost on mount
   useEffect(() => {
     const initialIsCritical = form.getValues('isCritical');
     const initialEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, initialIsCritical);
     setCalculatedEnergyCost(initialEnergyCost);
     form.setValue('energy_cost', initialEnergyCost);
   }, [form]);
-
 
   const onSubmit = (values: TaskCreationFormValues) => {
     const { title, priority, dueDate, description, isCritical, energy_cost, is_custom_energy_cost } = values;
@@ -97,7 +96,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
       priority: priority,
       due_date: dueDate.toISOString(),
       is_critical: isCritical,
-      energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost, // NEW: Use custom or calculated
+      energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost,
       is_custom_energy_cost: is_custom_energy_cost,
     };
 
@@ -111,7 +110,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
           priority: values.priority, 
           dueDate: values.dueDate, 
           isCritical: false,
-          energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false), // Reset to default calculated
+          energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false),
           is_custom_energy_cost: false,
         });
       }
@@ -120,7 +119,202 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
-  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // NEW: Watch custom energy cost toggle
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); 
+
+  const formContent = (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title</FormLabel>
+              <FormControl>
+                <Input placeholder="Task title" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description (Optional)</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Add detailed notes or context here..." 
+                  {...field} 
+                  value={field.value || ''}
+                  rows={4}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="priority"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Priority</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="LOW">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="dueDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Due Date</FormLabel>
+                <FormControl>
+                  <DatePicker 
+                    date={field.value} 
+                    setDate={field.onChange} 
+                    placeholder="Pick a date"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="isCritical"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <FormLabel>Critical Task</FormLabel>
+                <FormDescription>
+                  Mark this task as critical (must be completed today).
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="is_custom_energy_cost"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <FormLabel>Custom Energy Cost</FormLabel>
+                <FormDescription>
+                  Manually set the energy cost instead of automatic calculation.
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="energy_cost"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <FormLabel>Energy Cost</FormLabel>
+                <FormDescription>
+                  Energy consumed upon completion.
+                </FormDescription>
+              </div>
+              <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
+                <Zap className="h-5 w-5" />
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    {...field} 
+                    min="0" 
+                    className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    readOnly={!isCustomEnergyCostEnabled}
+                    value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
+                    onChange={(e) => {
+                      if (isCustomEnergyCostEnabled) {
+                        field.onChange(e);
+                      }
+                    }}
+                  />
+                </FormControl>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button 
+          type="submit" 
+          disabled={isSubmitting || !isValid} 
+          className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
+        >
+          {isSubmitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          Create Task
+        </Button>
+      </form>
+    </Form>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={isOpen} onOpenChange={setIsOpen}>
+        <DrawerTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="shrink-0 h-10 w-10 text-primary hover:bg-primary/10 transition-all duration-200"
+            onClick={() => setIsOpen(true)}
+          >
+            <AlignLeft className="h-4 w-4" />
+            <span className="sr-only">Add Description</span>
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent className="p-4 pb-8">
+          <DrawerHeader>
+            <DrawerTitle>Add Task Details</DrawerTitle>
+          </DrawerHeader>
+          {formContent}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -139,175 +333,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ defaultPriority, de
         <DialogHeader>
           <DialogTitle>Add Task Details</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Task title" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Add detailed notes or context here..." 
-                      {...field} 
-                      value={field.value || ''}
-                      rows={4}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priority</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Priority" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="HIGH">High</SelectItem>
-                      <SelectItem value="MEDIUM">Medium</SelectItem>
-                      <SelectItem value="LOW">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Due Date</FormLabel>
-                  <FormControl>
-                    <DatePicker 
-                      date={field.value} 
-                      setDate={field.onChange} 
-                      placeholder="Pick a date"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="isCritical"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Critical Task</FormLabel>
-                    <FormDescription>
-                      Mark this task as critical (must be completed today).
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* NEW: Custom Energy Cost Switch */}
-            <FormField
-              control={form.control}
-              name="is_custom_energy_cost"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Custom Energy Cost</FormLabel>
-                    <FormDescription>
-                      Manually set the energy cost instead of automatic calculation.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* NEW: Energy Cost Input (conditionally editable) */}
-            <FormField
-              control={form.control}
-              name="energy_cost"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Energy Cost</FormLabel>
-                    <FormDescription>
-                      Energy consumed upon completion.
-                    </FormDescription>
-                  </div>
-                  <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
-                    <Zap className="h-5 w-5" />
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        {...field} 
-                        min="0" 
-                        className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                        readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
-                        value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
-                        onChange={(e) => {
-                          if (isCustomEnergyCostEnabled) {
-                            field.onChange(e);
-                          }
-                        }}
-                      />
-                    </FormControl>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button 
-              type="submit" 
-              disabled={isSubmitting || !isValid} 
-              className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Create Task
-            </Button>
-          </form>
-        </Form>
+        {formContent}
       </DialogContent>
     </Dialog>
   );

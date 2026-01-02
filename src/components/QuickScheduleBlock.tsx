@@ -18,7 +18,7 @@ const QuickScheduleBlock: React.FC<QuickScheduleBlockProps> = ({
   isProcessingCommand,
 }) => {
   return (
-    <div className="relative flex items-center justify-between h-12 rounded-full border border-input bg-background hover:bg-secondary/50 transition-colors">
+    <div className="relative flex items-center justify-between h-12 rounded-full border border-input bg-background hover:bg-secondary/50 transition-all shadow-sm hover:shadow-md">
       {/* Left Button: Shortest First */}
       <Tooltip>
         <TooltipTrigger asChild>

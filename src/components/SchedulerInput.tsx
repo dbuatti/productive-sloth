@@ -1,8 +1,9 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SchedulerInputProps {
   onCommand: (input: string) => Promise<void>;
@@ -21,6 +22,8 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
   placeholder = "e.g., 'Gym 60' or '!Report 45'",
   onDetailedInject,
 }) => {
+  const isMobile = useIsMobile();
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -39,22 +42,41 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={isLoading}
-        className="flex-grow h-12 bg-background/40 font-medium placeholder:font-normal placeholder:opacity-40 text-sm"
+        className="flex-grow h-12 bg-background/40 font-medium placeholder:font-normal placeholder:opacity-40 text-sm rounded-2xl"
       />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={onDetailedInject}
-            disabled={isLoading}
-            variant="outline"
-            size="icon"
-            className="h-12 w-12 shrink-0 rounded-full"
-          >
-            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Detailed Injection</TooltipContent>
-      </Tooltip>
+      {/* On mobile, show a single, prominent action button. On desktop, keep the two separate for clarity. */}
+      {isMobile ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={() => inputValue.trim() ? onCommand(inputValue) : onDetailedInject()}
+              disabled={isLoading}
+              variant="aether"
+              className="h-12 w-14 shrink-0 rounded-2xl shadow-lg shadow-primary/20"
+            >
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {inputValue.trim() ? "Quick Add" : "Detailed Injection"}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={onDetailedInject}
+              disabled={isLoading}
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 shrink-0 rounded-full"
+            >
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Detailed Injection</TooltipContent>
+        </Tooltip>
+      )}
     </div>
   );
 });

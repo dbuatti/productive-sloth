@@ -82,7 +82,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
           onClick={onClick}
           disabled={disabled || isProcessingCommand}
           className={cn(
-            "h-12 w-full flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide rounded-full transition-all",
+            "h-12 w-full flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide rounded-full transition-all shadow-sm hover:shadow-md",
             colorClass,
             (disabled || isProcessingCommand) && "opacity-40 cursor-not-allowed grayscale"
           )}
@@ -96,10 +96,9 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   );
 
   return (
-    <Card glass className="animate-pop-in border-white/10 shadow-lg relative z-10">
+    <Card glass className="animate-pop-in border-white/10 shadow-xl relative z-10">
       <CardContent className="p-3 space-y-4">
         
-        {/* Core Engine & Mass Injection */}
         <div className="space-y-3">
            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/50 ml-1 block">Engine</span>
            <div className="flex flex-col sm:flex-row gap-2">
@@ -107,7 +106,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 onClick={onRebalanceToday}
                 disabled={isProcessingCommand || retiredTasksCount === 0}
                 variant="aether"
-                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full"
+                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-md"
               >
                 {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
                 Smart Fill
@@ -116,7 +115,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 onClick={onReshuffleEverything}
                 disabled={isProcessingCommand}
                 variant="outline"
-                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10"
+                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10 shadow-sm"
               >
                 {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
                 Reshuffle
@@ -134,7 +133,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
            </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="space-y-3">
            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1 block">Quick Actions</span>
            <div className="grid grid-cols-2 gap-2">
@@ -143,7 +141,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <ActionButton icon={Target} label="Focus" colorClass="text-accent" tooltip="Pull from Sink" onClick={onZoneFocus} disabled={retiredTasksCount === 0} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full">
+                  <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-sm">
                     <ArrowDownWideNarrow className="h-4 w-4" />
                     Sort
                   </Button>
@@ -162,7 +160,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
            </div>
         </div>
 
-        {/* Utilities & System */}
         <div className="space-y-3">
            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 ml-1 block">Utilities</span>
            <div className="grid grid-cols-2 gap-2">
@@ -171,7 +168,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <ActionButton icon={BatteryCharging} label="Regen Pod" colorClass="text-primary" tooltip="Deep Recovery" onClick={onStartRegenPod} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-orange border-logo-orange/20 hover:bg-logo-orange/10">
+                  <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-orange border-logo-orange/20 hover:bg-logo-orange/10 shadow-sm">
                     <Archive className="h-4 w-4" />
                     Flush
                   </Button>
@@ -190,11 +187,10 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
            </div>
         </div>
 
-        {/* Navigation */}
         <div className="pt-2 border-t border-white/5">
            <Button 
              variant="ghost" 
-             className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full hover:bg-primary/5"
+             className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full hover:bg-primary/5 shadow-sm"
              onClick={() => navigate('/simplified-schedule')}
            >
              <CalendarDays className="h-4 w-4 text-primary" />

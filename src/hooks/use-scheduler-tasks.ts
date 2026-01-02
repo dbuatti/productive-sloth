@@ -3,8 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
 import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy, CompletedTaskLogEntry, TaskEnvironment } from '@/types/scheduler';
-import { useSession, UserProfile } from './use-session'; // NEW: Import UserProfile
-import { MealAssignment } from './use-meals'; // NEW: Import MealAssignment
+import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min, isEqual } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, LOW_ENERGY_THRESHOLD } from '@/lib/constants';
@@ -445,19 +444,17 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   });
 
   const compactScheduledTasksMutation = useMutation({
-    mutationFn: async ({ tasksToUpdate, profile, mealAssignments }: { tasksToUpdate: DBScheduledTask[], profile: UserProfile, mealAssignments: MealAssignment[] }) => { // NEW: Add profile and mealAssignments
+    mutationFn: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => {
       if (!userId) throw new Error("User not authenticated.");
-      const updatedTasks = compactScheduleLogic(tasksToUpdate, parseISO(formattedSelectedDate), profile.default_auto_schedule_start_time ? setTimeOnDate(parseISO(formattedSelectedDate), profile.default_auto_schedule_start_time) : startOfDay(parseISO(formattedSelectedDate)), profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(parseISO(formattedSelectedDate)), profile.default_auto_schedule_end_time) : addHours(startOfDay(parseISO(formattedSelectedDate)), 17), T_current, profile, mealAssignments); // NEW: Pass profile and mealAssignments
-      const updates = updatedTasks.map(task => ({ ...task, user_id: userId, updated_at: new Date().toISOString() }));
+      const updates = tasksToUpdate.map(task => ({ ...task, user_id: userId, updated_at: new Date().toISOString() }));
       const { error } = await supabase.from('scheduled_tasks').upsert(updates, { onConflict: 'id' });
       if (error) throw new Error(error.message);
     },
-    onSettled: (data, error, variables) => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       if (isSelectedDayToday) {
         queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
       }
-      showSuccess('Schedule compacted!');
     }
   });
 

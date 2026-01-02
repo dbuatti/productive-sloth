@@ -62,7 +62,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
           className={cn(
             "flex flex-col items-center justify-center h-14 w-11 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative", // Adjusted height and width
             "text-muted-foreground hover:text-primary hover:bg-primary/5",
-            isSelected && "glass-card text-primary-foreground border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-105 z-10", // Changed text-primary to text-primary-foreground
+            isSelected && "glass-card text-primary border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-105 z-10", // FIX: Changed text-primary-foreground to text-primary
             !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]"
           )}
           data-date={formattedDay}
@@ -77,7 +77,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
           {hasTasks && (
             <div className={cn(
               "absolute bottom-1.5 h-1 w-1 rounded-full shadow-[0_0_8px_rgba(var(--logo-yellow),0.8)]",
-              isSelected ? "bg-primary-foreground" : "bg-logo-yellow" // Changed bg-primary to bg-primary-foreground
+              "bg-logo-yellow" // FIX: Keep consistent yellow for task indicator
             )} />
           )}
 

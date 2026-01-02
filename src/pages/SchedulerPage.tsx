@@ -35,8 +35,9 @@ import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { MealAssignment } from '@/hooks/use-meals';
 import { cn } from '@/lib/utils';
-import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; // NEW IMPORT
-import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; // NEW IMPORT
+import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; 
+import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; 
+import { useNavigate } from 'react-router-dom'; // NEW: Import useNavigate
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
@@ -46,6 +47,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate(); // NEW: Initialize useNavigate
 
   const { 
     dbScheduledTasks,
@@ -431,8 +433,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               onAetherDumpMega={aetherDumpMega} 
               onRefreshSchedule={() => queryClient.invalidateQueries()} 
               onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} 
-              onStartRegenPod={() => setShowRegenPodSetup(true)} // UPDATED: Open modal instead of immediate start
+              onStartRegenPod={() => setShowRegenPodSetup(true)} 
               hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
+              navigate={navigate} // NEW: Pass navigate function
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
             <Card className="animate-pop-in">

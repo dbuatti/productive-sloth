@@ -11,7 +11,8 @@ import {
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, ListTodo, 
-  BatteryCharging, Target, Cpu, Coffee, Archive, Repeat, Layers
+  BatteryCharging, Target, Cpu, Coffee, Archive, Repeat, Layers,
+  CalendarDays // NEW: Import CalendarDays icon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -38,6 +39,7 @@ interface SchedulerActionCenterProps {
   onRefreshSchedule: () => void;
   onOpenWorkdayWindowDialog: () => void;
   onStartRegenPod: () => void;
+  navigate: (path: string) => void; // NEW: Add navigate prop
 }
 
 const DURATION_BUCKETS = [30, 60, 90];
@@ -60,6 +62,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   onRefreshSchedule,
   onOpenWorkdayWindowDialog,
   onStartRegenPod,
+  navigate, // NEW: Destructure navigate
 }) => {
   const hasUnlockedBreaks = dbScheduledTasks.some(task => task.name.toLowerCase() === 'break' && !task.is_locked);
   const hasUnlockedFlexibleTasks = dbScheduledTasks.some(task => task.is_flexible && !task.is_locked);
@@ -259,6 +262,11 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 <ActionButton 
                   icon={Database} label="Sync" colorClass="text-muted-foreground" tooltip="Data Sync: Refresh local items"
                   onClick={onRefreshSchedule}
+                />
+                {/* NEW: Weekly Vibe Button */}
+                <ActionButton 
+                  icon={CalendarDays} label="Weekly Vibe" colorClass="text-primary" tooltip="View your schedule across multiple days"
+                  onClick={() => navigate('/simplified-schedule')}
                 />
             </div>
         </div>

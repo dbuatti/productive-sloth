@@ -110,13 +110,13 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
       </div>
 
       {/* Main Timeline Strip */}
-      <div className="flex-1 flex justify-center gap-1 sm:gap-4 overflow-hidden py-2">
+      <div className="flex-1 flex overflow-x-auto py-2 custom-scrollbar"> {/* Changed overflow-hidden to overflow-x-auto and removed justify-center */}
         {isLoadingDatesWithTasks ? (
           <div className="flex items-center justify-center h-20 w-full animate-pulse">
             <Loader2 className="h-6 w-6 animate-spin text-primary opacity-40" />
           </div>
         ) : (
-          <div className="flex items-center gap-1 sm:gap-2 animate-pop-in">
+          <div className="flex items-center gap-1 animate-pop-in"> {/* Changed sm:gap-2 to gap-1 */}
             {days}
           </div>
         )}

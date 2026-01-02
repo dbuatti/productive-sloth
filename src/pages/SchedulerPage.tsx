@@ -388,9 +388,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         {view === 'schedule' && (
           <>
             <SchedulerContextBar T_current={T_current} />
-            <Card className="px-4 py-4 shadow-md">
-              <CardHeader className="p-0 pb-4"><CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle></CardHeader>
-              <CardContent className="p-0"><SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} /></CardContent>
+            <Card className="py-4 shadow-md"> {/* Removed px-4 */}
+              <CardHeader className="p-0 pb-4 px-4"><CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle></CardHeader>
+              <CardContent className="p-0 px-4"><SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} /></CardContent>
             </Card>
             <SchedulerActionCenter 
               isProcessingCommand={overallLoading} 
@@ -415,8 +415,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               navigate={navigate}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
-            <Card className="animate-pop-in px-4">
-              <CardHeader><CardTitle>Your Vibe Schedule</CardTitle></CardHeader>
+            <Card className="animate-pop-in"> {/* Removed px-4 */}
+              <CardHeader className="px-4"><CardTitle>Your Vibe Schedule</CardTitle></CardHeader>
               <CardContent className="py-4">
                 <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
               </CardContent>

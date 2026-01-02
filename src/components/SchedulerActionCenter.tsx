@@ -97,8 +97,8 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   );
 
   return (
-    <Card glass className="animate-pop-in border-white/10 shadow-2xl relative z-10 px-4">
-      <CardContent className="py-4 space-y-6">
+    <Card glass className="animate-pop-in border-white/10 shadow-2xl relative z-10">
+      <CardContent className="p-4 space-y-6">
         
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4 pb-4 border-b border-white/5">
           <div className="flex flex-col gap-1 w-full lg:w-auto">

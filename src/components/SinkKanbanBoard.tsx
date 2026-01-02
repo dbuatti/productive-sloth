@@ -235,7 +235,11 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     }
 
     const activeId = active.id as string;
-    const overId = over.id as string;
+    
+    // CRITICAL FIX: Get the container ID (column ID) instead of the item ID
+    const overContainerId = over.data.current?.sortable?.containerId || over.id;
+    console.log(`[SinkKanbanBoard] Target Container ID: ${overContainerId}`);
+
 
     // Find the task being dragged
     const activeTask = retiredTasks.find(t => t.id === activeId);
@@ -248,21 +252,20 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     let updateData: Partial<RetiredTask> = {};
 
     if (groupBy === 'environment') {
-      // The overId is the column ID (e.g., 'home', 'laptop')
-      // FIX: Cast config.options to the correct type to avoid TS2345
-      if ((config.options as readonly string[]).includes(overId)) {
-        updateData = { task_environment: overId as TaskEnvironment };
-        console.log(`[SinkKanbanBoard] Environment change detected: ${activeTask.task_environment} -> ${overId}`);
+      // The overContainerId is the column ID (e.g., 'home', 'laptop')
+      if ((config.options as readonly string[]).includes(overContainerId)) {
+        updateData = { task_environment: overContainerId as TaskEnvironment };
+        console.log(`[SinkKanbanBoard] Environment change detected: ${activeTask.task_environment} -> ${overContainerId}`);
       }
     } else {
       // Priority grouping
-      if (overId === 'critical') {
+      if (overContainerId === 'critical') {
         updateData = { is_critical: true, is_backburner: false };
         console.log(`[SinkKanbanBoard] Priority change detected: -> Critical`);
-      } else if (overId === 'backburner') {
+      } else if (overContainerId === 'backburner') {
         updateData = { is_critical: false, is_backburner: true };
         console.log(`[SinkKanbanBoard] Priority change detected: -> Backburner`);
-      } else if (overId === 'standard') {
+      } else if (overContainerId === 'standard') {
         updateData = { is_critical: false, is_backburner: false };
         console.log(`[SinkKanbanBoard] Priority change detected: -> Standard`);
       }
@@ -273,7 +276,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       console.log(`[SinkKanbanBoard] Triggering updateRetiredTask for ${activeTask.name} with:`, updateData);
       updateRetiredTask({ id: activeId, ...updateData });
     } else {
-      console.log(`[SinkKanbanBoard] No valid update data found for drop target: ${overId}`);
+      console.log(`[SinkKanbanBoard] No valid update data found for drop target: ${overContainerId}`);
     }
   };
 
@@ -293,8 +296,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
           return (
             <div
               key={option}
-              id={option} // Important for DnD context
-              className="flex flex-col h-full min-w-[280px] flex-shrink-0" // Added min-w-[280px] and flex-shrink-0
+              // The SortableContext ID is used as the container ID for drops
+              className="flex flex-col h-full min-w-[280px] flex-shrink-0" 
             >
               <Card className="bg-background/60 backdrop-blur-md border-white/10 shadow-sm flex flex-col h-full overflow-hidden">
                 <CardHeader className="p-3 border-b border-white/5 bg-background/40">
@@ -311,7 +314,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
                   </div>
                 </CardHeader>
                 <CardContent className="p-2 flex-1 overflow-y-auto custom-scrollbar min-h-[100px]">
-                  <SortableContext items={columnTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext id={option} items={columnTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-2 min-h-[50px]">
                       <AnimatePresence>
                         {columnTasks.map((task) => (

@@ -5,7 +5,7 @@ import { Task, NewTask, TaskStatusFilter, TemporalFilter } from '@/types';
 import { DBScheduledTask, NewDBScheduledTask, RawTaskInput, RetiredTask, NewRetiredTask, SortBy, TaskPriority, TimeBlock, AutoBalancePayload, UnifiedTask, RetiredTaskSortBy, CompletedTaskLogEntry, TaskEnvironment } from '@/types/scheduler';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min } from 'date-fns';
+import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min, isEqual } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, LOW_ENERGY_THRESHOLD } from '@/lib/constants';
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, findFirstAvailableSlot, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
 
@@ -527,8 +527,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       return showError("Historical timelines are read-only.");
     }
 
-    setIsProcessingCommand(true);
-
     try {
       const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDayAsDate);
       let targetWorkdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDayAsDate), 17);
@@ -541,8 +539,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
       
-      const fixedBlocks: TimeBlock[] = (dbTasks || []).filter(t => {
+      // 1. Identify Fixed Blocks (Scheduled Tasks + Static Anchors)
+      
+      // Scheduled Fixed/Locked Tasks
+      const scheduledFixedBlocks: TimeBlock[] = (dbTasks || []).filter(t => {
+        // In 'sink-to-gaps' mode, ALL existing scheduled tasks are constraints.
         if (taskSource === 'sink-to-gaps') return true; 
+        // In 'all-flexible' or 'sink-only' mode, only truly fixed/locked tasks are constraints.
         return (!t.is_flexible || t.is_locked);
       }).filter(t => t.start_time && t.end_time).map(t => {
         const start = setTimeOnDate(targetDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
@@ -551,16 +554,36 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         return { start, end, duration: differenceInMinutes(end, start) };
       });
 
+      // Static Constraints (Meals/Reflections)
       const staticConstraints: TimeBlock[] = [];
       const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
-        if (timeStr && duration && duration > 0) {
+        const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+
+        if (timeStr && effectiveDuration > 0) {
           let anchorStart = setTimeOnDate(targetDayAsDate, timeStr);
-          let anchorEnd = addMinutes(anchorStart, duration);
-          if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
-          if (isBefore(anchorStart, targetWorkdayEnd) && isAfter(anchorEnd, targetWorkdayStart)) {
+          let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+
+          if (isBefore(anchorEnd, anchorStart)) {
+            anchorEnd = addDays(anchorEnd, 1);
+          }
+
+          // Check if the anchor overlaps with the workday window
+          const overlaps = (isBefore(anchorStart, targetWorkdayEnd) || isEqual(anchorStart, targetWorkdayEnd)) && 
+                           (isAfter(anchorEnd, targetWorkdayStart) || isEqual(anchorEnd, targetWorkdayStart));
+          
+          if (overlaps) {
             const intersectionStart = max([anchorStart, targetWorkdayStart]);
             const intersectionEnd = min([anchorEnd, targetWorkdayEnd]);
-            staticConstraints.push({ start: intersectionStart, end: intersectionEnd, duration: differenceInMinutes(intersectionEnd, intersectionStart) });
+            const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+            if (finalDuration > 0) { 
+              staticConstraints.push({
+                start: intersectionStart,
+                end: intersectionEnd,
+                duration: finalDuration,
+              });
+              console.log(`[SchedulerEngine] Constraint Added: ${name} (${finalDuration}m) from ${format(intersectionStart, 'HH:mm')} to ${format(intersectionEnd, 'HH:mm')}`);
+            }
           }
         }
       };
@@ -568,14 +591,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
       addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
       addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
       for (let r = 0; r < (profile.reflection_count || 0); r++) {
-        const rTime = profile.reflection_times?.[r];
-        const rDur = profile.reflection_durations?.[r];
-        if (rTime && rDur) addStaticConstraint(`Reflection ${r + 1}`, rTime, rDur);
+          const rTime = profile.reflection_times?.[r];
+          const rDur = profile.reflection_durations?.[r];
+          if (rTime && rDur) addStaticConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
       }
 
-      let currentOccupied: TimeBlock[] = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
-      console.log(`[SchedulerEngine] Total Fixed Constraints: ${currentOccupied.length} blocks`);
+      let currentOccupied: TimeBlock[] = mergeOverlappingTimeBlocks([...scheduledFixedBlocks, ...staticConstraints]);
+      console.log(`[SchedulerEngine] Total Fixed Constraints (Scheduled + Static): ${currentOccupied.length} blocks`);
 
       const totalWorkdayMinutes = differenceInMinutes(targetWorkdayEnd, effectiveStart);
       const occupiedInWindow = currentOccupied.reduce((acc, block) => {
@@ -588,6 +612,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const netAvailableTime = totalWorkdayMinutes - occupiedInWindow;
       console.log(`[SchedulerEngine] Available time in window: ${netAvailableTime} minutes`);
 
+      // 2. Identify Pool of Tasks to Place
       const flexibleScheduled = (dbTasks || []).filter(t => t.is_flexible && !t.is_locked);
       const unlockedRetired = retiredTasks.filter(t => !t.is_locked);
       const unifiedPool: UnifiedTask[] = [];
@@ -596,30 +621,31 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const tasksToInsert: NewDBScheduledTask[] = [];
       const tasksToKeepInSink: NewRetiredTask[] = [];
 
-      if (taskSource !== 'sink-to-gaps') {
+      // Tasks to keep in the schedule (fixed/locked tasks, and all tasks if in sink-to-gaps mode)
+      if (taskSource === 'sink-to-gaps') {
+          // Keep all existing scheduled tasks as constraints, so we don't add them to tasksToInsert yet.
+          // We only insert the newly placed retired tasks later.
+      } else {
+          // Global Reshuffle: Keep only fixed/locked tasks, delete all flexible ones.
           (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => tasksToInsert.push({ ...t }));
       }
 
-      const activeFlexible = flexibleScheduled.filter(t => {
-        if (!t.start_time || t.is_completed) return true;
-        if (isTodaySelected && isBefore(parseISO(t.end_time!), T_current)) {
-          if (taskSource === 'sink-to-gaps') return true; 
-          scheduledIdsToDelete.push(t.id);
-          tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)), break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
-          return false;
-        }
-        return true;
-      });
-
+      // Determine which tasks go into the placement pool
       if (taskSource === 'all-flexible') {
-        activeFlexible.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment }));
+        // Add all flexible scheduled tasks (that aren't completed/past) to the pool, marking them for deletion from scheduled_tasks
+        flexibleScheduled.forEach(t => {
+          unifiedPool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment });
+          scheduledIdsToDelete.push(t.id); // Mark for deletion/re-insertion
+        });
       }
       
+      // Retired tasks are always candidates if they fit the filters
       unlockedRetired.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment }));
 
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
       console.log(`[SchedulerEngine] Unlocked Unified Pool: ${unifiedPool.length} items. Filtering for ${environmentsToFilterBy.length || 'all'} environments -> ${tasksToConsider.length} items.`);
       
+      // 3. Sort the Pool
       let finalSortedPool: UnifiedTask[] = [];
       if (sortPreference === 'ENVIRONMENT_RATIO') {
         const chunking = profile.enable_environment_chunking ?? true;
@@ -707,6 +733,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
             scheduledIdsToDelete.push(t.originalId);
           }
+          console.log(`[SchedulerEngine] Skipped Critical Task (Low Energy): ${t.name}`);
           continue;
         }
 
@@ -731,27 +758,41 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             placementCursor = end;
             placed = true;
             
-            if (t.source === 'scheduled') scheduledIdsToDelete.push(t.originalId);
-            else if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
-            console.log(`[SchedulerEngine] Placed: ${t.name} at ${format(start, 'HH:mm')}`);
+            if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
+            
+            console.log(`[SchedulerEngine] Placed: ${t.name} (${t.source}) at ${format(start, 'HH:mm')}`);
             break;
           }
         }
 
-        if (!placed && t.source === 'scheduled') {
-          tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
-          scheduledIdsToDelete.push(t.originalId);
-          console.log(`[SchedulerEngine] Failed to place: ${t.name}. Returning to Sink.`);
+        if (!placed) {
+          if (t.source === 'scheduled') {
+            tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
+            console.log(`[SchedulerEngine] Failed to place: ${t.name}. Returning to Sink.`);
+          } else {
+            console.log(`[SchedulerEngine] Failed to place: ${t.name}. Remains in Sink.`);
+          }
         }
       }
 
-      console.log(`[SchedulerEngine] Cycle Complete. Payload: ${tasksToInsert.length} inserts, ${tasksToKeepInSink.length} sink returns.`);
+      // 4. Finalize Payload
+      if (taskSource === 'sink-to-gaps') {
+          // In sink-to-gaps mode, we must ensure all existing scheduled tasks (which were used as constraints) are included in tasksToInsert
+          (dbTasks || []).forEach(t => {
+              // Only re-insert if it wasn't already inserted (which only happens if it was a retired task that got placed)
+              if (!tasksToInsert.some(inserted => inserted.id === t.id)) {
+                  tasksToInsert.push(t);
+              }
+          });
+      }
+
+      console.log(`[SchedulerEngine] Cycle Complete. Payload: ${tasksToInsert.length} inserts/updates, ${scheduledIdsToDelete.length} scheduled deletions, ${retiredIdsToDelete.length} retired deletions, ${tasksToKeepInSink.length} sink returns.`);
       const payload: AutoBalancePayload = { scheduledTaskIdsToDelete: Array.from(new Set(scheduledIdsToDelete)), retiredTaskIdsToDelete: Array.from(new Set(retiredIdsToDelete)), tasksToInsert, tasksToKeepInSink, selectedDate: targetDateString };
       await autoBalanceScheduleMutation.mutateAsync(payload);
     } catch (e: any) {
       showError(`Engine Error: ${e.message}`);
     } finally {
-      setIsProcessingCommand(false);
+      // Note: isProcessingCommand reset is handled by the calling component (SchedulerPage)
     }
   }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, queryClient, dbScheduledTasks]);
 

@@ -19,26 +19,34 @@ interface AutoBalancePayload {
   selectedDate: string;
 }
 
-// Helper function to ensure required fields have defaults
-const sanitizeScheduledTask = (task: any, userId: string): any => ({
-    user_id: userId,
-    name: task.name || 'Untitled Task',
-    break_duration: task.break_duration || null,
-    start_time: task.start_time || null,
-    end_time: task.end_time || null,
-    scheduled_date: task.scheduled_date,
-    is_critical: task.is_critical ?? false,
-    is_flexible: task.is_flexible ?? true,
-    is_locked: task.is_locked ?? false,
-    energy_cost: task.energy_cost ?? 0,
-    is_completed: task.is_completed ?? false,
-    is_custom_energy_cost: task.is_custom_energy_cost ?? false,
-    task_environment: task.task_environment || 'laptop',
-    source_calendar_id: task.source_calendar_id || null,
-    is_backburner: task.is_backburner ?? false,
-    // Ensure ID is included for upsert if present
-    ...(task.id && { id: task.id }),
-});
+// Helper function to ensure required fields have defaults and handles 'id' correctly for upsert
+const sanitizeScheduledTask = (task: any, userId: string): any => {
+    const sanitized = {
+        user_id: userId,
+        name: task.name || 'Untitled Task',
+        break_duration: task.break_duration || null,
+        start_time: task.start_time || null,
+        end_time: task.end_time || null,
+        scheduled_date: task.scheduled_date,
+        is_critical: task.is_critical ?? false,
+        is_flexible: task.is_flexible ?? true,
+        is_locked: task.is_locked ?? false,
+        energy_cost: task.energy_cost ?? 0,
+        is_completed: task.is_completed ?? false,
+        is_custom_energy_cost: task.is_custom_energy_cost ?? false,
+        task_environment: task.task_environment || 'laptop',
+        source_calendar_id: task.source_calendar_id || null,
+        is_backburner: task.is_backburner ?? false,
+    };
+
+    // Only include ID if it is explicitly provided (for updates/re-insertions of existing scheduled tasks)
+    if (task.id) {
+        // @ts-ignore
+        sanitized.id = task.id;
+    }
+    
+    return sanitized;
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -137,6 +145,8 @@ serve(async (req) => {
       
       console.log(`${functionName} Sample sanitized task:`, tasksToInsertWithUserId[0]);
 
+      // Use upsert with onConflict: 'id' to handle both new insertions (where id is omitted) 
+      // and updates (where id is present).
       const { error } = await supabaseClient
         .from('scheduled_tasks')
         .upsert(tasksToInsertWithUserId, { onConflict: 'id' }); 

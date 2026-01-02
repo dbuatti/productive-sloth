@@ -22,7 +22,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
   isLoadingDatesWithTasks,
   weekStartsOn 
 }) => {
-  const daysToDisplay = 7;
+  const daysToDisplay = 14; // Changed from 7 to 14
   const [displayedWindowStart, setDisplayedWindowStart] = useState<Date>(() => {
     const today = new Date();
     return subDays(today, Math.floor(daysToDisplay / 2));

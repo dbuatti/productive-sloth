@@ -173,17 +173,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 </span>
               </div>
 
-              {/* Dot Indicator */}
-              <div className={cn(
+              {/* Removed Dot Indicator */}
+              {/* <div className={cn(
                 "relative z-10 mt-2 shrink-0",
                 "hidden sm:block" // Hide on mobile
-              )} style={{ left: '0.7rem' }}> {/* Adjusted left to '0.7rem' */}
+              )} style={{ left: '0.7rem' }}>
                 <div className={cn(
                   "h-2.5 w-2.5 rounded-full border-2 border-background transition-all duration-700",
                   isActive ? "bg-primary scale-125 shadow-[0_0_10px_rgba(var(--primary-rgb),0.6)]" : "bg-secondary border-primary/20",
                   isPastItem && "opacity-30 grayscale"
                 )} />
-              </div>
+              </div> */}
 
               {/* Task Card */}
               <div 

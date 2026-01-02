@@ -197,7 +197,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               >
                 {isActive && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent animate-pulse" />}
 
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center justify-between gap-3"> {/* Changed items-start to items-center */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-lg leading-none">{taskItem.emoji}</span>

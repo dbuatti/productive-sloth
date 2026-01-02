@@ -128,9 +128,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
         </Button>
       )}
 
-      <div ref={containerRef} className="relative pl-8 pr-2 py-4 custom-scrollbar"> {/* Adjusted pl-12 to pl-8 */}
+      <div ref={containerRef} className="relative pl-4 pr-2 py-4 custom-scrollbar">
         {/* Timeline Axis */}
-        <div className="absolute left-[2.25rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" /> {/* Adjusted left-[3.25rem] to left-[2.25rem] */}
+        <div className="absolute left-[1rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" />
 
         {finalDisplayItems.map((item, index) => {
           if (item.type === 'free-time') {
@@ -138,12 +138,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
             return (
               <div 
                 key={gap.id}
-                className="group relative flex gap-4 mb-3 cursor-crosshair"
+                className="group relative flex gap-2 mb-3 cursor-crosshair" /* Adjusted gap-4 to gap-2 */
                 style={{ height: `${gap.duration * MINUTE_HEIGHT}px` }}
                 onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
               >
-                <div className="w-8 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div> {/* Adjusted w-10 to w-8 */}
-                <div className="flex-1 flex items-center justify-center border border-dashed border-white/5 rounded-lg hover:bg-white/[0.02] transition-colors">
+                <div className="w-10 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
+                <div className="flex-1 flex items-center justify-center border-dashed border-transparent rounded-lg hover:bg-white/[0.02] transition-colors"> {/* Removed border-white/5 */}
                   <span className="opacity-0 group-hover:opacity-100 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40 transition-opacity">
                     +{gap.duration}m
                   </span>
@@ -162,9 +162,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
           const accentColor = `hsl(${hue} 70% 50%)`;
 
           return (
-            <div key={taskItem.id} className="relative group flex gap-4 mb-3">
+            <div key={taskItem.id} className="relative group flex gap-2 mb-3"> {/* Adjusted gap-4 to gap-2 */}
               {/* Time Marker */}
-              <div className="w-8 text-right shrink-0 pt-0.5"> {/* Adjusted w-10 to w-8, pt-1.5 to pt-0.5 */}
+              <div className="w-10 text-right shrink-0 pt-0.5">
                 <span className={cn(
                   "text-[9px] font-bold font-mono leading-none transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground/40"
@@ -174,7 +174,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               </div>
 
               {/* Dot Indicator */}
-              <div className="relative z-10 mt-2 shrink-0">
+              <div className="relative z-10 mt-2 shrink-0" style={{ left: '1rem' }}> {/* Added style to align dot with axis */}
                 <div className={cn(
                   "h-2.5 w-2.5 rounded-full border-2 border-background transition-all duration-700",
                   isActive ? "bg-primary scale-125 shadow-[0_0_10px_rgba(var(--primary-rgb),0.6)]" : "bg-secondary border-primary/20",
@@ -185,8 +185,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               {/* Task Card */}
               <div 
                 className={cn(
-                  "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col px-3 pt-1 pb-3", // Adjusted p-3 to px-3 pt-1 pb-3, removed justify-between
-                  isActive ? "bg-primary/10 shadow-md ring-1 ring-primary/20" : "bg-card/40 hover:bg-primary/5", // Adjusted hover background
+                  "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col p-3", // Removed justify-between
+                  isActive ? "bg-primary/10" : "bg-card/40 hover:bg-primary/5", // Removed shadow-md ring-1 ring-primary/20 for active, shadow-sm for inactive
                   isPastItem && "opacity-40 grayscale"
                 )}
                 style={{ 
@@ -197,7 +197,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               >
                 {isActive && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent animate-pulse" />}
 
-                <div className="flex items-start justify-between gap-3 pr-16"> {/* Reverted items-center to items-start, added pr-16 for action button space */}
+                <div className="flex items-start justify-between gap-3 pr-32 py-1"> {/* Adjusted pr-16 to pr-32, added py-1 */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-lg leading-none">{taskItem.emoji}</span>
@@ -226,7 +226,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 {/* Actions - Absolutely positioned at bottom-right */}
                 {dbTask && (
                   <div className={cn(
-                    "absolute bottom-1 right-1 flex flex-row gap-1 shrink-0", // Changed to flex-row
+                    "absolute bottom-1 right-1 flex flex-row gap-1 shrink-0",
                     "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   )}>
                     <Tooltip>
@@ -234,12 +234,12 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                         <Button 
                           variant="ghost" size="icon" 
                           className={cn(
-                            "h-6 w-6 rounded-md transition-colors", // Reduced button size
+                            "h-6 w-6 rounded-md transition-colors",
                             dbTask.is_locked ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
                           )}
                           onClick={(e) => { e.stopPropagation(); toggleScheduledTaskLock({ taskId: dbTask.id, isLocked: !dbTask.is_locked }); }}
                         >
-                          {dbTask.is_locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3 opacity-50" />} {/* Reduced icon size */}
+                          {dbTask.is_locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3 opacity-50" />}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Lock</TooltipContent>
@@ -248,10 +248,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
-                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-logo-green hover:bg-logo-green/20" // Reduced button size
+                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-logo-green hover:bg-logo-green/20"
                           onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask); }}
                         >
-                          <CheckCircle2 className="h-3 w-3" /> {/* Reduced icon size */}
+                          <CheckCircle2 className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Complete</TooltipContent>
@@ -260,10 +260,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
-                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-logo-orange hover:bg-logo-orange/20" // Reduced button size
+                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-logo-orange hover:bg-logo-orange/20"
                           onClick={(e) => { e.stopPropagation(); onRetireTask(dbTask); }}
                         >
-                          <Archive className="h-3 w-3" /> {/* Reduced icon size */}
+                          <Archive className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Archive</TooltipContent>
@@ -272,10 +272,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
-                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10" // Reduced button size
+                          variant="ghost" size="icon" className="h-6 w-6 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
                           onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id); }}
                         >
-                          <Trash2 className="h-3 w-3" /> {/* Reduced icon size */}
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Delete</TooltipContent>

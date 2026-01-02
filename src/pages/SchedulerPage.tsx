@@ -35,9 +35,8 @@ import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { MealAssignment } from '@/hooks/use-meals';
 import { cn } from '@/lib/utils';
-import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
-import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants';
-import SchedulerHeader from '@/components/SchedulerHeader'; // NEW IMPORT
+import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; // NEW IMPORT
+import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; // NEW IMPORT
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
@@ -347,6 +346,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
           });
         }
         setInputValue('');
+      } else {
+        showError("Invalid task format.");
       }
     } catch (e: any) {
       showError(`Command failed: ${e.message}`);
@@ -387,123 +388,52 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
       )}
       
-      <SchedulerHeader
-        view={view}
-        selectedDay={selectedDay}
-        setSelectedDay={setSelectedDay}
-        datesWithTasks={datesWithTasks}
-        isLoadingDatesWithTasks={isLoadingDatesWithTasks}
-        scheduleSummary={calculatedSchedule?.summary || null}
-        dbScheduledTasks={dbScheduledTasks}
-        retiredTasksCount={retiredTasks.length}
-        isProcessingCommand={overallLoading}
-        inputValue={inputValue}
-        setInputValue={setInputValue}
-        onCommand={handleCommand}
-        onRebalanceToday={handleRebalanceToday}
-        onReshuffleEverything={handleReshuffleEverything}
-        onCompactSchedule={handleCompact}
-        onRandomizeBreaks={handleRandomize}
-        onZoneFocus={handleZoneFocus}
-        onRechargeEnergy={() => rechargeEnergy()}
-        onQuickBreak={() => handleCommand('break 15')}
-        onQuickScheduleBlock={async (duration, sortPreference) => {
-          setIsProcessingCommand(true);
-          try {
-            const tasksToConsider = retiredTasks.filter(t => !t.is_locked && !t.is_completed);
-            const sortedTasks = [...tasksToConsider].sort((a, b) => {
-              const durA = (a.duration || 30) + (a.break_duration || 0);
-              const durB = (b.duration || 30) + (b.break_duration || 0);
-              return sortPreference === 'shortestFirst' ? durA - durB : durB - durA;
-            });
+      {/* NEW: Energy Regen Pod Modal */}
+      {(showRegenPodSetup || isRegenPodRunning) && (
+        <EnergyRegenPodModal 
+          isOpen={showRegenPodSetup || isRegenPodRunning}
+          onExit={handleExitPodSession}
+          onStart={handleStartPodSession}
+          isProcessingCommand={overallLoading}
+          // Pass the remaining duration if running, or max duration if setting up
+          totalDurationMinutes={isRegenPodRunning ? regenPodDurationMinutes : REGEN_POD_MAX_DURATION_MINUTES}
+        />
+      )}
 
-            let remainingDuration = duration;
-            const tasksToPlace: RetiredTask[] = [];
-
-            for (const task of sortedTasks) {
-              const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
-              if (taskTotalDuration <= remainingDuration) {
-                tasksToPlace.push(task);
-                remainingDuration -= taskTotalDuration;
-              }
-              if (remainingDuration <= 0) break;
-            }
-
-            if (tasksToPlace.length === 0) {
-              showError("No suitable tasks found in Aether Sink for the requested block duration.");
-              return;
-            }
-
-            // 1. Get current schedule constraints (Fixed/Locked tasks)
-            const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
-              start: parseISO(t.start_time!),
-              end: parseISO(t.end_time!),
-              duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
-            }));
-            
-            // 2. Get Static Constraints (Meals/Reflections)
-            const staticConstraints = getStaticConstraints();
-            
-            // 3. Merge all constraints
-            let allConstraints = mergeOverlappingTimeBlocks([...occupiedBlocks, ...staticConstraints]);
-
-            let currentPlacementCursor = isBefore(workdayStartTimeForSelectedDay, T_current) && isSameDay(selectedDayAsDate, new Date()) ? T_current : workdayStartTimeForSelectedDay;
-            let placedCount = 0;
-            const retiredIdsToDelete: string[] = [];
-
-            for (const task of tasksToPlace) {
-              const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
-              const slot = findFirstAvailableSlot(taskTotalDuration, allConstraints, currentPlacementCursor, workdayEndTimeForSelectedDay);
-
-              if (slot) {
-                await addScheduledTask({
-                  name: task.name,
-                  start_time: slot.start.toISOString(),
-                  end_time: slot.end.toISOString(),
-                  break_duration: task.break_duration || null,
-                  scheduled_date: selectedDay,
-                  is_critical: task.is_critical,
-                  is_flexible: true,
-                  is_locked: false,
-                  energy_cost: task.energy_cost,
-                  task_environment: task.task_environment,
-                  is_backburner: task.is_backburner,
-                });
-                retiredIdsToDelete.push(task.id);
-                placedCount++;
-
-                // Update constraints for subsequent placements
-                allConstraints.push({ start: slot.start, end: slot.end, duration: taskTotalDuration });
-                allConstraints = mergeOverlappingTimeBlocks(allConstraints);
-                currentPlacementCursor = slot.end;
-              } else {
-                showError(`Could not place "${task.name}".`);
-              }
-            }
-
-            if (retiredIdsToDelete.length > 0) {
-              await Promise.all(retiredIdsToDelete.map(id => removeRetiredTask(id)));
-            }
-            showSuccess(`Scheduled ${placedCount} tasks for ${duration} minutes.`);
-
-          } catch (e: any) {
-            showError(`Quick schedule block failed: ${e.message}`);
-          } finally {
-            setIsProcessingCommand(false);
-          }
-        }}
-        onSortFlexibleTasks={handleSortFlexibleTasks}
-        onAetherDump={aetherDump}
-        onAetherDumpMega={aetherDumpMega}
-        onRefreshSchedule={() => queryClient.invalidateQueries()}
-        onStartRegenPodSession={handleStartPodSession}
-        onExitRegenPodSession={handleExitPodSession}
-        regenPodDurationMinutes={regenPodDurationMinutes}
-      />
-
-      <div className="px-4 md:px-8"> {/* Added padding back for the content below the header */}
+      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
+      <Card className="p-4 space-y-4 animate-slide-in-up">
+        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} />
+        <SchedulerSegmentedControl currentView={view} />
+      </Card>
+      <div className="animate-slide-in-up">
         {view === 'schedule' && (
           <>
+            <SchedulerContextBar T_current={T_current} />
+            <Card className="p-4 shadow-md">
+              <CardHeader className="p-0 pb-4"><CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle></CardHeader>
+              <CardContent className="p-0"><SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} /></CardContent>
+            </Card>
+            <SchedulerActionCenter 
+              isProcessingCommand={overallLoading} 
+              dbScheduledTasks={dbScheduledTasks} 
+              retiredTasksCount={retiredTasks.length} 
+              sortBy={sortBy} 
+              onRebalanceToday={handleRebalanceToday} 
+              onReshuffleEverything={handleReshuffleEverything}
+              onCompactSchedule={handleCompact} 
+              onRandomizeBreaks={handleRandomize} 
+              onZoneFocus={handleZoneFocus} 
+              onRechargeEnergy={() => rechargeEnergy()} 
+              onQuickBreak={() => handleCommand('break 15')} 
+              onQuickScheduleBlock={() => Promise.resolve()} 
+              onSortFlexibleTasks={handleSortFlexibleTasks} 
+              onAetherDump={aetherDump} 
+              onAetherDumpMega={aetherDumpMega} 
+              onRefreshSchedule={() => queryClient.invalidateQueries()} 
+              onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} 
+              onStartRegenPod={() => setShowRegenPodSetup(true)} // UPDATED: Open modal instead of immediate start
+              hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
+            />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
             <Card className="animate-pop-in">
               <CardHeader><CardTitle>Your Vibe Schedule</CardTitle></CardHeader>

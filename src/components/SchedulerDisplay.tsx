@@ -185,8 +185,8 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
               {/* Task Card */}
               <div 
                 className={cn(
-                  "flex-1 rounded-lg border transition-all duration-300 relative overflow-hidden flex flex-col justify-between p-3",
-                  isActive ? "bg-primary/10 border-primary/40 shadow-md ring-1 ring-primary/20" : "bg-card/40 border-white/10 hover:border-primary/30",
+                  "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col justify-between p-3", // Removed border, changed rounded-lg to rounded-xl
+                  isActive ? "bg-primary/10 shadow-md ring-1 ring-primary/20" : "bg-card/40 hover:bg-primary/5", // Adjusted hover background
                   isPastItem && "opacity-40 grayscale"
                 )}
                 style={{ 

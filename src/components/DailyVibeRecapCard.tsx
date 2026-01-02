@@ -58,31 +58,31 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
   ];
 
   const StatHUD = ({ label, value, icon: Icon, colorClass, shadowColor }: { label: string, value: string | number, icon: any, colorClass: string, shadowColor: string }) => (
-    <Card glass className={cn("flex flex-col items-center justify-center p-5 border-white/5 transition-all duration-300 hover:scale-105 hover:border-white/20", shadowColor)}>
+    <div className={cn("flex flex-col items-center justify-center p-5 border border-white/5 rounded-xl transition-all duration-300 hover:scale-105", shadowColor)}> {/* Replaced Card with div, adjusted styling */}
       <div className={cn("p-2 rounded-lg bg-background/50 mb-3", colorClass)}>
         <Icon className="h-5 w-5" />
       </div>
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mb-1">{label}</p>
       <p className="text-2xl font-black font-mono tracking-tighter text-foreground">{value}</p>
-    </Card>
+    </div>
   );
 
   return (
-    <Card glass className="animate-pop-in border-primary/20 shadow-2xl overflow-hidden">
+    <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in overflow-hidden"> {/* Replaced Card with div, adjusted padding/styling */}
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-logo-green opacity-50" />
       
-      <CardHeader className="px-6 pb-4 pt-8 border-b border-white/5 bg-background/20 backdrop-blur-md">
+      <div className="px-2 pb-4 pt-8 border-b border-white/5 bg-background/20 backdrop-blur-md"> {/* Replaced CardHeader with div, adjusted padding */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary">
             <Target className="h-3 w-3" /> System Debrief
           </div>
-          <CardTitle className="text-2xl font-black tracking-tighter uppercase text-foreground flex items-center gap-3">
+          <h2 className="text-2xl font-black tracking-tighter uppercase text-foreground flex items-center gap-3"> {/* Replaced CardTitle with h2 */}
             Recap <ChevronRight className="h-5 w-5 opacity-30" /> {format(new Date(selectedDayString), 'MMM d, yyyy')}
-          </CardTitle>
+          </h2>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-6 space-y-8">
+      <div className="p-6 space-y-8"> {/* Replaced CardContent with div, adjusted padding */}
         {/* Luminous Narrative Message */}
         <div className="relative p-6 rounded-2xl bg-primary/[0.03] border border-primary/10 overflow-hidden group">
           <div className="absolute -top-12 -right-12 h-24 w-24 bg-primary/10 blur-[40px] rounded-full group-hover:opacity-100 transition-opacity opacity-50" />
@@ -166,8 +166,8 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
             </AccordionItem>
           </Accordion>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

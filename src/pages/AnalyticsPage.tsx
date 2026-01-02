@@ -71,49 +71,49 @@ const AnalyticsPage: React.FC = () => {
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="animate-pop-in animate-hover-lift">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Level</CardTitle>
+        <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift"> {/* Replaced Card with div, adjusted styling */}
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
+            <p className="text-sm font-medium">Current Level</p> {/* Replaced CardTitle with p */}
             <Sparkles className="h-4 w-4 text-logo-yellow" />
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-0"> {/* Replaced CardContent with div */}
             <div className="text-xl font-bold">{currentLevel}</div> {/* Changed text-2xl to text-xl */}
             <p className="text-xs text-muted-foreground">
               {xpToNextLevel} XP to Level {currentLevel + 1}
             </p>
-          </CardContent>
-        </Card>
-        <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total XP</CardTitle>
+          </div>
+        </div>
+        <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}> {/* Replaced Card with div, adjusted styling */}
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
+            <p className="text-sm font-medium">Total XP</p> {/* Replaced CardTitle with p */}
             <Sparkles className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-0"> {/* Replaced CardContent with div */}
             <div className="text-xl font-bold">{profile.xp}</div> {/* Changed text-2xl to text-xl */}
             <p className="text-xs text-muted-foreground">
               Lifetime experience points earned
             </p>
-          </CardContent>
-        </Card>
-        <Card className="animate-pop-in animate-hover-lift" style={{ animationDelay: '0.2s' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Daily Streak</CardTitle>
+          </div>
+        </div>
+        <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift" style={{ animationDelay: '0.2s' }}> {/* Replaced Card with div, adjusted styling */}
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
+            <p className="text-sm font-medium">Daily Streak</p> {/* Replaced CardTitle with p */}
             <CheckCircle className="h-4 w-4 text-logo-green" />
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-0"> {/* Replaced CardContent with div */}
             <div className="text-xl font-bold">{profile.daily_streak} Days</div> {/* Changed text-2xl to text-xl */}
             <p className="text-xs text-muted-foreground">
               Consecutive days completing tasks
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
-      <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.3s' }}>
-        <CardHeader>
-          <CardTitle className="text-lg">Tasks Completed Trend (Last 7 Days)</CardTitle> {/* Changed text-xl to text-lg */}
-        </CardHeader>
-        <CardContent>
+      <div className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.3s' }}> {/* Replaced Card with div, adjusted styling */}
+        <div className="px-0 pb-4"> {/* Replaced CardHeader with div, adjusted padding */}
+          <h2 className="text-lg">Tasks Completed Trend (Last 7 Days)</h2> {/* Replaced CardTitle with h2 */}
+        </div>
+        <div className="p-0"> {/* Replaced CardContent with div */}
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -144,14 +144,14 @@ const AnalyticsPage: React.FC = () => {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card className="animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.4s' }}>
-        <CardHeader>
-          <CardTitle className="text-lg">Tasks Completed (Last 7 Days)</CardTitle> {/* Changed text-xl to text-lg */}
-        </CardHeader>
-        <CardContent>
+      <div className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.4s' }}> {/* Replaced Card with div, adjusted styling */}
+        <div className="px-0 pb-4"> {/* Replaced CardHeader with div, adjusted padding */}
+          <h2 className="text-lg">Tasks Completed (Last 7 Days)</h2> {/* Replaced CardTitle with h2 */}
+        </div>
+        <div className="p-0"> {/* Replaced CardContent with div */}
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -175,8 +175,8 @@ const AnalyticsPage: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

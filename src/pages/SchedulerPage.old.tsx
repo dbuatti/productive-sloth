@@ -357,16 +357,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null;
-    const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_start_time) : startOfDay(selectedDayAsDate);
-    let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17);
-    if (isBefore(end, start)) end = addDays(end, 1);
-
-    return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments);
-  }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, T_current, mealAssignments]);
+    return calculateSchedule(dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments);
+  }, [dbScheduledTasks, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, profile, regenPodDurationMinutes, T_current, mealAssignments]);
 
   return (
     <div className={cn(
-      "w-full pb-4 space-y-6", // Adjusted padding-bottom and added space-y-6 for overall spacing
+      "w-full pb-24 transition-all duration-500", // Removed space-y-6
     )}>
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
@@ -383,20 +379,19 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       )}
 
       <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
-      
-      <div className="space-y-6"> {/* Grouping related components for consistent spacing */}
-        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} />
+      <Card className="p-0 space-y-4 animate-slide-in-up border-none shadow-none bg-transparent"> {/* Removed p-4, border, and shadow */}
+        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} /> {/* Pass weekStartsOn */}
         <SchedulerSegmentedControl currentView={view} />
-      </div>
-
-      <div className="space-y-6"> {/* Grouping related components for consistent spacing */}
+      </Card>
+      {/* Removed px-4 md:px-8 from this div to prevent double padding */}
+      <div className="animate-slide-in-up"> 
         {view === 'schedule' && (
           <>
             <SchedulerContextBar T_current={T_current} />
-            <div className="p-4 bg-card rounded-xl shadow-sm"> {/* Replaced Card with div, adjusted padding/styling */}
-              <h2 className="text-xl font-bold flex items-center gap-2 mb-4"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</h2>
-              <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} />
-            </div>
+            <Card className="py-4 shadow-md"> {/* Removed px-4 */}
+              <CardHeader className="p-0 pb-4 px-4"><CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle></CardHeader>
+              <CardContent className="p-0 px-4"><SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} /></CardContent>
+            </Card>
             <SchedulerActionCenter 
               isProcessingCommand={overallLoading} 
               dbScheduledTasks={dbScheduledTasks} 
@@ -420,10 +415,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               navigate={navigate}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
-            <div className="p-4 bg-card rounded-xl shadow-sm"> {/* Replaced Card with div, adjusted padding/styling */}
-              <h2 className="text-xl font-bold mb-4">Your Vibe Schedule</h2>
-              <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
-            </div>
+            <Card className="animate-pop-in"> {/* Removed px-4 */}
+              <CardHeader className="px-4"><CardTitle>Your Vibe Schedule</CardTitle></CardHeader>
+              <CardContent className="py-4">
+                <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
+              </CardContent>
+            </Card>
           </>
         )}
         {view === 'sink' && (

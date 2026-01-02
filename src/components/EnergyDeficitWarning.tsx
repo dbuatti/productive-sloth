@@ -15,17 +15,17 @@ const EnergyDeficitWarning: React.FC<EnergyDeficitWarningProps> = ({ currentEner
   }
 
   return (
-    <Card className={cn(
-      "w-full border-destructive/70 bg-destructive/10 text-destructive animate-pop-in animate-pulse-glow",
+    <div className={cn( // Replaced Card with div
+      "w-full border-none bg-destructive/10 text-destructive animate-pop-in animate-pulse-glow rounded-xl shadow-sm", // Removed border-destructive/70, adjusted styling
       "flex items-center justify-center p-3 text-sm font-semibold"
     )}>
-      <CardContent className="p-0 flex items-center gap-2">
+      <div className="p-0 flex items-center gap-2"> {/* Replaced CardContent with div */}
         <AlertTriangle className="h-5 w-5" />
         <span>
           ⚠️ <span className="font-bold">Energy Deficit:</span> You are running on reserve ({currentEnergy}⚡). Recovery is critical.
         </span>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

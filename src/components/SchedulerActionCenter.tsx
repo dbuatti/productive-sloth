@@ -106,11 +106,11 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   );
 
   return (
-    <Card glass className="animate-pop-in border-white/10 shadow-xl relative z-10">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
-        <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+    <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in relative z-10"> {/* Replaced Card with div, adjusted padding/styling */}
+      <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
+        <h2 className="text-xl font-bold text-foreground flex items-center gap-2"> {/* Replaced CardTitle with h2 */}
           <Cpu className="h-6 w-6 text-primary" /> Action Center
-        </CardTitle>
+        </h2>
         <div className="flex items-center gap-2">
           {/* Collapse Metrics Button */}
           <Tooltip>
@@ -130,9 +130,9 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </TooltipContent>
           </Tooltip>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-3 space-y-4">
+      <div className="p-3 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
         {isCollapsed ? (
           // Only show Smart Fill when collapsed
           <div className="space-y-3">
@@ -249,8 +249,8 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

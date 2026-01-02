@@ -227,20 +227,24 @@ const SettingsPage: React.FC = () => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><User className="h-5 w-5 text-primary" /> Profile</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+          <div className="p-4 bg-card rounded-xl shadow-sm"> {/* Replaced Card with div, adjusted styling */}
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+              <User className="h-5 w-5 text-primary" /> Profile
+            </h2>
+            <div className="p-0 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={form.control} name="first_name" render={({ field }) => (<FormItem><FormLabel>First Name</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="last_name" render={({ field }) => (<FormItem><FormLabel>Last Name</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
               </div>
               <div className="flex justify-end pt-4"><Button type="submit" disabled={isSubmitting || !isValid}>Save Changes</Button></div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="border-primary/20 bg-primary/[0.01]">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Anchor className="h-5 w-5 text-primary" /> Temporal Anchors</CardTitle></CardHeader>
-            <CardContent>
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+              <Anchor className="h-5 w-5 text-primary" /> Temporal Anchors
+            </h2>
+            <div className="p-0"> {/* Replaced CardContent with div */}
               <Tabs defaultValue="meals">
                 <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-secondary rounded-lg mb-6">
                   <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest">Times</TabsTrigger>
@@ -285,12 +289,14 @@ const SettingsPage: React.FC = () => {
                     <div className="flex justify-end"><Button type="submit">Update Reflections</Button></div>
                 </TabsContent>
               </Tabs>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="border-primary/20 bg-primary/[0.01]">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><ListOrdered className="h-5 w-5 text-primary" /> Auto-Balance Logic</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+              <ListOrdered className="h-5 w-5 text-primary" /> Auto-Balance Logic
+            </h2>
+            <div className="p-0 space-y-6"> {/* Replaced CardContent with div, adjusted padding */}
               <EnvironmentOrderSettings />
               <div className="pt-4 border-t border-white/5 space-y-4">
                 <FormField control={form.control} name="enable_environment_chunking" render={({ field }) => (
@@ -313,13 +319,15 @@ const SettingsPage: React.FC = () => {
                   </FormItem>
                 )} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* NEW: Calendar Preferences & View Settings */}
-          <Card className="border-primary/20 bg-primary/[0.01]">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CalendarDays className="h-5 w-5 text-primary" /> Calendar & View Preferences</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+              <CalendarDays className="h-5 w-5 text-primary" /> Calendar & View Preferences
+            </h2>
+            <div className="p-0 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
               <FormField
                 control={form.control}
                 name="week_starts_on"
@@ -381,13 +389,17 @@ const SettingsPage: React.FC = () => {
                 </FormControl>
               </FormItem>
               <div className="flex justify-end"><Button type="submit" disabled={isSubmitting || !isValid}>Save Calendar Settings</Button></div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="border-destructive/50 bg-destructive/[0.01]">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg text-destructive"><Trash2 className="h-5 w-5" /> Danger Zone</CardTitle></CardHeader>
-            <CardContent><Button variant="destructive" className="w-full font-black uppercase" onClick={handleResetGameProgress}>Wipe History</Button></CardContent>
-          </Card>
+          <div className="p-4 bg-card rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]"> {/* Replaced Card with div, adjusted styling */}
+            <h2 className="flex items-center gap-2 text-lg text-destructive px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+              <Trash2 className="h-5 w-5" /> Danger Zone
+            </h2>
+            <div className="p-0"> {/* Replaced CardContent with div */}
+              <Button variant="destructive" className="w-full font-black uppercase" onClick={handleResetGameProgress}>Wipe History</Button>
+            </div>
+          </div>
         </form>
       </Form>
     </div>

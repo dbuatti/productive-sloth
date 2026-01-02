@@ -95,9 +95,9 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.3 }}
       className={cn(
-        "group relative p-3 rounded-xl border bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all cursor-grab active:cursor-grabbing",
+        "group relative p-3 rounded-xl border-none bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all cursor-grab active:cursor-grabbing", // Removed border
         "hover:border-primary/40 hover:shadow-lg",
-        task.is_locked ? "border-primary/30 bg-primary/[0.03]" : "border-transparent",
+        task.is_locked ? "bg-primary/[0.03]" : "border-transparent", // Removed border-primary/30
         task.is_completed && "opacity-50 grayscale",
         "mb-2",
         isDragging && "z-50 scale-[1.05] rotate-2 shadow-2xl shadow-primary/30 ring-2 ring-primary/50"

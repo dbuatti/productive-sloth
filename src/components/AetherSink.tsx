@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { 
   Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, 
   Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, 
@@ -29,6 +28,7 @@ import {
 import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
 import SinkKanbanBoard from './SinkKanbanBoard';
 import { UserProfile } from '@/hooks/use-session'; // Import UserProfile type
+import { Button } from '@/components/ui/button'; // Import Button component
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -155,16 +155,16 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   return (
     <>
-      <Card glass className="border-dashed border-muted-foreground/20 shadow-xl w-full">
-        <CardHeader className={cn("pb-4 flex flex-row items-center justify-between px-6 pt-8")}>
+      <div className="p-4 bg-card rounded-xl shadow-sm w-full"> {/* Replaced Card with div, adjusted padding/styling */}
+        <div className={cn("pb-4 flex flex-row items-center justify-between")}> {/* Replaced CardHeader with div */}
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-secondary/50">
                 <Trash2 className="h-5 w-5 text-muted-foreground" />
             </div>
-            <CardTitle className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+            <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2"> {/* Replaced CardTitle with h2 */}
               <span>Aether Sink</span>
               <span className="text-xs font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
-            </CardTitle>
+            </h2>
           </div>
           
           <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                     <SortItem type="ENERGY_ASC" label="Energy (Low)" icon={Zap} />
                     <DropdownMenuSeparator className="my-2 bg-white/5" />
                     <SortItem type="NAME_ASC" label="Name (A-Z)" icon={SortAsc} />
-                    <SortItem type="EMOJI" label="Emoji Sync" icon={Smile} />
+                    <SortItem type="EMOJI" label="Vibe (Emoji)" icon={Smile} />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -248,9 +248,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               <TooltipContent>Re-zone all unlocked objectives</TooltipContent>
             </Tooltip>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="px-6 pb-6 space-y-6">
+        <div className="px-2 pb-2 space-y-6"> {/* Replaced CardContent with div, adjusted padding */}
           {/* Input Form (Removed for Kanban view, kept for list view consistency) */}
           {viewMode === 'list' && (
             <form onSubmit={(e) => { e.preventDefault(); showError("Quick add is disabled in List View. Switch to Kanban or use the Scheduler input."); }} className="flex gap-2">
@@ -296,9 +296,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                       key={task.id} 
                       onClick={() => handleOpenDetailDialog(task)} // Click to open details
                       className={cn(
-                        "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border transition-all duration-300 cursor-pointer animate-pop-in",
+                        "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border-none transition-all duration-300 cursor-pointer animate-pop-in", // Removed border
                         "bg-card/40 hover:bg-secondary/40",
-                        isLocked ? "border-primary/20 bg-primary/[0.03]" : "border-transparent",
+                        isLocked ? "bg-primary/[0.03]" : "border-transparent", // Removed border-primary/20
                         isBackburner && !isLocked && "opacity-70",
                         isCompleted && "opacity-40 grayscale"
                       )}
@@ -391,8 +391,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               />
             )
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <RetiredTaskDetailDialog
         task={selectedRetiredTask}

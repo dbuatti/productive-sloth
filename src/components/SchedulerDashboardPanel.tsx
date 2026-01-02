@@ -39,34 +39,32 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
   const breakTimePercentage = totalScheduledMinutes > 0 ? (scheduleSummary.breakTime / totalScheduledMinutes) * 100 : 0;
 
   return (
-    <div className="w-full"> {/* Removed space-y-4 */}
+    <div className="w-full space-y-4"> {/* Removed Card, added space-y-4 */}
       {/* ALERT FOR UNSCHEDULED TASKS */}
       {scheduleSummary.unscheduledCount > 0 && (
-        <Card className="border-destructive/50 bg-destructive/5 animate-pulse">
-            <CardContent className="p-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <AlertTriangle className="h-5 w-5 text-destructive" />
-                    <p className="text-sm font-bold text-destructive">
-                        Temporal Drift Detected: {scheduleSummary.unscheduledCount} tasks have no assigned time slots.
-                    </p>
-                </div>
-                <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-7 text-[10px] font-black uppercase tracking-widest border-destructive/20 hover:bg-destructive/10"
-                    onClick={onRefreshSchedule}
-                >
-                    Recalibrate Timeline
-                </Button>
-            </CardContent>
-        </Card>
+        <div className="p-3 flex items-center justify-between rounded-xl border border-destructive/50 bg-destructive/5 animate-pulse"> {/* Replaced Card with div */}
+            <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <p className="text-sm font-bold text-destructive">
+                    Temporal Drift Detected: {scheduleSummary.unscheduledCount} tasks have no assigned time slots.
+                </p>
+            </div>
+            <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7 text-[10px] font-black uppercase tracking-widest border-destructive/20 hover:bg-destructive/10"
+                onClick={onRefreshSchedule}
+            >
+                Recalibrate Timeline
+            </Button>
+        </div>
       )}
 
-      <Card className="animate-pop-in animate-hover-lift"> {/* Removed w-full */}
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
-          <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+      <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift"> {/* Replaced Card with div, adjusted padding/styling */}
+        <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2"> {/* Replaced CardTitle with h2 */}
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard
-          </CardTitle>
+          </h2>
           <div className="flex items-center gap-2">
             {/* Collapse Metrics Button */}
             <Tooltip>
@@ -86,10 +84,10 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
               </TooltipContent>
             </Tooltip>
           </div>
-        </CardHeader>
+        </div>
 
         {!isCollapsed && ( // Conditionally render content
-          <CardContent className="py-4 px-4 space-y-4">
+          <div className="py-4 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
             {/* Session Pacing Bar */}
             {totalScheduledMinutes > 0 && (
               <div className="relative h-2 w-full rounded-full bg-secondary overflow-hidden shadow-inner">
@@ -107,58 +105,58 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
             {/* Stat Cards - Refactored to 4 columns */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Total Tasks */}
-              <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift">
-                <CardHeader className="p-0 pb-2 text-center">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+              <div className="flex flex-col items-center justify-center p-4 bg-card/50 border border-primary/20 rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift"> {/* Replaced Card with div */}
+                <div className="pb-2 text-center"> {/* Replaced CardHeader with div */}
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1"> {/* Replaced CardTitle with p */}
                     <ListTodo className="h-4 w-4 text-primary" /> Tasks
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
+                  </p>
+                </div>
+                <div className="p-0"> {/* Replaced CardContent with div */}
                   <p className="text-2xl font-extrabold font-mono text-foreground">{scheduleSummary.totalTasks}</p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
               {/* Active Time */}
-              <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}>
-                <CardHeader className="p-0 pb-2 text-center">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+              <div className="flex flex-col items-center justify-center p-4 bg-card/50 border border-primary/20 rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}> {/* Replaced Card with div */}
+                <div className="pb-2 text-center"> {/* Replaced CardHeader with div */}
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1"> {/* Replaced CardTitle with p */}
                     <Zap className="h-4 w-4 text-primary" /> Active Time
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
+                  </p>
+                </div>
+                <div className="p-0"> {/* Replaced CardContent with div */}
                   <p className="text-2xl font-extrabold font-mono text-primary">
                     {scheduleSummary.activeTime.hours}h {scheduleSummary.activeTime.minutes}m
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
               {/* Break Time */}
-              <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.2s' }}>
-                <CardHeader className="p-0 pb-2 text-center">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+              <div className="flex flex-col items-center justify-center p-4 bg-card/50 border border-primary/20 rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.2s' }}> {/* Replaced Card with div */}
+                <div className="pb-2 text-center"> {/* Replaced CardHeader with div */}
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1"> {/* Replaced CardTitle with p */}
                     <Coffee className="h-4 w-4 text-logo-orange" /> Break Time
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
+                  </p>
+                </div>
+                <div className="p-0"> {/* Replaced CardContent with div */}
                   <p className="text-2xl font-extrabold font-mono text-logo-orange">{scheduleSummary.breakTime} min</p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
               {/* Session End */}
-              <Card className="flex flex-col items-center justify-center p-4 bg-card/50 border-primary/20 shadow-md hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.3s' }}>
-                <CardHeader className="p-0 pb-2 text-center">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+              <div className="flex flex-col items-center justify-center p-4 bg-card/50 border border-primary/20 rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 animate-pop-in animate-hover-lift" style={{ animationDelay: '0.3s' }}> {/* Replaced Card with div */}
+                <div className="pb-2 text-center"> {/* Replaced CardHeader with div */}
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1"> {/* Replaced CardTitle with p */}
                     <Flag className="h-4 w-4 text-foreground" /> Session End
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
+                  </p>
+                </div>
+                <div className="p-0"> {/* Replaced CardContent with div */}
                   <p className="text-2xl font-extrabold font-mono text-foreground">{formatTime(scheduleSummary.sessionEnd)}</p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 });

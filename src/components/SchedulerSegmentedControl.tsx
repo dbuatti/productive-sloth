@@ -23,7 +23,7 @@ const SchedulerSegmentedControl: React.FC<SchedulerSegmentedControlProps> = ({ c
 
   return (
     <Tabs value={currentView} onValueChange={handleValueChange} className="w-full animate-slide-in-up">
-      <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-secondary rounded-lg shadow-lg"> {/* Adjusted height */}
+      <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-secondary rounded-lg shadow-none"> {/* Adjusted height, removed shadow-lg */}
         {views.map(view => (
           <TabsTrigger 
             key={view.value}

@@ -99,29 +99,25 @@ const ModelPage: React.FC = () => {
       </p>
 
       {/* Section 1: Button Replicas */}
-      <Card className="animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
-            <ListTodo className="h-6 w-6" /> All Button Replicas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="p-4 bg-card rounded-xl shadow-sm animate-hover-lift"> {/* Replaced Card with div, adjusted styling */}
+        <h2 className="text-xl font-bold flex items-center gap-2 text-primary px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+          <ListTodo className="h-6 w-6" /> All Button Replicas
+        </h2>
+        <div className="p-0"> {/* Replaced CardContent with div */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {buttons.map((btn, index) => (
               <ButtonReplica key={index} {...btn} />
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Section 2: Active Task Explanation */}
-      <Card className="animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
-            <Zap className="h-6 w-6 text-logo-yellow" /> Active Task / Now Focus
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-muted-foreground">
+      <div className="p-4 bg-card rounded-xl shadow-sm animate-hover-lift"> {/* Replaced Card with div, adjusted styling */}
+        <h2 className="text-xl font-bold flex items-center gap-2 text-primary px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+          <Zap className="h-6 w-6 text-logo-yellow" /> Active Task / Now Focus
+        </h2>
+        <div className="p-0 space-y-4 text-muted-foreground"> {/* Replaced CardContent with div, adjusted padding */}
           <p>
             The <strong>Active Task</strong> (or <strong>Now Focus</strong>) is the scheduled item whose time slot currently overlaps with the system's current time (<code className="font-mono">T_current</code>). This is the task you should be focusing on right now.
           </p>
@@ -139,17 +135,15 @@ const ModelPage: React.FC = () => {
               <strong>Completion:</strong> Completing a task triggers XP gain and energy cost calculation. If the task is flexible, the schedule is immediately compacted to fill the gap.
             </li>
           </ul>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Section 3: Vibe Schedule Explanation */}
-      <Card className="animate-hover-lift">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
-            <Clock className="h-6 w-6 text-primary" /> Vibe Schedule
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-muted-foreground">
+      <div className="p-4 bg-card rounded-xl shadow-sm animate-hover-lift"> {/* Replaced Card with div, adjusted styling */}
+        <h2 className="text-xl font-bold flex items-center gap-2 text-primary px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+          <Clock className="h-6 w-6 text-primary" /> Vibe Schedule
+        </h2>
+        <div className="p-0 space-y-4 text-muted-foreground"> {/* Replaced CardContent with div, adjusted padding */}
           <p>
             The <strong>Vibe Schedule</strong> is the core time management tool, dynamically organizing your day based on fixed appointments, flexible tasks, and available time slots within your defined Workday Window. It aims to keep you in a state of "flow" by presenting a clear, prioritized timeline.
           </p>
@@ -170,8 +164,8 @@ const ModelPage: React.FC = () => {
               <strong>Dynamic Placement:</strong> When adding a new duration-based task, the system automatically finds the next available slot after the current time (<code className="font-mono">T_current</code>) or the Workday Start time.
             </li>
           </ul>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

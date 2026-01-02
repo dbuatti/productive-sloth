@@ -15,7 +15,7 @@ const AppUnifiedHeader: React.FC = () => {
   return (
     <header className={cn(
       "flex items-center justify-between h-16 px-4 md:px-8",
-      "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm"
+      "border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm" // Kept border-b for separation
     )}>
       {/* Left: Logo/Title */}
       <div className="flex items-center">

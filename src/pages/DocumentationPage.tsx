@@ -37,12 +37,12 @@ const DocumentationPage: React.FC = () => {
 
       <Accordion type="multiple" defaultValue={['overview']} className="w-full space-y-4">
         {/* App Overview */}
-        <AccordionItem value="overview">
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
+        <AccordionItem value="overview" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
             <Sparkles className="h-6 w-6 text-logo-yellow" /> App Overview
           </AccordionTrigger>
-          <AccordionContent>
-            <Card className="p-6 space-y-4">
+          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
+            <div className="p-0 space-y-4"> {/* Replaced Card with div */}
               <p>
                 AetherFlow is designed to transform your daily task management into an engaging, gamified experience.
                 By combining traditional to-do lists with RPG-inspired progression and a dynamic scheduler,
@@ -53,17 +53,17 @@ const DocumentationPage: React.FC = () => {
                 The Vibe Scheduler intelligently organizes your tasks, while the Aether Sink provides a space for retired items,
                 ensuring nothing truly gets lost.
               </p>
-            </Card>
+            </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Core Concepts */}
-        <AccordionItem value="core-concepts">
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
+        <AccordionItem value="core-concepts" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
             <Palette className="h-6 w-6 text-primary" /> Core Concepts
           </AccordionTrigger>
-          <AccordionContent>
-            <Card className="p-6 space-y-6">
+          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
+            <div className="p-0 space-y-6"> {/* Replaced Card with div */}
               <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Gamepad className="h-5 w-5 text-logo-yellow" /> Gamification
               </h3>
@@ -151,17 +151,17 @@ const DocumentationPage: React.FC = () => {
                   </li>
                 </ul>
               </div> {/* Closed div */}
-            </Card>
+            </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Features Breakdown */}
-        <AccordionItem value="features">
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
+        <AccordionItem value="features" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
             <ListTodo className="h-6 w-6 text-logo-green" /> Features Breakdown
           </AccordionTrigger>
-          <AccordionContent>
-            <Card className="p-6 space-y-6">
+          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
+            <div className="p-0 space-y-6"> {/* Replaced Card with div */}
               <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
                 <Sparkles className="h-5 w-5 text-logo-yellow" /> Dashboard
               </h3>
@@ -231,17 +231,17 @@ const DocumentationPage: React.FC = () => {
                 default auto-schedule times, and access developer tools. Includes a "Danger Zone" for
                 resetting game progress or deleting your account.
               </p>
-            </Card>
+            </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Emoji Guide */}
-        <AccordionItem value="emoji-guide">
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
+        <AccordionItem value="emoji-guide" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
             <Palette className="h-6 w-6 text-logo-orange" /> Emoji & Color Guide
           </AccordionTrigger>
-          <AccordionContent>
-            <Card className="p-6 space-y-4">
+          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
+            <div className="p-0 space-y-4"> {/* Replaced Card with div */}
               <p className="text-muted-foreground">
                 AetherFlow automatically assigns an emoji and a color hue to your tasks based on keywords in their names.
                 This helps you quickly identify task types in your schedule.
@@ -262,17 +262,17 @@ const DocumentationPage: React.FC = () => {
               <p className="text-sm text-muted-foreground mt-4">
                 If no specific keyword is found, the default clipboard emoji (📋) and a blue hue are used.
               </p>
-            </Card>
+            </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Scheduler Commands */}
-        <AccordionItem value="scheduler-commands">
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
+        <AccordionItem value="scheduler-commands" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
             <Command className="h-6 w-6 text-logo-green" /> Vibe Scheduler Commands
           </AccordionTrigger>
-          <AccordionContent>
-            <Card className="p-6 space-y-4">
+          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
+            <div className="p-0 space-y-4"> {/* Replaced Card with div */}
               <p className="text-muted-foreground">
                 The Vibe Scheduler input field understands natural language and specific commands to help you manage your schedule efficiently.
               </p>
@@ -339,18 +339,18 @@ const DocumentationPage: React.FC = () => {
                   <li>Energy cost is automatically calculated based on duration, criticality, and backburner status.</li>
                 </ul>
               </p>
-            </Card>
+            </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Technical Details */}
-        <AccordionItem value="technical-details">
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2"> {/* Changed text-2xl to text-xl */}
+        <AccordionItem value="technical-details" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
             <Code className="h-6 w-6 text-secondary-foreground" /> Technical Details
           </AccordionTrigger>
-          <AccordionContent>
-            <Card className="p-6 space-y-4 text-muted-foreground">
-              <p>
+          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
+            <div className="p-0 space-y-4"> {/* Replaced Card with div */}
+              <p className="text-muted-foreground">
                 AetherFlow is built as a modern web application using the following technologies:
               </p>
               <ul className="list-disc list-inside space-y-1">
@@ -364,7 +364,7 @@ const DocumentationPage: React.FC = () => {
                 The application leverages Supabase Edge Functions for server-side logic, such as fetching weather data,
                 and PostgreSQL for robust data storage with Row Level Security (RLS) for user data protection.
               </p>
-            </Card>
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

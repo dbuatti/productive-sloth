@@ -26,7 +26,7 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
   return (
     <div
       className={cn(
-        "flex items-center justify-between p-3 rounded-md border border-border/50 text-base transition-all duration-200 ease-in-out", // Increased padding and font size
+        "flex items-center justify-between p-3 rounded-xl border-none text-base transition-all duration-200 ease-in-out", // Increased padding and font size, removed border
         "bg-card hover:bg-secondary/50 animate-hover-lift"
       )}
       style={{ backgroundColor: ambientBackgroundColor, borderLeft: `4px solid ${accentBorderColor}` }}

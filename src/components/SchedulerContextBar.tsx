@@ -13,8 +13,8 @@ interface SchedulerContextBarProps {
 
 const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) => {
   return (
-    <Card className="glass-card py-2 animate-pop-in border-white/10 shadow-lg overflow-hidden bg-background/40 backdrop-blur-md w-full">
-      <CardContent className="px-0">
+    <div className="p-2 animate-pop-in rounded-xl shadow-sm overflow-hidden bg-background/40 backdrop-blur-md w-full"> {/* Replaced Card with div, adjusted styling */}
+      <div className="px-0"> {/* Replaced CardContent with div */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 px-3">
           
           {/* Time Module - More Compact */}
@@ -37,8 +37,8 @@ const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) 
           </div>
 
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

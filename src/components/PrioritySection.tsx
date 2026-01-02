@@ -26,7 +26,7 @@ const getPriorityColorClass = (priority: string) => {
 
 const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks, onCompleteTask }) => {
   return (
-    <AccordionItem value={priority} className="border rounded-lg shadow-md bg-card animate-hover-lift">
+    <AccordionItem value={priority} className="border-none rounded-xl shadow-sm bg-card animate-hover-lift"> {/* Removed border, adjusted styling */}
       <AccordionTrigger className={cn(
         "text-base font-semibold capitalize p-4 transition-colors duration-200 hover:no-underline",
         getPriorityColorClass(priority)

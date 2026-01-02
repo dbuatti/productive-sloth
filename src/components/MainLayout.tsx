@@ -56,7 +56,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {!isMobile && !isSimplifiedSchedulePage && (
         <div 
           className={cn(
-            "fixed top-0 left-0 right-0 z-30 h-screen border-r bg-sidebar transition-all duration-300 ease-in-out pt-[64px]", // Adjusted pt for sidebar to match new header height
+            "fixed top-0 left-0 right-0 z-30 h-screen border-r border-border/50 bg-sidebar transition-all duration-300 ease-in-out pt-[64px]", // Adjusted pt for sidebar to match new header height
             sidebarWidth
           )}
         >

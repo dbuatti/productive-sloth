@@ -62,8 +62,8 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
           className={cn(
             "flex flex-col items-center justify-center h-16 w-11 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative", // Increased height to h-16
             "text-muted-foreground hover:text-primary hover:bg-primary/5",
-            isSelected && "glass-card text-foreground border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-105 z-10", // FIX: Changed text-primary-foreground to text-foreground
-            !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]"
+            isSelected && "bg-card text-foreground shadow-md scale-105 z-10", // Removed border-primary/50, glass-card
+            !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]" // Kept subtle border for today
           )}
           data-date={formattedDay}
         >
@@ -104,7 +104,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
   };
 
   return (
-    <div className="flex items-center justify-between w-full gap-2 bg-secondary/5 p-2 rounded-2xl border border-white/5 backdrop-blur-sm">
+    <div className="flex items-center justify-between w-full gap-2 bg-secondary/5 p-2 rounded-2xl border-none backdrop-blur-sm"> {/* Removed border */}
       
       <div className="flex items-center gap-1">
         <Tooltip>

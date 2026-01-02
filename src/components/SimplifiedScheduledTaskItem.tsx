@@ -49,11 +49,11 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
   return (
     <div
       className={cn(
-        "relative flex items-center gap-2 p-1 rounded-md border border-transparent transition-all duration-200 h-full group", // Added 'group' class
+        "relative flex items-center gap-2 p-1 rounded-md border-none transition-all duration-200 h-full group", // Removed border, added 'group' class
         "bg-card/30 hover:bg-card/50",
-        task.is_locked && "border-primary/20 bg-primary/[0.03]",
+        task.is_locked && "bg-primary/[0.03]", // Removed border-primary/20
         task.is_completed && "opacity-50 grayscale",
-        isCurrentlyActive && "animate-active-task border-live-progress/50 bg-live-progress/10 shadow-lg",
+        isCurrentlyActive && "animate-active-task bg-live-progress/10 shadow-lg", // Removed border-live-progress/50
         "text-sm"
       )}
       style={{ borderLeft: task.is_locked ? '3px solid hsl(var(--primary))' : `3px solid ${accentColor}` }}

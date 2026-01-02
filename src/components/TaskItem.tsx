@@ -87,13 +87,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
 
   return (
     <>
-      <Card className={cn(
+      <div className={cn( // Replaced Card with div
         "relative flex items-center justify-between p-4 transition-all duration-300 rounded-lg shadow-sm",
         "bg-card hover:bg-secondary/50 animate-hover-lift border-l-4",
         getPriorityLeftBorderClass(task.priority),
         task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
         "hover:shadow-lg hover:shadow-primary/10",
-        "border-b border-dashed border-border/50 last:border-b-0"
+        "border-b border-dashed border-border/50 last:border-b-0" // Kept bottom border for list separation
       )}>
         <div className="flex items-center space-x-4 flex-grow min-w-0">
           <Checkbox 
@@ -217,7 +217,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </Card>
+      </div>
       
       <TaskDetailSheetForTasks 
         task={selectedTask} 

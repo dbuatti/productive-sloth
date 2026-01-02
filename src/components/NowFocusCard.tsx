@@ -48,15 +48,15 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
 
   if (!activeItem) {
     return (
-      <Card className="animate-pop-in border-dashed border-border/40 bg-secondary/5 text-center py-8 flex flex-col items-center justify-center space-y-2 group transition-all duration-500 hover:border-primary/40">
+      <div className="p-8 flex flex-col items-center justify-center space-y-2 rounded-xl border-2 border-dashed border-border/40 bg-secondary/5 text-center group transition-all duration-500 hover:border-primary/40"> {/* Replaced Card with div, adjusted styling */}
         <div className="p-3 rounded-full bg-secondary/20 group-hover:scale-110 transition-transform duration-500">
           <Layout className="h-6 w-6 text-muted-foreground/20" />
         </div>
         <div className="space-y-0.5">
-          <CardTitle className="text-sm font-black uppercase tracking-tighter text-muted-foreground/60">Flow State Idle</CardTitle>
+          <h2 className="text-sm font-black uppercase tracking-tighter text-muted-foreground/60">Flow State Idle</h2> {/* Replaced CardTitle with h2 */}
           <p className="text-[9px] text-muted-foreground/40 uppercase tracking-[0.2em] font-black">Awaiting Temporal Objective</p>
         </div>
-      </Card>
+      </div>
     );
   }
 
@@ -64,16 +64,16 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
   const accentClass = isBreak ? 'text-logo-orange' : 'text-primary';
 
   return (
-    <Card 
+    <div 
       className={cn(
-        "relative overflow-hidden group cursor-pointer border-2 transition-all duration-500 animate-pop-in",
+        "relative overflow-hidden group cursor-pointer border-2 transition-all duration-500 rounded-xl shadow-sm animate-pop-in", // Replaced Card with div, adjusted styling
         isBreak ? "border-logo-orange/30 bg-logo-orange/[0.02]" : "border-primary/30 bg-primary/[0.02]",
         isMobile ? "py-2" : "p-6" // Conditional padding: more for desktop
       )}
       onClick={onEnterFocusMode}
     >
-      <CardHeader className={cn(
-        "flex flex-row items-center justify-between space-y-0 pb-2",
+      <div className={cn(
+        "flex flex-row items-center justify-between space-y-0 pb-2", // Replaced CardHeader with div
         isMobile ? "px-4 pt-3" : "px-0 pt-0 mb-8" // Conditional padding: no padding for desktop header
       )}>
         <div className="flex items-center gap-2">
@@ -92,12 +92,12 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
               <div className={cn("p-1.5 rounded-md bg-background/50 shadow-inner", accentClass)}>
                 {isBreak ? <Coffee className="h-3.5 w-3.5 animate-bounce" /> : <Target className="h-3.5 w-3.5 animate-spin-slow" />}
               </div>
-              <CardTitle className={cn(
+              <h2 className={cn( // Replaced CardTitle with h2
                 "font-black tracking-[0.2em] text-foreground/60 uppercase",
                 "text-[9px]"
               )}>
                 Active Focus
-              </CardTitle>
+              </h2>
             </>
           )}
         </div>
@@ -109,10 +109,10 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
         ) : (
           <div className="h-1.5 w-1.5 rounded-full bg-live-progress animate-pulse" />
         )}
-      </CardHeader>
+      </div>
 
-      <CardContent className={cn(
-        "pt-2 pb-3 space-y-2",
+      <div className={cn(
+        "pt-2 pb-3 space-y-2", // Replaced CardContent with div
         isMobile ? "px-4" : "px-0" // Conditional padding
       )}>
         {/* Main Task Display */}
@@ -163,8 +163,8 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 });
 

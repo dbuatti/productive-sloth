@@ -362,7 +362,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   return (
     <div className={cn(
-      "w-full space-y-6 pb-24 transition-all duration-500",
+      "w-full pb-24 transition-all duration-500", // Removed space-y-6
     )}>
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />

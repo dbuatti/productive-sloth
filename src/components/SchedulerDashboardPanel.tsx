@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ListTodo, Zap, Coffee, Flag, ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown, RotateCcw, Clock, Hourglass, AlertTriangle } from 'lucide-react'; // Icons for the stat cards, added Hourglass and AlertTriangle
@@ -29,7 +31,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
   const breakTimePercentage = totalScheduledMinutes > 0 ? (scheduleSummary.breakTime / totalScheduledMinutes) * 100 : 0;
 
   return (
-    <div className="space-y-4 animate-slide-in-up"> {/* Removed w-full */}
+    <div className="w-full"> {/* Removed space-y-4 */}
       {/* ALERT FOR UNSCHEDULED TASKS */}
       {scheduleSummary.unscheduledCount > 0 && (
         <Card className="border-destructive/50 bg-destructive/5 animate-pulse">

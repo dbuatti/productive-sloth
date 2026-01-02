@@ -107,7 +107,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
             htmlFor={`task-${task.id}`} 
             className={`text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex flex-col items-start min-w-0 flex-grow`}
           >
-            <div className="flex items-center gap-3 w-full">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 w-full"> {/* Added flex-wrap and gap-y */}
               {task.is_critical && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -124,7 +124,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
               <Badge 
                 variant="outline" 
                 className={cn(
-                  "capitalize px-2.5 py-1 text-xs font-semibold",
+                  "capitalize px-2.5 py-1 text-xs font-semibold shrink-0", // Ensure badge doesn't shrink
                   getPriorityBadgeClasses(task.priority)
                 )}
               >

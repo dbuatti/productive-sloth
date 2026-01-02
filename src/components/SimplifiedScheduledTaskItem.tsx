@@ -3,15 +3,15 @@ import { DBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
-import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle } from 'lucide-react'; // Added CheckCircle
+import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Button } from '@/components/ui/button'; // Import Button
+import { Button } from '@/components/ui/button';
 
 interface SimplifiedScheduledTaskItemProps {
   task: DBScheduledTask;
   isDetailedView: boolean;
   isCurrentlyActive: boolean;
-  onCompleteTask: (task: DBScheduledTask) => Promise<void>; // NEW: onCompleteTask prop
+  onCompleteTask: (task: DBScheduledTask) => Promise<void>;
 }
 
 const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
@@ -42,14 +42,14 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
   const duration = startTime && endTime ? differenceInMinutes(endTime, startTime) : 0;
 
   const handleComplete = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering any parent click handlers
+    e.stopPropagation();
     await onCompleteTask(task);
   };
 
   return (
     <div
       className={cn(
-        "relative flex items-center gap-2 p-1 rounded-md border border-transparent transition-all duration-200 h-full",
+        "relative flex items-center gap-2 p-1 rounded-md border border-transparent transition-all duration-200 h-full group", // Added 'group' class
         "bg-card/30 hover:bg-card/50",
         task.is_locked && "border-primary/20 bg-primary/[0.03]",
         task.is_completed && "opacity-50 grayscale",
@@ -104,7 +104,7 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
         )}
       </div>
 
-      {/* NEW: Complete Task Button */}
+      {/* NEW: Complete Task Button - Always visible on small screens, hover on larger */}
       {!task.is_completed && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -112,7 +112,10 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
               variant="ghost"
               size="icon"
               onClick={handleComplete}
-              className="h-8 w-8 shrink-0 text-logo-green hover:bg-logo-green/10 opacity-0 group-hover:opacity-100 transition-opacity"
+              className={cn(
+                "h-8 w-8 shrink-0 text-logo-green hover:bg-logo-green/10",
+                "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" // Always visible on mobile, hover on desktop
+              )}
             >
               <CheckCircle className="h-4 w-4" />
             </Button>

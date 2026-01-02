@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { format, addDays, isToday, parseISO, addWeeks, subDays, startOfWeek } from 'date-fns'; // Added startOfWeek
+import React, { useState, useMemo, useRef, useEffect } from 'react'; // Added useRef, useEffect
+import { format, addDays, isToday, parseISO, addWeeks, subDays, startOfWeek } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CalendarCheck, ChevronLeft, ChevronRight, Loader2, Zap } from 'lucide-react';
@@ -25,6 +25,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
 }) => {
   const daysToDisplay = 7;
   const [weekOffset, setWeekOffset] = useState(0);
+  const daysContainerRef = useRef<HTMLDivElement>(null); // Ref for the inner container of days
 
   const currentWeekStart = useMemo(() => {
     const today = new Date();
@@ -36,6 +37,24 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
     setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
     setWeekOffset(0);
   };
+
+  // Effect to scroll to the selected day when it changes or when the component mounts
+  useEffect(() => {
+    if (daysContainerRef.current) {
+      const selectedDayElement = daysContainerRef.current.querySelector(
+        `[data-date="${selectedDay}"]`
+      ) as HTMLElement;
+
+      if (selectedDayElement) {
+        // Scroll the selected day into the center of the view
+        selectedDayElement.scrollIntoView({
+          behavior: 'smooth',
+          inline: 'center',
+          block: 'nearest' // Ensure it's visible vertically if needed
+        });
+      }
+    }
+  }, [selectedDay, daysContainerRef.current, weekOffset]); // Re-run when selectedDay or weekOffset changes
 
   const days = Array.from({ length: daysToDisplay }).map((_, i) => {
     const day = addDays(currentWeekStart, i);
@@ -55,6 +74,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
           isSelected && "glass-card text-primary border-primary/50 shadow-[0_0_20px_rgba(var(--primary),0.15)] scale-110 z-10",
           !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]"
         )}
+        data-date={formattedDay} // Add data attribute for easy selection
       >
         <span className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">
           {format(day, 'EEE')}
@@ -118,7 +138,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
             <Loader2 className="h-6 w-6 animate-spin text-primary opacity-40" />
           </div>
         ) : (
-          <div className="flex items-center gap-2 whitespace-nowrap animate-pop-in">
+          <div ref={daysContainerRef} className="flex items-center gap-2 whitespace-nowrap animate-pop-in">
             {days}
           </div>
         )}

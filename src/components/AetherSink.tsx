@@ -77,6 +77,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
+  const [localInput, setLocalInput] = useState(''); // NEW: State for quick add input
 
   const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
 
@@ -112,6 +113,21 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
       showError("Failed to update task.");
     }
   }, [updateRetiredTaskDetails]);
+
+  // NEW: Quick add handler for list view
+  const handleQuickAddToList = useCallback(async (input: string) => {
+    if (!user) return showError("User context missing.");
+    if (!input.trim()) return;
+
+    const parsedTask = parseSinkTaskInput(input, user.id);
+
+    if (!parsedTask) {
+      return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
+    }
+
+    await addRetiredTask(parsedTask);
+    setLocalInput(''); // Clear input after adding
+  }, [user, addRetiredTask]);
 
   const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
     <DropdownMenuItem 
@@ -251,17 +267,22 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
         </div>
 
         <div className="px-2 pb-2 space-y-6"> {/* Replaced CardContent with div, adjusted padding */}
-          {/* Input Form (Removed for Kanban view, kept for list view consistency) */}
+          {/* Input Form (Now enabled for List View) */}
           {viewMode === 'list' && (
-            <form onSubmit={(e) => { e.preventDefault(); showError("Quick add is disabled in List View. Switch to Kanban or use the Scheduler input."); }} className="flex gap-2">
+            <form onSubmit={(e) => { e.preventDefault(); handleQuickAddToList(localInput); }} className="flex gap-2">
               <Input
-                placeholder="Quick add disabled in List View. Switch to Kanban."
-                value={""}
-                disabled={true}
+                placeholder="Inject objective: Name [dur] [!] [-]..."
+                value={localInput}
+                onChange={(e) => setLocalInput(e.target.value)}
+                disabled={isProcessingCommand}
                 className="flex-grow h-12 bg-background/40 font-bold placeholder:font-medium placeholder:opacity-30"
               />
-              <Button type="submit" disabled={true} className="h-12 w-12 rounded-xl opacity-50">
-                <Plus className="h-5 w-5" />
+              <Button
+                type="submit"
+                disabled={!localInput.trim() || isProcessingCommand}
+                className="h-12 w-12 rounded-xl"
+              >
+                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
               </Button>
             </form>
           )}

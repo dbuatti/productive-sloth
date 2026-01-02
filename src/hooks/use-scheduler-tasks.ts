@@ -598,8 +598,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           if (rTime && rDur) addStaticConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
       }
 
+      // CRITICAL FIX: Merge all fixed blocks (scheduled + static constraints) before starting placement
       let currentOccupied: TimeBlock[] = mergeOverlappingTimeBlocks([...scheduledFixedBlocks, ...staticConstraints]);
+      
       console.log(`[SchedulerEngine] Total Fixed Constraints (Scheduled + Static): ${currentOccupied.length} blocks`);
+      currentOccupied.forEach(block => {
+        console.log(`[SchedulerEngine] Fixed Block: ${format(block.start, 'HH:mm')} - ${format(block.end, 'HH:mm')} (${block.duration}m)`);
+      });
 
       const totalWorkdayMinutes = differenceInMinutes(targetWorkdayEnd, effectiveStart);
       const occupiedInWindow = currentOccupied.reduce((acc, block) => {
@@ -753,6 +758,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner 
             });
             
+            // CRITICAL: Update currentOccupied immediately with the newly placed block
             currentOccupied.push({ start, end, duration: total });
             currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
             placementCursor = end;
@@ -777,9 +783,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       // 4. Finalize Payload
       if (taskSource === 'sink-to-gaps') {
-          // In sink-to-gaps mode, we must ensure all existing scheduled tasks (which were used as constraints) are included in tasksToInsert
           (dbTasks || []).forEach(t => {
-              // Only re-insert if it wasn't already inserted (which only happens if it was a retired task that got placed)
               if (!tasksToInsert.some(inserted => inserted.id === t.id)) {
                   tasksToInsert.push(t);
               }

@@ -1,5 +1,7 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, differenceInMinutes, min, max, isEqual } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
+import { UserProfile } from '@/hooks/use-session'; // Import UserProfile
+import { MealAssignment } from '@/hooks/use-meals'; // Import MealAssignment
 
 // --- Constants ---
 export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break', 'reflection'];
@@ -621,13 +623,15 @@ export const isSlotFree = (
 
 export const compactScheduleLogic = (
   currentDbTasks: DBScheduledTask[],
-  selectedDayDate: Date,
+  selectedDayAsDate: Date,
   workdayStartTime: Date,
   workdayEndTime: Date,
-  T_current: Date
+  T_current: Date,
+  profile: UserProfile, // NEW: Add profile
+  mealAssignments: MealAssignment[] // NEW: Add mealAssignments
 ): DBScheduledTask[] => {
   // 1. Separate tasks: Fixed/Locked/Completed stay put. Flexible/Incomplete move.
-  const fixedTasks = currentDbTasks.filter(
+  const fixedDbTasks = currentDbTasks.filter(
     t => t.is_locked || !t.is_flexible || t.is_completed
   );
   
@@ -638,14 +642,70 @@ export const compactScheduleLogic = (
       return new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime();
     });
 
-  // 2. Determine the starting point for compaction
+  // 2. Generate static constraints (meals, reflections)
+  const staticConstraints: TimeBlock[] = [];
+  const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
+    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+
+    if (timeStr && effectiveDuration > 0) {
+      let anchorStart = setTimeOnDate(selectedDayAsDate, timeStr);
+      let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+
+      if (isBefore(anchorEnd, anchorStart)) {
+        anchorEnd = addDays(anchorEnd, 1);
+      }
+
+      // Check if the anchor overlaps with the workday window
+      const overlaps = (isBefore(anchorEnd, workdayEndTime) || isEqual(anchorEnd, workdayEndTime)) && 
+                       (isAfter(anchorStart, workdayStartTime) || isEqual(anchorStart, workdayStartTime));
+      
+      if (overlaps) {
+        const intersectionStart = max([anchorStart, workdayStartTime]);
+        const intersectionEnd = min([anchorEnd, workdayEndTime]);
+        const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+        if (finalDuration > 0) { 
+          staticConstraints.push({
+            start: intersectionStart,
+            end: intersectionEnd,
+            duration: finalDuration,
+          });
+        }
+      }
+    }
+  };
+
+  addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+  addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+  addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
+  for (let r = 0; r < (profile.reflection_count || 0); r++) {
+      const rTime = profile.reflection_times?.[r];
+      const rDur = profile.reflection_durations?.[r];
+      if (rTime && rDur) addStaticConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
+  }
+
+  // 3. Combine all fixed blocks (scheduled fixed tasks + static constraints)
+  const allFixedBlocks: TimeBlock[] = [
+    ...fixedDbTasks.filter(t => t.start_time && t.end_time).map(t => {
+      const start = setTimeOnDate(selectedDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
+      let end = setTimeOnDate(selectedDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
+      if (isBefore(end, start)) end = addDays(end, 1);
+      return { start, end, duration: differenceInMinutes(end, start) };
+    }),
+    ...staticConstraints
+  ];
+
+  const mergedOccupiedBlocks = mergeOverlappingTimeBlocks(allFixedBlocks);
+
+  // 4. Determine the starting point for compaction
   // If viewing today, start from Now. If viewing future, start from Workday Start.
-  const isToday = isSameDay(selectedDayDate, new Date());
-  let insertionCursor = isToday ? max([workdayStartTime, T_current]) : workdayStartTime;
+  const isTodaySelected = isSameDay(selectedDayAsDate, new Date());
+  let insertionCursor = isTodaySelected ? max([workdayStartTime, T_current]) : workdayStartTime;
 
-  const updatedTasks: DBScheduledTask[] = [...fixedTasks];
+  const updatedTasks: DBScheduledTask[] = [...fixedDbTasks]; // Start with fixed tasks
 
-  // 3. Re-place flexible tasks chronologically
+  // 5. Re-place flexible tasks chronologically
   flexibleTasks.forEach((task) => {
     const duration = differenceInMinutes(
       parseISO(task.end_time!),
@@ -659,17 +719,15 @@ export const compactScheduleLogic = (
     while (!placed && isBefore(currentCursor, workdayEndTime)) {
       const proposedEnd = addMinutes(currentCursor, totalDuration);
 
-      // Check for collisions with fixed/locked tasks
-      const collidingTask = fixedTasks.find(fixed => {
-        const fStart = parseISO(fixed.start_time!);
-        const fEnd = parseISO(fixed.end_time!);
-        // Collision occurs if the proposed slot overlaps with the fixed task
+      // Check for collisions with all merged occupied blocks
+      const collidingBlock = mergedOccupiedBlocks.find(block => {
+        // Collision occurs if the proposed slot overlaps with the occupied block
         return (
-          (isAfter(proposedEnd, fStart) && isBefore(currentCursor, fEnd))
+          (isAfter(proposedEnd, block.start) && isBefore(currentCursor, block.end))
         );
       });
 
-      if (!collidingTask) {
+      if (!collidingBlock) {
         // No collision, place the task
         updatedTasks.push({
           ...task,
@@ -679,9 +737,9 @@ export const compactScheduleLogic = (
         insertionCursor = proposedEnd; // Move cursor to end of this task
         placed = true;
       } else {
-        // Find the end of the colliding fixed task and move cursor there
-        const collidingTaskEnd = parseISO(collidingTask.end_time!);
-        currentCursor = collidingTaskEnd;
+        // Find the end of the colliding block and move cursor there
+        const collidingBlockEnd = collidingBlock.end;
+        currentCursor = collidingBlockEnd;
         
         // Ensure the main insertion cursor is also updated if the collision pushes it further
         if (isAfter(currentCursor, insertionCursor)) {
@@ -694,250 +752,238 @@ export const compactScheduleLogic = (
   return updatedTasks;
 };
 
-
 export const calculateSchedule = (
-  dbTasks: DBScheduledTask[],
-  selectedDay: string, 
-  workdayStart: Date, 
-  workdayEnd: Date,   
-  isRegenPodActive: boolean, 
-  regenPodStartTime: Date | null, 
-  regenPodDurationMinutes: number, 
-  T_current: Date, 
-  breakfastTimeStr: string | null, 
-  lunchTimeStr: string | null,     
-  dinnerTimeStr: string | null,    
-  breakfastDuration: number | null, 
-  lunchDuration: number | null,     
-  dinnerDuration: number | null,
-  reflectionCount: number = 0,
-  reflectionTimes: string[] = [],
-  reflectionDurations: number[] = [],
-  mealAssignments: any[] = [] // NEW: Accept meal assignments
+  dbScheduledTasks: DBScheduledTask[],
+  selectedDayString: string,
+  workdayStartTime: Date,
+  workdayEndTime: Date,
+  isInRegenPod: boolean,
+  regenPodStartTime: Date | null,
+  regenPodDurationMinutes: number,
+  T_current: Date,
+  profileBreakfastTime: string | null,
+  profileLunchTime: string | null,
+  profileDinnerTime: string | null,
+  profileBreakfastDuration: number | null,
+  profileLunchDuration: number | null,
+  profileDinnerDuration: number | null,
+  profileReflectionCount: number,
+  profileReflectionTimes: string[],
+  profileReflectionDurations: number[],
+  mealAssignments: MealAssignment[]
 ): FormattedSchedule => {
+  const selectedDayAsDate = parseISO(selectedDayString);
   const items: ScheduledItem[] = [];
-  let totalActiveTimeMinutes = 0;
-  let totalBreakTimeMinutes = 0;
-  let criticalTasksRemaining = 0;
-  let unscheduledCount = 0;
-  let sessionEnd = workdayStart; 
-  let extendsPastMidnight = false;
-  let midnightRolloverMessage: string | null = null;
+  const dbTasks: DBScheduledTask[] = []; // To store the actual DB tasks for reference
 
-  const [year, month, day] = selectedDay.split('-').map(Number);
-  const selectedDayDate = new Date(year, month - 1, day); 
+  // 1. Add scheduled tasks from DB
+  dbScheduledTasks.forEach(task => {
+    const startTime = task.start_time ? parseISO(task.start_time) : null;
+    const endTime = task.end_time ? parseISO(task.end_time) : null;
 
-  const addStaticAnchor = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => { // FIX: Changed mealType to generic name: string
+    if (startTime && endTime) {
+      const duration = differenceInMinutes(endTime, startTime);
+      const isMealTask = ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+      let taskName = task.name;
+
+      if (isMealTask) {
+        const assignment = mealAssignments.find(a => a.assigned_date === selectedDayString && a.meal_type === task.name.toLowerCase());
+        if (assignment?.meal_idea?.name) {
+          taskName = assignment.meal_idea.name;
+        }
+      }
+
+      items.push({
+        id: task.id,
+        type: isMealTask ? 'meal' : 'task',
+        name: taskName,
+        duration: duration,
+        startTime: startTime,
+        endTime: endTime,
+        emoji: assignEmoji(taskName),
+        isTimedEvent: true,
+        isCritical: task.is_critical,
+        isFlexible: task.is_flexible,
+        isLocked: task.is_locked,
+        energyCost: task.energy_cost,
+        isCompleted: task.is_completed,
+        isCustomEnergyCost: task.is_custom_energy_cost,
+        taskEnvironment: task.task_environment,
+        sourceCalendarId: task.source_calendar_id,
+        isBackburner: task.is_backburner,
+      });
+      dbTasks.push(task);
+    }
+  });
+
+  // 2. Add static anchors (Meals, Reflections)
+  const addStaticAnchor = (name: string, timeStr: string | null, duration: number | null, type: ScheduledItemType, emoji: string, energyCost: number = 0) => {
     const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
 
     if (timeStr && effectiveDuration > 0) {
-      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
+      let anchorStart = setTimeOnDate(selectedDayAsDate, timeStr);
       let anchorEnd = addMinutes(anchorStart, effectiveDuration);
 
       if (isBefore(anchorEnd, anchorStart)) {
         anchorEnd = addDays(anchorEnd, 1);
       }
 
-      const overlaps = (isBefore(anchorEnd, workdayEnd) || isEqual(anchorEnd, workdayEnd)) && 
-                       (isAfter(anchorStart, workdayStart) || isEqual(anchorStart, workdayStart));
-      
-      if (overlaps) {
-        const intersectionStart = max([anchorStart, workdayStart]);
-        const intersectionEnd = min([anchorEnd, workdayEnd]);
-        const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+      // Ensure static anchors are within the workday window
+      const intersectionStart = max([anchorStart, workdayStartTime]);
+      const intersectionEnd = min([anchorEnd, workdayEndTime]);
+      const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
 
-        if (finalDuration > 0) { 
-          // Determine meal type for lookup
-          const mealTypeKey = name.toLowerCase();
-          const isStandardMeal = ['breakfast', 'lunch', 'dinner'].includes(mealTypeKey);
+      if (finalDuration > 0) {
+        // Check if an existing scheduled task already covers this static anchor's time
+        const isCoveredByExistingTask = dbScheduledTasks.some(task => {
+          if (!task.start_time || !task.end_time) return false;
+          const taskStart = parseISO(task.start_time);
+          const taskEnd = parseISO(task.end_time);
+          return (
+            (intersectionStart < taskEnd && intersectionEnd > taskStart) ||
+            (taskStart < intersectionEnd && taskEnd > intersectionStart)
+          );
+        });
 
-          // Check for assigned meal name
-          const assignment = isStandardMeal ? mealAssignments.find(a => a.meal_type === mealTypeKey) : undefined;
-          const assignedMealName = assignment?.meal_idea?.name;
-          
-          let finalName: string = name; // FIX: Explicitly type as string
-          if (assignedMealName) {
-            finalName = `${name}: ${assignedMealName}`;
+        if (!isCoveredByExistingTask) {
+          let finalName = name;
+          if (type === 'meal') {
+            const assignment = mealAssignments.find(a => a.assigned_date === selectedDayString && a.meal_type === name.toLowerCase());
+            if (assignment?.meal_idea?.name) {
+              finalName = assignment.meal_idea.name;
+            }
           }
 
-          const item: ScheduledItem = {
-            id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}-${Math.random().toString(36).substr(2, 4)}`,
+          items.push({
+            id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${selectedDayString}-${format(intersectionStart, 'HHmm')}`,
             type: type,
-            name: finalName, // Use the prefixed name
+            name: finalName,
             duration: finalDuration,
             startTime: intersectionStart,
             endTime: intersectionEnd,
             emoji: emoji,
-            description: `${name} window`,
             isTimedEvent: true,
-            color: type === 'meal' ? 'bg-logo-orange/20' : undefined,
             isCritical: false,
-            isFlexible: false, 
-            isLocked: true,   
-            energyCost: type === 'meal' ? -10 : 0,  
+            isFlexible: false,
+            isLocked: true,
+            energyCost: energyCost,
             isCompleted: false,
             isCustomEnergyCost: false,
-            taskEnvironment: 'home', 
+            taskEnvironment: 'home', // Default environment for meals/reflections
             sourceCalendarId: null,
             isBackburner: false,
-          };
-          items.push(item);
-          if (type === 'meal' || type === 'break') {
-            totalBreakTimeMinutes += item.duration;
-          } else {
-            totalActiveTimeMinutes += item.duration;
-          }
-          sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
+          });
         }
       }
     }
   };
 
-  addStaticAnchor('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
-  addStaticAnchor('Lunch', lunchTimeStr, '🥗', lunchDuration);
-  addStaticAnchor('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
+  addStaticAnchor('Breakfast', profileBreakfastTime, profileBreakfastDuration, 'meal', '🥞', -10);
+  addStaticAnchor('Lunch', profileLunchTime, profileLunchDuration, 'meal', '🥗', -10);
+  addStaticAnchor('Dinner', profileDinnerTime, profileDinnerDuration, 'meal', '🍽️', -10);
 
-  if (reflectionCount > 0 && reflectionTimes.length > 0) {
-    for (let i = 0; i < reflectionCount; i++) {
-      const time = reflectionTimes[i];
-      const duration = reflectionDurations[i];
-      if (time) {
-        addStaticAnchor(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
-      }
+  for (let r = 0; r < (profileReflectionCount || 0); r++) {
+    const rTime = profileReflectionTimes?.[r];
+    const rDur = profileReflectionDurations?.[r];
+    if (rTime && rDur) addStaticAnchor(`Reflection Point ${r + 1}`, rTime, rDur, 'break', '✨', 0);
+  }
+
+  // 3. Add Regen Pod session if active
+  if (isInRegenPod && regenPodStartTime) {
+    const podEnd = addMinutes(regenPodStartTime, regenPodDurationMinutes);
+    const intersectionStart = max([regenPodStartTime, workdayStartTime]);
+    const intersectionEnd = min([podEnd, workdayEndTime]);
+    const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+    if (finalDuration > 0) {
+      items.push({
+        id: 'regen-pod',
+        type: 'break', // Treat as a special break
+        name: 'Energy Regen Pod',
+        duration: finalDuration,
+        startTime: intersectionStart,
+        endTime: intersectionEnd,
+        emoji: '🔋',
+        isTimedEvent: true,
+        isCritical: false,
+        isFlexible: false,
+        isLocked: true,
+        energyCost: 0,
+        isCompleted: false,
+        isCustomEnergyCost: false,
+        taskEnvironment: 'away', // Pod is a special environment
+        sourceCalendarId: null,
+        isBackburner: false,
+      });
     }
   }
 
-  const sortedTasks = [...dbTasks].sort((a, b) => {
-    if (a.start_time && b.start_time) {
-      return parseISO(a.start_time).getTime() - parseISO(b.start_time).getTime();
-    }
-    return 0;
-  });
-
-  if (isRegenPodActive && regenPodStartTime && isSameDay(regenPodStartTime, selectedDayDate)) {
-    const podStart = regenPodStartTime;
-    const podEnd = addMinutes(podStart, regenPodDurationMinutes);
-    
-    if (!isBefore(podEnd, T_current)) {
-        const podItem: ScheduledItem = {
-            id: 'regen-pod-active',
-            type: 'break', 
-            name: 'Energy Regen Pod',
-            duration: differenceInMinutes(podEnd, podStart),
-            startTime: podStart,
-            endTime: podEnd, 
-            emoji: '🔋',
-            description: getBreakDescription(regenPodDurationMinutes),
-            isTimedEvent: true,
-            isCritical: false,
-            isFlexible: false,
-            isLocked: true,
-            energyCost: 0,
-            isCompleted: false,
-            isCustomEnergyCost: false,
-            taskEnvironment: 'away',
-            sourceCalendarId: null,
-            isBackburner: false, 
-        };
-        items.push(podItem);
-        totalBreakTimeMinutes += podItem.duration;
-        sessionEnd = isAfter(podEnd, sessionEnd) ? podEnd : sessionEnd;
-    }
-  }
-
-  sortedTasks.forEach((dbTask) => {
-    if (!dbTask.start_time || !dbTask.end_time) {
-      unscheduledCount++;
-      return;
-    }
-
-    const startTimeUTC = parseISO(dbTask.start_time);
-    const endTimeUTC = parseISO(dbTask.end_time);
-
-    let startTime = setTimeOnDate(selectedDayDate, format(startTimeUTC, 'HH:mm'));
-    let endTime = setTimeOnDate(selectedDayDate, format(endTimeUTC, 'HH:mm'));
-
-    if (isBefore(endTime, startTime)) {
-      endTime = addDays(endTime, 1);
-      extendsPastMidnight = true;
-      midnightRolloverMessage = "Schedule extends past midnight.";
-    }
-
-    const duration = differenceInMinutes(endTime, startTime);
-    if (duration <= 0) return;
-
-    const isTimeOff = dbTask.name.toLowerCase() === 'time off';
-    const isBreak = dbTask.name.toLowerCase() === 'break';
-    const isMealTask = isMeal(dbTask.name);
-    const isCalendarEvent = !!dbTask.source_calendar_id; 
-
-    let itemType: ScheduledItemType;
-    if (isCalendarEvent) { 
-      itemType = 'calendar-event';
-    } else if (isTimeOff) {
-      itemType = 'time-off';
-    } else if (isBreak) {
-      itemType = 'break';
-    } else if (isMealTask) {
-      itemType = 'meal';
-    } else {
-      itemType = 'task';
-    }
-
-    const item: ScheduledItem = {
-      id: dbTask.id,
-      type: itemType,
-      name: dbTask.name,
-      duration: duration,
-      startTime: startTime,
-      endTime: endTime,
-      emoji: isCalendarEvent ? '📅' : assignEmoji(dbTask.name), 
-      description: isBreak ? getBreakDescription(duration) : undefined,
-      isTimedEvent: true,
-      isCritical: dbTask.is_critical,
-      isFlexible: dbTask.is_flexible,
-      isLocked: dbTask.is_locked,
-      energyCost: dbTask.energy_cost,
-      isCompleted: dbTask.is_completed,
-      isCustomEnergyCost: dbTask.is_custom_energy_cost,
-      taskEnvironment: dbTask.task_environment,
-      sourceCalendarId: dbTask.source_calendar_id, 
-      isBackburner: dbTask.is_backburner, 
-    };
-
-    items.push(item);
-
-    if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { 
-      totalActiveTimeMinutes += duration;
-    } else if (item.type === 'break' || item.type === 'meal') {
-      totalBreakTimeMinutes += duration;
-    }
-
-    if (item.isCritical && !item.isCompleted) {
-      criticalTasksRemaining++;
-    }
-
-    sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
-  });
-
+  // Sort all items by start time
   items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-  const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);
-  const totalActiveTimeMins = totalActiveTimeMinutes % 60;
+  // Calculate summary
+  let totalActiveTimeMinutes = 0;
+  let totalBreakTimeMinutes = 0;
+  let lastEndTime = workdayStartTime;
+  let unscheduledCount = 0;
+  let criticalTasksRemaining = 0;
+
+  const processedItems: ScheduledItem[] = [];
+  const occupiedBlocks: TimeBlock[] = [];
+
+  items.forEach(item => {
+    // Ensure item is within workday bounds
+    const itemStart = max([item.startTime, workdayStartTime]);
+    const itemEnd = min([item.endTime, workdayEndTime]);
+
+    if (isBefore(itemEnd, itemStart)) return; // Skip if item is entirely outside or inverted
+
+    const effectiveDuration = differenceInMinutes(itemEnd, itemStart);
+    if (effectiveDuration <= 0) return;
+
+    // Add to occupied blocks for gap calculation
+    occupiedBlocks.push({ start: itemStart, end: itemEnd, duration: effectiveDuration });
+
+    if (item.type === 'task' || item.type === 'calendar-event') {
+      totalActiveTimeMinutes += effectiveDuration;
+      if (item.isCritical && !item.isCompleted) {
+        criticalTasksRemaining++;
+      }
+    } else if (item.type === 'break' || item.type === 'meal') {
+      totalBreakTimeMinutes += effectiveDuration;
+    }
+    processedItems.push(item);
+  });
+
+  // Merge overlapping occupied blocks to accurately calculate free time
+  const mergedOccupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks);
+
+  // Calculate unscheduled count (tasks that couldn't fit)
+  // This logic is typically handled by the auto-scheduler, but for display,
+  // we can assume any flexible, incomplete tasks not in `processedItems` are unscheduled.
+  // For now, we'll rely on the auto-scheduler to manage this.
+  // The `unscheduledCount` in summary is usually derived from tasks that failed placement.
+
+  const sessionEnd = processedItems.length > 0 ? processedItems[processedItems.length - 1].endTime : workdayStartTime;
+  const extendsPastMidnight = isAfter(sessionEnd, addDays(startOfDay(selectedDayAsDate), 1));
+  const midnightRolloverMessage = extendsPastMidnight ? "Schedule extends past midnight." : null;
 
   const summary: ScheduleSummary = {
-    totalTasks: items.length,
-    activeTime: { hours: totalActiveTimeHours, minutes: totalActiveTimeMins },
+    totalTasks: processedItems.filter(i => i.type === 'task' || i.type === 'calendar-event').length,
+    activeTime: {
+      hours: Math.floor(totalActiveTimeMinutes / 60),
+      minutes: totalActiveTimeMinutes % 60,
+    },
     breakTime: totalBreakTimeMinutes,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
     midnightRolloverMessage: midnightRolloverMessage,
-    unscheduledCount: unscheduledCount,
+    unscheduledCount: unscheduledCount, // This needs to be calculated by the auto-scheduler
     criticalTasksRemaining: criticalTasksRemaining,
   };
 
   return {
-    items: items,
+    items: processedItems,
     summary: summary,
     dbTasks: dbTasks,
   };

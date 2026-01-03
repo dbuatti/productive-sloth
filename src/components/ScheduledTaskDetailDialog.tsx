@@ -5,16 +5,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react"; // Added Music icon
+import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react"; // Removed Home, Laptop, Globe, Music icons
 
 import {
-  Dialog, // Changed from Sheet
-  DialogContent, // Changed from SheetContent
-  DialogDescription, // Changed from SheetDescription
-  DialogHeader, // Changed from SheetHeader
-  DialogTitle, // Changed from SheetTitle
-  DialogClose // Import DialogClose
-} from "@/components/ui/dialog"; // Changed from sheet
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -29,12 +29,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler"; // Import TaskEnvironment
+import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
-import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
+import { getLucideIcon } from '@/lib/icons'; // NEW: Import getLucideIcon
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -42,30 +43,31 @@ const formSchema = z.object({
   end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
   break_duration: z.coerce.number().min(0).optional().nullable(),
   is_critical: z.boolean().default(false),
-  is_backburner: z.boolean().default(false), // NEW: Backburner flag
+  is_backburner: z.boolean().default(false),
   is_flexible: z.boolean().default(true),
   is_locked: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'), // UPDATED: Add new environments
+  task_environment: z.string().min(1, "Environment is required."), // UPDATED: Changed to string, will store environment ID
 });
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
 
-interface ScheduledTaskDetailDialogProps { // Changed from SheetProps
+interface ScheduledTaskDetailDialogProps {
   task: DBScheduledTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDayString: string;
 }
 
-const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ // Changed from Sheet
+const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   task,
   open,
   onOpenChange,
   selectedDayString,
 }) => {
   const { updateScheduledTaskDetails } = useSchedulerTasks(selectedDayString);
+  const { environmentOptions, isLoadingEnvironments } = useEnvironmentContext(); // NEW: Get dynamic environments
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<ScheduledTaskDetailFormValues>({
@@ -76,31 +78,35 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
       end_time: "10:00",
       break_duration: 0,
       is_critical: false,
-      is_backburner: false, // NEW: Default value
+      is_backburner: false,
       is_flexible: true,
       is_locked: false,
       energy_cost: 0,
       is_custom_energy_cost: false,
-      task_environment: 'laptop', // NEW: Default value
+      task_environment: '', // Default to empty, will be set by effect
     },
   });
 
   useEffect(() => {
-    if (task) {
+    if (task && environmentOptions.length > 0) { // Ensure environments are loaded
       const startTime = task.start_time ? format(parseISO(task.start_time), 'HH:mm') : '09:00';
       const endTime = task.end_time ? format(parseISO(task.end_time), 'HH:mm') : '10:00';
+      
+      // Find the corresponding environment option by its originalEnvId (which is the task.task_environment)
+      const selectedEnvOption = environmentOptions.find(opt => opt.originalEnvId === task.task_environment);
+
       form.reset({
         name: task.name,
         start_time: startTime,
         end_time: endTime,
         break_duration: task.break_duration ?? 0,
         is_critical: task.is_critical,
-        is_backburner: task.is_backburner, // NEW: Set initial backburner status
+        is_backburner: task.is_backburner,
         is_flexible: task.is_flexible,
         is_locked: task.is_locked,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
-        task_environment: task.task_environment, // NEW: Set environment
+        task_environment: selectedEnvOption ? selectedEnvOption.originalEnvId : (environmentOptions[0]?.originalEnvId || ''), // Set to found ID or first available
       });
       if (!task.is_custom_energy_cost) {
         const selectedDayDate = parseISO(selectedDayString);
@@ -108,20 +114,23 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         let eTime = setTimeOnDate(selectedDayDate, endTime);
         if (isBefore(eTime, sTime)) eTime = addDays(eTime, 1);
         const duration = Math.floor((eTime.getTime() - sTime.getTime()) / (1000 * 60));
-        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical, task.is_backburner)); // UPDATED: Pass is_backburner
+        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical, task.is_backburner));
       } else {
         setCalculatedEnergyCost(task.energy_cost);
       }
+    } else if (!task && environmentOptions.length > 0) {
+      // If no task, but environments are loaded, set default environment
+      form.setValue('task_environment', environmentOptions[0]?.originalEnvId || '');
     }
-  }, [task, form, selectedDayString]);
+  }, [task, form, selectedDayString, environmentOptions]);
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      if (!value.is_custom_energy_cost && (name === 'start_time' || name === 'end_time' || name === 'is_critical' || name === 'is_backburner')) { // UPDATED: Watch is_backburner
+      if (!value.is_custom_energy_cost && (name === 'start_time' || name === 'end_time' || name === 'is_critical' || name === 'is_backburner')) {
         const startTimeStr = value.start_time;
         const endTimeStr = value.end_time;
         const isCritical = value.is_critical;
-        const isBackburner = value.is_backburner; // NEW: Get backburner status
+        const isBackburner = value.is_backburner;
 
         if (startTimeStr && endTimeStr) {
           const selectedDayDate = parseISO(selectedDayString);
@@ -132,7 +141,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
             endTime = addDays(endTime, 1);
           }
           const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false); // UPDATED: Pass is_backburner
+          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
           setCalculatedEnergyCost(newEnergyCost);
           form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
         }
@@ -140,7 +149,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         const startTimeStr = form.getValues('start_time');
         const endTimeStr = form.getValues('end_time');
         const isCritical = form.getValues('is_critical');
-        const isBackburner = form.getValues('is_backburner'); // NEW: Get backburner status
+        const isBackburner = form.getValues('is_backburner');
 
         if (startTimeStr && endTimeStr) {
           const selectedDayDate = parseISO(selectedDayString);
@@ -151,7 +160,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
             endTime = addDays(endTime, 1);
           }
           const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false); // UPDATED: Pass is_backburner
+          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
           setCalculatedEnergyCost(newEnergyCost);
           form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
         }
@@ -180,12 +189,12 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
         end_time: endTime.toISOString(),
         break_duration: values.break_duration === 0 ? null : values.break_duration,
         is_critical: values.is_critical,
-        is_backburner: values.is_backburner, // NEW: Save backburner status
+        is_backburner: values.is_backburner,
         is_flexible: values.is_flexible,
         is_locked: values.is_locked,
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
-        task_environment: values.task_environment, // NEW: Save environment
+        task_environment: values.task_environment as TaskEnvironment, // Cast back to TaskEnvironment
       });
       showSuccess("Scheduled task updated successfully!");
       onOpenChange(false);
@@ -209,14 +218,13 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
     : 'N/A';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}> {/* Changed from Sheet */}
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in"> {/* Changed from SheetContent, added styling */}
-        <DialogHeader className="border-b pb-4 mb-6"> {/* Changed from SheetHeader */}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in">
+        <DialogHeader className="border-b pb-4 mb-6">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle> {/* Changed from SheetTitle */}
-            {/* Removed the duplicate close button here */}
+            <DialogTitle className="text-2xl font-bold">Scheduled Task Details</DialogTitle>
           </div>
-          <DialogDescription className="text-sm text-muted-foreground"> {/* Changed from SheetDescription */}
+          <DialogDescription className="text-sm text-muted-foreground">
             Last updated: {formattedLastUpdated}
           </DialogDescription>
         </DialogHeader>
@@ -295,21 +303,24 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Task Environment</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingEnvironments}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select environment" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {environmentOptions.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex items-center gap-2">
-                              <option.icon className="h-4 w-4" />
-                              {option.label}
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {environmentOptions.map(option => {
+                          const Icon = getLucideIcon(option.icon.displayName || 'Laptop');
+                          return (
+                            <SelectItem key={option.originalEnvId} value={option.originalEnvId}>
+                              <div className="flex items-center gap-2">
+                                {Icon && <Icon className="h-4 w-4" />}
+                                {option.label}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormDescription>
@@ -337,7 +348,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) form.setValue('is_backburner', false); // Critical overrides Backburner
+                          if (checked) form.setValue('is_backburner', false);
                         }}
                       />
                     </FormControl>
@@ -362,7 +373,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) form.setValue('is_critical', false); // Backburner overrides Critical
+                          if (checked) form.setValue('is_critical', false);
                         }}
                         disabled={isCritical}
                       />

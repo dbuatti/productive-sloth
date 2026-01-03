@@ -1,26 +1,24 @@
 import { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
 import { Home, Laptop, Globe, Music, Check } from 'lucide-react';
+import { useUserEnvironments, UserEnvironment } from './use-user-environments'; // NEW: Import useUserEnvironments
+import { getLucideIcon } from '@/lib/icons'; // NEW: Import getLucideIcon
 
 export interface EnvironmentOption {
-  value: TaskEnvironment;
+  value: TaskEnvironment; // This will now be the ID of the user environment
   label: string;
   icon: React.ElementType;
+  originalEnvId: string; // NEW: Store the actual ID from the DB
 }
 
-export const environmentOptions: EnvironmentOption[] = [
-  { value: 'home', label: '🏠 At Home', icon: Home },
-  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
-  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
-  { value: 'piano', label: '🎹 Piano Practice', icon: Music },
-  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: Laptop },
-];
+// Removed hardcoded environmentOptions, now generated dynamically
 
 export interface EnvironmentContextType {
   selectedEnvironments: TaskEnvironment[];
-  toggleEnvironmentSelection: (env: TaskEnvironment) => void;
-  setSelectedEnvironments: (envs: TaskEnvironment[]) => void;
-  environmentOptions: EnvironmentOption[];
+  toggleEnvironmentSelection: (envId: TaskEnvironment) => void; // Changed to accept env ID
+  setSelectedEnvironments: (envIds: TaskEnvironment[]) => void; // Changed to accept env IDs
+  environmentOptions: EnvironmentOption[]; // Now dynamic
+  isLoadingEnvironments: boolean; // NEW: Loading state for environments
 }
 
 export const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);

@@ -19,10 +19,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { motion } from 'framer-motion';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showError } from '@/utils/toast';
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
+import { getLucideIcon } from '@/lib/icons'; // NEW: Import getLucideIcon
 
 interface SortableCardProps {
   task: RetiredTask;
-  // NEW: Prop to open the detail dialog
   onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
@@ -43,6 +44,7 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
     completeRetiredTask, 
     updateRetiredTaskStatus 
   } = useSchedulerTasks('');
+  const { environmentOptions } = useEnvironmentContext(); // NEW: Get dynamic environments
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -53,19 +55,14 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
   const emoji = assignEmoji(task.name);
   const accentColor = `hsl(${hue} 70% 50%)`;
 
-  const handleAction = (e: React.MouseEvent, action: () => void) => {
+  const handleAction = useCallback((e: React.MouseEvent, action: () => void) => {
     e.stopPropagation();
     action();
-  };
+  }, []);
   
-  // NEW: Handle click to open details, but only if not dragging
   const handleCardClick = (e: React.MouseEvent) => {
-    // Check if the drag operation is active or just finished (using isDragging as a proxy)
     if (isDragging) return; 
-    
-    // Prevent opening if a button inside the card was clicked
     if ((e.target as HTMLElement).closest('button')) return;
-
     onOpenDetailDialog(task);
   };
 
@@ -74,6 +71,16 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
     task.is_completed 
       ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false })
       : await completeRetiredTask(task);
+  };
+
+  const getEnvironmentIconForDisplay = (environmentId: string) => {
+    const envOption = environmentOptions.find(opt => opt.originalEnvId === environmentId);
+    if (envOption) {
+      const Icon = getLucideIcon(envOption.icon.displayName || 'Laptop');
+      const iconClass = "h-3 w-3 opacity-70";
+      return Icon ? <Icon className={iconClass} /> : null;
+    }
+    return null;
   };
 
   if (isDragging) {
@@ -95,9 +102,9 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.3 }}
       className={cn(
-        "group relative p-3 rounded-xl border-none bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all cursor-grab active:cursor-grabbing", // Removed border
+        "group relative p-3 rounded-xl border-none bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all cursor-grab active:cursor-grabbing",
         "hover:border-primary/40 hover:shadow-lg",
-        task.is_locked ? "bg-primary/[0.03]" : "border-transparent", // Removed border-primary/30
+        task.is_locked ? "bg-primary/[0.03]" : "border-transparent",
         task.is_completed && "opacity-50 grayscale",
         "mb-2",
         isDragging && "z-50 scale-[1.05] rotate-2 shadow-2xl shadow-primary/30 ring-2 ring-primary/50"
@@ -108,8 +115,8 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
         ...style 
       }}
       {...attributes}
-      {...listeners} // Listeners handle the drag
-      onClick={handleCardClick} // Handle click for details
+      {...listeners}
+      onClick={handleCardClick}
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-2 min-w-0">
@@ -118,7 +125,6 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
             {task.name}
           </span>
         </div>
-        {/* Action buttons: Always visible on small screens, hover on larger */}
         <div className={cn(
           "flex items-center gap-1 shrink-0",
           "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
@@ -169,6 +175,16 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
           {task.energy_cost > 0 ? `${task.energy_cost}⚡` : '0⚡'}
         </span>
         {task.duration && <span>{task.duration}m</span>}
+        {task.task_environment && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1">
+                {getEnvironmentIconForDisplay(task.task_environment)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{environmentOptions.find(opt => opt.originalEnvId === task.task_environment)?.label || task.task_environment}</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </motion.div>
   );

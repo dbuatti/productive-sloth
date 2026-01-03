@@ -3,15 +3,17 @@
 import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus, Send } from 'lucide-react';
+import { Plus, Send, Loader2 } from 'lucide-react'; // Added Loader2
 import { cn } from '@/lib/utils';
 import SortableTaskCard from './SortableTaskCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RetiredTask } from '@/types/scheduler';
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
+import { getLucideIcon } from '@/lib/icons'; // NEW: Import getLucideIcon
 
 interface KanbanColumnProps {
-  id: string; // e.g., 'home', 'laptop'
+  id: string; // e.g., 'home', 'laptop' (now environment ID or priority string)
   title: string;
   icon: React.ReactNode;
   tasks: RetiredTask[];
@@ -20,7 +22,6 @@ interface KanbanColumnProps {
   activeTaskHeight?: number;
   activeId: string | null;
   overId: string | null;
-  // NEW: Prop for opening the detail dialog
   onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
@@ -28,6 +29,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
   const { setNodeRef, isOver } = useDroppable({ id });
   const [localInput, setLocalInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isLoadingEnvironments } = useEnvironmentContext(); // NEW: Get loading state
 
   const handleSubmit = async () => {
     if (!localInput.trim()) return;
@@ -94,7 +96,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
                     <SortableTaskCard 
                       key={task.id} 
                       task={task} 
-                      onOpenDetailDialog={onOpenDetailDialog} // Pass the handler
+                      onOpenDetailDialog={onOpenDetailDialog}
                     />
                 );
             })}
@@ -133,12 +135,13 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               placeholder="Inject objective: Name [dur]..."
               className="border-none bg-transparent focus-visible:ring-0 text-xs font-bold placeholder:opacity-20 h-10 px-3"
+              disabled={isLoadingEnvironments} // Disable if environments are loading
             />
             <Button
               size="icon"
               variant="ghost"
               onClick={handleSubmit}
-              disabled={!localInput.trim() || isSubmitting}
+              disabled={!localInput.trim() || isSubmitting || isLoadingEnvironments}
               className={cn(
                 "h-8 w-8 rounded-xl transition-all",
                 localInput ? "text-primary opacity-100" : "opacity-20"

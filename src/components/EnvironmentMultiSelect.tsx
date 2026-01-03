@@ -16,15 +16,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useEnvironmentContext, environmentOptions } from "@/hooks/use-environment-context";
+import { useEnvironmentContext } from "@/hooks/use-environment-context"; // Updated import
+import { getLucideIcon } from '@/lib/icons'; // NEW: Import getLucideIcon
 
 const EnvironmentMultiSelect: React.FC = () => {
-  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments } = useEnvironmentContext();
+  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments, environmentOptions, isLoadingEnvironments } = useEnvironmentContext();
   const [open, setOpen] = React.useState(false);
 
   const selectedOptions = React.useMemo(() => {
-    return environmentOptions.filter(opt => selectedEnvironments.includes(opt.value));
-  }, [selectedEnvironments]);
+    return environmentOptions.filter(opt => selectedEnvironments.includes(opt.originalEnvId)); // Use originalEnvId for comparison
+  }, [selectedEnvironments, environmentOptions]);
 
   const handleClearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,7 +35,7 @@ const EnvironmentMultiSelect: React.FC = () => {
   const renderSelectedBadges = () => {
     if (selectedOptions.length === 0) {
       return (
-        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest"> {/* Adjusted text color and size */}
+        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest">
           <Zap className="h-3 w-3" /> All Zones
         </div>
       );
@@ -58,19 +59,40 @@ const EnvironmentMultiSelect: React.FC = () => {
 
     return (
       <div className="flex flex-wrap gap-1.5">
-        {selectedOptions.map(option => (
-          <Badge 
-            key={option.value} 
-            variant="outline" 
-            className="bg-background/50 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-tight flex items-center gap-1 py-0.5 px-2"
-          >
-            <option.icon className="h-2.5 w-2.5" />
-            {option.label}
-          </Badge>
-        ))}
+        {selectedOptions.map(option => {
+          const Icon = getLucideIcon(option.icon.displayName || 'Laptop'); // Use displayName or fallback
+          return (
+            <Badge 
+              key={option.originalEnvId} // Use originalEnvId as key
+              variant="outline" 
+              className="bg-background/50 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-tight flex items-center gap-1 py-0.5 px-2"
+            >
+              {Icon && <Icon className="h-2.5 w-2.5" />}
+              {option.label}
+            </Badge>
+          );
+        })}
       </div>
     );
   };
+
+  if (isLoadingEnvironments) {
+    return (
+      <Button
+        variant="glass"
+        role="combobox"
+        aria-expanded={open}
+        className="w-full justify-between h-10 px-3 border-white/5 shadow-sm transition-all duration-300 rounded-lg opacity-50 cursor-not-allowed"
+        disabled
+      >
+        <div className="flex items-center gap-2 truncate max-w-[calc(100%-24px)]">
+          <Filter className="h-3.5 w-3.5 text-muted-foreground/30" />
+          <span className="text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest">Loading Zones...</span>
+        </div>
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin opacity-30" />
+      </Button>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -99,11 +121,12 @@ const EnvironmentMultiSelect: React.FC = () => {
                 Environment Filter
               </div>
               {environmentOptions.map((option) => {
-                const isSelected = selectedEnvironments.includes(option.value);
+                const isSelected = selectedEnvironments.includes(option.originalEnvId); // Use originalEnvId for comparison
+                const Icon = getLucideIcon(option.icon.displayName || 'Laptop'); // Get icon dynamically
                 return (
                   <CommandItem
-                    key={option.value}
-                    onSelect={() => toggleEnvironmentSelection(option.value)}
+                    key={option.originalEnvId} // Use originalEnvId as key
+                    onSelect={() => toggleEnvironmentSelection(option.originalEnvId)} // Pass originalEnvId
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 mb-1",
                       "hover:bg-primary/10 data-[selected='true']:bg-primary/5",
@@ -116,7 +139,7 @@ const EnvironmentMultiSelect: React.FC = () => {
                     )}>
                       {isSelected && <Check className="h-3 w-3 text-background stroke-[4px]" />}
                     </div>
-                    <option.icon className={cn("h-4 w-4 transition-colors", isSelected ? "text-primary" : "text-muted-foreground/50")} />
+                    {Icon && <Icon className={cn("h-4 w-4 transition-colors", isSelected ? "text-primary" : "text-muted-foreground/50")} />}
                     <span className="text-sm tracking-tight">{option.label}</span>
                   </CommandItem>
                 );

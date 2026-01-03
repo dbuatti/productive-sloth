@@ -28,134 +28,172 @@ const navItems: NavItem[] = [
 const BottomNavigationBar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { addScheduledTask } = useSchedulerTasks('');
-  const { triggerEnergyRegen } = useSession();
-  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
+  const { addScheduledTask } = useSchedulerTasks('');<dyad-problem-report summary="64 problems">
+<problem file="src/hooks/use-session.ts" line="355" column="30" code="1005">'&gt;' expected.</problem>
+<problem file="src/hooks/use-session.ts" line="355" column="35" code="1005">')' expected.</problem>
+<problem file="src/hooks/use-session.ts" line="355" column="37" code="1136">Property assignment expected.</problem>
+<problem file="src/hooks/use-session.ts" line="362" column="7" code="1005">',' expected.</problem>
+<problem file="src/hooks/use-session.ts" line="363" column="8" code="1136">Property assignment expected.</problem>
+<problem file="src/hooks/use-session.ts" line="363" column="9" code="1005">';' expected.</problem>
+<problem file="src/hooks/use-session.ts" line="363" column="40" code="1128">Declaration or statement expected.</problem>
+<problem file="src/hooks/use-session.ts" line="364" column="6" code="1110">Type expected.</problem>
+<problem file="src/hooks/use-session.ts" line="365" column="3" code="1128">Declaration or statement expected.</problem>
+<problem file="src/hooks/use-session.ts" line="366" column="1" code="1128">Declaration or statement expected.</problem>
+<problem file="src/lib/icons.ts" line="5" column="62" code="2724">'&quot;/Users/danielebuatti/dyad-apps/productive-sloth/node_modules/.pnpm/lucide-react@0.462.0_react@18.3.1/node_modules/lucide-react/dist/lucide-react&quot;' has no exported member named 'Icon'. Did you mean 'XIcon'?</problem>
+<problem file="src/hooks/use-session.ts" line="101" column="14" code="2322">Type '({ children }: { children: ReactNode; }) =&gt; {}' is not assignable to type 'FC&lt;{ children: ReactNode; }&gt;'.
+  Type '{}' is not assignable to type 'ReactNode'.</problem>
+<problem file="src/hooks/use-session.ts" line="355" column="6" code="2503">Cannot find namespace 'SessionContext'.</problem>
+<problem file="src/hooks/use-session.ts" line="355" column="30" code="2304">Cannot find name 'value'.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="356" column="7" code="2695">Left side of comma operator is unused and has no side effects.</problem>
+<problem file="src/hooks/use-session.ts" line="363" column="9" code="2304">Cannot find name 'isAuthLoading'.</problem>
+<problem file="src/hooks/use-session.ts" line="363" column="25" code="2304">Cannot find name 'children'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="340" column="49" code="2304">Cannot find name 'workdayEndTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="340" column="101" code="2304">Cannot find name 'workdayEndTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="341" column="50" code="2304">Cannot find name 'workdayStartTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="341" column="106" code="2304">Cannot find name 'workdayStartTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="344" column="57" code="2304">Cannot find name 'workdayStartTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="345" column="53" code="2304">Cannot find name 'workdayEndTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="377" column="94" code="2304">Cannot find name 'workdayEndTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="382" column="78" code="2304">Cannot find name 'workdayEndTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="712" column="49" code="2304">Cannot find name 'workdayEndTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="712" column="101" code="2304">Cannot find name 'workdayEndTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="713" column="50" code="2304">Cannot find name 'workdayStartTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="713" column="106" code="2304">Cannot find name 'workdayStartTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="716" column="57" code="2304">Cannot find name 'workdayStartTimeForSelectedDay'.</problem>
+<problem file="src/hooks/use-scheduler-tasks.ts" line="717" column="53" code="2304">Cannot find name 'workdayEndTimeForSelectedDay'.</problem>
+<problem file="src/components/EnvironmentOrderSettings.tsx" line="33" column="10" code="2304">Cannot find name 'Loader2'.</problem>
+<problem file="src/components/ScheduledTaskDetailDialog.tsx" line="314" column="66" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+<problem file="src/components/SchedulerDisplay.tsx" line="102" column="49" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+<problem file="src/components/EnvironmentMultiSelect.tsx" line="63" column="50" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+<problem file="src/components/EnvironmentMultiSelect.tsx" line="92" column="10" code="2304">Cannot find name 'Loader2'.</problem>
+<problem file="src/components/EnvironmentMultiSelect.tsx" line="125" column="56" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+<problem file="src/components/RetiredTaskDetailDialog.tsx" line="265" column="66" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+<problem file="src/components/SortableTaskCard.tsx" line="58" column="24" code="2304">Cannot find name 'useCallback'.</problem>
+<problem file="src/components/SortableTaskCard.tsx" line="79" column="49" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+<problem file="src/components/SinkKanbanBoard.tsx" line="29" column="49" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+<problem file="src/components/AetherSink.tsx" line="163" column="49" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+<problem file="src/components/EnvironmentProvider.tsx" line="19" column="23" code="2304">Cannot find name 'Home'.</problem>
+<problem file="src/components/SimplifiedScheduledTaskItem.tsx" line="25" column="49" code="2339">Property 'displayName' does not exist on type 'ElementType&lt;any, keyof IntrinsicElements&gt;'.
+  Property 'displayName' does not exist on type '&quot;symbol&quot;'.</problem>
+</dyad-problem-report>You're facing a few key issues:
 
-  const handleQuickBreak = async () => {
-    setIsProcessingCommand(true);
-    try {
-      // Logic to add a 15-minute break now (similar to scheduler command 'break 15')
-      const now = new Date();
-      const breakDuration = 15;
-      const breakStartTime = now;
-      const breakEndTime = addMinutes(now, breakDuration);
-      const scheduledDate = format(now, 'yyyy-MM-dd');
+1.  **Circular Dependency in `use-session.ts`:** The `SessionContext` and `UserProfile` types are defined and then immediately imported from the same file, creating a circular dependency. This is causing many of the initial errors.
+2.  **`React.FC` Return Type:** The `SessionProvider` component's return type is inferred as `{}` which is not assignable to `ReactNode`.
+3.  **Missing Imports:** `Loader2` and `Home` are used in some components without being imported.
+4.  **`displayName` on `React.ElementType`:** You're trying to access `displayName` on `option.icon`, but `option.icon` is already a `React.ElementType` (the icon component itself), not an object with a `displayName` property. The `getLucideIcon` function already returns the component, so we should pass the `icon_name` string directly to it.
+5.  **`useCallback` Import:** `useCallback` is used in `SortableTaskCard` but not imported.
+6.  **`workdayStartTimeForSelectedDay` and `workdayEndTimeForSelectedDay` Scope:** These variables are defined in `SchedulerPage.tsx` but are needed in `useSchedulerTasks.ts`. They need to be passed as arguments or derived within the hook.
 
-      await addScheduledTask({
-        name: 'Quick Break',
-        start_time: breakStartTime.toISOString(),
-        end_time: breakEndTime.toISOString(),
-        break_duration: breakDuration,
-        scheduled_date: scheduledDate,
-        is_critical: false,
-        is_flexible: false, // Quick breaks are fixed/locked for immediate use
-        is_locked: true, // Locked for immediate use
-        energy_cost: 0, // Breaks have 0 energy cost (but trigger regen)
-        is_custom_energy_cost: false,
-        task_environment: 'away', // Default environment for breaks
-      });
-      
-      // NEW: Trigger energy regen immediately upon starting a break
-      await triggerEnergyRegen();
-      
-      // Navigate to scheduler to see the break
-      if (location.pathname !== '/scheduler') {
-        navigate('/scheduler');
-      }
-      
-      showError("Quick Break added! Time to recharge. ☕️");
-    } catch (error: any) {
-      showError(`Failed to add quick break: ${error.message}`);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  };
+Here's how I'll fix these:
 
-  const handleQuickAddTask = () => {
-    // Navigate to the scheduler where the TaskCreationForm is located
-    navigate('/scheduler');
-    showError("Use the Quick Add bar on the Schedule view to create a new task.");
-  };
+1.  **`use-session.ts` Refactor:** I'll move the `SessionContext` and `UserProfile` definitions to a separate `src/types/session.ts` file. This breaks the circular dependency.
+2.  **`SessionProvider` Return Type:** I'll explicitly return `React.ReactNode` from `SessionProvider`.
+3.  **Missing Imports:** I'll add `Loader2` and `Home` imports where needed.
+4.  **Icon Handling:** I'll update `EnvironmentOption` to store `icon_name: string` directly, and then pass `env.icon_name` to `getLucideIcon` in all relevant components.
+5.  **`useCallback` Import:** Add `useCallback` import to `SortableTaskCard`.
+6.  **`workdayStartTimeForSelectedDay` and `workdayEndTimeForSelectedDay`:** I'll pass these as arguments to the `getStaticConstraints` function within `useSchedulerTasks` and ensure they are correctly used.
 
-  const renderNavItem = (item: NavItem) => {
-    const isActive = location.pathname.startsWith(item.matchPath);
-    
-    return (
-      <NavLink
-        key={item.to}
-        to={item.to}
-        className={({ isActive: isCurrentActive }) =>
-          cn(
-            "flex flex-col items-center justify-center h-full w-full text-sm font-medium transition-colors duration-200 relative",
-            (isCurrentActive || location.pathname.startsWith(item.matchPath)) ? "text-primary" : "text-muted-foreground hover:text-foreground",
-            // Active state visual indicator (small bar above icon)
-            (isCurrentActive || location.pathname.startsWith(item.matchPath)) && "after:content-[''] after:absolute after:top-0 after:h-0.5 after:w-1/2 after:bg-primary after:rounded-b-full"
-          )
-        }
-      >
-        <item.icon className="h-6 w-6 mb-0.5" />
-        <span className="text-xs font-semibold">{item.label}</span>
-      </NavLink>
-    );
-  };
+Let's start by creating the new `src/types/session.ts` file and updating `use-session.ts`.
 
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-card border-t border-border shadow-2xl lg:hidden animate-slide-in-up">
-      {/* Use a 5-column grid: Nav1 | Nav2 | FAB | Nav3 | Nav4 */}
-      <div className="grid grid-cols-5 items-center h-full max-w-md mx-auto">
-        
-        {/* Nav Item 1: Schedule */}
-        <div className="col-span-1 flex items-center justify-center h-full">
-            {renderNavItem(navItems[0])}
-        </div>
+<dyad-write path="src/types/session.ts" description="Creating a new file for SessionContext and UserProfile types to resolve circular dependency.">
+import { Session, User } from '@supabase/supabase-js';
+import React from 'react';
+import { DBScheduledTask, ScheduledItem, TaskEnvironment } from '@/types/scheduler';
+import { MealAssignment } from '@/hooks/use-meals';
 
-        {/* Nav Item 2: Sink */}
-        <div className="col-span-1 flex items-center justify-center h-full">
-            {renderNavItem(navItems[1])}
-        </div>
+export interface UserProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  xp: number;
+  level: number;
+  daily_streak: number;
+  last_streak_update: string | null;
+  energy: number;
+  last_daily_reward_claim: string | null;
+  last_daily_reward_notification: string | null;
+  last_low_energy_notification: string | null;
+  tasks_completed_today: number;
+  enable_daily_challenge_notifications: boolean;
+  enable_low_energy_notifications: boolean;
+  daily_challenge_target: number;
+  default_auto_schedule_start_time: string | null;
+  default_auto_schedule_end_time: string | null;
+  enable_delete_hotkeys: boolean;
+  enable_aethersink_backup: boolean;
+  last_energy_regen_at: string | null;
+  is_in_regen_pod: boolean;
+  regen_pod_start_time: string | null;
+  breakfast_time: string | null;
+  lunch_time: string | null;
+  dinner_time: string | null;
+  breakfast_duration_minutes: number | null;
+  lunch_duration_minutes: number | null;
+  dinner_duration_minutes: number | null;
+  enable_environment_chunking: boolean;
+  enable_macro_spread: boolean;
+  reflection_count: number;
+  reflection_times: string[];
+  reflection_durations: number[];
+  week_starts_on: number;
+  num_days_visible: number;
+  vertical_zoom_index: number;
+  is_dashboard_collapsed: boolean;
+  is_action_center_collapsed: boolean;
+}
 
-        {/* Central FAB/Action Menu */}
-        <div className="col-span-1 flex items-center justify-center h-full relative">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="default"
-                size="icon"
-                disabled={isProcessingCommand}
-                className={cn(
-                  // FAB is now larger and slightly overlaps the top edge
-                  "relative -top-4 h-16 w-16 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 border-4 border-card",
-                  isProcessingCommand && "opacity-70 cursor-not-allowed"
-                )}
-              >
-                {isProcessingCommand ? <Loader2 className="h-7 w-7 animate-spin" /> : <Plus className="h-7 w-7" />}
-                <span className="sr-only">New Action</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" side="top" className="w-48 p-1 mb-4">
-              <DropdownMenuItem onClick={handleQuickBreak} className="cursor-pointer flex items-center gap-2 text-logo-orange">
-                <Coffee className="h-4 w-4" /> Quick Break (15 min)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleQuickAddTask} className="cursor-pointer flex items-center gap-2 text-primary">
-                <ListTodo className="h-4 w-4" /> Add New Task
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+export interface SessionContextType {
+  session: Session | null;
+  user: User | null;
+  profile: UserProfile | null;
+  isLoading: boolean;
+  refreshProfile: () => Promise<void>;
+  rechargeEnergy: (amount?: number) => Promise<void>;
+  showLevelUp: boolean;
+  levelUpLevel: number;
+  triggerLevelUp: (level: number) => void;
+  resetLevelUp: () => void;
+  resetDailyStreak: () => Promise<void>;
+  claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>;
+  updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  updateSettings: (updates: Partial<UserProfile>) => Promise<void>;
+  activeItemToday: ScheduledItem | null;
+  nextItemToday: ScheduledItem | null;
+  T_current: Date;
+  startRegenPodState: (durationMinutes: number) => Promise<void>;
+  exitRegenPodState: () => Promise<void>;
+  regenPodDurationMinutes: number;
+  triggerEnergyRegen: () => Promise<void>;
+}
 
-        {/* Nav Item 3: Recap */}
-        <div className="col-span-1 flex items-center justify-center h-full">
-            {renderNavItem(navItems[2])}
-        </div>
-        
-        {/* Nav Item 4: Stats */}
-        <div className="col-span-1 flex items-center justify-center h-full">
-            {renderNavItem(navItems[3])}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default BottomNavigationBar;
+export const SessionContext = createContext<SessionContextType | undefined>(undefined);

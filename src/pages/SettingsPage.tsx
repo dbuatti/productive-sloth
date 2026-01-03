@@ -33,7 +33,8 @@ import {
   LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, 
   ExternalLink, Loader2, Keyboard, Database, TrendingUp, 
   BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor,
-  Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu // Added Cpu icon
+  Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu,
+  Home // NEW: Home icon for environment management
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
@@ -44,7 +45,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { adjustArrayLength } from '@/lib/utils';
 import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import MealIdeasTab from '@/components/MealIdeasTab'; // NEW IMPORT
+import MealIdeasTab from '@/components/MealIdeasTab';
+import EnvironmentManagerDialog from '@/components/EnvironmentManagerDialog'; // NEW IMPORT
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -63,7 +65,7 @@ const profileSchema = z.object({
   reflection_count: z.coerce.number().min(1).max(5),
   enable_environment_chunking: z.boolean(),
   enable_macro_spread: z.boolean(),
-  week_starts_on: z.coerce.number().min(0).max(6), // NEW: Week starts on (0 for Sunday, 1 for Monday, etc.)
+  week_starts_on: z.coerce.number().min(0).max(6),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -77,11 +79,12 @@ const SettingsPage: React.FC = () => {
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
   const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
   const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
-  const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(profile?.is_dashboard_collapsed ?? false); // NEW: Dashboard collapsed state
-  const [isActionCenterCollapsed, setIsActionCenterCollapsed] = useState(profile?.is_action_center_collapsed ?? false); // NEW: Action Center collapsed state
+  const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(profile?.is_dashboard_collapsed ?? false);
+  const [isActionCenterCollapsed, setIsActionCenterCollapsed] = useState(profile?.is_action_center_collapsed ?? false);
   
   const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
+  const [isEnvironmentManagerOpen, setIsEnvironmentManagerOpen] = useState(false); // NEW: State for environment manager dialog
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -100,7 +103,7 @@ const SettingsPage: React.FC = () => {
       reflection_count: 1,
       enable_environment_chunking: true,
       enable_macro_spread: false,
-      week_starts_on: 0, // Default to Sunday
+      week_starts_on: 0,
     },
     mode: 'onChange',
   });
@@ -122,14 +125,14 @@ const SettingsPage: React.FC = () => {
         reflection_count: profile.reflection_count || 1,
         enable_environment_chunking: profile.enable_environment_chunking ?? true,
         enable_macro_spread: profile.enable_macro_spread ?? false,
-        week_starts_on: profile.week_starts_on ?? 0, // NEW: Set initial value
+        week_starts_on: profile.week_starts_on ?? 0,
       });
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
       setEnableDeleteHotkeys(profile.enable_delete_hotkeys);
       setEnableAetherSinkBackup(profile.enable_aethersink_backup);
-      setIsDashboardCollapsed(profile.is_dashboard_collapsed); // NEW: Set dashboard collapsed state
-      setIsActionCenterCollapsed(profile.is_action_center_collapsed); // NEW: Set action center collapsed state
+      setIsDashboardCollapsed(profile.is_dashboard_collapsed);
+      setIsActionCenterCollapsed(profile.is_action_center_collapsed);
       setReflectionTimes(profile.reflection_times || ['12:00']);
       setReflectionDurations(profile.reflection_durations || [15]);
     }
@@ -171,7 +174,7 @@ const SettingsPage: React.FC = () => {
         reflection_durations: finalDurations,
         enable_environment_chunking: values.enable_environment_chunking,
         enable_macro_spread: values.enable_macro_spread,
-        week_starts_on: values.week_starts_on, // NEW: Save week_starts_on
+        week_starts_on: values.week_starts_on,
       });
       showSuccess("Profile updated!");
     } catch (error: any) {
@@ -182,13 +185,12 @@ const SettingsPage: React.FC = () => {
   const handleToggle = async (key: keyof UserProfile, value: boolean) => {
     try {
       await updateProfile({ [key]: value });
-      // Update local state for immediate UI feedback
       if (key === 'enable_daily_challenge_notifications') setDailyChallengeNotifications(value);
       if (key === 'enable_low_energy_notifications') setLowEnergyNotifications(value);
       if (key === 'enable_delete_hotkeys') setEnableDeleteHotkeys(value);
       if (key === 'enable_aethersink_backup') setEnableAetherSinkBackup(value);
-      if (key === 'is_dashboard_collapsed') setIsDashboardCollapsed(value); // NEW: Update local state
-      if (key === 'is_action_center_collapsed') setIsActionCenterCollapsed(value); // NEW: Update local state
+      if (key === 'is_dashboard_collapsed') setIsDashboardCollapsed(value);
+      if (key === 'is_action_center_collapsed') setIsActionCenterCollapsed(value);
     } catch (error) {
         showError("Failed to save preference.");
     }
@@ -227,11 +229,11 @@ const SettingsPage: React.FC = () => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           
-          <div className="p-4 bg-card rounded-xl shadow-sm"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+          <div className="p-4 bg-card rounded-xl shadow-sm">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
               <User className="h-5 w-5 text-primary" /> Profile
             </h2>
-            <div className="p-0 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
+            <div className="p-0 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={form.control} name="first_name" render={({ field }) => (<FormItem><FormLabel>First Name</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="last_name" render={({ field }) => (<FormItem><FormLabel>Last Name</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -240,11 +242,11 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
               <Anchor className="h-5 w-5 text-primary" /> Temporal Anchors
             </h2>
-            <div className="p-0"> {/* Replaced CardContent with div */}
+            <div className="p-0">
               <Tabs defaultValue="meals">
                 <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-secondary rounded-lg mb-6">
                   <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest">Times</TabsTrigger>
@@ -292,11 +294,11 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
               <ListOrdered className="h-5 w-5 text-primary" /> Auto-Balance Logic
             </h2>
-            <div className="p-0 space-y-6"> {/* Replaced CardContent with div, adjusted padding */}
+            <div className="p-0 space-y-6">
               <EnvironmentOrderSettings />
               <div className="pt-4 border-t border-white/5 space-y-4">
                 <FormField control={form.control} name="enable_environment_chunking" render={({ field }) => (
@@ -322,12 +324,11 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* NEW: Calendar Preferences & View Settings */}
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
               <CalendarDays className="h-5 w-5 text-primary" /> Calendar & View Preferences
             </h2>
-            <div className="p-0 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
+            <div className="p-0 space-y-4">
               <FormField
                 control={form.control}
                 name="week_starts_on"
@@ -358,6 +359,16 @@ const SettingsPage: React.FC = () => {
                   </FormItem>
                 )}
               />
+              {/* NEW: Environment Management Button */}
+              <div className="pt-4 border-t border-white/5">
+                <Button 
+                  variant="outline" 
+                  className="w-full flex items-center gap-2 h-12 text-base font-semibold"
+                  onClick={() => setIsEnvironmentManagerOpen(true)}
+                >
+                  <Home className="h-5 w-5" /> Manage Task Environments
+                </Button>
+              </div>
               {/* NEW: Dashboard Collapsed State */}
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
                 <div className="space-y-0.5">
@@ -392,16 +403,18 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-4 bg-card rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg text-destructive px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
+          <div className="p-4 bg-card rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg text-destructive px-0 pb-4">
               <Trash2 className="h-5 w-5" /> Danger Zone
             </h2>
-            <div className="p-0"> {/* Replaced CardContent with div */}
+            <div className="p-0">
               <Button variant="destructive" className="w-full font-black uppercase" onClick={handleResetGameProgress}>Wipe History</Button>
             </div>
           </div>
         </form>
       </Form>
+
+      <EnvironmentManagerDialog open={isEnvironmentManagerOpen} onOpenChange={setIsEnvironmentManagerOpen} />
     </div>
   );
 };

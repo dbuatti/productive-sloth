@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, 
   Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, 
-  SortDesc, Clock, CalendarDays, Smile, Database, LayoutDashboard, List
-} from 'lucide-react'; // Removed Home, Laptop, Globe, Music icons
+  SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, 
+  Globe, Music, LayoutDashboard, List
+} from 'lucide-react';
 import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -26,10 +27,26 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
 import SinkKanbanBoard from './SinkKanbanBoard';
-import { UserProfile } from '@/hooks/use-session';
-import { Button } from '@/components/ui/button';
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
-import { getLucideIcon } from '@/lib/icons'; // NEW: Import getLucideIcon
+import { UserProfile } from '@/hooks/use-session'; // Import UserProfile type
+import { Button } from '@/components/ui/button'; // Import Button component
+
+const getEnvironmentIcon = (environment: TaskEnvironment) => {
+  const iconClass = "h-3.5 w-3.5 opacity-70";
+  switch (environment) {
+    case 'home': return <Home className={iconClass} />;
+    case 'laptop': return <Laptop className={iconClass} />;
+    case 'away': return <Globe className={iconClass} />;
+    case 'piano': return <Music className={iconClass} />;
+    case 'laptop_piano':
+      return (
+        <div className="relative">
+          <Laptop className={iconClass} />
+          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
+        </div>
+      );
+    default: return null;
+  }
+};
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -38,7 +55,7 @@ interface AetherSinkProps {
   onAutoScheduleSink: () => void;
   isLoading: boolean;
   isProcessingCommand: boolean;
-  profile: UserProfile | null;
+  profile: UserProfile | null; // Added profile prop
   retiredSortBy: RetiredTaskSortBy;
   setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
 }
@@ -53,7 +70,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, 
     updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails 
   } = useSchedulerTasks('');
-  const { environmentOptions, isLoadingEnvironments } = useEnvironmentContext(); // NEW: Get dynamic environments
 
   // --- View Management ---
   const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
@@ -61,7 +77,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
-  const [localInput, setLocalInput] = useState('');
+  const [localInput, setLocalInput] = useState(''); // NEW: State for quick add input
 
   const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
 
@@ -109,13 +125,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
       return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
     }
 
-    // Ensure task_environment is set to a valid ID, default to first available if none specified
-    const defaultEnvId = environmentOptions[0]?.originalEnvId || 'laptop'; // Fallback to 'laptop' if no environments
-    const finalTask = { ...parsedTask, task_environment: parsedTask.task_environment || defaultEnvId };
-
-    await addRetiredTask(finalTask);
-    setLocalInput('');
-  }, [user, addRetiredTask, environmentOptions]);
+    await addRetiredTask(parsedTask);
+    setLocalInput(''); // Clear input after adding
+  }, [user, addRetiredTask]);
 
   const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
     <DropdownMenuItem 
@@ -157,25 +169,15 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     </div>
   );
 
-  const getEnvironmentIconForDisplay = (environmentId: string) => {
-    const envOption = environmentOptions.find(opt => opt.originalEnvId === environmentId);
-    if (envOption) {
-      const Icon = getLucideIcon(envOption.icon.displayName || 'Laptop');
-      const iconClass = "h-3 w-3 opacity-70";
-      return Icon ? <Icon className={iconClass} /> : null;
-    }
-    return null;
-  };
-
   return (
     <>
-      <div className="p-4 bg-card rounded-xl shadow-sm w-full">
-        <div className={cn("pb-4 flex flex-row items-center justify-between")}>
+      <div className="p-4 bg-card rounded-xl shadow-sm w-full"> {/* Replaced Card with div, adjusted padding/styling */}
+        <div className={cn("pb-4 flex flex-row items-center justify-between")}> {/* Replaced CardHeader with div */}
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-secondary/50">
                 <Trash2 className="h-5 w-5 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+            <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2"> {/* Replaced CardTitle with h2 */}
               <span>Aether Sink</span>
               <span className="text-xs font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
             </h2>
@@ -264,7 +266,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
           </div>
         </div>
 
-        <div className="px-2 pb-2 space-y-6">
+        <div className="px-2 pb-2 space-y-6"> {/* Replaced CardContent with div, adjusted padding */}
           {/* Input Form (Now enabled for List View) */}
           {viewMode === 'list' && (
             <form onSubmit={(e) => { e.preventDefault(); handleQuickAddToList(localInput); }} className="flex gap-2">
@@ -286,7 +288,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
           )}
 
           {/* Loading State */}
-          {isLoading || isLoadingEnvironments ? ( // Include isLoadingEnvironments
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Sink...</p>
@@ -313,11 +315,11 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   return (
                     <div 
                       key={task.id} 
-                      onClick={() => handleOpenDetailDialog(task)}
+                      onClick={() => handleOpenDetailDialog(task)} // Click to open details
                       className={cn(
-                        "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border-none transition-all duration-300 cursor-pointer animate-pop-in",
+                        "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border-none transition-all duration-300 cursor-pointer animate-pop-in", // Removed border
                         "bg-card/40 hover:bg-secondary/40",
-                        isLocked ? "bg-primary/[0.03]" : "border-transparent",
+                        isLocked ? "bg-primary/[0.03]" : "border-transparent", // Removed border-primary/20
                         isBackburner && !isLocked && "opacity-70",
                         isCompleted && "opacity-40 grayscale"
                       )}
@@ -344,7 +346,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                           </div>
                           
                           <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
-                            <span className="flex items-center gap-1.5">{getEnvironmentIconForDisplay(task.task_environment)} <span className="opacity-40">{environmentOptions.find(opt => opt.originalEnvId === task.task_environment)?.label || task.task_environment}</span></span>
+                            <span className="flex items-center gap-1.5">{getEnvironmentIcon(task.task_environment)} <span className="opacity-40">{task.task_environment}</span></span>
                             {task.duration && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {task.duration}m</span>}
                             {task.energy_cost > 0 && <span className="flex items-center gap-1.5 text-primary/80">{task.energy_cost}<Zap className="h-3 w-3 fill-current" /></span>}
                             <span className="hidden xs:inline text-[8px] opacity-20">|</span>
@@ -406,7 +408,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 onRemoveRetiredTask={onRemoveRetiredTask}
                 onRezoneTask={onRezoneTask}
                 updateRetiredTask={handleUpdateRetiredTask}
-                onOpenDetailDialog={handleOpenDetailDialog}
+                onOpenDetailDialog={handleOpenDetailDialog} // Pass the handler
               />
             )
           )}

@@ -37,19 +37,12 @@ import { cn } from '@/lib/utils';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; 
 import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; 
 import { useNavigate } from 'react-router-dom';
-import AetherSink from '@/components/AetherSink';
+import AetherSink from '@/components/AetherSink'; // Import AetherSink
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
-  const { selectedEnvironments, environmentOptions } = useEnvironmentContext(); // NEW: Get environmentOptions
-  
-  // Use the first selected environment for placement, or the first available environment, or 'laptop' as a last resort
-  const environmentForPlacement = useMemo(() => {
-    if (selectedEnvironments.length > 0) {
-      return selectedEnvironments[0];
-    }
-    return environmentOptions[0]?.originalEnvId || 'laptop';
-  }, [selectedEnvironments, environmentOptions]);
+  const { selectedEnvironments } = useEnvironmentContext();
+  const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
   const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
@@ -169,11 +162,11 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [handleAutoScheduleAndSort, selectedDay, sortBy]);
 
   const handleZoneFocus = useCallback(async () => {
-    // Pass selectedEnvironments (which are now environment IDs)
     await handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay);
   }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy]);
 
   const handleCompact = useCallback(async () => {
+    // Pass the profile object to compactScheduleLogic
     const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile);
     await compactScheduledTasks({ tasksToUpdate });
   }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile]);
@@ -214,7 +207,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             is_flexible: false, 
             is_locked: true, 
             energy_cost: 0, 
-            task_environment: environmentForPlacement, 
+            task_environment: 'away', 
         });
         
         showSuccess(`Regen Pod activated for ${activityDuration} minutes!`);
@@ -223,7 +216,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
         setIsProcessingCommand(false);
     }
-  }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask, environmentForPlacement]);
+  }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask]);
 
   const handleExitPodSession = useCallback(async () => {
     await exitRegenPodState();
@@ -246,7 +239,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             const breakDur = command.duration || 15;
             const bStart = T_current;
             const bEnd = addMinutes(bStart, breakDur);
-            await addScheduledTask({ name: 'Quick Break', start_time: bStart.toISOString(), end_time: bEnd.toISOString(), break_duration: breakDur, scheduled_date: selectedDay, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, task_environment: environmentForPlacement });
+            await addScheduledTask({ name: 'Quick Break', start_time: bStart.toISOString(), end_time: bEnd.toISOString(), break_duration: breakDur, scheduled_date: selectedDay, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, task_environment: 'away' });
             break;
           default: showError("Unknown engine command.");
         }
@@ -374,7 +367,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   return (
     <div className={cn(
-      "w-full pb-4 space-y-6",
+      "w-full pb-4 space-y-6", // Adjusted padding-bottom and added space-y-6 for overall spacing
     )}>
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
@@ -392,21 +385,24 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
       <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
       
-      <div className="space-y-6">
+      <div className="space-y-6"> {/* Grouping related components for consistent spacing */}
         <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} />
         <SchedulerSegmentedControl currentView={view} />
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-6"> {/* Grouping related components for consistent spacing */}
         {view === 'schedule' && (
           <>
+            {/* SchedulerContextBar - Removed card styling */}
             <SchedulerContextBar T_current={T_current} />
             
-            <div className="p-4">
+            {/* Quick Add - Removed card styling */}
+            <div className="p-4"> {/* Removed bg-card rounded-xl shadow-sm */}
               <h2 className="text-xl font-bold flex items-center gap-2 mb-4"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</h2>
               <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} />
             </div>
             
+            {/* SchedulerActionCenter - Removed card styling */}
             <SchedulerActionCenter 
               isProcessingCommand={overallLoading} 
               dbScheduledTasks={dbScheduledTasks} 
@@ -430,7 +426,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               navigate={navigate}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
-            <div className="p-0 bg-transparent rounded-none shadow-none">
+            <div className="p-0 bg-transparent rounded-none shadow-none"> {/* This already has no card styling */}
               <h2 className="text-xl font-bold mb-4">Your Vibe Schedule</h2>
               <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
             </div>
@@ -442,7 +438,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               retiredTasks={retiredTasks} 
               onRezoneTask={(t) => rezoneTask(t)} 
               onRemoveRetiredTask={(id) => removeRetiredTask(id)} 
-              onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay)} // Pass selectedEnvironments
+              onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} 
               isLoading={overallLoading} 
               isProcessingCommand={isProcessingCommand} 
               profile={profile} 

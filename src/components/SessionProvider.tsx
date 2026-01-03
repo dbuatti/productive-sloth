@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, differenceInMinutes, format } from 'date-fns';
 import { 
@@ -15,88 +16,11 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
-import { useEnvironmentContext } from '@/hooks/use-environment-context';
-import { MealAssignment } from '@/hooks/use-meals';
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Corrected import path
+import { MealAssignment } from '@/hooks/use-meals'; // Import MealAssignment type
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
-
-export interface UserProfile {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
-  xp: number;
-  level: number;
-  daily_streak: number;
-  last_streak_update: string | null;
-  energy: number;
-  last_daily_reward_claim: string | null;
-  last_daily_reward_notification: string | null;
-  last_low_energy_notification: string | null;
-  tasks_completed_today: number;
-  enable_daily_challenge_notifications: boolean;
-  enable_low_energy_notifications: boolean;
-  daily_challenge_target: number;
-  default_auto_schedule_start_time: string | null;
-  default_auto_schedule_end_time: string | null;
-  enable_delete_hotkeys: boolean;
-  enable_aethersink_backup: boolean;
-  last_energy_regen_at: string | null;
-  is_in_regen_pod: boolean;
-  regen_pod_start_time: string | null;
-  breakfast_time: string | null;
-  lunch_time: string | null;
-  dinner_time: string | null;
-  breakfast_duration_minutes: number | null;
-  lunch_duration_minutes: number | null;
-  dinner_duration_minutes: number | null;
-  enable_environment_chunking: boolean;
-  enable_macro_spread: boolean;
-  reflection_count: number;
-  reflection_times: string[];
-  reflection_durations: number[];
-  week_starts_on: number;
-  num_days_visible: number;
-  vertical_zoom_index: number;
-  is_dashboard_collapsed: boolean;
-  is_action_center_collapsed: boolean;
-}
-
-interface SessionContextType {
-  session: Session | null;
-  user: User | null;
-  profile: UserProfile | null;
-  isLoading: boolean;
-  refreshProfile: () => Promise<void>;
-  rechargeEnergy: (amount?: number) => Promise<void>;
-  showLevelUp: boolean;
-  levelUpLevel: number;
-  triggerLevelUp: (level: number) => void;
-  resetLevelUp: () => void;
-  resetDailyStreak: () => Promise<void>;
-  claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>;
-  updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>;
-  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
-  updateSettings: (updates: Partial<UserProfile>) => Promise<void>;
-  activeItemToday: ScheduledItem | null;
-  nextItemToday: ScheduledItem | null;
-  T_current: Date;
-  startRegenPodState: (durationMinutes: number) => Promise<void>;
-  exitRegenPodState: () => Promise<void>;
-  regenPodDurationMinutes: number;
-  triggerEnergyRegen: () => Promise<void>;
-}
-
-export const SessionContext = createContext<SessionContextType | undefined>(undefined);
-
-export const useSession = () => {
-  const context = useContext(SessionContext);
-  if (context === undefined) {
-    throw new Error('useSession must be used within a SessionContextProvider');
-  }
-  return context;
-};
 
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -139,7 +63,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, 
           is_in_regen_pod, regen_pod_start_time, breakfast_time, lunch_time, 
           dinner_time, breakfast_duration_minutes, lunch_duration_minutes, 
-          dinner_duration_minutes, reflection_count, 
+          dinner_duration_minutes, custom_environment_order, reflection_count, 
           reflection_times, reflection_durations, enable_environment_chunking, 
           enable_macro_spread, week_starts_on, num_days_visible, vertical_zoom_index,
           is_dashboard_collapsed, is_action_center_collapsed
@@ -306,6 +230,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     enabled: !!user?.id && !isAuthLoading,
   });
   
+  // NEW: Fetch meal assignments for today
   const { data: mealAssignmentsToday = [] } = useQuery<MealAssignment[]>({
     queryKey: ['mealAssignmentsToday', user?.id, todayString],
     queryFn: async () => {
@@ -344,7 +269,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.reflection_count,
       profile.reflection_times,
       profile.reflection_durations,
-      mealAssignmentsToday
+      mealAssignmentsToday // PASS MEAL ASSIGNMENTS
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current, mealAssignmentsToday, todayString]);
 

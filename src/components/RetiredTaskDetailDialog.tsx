@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react"; // Removed Home, Laptop, Globe, Music icons
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react"; // Added Music icon
 
 import {
   Sheet,
@@ -24,25 +24,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from '@/components/ui/switch';
-import { RetiredTask, TaskEnvironment } from "@/types/scheduler";
+import { RetiredTask, TaskEnvironment } from "@/types/scheduler"; // Import TaskEnvironment
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
-import { getLucideIcon } from '@/lib/icons'; // NEW: Import getLucideIcon
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
   duration: z.coerce.number().min(1, "Duration must be at least 1 minute.").optional().nullable(),
   break_duration: z.coerce.number().min(0).optional().nullable(),
   is_critical: z.boolean().default(false),
-  is_backburner: z.boolean().default(false),
+  is_backburner: z.boolean().default(false), // NEW: Backburner flag
   is_locked: z.boolean().default(false),
   is_completed: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.string().min(1, "Environment is required."), // UPDATED: Changed to string, will store environment ID
+  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'), // UPDATED: Add new environments
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -59,7 +58,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   onOpenChange,
 }) => {
   const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
-  const { environmentOptions, isLoadingEnvironments } = useEnvironmentContext(); // NEW: Get dynamic environments
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<RetiredTaskDetailFormValues>({
@@ -69,44 +67,38 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       duration: 30,
       break_duration: 0,
       is_critical: false,
-      is_backburner: false,
+      is_backburner: false, // NEW: Default to false
       is_locked: false,
       is_completed: false,
       energy_cost: 0,
       is_custom_energy_cost: false,
-      task_environment: '', // Default to empty, will be set by effect
+      task_environment: 'laptop', // NEW: Default value
     },
   });
 
   // Effect to update form values when task prop changes
   useEffect(() => {
-    if (task && environmentOptions.length > 0) { // Ensure environments are loaded
-      // Find the corresponding environment option by its originalEnvId (which is the task.task_environment)
-      const selectedEnvOption = environmentOptions.find(opt => opt.originalEnvId === task.task_environment);
-      
+    if (task) {
       form.reset({
         name: task.name,
         duration: task.duration ?? 30,
         break_duration: task.break_duration ?? 0,
         is_critical: task.is_critical,
-        is_backburner: task.is_backburner,
+        is_backburner: task.is_backburner, // NEW: Set initial backburner status
         is_locked: task.is_locked,
         is_completed: task.is_completed,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
-        task_environment: selectedEnvOption ? selectedEnvOption.originalEnvId : (environmentOptions[0]?.originalEnvId || ''), // Set to found ID or first available
+        task_environment: task.task_environment, // NEW: Set environment
       });
       // Set initial calculated cost, but only if not custom
       if (!task.is_custom_energy_cost) {
-        setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical, task.is_backburner));
+        setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical, task.is_backburner)); // NEW: Pass backburner status
       } else {
-        setCalculatedEnergyCost(task.energy_cost);
+        setCalculatedEnergyCost(task.energy_cost); // If custom, display the custom value
       }
-    } else if (!task && environmentOptions.length > 0) {
-      // If no task, but environments are loaded, set default environment
-      form.setValue('task_environment', environmentOptions[0]?.originalEnvId || '');
     }
-  }, [task, form, environmentOptions]);
+  }, [task, form]);
 
   // Effect to recalculate energy cost when duration, criticality, or backburner status changes
   useEffect(() => {
@@ -115,16 +107,16 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical' || name === 'is_backburner')) {
         const duration = value.duration ?? 0;
         const isCritical = value.is_critical;
-        const isBackburner = value.is_backburner;
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
+        const isBackburner = value.is_backburner; // NEW: Get backburner status
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false); // NEW: Pass backburner status
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
         // If custom energy cost is turned OFF, immediately recalculate and set
         const duration = form.getValues('duration') ?? 0;
         const isCritical = form.getValues('is_critical');
-        const isBackburner = form.getValues('is_backburner');
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
+        const isBackburner = form.getValues('is_backburner'); // NEW: Get backburner status
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false); // NEW: Pass backburner status
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }
@@ -139,9 +131,9 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       // Handle completion status separately to trigger XP/Energy logic
       if (values.is_completed !== task.is_completed) {
         if (values.is_completed) {
-          await completeRetiredTask(task);
+          await completeRetiredTask(task); // This handles XP/Energy and sets is_completed to true
         } else {
-          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
+          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }); // Only update status
         }
       }
 
@@ -152,11 +144,12 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         duration: values.duration === 0 ? null : values.duration,
         break_duration: values.break_duration === 0 ? null : values.break_duration,
         is_critical: values.is_critical,
-        is_backburner: values.is_backburner,
+        is_backburner: values.is_backburner, // NEW: Save backburner status
         is_locked: values.is_locked,
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
-        task_environment: values.task_environment as TaskEnvironment, // Cast back to TaskEnvironment
+        task_environment: values.task_environment, // NEW: Save environment
+        // is_completed is handled by completeRetiredTask or updateRetiredTaskStatus
       });
       showSuccess("Retired task updated successfully!");
       onOpenChange(false);
@@ -168,7 +161,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
-  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
+  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); // Watch the custom energy cost toggle
   const isCritical = form.watch('is_critical');
   const isBackburner = form.watch('is_backburner');
 
@@ -254,24 +247,21 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Task Environment</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingEnvironments}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select environment" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {environmentOptions.map(option => {
-                          const Icon = getLucideIcon(option.icon.displayName || 'Laptop');
-                          return (
-                            <SelectItem key={option.originalEnvId} value={option.originalEnvId}>
-                              <div className="flex items-center gap-2">
-                                {Icon && <Icon className="h-4 w-4" />}
-                                {option.label}
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
+                        {environmentOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <option.icon className="h-4 w-4" />
+                              {option.label}
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormDescription>
@@ -299,9 +289,9 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) form.setValue('is_backburner', false);
+                          if (checked) form.setValue('is_backburner', false); // Critical overrides Backburner
                         }}
-                        disabled={task.is_locked}
+                        disabled={task.is_locked} // Disable if locked
                       />
                     </FormControl>
                   </FormItem>
@@ -325,7 +315,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) form.setValue('is_critical', false);
+                          if (checked) form.setValue('is_critical', false); // Backburner overrides Critical
                         }}
                         disabled={isCritical || task.is_locked}
                       />
@@ -372,7 +362,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                        disabled={task.is_locked}
+                        disabled={task.is_locked} // Disable if locked
                       />
                     </FormControl>
                   </FormItem>
@@ -421,8 +411,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                           {...field} 
                           min="0" 
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          readOnly={!isCustomEnergyCostEnabled}
-                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
+                          readOnly={!isCustomEnergyCostEnabled} // Read-only if custom not enabled
+                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost} // Display calculated if not custom
                           onChange={(e) => {
                             if (isCustomEnergyCostEnabled) {
                               field.onChange(e);

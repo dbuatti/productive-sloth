@@ -3,11 +3,9 @@ import { DBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
-import { Clock, Zap, Star, CheckCircle } from 'lucide-react'; // Removed Home, Laptop, Globe, Music icons
+import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { getLucideIcon } from '@/lib/icons'; // NEW: Import getLucideIcon
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
 
 interface SimplifiedScheduledTaskItemProps {
   task: DBScheduledTask;
@@ -16,19 +14,25 @@ interface SimplifiedScheduledTaskItemProps {
   onCompleteTask: (task: DBScheduledTask) => Promise<void>;
 }
 
+const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
+  const iconClass = "h-3.5 w-3.5 opacity-70";
+  switch (environment) {
+    case 'home': return <Home className={iconClass} />;
+    case 'laptop': return <Laptop className={iconClass} />;
+    case 'away': return <Globe className={iconClass} />;
+    case 'piano': return <Music className={iconClass} />;
+    case 'laptop_piano':
+      return (
+        <div className="relative">
+          <Laptop className={iconClass} />
+          <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5" />
+        </div>
+      );
+    default: return null;
+  }
+};
+
 const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView, isCurrentlyActive, onCompleteTask }) => {
-  const { environmentOptions } = useEnvironmentContext(); // NEW: Get dynamic environments
-
-  const getEnvironmentIcon = (environmentId: string) => {
-    const envOption = environmentOptions.find(opt => opt.originalEnvId === environmentId);
-    if (envOption) {
-      const Icon = getLucideIcon(envOption.icon.displayName || 'Laptop'); // Get icon dynamically
-      const iconClass = "h-3.5 w-3.5 opacity-70";
-      return Icon ? <Icon className={iconClass} /> : null;
-    }
-    return null;
-  };
-
   const hue = getEmojiHue(task.name);
   const accentColor = `hsl(${hue} 70% 50%)`;
   const emoji = assignEmoji(task.name);
@@ -45,11 +49,11 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
   return (
     <div
       className={cn(
-        "relative flex items-center gap-2 p-1 rounded-md border-none transition-all duration-200 h-full group",
+        "relative flex items-center gap-2 p-1 rounded-md border-none transition-all duration-200 h-full group", // Removed border, added 'group' class
         "bg-card/30 hover:bg-card/50",
-        task.is_locked && "bg-primary/[0.03]",
+        task.is_locked && "bg-primary/[0.03]", // Removed border-primary/20
         task.is_completed && "opacity-50 grayscale",
-        isCurrentlyActive && "animate-active-task bg-live-progress/10 shadow-lg",
+        isCurrentlyActive && "animate-active-task bg-live-progress/10 shadow-lg", // Removed border-live-progress/50
         "text-sm"
       )}
       style={{ borderLeft: task.is_locked ? '3px solid hsl(var(--primary))' : `3px solid ${accentColor}` }}
@@ -93,7 +97,7 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
                     {getEnvironmentIcon(task.task_environment)}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>{environmentOptions.find(opt => opt.originalEnvId === task.task_environment)?.label || task.task_environment}</TooltipContent>
+                <TooltipContent>{task.task_environment}</TooltipContent>
               </Tooltip>
             )}
           </div>
@@ -110,7 +114,7 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
               onClick={handleComplete}
               className={cn(
                 "h-8 w-8 shrink-0 text-logo-green hover:bg-logo-green/10",
-                "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" // Always visible on mobile, hover on desktop
               )}
             >
               <CheckCircle className="h-4 w-4" />

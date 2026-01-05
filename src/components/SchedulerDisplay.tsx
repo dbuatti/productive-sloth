@@ -35,6 +35,8 @@ interface SchedulerDisplayProps {
 
 const MINUTE_HEIGHT = 2.0; 
 const FREE_TIME_MINUTE_HEIGHT = 0.5; // NEW: Reduced height for free time blocks
+const MIN_TASK_HEIGHT_MINUTES = 15; // Minimum duration equivalent for display
+const MIN_TASK_HEIGHT_PX = MIN_TASK_HEIGHT_MINUTES * MINUTE_HEIGHT; // 30px minimum height
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3 w-3 opacity-70";
@@ -158,6 +160,9 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
           const isActive = taskItem.id === activeItemId;
           const isPastItem = isPast(taskItem.endTime) && !isActive;
           const duration = differenceInMinutes(taskItem.endTime, taskItem.startTime);
+          
+          // Calculate actual height, enforcing minimum
+          const actualHeight = Math.max(duration * MINUTE_HEIGHT, MIN_TASK_HEIGHT_PX);
 
           const hue = getEmojiHue(taskItem.name);
           const accentColor = `hsl(${hue} 70% 50%)`;
@@ -174,27 +179,17 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 </span>
               </div>
 
-              {/* Removed Dot Indicator */}
-              {/* <div className={cn(
-                "relative z-10 mt-2 shrink-0",
-                "hidden sm:block" // Hide on mobile
-              )} style={{ left: '0.7rem' }}>
-                <div className={cn(
-                  "h-2.5 w-2.5 rounded-full border-2 border-background transition-all duration-700",
-                  isActive ? "bg-primary scale-125 shadow-[0_0_10px_rgba(var(--primary-rgb),0.6)]" : "bg-secondary border-primary/20",
-                  isPastItem && "opacity-30 grayscale"
-                )} />
-              </div> */}
-
               {/* Task Card */}
               <div 
                 className={cn(
                   "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col px-2 py-1", // Adjusted p-3 to px-2 py-1
                   isActive ? "bg-primary/10" : "bg-card/40 hover:bg-primary/5", // Removed shadow-md ring-1 ring-primary/20 for active, shadow-sm for inactive
-                  isPastItem && "opacity-40 grayscale"
+                  isPastItem && "opacity-40 grayscale",
+                  // Ensure content is visible even if height is minimal
+                  "justify-start" 
                 )}
                 style={{ 
-                  height: `${duration * MINUTE_HEIGHT}px`, // Task height directly related to duration
+                  height: `${actualHeight}px`, // Use calculated height
                   borderLeft: `3px solid ${isActive ? 'hsl(var(--primary))' : accentColor}`
                 }}
                 onClick={() => dbTask && handleTaskClick(dbTask)}

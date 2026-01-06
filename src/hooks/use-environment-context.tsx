@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useContext, createContext } from 'react';
+import { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment, UserEnvironment, NewUserEnvironment } from '@/types/scheduler';
 import { Home, Laptop, Globe, Music, Check, Icon as LucideIcon, Plus, Edit, Trash2 } from 'lucide-react'; // Import LucideIcon and management icons
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,7 +46,16 @@ export interface EnvironmentContextType {
   deleteEnvironment: (id: string) => Promise<void>;
 }
 
-export const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);
+export const EnvironmentContext = createContext<EnvironmentContextType>({
+  selectedEnvironments: [],
+  toggleEnvironmentSelection: () => {},
+  setSelectedEnvironments: () => {},
+  environmentOptions: defaultEnvironmentOptions,
+  isLoadingEnvironments: false,
+  addEnvironment: async () => {},
+  updateEnvironment: async () => {},
+  deleteEnvironment: async () => {},
+});
 
 export const useEnvironmentContext = () => {
   const context = useContext(EnvironmentContext);

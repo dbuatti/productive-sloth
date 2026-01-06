@@ -26,8 +26,8 @@ const App = () => (
         <React.Fragment>
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <EnvironmentProvider>
-              <SessionProvider>
+            <SessionProvider>
+              <EnvironmentProvider>
                 <EnergyRegenInitializer />
                 <MainLayout>
                   <Routes>
@@ -49,8 +49,8 @@ const App = () => (
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </MainLayout>
-              </SessionProvider>
-            </EnvironmentProvider>
+              </EnvironmentProvider>
+            </SessionProvider>
           </BrowserRouter>
         </React.Fragment>
       </TooltipProvider>

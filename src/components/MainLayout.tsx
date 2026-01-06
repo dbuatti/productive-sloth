@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import EnergyRegenInitializer from './EnergyRegenInitializer'; // Import EnergyRegenInitializer
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -53,6 +54,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       "flex flex-1 flex-col gap-4 overflow-auto",
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4"),
     )}>
+      <EnergyRegenInitializer /> {/* RENDERED HERE */}
       <div className={cn(
         "w-full",
         "px-3 md:px-8",

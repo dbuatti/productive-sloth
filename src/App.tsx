@@ -28,8 +28,8 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <SessionProvider>
               <EnvironmentProvider>
-                <EnergyRegenInitializer />
                 <MainLayout>
+                  <EnergyRegenInitializer /> {/* MOVED INSIDE MAINLAYOUT */}
                   <Routes>
                     <Route path="/" element={<Navigate to="/scheduler" replace />} />
                     

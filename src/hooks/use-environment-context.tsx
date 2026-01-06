@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useContext, createContext } from 'react';
+/** @jsxImportSource react */
+import React, { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment, UserEnvironment, NewUserEnvironment } from '@/types/scheduler';
 import { Home, Laptop, Globe, Music, Check, Icon as LucideIcon, Plus, Edit, Trash2 } from 'lucide-react'; // Import LucideIcon and management icons
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

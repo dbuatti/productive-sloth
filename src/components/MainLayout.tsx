@@ -11,6 +11,14 @@ import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -23,26 +31,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
 
-  // Determine if we are on the simplified schedule page
   const isSimplifiedSchedulePage = location.pathname === '/simplified-schedule';
 
-  // Desktop sidebar state (always open on desktop, but can be collapsed)
+  // State for mobile menu
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const toggleMobileMenu = useCallback(() => {
+    setMobileMenuOpen(prev => !prev);
+  }, []);
+
+  // State for desktop sidebar collapse
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const toggleSidebarCollapse = useCallback(() => {
+    setIsSidebarCollapsed(prev => !prev);
+  }, []);
 
   const sidebarWidth = isSidebarCollapsed ? "w-[72px]" : "w-[250px]";
-  const contentPaddingLeft = isSidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[250px]";
+  const contentPaddingLeft = isMobile || isSimplifiedSchedulePage ? "lg:pl-0" : (isSidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[250px]");
 
   const mainContent = (
     <main className={cn(
       "flex flex-1 flex-col gap-4 overflow-auto",
-      // Dynamic bottom padding for mobile navigation/status indicator
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4"),
-      // No horizontal padding here, it will be on the inner container
     )}>
       <div className={cn(
         "w-full",
-        "px-3 md:px-8", // Apply padding here
-        !isMobile && "max-w-4xl mx-auto" // Apply max-width and center for desktop
+        "px-3 md:px-8",
+        !isMobile && "max-w-4xl mx-auto"
       )}>
         {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
         {children}
@@ -53,11 +67,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="flex min-h-screen w-full bg-background">
       
-      {/* Desktop Sidebar (Visible on large screens, hidden on simplified schedule page) */}
+      {/* Mobile Navigation Drawer */}
+      {isMobile && (
+        <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="w-[250px] p-0 flex flex-col bg-sidebar border-r border-border/50">
+            <SheetHeader className="px-4 pt-4 pb-2 border-b border-border/50">
+              <SheetTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
+                <img 
+                  src="/aetherflow-logo.png" 
+                  alt="AetherFlow Logo" 
+                  className="h-8 w-auto drop-shadow-[0_0_8px_rgba(var(--primary),0.3)]"
+                />
+                AetherFlow
+              </SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto py-4">
+              <Navigation isCollapsed={false} onLinkClick={() => setMobileMenuOpen(false)} />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Desktop Sidebar */}
       {!isMobile && !isSimplifiedSchedulePage && (
         <div 
           className={cn(
-            "fixed top-0 left-0 right-0 z-30 h-screen border-r border-border/50 bg-sidebar transition-all duration-300 ease-in-out pt-[64px]", // Adjusted pt for sidebar to match new header height
+            "fixed top-0 left-0 z-30 h-screen border-r border-border/50 bg-sidebar transition-all duration-300 ease-in-out pt-[64px]",
             sidebarWidth
           )}
         >
@@ -65,7 +100,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <div className="flex-1 py-4">
               <Navigation isCollapsed={isSidebarCollapsed} />
             </div>
-            {/* Optional: Add a collapse toggle button here if needed */}
+            <div className="sticky bottom-0 bg-sidebar border-t border-border/50 p-2 flex justify-center">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebarCollapse}
+                className="h-8 w-8 text-muted-foreground hover:bg-secondary/50"
+              >
+                {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                <span className="sr-only">{isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}</span>
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -73,16 +118,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Consolidated Fixed Header */}
       <div className={cn(
         "fixed top-0 left-0 right-0 z-50",
-        !isSimplifiedSchedulePage && contentPaddingLeft // Apply sidebar padding to fixed header
+        contentPaddingLeft
       )}>
-        <AppUnifiedHeader /> {/* Render the new unified header */}
+        <AppUnifiedHeader onToggleMobileMenu={toggleMobileMenu} />
       </div>
       
       {/* Main Content Area */}
       <div className={cn(
         "flex flex-col flex-1 min-w-0 w-full", 
-        !isSimplifiedSchedulePage && contentPaddingLeft,
-        "pt-[64px]" // Add padding-top here to push content below fixed header (h-16)
+        contentPaddingLeft,
+        "pt-[64px]"
       )}>
         {mainContent}
         {shouldShowFocusAnchor && <FocusAnchor />}

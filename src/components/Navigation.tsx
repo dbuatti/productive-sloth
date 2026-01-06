@@ -9,7 +9,7 @@ import {
   CheckCircle, 
   Code, 
   Sparkles,
-  CalendarDays // NEW: Import CalendarDays icon
+  CalendarDays
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -20,14 +20,14 @@ interface NavLinkItemProps {
   icon: React.ElementType;
   label: string;
   isCollapsed: boolean;
-  onClick?: () => void;
+  onClick?: () => void; // Added onClick prop
 }
 
 const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isCollapsed, onClick }) => {
   const content = (
     <NavLink
       to={to}
-      onClick={onClick}
+      onClick={onClick} // Call onClick when NavLink is clicked
       className={({ isActive }) =>
         cn(
           "group relative flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-bold tracking-tight transition-all duration-300 ease-aether-out",
@@ -74,7 +74,7 @@ const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isColl
 
 interface NavigationProps {
   isCollapsed: boolean;
-  onLinkClick?: () => void;
+  onLinkClick?: () => void; // Added onLinkClick prop
 }
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
@@ -91,7 +91,6 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
     { to: "/settings", icon: Settings, label: "Settings" },
   ];
 
-  // NEW: Add a "Views" section for Simplified Schedule
   const viewNavItems = [
     { to: "/simplified-schedule", icon: CalendarDays, label: "Weekly Vibe" },
   ];
@@ -124,7 +123,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
           icon={item.icon}
           label={item.label}
           isCollapsed={isCollapsed}
-          onClick={onLinkClick}
+          onClick={onLinkClick} // Pass onLinkClick to NavLinkItem
         />
       ))}
       
@@ -136,11 +135,10 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
           icon={item.icon}
           label={item.label}
           isCollapsed={isCollapsed}
-          onClick={onLinkClick}
+          onClick={onLinkClick} // Pass onLinkClick to NavLinkItem
         />
       ))}
 
-      {/* NEW: Views Section */}
       <SectionLabel>Views</SectionLabel>
       {viewNavItems.map((item) => (
         <NavLinkItem
@@ -149,7 +147,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
           icon={item.icon}
           label={item.label}
           isCollapsed={isCollapsed}
-          onClick={onLinkClick}
+          onClick={onLinkClick} // Pass onLinkClick to NavLinkItem
         />
       ))}
 

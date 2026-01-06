@@ -1,7 +1,6 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask, TaskEnvironment } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
 import { UserProfile } from '@/hooks/use-session'; // Import UserProfile
-import { Home, Laptop, Globe, Music } from 'lucide-react'; // Import Lucide icons
 
 // --- Constants ---
 export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break', 'reflection'];
@@ -1015,17 +1014,4 @@ export const calculateSchedule = (
     summary: summary,
     dbTasks: dbTasks,
   };
-};
-
-export const getEnvironmentIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    // For 'laptop_piano', we can choose one or create a custom one if needed.
-    // For now, let's use Laptop as a primary visual.
-    case 'laptop_piano': return Laptop; 
-    default: return Home; // Fallback
-  }
 };

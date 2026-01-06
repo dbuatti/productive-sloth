@@ -12,12 +12,12 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { RetiredTask, TaskEnvironment } from '@/types/scheduler';
-import { Star, Info, AlertCircle } from 'lucide-react'; // Removed Home, Laptop, Globe, Music
+import { Home, Laptop, Globe, Music, Star, Info, AlertCircle } from 'lucide-react';
 import KanbanColumn from './KanbanColumn';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
-import { parseSinkTaskInput, getEnvironmentIconComponent } from '@/lib/scheduler-utils'; // Import getEnvironmentIconComponent
+import { parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments hook
 
 // --- Main Kanban Board Component ---
@@ -40,7 +40,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   onOpenDetailDialog, // Destructure new prop
 }) => {
   const { user } = useSession();
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // NEW: Use environments hook
+  const { environments, isLoading } = useEnvironments(); // NEW: Use environments hook
   const { addRetiredTask } = useSchedulerTasks('');
   
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -63,7 +63,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     const groups: Record<string, RetiredTask[]> = {};
     
     if (groupBy === 'environment') {
-      // Initialize groups for all available environments
+      // Use dynamic environments for grouping
       environments.forEach(env => {
         groups[env.value] = [];
       });
@@ -188,7 +188,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     return environments.map(env => ({
       value: env.value,
       label: env.label,
-      icon: getEnvironmentIconComponent(env.icon), // Use the utility to get the component
+      icon: env.icon,
       color: env.color,
     }));
   }, [environments]);
@@ -200,7 +200,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     { value: 'backburner', label: '🔵 Backburner', icon: AlertCircle },
   ];
 
-  if (isLoadingEnvironments) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -224,7 +224,10 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
             const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
             
             // Get the icon component
-            const IconComponent = option.icon;
+            const IconComponent = option.icon === 'Home' ? Home : 
+                                option.icon === 'Laptop' ? Laptop : 
+                                option.icon === 'Globe' ? Globe : 
+                                option.icon === 'Music' ? Music : Info;
             
             return (
               <KanbanColumn

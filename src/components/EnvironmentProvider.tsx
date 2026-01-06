@@ -2,13 +2,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { EnvironmentContext, EnvironmentContextType } from '@/hooks/use-environment-context'; // Keep EnvironmentContextType
-import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments hook
-import { getEnvironmentIconComponent } from '@/lib/scheduler-utils'; // Import the new utility
+import { EnvironmentContext, environmentOptions, EnvironmentContextType } from '@/hooks/use-environment-context';
 
 const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // Fetch environments dynamically
-
   const [selectedEnvironments, setSelectedEnvironments] = useState<TaskEnvironment[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -43,21 +39,11 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  // Memoize environment options derived from the database
-  const dynamicEnvironmentOptions = useMemo(() => {
-    if (isLoadingEnvironments) return [];
-    return environments.map(env => ({
-      value: env.value as TaskEnvironment,
-      label: env.label,
-      icon: getEnvironmentIconComponent(env.icon), // Use the utility to get the component
-    }));
-  }, [environments, isLoadingEnvironments]);
-
   const value: EnvironmentContextType = {
     selectedEnvironments,
     toggleEnvironmentSelection,
     setSelectedEnvironments,
-    environmentOptions: dynamicEnvironmentOptions, // Provide dynamic options
+    environmentOptions,
   };
 
   return (

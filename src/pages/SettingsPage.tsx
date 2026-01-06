@@ -2,49 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription, } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useSession, UserProfile } from '@/hooks/use-session';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Label } from '@/components/ui/label';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { 
-  LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, 
-  ExternalLink, Loader2, Keyboard, Database, TrendingUp, 
-  BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor,
-  Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu // Added Cpu icon
-} from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
-import { useNavigate } from 'react-router-dom'; 
+import { useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { adjustArrayLength } from '@/lib/utils';
 import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import MealIdeasTab from '@/components/MealIdeasTab'; // NEW IMPORT
+import MealIdeasTab from '@/components/MealIdeasTab';
+import EnvironmentManager from '@/components/EnvironmentManager'; // NEW: Import EnvironmentManager
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -63,7 +41,7 @@ const profileSchema = z.object({
   reflection_count: z.coerce.number().min(1).max(5),
   enable_environment_chunking: z.boolean(),
   enable_macro_spread: z.boolean(),
-  week_starts_on: z.coerce.number().min(0).max(6), // NEW: Week starts on (0 for Sunday, 1 for Monday, etc.)
+  week_starts_on: z.coerce.number().min(0).max(6),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -71,18 +49,17 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 const SettingsPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, refreshProfile, updateNotificationPreferences, updateProfile, updateSettings } = useSession();
   const { setTheme } = useTheme();
-  const navigate = useNavigate(); 
-
+  const navigate = useNavigate();
+  
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
   const [lowEnergyNotifications, setLowEnergyNotifications] = useState(profile?.enable_low_energy_notifications ?? true);
   const [enableDeleteHotkeys, setEnableDeleteHotkeys] = useState(profile?.enable_delete_hotkeys ?? true);
   const [enableAetherSinkBackup, setEnableAetherSinkBackup] = useState(profile?.enable_aethersink_backup ?? true);
-  const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(profile?.is_dashboard_collapsed ?? false); // NEW: Dashboard collapsed state
-  const [isActionCenterCollapsed, setIsActionCenterCollapsed] = useState(profile?.is_action_center_collapsed ?? false); // NEW: Action Center collapsed state
-  
+  const [isDashboardCollapsed, setIsDashboardCollapsed] = useState(profile?.is_dashboard_collapsed ?? false);
+  const [isActionCenterCollapsed, setIsActionCenterCollapsed] = useState(profile?.is_action_center_collapsed ?? false);
   const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
-
+  
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -100,7 +77,7 @@ const SettingsPage: React.FC = () => {
       reflection_count: 1,
       enable_environment_chunking: true,
       enable_macro_spread: false,
-      week_starts_on: 0, // Default to Sunday
+      week_starts_on: 0,
     },
     mode: 'onChange',
   });
@@ -122,14 +99,14 @@ const SettingsPage: React.FC = () => {
         reflection_count: profile.reflection_count || 1,
         enable_environment_chunking: profile.enable_environment_chunking ?? true,
         enable_macro_spread: profile.enable_macro_spread ?? false,
-        week_starts_on: profile.week_starts_on ?? 0, // NEW: Set initial value
+        week_starts_on: profile.week_starts_on ?? 0,
       });
       setDailyChallengeNotifications(profile.enable_daily_challenge_notifications);
       setLowEnergyNotifications(profile.enable_low_energy_notifications);
       setEnableDeleteHotkeys(profile.enable_delete_hotkeys);
       setEnableAetherSinkBackup(profile.enable_aethersink_backup);
-      setIsDashboardCollapsed(profile.is_dashboard_collapsed); // NEW: Set dashboard collapsed state
-      setIsActionCenterCollapsed(profile.is_action_center_collapsed); // NEW: Set action center collapsed state
+      setIsDashboardCollapsed(profile.is_dashboard_collapsed);
+      setIsActionCenterCollapsed(profile.is_action_center_collapsed);
       setReflectionTimes(profile.reflection_times || ['12:00']);
       setReflectionDurations(profile.reflection_durations || [15]);
     }
@@ -152,7 +129,7 @@ const SettingsPage: React.FC = () => {
     
     const finalTimes = adjustArrayLength(reflectionTimes.map(t => t || '12:00'), values.reflection_count, '12:00');
     const finalDurations = adjustArrayLength(reflectionDurations.map(d => isNaN(d) ? 15 : d), values.reflection_count, 15);
-
+    
     try {
       await updateProfile({
         first_name: values.first_name,
@@ -171,7 +148,7 @@ const SettingsPage: React.FC = () => {
         reflection_durations: finalDurations,
         enable_environment_chunking: values.enable_environment_chunking,
         enable_macro_spread: values.enable_macro_spread,
-        week_starts_on: values.week_starts_on, // NEW: Save week_starts_on
+        week_starts_on: values.week_starts_on,
       });
       showSuccess("Profile updated!");
     } catch (error: any) {
@@ -187,17 +164,22 @@ const SettingsPage: React.FC = () => {
       if (key === 'enable_low_energy_notifications') setLowEnergyNotifications(value);
       if (key === 'enable_delete_hotkeys') setEnableDeleteHotkeys(value);
       if (key === 'enable_aethersink_backup') setEnableAetherSinkBackup(value);
-      if (key === 'is_dashboard_collapsed') setIsDashboardCollapsed(value); // NEW: Update local state
-      if (key === 'is_action_center_collapsed') setIsActionCenterCollapsed(value); // NEW: Update local state
+      if (key === 'is_dashboard_collapsed') setIsDashboardCollapsed(value);
+      if (key === 'is_action_center_collapsed') setIsActionCenterCollapsed(value);
     } catch (error) {
-        showError("Failed to save preference.");
+      showError("Failed to save preference.");
     }
   };
 
   const handleResetGameProgress = async () => {
     if (!user) return;
     try {
-      await supabase.from('profiles').update({ xp: 0, level: 1, daily_streak: 0, energy: MAX_ENERGY }).eq('id', user.id);
+      await supabase.from('profiles').update({
+        xp: 0,
+        level: 1,
+        daily_streak: 0,
+        energy: MAX_ENERGY
+      }).eq('id', user.id);
       await refreshProfile();
       showSuccess("Progress reset!");
       window.location.reload();
@@ -217,117 +199,224 @@ const SettingsPage: React.FC = () => {
     <div className="space-y-8 animate-slide-in-up">
       <div className="flex items-center justify-between border-b pb-4">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Settings className="h-7 w-7 text-primary" /> Settings
+          <Settings className="h-7 w-7 text-primary" />
+          Settings
         </h1>
         <Button variant="outline" onClick={() => navigate('/scheduler')} className="flex items-center gap-2 h-10 text-base">
-          <ArrowLeft className="h-5 w-5" /> Back
+          <ArrowLeft className="h-5 w-5" />
+          Back
         </Button>
       </div>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          
-          <div className="p-4 bg-card rounded-xl shadow-sm"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
-              <User className="h-5 w-5 text-primary" /> Profile
+          <div className="p-4 bg-card rounded-xl shadow-sm">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
+              <User className="h-5 w-5 text-primary" />
+              Profile
             </h2>
-            <div className="p-0 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
+            <div className="p-0 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={form.control} name="first_name" render={({ field }) => (<FormItem><FormLabel>First Name</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="last_name" render={({ field }) => (<FormItem><FormLabel>Last Name</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField
+                  control={form.control}
+                  name="first_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="last_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-              <div className="flex justify-end pt-4"><Button type="submit" disabled={isSubmitting || !isValid}>Save Changes</Button></div>
+              <div className="flex justify-end pt-4">
+                <Button type="submit" disabled={isSubmitting || !isValid}>Save Changes</Button>
+              </div>
             </div>
           </div>
-
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
-              <Anchor className="h-5 w-5 text-primary" /> Temporal Anchors
+          
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
+              <Anchor className="h-5 w-5 text-primary" />
+              Temporal Anchors
             </h2>
-            <div className="p-0"> {/* Replaced CardContent with div */}
+            <div className="p-0">
               <Tabs defaultValue="meals">
                 <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-secondary rounded-lg mb-6">
                   <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest">Times</TabsTrigger>
                   <TabsTrigger value="ideas" className="text-xs font-black uppercase tracking-widest">Ideas</TabsTrigger>
                   <TabsTrigger value="reflections" className="text-xs font-black uppercase tracking-widest">Reflections</TabsTrigger>
                 </TabsList>
-                
                 <TabsContent value="meals" className="space-y-6">
-                    <div className="grid gap-4">
+                  <div className="grid gap-4">
                     {[
                       { label: 'Breakfast', timeKey: 'breakfast_time' as const, durKey: 'breakfast_duration_minutes' as const },
                       { label: 'Lunch', timeKey: 'lunch_time' as const, durKey: 'lunch_duration_minutes' as const },
                       { label: 'Dinner', timeKey: 'dinner_time' as const, durKey: 'dinner_duration_minutes' as const }
                     ].map(({ label, timeKey, durKey }) => (
                       <div key={label} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg border bg-background/50">
-                        <FormField control={form.control} name={timeKey} render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">{label} Window Start</FormLabel>
-                            <FormControl><Input type="time" {...field} value={field.value || ''} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
-                        <FormField control={form.control} name={durKey} render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Sync Duration (Min)</FormLabel>
-                            <FormControl><Input type="number" {...field} value={field.value || ''} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )} />
+                        <FormField
+                          control={form.control}
+                          name={timeKey}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">{label} Window Start</FormLabel>
+                              <FormControl>
+                                <Input type="time" {...field} value={field.value || ''} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={durKey}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Sync Duration (Min)</FormLabel>
+                              <FormControl>
+                                <Input type="number" {...field} value={field.value || ''} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-end"><Button type="submit">Update Times</Button></div>
+                  <div className="flex justify-end">
+                    <Button type="submit">Update Times</Button>
+                  </div>
                 </TabsContent>
-
                 <TabsContent value="ideas" className="animate-pop-in">
                   <MealIdeasTab />
                 </TabsContent>
-
                 <TabsContent value="reflections" className="space-y-6">
-                    <FormField control={form.control} name="reflection_count" render={({ field }) => (<FormItem className="flex items-center justify-between p-4 rounded-lg border bg-background/50"><FormLabel>Frequency</FormLabel><FormControl><Select onValueChange={(val) => { field.onChange(val); }} defaultValue={field.value.toString()}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent></Select></FormControl></FormItem>)} />
-                    <div className="flex justify-end"><Button type="submit">Update Reflections</Button></div>
+                  <FormField
+                    control={form.control}
+                    name="reflection_count"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between p-4 rounded-lg border bg-background/50">
+                        <FormLabel>Frequency</FormLabel>
+                        <FormControl>
+                          <Select 
+                            onValueChange={(val) => { 
+                              field.onChange(val); 
+                            }} 
+                            defaultValue={field.value.toString()}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[1,2,3,4,5].map(n => (
+                                <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end">
+                    <Button type="submit">Update Reflections</Button>
+                  </div>
                 </TabsContent>
               </Tabs>
             </div>
           </div>
-
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
-              <ListOrdered className="h-5 w-5 text-primary" /> Auto-Balance Logic
+          
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
+              <ListOrdered className="h-5 w-5 text-primary" />
+              Auto-Balance Logic
             </h2>
-            <div className="p-0 space-y-6"> {/* Replaced CardContent with div, adjusted padding */}
+            <div className="p-0 space-y-6">
               <EnvironmentOrderSettings />
               <div className="pt-4 border-t border-white/5 space-y-4">
-                <FormField control={form.control} name="enable_environment_chunking" render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2"><Layers className="h-4 w-4 text-primary" /><FormLabel className="text-base font-semibold">Environment Chunking</FormLabel></div>
-                      <FormDescription className="text-xs">Group tasks from the same zone together (AA, BB).</FormDescription>
-                    </div>
-                    <FormControl><Switch checked={field.value} onCheckedChange={(checked) => handleToggle('enable_environment_chunking', checked)} /></FormControl>
-                  </FormItem>
-                )} />
-
-                <FormField control={form.control} name="enable_macro_spread" render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2"><Split className="h-4 w-4 text-primary" /><FormLabel className="text-base font-semibold">Macro-Spread Distribution</FormLabel></div>
-                      <FormDescription className="text-xs">Split chunks into morning and afternoon sessions.</FormDescription>
-                    </div>
-                    <FormControl><Switch checked={field.value} onCheckedChange={(checked) => handleToggle('enable_macro_spread', checked)} /></FormControl>
-                  </FormItem>
-                )} />
+                <FormField
+                  control={form.control}
+                  name="enable_environment_chunking"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-primary" />
+                          <FormLabel className="text-base font-semibold">Environment Chunking</FormLabel>
+                        </div>
+                        <FormDescription className="text-xs">
+                          Group tasks from the same zone together (AA, BB).
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch 
+                          checked={field.value} 
+                          onCheckedChange={(checked) => handleToggle('enable_environment_chunking', checked)} 
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="enable_macro_spread"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Split className="h-4 w-4 text-primary" />
+                          <FormLabel className="text-base font-semibold">Macro-Spread Distribution</FormLabel>
+                        </div>
+                        <FormDescription className="text-xs">
+                          Split chunks into morning and afternoon sessions.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch 
+                          checked={field.value} 
+                          onCheckedChange={(checked) => handleToggle('enable_macro_spread', checked)} 
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
           </div>
-
-          {/* NEW: Calendar Preferences & View Settings */}
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
-              <CalendarDays className="h-5 w-5 text-primary" /> Calendar & View Preferences
+          
+          {/* NEW: Environment Manager Section */}
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
+              <ListTodo className="h-5 w-5 text-primary" />
+              Environment Manager
             </h2>
-            <div className="p-0 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
+            <div className="p-0">
+              <EnvironmentManager />
+            </div>
+          </div>
+          
+          {/* Calendar Preferences & View Settings */}
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              Calendar & View Preferences
+            </h2>
+            <div className="p-0 space-y-4">
               <FormField
                 control={form.control}
                 name="week_starts_on"
@@ -340,7 +429,10 @@ const SettingsPage: React.FC = () => {
                       </FormDescription>
                     </div>
                     <FormControl>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value, 10))} value={field.value.toString()}>
+                      <Select 
+                        onValueChange={(value) => field.onChange(parseInt(value, 10))} 
+                        value={field.value.toString()}
+                      >
                         <SelectTrigger className="w-[140px]">
                           <SelectValue placeholder="Select day" />
                         </SelectTrigger>
@@ -358,46 +450,60 @@ const SettingsPage: React.FC = () => {
                   </FormItem>
                 )}
               />
-              {/* NEW: Dashboard Collapsed State */}
+              
+              {/* Dashboard Collapsed State */}
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
                 <div className="space-y-0.5">
-                  <div className="flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" /><FormLabel className="text-base font-semibold">Dashboard Collapsed by Default</FormLabel></div>
+                  <div className="flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4 text-primary" />
+                    <FormLabel className="text-base font-semibold">Dashboard Collapsed by Default</FormLabel>
+                  </div>
                   <FormDescription className="text-xs">
                     Start with the main dashboard panel collapsed.
                   </FormDescription>
                 </div>
                 <FormControl>
-                  <Switch
-                    checked={isDashboardCollapsed}
-                    onCheckedChange={(checked) => handleToggle('is_dashboard_collapsed', checked)}
+                  <Switch 
+                    checked={isDashboardCollapsed} 
+                    onCheckedChange={(checked) => handleToggle('is_dashboard_collapsed', checked)} 
                   />
                 </FormControl>
               </FormItem>
-              {/* NEW: Action Center Collapsed State */}
+              
+              {/* Action Center Collapsed State */}
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
                 <div className="space-y-0.5">
-                  <div className="flex items-center gap-2"><Cpu className="h-4 w-4 text-primary" /><FormLabel className="text-base font-semibold">Action Center Collapsed by Default</FormLabel></div>
+                  <div className="flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-primary" />
+                    <FormLabel className="text-base font-semibold">Action Center Collapsed by Default</FormLabel>
+                  </div>
                   <FormDescription className="text-xs">
                     Start with the scheduler action center collapsed.
                   </FormDescription>
                 </div>
                 <FormControl>
-                  <Switch
-                    checked={isActionCenterCollapsed}
-                    onCheckedChange={(checked) => handleToggle('is_action_center_collapsed', checked)}
+                  <Switch 
+                    checked={isActionCenterCollapsed} 
+                    onCheckedChange={(checked) => handleToggle('is_action_center_collapsed', checked)} 
                   />
                 </FormControl>
               </FormItem>
-              <div className="flex justify-end"><Button type="submit" disabled={isSubmitting || !isValid}>Save Calendar Settings</Button></div>
+              
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSubmitting || !isValid}>Save Calendar Settings</Button>
+              </div>
             </div>
           </div>
-
-          <div className="p-4 bg-card rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]"> {/* Replaced Card with div, adjusted styling */}
-            <h2 className="flex items-center gap-2 text-lg text-destructive px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
-              <Trash2 className="h-5 w-5" /> Danger Zone
+          
+          <div className="p-4 bg-card rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg text-destructive px-0 pb-4">
+              <Trash2 className="h-5 w-5" />
+              Danger Zone
             </h2>
-            <div className="p-0"> {/* Replaced CardContent with div */}
-              <Button variant="destructive" className="w-full font-black uppercase" onClick={handleResetGameProgress}>Wipe History</Button>
+            <div className="p-0">
+              <Button variant="destructive" className="w-full font-black uppercase" onClick={handleResetGameProgress}>
+                Wipe History
+              </Button>
             </div>
           </div>
         </form>

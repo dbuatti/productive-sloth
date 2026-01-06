@@ -1,57 +1,24 @@
-"use client";
-
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
+import { 
+  DndContext, 
+  DragEndEvent, 
+  closestCorners, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors, 
+  DragStartEvent, 
+  DragOverEvent 
+} from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { RetiredTask, TaskEnvironment } from '@/types/scheduler';
-import { 
-  Home, Laptop, Globe, Music, 
-  Star, Info, AlertCircle
-} from 'lucide-react';
+import { Home, Laptop, Globe, Music, Star, Info, AlertCircle } from 'lucide-react';
 import KanbanColumn from './KanbanColumn';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import { parseSinkTaskInput } from '@/lib/scheduler-utils';
-
-// --- Grouping Configuration ---
-const GROUPING_CONFIG = {
-  environment: {
-    title: 'Environment',
-    options: ['home', 'laptop', 'away', 'piano', 'laptop_piano'] as TaskEnvironment[],
-    getLabel: (value: string) => {
-      const labels: Record<string, string> = {
-        home: '🏠 At Home', laptop: '💻 Laptop/Desk', away: '🗺️ Away/Errands', 
-        piano: '🎹 Piano', laptop_piano: '💻 + 🎹 Production'
-      };
-      return labels[value] || value;
-    },
-    getIcon: (value: string) => {
-      const icons: Record<string, React.ElementType> = {
-        home: Home, laptop: Laptop, away: Globe, piano: Music, laptop_piano: Laptop
-      };
-      const Icon = icons[value] || Laptop;
-      return <Icon className="h-4 w-4" />;
-    }
-  },
-  priority: {
-    title: 'Priority Tier',
-    options: ['critical', 'standard', 'backburner'] as const,
-    getLabel: (value: string) => {
-      const labels: Record<string, string> = {
-        critical: '🔥 Critical', standard: '⚪ Standard', backburner: '🔵 Backburner'
-      };
-      return labels[value] || value;
-    },
-    getIcon: (value: string) => {
-      const icons: Record<string, React.ElementType> = {
-        critical: Star, standard: Info, backburner: AlertCircle
-      };
-      const Icon = icons[value] || Info;
-      return <Icon className="h-4 w-4" />;
-    }
-  }
-};
+import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments hook
 
 // --- Main Kanban Board Component ---
 interface SinkKanbanBoardProps {
@@ -64,15 +31,16 @@ interface SinkKanbanBoardProps {
   onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
-const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
-  retiredTasks,
-  groupBy,
-  onRemoveRetiredTask,
-  onRezoneTask,
+const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ 
+  retiredTasks, 
+  groupBy, 
+  onRemoveRetiredTask, 
+  onRezoneTask, 
   updateRetiredTask,
   onOpenDetailDialog, // Destructure new prop
 }) => {
   const { user } = useSession();
+  const { environments, isLoading } = useEnvironments(); // NEW: Use environments hook
   const { addRetiredTask } = useSchedulerTasks('');
   
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -80,19 +48,31 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
 
   // Use distance constraint (5px) to differentiate click from drag
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
   );
-
-  const config = GROUPING_CONFIG[groupBy];
 
   // Group tasks based on the selected grouping option
   const groupedTasks = useMemo(() => {
     const groups: Record<string, RetiredTask[]> = {};
     
-    config.options.forEach(option => {
-      groups[option] = [];
-    });
+    if (groupBy === 'environment') {
+      // Use dynamic environments for grouping
+      environments.forEach(env => {
+        groups[env.value] = [];
+      });
+    } else {
+      // Use priority groups
+      groups['critical'] = [];
+      groups['standard'] = [];
+      groups['backburner'] = [];
+    }
 
     retiredTasks.forEach(task => {
       let groupKey: string;
@@ -104,13 +84,13 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
         else if (task.is_backburner) groupKey = 'backburner';
         else groupKey = 'standard';
       }
-
+      
       if (!groups[groupKey]) groups[groupKey] = [];
       groups[groupKey].push(task);
     });
-
+    
     return groups;
-  }, [retiredTasks, groupBy, config.options]);
+  }, [retiredTasks, groupBy, environments]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -124,19 +104,21 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     const { active, over } = event;
     setActiveId(null);
     setOverId(null);
-
+    
     if (!over) return;
-
+    
     const activeId = active.id as string;
     const overContainerId = over.data.current?.sortable?.containerId || over.id;
-
+    
     const activeTask = retiredTasks.find(t => t.id === activeId);
     if (!activeTask) return;
-
+    
     let updateData: Partial<RetiredTask> = {};
-
+    
     if (groupBy === 'environment') {
-      if ((config.options as readonly string[]).includes(overContainerId)) {
+      // Check if the environment exists in our list
+      const validEnvironment = environments.some(env => env.value === overContainerId);
+      if (validEnvironment) {
         updateData = { task_environment: overContainerId as TaskEnvironment };
       }
     } else {
@@ -148,18 +130,17 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
         updateData = { is_critical: false, is_backburner: false };
       }
     }
-
+    
     if (Object.keys(updateData).length > 0) {
       updateRetiredTask({ id: activeId, ...updateData });
     }
   };
-  
+
   const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
     if (!user) return showError("User context missing.");
     
     // 1. Parse the input string (Name [dur] [!] [-])
     const parsedTask = parseSinkTaskInput(input, user.id);
-    
     if (!parsedTask) {
       return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
     }
@@ -168,7 +149,11 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     let finalTask = { ...parsedTask };
     
     if (groupBy === 'environment') {
-      finalTask.task_environment = columnId as TaskEnvironment;
+      // Check if the environment exists in our list
+      const validEnvironment = environments.some(env => env.value === columnId);
+      if (validEnvironment) {
+        finalTask.task_environment = columnId as TaskEnvironment;
+      }
     } else {
       if (columnId === 'critical') {
         finalTask.is_critical = true;
@@ -176,7 +161,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       } else if (columnId === 'backburner') {
         finalTask.is_critical = false;
         finalTask.is_backburner = true;
-      } else { // standard
+      } else {
+        // standard
         finalTask.is_critical = false;
         finalTask.is_backburner = false;
       }
@@ -184,16 +170,43 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     
     // 3. Add to retired tasks
     await addRetiredTask(finalTask);
-  }, [user, groupBy, addRetiredTask]);
+  }, [user, groupBy, environments, addRetiredTask]);
 
   // Calculate the height of the active task for the drop indicator
   const activeTaskHeight = useMemo(() => {
     if (!activeId) return 0;
+    
     // Find the task being dragged
     const task = retiredTasks.find(t => t.id === activeId);
+    
     // Approximate card height (based on SortableTaskCard styling)
-    return task ? 80 : 0; 
+    return task ? 80 : 0;
   }, [activeId, retiredTasks]);
+
+  // Get environment options for grouping
+  const environmentOptions = useMemo(() => {
+    return environments.map(env => ({
+      value: env.value,
+      label: env.label,
+      icon: env.icon,
+      color: env.color,
+    }));
+  }, [environments]);
+
+  // Get priority options for grouping
+  const priorityOptions = [
+    { value: 'critical', label: '🔥 Critical', icon: Star },
+    { value: 'standard', label: '⚪ Standard', icon: Info },
+    { value: 'backburner', label: '🔵 Backburner', icon: AlertCircle },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <DndContext
@@ -204,27 +217,58 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       onDragEnd={handleDragEnd}
     >
       {/* The Columns Container: flex w-full gap-6 items-start */}
-      <div className="flex w-full gap-6 items-start pb-2 overflow-x-auto custom-scrollbar"> 
-        {config.options.map((option) => {
-          const columnTasks = groupedTasks[option] || [];
-          const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
-
-          return (
-            <KanbanColumn
-              key={option}
-              id={option}
-              title={config.getLabel(option)}
-              icon={config.getIcon(option)}
-              tasks={columnTasks}
-              totalEnergy={totalEnergy}
-              onQuickAdd={handleQuickAdd}
-              activeTaskHeight={activeTaskHeight}
-              activeId={activeId}
-              overId={overId}
-              onOpenDetailDialog={onOpenDetailDialog} // Pass the handler down
-            />
-          );
-        })}
+      <div className="flex w-full gap-6 items-start pb-2 overflow-x-auto custom-scrollbar">
+        {groupBy === 'environment' ? (
+          environmentOptions.map((option) => {
+            const columnTasks = groupedTasks[option.value] || [];
+            const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
+            
+            // Get the icon component
+            const IconComponent = option.icon === 'Home' ? Home : 
+                                option.icon === 'Laptop' ? Laptop : 
+                                option.icon === 'Globe' ? Globe : 
+                                option.icon === 'Music' ? Music : Info;
+            
+            return (
+              <KanbanColumn
+                key={option.value}
+                id={option.value}
+                title={option.label}
+                icon={<IconComponent className="h-4 w-4" style={{ color: option.color }} />}
+                tasks={columnTasks}
+                totalEnergy={totalEnergy}
+                onQuickAdd={handleQuickAdd}
+                activeTaskHeight={activeTaskHeight}
+                activeId={activeId}
+                overId={overId}
+                onOpenDetailDialog={onOpenDetailDialog} // Pass the handler down
+              />
+            );
+          })
+        ) : (
+          priorityOptions.map((option) => {
+            const columnTasks = groupedTasks[option.value] || [];
+            const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
+            
+            const IconComponent = option.icon;
+            
+            return (
+              <KanbanColumn
+                key={option.value}
+                id={option.value}
+                title={option.label}
+                icon={<IconComponent className="h-4 w-4" />}
+                tasks={columnTasks}
+                totalEnergy={totalEnergy}
+                onQuickAdd={handleQuickAdd}
+                activeTaskHeight={activeTaskHeight}
+                activeId={activeId}
+                overId={overId}
+                onOpenDetailDialog={onOpenDetailDialog} // Pass the handler down
+              />
+            );
+          })
+        )}
       </div>
     </DndContext>
   );

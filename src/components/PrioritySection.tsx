@@ -8,7 +8,8 @@ import { cn } from '@/lib/utils';
 interface PrioritySectionProps {
   priority: string;
   tasks: Task[];
-  onCompleteTask: (task: Task) => Promise<void>; // NEW: Added onCompleteTask prop
+  // Updated prop signature to explicitly pass the new completion state
+  onCompleteTask: (task: Task, isCompleted: boolean) => Promise<void>; 
 }
 
 const getPriorityColorClass = (priority: string) => {

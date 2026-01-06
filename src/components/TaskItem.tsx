@@ -14,10 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card } from '@/components/ui/card';
+import { CheckedState } from "@radix-ui/react-checkbox"; // Import CheckedState
 
 interface TaskItemProps {
   task: Task;
-  onCompleteTask: (task: Task) => Promise<void>;
+  // Updated prop signature to explicitly pass the new completion state
+  onCompleteTask: (task: Task, isCompleted: boolean) => Promise<void>;
 }
 
 const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
@@ -26,16 +28,21 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
   const { deleteTask } = useTasks();
   const navigate = useNavigate();
 
-  const handleToggleComplete = async () => {
-    await onCompleteTask(task);
+  // Updated handleToggleComplete to accept the new checked state
+  const handleToggleComplete = async (checked: CheckedState) => {
+    // The Checkbox component itself should handle stopping propagation for its own click.
+    // Convert CheckedState to boolean for the onCompleteTask function.
+    await onCompleteTask(task, !!checked);
   };
 
-  const handleEditClick = () => {
+  const handleEditClick = (e?: React.MouseEvent) => {
+    e?.stopPropagation(); // Prevent parent click from firing if triggered by button
     setSelectedTask(task);
     setIsSheetOpen(true);
   };
 
-  const handleDeleteClick = async () => {
+  const handleDeleteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent parent click from firing
     if (window.confirm(`Are you sure you want to delete "${task.title}"?`)) {
       try {
         await deleteTask(task.id);
@@ -47,7 +54,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
     }
   };
 
-  const handleScheduleNow = () => {
+  const handleScheduleNow = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent parent click from firing
     navigate('/scheduler', { 
       state: { 
         taskToSchedule: { 
@@ -87,20 +95,24 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
 
   return (
     <>
-      <div className={cn( // Replaced Card with div
-        "relative flex items-center justify-between p-4 transition-all duration-300 rounded-lg shadow-sm",
-        "bg-card hover:bg-secondary/50 animate-hover-lift border-l-4",
-        getPriorityLeftBorderClass(task.priority),
-        task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
-        "hover:shadow-lg hover:shadow-primary/10",
-        "border-b border-dashed border-border/50 last:border-b-0" // Kept bottom border for list separation
-      )}>
+      <div 
+        className={cn( // Replaced Card with div
+          "relative flex items-center justify-between p-4 transition-all duration-300 rounded-lg shadow-sm cursor-pointer", // Added cursor-pointer
+          "bg-card hover:bg-secondary/50 animate-hover-lift border-l-4",
+          getPriorityLeftBorderClass(task.priority),
+          task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
+          "hover:shadow-lg hover:shadow-primary/10",
+          "border-b border-dashed border-border/50 last:border-b-0" // Kept bottom border for list separation
+        )}
+        onClick={handleEditClick} // Make the entire div clickable to open details
+      >
         <div className="flex items-center space-x-4 flex-grow min-w-0">
           <Checkbox 
             checked={task.is_completed} 
             onCheckedChange={handleToggleComplete} 
             id={`task-${task.id}`}
             className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-6 w-6"
+            aria-label={`Mark task "${task.title}" as complete`} // Added aria-label
           />
           
           <label 
@@ -197,7 +209,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-9 w-9 p-0 hover:bg-secondary transition-colors duration-200 shrink-0 ml-2">
+            <Button 
+              variant="ghost" 
+              className="h-9 w-9 p-0 hover:bg-secondary transition-colors duration-200 shrink-0 ml-2"
+              onClick={(e) => e.stopPropagation()} // Prevent parent click from firing
+              aria-label="Task options menu" // Added aria-label
+            >
               <span className="sr-only">Open menu</span>
               <MoreHorizontal className="h-4.5 w-4.5" />
             </Button>

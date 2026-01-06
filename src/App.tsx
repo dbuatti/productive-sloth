@@ -13,7 +13,6 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import SchedulerPage from "./pages/SchedulerPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
-import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
 import ModelPage from "./pages/ModelPage";
 import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage"; // NEW IMPORT
 
@@ -29,7 +28,6 @@ const App = () => (
             <SessionProvider>
               <EnvironmentProvider>
                 <MainLayout>
-                  <EnergyRegenInitializer /> {/* MOVED INSIDE MAINLAYOUT */}
                   <Routes>
                     <Route path="/" element={<Navigate to="/scheduler" replace />} />
                     
@@ -38,7 +36,7 @@ const App = () => (
                     <Route path="/documentation" element={<DocumentationPage />} />
                     <Route path="/model" element={<ModelPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/simplified-schedule" element={<SimplifiedSchedulePage />} /> {/* NEW ROUTE */}
+                    <Route path="/simplified-schedule" element={<SimplifiedSchedulePage />} />
                     
                     {/* SCHEDULER CORE VIEWS (Primary Navigation) */}
                     <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { EnvironmentContext, EnvironmentContextType, EnvironmentOption, getIconComponent } from '@/hooks/use-environment-context';
+import { EnvironmentContext, EnvironmentContextType, EnvironmentOption, getIconComponent } from '@/context/EnvironmentContext.ts';
 import { useEnvironments } from '@/hooks/use-environments';
 
 const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

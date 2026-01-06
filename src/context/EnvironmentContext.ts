@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
 import { Home, Laptop, Globe, Music, Check, LucideIcon } from 'lucide-react';
-import { useEnvironments, Environment } from './use-environments';
+import { Environment } from '@/hooks/use-environments'; // Only import type
 
 // Helper to map string icon name to Lucide icon component
 export const getIconComponent = (iconName: string): LucideIcon => {
@@ -20,8 +20,6 @@ export interface EnvironmentOption {
   icon: LucideIcon;
   color: string;
 }
-
-// Note: environmentOptions is now derived dynamically in the provider
 
 export interface EnvironmentContextType {
   selectedEnvironments: TaskEnvironment[];

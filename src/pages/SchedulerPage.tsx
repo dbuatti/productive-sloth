@@ -31,7 +31,7 @@ import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
 import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
-import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import { useEnvironmentContext } from '@/context/EnvironmentContext.ts';
 import { MealAssignment } from '@/hooks/use-meals';
 import { cn } from '@/lib/utils';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; 
@@ -390,7 +390,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
   const calculatedSchedule = useMemo(() => {
-    if (!profile) return null;
+    if (profile) return null;
     const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_start_time) : startOfDay(selectedDayAsDate);
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17);
     if (isBefore(end, start)) end = addDays(end, 1);

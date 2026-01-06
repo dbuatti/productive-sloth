@@ -16,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useEnvironmentContext } from "@/hooks/use-environment-context";
+import { useEnvironmentContext } from "@/context/EnvironmentContext.ts";
 
 const EnvironmentMultiSelect: React.FC = () => {
   const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments, environmentOptions, isLoadingEnvironments } = useEnvironmentContext();

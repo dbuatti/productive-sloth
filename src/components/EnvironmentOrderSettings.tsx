@@ -6,7 +6,7 @@ import { ChevronUp, ChevronDown, ListOrdered, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { useEnvironments } from '@/hooks/use-environments';
-import { getIconComponent } from '@/hooks/use-environment-context';
+import { getIconComponent } from '@/context/EnvironmentContext.ts';
 
 // Helper to get icon component from environment value
 const getEnvironmentIconComponent = (value: string, environments: any[]) => {

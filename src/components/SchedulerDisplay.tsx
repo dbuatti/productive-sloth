@@ -27,10 +27,10 @@ interface SchedulerDisplayProps {
   onCompleteTask: (task: DBScheduledTask, index?: number) => void;
   activeItemId: string | null;
   selectedDayString: string;
-  onAddTaskClick: () => void;
+  // onAddTaskClick: () => void; // REMOVED: Replaced by onFreeTimeClick
   onScrollToItem: (itemId: string) => void;
   isProcessingCommand: boolean;
-  onFreeTimeClick: (startTime: Date, endTime: Date) => void;
+  onFreeTimeClick: (startTime: Date, endTime: Date) => void; // UPDATED: Now passes start and end times
 }
 
 const MINUTE_HEIGHT = 2.0; 
@@ -57,7 +57,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   onCompleteTask,
   activeItemId,
   selectedDayString,
-  onFreeTimeClick,
+  onFreeTimeClick, // UPDATED
   onScrollToItem
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -143,7 +143,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                 key={gap.id}
                 className="group relative flex gap-2 mb-3 cursor-pointer" // Changed cursor-crosshair to cursor-pointer
                 style={{ height: `${gap.duration * FREE_TIME_MINUTE_HEIGHT}px` }} // Use FREE_TIME_MINUTE_HEIGHT
-                onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
+                onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)} // UPDATED: Pass start and end times
               >
                 <div className="w-8 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
                 <div className="flex-1 flex items-center justify-center border-dashed border-transparent rounded-lg hover:bg-secondary/20 transition-colors"> {/* Removed border-white/5, adjusted hover bg */}

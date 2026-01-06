@@ -13,7 +13,7 @@ interface SchedulerInputProps {
   inputValue: string;
   setInputValue: (value: string) => void;
   placeholder?: string;
-  onDetailedInject: () => void;
+  onDetailedInject: () => void; // UPDATED: onDetailedInject is now required
 }
 
 const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
@@ -22,7 +22,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
   inputValue,
   setInputValue,
   placeholder = "e.g., 'Gym 60' or '!Report 45'",
-  onDetailedInject,
+  onDetailedInject, // UPDATED
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -50,7 +50,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            onClick={onDetailedInject}
+            onClick={onDetailedInject} // UPDATED: Call onDetailedInject
             disabled={isLoading}
             variant="outline"
             size="icon"

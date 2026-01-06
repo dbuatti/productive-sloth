@@ -18,21 +18,17 @@ import { CheckedState } from "@radix-ui/react-checkbox"; // Import CheckedState
 
 interface TaskItemProps {
   task: Task;
-  // Updated prop signature to explicitly pass the new completion state
-  onCompleteTask: (task: Task, isCompleted: boolean) => Promise<void>;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, onCompleteTask }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteTask prop
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { deleteTask } = useTasks();
+  const { deleteTask, updateTask } = useTasks(); // NEW: Use updateTask directly
   const navigate = useNavigate();
 
-  // Updated handleToggleComplete to accept the new checked state
+  // Updated handleToggleComplete to use updateTask directly
   const handleToggleComplete = async (checked: CheckedState) => {
-    // The Checkbox component itself should handle stopping propagation for its own click.
-    // Convert CheckedState to boolean for the onCompleteTask function.
-    await onCompleteTask(task, !!checked);
+    await updateTask({ id: task.id, is_completed: !!checked });
   };
 
   const handleEditClick = (e?: React.MouseEvent) => {

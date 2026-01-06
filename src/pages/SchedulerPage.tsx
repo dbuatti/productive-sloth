@@ -38,6 +38,7 @@ import EnergyRegenPodModal from '@/components/EnergyRegenPodModal';
 import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; 
 import { useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink'; // Import AetherSink
+import CreateTaskDialog from '@/components/CreateTaskDialog'; // NEW: Import CreateTaskDialog
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
@@ -98,6 +99,18 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const [isFocusModeActive, setIsFocusModeActive] = useState(false);
   
   const [showRegenPodSetup, setShowRegenPodSetup] = useState(false); 
+
+  // NEW: State for CreateTaskDialog
+  const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
+  const [createTaskDefaultValues, setCreateTaskDefaultValues] = useState<{
+    defaultPriority: 'HIGH' | 'MEDIUM' | 'LOW';
+    defaultDueDate: Date;
+    defaultStartTime?: Date;
+    defaultEndTime?: Date;
+  }>({
+    defaultPriority: 'MEDIUM',
+    defaultDueDate: new Date(),
+  });
 
   const selectedDayAsDate = useMemo(() => {
     const [year, month, day] = selectedDay.split('-').map(Number);
@@ -354,6 +367,26 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
   }, [completeScheduledTaskMutation, rechargeEnergy, retireTask]);
 
+  // NEW: Handler for opening CreateTaskDialog from SchedulerInput
+  const handleDetailedInject = useCallback(() => {
+    setCreateTaskDefaultValues({
+      defaultPriority: 'MEDIUM',
+      defaultDueDate: selectedDayAsDate,
+    });
+    setIsCreateTaskDialogOpen(true);
+  }, [selectedDayAsDate]);
+
+  // NEW: Handler for opening CreateTaskDialog from free time slot click
+  const handleFreeTimeClick = useCallback((startTime: Date, endTime: Date) => {
+    setCreateTaskDefaultValues({
+      defaultPriority: 'MEDIUM',
+      defaultDueDate: selectedDayAsDate,
+      defaultStartTime: startTime,
+      defaultEndTime: endTime,
+    });
+    setIsCreateTaskDialogOpen(true);
+  }, [selectedDayAsDate]);
+
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
   const calculatedSchedule = useMemo(() => {
@@ -383,6 +416,22 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         />
       )}
 
+      {/* NEW: Create Task Dialog */}
+      <CreateTaskDialog
+        defaultPriority={createTaskDefaultValues.defaultPriority}
+        defaultDueDate={createTaskDefaultValues.defaultDueDate}
+        defaultStartTime={createTaskDefaultValues.defaultStartTime}
+        defaultEndTime={createTaskDefaultValues.defaultEndTime}
+        onTaskCreated={() => {
+          setIsCreateTaskDialogOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+          queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+          queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+        }}
+        isOpen={isCreateTaskDialogOpen}
+        onOpenChange={setIsCreateTaskDialogOpen}
+      />
+
       <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
       
       <div className="space-y-6"> {/* Grouping related components for consistent spacing */}
@@ -399,7 +448,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             {/* Quick Add - Removed card styling */}
             <div className="p-4"> {/* Removed bg-card rounded-xl shadow-sm */}
               <h2 className="text-xl font-bold flex items-center gap-2 mb-4"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</h2>
-              <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => {}} />
+              <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} />
             </div>
             
             {/* SchedulerActionCenter - Removed card styling */}
@@ -428,7 +477,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
             <div className="p-0 bg-transparent rounded-none shadow-none"> {/* This already has no card styling */}
               <h2 className="text-xl font-bold mb-4">Your Vibe Schedule</h2>
-              <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onAddTaskClick={() => {}} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={() => {}} />
+              <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={handleFreeTimeClick} />
             </div>
           </>
         )}

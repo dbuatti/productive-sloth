@@ -8,8 +8,7 @@ import { cn } from '@/lib/utils';
 interface PrioritySectionProps {
   priority: string;
   tasks: Task[];
-  // Updated prop signature to explicitly pass the new completion state
-  onCompleteTask: (task: Task, isCompleted: boolean) => Promise<void>; 
+  // onCompleteTask: (task: Task, isCompleted: boolean) => Promise<void>; // REMOVED: TaskItem now handles its own completion
 }
 
 const getPriorityColorClass = (priority: string) => {
@@ -25,7 +24,7 @@ const getPriorityColorClass = (priority: string) => {
   }
 };
 
-const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks, onCompleteTask }) => {
+const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) => { // Removed onCompleteTask prop
   return (
     <AccordionItem value={priority} className="border-none rounded-xl shadow-sm bg-card animate-hover-lift"> {/* Removed border, adjusted styling */}
       <AccordionTrigger className={cn(
@@ -49,7 +48,7 @@ const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks, onCo
                 <TaskItem 
                   key={task.id} 
                   task={task} 
-                  onCompleteTask={onCompleteTask} // NEW: Pass onCompleteTask
+                  // onCompleteTask={onCompleteTask} // REMOVED: TaskItem now handles its own completion
                 />
               ))
           )}

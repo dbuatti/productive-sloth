@@ -16,15 +16,28 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useEnvironmentContext, environmentOptions } from "@/hooks/use-environment-context";
+import { useEnvironmentContext } from "@/hooks/use-environment-context"; // Keep useEnvironmentContext for state management
+import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
+import { getEnvironmentIconComponent } from '@/lib/scheduler-utils'; // Import the new utility
+import { TaskEnvironment } from '@/types/scheduler'; // FIX: Import TaskEnvironment
 
 const EnvironmentMultiSelect: React.FC = () => {
   const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments } = useEnvironmentContext();
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // Fetch environments dynamically
   const [open, setOpen] = React.useState(false);
 
+  // Memoize environment options derived from the database
+  const dynamicEnvironmentOptions = React.useMemo(() => {
+    return environments.map(env => ({
+      value: env.value as TaskEnvironment, // Ensure value is TaskEnvironment
+      label: env.label,
+      icon: getEnvironmentIconComponent(env.icon), // Use the utility to get the component
+    }));
+  }, [environments]);
+
   const selectedOptions = React.useMemo(() => {
-    return environmentOptions.filter(opt => selectedEnvironments.includes(opt.value));
-  }, [selectedEnvironments]);
+    return dynamicEnvironmentOptions.filter(opt => selectedEnvironments.includes(opt.value as TaskEnvironment)); // FIX: Cast opt.value to TaskEnvironment
+  }, [selectedEnvironments, dynamicEnvironmentOptions]);
 
   const handleClearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,7 +47,7 @@ const EnvironmentMultiSelect: React.FC = () => {
   const renderSelectedBadges = () => {
     if (selectedOptions.length === 0) {
       return (
-        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest"> {/* Adjusted text color and size */}
+        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest">
           <Zap className="h-3 w-3" /> All Zones
         </div>
       );
@@ -83,6 +96,7 @@ const EnvironmentMultiSelect: React.FC = () => {
             "w-full justify-between h-10 px-3 border-white/5 shadow-sm transition-all duration-300 rounded-lg",
             open && "border-primary/40 ring-1 ring-primary/20"
           )}
+          disabled={isLoadingEnvironments}
         >
           <div className="flex items-center gap-2 truncate max-w-[calc(100%-24px)]">
             <Filter className={cn("h-3.5 w-3.5 transition-colors", selectedOptions.length > 0 ? "text-primary" : "text-muted-foreground/30")} />
@@ -98,12 +112,12 @@ const EnvironmentMultiSelect: React.FC = () => {
               <div className="px-2 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">
                 Environment Filter
               </div>
-              {environmentOptions.map((option) => {
-                const isSelected = selectedEnvironments.includes(option.value);
+              {dynamicEnvironmentOptions.map((option) => {
+                const isSelected = selectedEnvironments.includes(option.value as TaskEnvironment); // FIX: Cast option.value to TaskEnvironment
                 return (
                   <CommandItem
                     key={option.value}
-                    onSelect={() => toggleEnvironmentSelection(option.value)}
+                    onSelect={() => toggleEnvironmentSelection(option.value as TaskEnvironment)} // FIX: Cast option.value to TaskEnvironment
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 mb-1",
                       "hover:bg-primary/10 data-[selected='true']:bg-primary/5",

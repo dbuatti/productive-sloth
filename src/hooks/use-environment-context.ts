@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music, Check } from 'lucide-react';
+import { Home, Laptop, Globe, Music, Check } from 'lucide-react'; // Keep imports for type definition, but actual components will be dynamic
 
 export interface EnvironmentOption {
   value: TaskEnvironment;
@@ -8,19 +8,14 @@ export interface EnvironmentOption {
   icon: React.ElementType;
 }
 
-export const environmentOptions: EnvironmentOption[] = [
-  { value: 'home', label: '🏠 At Home', icon: Home },
-  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
-  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
-  { value: 'piano', label: '🎹 Piano Practice', icon: Music },
-  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: Laptop },
-];
+// This array will now be populated dynamically by EnvironmentProvider
+export const environmentOptions: EnvironmentOption[] = []; 
 
 export interface EnvironmentContextType {
   selectedEnvironments: TaskEnvironment[];
   toggleEnvironmentSelection: (env: TaskEnvironment) => void;
   setSelectedEnvironments: (envs: TaskEnvironment[]) => void;
-  environmentOptions: EnvironmentOption[];
+  environmentOptions: EnvironmentOption[]; // This will be dynamic
 }
 
 export const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);

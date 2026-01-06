@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
 
 import {
   Sheet,
@@ -27,7 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { RetiredTask, TaskEnvironment } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
-import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { calculateEnergyCost, getEnvironmentIconComponent } from '@/lib/scheduler-utils'; // Import getEnvironmentIconComponent
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
 
@@ -51,16 +51,6 @@ interface RetiredTaskDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const getEnvironmentIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home; // Fallback
-  }
-};
 
 const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   task,

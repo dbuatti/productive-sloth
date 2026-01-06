@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
 
 import {
   Dialog,
@@ -33,7 +33,7 @@ import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { Switch } from '@/components/ui/switch';
-import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
+import { calculateEnergyCost, setTimeOnDate, getEnvironmentIconComponent } from '@/lib/scheduler-utils'; // Import getEnvironmentIconComponent
 import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
 
 const formSchema = z.object({
@@ -58,16 +58,6 @@ interface ScheduledTaskDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   selectedDayString: string;
 }
-
-const getEnvironmentIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home; // Fallback
-  }
-};
 
 const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   task,

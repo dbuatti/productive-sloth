@@ -2,11 +2,12 @@ import React, { useState } from 'react'; // Added useState
 import { DBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
-import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
-import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle } from 'lucide-react';
+import { getEmojiHue, assignEmoji, getEnvironmentIconComponent } from '@/lib/scheduler-utils'; // Import getEnvironmentIconComponent
+import { Clock, Zap, Star, CheckCircle } from 'lucide-react'; // Removed Home, Laptop, Globe, Music
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Import the dialog
+import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
 
 interface SimplifiedScheduledTaskItemProps {
   task: DBScheduledTask;
@@ -15,27 +16,10 @@ interface SimplifiedScheduledTaskItemProps {
   onCompleteTask: (task: DBScheduledTask) => Promise<void>;
 }
 
-const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
-  const iconClass = "h-3.5 w-3.5 opacity-70";
-  switch (environment) {
-    case 'home': return <Home className={iconClass} />;
-    case 'laptop': return <Laptop className={iconClass} />;
-    case 'away': return <Globe className={iconClass} />;
-    case 'piano': return <Music className={iconClass} />;
-    case 'laptop_piano':
-      return (
-        <div className="relative">
-          <Laptop className={iconClass} />
-          <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5" />
-        </div>
-      );
-    default: return null;
-  }
-};
-
 const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView, isCurrentlyActive, onCompleteTask }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false); // State for the dialog
   const [selectedTask, setSelectedTask] = useState<DBScheduledTask | null>(null); // State for the selected task
+  const { environments } = useEnvironments(); // Fetch environments
 
   const hue = getEmojiHue(task.name);
   const accentColor = `hsl(${hue} 70% 50%)`;
@@ -54,6 +38,26 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
     e.stopPropagation(); // Prevent parent click from firing
     setSelectedTask(task);
     setIsDialogOpen(true);
+  };
+
+  // Helper to get environment icon component
+  const getEnvIcon = (environmentValue: DBScheduledTask['task_environment']) => {
+    const env = environments.find(e => e.value === environmentValue);
+    if (env) {
+      const IconComponent = getEnvironmentIconComponent(env.icon);
+      // Special handling for 'laptop_piano' to show both icons if needed, or just the primary
+      if (environmentValue === 'laptop_piano') {
+        const MusicIcon = getEnvironmentIconComponent('Music'); // Assuming 'Music' is the piano icon
+        return (
+          <div className="relative">
+            <IconComponent className="h-3.5 w-3.5 opacity-70" />
+            <MusicIcon className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5" />
+          </div>
+        );
+      }
+      return <IconComponent className="h-3.5 w-3.5 opacity-70" />;
+    }
+    return null;
   };
 
   return (
@@ -106,10 +110,10 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex items-center gap-1">
-                      {getEnvironmentIcon(task.task_environment)}
+                      {getEnvIcon(task.task_environment)}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>{task.task_environment}</TooltipContent>
+                  <TooltipContent>{environments.find(env => env.value === task.task_environment)?.label || task.task_environment}</TooltipContent>
                 </Tooltip>
               )}
             </div>

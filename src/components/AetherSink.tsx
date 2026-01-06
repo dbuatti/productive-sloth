@@ -4,7 +4,7 @@ import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, P
 import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
+import { getEmojiHue, assignEmoji, parseSinkTaskInput, getEnvironmentIconComponent } from '@/lib/scheduler-utils'; // Import getEnvironmentIconComponent
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { Badge } from '@/components/ui/badge';
@@ -18,23 +18,6 @@ import SinkKanbanBoard from './SinkKanbanBoard';
 import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
 import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments
-
-const getEnvironmentIcon = (environment: TaskEnvironment) => {
-  const iconClass = "h-3.5 w-3.5 opacity-70";
-  switch (environment) {
-    case 'home': return <Home className={iconClass} />;
-    case 'laptop': return <Laptop className={iconClass} />;
-    case 'away': return <Globe className={iconClass} />;
-    case 'piano': return <Music className={iconClass} />;
-    case 'laptop_piano': return (
-      <div className="relative">
-        <Laptop className={iconClass} />
-        <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
-      </div>
-    );
-    default: return null;
-  }
-};
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -86,7 +69,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   const handleToggleComplete = async (task: RetiredTask) => {
     if (task.is_locked) return showError(`Unlock "${task.name}" first.`);
     task.is_completed 
-      ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }) 
+      ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false })
       : await completeRetiredTask(task);
   };
 
@@ -161,12 +144,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     </div>
   );
 
-  // NEW: Get environment options for grouping
+  // Get environment options for grouping
   const environmentOptions = useMemo(() => {
     return environments.map(env => ({
-      value: env.value as TaskEnvironment,
+      value: env.value,
       label: env.label,
-      icon: getEnvironmentIcon(env.value as TaskEnvironment)
+      icon: getEnvironmentIconComponent(env.icon), // Use the utility to get the component
     }));
   }, [environments]);
 
@@ -180,7 +163,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             </div>
             <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
               <span>Aether Sink</span>
-              <span className="text-xs font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
+              <span className="ml-2 opacity-30 text-xs">[{retiredTasks.length}]</span>
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -327,6 +310,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   const accentColor = `hsl(${hue} 70% 50%)`;
                   const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted } = task;
                   
+                  const IconComponent = getEnvironmentIconComponent(environments.find(env => env.value === task.task_environment)?.icon || 'Home'); // FIX: Get the component
+                  
                   return (
                     <div 
                       key={task.id}
@@ -368,8 +353,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                           </div>
                           <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
                             <span className="flex items-center gap-1.5">
-                              {getEnvironmentIcon(task.task_environment)}
-                              <span className="opacity-40">{task.task_environment}</span>
+                              <IconComponent className="h-3 w-3 opacity-70" /> {/* FIX: Render the component */}
+                              <span className="opacity-40">{environments.find(env => env.value === task.task_environment)?.label || task.task_environment}</span>
                             </span>
                             {task.duration && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {task.duration}m</span>}
                             {task.energy_cost > 0 && (
@@ -439,7 +424,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 onRemoveRetiredTask={onRemoveRetiredTask} 
                 onRezoneTask={onRezoneTask}
                 updateRetiredTask={handleUpdateRetiredTask}
-                onOpenDetailDialog={handleOpenDetailDialog} // Pass the handler
+                onOpenDetailDialog={handleOpenDetailDialog} // Pass the handler down
               />
             )
           )}

@@ -452,7 +452,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           <span className="sr-only">Add Description</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] animate-pop-in">
+      <DialogContent className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto animate-pop-in">
         <DialogHeader>
           <DialogTitle>Add Task Details</DialogTitle>
         </DialogHeader>

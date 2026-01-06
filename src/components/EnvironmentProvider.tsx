@@ -2,9 +2,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { EnvironmentContext, environmentOptions, EnvironmentContextType } from '@/hooks/use-environment-context';
+import { EnvironmentContext, EnvironmentContextType, EnvironmentOption, getIconComponent } from '@/hooks/use-environment-context';
+import { useEnvironments } from '@/hooks/use-environments';
 
 const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
+  
   const [selectedEnvironments, setSelectedEnvironments] = useState<TaskEnvironment[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -39,11 +42,21 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const environmentOptions: EnvironmentOption[] = useMemo(() => {
+    return environments.map(env => ({
+      value: env.value as TaskEnvironment,
+      label: env.label,
+      icon: getIconComponent(env.icon),
+      color: env.color,
+    }));
+  }, [environments]);
+
   const value: EnvironmentContextType = {
     selectedEnvironments,
     toggleEnvironmentSelection,
     setSelectedEnvironments,
     environmentOptions,
+    isLoadingEnvironments,
   };
 
   return (

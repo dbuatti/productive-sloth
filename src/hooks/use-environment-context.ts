@@ -1,26 +1,34 @@
 import { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music, Check } from 'lucide-react';
+import { Home, Laptop, Globe, Music, Check, LucideIcon } from 'lucide-react';
+import { useEnvironments, Environment } from './use-environments';
+
+// Helper to map string icon name to Lucide icon component
+export const getIconComponent = (iconName: string): LucideIcon => {
+  switch (iconName) {
+    case 'Home': return Home;
+    case 'Laptop': return Laptop;
+    case 'Globe': return Globe;
+    case 'Music': return Music;
+    default: return Home; // Fallback
+  }
+};
 
 export interface EnvironmentOption {
   value: TaskEnvironment;
   label: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
+  color: string;
 }
 
-export const environmentOptions: EnvironmentOption[] = [
-  { value: 'home', label: '🏠 At Home', icon: Home },
-  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
-  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
-  { value: 'piano', label: '🎹 Piano Practice', icon: Music },
-  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: Laptop },
-];
+// Note: environmentOptions is now derived dynamically in the provider
 
 export interface EnvironmentContextType {
   selectedEnvironments: TaskEnvironment[];
   toggleEnvironmentSelection: (env: TaskEnvironment) => void;
   setSelectedEnvironments: (envs: TaskEnvironment[]) => void;
   environmentOptions: EnvironmentOption[];
+  isLoadingEnvironments: boolean;
 }
 
 export const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);

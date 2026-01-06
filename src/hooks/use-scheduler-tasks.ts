@@ -8,6 +8,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min, isEqual } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, LOW_ENERGY_THRESHOLD } from '@/lib/constants';
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, findFirstAvailableSlot, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
+import { useEnvironments, Environment } from './use-environments';
 
 // Helper to log to both console and toast for visibility
 const engineLog = (message: string, type: 'info' | 'warn' | 'error' = 'info') => {
@@ -21,6 +22,7 @@ const engineLog = (message: string, type: 'info' | 'warn' | 'error' = 'info') =>
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
   const { user, profile, session, T_current } = useSession();
+  const { environments } = useEnvironments(); // Fetch environments dynamically
   const userId = user?.id;
 
   const formattedSelectedDate = selectedDate;
@@ -824,23 +826,51 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const chunking = profile.enable_environment_chunking ?? true;
         const spread = profile.enable_macro_spread ?? false;
 
-        const groups: Record<TaskEnvironment, UnifiedTask[]> = { home: [], laptop: [], away: [], piano: [], laptop_piano: [] };
-        tasksToConsider.forEach(t => groups[t.task_environment].push(t));
+        // Use dynamic environments for grouping
+        const groups: Record<TaskEnvironment, UnifiedTask[]> = {} as Record<TaskEnvironment, UnifiedTask[]>;
+        environments.forEach(env => {
+            groups[env.value as TaskEnvironment] = [];
+        });
+        
+        tasksToConsider.forEach(t => {
+            const envKey = t.task_environment || 'laptop';
+            if (groups[envKey]) {
+                groups[envKey].push(t);
+            } else {
+                // Handle tasks with environments that might have been deleted or are unknown
+                if (!groups['laptop']) groups['laptop'] = [];
+                groups['laptop'].push(t);
+            }
+        });
 
         const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env].length > 0);
         
-        const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-        const orderedEnvs = envOrder.filter(env => groups[env].length > 0);
-        const quotaPerEnv = orderedEnvs.length > 0 ? Math.floor(netAvailableTime / orderedEnvs.length) : netAvailableTime;
+        // Use custom order from profile, falling back to default if null/empty
+        const defaultOrder: TaskEnvironment[] = ['laptop', 'piano', 'laptop_piano', 'home', 'away'];
+        const customOrder = profile.custom_environment_order || defaultOrder;
+        const orderedEnvs = customOrder.filter(env => groups[env] && groups[env].length > 0);
+        
+        // Calculate total time needed for all tasks in the pool
+        const totalTaskDurationNeeded = tasksToConsider.reduce((sum, t) => sum + (t.duration || 30) + (t.break_duration || 0), 0);
+        
+        // Determine the quota based on available time vs time needed
+        const timeToAllocate = Math.min(netAvailableTime, totalTaskDurationNeeded);
+        
+        // Calculate the total number of active environments
+        const numActiveEnvs = orderedEnvs.length;
+        
+        // Calculate the base quota per environment (if chunking is enabled)
+        const baseQuotaPerEnv = numActiveEnvs > 0 ? Math.floor(timeToAllocate / numActiveEnvs) : timeToAllocate;
 
-        activeEnvs.forEach(env => {
-          groups[env].sort((a, b) => {
-            if (a.is_critical && !b.is_critical) return -1;
-            if (!a.is_critical && b.is_critical) return 1;
-            if (a.is_backburner && !b.is_backburner) return 1;
-            if (!a.is_backburner && b.is_backburner) return -1;
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          });
+        // Sort tasks within each group by criticality, backburner status, and age (oldest first)
+        orderedEnvs.forEach(env => {
+            groups[env].sort((a, b) => {
+                if (a.is_critical && !b.is_critical) return -1;
+                if (!a.is_critical && b.is_critical) return 1;
+                if (a.is_backburner && !b.is_backburner) return 1;
+                if (!a.is_backburner && b.is_backburner) return -1;
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            });
         });
 
         const fillQuotaPass = (quotaMinutes: number) => {
@@ -850,19 +880,28 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 while (group.length > 0 && envTimeUsed < quotaMinutes) {
                     const task = group[0];
                     const taskTotal = (task.duration || 30) + (task.break_duration || 0);
+                    
+                    // If adding this task exceeds the quota, break the loop for this environment
                     if (envTimeUsed > 0 && (envTimeUsed + taskTotal > quotaMinutes)) break; 
+                    
                     finalSortedPool.push(group.shift()!);
                     envTimeUsed += taskTotal;
                 }
             }
         };
 
-        if (chunking && spread) {
-            fillQuotaPass(Math.floor(quotaPerEnv / 2));
-            fillQuotaPass(Math.floor(quotaPerEnv / 2));
-        } else if (chunking) {
-            fillQuotaPass(quotaPerEnv);
+        if (chunking) {
+            if (spread && numActiveEnvs > 0) {
+                // Macro-Spread: Split quota into two passes
+                const halfQuota = Math.floor(baseQuotaPerEnv / 2);
+                fillQuotaPass(halfQuota); // Morning pass
+                fillQuotaPass(baseQuotaPerEnv - halfQuota); // Afternoon pass (uses remaining quota)
+            } else {
+                // Simple Chunking: One pass using the full quota
+                fillQuotaPass(baseQuotaPerEnv);
+            }
         } else {
+            // No Chunking: Interleave tasks 1:1
             let hasRemaining = true;
             while (hasRemaining) {
                 hasRemaining = false;
@@ -875,11 +914,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             }
         }
         
+        // Add any remaining tasks (those that exceeded quota or were not chunked)
         orderedEnvs.forEach(env => {
             while (groups[env].length > 0) finalSortedPool.push(groups[env].shift()!);
         });
 
       } else {
+        // Existing non-environment sorting logic (Priority, Time, Name, Emoji)
         finalSortedPool = [...tasksToConsider].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
             if (!a.is_critical && b.is_critical) return 1;
@@ -968,7 +1009,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     } finally {
       // Note: isProcessingCommand reset is handled by the calling component (SchedulerPage)
     }
-  }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, queryClient, dbScheduledTasks, todayString]);
+  }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, queryClient, dbScheduledTasks, todayString, environments]);
 
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
 

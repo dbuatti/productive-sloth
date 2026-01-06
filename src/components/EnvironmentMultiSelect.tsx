@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, X, Filter, Zap } from "lucide-react";
+import { Check, ChevronDown, X, Filter, Zap, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,15 +16,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useEnvironmentContext, environmentOptions } from "@/hooks/use-environment-context";
+import { useEnvironmentContext } from "@/hooks/use-environment-context";
 
 const EnvironmentMultiSelect: React.FC = () => {
-  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments } = useEnvironmentContext();
+  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments, environmentOptions, isLoadingEnvironments } = useEnvironmentContext();
   const [open, setOpen] = React.useState(false);
 
   const selectedOptions = React.useMemo(() => {
     return environmentOptions.filter(opt => selectedEnvironments.includes(opt.value));
-  }, [selectedEnvironments]);
+  }, [selectedEnvironments, environmentOptions]);
 
   const handleClearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,7 +34,7 @@ const EnvironmentMultiSelect: React.FC = () => {
   const renderSelectedBadges = () => {
     if (selectedOptions.length === 0) {
       return (
-        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest"> {/* Adjusted text color and size */}
+        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest">
           <Zap className="h-3 w-3" /> All Zones
         </div>
       );
@@ -71,6 +71,14 @@ const EnvironmentMultiSelect: React.FC = () => {
       </div>
     );
   };
+  
+  if (isLoadingEnvironments) {
+    return (
+      <div className="h-10 w-full flex items-center justify-center rounded-lg bg-secondary/10 animate-pulse">
+        <Loader2 className="h-4 w-4 animate-spin text-primary/50" />
+      </div>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

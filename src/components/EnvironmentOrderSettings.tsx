@@ -2,19 +2,17 @@ import React, { useMemo } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
 import { useSession } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, ListOrdered, Loader2 } from 'lucide-react'; // Added Loader2 import
+import { ChevronUp, ChevronDown, ListOrdered, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { useEnvironments } from '@/hooks/use-environments';
+import { getIconComponent } from '@/hooks/use-environment-context';
 
 // Helper to get icon component from environment value
-const getEnvironmentIconComponent = (value: string) => {
-  const option = environmentOptions.find(opt => opt.value === value);
-  return option ? option.icon : null;
+const getEnvironmentIconComponent = (value: string, environments: any[]) => {
+  const env = environments.find(opt => opt.value === value);
+  return env ? getIconComponent(env.icon) : null;
 };
-
-// Re-export environmentOptions from use-environment-context for consistency
-import { environmentOptions } from '@/hooks/use-environment-context';
 
 const EnvironmentOrderSettings: React.FC = () => {
   const { profile, updateProfile } = useSession();
@@ -85,12 +83,12 @@ const EnvironmentOrderSettings: React.FC = () => {
 
       <div className="space-y-2">
         {orderedEnvironments.map((env, index) => {
-          const IconComponent = getEnvironmentIconComponent(env.value);
+          const IconComponent = getEnvironmentIconComponent(env.value, environments);
           if (!IconComponent) return null; // Fallback if icon not found
 
           return (
             <div 
-              key={env.id} // Use env.id as key for stability
+              key={env.id}
               className="flex items-center justify-between p-3 rounded-lg border bg-secondary/30 transition-all hover:bg-secondary/50"
             >
               <div className="flex items-center gap-3">

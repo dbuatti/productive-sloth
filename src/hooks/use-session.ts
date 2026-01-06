@@ -71,7 +71,8 @@ interface SessionContextType {
   triggerEnergyRegen: () => Promise<void>;
 }
 
-export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);
+// Change to default export
+const SessionContext = React.createContext<SessionContextType | undefined>(undefined);
 
 export const useSession = () => {
   const context = useContext(SessionContext);
@@ -80,3 +81,5 @@ export const useSession = () => {
   }
   return context;
 };
+
+export default SessionContext;

@@ -16,7 +16,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Corrected import path
+import { useEnvironmentContext } from '@/hooks/use-environment-context.ts'; // Corrected import path
 import { MealAssignment } from '@/hooks/use-meals'; // Import MealAssignment type
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";

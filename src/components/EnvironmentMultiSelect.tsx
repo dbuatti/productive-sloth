@@ -1,7 +1,5 @@
-"use client";
-
 import * as React from "react";
-import { Check, ChevronDown, X, Filter, Zap } from "lucide-react";
+import { Check, ChevronDown, X, Filter, Zap, Home } from "lucide-react"; // Import Home
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,15 +14,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useEnvironmentContext, environmentOptions } from "@/hooks/use-environment-context";
+import { useEnvironmentContext } from "@/hooks/use-environment-context"; // Updated import
 
 const EnvironmentMultiSelect: React.FC = () => {
-  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments } = useEnvironmentContext();
+  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments, environmentOptions } = useEnvironmentContext(); // Use environmentOptions from context
   const [open, setOpen] = React.useState(false);
 
   const selectedOptions = React.useMemo(() => {
     return environmentOptions.filter(opt => selectedEnvironments.includes(opt.value));
-  }, [selectedEnvironments]);
+  }, [selectedEnvironments, environmentOptions]);
 
   const handleClearAll = (e: React.MouseEvent) => {
     e.stopPropagation();

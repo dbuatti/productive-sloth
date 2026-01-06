@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle, Home, Laptop, Globe, Music } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Task } from "@/types";
 import { useTasks } from "@/hooks/use-tasks";
@@ -15,6 +15,8 @@ import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card } from '@/components/ui/card';
 import { CheckedState } from "@radix-ui/react-checkbox"; // Import CheckedState
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
+import { TaskEnvironment } from '@/types/scheduler'; // NEW: Import TaskEnvironment
 
 interface TaskItemProps {
   task: Task;
@@ -25,6 +27,24 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteT
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { deleteTask, updateTask } = useTasks(); // NEW: Use updateTask directly
   const navigate = useNavigate();
+  const { environmentOptions } = useEnvironmentContext(); // NEW: Use environmentOptions from context
+
+  const getEnvironmentIcon = (environment: TaskEnvironment) => {
+    const option = environmentOptions.find(opt => opt.value === environment);
+    const IconComponent = option?.icon || Home; // Default to Home if not found
+    const iconClass = "h-3.5 w-3.5 opacity-70";
+    
+    // Special handling for laptop_piano if its icon is a combination
+    if (environment === 'laptop_piano' && option?.iconName === 'Laptop') { // Assuming Laptop is the base icon
+      return (
+        <div className="relative">
+          <Laptop className={iconClass} />
+          <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5" />
+        </div>
+      );
+    }
+    return <IconComponent className={iconClass} />;
+  };
 
   // Updated handleToggleComplete to use updateTask directly
   const handleToggleComplete = async (checked: CheckedState) => {
@@ -188,6 +208,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteT
                   <TooltipContent>
                     <p>Has description</p>
                   </TooltipContent>
+                </Tooltip>
+              )}
+
+              {task.task_environment && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1">
+                      {getEnvironmentIcon(task.task_environment)}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{task.task_environment}</TooltipContent>
                 </Tooltip>
               )}
             </div>

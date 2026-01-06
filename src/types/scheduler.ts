@@ -3,8 +3,25 @@ export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
 export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
 export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI' | 'NAME_ASC' | 'NAME_DESC' | 'ENVIRONMENT_RATIO'; // Updated SortBy
 
-// NEW: Type for task environment
-export type TaskEnvironment = 'home' | 'laptop' | 'away' | 'piano' | 'laptop_piano';
+// NEW: Type for task environment - now a string to allow custom values
+export type TaskEnvironment = string;
+
+// NEW: Type for user-defined environment stored in DB
+export interface UserEnvironment {
+  id: string;
+  user_id: string;
+  name: string;
+  icon_name: string; // Lucide icon name
+  order_index: number;
+  created_at: string;
+}
+
+// NEW: Type for creating a new user environment
+export interface NewUserEnvironment {
+  name: string;
+  icon_name: string;
+  order_index?: number;
+}
 
 // NEW: Type for sorting retired tasks
 export type RetiredTaskSortBy = 

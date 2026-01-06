@@ -3,31 +3,33 @@
 import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus, Send } from 'lucide-react';
+import { Plus, Send, Home } from 'lucide-react'; // Import Home
 import { cn } from '@/lib/utils';
 import SortableTaskCard from './SortableTaskCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RetiredTask } from '@/types/scheduler';
+import { lucideIconMap } from '@/hooks/use-environment-context'; // Import lucideIconMap
 
 interface KanbanColumnProps {
   id: string; // e.g., 'home', 'laptop'
   title: string;
-  icon: React.ReactNode;
+  iconName: string; // Changed from icon: React.ReactNode to iconName: string
   tasks: RetiredTask[];
   totalEnergy: number;
   onQuickAdd: (text: string, columnId: string) => Promise<void>;
   activeTaskHeight?: number;
   activeId: string | null;
   overId: string | null;
-  // NEW: Prop for opening the detail dialog
   onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, totalEnergy, onQuickAdd, activeTaskHeight = 80, activeId, overId, onOpenDetailDialog }) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, iconName, tasks, totalEnergy, onQuickAdd, activeTaskHeight = 80, activeId, overId, onOpenDetailDialog }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [localInput, setLocalInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const IconComponent = lucideIconMap[iconName] || Home; // Dynamically get icon component
 
   const handleSubmit = async () => {
     if (!localInput.trim()) return;
@@ -64,7 +66,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ id, title, icon, tasks, tot
       {/* Column Header */}
       <div className="flex items-center justify-between mb-4 px-2">
         <div className="flex items-center gap-2">
-            {icon}
+            <IconComponent className="h-4 w-4" /> {/* Render dynamic icon */}
             <h3 className="font-black uppercase tracking-tighter text-sm opacity-70">
                 {title} <span className="ml-2 opacity-30 text-xs">[{tasks.length}]</span>
             </h3>

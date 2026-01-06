@@ -33,7 +33,7 @@ import {
   LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, 
   ExternalLink, Loader2, Keyboard, Database, TrendingUp, 
   BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor,
-  Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu // Added Cpu icon
+  Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu, Globe // Added Globe icon
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
@@ -44,7 +44,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { adjustArrayLength } from '@/lib/utils';
 import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import MealIdeasTab from '@/components/MealIdeasTab'; // NEW IMPORT
+import MealIdeasTab from '@/components/MealIdeasTab';
+import EnvironmentManagerDialog from '@/components/EnvironmentManagerDialog'; // NEW IMPORT
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -82,6 +83,8 @@ const SettingsPage: React.FC = () => {
   
   const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
+
+  const [showEnvironmentManager, setShowEnvironmentManager] = useState(false); // NEW: State for EnvironmentManagerDialog
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -277,7 +280,7 @@ const SettingsPage: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-end"><Button type="submit">Update Times</Button></div>
+                  <div className="flex justify-end"><Button type="submit" disabled={isSubmitting || !isValid}>Update Times</Button></div>
                 </TabsContent>
 
                 <TabsContent value="ideas" className="animate-pop-in">
@@ -286,7 +289,7 @@ const SettingsPage: React.FC = () => {
 
                 <TabsContent value="reflections" className="space-y-6">
                     <FormField control={form.control} name="reflection_count" render={({ field }) => (<FormItem className="flex items-center justify-between p-4 rounded-lg border bg-background/50"><FormLabel>Frequency</FormLabel><FormControl><Select onValueChange={(val) => { field.onChange(val); }} defaultValue={field.value.toString()}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent></Select></FormControl></FormItem>)} />
-                    <div className="flex justify-end"><Button type="submit">Update Reflections</Button></div>
+                    <div className="flex justify-end"><Button type="submit" disabled={isSubmitting || !isValid}>Update Reflections</Button></div>
                 </TabsContent>
               </Tabs>
             </div>
@@ -392,6 +395,26 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
 
+          {/* NEW: Environment Management Section */}
+          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
+              <Globe className="h-5 w-5 text-primary" /> Custom Environments
+            </h2>
+            <div className="p-0 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Create and manage your personalized task environments.
+              </p>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowEnvironmentManager(true)}
+                className="w-full flex items-center gap-2"
+              >
+                <ListTodo className="h-4 w-4" /> Manage Environments
+              </Button>
+            </div>
+          </div>
+
           <div className="p-4 bg-card rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]"> {/* Replaced Card with div, adjusted styling */}
             <h2 className="flex items-center gap-2 text-lg text-destructive px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
               <Trash2 className="h-5 w-5" /> Danger Zone
@@ -402,6 +425,8 @@ const SettingsPage: React.FC = () => {
           </div>
         </form>
       </Form>
+
+      <EnvironmentManagerDialog open={showEnvironmentManager} onOpenChange={setShowEnvironmentManager} />
     </div>
   );
 };

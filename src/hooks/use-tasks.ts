@@ -7,6 +7,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // NEW: Import default duration
 import { calculateEnergyCost } from '@/lib/scheduler-utils'; // NEW: Import calculateEnergyCost
+import { TaskEnvironment } from '@/types/scheduler'; // NEW: Import TaskEnvironment
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
   const now = new Date();
@@ -129,6 +130,7 @@ export const useTasks = () => {
         metadata_xp: metadataXp,
         is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
         is_backburner: newTask.is_backburner ?? false,
+        task_environment: newTask.task_environment ?? 'laptop', // NEW: Default environment
       };
       const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
       if (error) throw new Error(error.message);

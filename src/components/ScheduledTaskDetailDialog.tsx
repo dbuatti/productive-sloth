@@ -34,7 +34,7 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
-import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -47,7 +47,7 @@ const formSchema = z.object({
   is_locked: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'), // UPDATED: Add new environments
+  task_environment: z.string().min(1, "Environment is required."), // UPDATED: Changed to string
 });
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -66,6 +66,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({ /
   selectedDayString,
 }) => {
   const { updateScheduledTaskDetails } = useSchedulerTasks(selectedDayString);
+  const { environmentOptions } = useEnvironmentContext(); // NEW: Use environmentOptions from context
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<ScheduledTaskDetailFormValues>({

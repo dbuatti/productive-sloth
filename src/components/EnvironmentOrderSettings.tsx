@@ -1,21 +1,55 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
 import { useSession } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, ListOrdered } from 'lucide-react';
-import { environmentOptions } from '@/hooks/use-environment-context';
+import { ChevronUp, ChevronDown, ListOrdered, Loader2 } from 'lucide-react'; // Added Loader2 import
 import { cn } from '@/lib/utils';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
+import { useEnvironments } from '@/hooks/use-environments';
 
-const DEFAULT_ORDER: TaskEnvironment[] = ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+// Helper to get icon component from environment value
+const getEnvironmentIconComponent = (value: string) => {
+  const option = environmentOptions.find(opt => opt.value === value);
+  return option ? option.icon : null;
+};
+
+// Re-export environmentOptions from use-environment-context for consistency
+import { environmentOptions } from '@/hooks/use-environment-context';
 
 const EnvironmentOrderSettings: React.FC = () => {
   const { profile, updateProfile } = useSession();
-  
-  const currentOrder = profile?.custom_environment_order || DEFAULT_ORDER;
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
+
+  // Filter and map the custom order to actual environment objects
+  const orderedEnvironments = useMemo(() => {
+    if (!profile || !environments) return [];
+    const customOrder = profile.custom_environment_order || [];
+    
+    // Create a map for quick lookup of environment objects by their 'value'
+    const envMap = new Map(environments.map(env => [env.value, env]));
+
+    // Filter customOrder to only include environments that actually exist for the user
+    // Then map them to their full object representation
+    const ordered = customOrder
+      .map(envValue => envMap.get(envValue))
+      .filter((env): env is typeof environments[0] => env !== undefined); // Type guard for non-null/undefined
+
+    // Add any environments that are present in the user's list but not in the custom order
+    // This ensures all user environments are always displayed and can be ordered
+    const existingEnvValues = new Set(ordered.map(env => env.value));
+    environments.forEach(env => {
+      if (!existingEnvValues.has(env.value)) {
+        ordered.push(env);
+      }
+    });
+
+    return ordered;
+  }, [profile, environments]);
 
   const moveItem = async (index: number, direction: 'up' | 'down') => {
-    const newOrder = [...currentOrder];
+    if (isLoadingEnvironments) return;
+
+    const newOrder = [...orderedEnvironments.map(env => env.value)]; // Use 'value' strings for the order
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     
     if (targetIndex < 0 || targetIndex >= newOrder.length) return;
@@ -23,12 +57,22 @@ const EnvironmentOrderSettings: React.FC = () => {
     [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
 
     try {
-      await updateProfile({ custom_environment_order: newOrder });
+      // Cast newOrder to TaskEnvironment[] to resolve the TypeScript error
+      await updateProfile({ custom_environment_order: newOrder as TaskEnvironment[] });
       showSuccess("Environment order updated.");
     } catch (e) {
-      // Error handled by hook
+      showError("Failed to update environment order.");
+      console.error("Error updating environment order:", e);
     }
   };
+
+  if (isLoadingEnvironments) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -40,19 +84,19 @@ const EnvironmentOrderSettings: React.FC = () => {
       </p>
 
       <div className="space-y-2">
-        {currentOrder.map((envKey, index) => {
-          const option = environmentOptions.find(opt => opt.value === envKey);
-          if (!option) return null;
+        {orderedEnvironments.map((env, index) => {
+          const IconComponent = getEnvironmentIconComponent(env.value);
+          if (!IconComponent) return null; // Fallback if icon not found
 
           return (
             <div 
-              key={envKey} 
+              key={env.id} // Use env.id as key for stability
               className="flex items-center justify-between p-3 rounded-lg border bg-secondary/30 transition-all hover:bg-secondary/50"
             >
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold font-mono opacity-30">0{index + 1}</span>
-                <option.icon className="h-4 w-4 text-primary" />
-                <span className="text-sm font-bold uppercase tracking-tight">{option.label}</span>
+                <IconComponent className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold uppercase tracking-tight">{env.label}</span>
               </div>
               
               <div className="flex items-center gap-1">
@@ -70,7 +114,7 @@ const EnvironmentOrderSettings: React.FC = () => {
                   size="icon" 
                   className="h-8 w-8" 
                   onClick={() => moveItem(index, 'down')}
-                  disabled={index === currentOrder.length - 1}
+                  disabled={index === orderedEnvironments.length - 1}
                 >
                   <ChevronDown className="h-4 w-4" />
                 </Button>

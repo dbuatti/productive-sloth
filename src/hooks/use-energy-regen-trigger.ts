@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useSession } from '@/hooks/use-session'; // Standardized import
-import { parseISO, differenceInMinutes, format } from 'date-fns';
+import { useSession } from './use-session';
+import { parseISO, differenceInMinutes, format } from 'date-fns'; // Import format
 import { supabase } from '@/integrations/supabase/client';
 import { showError } from '@/utils/toast';
 

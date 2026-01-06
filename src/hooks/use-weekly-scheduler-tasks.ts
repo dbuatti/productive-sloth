@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask } from '@/types/scheduler';
-import { useSession } from '@/hooks/use-session'; // Standardized import
+import { useSession } from './use-session';
 import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max, Day, subDays } from 'date-fns'; // Added subDays
 import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils';
 

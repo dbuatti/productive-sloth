@@ -2,20 +2,17 @@ import React from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
 import { useSession } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, ListOrdered, Home } from 'lucide-react'; // Import Home
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Updated import
+import { ChevronUp, ChevronDown, ListOrdered } from 'lucide-react';
+import { environmentOptions } from '@/hooks/use-environment-context';
 import { cn } from '@/lib/utils';
 import { showSuccess } from '@/utils/toast';
 
+const DEFAULT_ORDER: TaskEnvironment[] = ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+
 const EnvironmentOrderSettings: React.FC = () => {
   const { profile, updateProfile } = useSession();
-  const { environmentOptions } = useEnvironmentContext(); // Use environmentOptions from context
   
-  // Filter for only default environments for ordering, as custom ones are managed separately
-  const defaultEnvironmentKeys = environmentOptions.filter(opt => !opt.isCustom).map(opt => opt.value);
-
-  // Ensure currentOrder only contains valid default environment keys
-  const currentOrder = profile?.custom_environment_order?.filter(key => defaultEnvironmentKeys.includes(key)) || defaultEnvironmentKeys;
+  const currentOrder = profile?.custom_environment_order || DEFAULT_ORDER;
 
   const moveItem = async (index: number, direction: 'up' | 'down') => {
     const newOrder = [...currentOrder];
@@ -36,17 +33,16 @@ const EnvironmentOrderSettings: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-        <ListOrdered className="h-4 w-4 text-primary" /> Default Environment Priority Sequence
+        <ListOrdered className="h-4 w-4 text-primary" /> Environment Priority Sequence
       </div>
       <p className="text-sm text-muted-foreground">
-        Define the order in which default environments are prioritized during an "Environment Ratio" auto-balance.
-        Custom environments are managed separately.
+        Define the order in which environments are prioritized during an "Environment Ratio" auto-balance.
       </p>
 
       <div className="space-y-2">
         {currentOrder.map((envKey, index) => {
           const option = environmentOptions.find(opt => opt.value === envKey);
-          if (!option) return null; // Should not happen with filtering
+          if (!option) return null;
 
           return (
             <div 

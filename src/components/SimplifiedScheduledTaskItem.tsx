@@ -7,7 +7,6 @@ import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle } from 'lucid
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Import the dialog
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
 
 interface SimplifiedScheduledTaskItemProps {
   task: DBScheduledTask;
@@ -16,27 +15,27 @@ interface SimplifiedScheduledTaskItemProps {
   onCompleteTask: (task: DBScheduledTask) => Promise<void>;
 }
 
-const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView, isCurrentlyActive, onCompleteTask }) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // State for the dialog
-  const [selectedTask, setSelectedTask] = useState<DBScheduledTask | null>(null); // State for the selected task
-  const { environmentOptions } = useEnvironmentContext(); // NEW: Use environmentOptions from context
-
-  const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
-    const option = environmentOptions.find(opt => opt.value === environment);
-    const IconComponent = option?.icon || Home; // Default to Home if not found
-    const iconClass = "h-3.5 w-3.5 opacity-70";
-    
-    // Special handling for laptop_piano if its icon is a combination
-    if (environment === 'laptop_piano' && option?.iconName === 'Laptop') { // Assuming Laptop is the base icon
+const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
+  const iconClass = "h-3.5 w-3.5 opacity-70";
+  switch (environment) {
+    case 'home': return <Home className={iconClass} />;
+    case 'laptop': return <Laptop className={iconClass} />;
+    case 'away': return <Globe className={iconClass} />;
+    case 'piano': return <Music className={iconClass} />;
+    case 'laptop_piano':
       return (
         <div className="relative">
           <Laptop className={iconClass} />
           <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5" />
         </div>
       );
-    }
-    return <IconComponent className={iconClass} />;
-  };
+    default: return null;
+  }
+};
+
+const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView, isCurrentlyActive, onCompleteTask }) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false); // State for the dialog
+  const [selectedTask, setSelectedTask] = useState<DBScheduledTask | null>(null); // State for the selected task
 
   const hue = getEmojiHue(task.name);
   const accentColor = `hsl(${hue} 70% 50%)`;

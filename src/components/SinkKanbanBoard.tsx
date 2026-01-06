@@ -13,13 +13,12 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import { parseSinkTaskInput } from '@/lib/scheduler-utils';
-import { lucideIconMap, useEnvironmentContext, defaultEnvironmentOptions } from '@/hooks/use-environment-context'; // Import lucideIconMap and useEnvironmentContext
 
 // --- Grouping Configuration ---
 const GROUPING_CONFIG = {
   environment: {
     title: 'Environment',
-    // options will be dynamically generated from environmentOptions
+    options: ['home', 'laptop', 'away', 'piano', 'laptop_piano'] as TaskEnvironment[],
     getLabel: (value: string) => {
       const labels: Record<string, string> = {
         home: '🏠 At Home', laptop: '💻 Laptop/Desk', away: '🗺️ Away/Errands', 
@@ -27,11 +26,12 @@ const GROUPING_CONFIG = {
       };
       return labels[value] || value;
     },
-    getIconName: (value: string) => { // Changed to getIconName
-      const icons: Record<string, string> = { // Changed to string
-        home: 'Home', laptop: 'Laptop', away: 'Globe', piano: 'Music', laptop_piano: 'Laptop'
+    getIcon: (value: string) => {
+      const icons: Record<string, React.ElementType> = {
+        home: Home, laptop: Laptop, away: Globe, piano: Music, laptop_piano: Laptop
       };
-      return icons[value] || 'Laptop';
+      const Icon = icons[value] || Laptop;
+      return <Icon className="h-4 w-4" />;
     }
   },
   priority: {
@@ -43,11 +43,12 @@ const GROUPING_CONFIG = {
       };
       return labels[value] || value;
     },
-    getIconName: (value: string) => { // Changed to getIconName
-      const icons: Record<string, string> = { // Changed to string
-        critical: 'Star', standard: 'Info', backburner: 'AlertCircle'
+    getIcon: (value: string) => {
+      const icons: Record<string, React.ElementType> = {
+        critical: Star, standard: Info, backburner: AlertCircle
       };
-      return icons[value] || 'Info';
+      const Icon = icons[value] || Info;
+      return <Icon className="h-4 w-4" />;
     }
   }
 };
@@ -59,6 +60,7 @@ interface SinkKanbanBoardProps {
   onRemoveRetiredTask: (id: string, name: string) => void;
   onRezoneTask: (task: RetiredTask) => void;
   updateRetiredTask: (updates: Partial<RetiredTask> & { id: string }) => Promise<void>;
+  // NEW: Handlers for opening the detail dialog
   onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
@@ -68,15 +70,15 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   onRemoveRetiredTask,
   onRezoneTask,
   updateRetiredTask,
-  onOpenDetailDialog,
+  onOpenDetailDialog, // Destructure new prop
 }) => {
   const { user } = useSession();
   const { addRetiredTask } = useSchedulerTasks('');
-  const { environmentOptions } = useEnvironmentContext(); // Get environmentOptions from context
   
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
+  // Use distance constraint (5px) to differentiate click from drag
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -84,19 +86,11 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
 
   const config = GROUPING_CONFIG[groupBy];
 
-  // Dynamically generate options for environment grouping
-  const dynamicGroupingOptions = useMemo(() => {
-    if (groupBy === 'environment') {
-      return environmentOptions.map(opt => opt.value);
-    }
-    return GROUPING_CONFIG.priority.options;
-  }, [groupBy, environmentOptions]);
-
   // Group tasks based on the selected grouping option
   const groupedTasks = useMemo(() => {
     const groups: Record<string, RetiredTask[]> = {};
     
-    dynamicGroupingOptions.forEach(option => {
+    config.options.forEach(option => {
       groups[option] = [];
     });
 
@@ -116,7 +110,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     });
 
     return groups;
-  }, [retiredTasks, groupBy, dynamicGroupingOptions]);
+  }, [retiredTasks, groupBy, config.options]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -142,7 +136,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     let updateData: Partial<RetiredTask> = {};
 
     if (groupBy === 'environment') {
-      if (dynamicGroupingOptions.includes(overContainerId)) {
+      if ((config.options as readonly string[]).includes(overContainerId)) {
         updateData = { task_environment: overContainerId as TaskEnvironment };
       }
     } else {
@@ -163,12 +157,14 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
     if (!user) return showError("User context missing.");
     
+    // 1. Parse the input string (Name [dur] [!] [-])
     const parsedTask = parseSinkTaskInput(input, user.id);
     
     if (!parsedTask) {
       return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
     }
     
+    // 2. Override environment/priority based on the column ID
     let finalTask = { ...parsedTask };
     
     if (groupBy === 'environment') {
@@ -186,12 +182,16 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       }
     }
     
+    // 3. Add to retired tasks
     await addRetiredTask(finalTask);
   }, [user, groupBy, addRetiredTask]);
 
+  // Calculate the height of the active task for the drop indicator
   const activeTaskHeight = useMemo(() => {
     if (!activeId) return 0;
+    // Find the task being dragged
     const task = retiredTasks.find(t => t.id === activeId);
+    // Approximate card height (based on SortableTaskCard styling)
     return task ? 80 : 0; 
   }, [activeId, retiredTasks]);
 
@@ -203,31 +203,25 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
+      {/* The Columns Container: flex w-full gap-6 items-start */}
       <div className="flex w-full gap-6 items-start pb-2 overflow-x-auto custom-scrollbar"> 
-        {dynamicGroupingOptions.map((option) => {
+        {config.options.map((option) => {
           const columnTasks = groupedTasks[option] || [];
           const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
-
-          let iconName: string;
-          if (groupBy === 'environment') {
-            iconName = environmentOptions.find(opt => opt.value === option)?.iconName || 'Laptop';
-          } else {
-            iconName = config.getIconName(option);
-          }
 
           return (
             <KanbanColumn
               key={option}
               id={option}
               title={config.getLabel(option)}
-              iconName={iconName} // Pass iconName
+              icon={config.getIcon(option)}
               tasks={columnTasks}
               totalEnergy={totalEnergy}
               onQuickAdd={handleQuickAdd}
               activeTaskHeight={activeTaskHeight}
               activeId={activeId}
               overId={overId}
-              onOpenDetailDialog={onOpenDetailDialog}
+              onOpenDetailDialog={onOpenDetailDialog} // Pass the handler down
             />
           );
         })}

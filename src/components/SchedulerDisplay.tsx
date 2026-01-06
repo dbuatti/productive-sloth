@@ -18,7 +18,6 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -39,6 +38,17 @@ const FREE_TIME_MINUTE_HEIGHT = 0.5; // NEW: Reduced height for free time blocks
 const MIN_TASK_HEIGHT_MINUTES = 15; // Minimum duration equivalent for display
 const MIN_TASK_HEIGHT_PX = MIN_TASK_HEIGHT_MINUTES * MINUTE_HEIGHT; // 30px minimum height
 
+const getEnvironmentIcon = (environment: TaskEnvironment) => {
+  const iconClass = "h-3 w-3 opacity-70";
+  switch (environment) {
+    case 'home': return <Home className={iconClass} />;
+    case 'laptop': return <Laptop className={iconClass} />;
+    case 'away': return <Globe className={iconClass} />;
+    case 'piano': return <Music className={iconClass} />;
+    default: return null;
+  }
+};
+
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   schedule,
   T_current,
@@ -56,24 +66,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showSyncButton, setShowSyncButton] = useState(false);
   const isMobile = useIsMobile();
-  const { environmentOptions } = useEnvironmentContext(); // NEW: Use environmentOptions from context
-
-  const getEnvironmentIcon = (environment: TaskEnvironment) => {
-    const option = environmentOptions.find(opt => opt.value === environment);
-    const IconComponent = option?.icon || Home; // Default to Home if not found
-    const iconClass = "h-3 w-3 opacity-70";
-    
-    // Special handling for laptop_piano if its icon is a combination
-    if (environment === 'laptop_piano' && option?.iconName === 'Laptop') { // Assuming Laptop is the base icon
-      return (
-        <div className="relative">
-          <Laptop className={iconClass} />
-          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
-        </div>
-      );
-    }
-    return <IconComponent className={iconClass} />;
-  };
 
   useEffect(() => {
     const handleScroll = () => {

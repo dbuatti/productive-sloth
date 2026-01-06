@@ -34,7 +34,6 @@ import { useSession } from '@/hooks/use-session';
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost } from '@/lib/scheduler-utils'; // NEW: Import calculateEnergyCost
 import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants'; // NEW: Import default duration
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }).max(255),
@@ -45,7 +44,6 @@ const formSchema = z.object({
   isBackburner: z.boolean().default(false), // NEW: Backburner flag
   energy_cost: z.coerce.number().min(0).default(0), // NEW: Add energy_cost to schema
   is_custom_energy_cost: z.boolean().default(false), // NEW: Add custom energy cost flag
-  task_environment: z.string().min(1, "Environment is required."), // NEW: Add task_environment
 });
 
 type TaskDetailFormValues = z.infer<typeof formSchema>;
@@ -63,7 +61,6 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
 }) => {
   const { updateTask } = useTasks();
   const { profile } = useSession();
-  const { environmentOptions } = useEnvironmentContext(); // NEW: Use environmentOptions from context
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0); // NEW: State for calculated energy cost
 
   const form = useForm<TaskDetailFormValues>({
@@ -77,7 +74,6 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       isBackburner: false, // NEW: Default to false
       energy_cost: 0, // Will be set by useEffect
       is_custom_energy_cost: false, // Will be set by useEffect
-      task_environment: 'laptop', // NEW: Default environment
     },
   });
 
@@ -92,7 +88,6 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         isBackburner: task.is_backburner, // NEW: Set initial backburner status
         energy_cost: task.energy_cost, // NEW: Set initial energy cost
         is_custom_energy_cost: task.is_custom_energy_cost, // NEW: Set initial custom energy cost flag
-        task_environment: task.task_environment || 'laptop', // NEW: Set initial environment
       });
       // NEW: Set initial calculated cost, but only if not custom
       if (!task.is_custom_energy_cost) {
@@ -148,7 +143,6 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
         is_backburner: values.isBackburner, // NEW: Pass backburner status
         energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost, // NEW: Use custom or calculated
         is_custom_energy_cost: values.is_custom_energy_cost, // NEW: Pass custom energy cost flag
-        task_environment: values.task_environment, // NEW: Pass environment
       });
       showSuccess("Task updated successfully!");
       onOpenChange(false);
@@ -278,38 +272,6 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
                   )}
                 />
               </div>
-
-              {/* NEW: Task Environment */}
-              <FormField
-                control={form.control}
-                name="task_environment"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Task Environment</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select environment" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {environmentOptions.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex items-center gap-2">
-                              <option.icon className="h-4 w-4" />
-                              {option.label}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Where this task is typically performed.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               {/* Is Critical Switch */}
               <FormField

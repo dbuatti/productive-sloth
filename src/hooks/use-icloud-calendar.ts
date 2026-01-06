@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useSession } from '@/hooks/use-session'; // Standardized import
+import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { AvailableCalendar, UserCalendar, SyncedScheduledTask } from '@/types/calendar';
 import { DBScheduledTask } from '@/types/scheduler';

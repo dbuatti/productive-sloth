@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useSession } from '@/hooks/use-session'; // Standardized import
+import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { useEffect } from 'react';
 

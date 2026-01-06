@@ -1,3 +1,5 @@
+import { TaskEnvironment } from './scheduler'; // Import TaskEnvironment
+
 export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
 export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
@@ -16,17 +18,20 @@ export interface Task {
   created_at: string;
   updated_at: string;
   is_critical: boolean;
-  is_custom_energy_cost: boolean; // NEW: Added for custom energy cost
-  is_backburner: boolean; // FIX: Added missing property
+  is_custom_energy_cost: boolean;
+  is_backburner: boolean;
+  task_environment: TaskEnvironment; // NEW: Added task_environment
 }
 
 export interface NewTask {
   title: string;
   priority: TaskPriority;
+  metadata_xp?: number; // Made optional as it's calculated
+  energy_cost: number;
   due_date: string;
   description?: string;
   is_critical?: boolean;
-  is_backburner?: boolean; // FIX: Added missing property
-  energy_cost: number; // NEW: Made energy_cost required
-  is_custom_energy_cost?: boolean; // NEW: Added for custom energy cost
+  is_backburner?: boolean;
+  is_custom_energy_cost?: boolean;
+  task_environment?: TaskEnvironment; // NEW: Added task_environment
 }

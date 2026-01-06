@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
-import { Plus, Loader2, AlignLeft, Zap } from 'lucide-react';
+import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music } from 'lucide-react';
 import DatePicker from './DatePicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,23 +21,26 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils'; // Import calculateEnergyCost and setTimeOnDate
+import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
 import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import { format, isBefore, addDays, differenceInMinutes } from 'date-fns'; // Import date-fns utilities
+import { format, isBefore, addDays, differenceInMinutes } from 'date-fns';
+import { useEnvironments } from '@/hooks/use-environments';
+import { TaskEnvironment } from '@/types/scheduler';
 
 const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
   description: z.string().max(1000).optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
-  startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(), // NEW: Optional start time
-  endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(), // NEW: Optional end time
+  startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
+  endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
   isCritical: z.boolean().default(false),
-  isBackburner: z.boolean().default(false), // NEW: Backburner flag
-  energy_cost: z.coerce.number().min(0).default(0), 
-  is_custom_energy_cost: z.boolean().default(false), 
+  isBackburner: z.boolean().default(false),
+  energy_cost: z.coerce.number().min(0).default(0),
+  is_custom_energy_cost: z.boolean().default(false),
+  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'),
 });
 
 type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
@@ -45,12 +48,22 @@ type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
 interface CreateTaskDialogProps {
   defaultPriority: TaskPriority;
   defaultDueDate: Date;
-  defaultStartTime?: Date; // NEW: Optional default start time
-  defaultEndTime?: Date;   // NEW: Optional default end time
+  defaultStartTime?: Date;
+  defaultEndTime?: Date;
   onTaskCreated: () => void;
-  isOpen: boolean; // NEW: Control open state from parent
-  onOpenChange: (open: boolean) => void; // NEW: Callback for open state
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
 }
+
+const getEnvironmentIconComponent = (iconName: string) => {
+  switch (iconName) {
+    case 'Home': return Home;
+    case 'Laptop': return Laptop;
+    case 'Globe': return Globe;
+    case 'Music': return Music;
+    default: return Home; // Fallback
+  }
+};
 
 const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ 
   defaultPriority, 
@@ -62,7 +75,8 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   onOpenChange,
 }) => {
   const { addTask } = useTasks();
-  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0); 
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
+  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
   const isMobile = useIsMobile();
   
   const form = useForm<TaskCreationFormValues>({
@@ -78,11 +92,11 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       isBackburner: false,
       energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false),
       is_custom_energy_cost: false,
+      task_environment: 'laptop',
     },
     mode: 'onChange',
   });
 
-  // Effect to reset form and set default values when dialog opens or defaults change
   useEffect(() => {
     if (isOpen) {
       form.reset({
@@ -96,12 +110,12 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         isBackburner: false,
         energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false),
         is_custom_energy_cost: false,
+        task_environment: 'laptop',
       });
     }
   }, [isOpen, defaultPriority, defaultDueDate, defaultStartTime, defaultEndTime, form]);
 
 
-  // Effect to update calculated energy cost when relevant fields change
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (!value.is_custom_energy_cost && (name === 'isCritical' || name === 'isBackburner' || name === 'startTime' || name === 'endTime')) {
@@ -140,7 +154,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
     return () => subscription.unsubscribe();
   }, [form]);
 
-  // Initialize calculated energy cost on mount
   useEffect(() => {
     const initialIsCritical = form.getValues('isCritical');
     const initialIsBackburner = form.getValues('isBackburner');
@@ -161,7 +174,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
 
 
   const onSubmit = (values: TaskCreationFormValues) => {
-    const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost, startTime, endTime } = values;
+    const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost, task_environment } = values;
 
     const newTask: NewTask = {
       title: title.trim(),
@@ -172,12 +185,13 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       is_backburner: isBackburner,
       energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost, 
       is_custom_energy_cost: is_custom_energy_cost,
+      task_environment: task_environment,
     };
 
     addTask(newTask, {
       onSuccess: () => {
         onTaskCreated();
-        onOpenChange(false); // Close dialog
+        onOpenChange(false);
       }
     });
   };
@@ -269,7 +283,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           />
         </div>
 
-        {/* NEW: Optional Time Range Fields */}
+        {/* Optional Time Range Fields */}
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -299,6 +313,41 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           />
         </div>
 
+        {/* NEW: Task Environment */}
+        <FormField
+          control={form.control}
+          name="task_environment"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Task Environment</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingEnvironments}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select environment" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {environments.map(env => {
+                    const IconComponent = getEnvironmentIconComponent(env.icon);
+                    return (
+                      <SelectItem key={env.value} value={env.value}>
+                        <div className="flex items-center gap-2">
+                          <IconComponent className="h-4 w-4" />
+                          {env.label}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                Where this task is typically performed.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {/* Critical Task Switch */}
         <FormField
           control={form.control}
@@ -316,7 +365,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   checked={field.value}
                   onCheckedChange={(checked) => {
                     field.onChange(checked);
-                    if (checked) form.setValue('isBackburner', false); // Critical overrides Backburner
+                    if (checked) form.setValue('isBackburner', false);
                   }}
                 />
               </FormControl>
@@ -341,7 +390,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   checked={field.value}
                   onCheckedChange={(checked) => {
                     field.onChange(checked);
-                    if (checked) form.setValue('isCritical', false); // Backburner overrides Critical
+                    if (checked) form.setValue('isCritical', false);
                   }}
                   disabled={isCritical}
                 />
@@ -427,7 +476,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
     return (
       <Drawer open={isOpen} onOpenChange={onOpenChange}>
         <DrawerTrigger asChild>
-          {/* This trigger is now handled by SchedulerInput or SchedulerDisplay */}
           <Button variant="outline" size="icon" className="hidden">
             <AlignLeft className="h-4 w-4" />
             <span className="sr-only">Add Description</span>
@@ -446,7 +494,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        {/* This trigger is now handled by SchedulerInput or SchedulerDisplay */}
         <Button variant="outline" size="icon" className="hidden">
           <AlignLeft className="h-4 w-4" />
           <span className="sr-only">Add Description</span>

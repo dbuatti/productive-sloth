@@ -4,7 +4,7 @@ import { TaskEnvironment, UserEnvironment, NewUserEnvironment } from '@/types/sc
 import { Home, Laptop, Globe, Music, Check, Icon as LucideIcon, Plus, Edit, Trash2 } from 'lucide-react'; // Import LucideIcon and management icons
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useSession } from './use-session';
+import { useSession } from '@/hooks/use-session'; // Standardized import
 import { showError, showSuccess } from '@/utils/toast';
 
 // Map of Lucide icon names to components for dynamic rendering
@@ -57,14 +57,6 @@ export const EnvironmentContext = createContext<EnvironmentContextType>({
   updateEnvironment: async () => {},
   deleteEnvironment: async () => {},
 });
-
-export const useEnvironmentContext = () => {
-  const context = useContext(EnvironmentContext);
-  if (context === undefined) {
-    throw new Error('useEnvironmentContext must be used within an EnvironmentProvider');
-  }
-  return context;
-};
 
 export const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
@@ -214,4 +206,12 @@ export const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ c
       {children}
     </EnvironmentContext.Provider>
   );
+};
+
+export const useEnvironmentContext = () => {
+  const context = useContext(EnvironmentContext);
+  if (context === undefined) {
+    throw new Error('useEnvironmentContext must be used within an EnvironmentProvider');
+  }
+  return context;
 };

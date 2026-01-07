@@ -10,12 +10,6 @@ import { getIconComponent } from '@/context/EnvironmentContext.ts';
 
 const LOG_PREFIX = "[ENVIRONMENT_ORDER_SETTINGS]";
 
-// Helper to get icon component from environment value
-const getEnvironmentIconComponent = (value: string, environments: any[]) => {
-  const env = environments.find(opt => opt.value === value);
-  return env ? getIconComponent(env.icon) : null;
-};
-
 const EnvironmentOrderSettings: React.FC = () => {
   const { profile, updateProfile } = useSession();
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
@@ -23,29 +17,30 @@ const EnvironmentOrderSettings: React.FC = () => {
   // Filter and map the custom order to actual environment objects
   const orderedEnvironments = useMemo(() => {
     if (!profile || !environments) return [];
-    const customOrder = profile.custom_environment_order || [];
-    console.log(`${LOG_PREFIX} Computing ordered environments. Custom order:`, customOrder);
+    const customOrderValues = new Set(profile.custom_environment_order || []);
     
-    // Create a map for quick lookup of environment objects by their 'value'
-    const envMap = new Map(environments.map(env => [env.value, env]));
+    const orderedById: typeof environments = [];
+    const seenIds = new Set<string>();
 
-    // Filter customOrder to only include environments that actually exist for the user
-    // Then map them to their full object representation
-    const ordered = customOrder
-      .map(envValue => envMap.get(envValue))
-      .filter((env): env is typeof environments[0] => env !== undefined); // Type guard for non-null/undefined
-
-    // Add any environments that are present in the user's list but not in the custom order
-    // This ensures all user environments are always displayed and can be ordered
-    const existingEnvValues = new Set(ordered.map(env => env.value));
-    environments.forEach(env => {
-      if (!existingEnvValues.has(env.value)) {
-        ordered.push(env);
+    // 1. Add environments based on custom order, ensuring uniqueness by ID
+    (profile.custom_environment_order || []).forEach(envValue => {
+      const env = environments.find(e => e.value === envValue);
+      if (env && !seenIds.has(env.id)) {
+        orderedById.push(env);
+        seenIds.add(env.id);
       }
     });
 
-    console.log(`${LOG_PREFIX} Final ordered environments:`, ordered.map(e => e.value));
-    return ordered;
+    // 2. Add any remaining environments that were not in custom_environment_order, ensuring uniqueness by ID
+    environments.forEach(env => {
+      if (!seenIds.has(env.id)) {
+        orderedById.push(env);
+        seenIds.add(env.id);
+      }
+    });
+
+    console.log(`${LOG_PREFIX} Final ordered environments:`, orderedById.map(e => e.value));
+    return orderedById;
   }, [profile, environments]);
 
   const moveItem = async (index: number, direction: 'up' | 'down') => {
@@ -89,12 +84,12 @@ const EnvironmentOrderSettings: React.FC = () => {
 
       <div className="space-y-2">
         {orderedEnvironments.map((env, index) => {
-          const IconComponent = getEnvironmentIconComponent(env.value, environments);
+          const IconComponent = getIconComponent(env.icon); // Use the centralized helper
           if (!IconComponent) return null; // Fallback if icon not found
 
           return (
             <div 
-              key={env.id}
+              key={env.id} // Use env.id for unique key
               className="flex items-center justify-between p-3 rounded-lg border bg-secondary/30 transition-all hover:bg-secondary/50"
             >
               <div className="flex items-center gap-3">

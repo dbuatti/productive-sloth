@@ -3,10 +3,12 @@ import { DBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
-import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle } from 'lucide-react';
+import { Clock, Zap, Star, CheckCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Import the dialog
+import { useEnvironments } from '@/hooks/use-environments';
+import { getIconComponent } from '@/context/EnvironmentContext'; // Import from context
 
 interface SimplifiedScheduledTaskItemProps {
   task: DBScheduledTask;
@@ -15,27 +17,10 @@ interface SimplifiedScheduledTaskItemProps {
   onCompleteTask: (task: DBScheduledTask) => Promise<void>;
 }
 
-const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
-  const iconClass = "h-3.5 w-3.5 opacity-70";
-  switch (environment) {
-    case 'home': return <Home className={iconClass} />;
-    case 'laptop': return <Laptop className={iconClass} />;
-    case 'away': return <Globe className={iconClass} />;
-    case 'piano': return <Music className={iconClass} />;
-    case 'laptop_piano':
-      return (
-        <div className="relative">
-          <Laptop className={iconClass} />
-          <Music className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5" />
-        </div>
-      );
-    default: return null;
-  }
-};
-
 const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView, isCurrentlyActive, onCompleteTask }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false); // State for the dialog
   const [selectedTask, setSelectedTask] = useState<DBScheduledTask | null>(null); // State for the selected task
+  const { environments } = useEnvironments(); // Fetch environments
 
   const hue = getEmojiHue(task.name);
   const accentColor = `hsl(${hue} 70% 50%)`;
@@ -54,6 +39,15 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
     e.stopPropagation(); // Prevent parent click from firing
     setSelectedTask(task);
     setIsDialogOpen(true);
+  };
+
+  const getEnvironmentIcon = (environmentValue: DBScheduledTask['task_environment']) => {
+    const env = environments.find(e => e.value === environmentValue);
+    if (env) {
+      const IconComponent = getIconComponent(env.icon);
+      return <IconComponent className="h-3.5 w-3.5 opacity-70" />;
+    }
+    return null;
   };
 
   return (

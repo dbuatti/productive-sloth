@@ -12,13 +12,14 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { RetiredTask, TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music, Star, Info, AlertCircle } from 'lucide-react';
+import { Star, Info, AlertCircle } from 'lucide-react';
 import KanbanColumn from './KanbanColumn';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import { parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments hook
+import { getIconComponent } from '@/context/EnvironmentContext'; // Import from context
 
 const LOG_PREFIX = "[SINK_KANBAN_BOARD]";
 
@@ -46,7 +47,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   const { addRetiredTask } = useSchedulerTasks('');
   
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(activeId); // Initialize overId with activeId
 
   // Use distance constraint (5px) to differentiate click from drag
   const sensors = useSensors(
@@ -97,6 +98,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    setOverId(event.active.id as string); // Set overId to activeId initially
     console.log(`${LOG_PREFIX} Drag started for task:`, event.active.id);
   };
 
@@ -200,7 +202,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     return environments.map(env => ({
       value: env.value,
       label: env.label,
-      icon: env.icon,
+      icon: env.icon, // Keep the string icon name here
       color: env.color,
     }));
   }, [environments]);
@@ -235,11 +237,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
             const columnTasks = groupedTasks[option.value] || [];
             const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
             
-            // Get the icon component
-            const IconComponent = option.icon === 'Home' ? Home : 
-                                option.icon === 'Laptop' ? Laptop : 
-                                option.icon === 'Globe' ? Globe : 
-                                option.icon === 'Music' ? Music : Info;
+            // Get the icon component using the centralized helper
+            const IconComponent = getIconComponent(option.icon);
             
             return (
               <KanbanColumn

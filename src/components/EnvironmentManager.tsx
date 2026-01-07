@@ -66,7 +66,6 @@ const EnvironmentManager: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newEnvironment, setNewEnvironment] = useState({
     label: '',
-    value: '',
     icon: 'Home',
     color: '#FF6B6B',
     drain_multiplier: 1.0,
@@ -79,19 +78,13 @@ const EnvironmentManager: React.FC = () => {
       return;
     }
     
-    if (!newEnvironment.value.trim()) {
-      showError('Environment value is required');
-      return;
-    }
-
     addEnvironment({
       ...newEnvironment,
-      value: newEnvironment.value.toLowerCase().replace(/\s+/g, '_'),
+      value: newEnvironment.label.toLowerCase().replace(/\s+/g, '_'), // Generate value from label
     });
     
     setNewEnvironment({
       label: '',
-      value: '',
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
@@ -111,7 +104,7 @@ const EnvironmentManager: React.FC = () => {
     updateEnvironment({
       id,
       label: newEnvironment.label,
-      value: newEnvironment.value.toLowerCase().replace(/\s+/g, '_'),
+      value: newEnvironment.label.toLowerCase().replace(/\s+/g, '_'), // Generate value from label
       icon: newEnvironment.icon,
       color: newEnvironment.color,
       drain_multiplier: newEnvironment.drain_multiplier,
@@ -120,7 +113,6 @@ const EnvironmentManager: React.FC = () => {
     setEditingId(null);
     setNewEnvironment({
       label: '',
-      value: '',
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
@@ -131,7 +123,6 @@ const EnvironmentManager: React.FC = () => {
     setEditingId(env.id);
     setNewEnvironment({
       label: env.label,
-      value: env.value,
       icon: env.icon,
       color: env.color,
       drain_multiplier: env.drain_multiplier,
@@ -142,7 +133,6 @@ const EnvironmentManager: React.FC = () => {
     setEditingId(null);
     setNewEnvironment({
       label: '',
-      value: '',
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
@@ -195,15 +185,7 @@ const EnvironmentManager: React.FC = () => {
                   placeholder="e.g., Coffee Shop"
                 />
               </div>
-              <div>
-                <Label htmlFor="value">Value</Label>
-                <Input
-                  id="value"
-                  value={newEnvironment.value}
-                  onChange={(e) => setNewEnvironment({...newEnvironment, value: e.target.value})}
-                  placeholder="e.g., coffee_shop"
-                />
-              </div>
+              {/* Removed the 'Value' input field */}
               <div>
                 <Label htmlFor="icon">Icon</Label>
                 <Select 
@@ -289,11 +271,12 @@ const EnvironmentManager: React.FC = () => {
               <CardContent className="space-y-4">
                 {isEditing ? (
                   <>
+                    {/* Removed the 'Value' input field from editing as well */}
                     <div>
-                      <Label>Value</Label>
+                      <Label>Label</Label>
                       <Input
-                        value={newEnvironment.value}
-                        onChange={(e) => setNewEnvironment({...newEnvironment, value: e.target.value})}
+                        value={newEnvironment.label}
+                        onChange={(e) => setNewEnvironment({...newEnvironment, label: e.target.value})}
                       />
                     </div>
                     <div>
@@ -387,7 +370,7 @@ const EnvironmentManager: React.FC = () => {
                           variant="destructive" 
                           size="sm" 
                           onClick={() => handleDeleteEnvironment(env.id, env.label)}
-                          type="button" // Added type="button" here
+                          type="button"
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Delete

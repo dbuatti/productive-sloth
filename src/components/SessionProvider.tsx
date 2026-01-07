@@ -11,6 +11,7 @@ import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext } from '@/hooks/use-environment-context.ts';
 import { MealAssignment } from '@/hooks/use-meals';
+import isEqual from 'lodash.isequal'; // Import isEqual for deep comparison
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
@@ -39,6 +40,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearInterval(interval);
   }, []);
 
+  // Use a ref to hold the latest profile for deep comparison in useCallback
+  const profileRef = useRef(profile);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+
   const fetchProfile = useCallback(async (userId: string) => {
     setIsProfileLoading(true);
     try {
@@ -62,7 +69,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) {
         setProfile(null);
       } else if (data) {
-        setProfile(data as UserProfile);
+        // Deep compare to prevent unnecessary state updates if data is identical
+        if (!isEqual(profileRef.current, data)) {
+          setProfile(data as UserProfile);
+        }
         if (data.is_in_regen_pod && data.regen_pod_start_time) {
           const start = parseISO(data.regen_pod_start_time);
           const elapsed = differenceInMinutes(new Date(), start);
@@ -77,7 +87,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } finally {
       setIsProfileLoading(false);
     }
-  }, []);
+  }, []); // No 'profile' in dependencies here, as we use profileRef.current
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) await fetchProfile(user.id);
@@ -277,31 +287,38 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const nextItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => i.startTime > T_current) || null, [calculatedScheduleToday, T_current]);
 
+  const contextValue = useMemo(() => ({
+    session, 
+    user, 
+    profile, 
+    isLoading, 
+    refreshProfile, 
+    rechargeEnergy, 
+    showLevelUp, 
+    levelUpLevel, 
+    triggerLevelUp, 
+    resetLevelUp, 
+    resetDailyStreak, 
+    claimDailyReward, 
+    updateNotificationPreferences, 
+    updateProfile, 
+    updateSettings,
+    triggerEnergyRegen,
+    activeItemToday,
+    nextItemToday,
+    T_current,
+    startRegenPodState,
+    exitRegenPodState,
+    regenPodDurationMinutes
+  }), [
+    session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
+    triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
+    updateProfile, updateSettings, triggerEnergyRegen, activeItemToday, nextItemToday, T_current, 
+    startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+  ]);
+
   return (
-    <SessionContext.Provider value={{ 
-      session, 
-      user, 
-      profile, 
-      isLoading, 
-      refreshProfile, 
-      rechargeEnergy, 
-      showLevelUp, 
-      levelUpLevel, 
-      triggerLevelUp, 
-      resetLevelUp, 
-      resetDailyStreak, 
-      claimDailyReward, 
-      updateNotificationPreferences, 
-      updateProfile, 
-      updateSettings,
-      triggerEnergyRegen,
-      activeItemToday,
-      nextItemToday,
-      T_current,
-      startRegenPodState,
-      exitRegenPodState,
-      regenPodDurationMinutes
-    }}>
+    <SessionContext.Provider value={contextValue}>
       {!isAuthLoading ? children : null}
     </SessionContext.Provider>
   );

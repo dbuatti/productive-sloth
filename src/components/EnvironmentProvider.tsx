@@ -7,7 +7,7 @@ import { useEnvironments } from '@/hooks/use-environments';
 
 const LOG_PREFIX = "[ENVIRONMENT_PROVIDER]";
 
-const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const EnvironmentProvider = React.memo(({ children }: { children: React.ReactNode }) => {
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   
   const [selectedEnvironments, setSelectedEnvironments] = useState<TaskEnvironment[]>(() => {
@@ -81,6 +81,6 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </EnvironmentContext.Provider>
   );
-};
+});
 
 export default EnvironmentProvider;

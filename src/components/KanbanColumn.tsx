@@ -92,7 +92,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               if (placeholderIndex === index && !isPlaceholder) {
                 return (
                   <div 
-                    key="placeholder" 
+                    key={`${id}-placeholder-active`} 
                     className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest mb-2"
                     style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
                   >
@@ -113,7 +113,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             {/* Render placeholder at the end if the column is empty or the drop target is the end */}
             {isOverColumn && tasks.length === 0 && (
               <div 
-                key="placeholder-empty" 
+                key={`${id}-placeholder-empty`} 
                 className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
                 style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
               >
@@ -123,7 +123,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             
             {isOverColumn && tasks.length > 0 && placeholderIndex === tasks.length && (
               <div 
-                key="placeholder-end" 
+                key={`${id}-placeholder-end`} 
                 className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
                 style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
               >

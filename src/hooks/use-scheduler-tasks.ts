@@ -936,7 +936,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       let placementCursor = effectiveStart;
       for (const t of finalSortedPool) {
         let placed = false;
-        let searchTime = placementCursor;
+        const taskTotalDuration = (t.duration || 30) + (t.break_duration || 0);
+
+        // Skip critical tasks if energy is low, and move them to sink
         if (t.is_critical && profile.energy < LOW_ENERGY_THRESHOLD) {
           if (t.source === 'scheduled') {
             if (!Array.isArray(tasksToKeepInSink)) { console.error("[SchedulerEngine ERROR] tasksToKeepInSink is not an array before push (skipped critical scheduled)"); return; } // DEFENSIVE CHECK
@@ -944,42 +946,57 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             scheduledIdsToDelete.push(t.originalId);
           }
           console.log(`[SchedulerEngine] Skipped Critical Task (Low Energy): ${t.name}`);
-          continue;
+          // CRITICAL FIX: Advance placementCursor even if task is skipped
+          const freeBlocksAfterCursor = getFreeTimeBlocks(currentOccupied, placementCursor, targetWorkdayEnd);
+          if (freeBlocksAfterCursor.length > 0) {
+            placementCursor = freeBlocksAfterCursor[0].start;
+          } else {
+            placementCursor = targetWorkdayEnd;
+          }
+          continue; 
         }
 
-        const freeBlocks = getFreeTimeBlocks(currentOccupied, searchTime, targetWorkdayEnd);
-        const total = (t.duration || 30) + (t.break_duration || 0);
-        
-        for (const slot of freeBlocks) {
-          if (slot.duration >= total) {
-            const start = slot.start;
-            const end = addMinutes(start, total);
-            
-            if (!Array.isArray(tasksToInsert)) { console.error("[SchedulerEngine ERROR] tasksToInsert is not an array before push (placed task)"); return; } // DEFENSIVE CHECK
-            tasksToInsert.push({ 
-                id: t.source === 'retired' ? undefined : t.originalId, 
-                name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), 
-                break_duration: t.break_duration, scheduled_date: targetDateString, is_critical: t.is_critical, 
-                is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, 
-                is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner 
-            });
-            
-            // CRITICAL: Update currentOccupied immediately with the newly placed block
-            currentOccupied.push({ start, end, duration: total });
-            currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
-            placementCursor = end;
-            placed = true;
-            
-            if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
-            
-            console.log(`[SchedulerEngine] Placed: ${t.name} (${t.source}) at ${format(start, 'HH:mm')}`);
-            break;
-          }
+        // Find the first available slot starting from the current placementCursor
+        const slot = findFirstAvailableSlot(taskTotalDuration, currentOccupied, placementCursor, targetWorkdayEnd);
+
+        if (slot) {
+          // Task successfully placed
+          const start = slot.start;
+          const end = addMinutes(start, taskTotalDuration);
+          
+          tasksToInsert.push({ 
+              id: t.source === 'retired' ? undefined : t.originalId, 
+              name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), 
+              break_duration: t.break_duration, scheduled_date: targetDateString, is_critical: t.is_critical, 
+              is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, 
+              is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner 
+          });
+          
+          // Update currentOccupied immediately with the newly placed block
+          currentOccupied.push({ start, end, duration: taskTotalDuration });
+          currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+          placementCursor = end; // Advance cursor to the end of the placed task
+          placed = true;
+          
+          if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
+          
+          console.log(`[SchedulerEngine] Placed: ${t.name} (${t.source}) at ${format(start, 'HH:mm')}`);
         }
 
         if (!placed) {
+          // Task failed to place.
+          // We need to advance the placementCursor past the current problematic area.
+          // Find the next available free block or the end of the next occupied block.
+          const freeBlocksAfterCursor = getFreeTimeBlocks(currentOccupied, placementCursor, targetWorkdayEnd);
+          if (freeBlocksAfterCursor.length > 0) {
+            // If there are free blocks, advance cursor to the start of the first one
+            placementCursor = freeBlocksAfterCursor[0].start;
+          } else {
+            // If no more free blocks, advance cursor to workdayEnd
+            placementCursor = targetWorkdayEnd;
+          }
+
           if (t.source === 'scheduled') {
-            if (!Array.isArray(tasksToKeepInSink)) { console.error("[SchedulerEngine ERROR] tasksToKeepInSink is not an array before push (unplaced scheduled)"); return; } // DEFENSIVE CHECK
             tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
             console.log(`[SchedulerEngine] Failed to place: ${t.name}. Returning to Sink.`);
           } else {

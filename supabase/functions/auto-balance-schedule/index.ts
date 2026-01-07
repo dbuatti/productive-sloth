@@ -14,8 +14,8 @@ const corsHeaders = {
 interface AutoBalancePayload {
   scheduledTaskIdsToDelete: string[];
   retiredTaskIdsToDelete: string[];
-  tasksToInsert: any[]; // Tasks to be inserted/updated
-  tasksToKeepInSink: any[]; // Tasks to be re-inserted into sink
+  tasksToInsert: any[] | null | undefined; // Allow null/undefined from JSON parsing
+  tasksToKeepInSink: any[] | null | undefined; // Allow null/undefined from JSON parsing
   selectedDate: string;
 }
 
@@ -67,7 +67,6 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // --- JWT Verification ---
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     if (!SUPABASE_URL) {
@@ -104,7 +103,11 @@ serve(async (req) => {
       });
     }
 
-    const { scheduledTaskIdsToDelete, retiredTaskIdsToDelete, tasksToInsert, tasksToKeepInSink, selectedDate }: AutoBalancePayload = await req.json();
+    const { scheduledTaskIdsToDelete, retiredTaskIdsToDelete, tasksToInsert: rawTasksToInsert, tasksToKeepInSink: rawTasksToKeepInSink, selectedDate }: AutoBalancePayload = await req.json();
+
+    // Ensure tasksToInsert and tasksToKeepInSink are always arrays
+    const tasksToInsert = Array.isArray(rawTasksToInsert) ? rawTasksToInsert : [];
+    const tasksToKeepInSink = Array.isArray(rawTasksToKeepInSink) ? rawTasksToKeepInSink : [];
 
     const supabaseClient = createClient(
       // @ts-ignore
@@ -158,7 +161,6 @@ serve(async (req) => {
       // 3b. Insert new tasks (where ID is missing)
       if (tasksToInsertNew.length > 0) {
         console.log(`${functionName} Inserting new scheduled tasks: ${tasksToInsertNew.length}`);
-        // CRITICAL: Use insert() for new tasks to allow DB to generate UUID
         const { error } = await supabaseClient
           .from('scheduled_tasks')
           .insert(tasksToInsertNew); 

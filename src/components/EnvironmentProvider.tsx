@@ -54,6 +54,7 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const environmentOptions: EnvironmentOption[] = useMemo(() => {
     const options = environments.map(env => ({
+      id: env.id, // Add id here
       value: env.value as TaskEnvironment,
       label: env.label,
       icon: getIconComponent(env.icon),

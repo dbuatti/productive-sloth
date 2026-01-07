@@ -198,6 +198,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   // Get environment options for grouping
   const environmentOptions = useMemo(() => {
     return environments.map(env => ({
+      id: env.id, // Use id here
       value: env.value,
       label: env.label,
       icon: env.icon,
@@ -246,8 +247,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
             
             return (
               <KanbanColumn
-                key={option.value}
-                id={option.value}
+                key={option.id} // Use option.id for key
+                id={option.id}  // Use option.id for id
                 title={option.label}
                 icon={<IconComponent className="h-4 w-4" style={{ color: option.color }} />}
                 tasks={columnTasks}

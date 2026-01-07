@@ -15,6 +15,7 @@ export const getIconComponent = (iconName: string): LucideIcon => {
 };
 
 export interface EnvironmentOption {
+  id: string; // Add id here
   value: TaskEnvironment;
   label: string;
   icon: LucideIcon;

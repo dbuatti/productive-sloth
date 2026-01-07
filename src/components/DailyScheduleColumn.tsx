@@ -135,6 +135,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
           
           // Skip rendering if task is invalid or has zero duration/height
           if (!task.start_time || !task.end_time || durationMinutes <= 0) {
+            console.warn(`[DailyScheduleColumn] Skipping invalid task: ${task.name} (ID: ${task.id}) due to missing times or zero duration.`);
             return null;
           }
           
@@ -154,7 +155,11 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
           return (
             <div
               key={task.id}
-              className="absolute left-1 right-1 rounded-md p-0.5 transition-all duration-300"
+              className={cn(
+                "absolute left-1 right-1 rounded-md p-0.5 transition-all duration-300",
+                "bg-card/60 border border-white/5",
+                isPastTask && "opacity-40 grayscale pointer-events-none"
+              )}
               style={{ top: `${top}px`, height: `${height}px` }}
             >
               <SimplifiedScheduledTaskItem 

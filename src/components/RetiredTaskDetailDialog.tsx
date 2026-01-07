@@ -158,7 +158,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       onOpenChange(false);
     } catch (error) {
       showError("Failed to save retired task.");
-      // console.error("Failed to save retired task:", error);
+      console.error("Failed to save retired task:", error);
     }
   };
 

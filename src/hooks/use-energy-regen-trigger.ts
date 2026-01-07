@@ -38,7 +38,7 @@ export const useEnergyRegenTrigger = () => {
       await refreshProfile();
 
     } catch (e: any) {
-      // 
+      // console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
     } finally {
       isTriggeringRef.current = false; // Reset ref to false
     }

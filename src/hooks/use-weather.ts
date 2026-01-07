@@ -85,7 +85,7 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
             // If you want to use geolocation, you'd need to update state here
             // that the useWeather hook depends on (e.g., by having lat/lon as state
             // in SchedulerPage and passing it down).
-            // 
+            // console.log("Geolocation obtained, but not automatically used by useWeather hook. Pass lat/lon or city explicitly.");
           },
           (geoError) => {
             setLocationError(`Geolocation error: ${geoError.message}. Defaulting to Melbourne.`);

@@ -136,7 +136,7 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
         // 80% Cue Logic
         if (elapsed >= effectivePodDuration * 0.8 && !showOptimizedCue) {
           setShowOptimizedCue(true);
-          // console.log("AUDIO CUE: PING! Recovery Optimized.");
+          console.log("AUDIO CUE: PING! Recovery Optimized.");
         }
 
       }, 1000);

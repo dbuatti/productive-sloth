@@ -1,4 +1,3 @@
-/// <reference lib="deno.ns" />
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
@@ -20,7 +19,6 @@ serve(async (req) => {
 
   try {
     // Get environment variables
-    // @ts-ignore
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!SUPABASE_SERVICE_ROLE_KEY) {
@@ -41,6 +39,7 @@ serve(async (req) => {
 
     if (!response.ok) {
         const errorText = await response.text();
+        console.error("Error response from energy-regen:", response.status, errorText);
         throw new Error(`Energy-regen failed with status ${response.status}: ${errorText}`);
     }
 
@@ -50,6 +49,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
+    console.error("Edge Function error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

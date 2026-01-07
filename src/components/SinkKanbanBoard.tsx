@@ -20,6 +20,8 @@ import { showError } from '@/utils/toast';
 import { parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments hook
 
+const LOG_PREFIX = "[SINK_KANBAN_BOARD]";
+
 // --- Main Kanban Board Component ---
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
@@ -89,11 +91,13 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       groups[groupKey].push(task);
     });
     
+    console.log(`${LOG_PREFIX} Grouped tasks by ${groupBy}:`, groups);
     return groups;
   }, [retiredTasks, groupBy, environments]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    console.log(`${LOG_PREFIX} Drag started for task:`, event.active.id);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -120,14 +124,18 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       const validEnvironment = environments.some(env => env.value === overContainerId);
       if (validEnvironment) {
         updateData = { task_environment: overContainerId as TaskEnvironment };
+        console.log(`${LOG_PREFIX} Drag end: Moving task ${activeTask.name} to environment ${overContainerId}`);
       }
     } else {
       if (overContainerId === 'critical') {
         updateData = { is_critical: true, is_backburner: false };
+        console.log(`${LOG_PREFIX} Drag end: Moving task ${activeTask.name} to critical`);
       } else if (overContainerId === 'backburner') {
         updateData = { is_critical: false, is_backburner: true };
+        console.log(`${LOG_PREFIX} Drag end: Moving task ${activeTask.name} to backburner`);
       } else if (overContainerId === 'standard') {
         updateData = { is_critical: false, is_backburner: false };
+        console.log(`${LOG_PREFIX} Drag end: Moving task ${activeTask.name} to standard`);
       }
     }
     
@@ -153,18 +161,22 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       const validEnvironment = environments.some(env => env.value === columnId);
       if (validEnvironment) {
         finalTask.task_environment = columnId as TaskEnvironment;
+        console.log(`${LOG_PREFIX} Quick add to environment column: ${columnId}, task:`, finalTask);
       }
     } else {
       if (columnId === 'critical') {
         finalTask.is_critical = true;
         finalTask.is_backburner = false;
+        console.log(`${LOG_PREFIX} Quick add to critical column, task:`, finalTask);
       } else if (columnId === 'backburner') {
         finalTask.is_critical = false;
         finalTask.is_backburner = true;
+        console.log(`${LOG_PREFIX} Quick add to backburner column, task:`, finalTask);
       } else {
         // standard
         finalTask.is_critical = false;
         finalTask.is_backburner = false;
+        console.log(`${LOG_PREFIX} Quick add to standard column, task:`, finalTask);
       }
     }
     

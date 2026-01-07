@@ -29,11 +29,14 @@ export interface EnvironmentContextType {
   isLoadingEnvironments: boolean;
 }
 
+const LOG_PREFIX = "[ENVIRONMENT_CONTEXT]";
+
 export const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);
 
 export const useEnvironmentContext = () => {
   const context = useContext(EnvironmentContext);
   if (context === undefined) {
+    console.error(`${LOG_PREFIX} useEnvironmentContext called outside of provider`);
     throw new Error('useEnvironmentContext must be used within an EnvironmentProvider');
   }
   return context;

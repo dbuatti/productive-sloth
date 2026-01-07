@@ -8,6 +8,8 @@ import { showSuccess, showError } from '@/utils/toast';
 import { useEnvironments } from '@/hooks/use-environments';
 import { getIconComponent } from '@/context/EnvironmentContext.ts';
 
+const LOG_PREFIX = "[ENVIRONMENT_ORDER_SETTINGS]";
+
 // Helper to get icon component from environment value
 const getEnvironmentIconComponent = (value: string, environments: any[]) => {
   const env = environments.find(opt => opt.value === value);
@@ -22,6 +24,7 @@ const EnvironmentOrderSettings: React.FC = () => {
   const orderedEnvironments = useMemo(() => {
     if (!profile || !environments) return [];
     const customOrder = profile.custom_environment_order || [];
+    console.log(`${LOG_PREFIX} Computing ordered environments. Custom order:`, customOrder);
     
     // Create a map for quick lookup of environment objects by their 'value'
     const envMap = new Map(environments.map(env => [env.value, env]));
@@ -41,6 +44,7 @@ const EnvironmentOrderSettings: React.FC = () => {
       }
     });
 
+    console.log(`${LOG_PREFIX} Final ordered environments:`, ordered.map(e => e.value));
     return ordered;
   }, [profile, environments]);
 
@@ -54,13 +58,15 @@ const EnvironmentOrderSettings: React.FC = () => {
 
     [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
 
+    console.log(`${LOG_PREFIX} Moving item at index ${index} ${direction}. New order:`, newOrder);
+
     try {
       // Cast newOrder to TaskEnvironment[] to resolve the TypeScript error
       await updateProfile({ custom_environment_order: newOrder as TaskEnvironment[] });
       showSuccess("Environment order updated.");
     } catch (e) {
       showError("Failed to update environment order.");
-      console.error("Error updating environment order:", e);
+      console.error(`${LOG_PREFIX} Error updating environment order:`, e);
     }
   };
 

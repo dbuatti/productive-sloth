@@ -19,6 +19,8 @@ import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
 import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments
 
+const LOG_PREFIX = "[AETHER_SINK]";
+
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
   switch (environment) {
@@ -45,7 +47,7 @@ interface AetherSinkProps {
   isProcessingCommand: boolean;
   profile: UserProfile | null;
   retiredSortBy: RetiredTaskSortBy;
-  setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
+  setRetiredSortBy: (sortBy: RetTaskSortBy) => void;
 }
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ 
@@ -79,6 +81,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   }, []);
 
   const handleOpenDetailDialog = useCallback((task: RetiredTask) => {
+    console.log(`${LOG_PREFIX} Opening detail dialog for task:`, task.name);
     setSelectedRetiredTask(task);
     setIsDialogOpen(true);
   }, []);
@@ -116,13 +119,17 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
       return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
     }
 
+    console.log(`${LOG_PREFIX} Adding task to sink via quick add:`, parsedTask);
     await addRetiredTask(parsedTask);
     setLocalInput(''); // Clear input after adding
   }, [user, addRetiredTask]);
 
   const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
     <DropdownMenuItem 
-      onClick={() => setRetiredSortBy(type)} 
+      onClick={() => {
+        console.log(`${LOG_PREFIX} Setting retired sort to: ${type}`);
+        setRetiredSortBy(type);
+      }} 
       className={cn("cursor-pointer font-bold text-xs uppercase tracking-widest", retiredSortBy === type && 'bg-primary/10 text-primary')}
     >
       <Icon className="mr-2 h-4 w-4" />
@@ -138,7 +145,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             variant={viewMode === 'list' ? 'default' : 'ghost'} 
             size="icon" 
             className={cn("h-8 w-8 rounded-md", viewMode === 'list' && "shadow-sm")}
-            onClick={() => setViewMode('list')}
+            onClick={() => {
+              console.log(`${LOG_PREFIX} Setting view mode to: list`);
+              setViewMode('list');
+            }}
           >
             <List className="h-4 w-4" />
           </Button>
@@ -151,7 +161,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             variant={viewMode === 'kanban' ? 'default' : 'ghost'} 
             size="icon" 
             className={cn("h-8 w-8 rounded-md", viewMode === 'kanban' && "shadow-sm")}
-            onClick={() => setViewMode('kanban')}
+            onClick={() => {
+              console.log(`${LOG_PREFIX} Setting view mode to: kanban`);
+              setViewMode('kanban');
+            }}
           >
             <LayoutDashboard className="h-4 w-4" />
           </Button>
@@ -201,8 +214,14 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
                   <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Group By</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => setGroupBy('environment')} className="font-bold text-xs uppercase py-2 px-3">Environment</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setGroupBy('priority')} className="font-bold text-xs uppercase py-2 px-3">Priority</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    console.log(`${LOG_PREFIX} Setting group by to: environment`);
+                    setGroupBy('environment');
+                  }} className="font-bold text-xs uppercase py-2 px-3">Environment</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    console.log(`${LOG_PREFIX} Setting group by to: priority`);
+                    setGroupBy('priority');
+                  }} className="font-bold text-xs uppercase py-2 px-3">Priority</DropdownMenu>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

@@ -5,6 +5,8 @@ import { TaskEnvironment } from '@/types/scheduler';
 import { EnvironmentContext, EnvironmentContextType, EnvironmentOption, getIconComponent } from '@/context/EnvironmentContext.ts';
 import { useEnvironments } from '@/hooks/use-environments';
 
+const LOG_PREFIX = "[ENVIRONMENT_PROVIDER]";
+
 const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   
@@ -16,39 +18,49 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const parsed = JSON.parse(savedEnv);
           // Basic validation to ensure it's an array of strings
           if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+            console.log(`${LOG_PREFIX} Loaded saved environments from localStorage:`, parsed);
             return parsed as TaskEnvironment[];
           }
         }
       } catch (e) {
-        // console.error("Failed to parse stored environments:", e);
+        console.error(`${LOG_PREFIX} Failed to parse stored environments:`, e);
       }
     }
+    console.log(`${LOG_PREFIX} No saved environments found, defaulting to empty array`);
     return []; // Default to NO environment selected
   });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('aetherflow-environments', JSON.stringify(selectedEnvironments));
+      console.log(`${LOG_PREFIX} Saved environments to localStorage:`, selectedEnvironments);
     }
   }, [selectedEnvironments]);
 
   const toggleEnvironmentSelection = (env: TaskEnvironment) => {
+    console.log(`${LOG_PREFIX} Toggling environment selection:`, env);
     setSelectedEnvironments(prev => {
       if (prev.includes(env)) {
-        return prev.filter(e => e !== env);
+        const newSelection = prev.filter(e => e !== env);
+        console.log(`${LOG_PREFIX} Environment removed, new selection:`, newSelection);
+        return newSelection;
       } else {
-        return [...prev, env];
+        const newSelection = [...prev, env];
+        console.log(`${LOG_PREFIX} Environment added, new selection:`, newSelection);
+        return newSelection;
       }
     });
   };
 
   const environmentOptions: EnvironmentOption[] = useMemo(() => {
-    return environments.map(env => ({
+    const options = environments.map(env => ({
       value: env.value as TaskEnvironment,
       label: env.label,
       icon: getIconComponent(env.icon),
       color: env.color,
     }));
+    console.log(`${LOG_PREFIX} Computed environment options:`, options);
+    return options;
   }, [environments]);
 
   const value: EnvironmentContextType = {
@@ -58,6 +70,8 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
     environmentOptions,
     isLoadingEnvironments,
   };
+
+  console.log(`${LOG_PREFIX} Rendering provider with state:`, { selectedEnvironments, optionCount: environmentOptions.length, isLoadingEnvironments });
 
   return (
     <EnvironmentContext.Provider value={value}>

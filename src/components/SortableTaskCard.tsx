@@ -20,6 +20,8 @@ import { motion } from 'framer-motion';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showError } from '@/utils/toast';
 
+const LOG_PREFIX = "[SORTABLE_TASK_CARD]";
+
 interface SortableCardProps {
   task: RetiredTask;
   // NEW: Prop to open the detail dialog
@@ -66,6 +68,7 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
     // Prevent opening if a button inside the card was clicked
     if ((e.target as HTMLElement).closest('button')) return;
 
+    console.log(`${LOG_PREFIX} Card clicked for task:`, task.name);
     onOpenDetailDialog(task);
   };
 

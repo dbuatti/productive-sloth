@@ -18,16 +18,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useEnvironmentContext } from "@/context/EnvironmentContext.ts";
 
+const LOG_PREFIX = "[ENVIRONMENT_MULTISELECT]";
+
 const EnvironmentMultiSelect: React.FC = () => {
   const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments, environmentOptions, isLoadingEnvironments } = useEnvironmentContext();
   const [open, setOpen] = React.useState(false);
 
   const selectedOptions = React.useMemo(() => {
-    return environmentOptions.filter(opt => selectedEnvironments.includes(opt.value));
+    const options = environmentOptions.filter(opt => selectedEnvironments.includes(opt.value));
+    console.log(`${LOG_PREFIX} Computed selected options:`, options);
+    return options;
   }, [selectedEnvironments, environmentOptions]);
 
   const handleClearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log(`${LOG_PREFIX} Clearing all environment selections`);
     setSelectedEnvironments([]);
   };
 
@@ -111,7 +116,10 @@ const EnvironmentMultiSelect: React.FC = () => {
                 return (
                   <CommandItem
                     key={option.value}
-                    onSelect={() => toggleEnvironmentSelection(option.value)}
+                    onSelect={() => {
+                      console.log(`${LOG_PREFIX} CommandItem selected:`, option.value);
+                      toggleEnvironmentSelection(option.value);
+                    }}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 mb-1",
                       "hover:bg-primary/10 data-[selected='true']:bg-primary/5",

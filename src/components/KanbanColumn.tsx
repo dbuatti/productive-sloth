@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RetiredTask } from '@/types/scheduler';
 
+const LOG_PREFIX = "[KANBAN_COLUMN]";
+
 interface KanbanColumnProps {
   id: string; // e.g., 'home', 'laptop'
   title: string;
@@ -41,6 +43,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const handleSubmit = async () => {
     if (!localInput.trim()) return;
     setIsSubmitting(true);
+    console.log(`${LOG_PREFIX} Quick adding to column ${id}:`, localInput);
     await onQuickAdd(localInput, id);
     setLocalInput('');
     setIsSubmitting(false);
@@ -140,7 +143,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               value={localInput} 
               onChange={(e) => setLocalInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              placeholder="Inject objective: Name [dur]..."
+              placeholder="Inject objective: Name [dur] [!] [-]..."
               className="border-none bg-transparent focus-visible:ring-0 text-xs font-bold placeholder:opacity-20 h-10 px-3"
             />
             <Button 

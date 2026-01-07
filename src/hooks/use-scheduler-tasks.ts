@@ -10,14 +10,7 @@ import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION,
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, findFirstAvailableSlot, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironments, Environment } from './use-environments';
 
-// Helper to log to both console and toast for visibility
-const engineLog = (message: string, type: 'info' | 'warn' | 'error' = 'info') => {
-  console.log(`[SchedulerEngine] ${message}`);
-  if (type === 'error') showError(message);
-  // We only toast info/warn if it's a significant event to avoid spamming, 
-  // but for debugging we can toast everything temporarily.
-  // For now, let's toast specific critical steps.
-};
+const LOG_PREFIX = "[SCHEDULER_ENGINE]";
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
@@ -684,7 +677,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
 
     showSuccess("Engine: Starting...");
-    console.log(`[SchedulerEngine] Initiating auto-schedule. Mode: ${taskSource}, Sort: ${sortPreference}`);
+    console.log(`[SchedulerEngine] Initiating auto-schedule. Mode: ${taskSource}, Sort: ${sortPreference}, Environments: ${environmentsToFilterBy.join(', ') || 'All'}`);
 
     const [year, month, day] = targetDateString.split('-').map(Number);
     const targetDayAsDate = new Date(year, month - 1, day);

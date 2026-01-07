@@ -841,10 +841,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           groups[t.task_environment].push(t);
         });
 
-        const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env].length > 0);
+        // FIX: Ensure groups[env] is defined before accessing .length
+        const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env] && groups[env].length > 0);
         
         const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-        const orderedEnvs = envOrder.filter(env => groups[env].length > 0);
+        // FIX: Ensure groups[env] is defined before accessing .length
+        const orderedEnvs = envOrder.filter(env => groups[env] && groups[env].length > 0);
         const quotaPerEnv = orderedEnvs.length > 0 ? Math.floor(netAvailableTime / orderedEnvs.length) : netAvailableTime;
 
         activeEnvs.forEach(env => {
@@ -859,8 +861,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
         const fillQuotaPass = (quotaMinutes: number) => {
             for (const env of orderedEnvs) {
-                let envTimeUsed = 0;
                 const group = groups[env];
+                if (!group) { // Defensive check
+                    console.warn(`[SchedulerEngine] Group for environment ${env} is undefined during fillQuotaPass.`);
+                    continue;
+                }
+                let envTimeUsed = 0;
                 while (group.length > 0 && envTimeUsed < quotaMinutes) {
                     const task = group[0];
                     const taskTotal = (task.duration || 30) + (task.break_duration || 0);
@@ -882,9 +888,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             while (hasRemaining) {
                 hasRemaining = false;
                 for (const env of orderedEnvs) {
-                    if (groups[env].length > 0) {
+                    const group = groups[env];
+                    if (!group) { // Defensive check
+                        console.warn(`[SchedulerEngine] Group for environment ${env} is undefined during non-chunking pass.`);
+                        continue;
+                    }
+                    if (group.length > 0) {
                         if (!Array.isArray(finalSortedPool)) { console.error("[SchedulerEngine ERROR] finalSortedPool is not an array before push (non-chunking)"); return; } // DEFENSIVE CHECK
-                        finalSortedPool.push(groups[env].shift()!);
+                        finalSortedPool.push(group.shift()!);
                         hasRemaining = true;
                     }
                 }
@@ -892,9 +903,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }
         
         orderedEnvs.forEach(env => {
-            while (groups[env].length > 0) {
+            const group = groups[env];
+            if (!group) { // Defensive check
+                console.warn(`[SchedulerEngine] Group for environment ${env} is undefined during final cleanup.`);
+                return;
+            }
+            while (group.length > 0) {
               if (!Array.isArray(finalSortedPool)) { console.error("[SchedulerEngine ERROR] finalSortedPool is not an array before push (remaining groups)"); return; } // DEFENSIVE CHECK
-              finalSortedPool.push(groups[env].shift()!);
+              finalSortedPool.push(group.shift()!);
             }
         });
 

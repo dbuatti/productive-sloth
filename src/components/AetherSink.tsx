@@ -178,10 +178,10 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             <div className="p-2 rounded-lg bg-secondary/50">
               <Trash2 className="h-5 w-5 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+            <span className="text-xl font-black uppercase tracking-tighter flex items-center gap-2"> {/* Changed h2 to span */}
               <span>Aether Sink</span>
               <span className="text-xs font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
-            </h2>
+            </span>
           </CardTitle>
           <div className="flex items-center gap-2">
             {/* View Toggle */}
@@ -408,7 +408,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                               )}
                               aria-label={isLocked ? `Unlock "${task.name}"` : `Lock "${task.name}"`}
                             >
-                              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4 opacity-50" />}
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>{isLocked ? "Secure" : "Accessible"}</TooltipContent>

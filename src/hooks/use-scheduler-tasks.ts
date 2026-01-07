@@ -656,7 +656,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId || !session?.access_token) throw new Error("Authentication required.");
       const { data, error } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(data.error || error.message);
       if (data.error) throw new Error(data.error);
       return data;
     },
@@ -707,11 +707,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       // 1. Identify Fixed Blocks (Scheduled Tasks + Static Anchors)
       
       // Scheduled Fixed/Locked Tasks
+      // For a single rezone operation, treat ALL existing scheduled tasks as occupied blocks.
+      // For auto-balance, only truly fixed/locked tasks are constraints.
       const scheduledFixedBlocks: TimeBlock[] = (dbTasks || []).filter(t => {
-        // In 'sink-to-gaps' mode, ALL existing scheduled tasks are constraints.
-        if (taskSource === 'sink-to-gaps') return true; 
-        // In 'all-flexible' or 'sink-only' mode, only truly fixed/locked tasks are constraints.
-        return (!t.is_flexible || t.is_locked);
+        if (taskSource === 'sink-to-gaps') return true; // All existing scheduled tasks are constraints
+        return (!t.is_flexible || t.is_locked); // Only truly fixed/locked tasks are constraints
       }).filter(t => t.start_time && t.end_time).map(t => {
         const start = setTimeOnDate(targetDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
         let end = setTimeOnDate(targetDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
@@ -797,22 +797,33 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (taskSource === 'sink-to-gaps') {
           // Keep all existing scheduled tasks as constraints, so we don't add them to tasksToInsert yet.
           // We only insert the newly placed retired tasks later.
+          (dbTasks || []).forEach(t => {
+              if (!tasksToInsert.some(inserted => inserted.id === t.id)) {
+                  if (!Array.isArray(tasksToInsert)) { console.error("[SchedulerEngine ERROR] tasksToInsert is not an array before push (sink-to-gaps)"); return; } // DEFENSIVE CHECK
+                  tasksToInsert.push(t);
+              }
+          });
       } else {
           // Global Reshuffle: Keep only fixed/locked tasks, delete all flexible ones.
-          (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => tasksToInsert.push({ ...t }));
+          (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => {
+              if (!Array.isArray(tasksToInsert)) { console.error("[SchedulerEngine ERROR] tasksToInsert is not an array before push (all-flexible fixed)"); return; } // DEFENSIVE CHECK
+              tasksToInsert.push({ ...t });
+          });
       }
 
       // Determine which tasks go into the placement pool
       if (taskSource === 'all-flexible') {
-        // Add all flexible scheduled tasks (that aren't completed/past) to the pool, marking them for deletion from scheduled_tasks
         flexibleScheduled.forEach(t => {
+          if (!Array.isArray(unifiedPool)) { console.error("[SchedulerEngine ERROR] unifiedPool is not an array before push (flexible scheduled)"); return; } // DEFENSIVE CHECK
           unifiedPool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment });
-          scheduledIdsToDelete.push(t.id); // Mark for deletion/re-insertion
+          scheduledIdsToDelete.push(t.id);
         });
       }
       
-      // Retired tasks are always candidates if they fit the filters
-      unlockedRetired.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment }));
+      unlockedRetired.forEach(t => {
+          if (!Array.isArray(unifiedPool)) { console.error("[SchedulerEngine ERROR] unifiedPool is not an array before push (unlocked retired)"); return; } // DEFENSIVE CHECK
+          unifiedPool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment });
+      });
 
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
       showSuccess(`Pool to Place: ${tasksToConsider.length} items`);
@@ -825,7 +836,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const spread = profile.enable_macro_spread ?? false;
 
         const groups: Record<TaskEnvironment, UnifiedTask[]> = { home: [], laptop: [], away: [], piano: [], laptop_piano: [] };
-        tasksToConsider.forEach(t => groups[t.task_environment].push(t));
+        tasksToConsider.forEach(t => {
+          if (!groups[t.task_environment]) groups[t.task_environment] = []; // Ensure group exists
+          groups[t.task_environment].push(t);
+        });
 
         const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env].length > 0);
         
@@ -851,6 +865,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                     const task = group[0];
                     const taskTotal = (task.duration || 30) + (task.break_duration || 0);
                     if (envTimeUsed > 0 && (envTimeUsed + taskTotal > quotaMinutes)) break; 
+                    if (!Array.isArray(finalSortedPool)) { console.error("[SchedulerEngine ERROR] finalSortedPool is not an array before push (fillQuotaPass)"); return; } // DEFENSIVE CHECK
                     finalSortedPool.push(group.shift()!);
                     envTimeUsed += taskTotal;
                 }
@@ -868,6 +883,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 hasRemaining = false;
                 for (const env of orderedEnvs) {
                     if (groups[env].length > 0) {
+                        if (!Array.isArray(finalSortedPool)) { console.error("[SchedulerEngine ERROR] finalSortedPool is not an array before push (non-chunking)"); return; } // DEFENSIVE CHECK
                         finalSortedPool.push(groups[env].shift()!);
                         hasRemaining = true;
                     }
@@ -876,7 +892,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }
         
         orderedEnvs.forEach(env => {
-            while (groups[env].length > 0) finalSortedPool.push(groups[env].shift()!);
+            while (groups[env].length > 0) {
+              if (!Array.isArray(finalSortedPool)) { console.error("[SchedulerEngine ERROR] finalSortedPool is not an array before push (remaining groups)"); return; } // DEFENSIVE CHECK
+              finalSortedPool.push(groups[env].shift()!);
+            }
         });
 
       } else {
@@ -904,6 +923,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         let searchTime = placementCursor;
         if (t.is_critical && profile.energy < LOW_ENERGY_THRESHOLD) {
           if (t.source === 'scheduled') {
+            if (!Array.isArray(tasksToKeepInSink)) { console.error("[SchedulerEngine ERROR] tasksToKeepInSink is not an array before push (skipped critical scheduled)"); return; } // DEFENSIVE CHECK
             tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
             scheduledIdsToDelete.push(t.originalId);
           }
@@ -919,6 +939,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             const start = slot.start;
             const end = addMinutes(start, total);
             
+            if (!Array.isArray(tasksToInsert)) { console.error("[SchedulerEngine ERROR] tasksToInsert is not an array before push (placed task)"); return; } // DEFENSIVE CHECK
             tasksToInsert.push({ 
                 id: t.source === 'retired' ? undefined : t.originalId, 
                 name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), 
@@ -942,6 +963,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
         if (!placed) {
           if (t.source === 'scheduled') {
+            if (!Array.isArray(tasksToKeepInSink)) { console.error("[SchedulerEngine ERROR] tasksToKeepInSink is not an array before push (unplaced scheduled)"); return; } // DEFENSIVE CHECK
             tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
             console.log(`[SchedulerEngine] Failed to place: ${t.name}. Returning to Sink.`);
           } else {
@@ -954,6 +976,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (taskSource === 'sink-to-gaps') {
           (dbTasks || []).forEach(t => {
               if (!tasksToInsert.some(inserted => inserted.id === t.id)) {
+                  if (!Array.isArray(tasksToInsert)) { console.error("[SchedulerEngine ERROR] tasksToInsert is not an array before push (sink-to-gaps finalization)"); return; } // DEFENSIVE CHECK
                   tasksToInsert.push(t);
               }
           });
@@ -961,6 +984,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       showSuccess(`Cycle Complete. Payload: ${tasksToInsert.length} inserts.`);
       console.log(`[SchedulerEngine] Cycle Complete. Payload: ${tasksToInsert.length} inserts/updates, ${scheduledIdsToDelete.length} scheduled deletions, ${retiredIdsToDelete.length} retired deletions, ${tasksToKeepInSink.length} sink returns.`);
+      
+      console.log(`[SchedulerEngine Debug] Final tasksToInsert:`, tasksToInsert);
+      console.log(`[SchedulerEngine Debug] Final tasksToKeepInSink:`, tasksToKeepInSink);
+
       const payload: AutoBalancePayload = { scheduledTaskIdsToDelete: Array.from(new Set(scheduledIdsToDelete)), retiredTaskIdsToDelete: Array.from(new Set(retiredIdsToDelete)), tasksToInsert, tasksToKeepInSink, selectedDate: targetDateString };
       await autoBalanceScheduleMutation.mutateAsync(payload);
     } catch (e: any) {

@@ -4,7 +4,7 @@ export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
 export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI' | 'NAME_ASC' | 'NAME_DESC' | 'ENVIRONMENT_RATIO'; // Updated SortBy
 
 // NEW: Type for task environment
-export type TaskEnvironment = 'home' | 'laptop' | 'away' | 'piano' | 'laptop_piano';
+export type TaskEnvironment = string;
 
 // NEW: Type for sorting retired tasks
 export type RetiredTaskSortBy = 
@@ -37,7 +37,7 @@ export interface Task {
 export interface NewTask {
   title: string;
   priority: TaskPriority;
-  metadata_xp: number;
+  metadata_xp?: number; // Made optional as it's calculated
   energy_cost: number; // Added energy_cost to NewTask
   due_date: string;
   description?: string; // Added description to NewTask

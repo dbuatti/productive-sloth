@@ -41,7 +41,7 @@ const formSchema = z.object({
   is_completed: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'),
+  task_environment: z.string().default('laptop'), // Changed to z.string()
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;

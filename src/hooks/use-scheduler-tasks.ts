@@ -18,6 +18,9 @@ const engineLog = (message: string, type: 'info' | 'warn' | 'error' = 'info') =>
   // For now, let's toast specific critical steps.
 };
 
+// Define a default environment order for fallback and validation
+const DEFAULT_ENVIRONMENT_ORDER: TaskEnvironment[] = ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
   const { user, profile, session, T_current } = useSession();
@@ -719,7 +722,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         return { start, end, duration: differenceInMinutes(end, start) };
       });
 
-      // Static Constraints (Meals/Reflections)
       const staticConstraints: TimeBlock[] = [];
       const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
         const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
@@ -827,14 +829,19 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const groups: Record<TaskEnvironment, UnifiedTask[]> = { home: [], laptop: [], away: [], piano: [], laptop_piano: [] };
         tasksToConsider.forEach(t => groups[t.task_environment].push(t));
 
-        const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env].length > 0);
+        // Ensure envOrder only contains valid TaskEnvironment keys and defaults if profile.custom_environment_order is null/undefined
+        const profileEnvOrder = profile.custom_environment_order || DEFAULT_ENVIRONMENT_ORDER;
+        const validEnvironmentKeys = Object.keys(groups) as TaskEnvironment[];
+        const envOrder = profileEnvOrder.filter(env => validEnvironmentKeys.includes(env));
+
+        // Filter orderedEnvs to only include environments that actually have tasks
+        const orderedEnvs = envOrder.filter(env => groups[env] && groups[env].length > 0);
         
-        const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-        const orderedEnvs = envOrder.filter(env => groups[env].length > 0);
         const quotaPerEnv = orderedEnvs.length > 0 ? Math.floor(netAvailableTime / orderedEnvs.length) : netAvailableTime;
 
-        activeEnvs.forEach(env => {
-          groups[env].sort((a, b) => {
+        // Sort tasks within each group
+        Object.values(groups).forEach(group => {
+          group.sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
             if (!a.is_critical && b.is_critical) return 1;
             if (a.is_backburner && !b.is_backburner) return 1;
@@ -845,8 +852,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
         const fillQuotaPass = (quotaMinutes: number) => {
             for (const env of orderedEnvs) {
-                let envTimeUsed = 0;
                 const group = groups[env];
+                let envTimeUsed = 0;
                 while (group.length > 0 && envTimeUsed < quotaMinutes) {
                     const task = group[0];
                     const taskTotal = (task.duration || 30) + (task.break_duration || 0);
@@ -876,7 +883,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }
         
         orderedEnvs.forEach(env => {
-            while (groups[env].length > 0) finalSortedPool.push(groups[env].shift()!);
+            const group = groups[env];
+            while (group.length > 0) finalSortedPool.push(group.shift()!);
         });
 
       } else {

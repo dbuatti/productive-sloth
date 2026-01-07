@@ -387,6 +387,7 @@ const EnvironmentManager: React.FC = () => {
                           variant="destructive" 
                           size="sm" 
                           onClick={() => handleDeleteEnvironment(env.id, env.label)}
+                          type="button" // Added type="button" here
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Delete

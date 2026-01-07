@@ -42,7 +42,6 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { getIconComponent } from '@/context/EnvironmentContext'; // Import from context
 
 const iconOptions = [
   { value: 'Home', label: 'Home', icon: Home },
@@ -80,20 +79,14 @@ const EnvironmentManager: React.FC = () => {
       return;
     }
     
-    const formattedValue = newEnvironment.value.trim().toLowerCase().replace(/\s+/g, '_');
-    if (!formattedValue) {
+    if (!newEnvironment.value.trim()) {
       showError('Environment value is required');
-      return;
-    }
-
-    if (environments.some(env => env.value === formattedValue)) {
-      showError(`Environment with value '${formattedValue}' already exists.`);
       return;
     }
 
     addEnvironment({
       ...newEnvironment,
-      value: formattedValue,
+      value: newEnvironment.value.toLowerCase().replace(/\s+/g, '_'),
     });
     
     setNewEnvironment({
@@ -115,22 +108,10 @@ const EnvironmentManager: React.FC = () => {
       return;
     }
     
-    const formattedValue = newEnvironment.value.trim().toLowerCase().replace(/\s+/g, '_');
-    if (!formattedValue) {
-      showError('Environment value is required');
-      return;
-    }
-
-    // Check for uniqueness against other environments (excluding the one being edited)
-    if (environments.some(e => e.value === formattedValue && e.id !== id)) {
-      showError(`Environment with value '${formattedValue}' already exists.`);
-      return;
-    }
-
     updateEnvironment({
       id,
       label: newEnvironment.label,
-      value: formattedValue,
+      value: newEnvironment.value.toLowerCase().replace(/\s+/g, '_'),
       icon: newEnvironment.icon,
       color: newEnvironment.color,
       drain_multiplier: newEnvironment.drain_multiplier,
@@ -169,6 +150,7 @@ const EnvironmentManager: React.FC = () => {
   };
 
   const handleDeleteEnvironment = (id: string, label: string) => {
+    // Check if environment has tasks
     setDeleteTarget({ id, label });
   };
 
@@ -177,6 +159,11 @@ const EnvironmentManager: React.FC = () => {
     
     deleteEnvironment(deleteTarget.id);
     setDeleteTarget(null);
+  };
+
+  const getIconComponent = (iconName: string) => {
+    const icon = iconOptions.find(opt => opt.value === iconName);
+    return icon ? icon.icon : Home;
   };
 
   if (isLoading) {

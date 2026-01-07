@@ -9,7 +9,8 @@ import { formatTime, getEmojiHue, formatDurationToHoursMinutes } from '@/lib/sch
 import { Button } from '@/components/ui/button';
 import { 
   Trash2, Archive, Lock, Unlock, Clock, Zap, 
-  CheckCircle2, Star, Info, Target
+  CheckCircle2, Star, Home, Laptop, Globe, Music, 
+  Info, Target
 } from 'lucide-react';
 import { format, differenceInMinutes, parseISO, min, max, isPast, addMinutes } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -17,8 +18,6 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useEnvironments } from '@/hooks/use-environments';
-import { getIconComponent } from '@/context/EnvironmentContext'; // Import from context
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -39,6 +38,17 @@ const FREE_TIME_MINUTE_HEIGHT = 0.5; // NEW: Reduced height for free time blocks
 const MIN_TASK_HEIGHT_MINUTES = 15; // Minimum duration equivalent for display
 const MIN_TASK_HEIGHT_PX = MIN_TASK_HEIGHT_MINUTES * MINUTE_HEIGHT; // 30px minimum height
 
+const getEnvironmentIcon = (environment: TaskEnvironment) => {
+  const iconClass = "h-3 w-3 opacity-70";
+  switch (environment) {
+    case 'home': return <Home className={iconClass} />;
+    case 'laptop': return <Laptop className={iconClass} />;
+    case 'away': return <Globe className={iconClass} />;
+    case 'piano': return <Music className={iconClass} />;
+    default: return null;
+  }
+};
+
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   schedule,
   T_current,
@@ -56,7 +66,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showSyncButton, setShowSyncButton] = useState(false);
   const isMobile = useIsMobile();
-  const { environments } = useEnvironments(); // Fetch environments
 
   useEffect(() => {
     const handleScroll = () => {
@@ -109,15 +118,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
       </div>
     );
   }
-
-  const getEnvironmentIconForDisplay = (environmentValue: TaskEnvironment) => {
-    const env = environments.find(e => e.value === environmentValue);
-    if (env) {
-      const IconComponent = getIconComponent(env.icon);
-      return <IconComponent className="h-3 w-3 opacity-70" />;
-    }
-    return null;
-  };
 
   return (
     <div className="relative">
@@ -217,7 +217,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                           CRIT
                         </Badge>
                       )}
-                      {getEnvironmentIconForDisplay(taskItem.taskEnvironment)}
+                      {getEnvironmentIcon(taskItem.taskEnvironment)}
                     </div>
                   </div>
                 </div>

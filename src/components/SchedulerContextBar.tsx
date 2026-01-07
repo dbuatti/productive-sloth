@@ -6,8 +6,6 @@ import { formatDateTime } from '@/lib/scheduler-utils';
 import { Clock } from 'lucide-react';
 import WeatherWidget from './WeatherWidget';
 import EnvironmentMultiSelect from './EnvironmentMultiSelect';
-import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
-import { getIconComponent } from '@/context/EnvironmentContext'; // Import from context
 
 interface SchedulerContextBarProps {
   T_current: Date;

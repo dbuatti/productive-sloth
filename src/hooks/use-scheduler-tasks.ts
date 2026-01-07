@@ -538,472 +538,508 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
       const { data: tasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('is_flexible', true).eq('is_locked', false);
       if (!tasks || tasks.length === 0) return;
-      const retired = tasks.map(t => ({ user_id: userId, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, original_scheduled_date: t.scheduled_date, is_critical: t.<dyad-problem-report summary="2 problems">
-<problem file="src/components/RetiredTaskDetailDialog.tsx" line="169" column="8" code="17008">JSX element 'SheetContent' has no corresponding closing tag.</problem>
-<problem file="src/lib/scheduler-utils.ts" line="1013" column="30" code="2552">Cannot find name 'midnightRoloverMessage'. Did you mean 'midnightRolloverMessage'?</problem>
-</dyad-problem-report><think>**Diagnosing the Syntax Issue**
-
-I've homed in on a critical TypeScript error in the `RetiredTaskDetailDialog.tsx` file. Specifically, line 169 indicates a missing closing tag for a `<SheetContent>` JSX element. It's a fundamental syntax error, which requires immediate attention for the code to compile correctly.
-
-
-**Correcting Syntax and Scope**
-
-I've fixed the missing closing tag in `RetiredTaskDetailDialog.tsx`, resolving the JSX syntax error. Now, I'm focusing on the `scheduler-utils.ts` file. I've pinpointed the undeclared variable `midnightRolloverMessage` which is needed in the `calculateSchedule` function. I'm declaring it now using `let` and ensuring its proper scope.
-
-
-</think>You're right, those errors need to be fixed!
-
-1.  The `SheetContent` component in `RetiredTaskDetailDialog.tsx` was missing its closing tag.
-2.  The `midnightRolloverMessage` variable in `src/lib/scheduler-utils.ts` was not properly declared within the `calculateSchedule` function.
-
-Here are the fixes:
-
-<dyad-write path="src/components/RetiredTaskDetailDialog.tsx" description="Adding the missing closing tag for SheetContent.">
-import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock } from "lucide-react";
-
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Switch } from '@/components/ui/switch';
-import { RetiredTask, TaskEnvironment } from "@/types/scheduler";
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import { showSuccess, showError } from "@/utils/toast";
-import { calculateEnergyCost } from '@/lib/scheduler-utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
-import { getIconComponent } from '@/context/EnvironmentContext'; // Import from context
-
-const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required." }).max(255),
-  duration: z.coerce.number().min(1, "Duration must be at least 1 minute.").optional().nullable(),
-  break_duration: z.coerce.number().min(0).optional().nullable(),
-  is_critical: z.boolean().default(false),
-  is_backburner: z.boolean().default(false),
-  is_locked: z.boolean().default(false),
-  is_completed: z.boolean().default(false),
-  energy_cost: z.coerce.number().min(0).default(0),
-  is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'),
-});
-
-type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
-
-interface RetiredTaskDetailSheetProps {
-  task: RetiredTask | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
-  task,
-  open,
-  onOpenChange,
-}) => {
-  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // Fetch environments
-  const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
-
-  const form = useForm<RetiredTaskDetailFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      duration: 30,
-      break_duration: 0,
-      is_critical: false,
-      is_backburner: false,
-      is_locked: false,
-      is_completed: false,
-      energy_cost: 0,
-      is_custom_energy_cost: false,
-      task_environment: 'laptop',
+      const retired = tasks.map(t => ({ user_id: userId, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, original_scheduled_date: t.scheduled_date, is_critical: t.is_critical, is_locked: t.is_locked, energy_cost: t.energy_cost ?? 0, is_completed: t.is_completed ?? false, is_custom_energy_cost: t.is_custom_energy_cost ?? false, task_environment: t.task_environment, is_backburner: t.is_backburner }));
+      await supabase.from('aethersink').insert(retired);
+      await supabase.from('scheduled_tasks').delete().in('id', tasks.map(t => t.id)).eq('user_id', userId);
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] }); // Always invalidate, as it affects all days
+      showSuccess('All future timelines flushed.');
+    }
   });
 
-  useEffect(() => {
-    if (task) {
-      form.reset({
-        name: task.name,
-        duration: task.duration ?? 30,
-        break_duration: task.break_duration ?? 0,
-        is_critical: task.is_critical,
-        is_backburner: task.is_backburner,
-        is_locked: task.is_locked,
-        is_completed: task.is_completed,
-        energy_cost: task.energy_cost,
-        is_custom_energy_cost: task.is_custom_energy_cost,
-        task_environment: task.task_environment,
-      });
-      if (!task.is_custom_energy_cost) {
-        setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical, task.is_backburner));
-      } else {
-        setCalculatedEnergyCost(task.energy_cost);
+  const updateScheduledTaskDetailsMutation = useMutation({
+    mutationFn: async (task: Partial<DBScheduledTask> & { id: string }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { data, error } = await supabase.from('scheduled_tasks').update({ ...task, updated_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId).select().single();
+      if (error) throw new Error(error.message);
+      return data as DBScheduledTask;
+    },
+    onSettled: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      if (data && data.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
       }
     }
-  }, [task, form]);
+  });
 
-  useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical' || name === 'is_backburner')) {
-        const duration = value.duration ?? 0;
-        const isCritical = value.is_critical;
-        const isBackburner = value.is_backburner;
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
-        setCalculatedEnergyCost(newEnergyCost);
-        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
-      } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
-        const duration = form.getValues('duration') ?? 0;
-        const isCritical = form.getValues('is_critical');
-        const isBackburner = form.getValues('is_backburner');
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
-        setCalculatedEnergyCost(newEnergyCost);
-        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
+  const updateScheduledTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, isCompleted }: { taskId: string, isCompleted: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { data, error } = await supabase.from('scheduled_tasks').update({ is_completed: isCompleted, updated_at: new Date().toISOString() }).eq('id', taskId).eq('user_id', userId).select().single();
+      if (error) throw new Error(error.message);
+      return data as DBScheduledTask;
+    },
+    onSettled: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      if (data && data.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
       }
-    });
-    return () => subscription.unsubscribe();
-  }, [form]);
+    }
+  });
 
-  const handleSubmit = async (values: RetiredTaskDetailFormValues) => {
-    if (!task) return;
+  const updateRetiredTaskDetailsMutation = useMutation({
+    mutationFn: async (task: Partial<RetiredTask> & { id: string }) => {
+      console.log(`[useSchedulerTasks] updateRetiredTaskDetails called for task ${task.id}:`, task);
+      if (!userId) throw new Error("User not authenticated.");
+      const { data, error } = await supabase.from('aethersink').update({ ...task, retired_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId).select().single();
+      if (error) throw new Error(error.message);
+      return data as RetiredTask;
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+    }
+  });
+
+  const updateRetiredTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, isCompleted }: { taskId: string, isCompleted: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { data, error } = await supabase.from('aethersink').update({ is_completed: isCompleted, retired_at: new Date().toISOString() }).eq('id', taskId).eq('user_id', userId).select().single();
+      if (error) throw new Error(error.message);
+      return data as RetiredTask;
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+    }
+  });
+
+  const completeScheduledTaskMutation = useMutation({
+    mutationFn: async (task: DBScheduledTask) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { error } = await supabase.from('scheduled_tasks').delete().eq('id', task.id).eq('user_id', userId);
+      if (error) throw new Error(error.message);
+    },
+    onSettled: (data, error, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (variables.scheduled_date === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
+    }
+  });
+
+  const completeRetiredTaskMutation = useMutation({
+    mutationFn: async (task: RetiredTask) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { error } = await supabase.from('aethersink').update({ is_completed: true, retired_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId);
+      if (error) throw new Error(error.message);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+    }
+  });
+
+  const triggerAetherSinkBackupMutation = useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { error } = await supabase.rpc('backup_aethersink_for_user', { p_user_id: userId });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      showSuccess("Aether Sink snapshot created.");
+    }
+  });
+
+  const autoBalanceScheduleMutation = useMutation<
+    { tasksPlaced: number; tasksKeptInSink: number },
+    Error,
+    AutoBalancePayload
+  >({
+    mutationFn: async (payload: AutoBalancePayload) => {
+      if (!userId || !session?.access_token) throw new Error("Authentication required.");
+      const { data, error } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSettled: (data, error, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+      if (variables.selectedDate === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
+      }
+      if (data) showSuccess(`Balanced: ${data.tasksPlaced} items placed.`);
+    }
+  });
+
+  const handleAutoScheduleAndSort = useCallback(async (
+    sortPreference: SortBy,
+    taskSource: 'all-flexible' | 'sink-only' | 'sink-to-gaps',
+    environmentsToFilterBy: TaskEnvironment[] = [],
+    targetDateString: string
+  ) => {
+    if (!user || !profile) {
+      return showError("Profile context missing.");
+    }
+
+    showSuccess("Engine: Starting...");
+    console.log(`[SchedulerEngine] Initiating auto-schedule. Mode: ${taskSource}, Sort: ${sortPreference}, Environments: ${environmentsToFilterBy.join(', ') || 'All'}`);
+
+    const [year, month, day] = targetDateString.split('-').map(Number);
+    const targetDayAsDate = new Date(year, month - 1, day);
+
+    if (isBefore(targetDayAsDate, startOfDay(new Date()))) {
+      return showError("Historical timelines are read-only.");
+    }
 
     try {
-      if (values.is_completed !== task.is_completed) {
-        if (values.is_completed) {
-          await completeRetiredTask(task);
+      const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDayAsDate);
+      let targetWorkdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDayAsDate), 17);
+      if (isBefore(targetWorkdayEnd, targetWorkdayStart)) targetWorkdayEnd = addDays(targetWorkdayEnd, 1);
+      
+      const isTodaySelected = isSameDay(targetDayAsDate, T_current);
+      const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
+
+      showSuccess(`Window: ${format(targetWorkdayStart, 'HH:mm')} to ${format(targetWorkdayEnd, 'HH:mm')}`);
+      console.log(`[SchedulerEngine] Target Window: ${format(targetWorkdayStart, 'HH:mm')} to ${format(targetWorkdayEnd, 'HH:mm')}`);
+
+      const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
+      
+      // 1. Identify Fixed Blocks (Scheduled Tasks + Static Anchors)
+      
+      // Scheduled Fixed/Locked Tasks
+      const scheduledFixedBlocks: TimeBlock[] = (dbTasks || []).filter(t => {
+        // In 'sink-to-gaps' mode, ALL existing scheduled tasks are constraints.
+        if (taskSource === 'sink-to-gaps') return true; 
+        // In 'all-flexible' or 'sink-only' mode, only truly fixed/locked tasks are constraints.
+        return (!t.is_flexible || t.is_locked);
+      }).filter(t => t.start_time && t.end_time).map(t => {
+        const start = setTimeOnDate(targetDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
+        let end = setTimeOnDate(targetDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
+        if (isBefore(end, start)) end = addDays(end, 1);
+        return { start, end, duration: differenceInMinutes(end, start) };
+      });
+
+      // Static Constraints (Meals/Reflections)
+      const staticConstraints: TimeBlock[] = [];
+      const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
+        const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+
+        if (timeStr && effectiveDuration > 0) {
+          let anchorStart = setTimeOnDate(targetDayAsDate, timeStr);
+          let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+
+          if (isBefore(anchorEnd, anchorStart)) {
+            anchorEnd = addDays(anchorEnd, 1);
+          }
+
+          // Check if the anchor overlaps with the workday window
+          const overlaps = (isBefore(anchorEnd, targetWorkdayEnd) || isEqual(anchorEnd, targetWorkdayEnd)) && 
+                           (isAfter(anchorStart, targetWorkdayStart) || isEqual(anchorStart, targetWorkdayStart));
+          
+          if (overlaps) {
+            const intersectionStart = max([anchorStart, targetWorkdayStart]);
+            const intersectionEnd = min([anchorEnd, targetWorkdayEnd]);
+            const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+            if (finalDuration > 0) { 
+              staticConstraints.push({
+                start: intersectionStart,
+                end: intersectionEnd,
+                duration: finalDuration,
+              });
+              console.log(`[SchedulerEngine] Constraint Added: ${name} (${finalDuration}m) from ${format(intersectionStart, 'HH:mm')} to ${format(intersectionEnd, 'HH:mm')}`);
+            }
+          }
+        }
+      };
+
+      addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+      addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+      addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
+      for (let r = 0; r < (profile.reflection_count || 0); r++) {
+          const rTime = profile.reflection_times?.[r];
+          const rDur = profile.reflection_durations?.[r];
+          if (rTime && rDur) addStaticConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
+      }
+
+      // CRITICAL FIX: Merge all fixed blocks (scheduled + static constraints) before starting placement
+      let currentOccupied: TimeBlock[] = mergeOverlappingTimeBlocks([...scheduledFixedBlocks, ...staticConstraints]);
+      
+      showSuccess(`Fixed Constraints: ${currentOccupied.length} blocks`);
+      console.log(`[SchedulerEngine] Total Fixed Constraints (Scheduled + Static): ${currentOccupied.length} blocks`);
+      currentOccupied.forEach(block => {
+        console.log(`[SchedulerEngine] Fixed Block: ${format(block.start, 'HH:mm')} - ${format(block.end, 'HH:mm')} (${block.duration}m)`);
+      });
+
+      const totalWorkdayMinutes = differenceInMinutes(targetWorkdayEnd, effectiveStart);
+      const occupiedInWindow = currentOccupied.reduce((acc, block) => {
+        const intersectionStart = max([block.start, effectiveStart]);
+        const intersectionEnd = min([block.end, targetWorkdayEnd]);
+        const dur = differenceInMinutes(intersectionEnd, intersectionStart);
+        return acc + (dur > 0 ? dur : 0);
+      }, 0);
+      
+      const netAvailableTime = totalWorkdayMinutes - occupiedInWindow;
+      showSuccess(`Available Time: ${netAvailableTime} minutes`);
+      console.log(`[SchedulerEngine] Available time in window: ${netAvailableTime} minutes`);
+
+      // 2. Identify Pool of Tasks to Place
+      const flexibleScheduled = (dbTasks || []).filter(t => t.is_flexible && !t.is_locked);
+      const unlockedRetired = retiredTasks.filter(t => !t.is_locked);
+      const unifiedPool: UnifiedTask[] = [];
+      const scheduledIdsToDelete: string[] = [];
+      const retiredIdsToDelete: string[] = [];
+      const tasksToInsert: NewDBScheduledTask[] = [];
+      const tasksToKeepInSink: NewRetiredTask[] = [];
+
+      // Tasks to keep in the schedule (fixed/locked tasks, and all tasks if in sink-to-gaps mode)
+      if (taskSource === 'sink-to-gaps') {
+          // Keep all existing scheduled tasks as constraints, so we don't add them to tasksToInsert yet.
+          // We only insert the newly placed retired tasks later.
+      } else {
+          // Global Reshuffle: Keep only fixed/locked tasks, delete all flexible ones.
+          (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => tasksToInsert.push({ ...t }));
+      }
+
+      // Determine which tasks go into the placement pool
+      if (taskSource === 'all-flexible') {
+        // Add all flexible scheduled tasks (that aren't completed/past) to the pool, marking them for deletion from scheduled_tasks
+        flexibleScheduled.forEach(t => {
+          unifiedPool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment });
+          scheduledIdsToDelete.push(t.id); // Mark for deletion/re-insertion
+        });
+      }
+      
+      // Retired tasks are always candidates if they fit the filters
+      unlockedRetired.forEach(t => unifiedPool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment }));
+
+      const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
+      showSuccess(`Pool to Place: ${tasksToConsider.length} items`);
+      console.log(`[SchedulerEngine] Unlocked Unified Pool: ${unifiedPool.length} items. Filtering for ${environmentsToFilterBy.length || 'all'} environments -> ${tasksToConsider.length} items.`);
+      
+      // 3. Sort the Pool
+      let finalSortedPool: UnifiedTask[] = [];
+      if (sortPreference === 'ENVIRONMENT_RATIO') {
+        const chunking = profile.enable_environment_chunking ?? true;
+        const spread = profile.enable_macro_spread ?? false;
+
+        // Use dynamic environments for grouping
+        const groups: Record<TaskEnvironment, UnifiedTask[]> = {} as Record<TaskEnvironment, UnifiedTask[]>;
+        environments.forEach(env => {
+            groups[env.value as TaskEnvironment] = [];
+        });
+        
+        tasksToConsider.forEach(t => {
+            const envKey = t.task_environment || 'laptop';
+            if (groups[envKey]) {
+                groups[envKey].push(t);
+            } else {
+                // Handle tasks with environments that might have been deleted or are unknown
+                if (!groups['laptop']) groups['laptop'] = [];
+                groups['laptop'].push(t);
+            }
+        });
+
+        const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env].length > 0);
+        
+        // Use custom order from profile, falling back to default if null/empty
+        const defaultOrder: TaskEnvironment[] = ['laptop', 'piano', 'laptop_piano', 'home', 'away'];
+        const customOrder = profile.custom_environment_order || defaultOrder;
+        const orderedEnvs = customOrder.filter(env => groups[env] && groups[env].length > 0);
+        
+        // Calculate total time needed for all tasks in the pool
+        const totalTaskDurationNeeded = tasksToConsider.reduce((sum, t) => sum + (t.duration || 30) + (t.break_duration || 0), 0);
+        
+        // Determine the quota based on available time vs time needed
+        const timeToAllocate = Math.min(netAvailableTime, totalTaskDurationNeeded);
+        
+        // Calculate the total number of active environments
+        const numActiveEnvs = orderedEnvs.length;
+        
+        // Calculate the base quota per environment (if chunking is enabled)
+        const baseQuotaPerEnv = numActiveEnvs > 0 ? Math.floor(timeToAllocate / numActiveEnvs) : timeToAllocate;
+
+        // Sort tasks within each group by criticality, backburner status, and age (oldest first)
+        orderedEnvs.forEach(env => {
+            groups[env].sort((a, b) => {
+                if (a.is_critical && !b.is_critical) return -1;
+                if (!a.is_critical && b.is_critical) return 1;
+                if (a.is_backburner && !b.is_backburner) return 1;
+                if (!a.is_backburner && b.is_backburner) return -1;
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            });
+        });
+
+        const fillQuotaPass = (quotaMinutes: number) => {
+            for (const env of orderedEnvs) {
+                let envTimeUsed = 0;
+                const group = groups[env];
+                while (group.length > 0 && envTimeUsed < quotaMinutes) {
+                    const task = group[0];
+                    const taskTotal = (task.duration || 30) + (task.break_duration || 0);
+                    
+                    // If adding this task exceeds the quota, break the loop for this environment
+                    if (envTimeUsed > 0 && (envTimeUsed + taskTotal > quotaMinutes)) break; 
+                    
+                    finalSortedPool.push(group.shift()!);
+                    envTimeUsed += taskTotal;
+                }
+            }
+        };
+
+        if (chunking) {
+            if (spread && numActiveEnvs > 0) {
+                // Macro-Spread: Split quota into two passes
+                const halfQuota = Math.floor(baseQuotaPerEnv / 2);
+                fillQuotaPass(halfQuota); // Morning pass
+                fillQuotaPass(baseQuotaPerEnv - halfQuota); // Afternoon pass (uses remaining quota)
+            } else {
+                // Simple Chunking: One pass using the full quota
+                fillQuotaPass(baseQuotaPerEnv);
+            }
         } else {
-          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
+            // No Chunking: Interleave tasks 1:1
+            let hasRemaining = true;
+            while (hasRemaining) {
+                hasRemaining = false;
+                for (const env of orderedEnvs) {
+                    if (groups[env].length > 0) {
+                        finalSortedPool.push(groups[env].shift()!);
+                        hasRemaining = true;
+                    }
+                }
+            }
+        }
+        
+        // Add any remaining tasks (those that exceeded quota or were not chunked)
+        orderedEnvs.forEach(env => {
+            while (groups[env].length > 0) finalSortedPool.push(groups[env].shift()!);
+        });
+
+      } else {
+        // Existing non-environment sorting logic (Priority, Time, Name, Emoji)
+        finalSortedPool = [...tasksToConsider].sort((a, b) => {
+            if (a.is_critical && !b.is_critical) return -1;
+            if (!a.is_critical && b.is_critical) return 1;
+            if (a.is_backburner && !b.is_backburner) return 1;
+            if (!a.is_backburner && b.is_backburner) return -1;
+
+            switch (sortPreference) {
+              case 'TIME_EARLIEST_TO_LATEST': return (a.duration || 0) - (b.duration || 0);
+              case 'PRIORITY_HIGH_TO_LOW': return (b.energy_cost || 0) - (a.energy_cost || 0);
+              case 'NAME_ASC': return a.name.localeCompare(b.name);
+              case 'EMOJI': return getEmojiHue(a.name) - getEmojiHue(b.name);
+              default: return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            }
+        });
+      }
+      
+      showSuccess(`Processing ${finalSortedPool.length} items...`);
+      console.log(`[SchedulerEngine] Processing placement for ${finalSortedPool.length} sorted items...`);
+      let placementCursor = effectiveStart;
+      for (const t of finalSortedPool) {
+        let placed = false;
+        let searchTime = placementCursor;
+        if (t.is_critical && profile.energy < LOW_ENERGY_THRESHOLD) {
+          if (t.source === 'scheduled') {
+            tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
+            scheduledIdsToDelete.push(t.originalId);
+          }
+          console.log(`[SchedulerEngine] Skipped Critical Task (Low Energy): ${t.name}`);
+          continue;
+        }
+
+        const freeBlocks = getFreeTimeBlocks(currentOccupied, searchTime, targetWorkdayEnd);
+        const total = (t.duration || 30) + (t.break_duration || 0);
+        
+        for (const slot of freeBlocks) {
+          if (slot.duration >= total) {
+            const start = slot.start;
+            const end = addMinutes(start, total);
+            
+            tasksToInsert.push({ 
+                id: t.source === 'retired' ? undefined : t.originalId, 
+                name: t.name, start_time: start.toISOString(), end_time: end.toISOString(), 
+                break_duration: t.break_duration, scheduled_date: targetDateString, is_critical: t.is_critical, 
+                is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, 
+                is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner 
+            });
+            
+            // CRITICAL: Update currentOccupied immediately with the newly placed block
+            currentOccupied.push({ start, end, duration: total });
+            currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+            placementCursor = end;
+            placed = true;
+            
+            if (t.source === 'retired') retiredIdsToDelete.push(t.originalId);
+            
+            console.log(`[SchedulerEngine] Placed: ${t.name} (${t.source}) at ${format(start, 'HH:mm')}`);
+            break;
+          }
+        }
+
+        if (!placed) {
+          if (t.source === 'scheduled') {
+            tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
+            console.log(`[SchedulerEngine] Failed to place: ${t.name}. Returning to Sink.`);
+          } else {
+            console.log(`[SchedulerEngine] Failed to place: ${t.name}. Remains in Sink.`);
+          }
         }
       }
 
-      await updateRetiredTaskDetails({
-        id: task.id,
-        name: values.name,
-        duration: values.duration === 0 ? null : values.duration,
-        break_duration: values.break_duration === 0 ? null : values.break_duration,
-        is_critical: values.is_critical,
-        is_backburner: values.is_backburner,
-        is_locked: values.is_locked,
-        energy_cost: values.energy_cost,
-        is_custom_energy_cost: values.is_custom_energy_cost,
-        task_environment: values.task_environment,
-      });
-      showSuccess("Retired task updated successfully!");
-      onOpenChange(false);
-    } catch (error) {
-      showError("Failed to save retired task.");
-      console.error("Failed to save retired task:", error);
+      // 4. Finalize Payload
+      if (taskSource === 'sink-to-gaps') {
+          (dbTasks || []).forEach(t => {
+              if (!tasksToInsert.some(inserted => inserted.id === t.id)) {
+                  tasksToInsert.push(t);
+              }
+          });
+      }
+
+      showSuccess(`Cycle Complete. Payload: ${tasksToInsert.length} inserts.`);
+      console.log(`[SchedulerEngine] Cycle Complete. Payload: ${tasksToInsert.length} inserts/updates, ${scheduledIdsToDelete.length} scheduled deletions, ${retiredIdsToDelete.length} retired deletions, ${tasksToKeepInSink.length} sink returns.`);
+      const payload: AutoBalancePayload = { scheduledTaskIdsToDelete: Array.from(new Set(scheduledIdsToDelete)), retiredTaskIdsToDelete: Array.from(new Set(retiredIdsToDelete)), tasksToInsert, tasksToKeepInSink, selectedDate: targetDateString };
+      await autoBalanceScheduleMutation.mutateAsync(payload);
+    } catch (e: any) {
+      showError(`Engine Error: ${e.message}`);
+    } finally {
+      // Note: isProcessingCommand reset is handled by the calling component (SchedulerPage)
     }
+  }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, queryClient, dbScheduledTasks, todayString, environments]);
+
+  const [isProcessingCommand, setIsProcessingCommand] = useState(false);
+
+  return {
+    dbScheduledTasks: dbScheduledTasksWithMeals,
+    isLoading: isLoading || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay,
+    addScheduledTask: addScheduledTaskMutation.mutateAsync,
+    addRetiredTask: addRetiredTaskMutation.mutateAsync,
+    removeScheduledTask: removeScheduledTaskMutation.mutateAsync,
+    clearScheduledTasks: clearScheduledTasksMutation.mutateAsync,
+    datesWithTasks,
+    isLoadingDatesWithTasks,
+    retiredTasks,
+    isLoadingRetiredTasks,
+    completedTasksForSelectedDayList,
+    isLoadingCompletedTasksForSelectedDay,
+    retireTask: retireTaskMutation.mutateAsync,
+    rezoneTask: rezoneTaskMutation.mutateAsync,
+    compactScheduledTasks: compactScheduledTasksMutation.mutateAsync,
+    randomizeBreaks: randomizeBreaksMutation.mutateAsync,
+    toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutateAsync,
+    toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutateAsync,
+    aetherDump: aetherDumpMutation.mutateAsync,
+    aetherDumpMega: aetherDumpMegaMutation.mutateAsync,
+    sortBy,
+    setSortBy,
+    retiredSortBy,
+    setRetiredSortBy,
+    autoBalanceSchedule: autoBalanceScheduleMutation.mutateAsync,
+    updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutateAsync,
+    updateScheduledTaskStatus: updateScheduledTaskStatusMutation.mutateAsync,
+    updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutateAsync,
+    updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutateAsync,
+    completeScheduledTask: completeScheduledTaskMutation.mutateAsync,
+    completeRetiredTask: completeRetiredTaskMutation.mutateAsync,
+    removeRetiredTask: removeRetiredTaskMutation.mutateAsync,
+    triggerAetherSinkBackup: triggerAetherSinkBackupMutation.mutateAsync,
+    handleAutoScheduleAndSort,
   };
-
-  const isSubmitting = form.formState.isSubmitting;
-  const isValid = form.formState.isValid;
-  const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
-  const isCritical = form.watch('is_critical');
-  const isBackburner = form.watch('is_backburner');
-
-  if (!task) return null;
-
-  const formattedRetiredAt = task.retired_at ? format(parseISO(task.retired_at), 'MMM d, yyyy HH:mm') : 'N/A';
-  const formattedOriginalDate = task.original_scheduled_date ? format(parseISO(task.original_scheduled_date), 'MMM d, yyyy') : 'N/A';
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-80 flex flex-col p-6 space-y-6 animate-slide-in-right">
-        <SheetHeader className="border-b pb-4">
-          <SheetTitle className="text-2xl font-bold flex items-center justify-between">
-            Retired Task Details
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-5 w-5" />
-            </Button>
-          </SheetTitle>
-          <SheetDescription className="text-sm text-muted-foreground">
-            Retired: {formattedRetiredAt} | Original Date: {formattedOriginalDate}
-          </SheetDescription>
-        </SheetHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
-            
-            <div className="flex-grow overflow-y-auto space-y-6 pb-8">
-              {/* Name */}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Task Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Task name" {...field} className="text-lg font-semibold" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Duration & Break Duration */}
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="duration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Duration (min)</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} min="1" />
-                      </FormControl>
-                      <FormDescription>
-                        Estimated time to complete.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="break_duration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Break Duration (min)</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} min="0" />
-                      </FormControl>
-                      <FormDescription>
-                        Break associated with this task.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Task Environment */}
-              <FormField
-                control={form.control}
-                name="task_environment"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Task Environment</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingEnvironments}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select environment" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {environments.map(env => {
-                          const IconComponent = getIconComponent(env.icon);
-                          return (
-                            <SelectItem key={env.value} value={env.value}>
-                              <div className="flex items-center gap-2">
-                                <IconComponent className="h-4 w-4" />
-                                {env.label}
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Where this task is typically performed.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Is Critical Switch */}
-              <FormField
-                control={form.control}
-                name="is_critical"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Critical Task (P: High)</FormLabel>
-                      <FormDescription>
-                        Must be scheduled first.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) form.setValue('is_backburner', false);
-                        }}
-                        disabled={task.is_locked}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* Is Backburner Switch */}
-              <FormField
-                control={form.control}
-                name="is_backburner"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Backburner Task (P: Low)</FormLabel>
-                      <FormDescription>
-                        Only scheduled if free time remains.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) form.setValue('is_critical', false);
-                        }}
-                        disabled={isCritical || task.is_locked}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* Is Locked Switch */}
-              <FormField
-                control={form.control}
-                name="is_locked"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Locked Task</FormLabel>
-                      <FormDescription>
-                        Prevent re-zoning or deletion from Aether Sink.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* Is Completed Switch */}
-              <FormField
-                control={form.control}
-                name="is_completed"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Completed</FormLabel>
-                      <FormDescription>
-                        Mark this task as completed.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={task.is_locked}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* Custom Energy Cost Switch */}
-              <FormField
-                control={form.control}
-                name="is_custom_energy_cost"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Custom Energy Cost</FormLabel>
-                      <FormDescription>
-                        Manually set the energy cost instead of automatic calculation.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* Energy Cost (Editable if custom, read-only if auto-calculated) */}
-              <FormField
-                control={form.control}
-                name="energy_cost"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Energy Cost</FormLabel>
-                      <FormDescription>
-                        Energy consumed upon completion.
-                      </FormDescription>
-                    </div>
-                    <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
-                      <Zap className="h-5 w-5" />
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          {...field} 
-                          min="0" 
-                          className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          readOnly={!isCustomEnergyCostEnabled}
-                          value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
-                          onChange={(e) => {
-                            if (isCustomEnergyCostEnabled) {
-                              field.onChange(e);
-                            }
-                          }}
-                        />
-                      </FormControl>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-              
-            <div className="sticky bottom-0 bg-card pt-4 border-t shrink-0">
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || !isValid} 
-                className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                Save Changes
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </SheetContent>
-    </Sheet>
-  );
 };
-
-export default RetiredTaskDetailSheet;

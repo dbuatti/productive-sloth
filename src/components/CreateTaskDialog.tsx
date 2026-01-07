@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
-import { Plus, Loader2, AlignLeft, Zap } from 'lucide-react';
+import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music } from 'lucide-react';
 import DatePicker from './DatePicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,7 +28,6 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { format, isBefore, addDays, differenceInMinutes } from 'date-fns';
 import { useEnvironments } from '@/hooks/use-environments';
 import { TaskEnvironment } from '@/types/scheduler';
-import { getIconComponent } from '@/context/EnvironmentContext'; // Import from context
 
 const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
@@ -55,6 +54,16 @@ interface CreateTaskDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const getEnvironmentIconComponent = (iconName: string) => {
+  switch (iconName) {
+    case 'Home': return Home;
+    case 'Laptop': return Laptop;
+    case 'Globe': return Globe;
+    case 'Music': return Music;
+    default: return Home; // Fallback
+  }
+};
 
 const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ 
   defaultPriority, 
@@ -319,7 +328,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                 </FormControl>
                 <SelectContent>
                   {environments.map(env => {
-                    const IconComponent = getIconComponent(env.icon);
+                    const IconComponent = getEnvironmentIconComponent(env.icon);
                     return (
                       <SelectItem key={env.value} value={env.value}>
                         <div className="flex items-center gap-2">

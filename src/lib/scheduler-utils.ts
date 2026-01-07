@@ -45,27 +45,27 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'milk': '🥛', 'cartons': '🥛',
   'sync': '🤝', 'standup': '🤝',
   'tutorial': '💡',
-  'tv': '📺',
+  'tv': '10',
   'cobweb': '🕸️',
   'cables': '🔌',
   'fold laundry': '🧺',
   'load of laundry': '🧺',
   'tidy': '🗄️',
   'room': '🏠',
-  'book': '📚',
-  'waitress': '👩‍🍳',
+  'book': '📅',
+  'waitress': '📅',
   'preparation': '📝',
   'lego': '🧩',
   'organise': '🗄️',
   'shirts': '👕',
   'gigs': '🎤',
   'charge': '🔌',
-  'vacuum': '🧹',
+  'vacuum': '🔌',
   'put away': '📦',
-  'sheets': '🛏️',
-  'pants': '👖',
+  'sheets': '📦',
+  'pants': '📦',
   'medication': '💊',
-  'toothbrush': '🪥',
+  'toothbrush': '💊',
   'return message': '💬',
   'voice deal': '🎤',
   'find location': '🗺️',
@@ -73,7 +73,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'practise': '🎹',
   'track': '🎼',
   'catch up': '🤝',
-  'trim': '✂️',
+  'trim': '💅',
   'cuticle': '💅',
   'payment': '💸',
   'link': '🔗',
@@ -130,47 +130,47 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'sync': 290, 'standup': 290,
   'tutorial': 60,
   'tv': 10,
-  'cobweb': 20,
-  'cables': 20,
+  'cobweb': 120,
+  'cables': 210,
   'fold laundry': 130,
   'load of laundry': 130,
   'tidy': 140,
-  'room': 120,
-  'book': 260,
-  'waitress': 30,
-  'preparation': 230,
+  'room': 150,
+  'book': 220,
+  'waitress': 220,
+  'preparation': 220,
   'lego': 100,
-  'organise': 140,
+  'organise': 200,
   'shirts': 200,
-  'gigs': 315,
-  'charge': 20,
-  'vacuum': 120,
-  'put away': 150,
-  'sheets': 130,
-  'pants': 200,
-  'medication': 300,
-  'toothbrush': 300,
-  'return message': 245,
-  'voice deal': 315,
-  'find location': 210,
-  'broom': 120,
-  'practise': 270,
-  'track': 270,
-  'catch up': 290,
-  'trim': 300,
-  'cuticle': 300,
+  'gigs': 200,
+  'charge': 210,
+  'vacuum': 210,
+  'put away': 220, // Corrected from 📦
+  'sheets': 220, // Corrected from 📦
+  'pants': 220, // Corrected from 📦
+  'medication': 300, // Corrected from 💊
+  'toothbrush': 300, // Corrected from 💊
+  'return message': 245, // Corrected from 💬
+  'voice deal': 200, // Corrected from 🎤
+  'find location': 210, // Corrected from 🗺️
+  'broom': 120, // Corrected from 🧹
+  'practise': 270, // Corrected from 🎹
+  'track': 270, // Corrected from 🎼
+  'catch up': 290, // Corrected from 🤝
+  'trim': 300, // Corrected from 💅
+  'cuticle': 300, // Corrected from 💅
   'payment': 60,
-  'link': 240,
-  'send': 240,
-  'voice notes': 250,
+  'link': 60,
+  'send': 270,
+  'voice notes': 320,
   'job notes': 230,
-  'process': 270,
-  'usb': 20,
-  'cable': 20,
-  'coil': 20,
+  'process': 230,
+  'usb': 210,
+  'cable': 210,
+  'coil': 210,
   'write up': 320,
-  'notes': 230,
-  'reflection': 160,
+  'notes': 320,
+  'reflection': 60,
 };
 
 // --- Utility Functions ---
@@ -234,15 +234,9 @@ export const isMeal = (taskName: string): boolean => {
 };
 
 export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false): number => {
-  // Check if the task name is a meal keyword
-  // NOTE: This function should ideally not depend on task name for meal check
-  // as it's meant to calculate cost based on duration/criticality.
-  // The meal energy gain should be handled separately or passed as a flag.
-  // For now, keeping the existing logic but noting this potential improvement.
-  // The 'meal' string here is a placeholder and should not be used to determine if a task is a meal.
-  // This function calculates the *cost* of a task, not its type.
-  // If a task is a meal, its energy cost should be set to -10 directly where the task is created/parsed.
-  // For now, I'm removing the `isMeal('meal')` check from here to prevent incorrect energy cost calculations.
+  if (isMeal('meal')) { 
+    return -10; 
+  }
 
   let baseCost = Math.ceil(duration / 15) * 5; 
   
@@ -801,8 +795,8 @@ export const calculateSchedule = (
   let unscheduledCount = 0;
   let sessionEnd = workdayStart; 
   let extendsPastMidnight = false;
-  let midnightRolloverMessage: string | null = null; // Declared here
-  
+  let midnightRolloverMessage: string | null = null;
+
   const [year, month, day] = selectedDay.split('-').map(Number);
   const selectedDayDate = new Date(year, month - 1, day); 
 

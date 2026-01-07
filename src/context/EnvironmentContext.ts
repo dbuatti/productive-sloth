@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music, Check, LucideIcon, Info } from 'lucide-react'; // Added Info icon
+import { Home, Laptop, Globe, Music, Check, LucideIcon } from 'lucide-react';
 import { Environment } from '@/hooks/use-environments'; // Only import type
 
 // Helper to map string icon name to Lucide icon component
@@ -10,7 +10,7 @@ export const getIconComponent = (iconName: string): LucideIcon => {
     case 'Laptop': return Laptop;
     case 'Globe': return Globe;
     case 'Music': return Music;
-    default: return Info; // Fallback to Info icon for unknown/new icons
+    default: return Home; // Fallback
   }
 };
 

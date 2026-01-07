@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, LayoutDashboard, List } from 'lucide-react';
+import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List } from 'lucide-react';
 import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -18,18 +18,24 @@ import SinkKanbanBoard from './SinkKanbanBoard';
 import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
 import { useEnvironments } from '@/hooks/use-environments';
-import { getIconComponent } from '@/context/EnvironmentContext'; // Import from context
 
 const LOG_PREFIX = "[AETHER_SINK]";
 
-// Centralized getEnvironmentIcon from EnvironmentContext
-const getEnvironmentIcon = (environmentValue: TaskEnvironment, environments: any[]) => {
-  const env = environments.find(e => e.value === environmentValue);
-  if (env) {
-    const IconComponent = getIconComponent(env.icon);
-    return <IconComponent className="h-3.5 w-3.5 opacity-70" />;
+const getEnvironmentIcon = (environment: TaskEnvironment) => {
+  const iconClass = "h-3.5 w-3.5 opacity-70";
+  switch (environment) {
+    case 'home': return <Home className={iconClass} />;
+    case 'laptop': return <Laptop className={iconClass} />;
+    case 'away': return <Globe className={iconClass} />;
+    case 'piano': return <Music className={iconClass} />;
+    case 'laptop_piano': return (
+      <div className="relative">
+        <Laptop className={iconClass} />
+        <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
+      </div>
+    );
+    default: return null;
   }
-  return null;
 };
 
 interface AetherSinkProps {
@@ -173,7 +179,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     return environments.map(env => ({
       value: env.value as TaskEnvironment,
       label: env.label,
-      icon: getEnvironmentIcon(env.value as TaskEnvironment, environments) // Use the centralized helper
+      icon: getEnvironmentIcon(env.value as TaskEnvironment)
     }));
   }, [environments]);
 
@@ -381,7 +387,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                           </div>
                           <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
                             <span className="flex items-center gap-1.5">
-                              {getEnvironmentIcon(task.task_environment, environments)}
+                              {getEnvironmentIcon(task.task_environment)}
                               <span className="opacity-40">{task.task_environment}</span>
                             </span>
                             {task.duration && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {task.duration}m</span>}
@@ -402,7 +408,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                               variant="ghost" 
                               size="icon" 
                               onClick={(e) => handleAction(e, () => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked }))}
-                              disabled={isProcessingCommand}
                               className={cn(
                                 "h-9 w-9 rounded-lg transition-all",
                                 isLocked ? "text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary),0.1)]" : "text-muted-foreground/30"
@@ -419,7 +424,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                               variant="ghost" 
                               size="icon" 
                               onClick={(e) => handleAction(e, () => onRezoneTask(task))}
-                              disabled={isLocked || isCompleted || isProcessingCommand}
+                              disabled={isLocked || isCompleted}
                               className="h-9 w-9 text-primary/40 hover:text-primary hover:bg-primary/10 rounded-lg"
                             >
                               <RotateCcw className="h-4 w-4" />
@@ -433,7 +438,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                               variant="ghost" 
                               size="icon" 
                               onClick={(e) => handleAction(e, () => onRemoveRetiredTask(task.id, task.name))}
-                              disabled={isLocked || isProcessingCommand}
+                              disabled={isLocked}
                               className="h-9 w-9 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-lg"
                             >
                               <Trash2 className="h-4 w-4" />

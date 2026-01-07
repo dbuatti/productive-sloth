@@ -13,7 +13,8 @@ import {
   Edit, 
   Trash2, 
   Save, 
-  X 
+  X,
+  Star // Added Star icon for default indicator
 } from 'lucide-react';
 import { useEnvironments } from '@/hooks/use-environments';
 import { showError } from '@/utils/toast';
@@ -43,6 +44,7 @@ import {
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils'; // Import cn for styling
+import { Switch } from '@/components/ui/switch'; // Import Switch
 
 const iconOptions = [
   { value: 'Home', label: 'Home', icon: Home },
@@ -70,6 +72,7 @@ const EnvironmentManager: React.FC = () => {
     icon: 'Home',
     color: '#FF6B6B',
     drain_multiplier: 1.0,
+    is_default: false, // Default for new environments is false
   });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
 
@@ -89,6 +92,7 @@ const EnvironmentManager: React.FC = () => {
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
+      is_default: false,
     });
     setIsAddDialogOpen(false);
   };
@@ -109,6 +113,7 @@ const EnvironmentManager: React.FC = () => {
       icon: newEnvironment.icon,
       color: newEnvironment.color,
       drain_multiplier: newEnvironment.drain_multiplier,
+      is_default: newEnvironment.is_default, // Include is_default in update
     });
     
     setEditingId(null);
@@ -117,6 +122,7 @@ const EnvironmentManager: React.FC = () => {
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
+      is_default: false,
     });
   };
 
@@ -127,6 +133,7 @@ const EnvironmentManager: React.FC = () => {
       icon: env.icon,
       color: env.color,
       drain_multiplier: env.drain_multiplier,
+      is_default: env.is_default, // Load current is_default status
     });
   };
 
@@ -137,6 +144,7 @@ const EnvironmentManager: React.FC = () => {
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
+      is_default: false,
     });
   };
 
@@ -163,7 +171,7 @@ const EnvironmentManager: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Environment Manager</h3>
+        <h3 className="text-lg font-semibold">Your Environments</h3>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -247,23 +255,22 @@ const EnvironmentManager: React.FC = () => {
           const isEditing = editingId === env.id;
           
           return (
-            <Card key={env.id} className="relative p-4"> {/* Added p-4 for consistent padding */}
-              <CardHeader className="flex-row items-center justify-between space-y-0 p-0 mb-4"> {/* Adjusted header for flex row */}
+            <Card key={env.id} className="relative p-4">
+              <CardHeader className="flex-row items-center justify-between space-y-0 p-0 mb-4">
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                  <IconComponent className="h-6 w-6" style={{ color: env.color }} /> {/* Increased icon size */}
+                  <IconComponent className="h-6 w-6" style={{ color: env.color }} />
                   <span>{env.label}</span>
                 </CardTitle>
-                <Badge 
-                  variant={env.is_default ? "default" : "secondary"}
-                  className={cn(
-                    "text-xs font-semibold uppercase tracking-tight",
-                    env.is_default ? "bg-primary/10 text-primary border-primary/20" : "bg-secondary text-secondary-foreground border-border"
-                  )}
-                >
-                  {env.is_default ? "Default" : "Custom"}
-                </Badge>
+                {env.is_default && !isEditing && (
+                  <Badge 
+                    variant="default"
+                    className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold uppercase tracking-tight flex items-center gap-1"
+                  >
+                    <Star className="h-3 w-3 fill-current" /> Default
+                  </Badge>
+                )}
               </CardHeader>
-              <CardContent className="space-y-3 p-0"> {/* Adjusted padding */}
+              <CardContent className="space-y-3 p-0">
                 {isEditing ? (
                   <>
                     <div>
@@ -322,7 +329,14 @@ const EnvironmentManager: React.FC = () => {
                         onChange={(e) => setNewEnvironment({...newEnvironment, drain_multiplier: parseFloat(e.target.value) || 1.0})}
                       />
                     </div>
-                    <div className="flex gap-2 mt-4"> {/* Added mt-4 for spacing */}
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50">
+                      <Label>Is Default?</Label>
+                      <Switch
+                        checked={newEnvironment.is_default}
+                        onCheckedChange={(checked) => setNewEnvironment({...newEnvironment, is_default: checked})}
+                      />
+                    </div>
+                    <div className="flex gap-2 mt-4">
                       <Button size="sm" onClick={() => handleUpdateEnvironment(env.id)}>
                         <Save className="h-4 w-4 mr-1" />
                         Save
@@ -353,29 +367,27 @@ const EnvironmentManager: React.FC = () => {
                         <span className="text-xs">{env.color}</span>
                       </div>
                     </div>
-                    <div className="flex gap-2 mt-4"> {/* Added mt-4 for spacing */}
+                    <div className="flex gap-2 mt-4">
                       <Button 
-                        variant="outline" // Changed to outline
+                        variant="outline"
                         size="sm" 
                         onClick={() => startEditing(env)}
-                        disabled={env.is_default}
                         className="flex items-center gap-1 text-primary hover:bg-primary/10"
                       >
                         <Edit className="h-4 w-4" />
                         Edit
                       </Button>
-                      {!env.is_default && (
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => handleDeleteEnvironment(env.id, env.label)}
-                          type="button"
-                          className="flex items-center gap-1"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </Button>
-                      )}
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => handleDeleteEnvironment(env.id, env.label)}
+                        disabled={env.is_default} // Disable delete if it's still a default
+                        type="button"
+                        className="flex items-center gap-1"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </Button>
                     </div>
                   </>
                 )}

@@ -80,6 +80,7 @@ export const useEnvironments = () => {
     mutationFn: async (environment: Partial<Environment> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
       
+      // Allow updating is_default status
       const { data, error } = await supabase
         .from('environments')
         .update({ ...environment, updated_at: new Date().toISOString() })
@@ -104,18 +105,8 @@ export const useEnvironments = () => {
     mutationFn: async (id: string) => {
       if (!userId) throw new Error("User not authenticated.");
       
-      // Check if this is a default environment
-      const { data: env } = await supabase
-        .from('environments')
-        .select('is_default')
-        .eq('id', id)
-        .eq('user_id', userId)
-        .single();
-      
-      if (env?.is_default) {
-        throw new Error("Cannot delete default environments.");
-      }
-      
+      // The check for `is_default` is now removed here, as the UI will control it.
+      // If `is_default` is set to false, it can be deleted.
       const { error } = await supabase
         .from('environments')
         .delete()

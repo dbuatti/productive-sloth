@@ -17,7 +17,7 @@ import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view
 import SinkKanbanBoard from './SinkKanbanBoard';
 import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
-import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments
+import { useEnvironments } from '@/hooks/use-environments';
 
 const LOG_PREFIX = "[AETHER_SINK]";
 
@@ -47,7 +47,7 @@ interface AetherSinkProps {
   isProcessingCommand: boolean;
   profile: UserProfile | null;
   retiredSortBy: RetiredTaskSortBy;
-  setRetiredSortBy: (sortBy: RetTaskSortBy) => void;
+  setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
 }
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ 
@@ -62,7 +62,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   setRetiredSortBy 
 }) => {
   const { user } = useSession();
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // NEW: Use environments hook
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails } = useSchedulerTasks('');
   
   // --- View Management ---
@@ -71,7 +71,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
-  const [localInput, setLocalInput] = useState(''); // NEW: State for quick add input
+  const [localInput, setLocalInput] = useState('');
 
   const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
 
@@ -221,7 +221,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   <DropdownMenuItem onClick={() => {
                     console.log(`${LOG_PREFIX} Setting group by to: priority`);
                     setGroupBy('priority');
-                  }} className="font-bold text-xs uppercase py-2 px-3">Priority</DropdownMenu>
+                  }} className="font-bold text-xs uppercase py-2 px-3">Priority</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

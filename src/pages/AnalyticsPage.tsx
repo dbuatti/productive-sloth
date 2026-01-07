@@ -6,6 +6,7 @@ import { useTasks } from '@/hooks/use-tasks';
 import { Loader2, TrendingUp, CheckCircle, Sparkles } from 'lucide-react';
 import { format, parseISO, startOfDay, subDays } from 'date-fns';
 import { XP_PER_LEVEL } from '@/lib/constants';
+import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
 
 const generateDateRange = (days: number) => {
   const dates: Date[] = [];
@@ -51,8 +52,25 @@ const AnalyticsPage: React.FC = () => {
 
   if (isSessionLoading || isTasksLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-8 animate-slide-in-up">
+        <Skeleton className="h-8 w-64 mb-4" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="p-4 space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-3 w-40" />
+            </Card>
+          ))}
+        </div>
+        <Card className="p-4 space-y-4">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-[300px] w-full" />
+        </Card>
+        <Card className="p-4 space-y-4">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-[300px] w-full" />
+        </Card>
       </div>
     );
   }
@@ -66,54 +84,54 @@ const AnalyticsPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-slide-in-up">
-      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"> {/* Changed text-3xl to text-2xl */}
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
         <TrendingUp className="h-7 w-7 text-primary" /> Gamification Analytics
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift"> {/* Replaced Card with div, adjusted styling */}
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
-            <p className="text-sm font-medium">Current Level</p> {/* Replaced CardTitle with p */}
+        <Card className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+            <p className="text-sm font-medium">Current Level</p>
             <Sparkles className="h-4 w-4 text-logo-yellow" />
-          </div>
-          <div className="p-0"> {/* Replaced CardContent with div */}
-            <div className="text-xl font-bold">{currentLevel}</div> {/* Changed text-2xl to text-xl */}
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="text-xl font-bold">{currentLevel}</div>
             <p className="text-xs text-muted-foreground">
               {xpToNextLevel} XP to Level {currentLevel + 1}
             </p>
-          </div>
-        </div>
-        <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}> {/* Replaced Card with div, adjusted styling */}
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
-            <p className="text-sm font-medium">Total XP</p> {/* Replaced CardTitle with p */}
+          </CardContent>
+        </Card>
+        <Card className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift" style={{ animationDelay: '0.1s' }}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+            <p className="text-sm font-medium">Total XP</p>
             <Sparkles className="h-4 w-4 text-primary" />
-          </div>
-          <div className="p-0"> {/* Replaced CardContent with div */}
-            <div className="text-xl font-bold">{profile.xp}</div> {/* Changed text-2xl to text-xl */}
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="text-xl font-bold">{profile.xp}</div>
             <p className="text-xs text-muted-foreground">
               Lifetime experience points earned
             </p>
-          </div>
-        </div>
-        <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift" style={{ animationDelay: '0.2s' }}> {/* Replaced Card with div, adjusted styling */}
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
-            <p className="text-sm font-medium">Daily Streak</p> {/* Replaced CardTitle with p */}
+          </CardContent>
+        </Card>
+        <Card className="p-4 bg-card rounded-xl shadow-sm animate-pop-in animate-hover-lift" style={{ animationDelay: '0.2s' }}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+            <p className="text-sm font-medium">Daily Streak</p>
             <CheckCircle className="h-4 w-4 text-logo-green" />
-          </div>
-          <div className="p-0"> {/* Replaced CardContent with div */}
-            <div className="text-xl font-bold">{profile.daily_streak} Days</div> {/* Changed text-2xl to text-xl */}
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="text-xl font-bold">{profile.daily_streak} Days</div>
             <p className="text-xs text-muted-foreground">
               Consecutive days completing tasks
             </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.3s' }}> {/* Replaced Card with div, adjusted styling */}
-        <div className="px-0 pb-4"> {/* Replaced CardHeader with div, adjusted padding */}
-          <h2 className="text-lg">Tasks Completed Trend (Last 7 Days)</h2> {/* Replaced CardTitle with h2 */}
-        </div>
-        <div className="p-0"> {/* Replaced CardContent with div */}
+      <Card className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.3s' }}>
+        <CardHeader className="px-0 pb-4">
+          <CardTitle className="text-lg">Tasks Completed Trend (Last 7 Days)</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -144,14 +162,14 @@ const AnalyticsPage: React.FC = () => {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.4s' }}> {/* Replaced Card with div, adjusted styling */}
-        <div className="px-0 pb-4"> {/* Replaced CardHeader with div, adjusted padding */}
-          <h2 className="text-lg">Tasks Completed (Last 7 Days)</h2> {/* Replaced CardTitle with h2 */}
-        </div>
-        <div className="p-0"> {/* Replaced CardContent with div */}
+      <Card className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.4s' }}>
+        <CardHeader className="px-0 pb-4">
+          <CardTitle className="text-lg">Tasks Completed (Last 7 Days)</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -175,8 +193,8 @@ const AnalyticsPage: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

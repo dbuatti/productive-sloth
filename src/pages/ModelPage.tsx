@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, ArrowDownWideNarrow, Clock, Star, Database, Trash, CheckCircle, Archive, Lock, Unlock, Coffee, BatteryCharging, Plus, AlignLeft, ArrowLeft, TrendingUp, BookOpen, Flame, Gamepad2, LogOut, Save, CalendarCheck, Feather, Anchor, ListTodo, Utensils, Trash2, RotateCcw } from 'lucide-react';
+import { Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Settings2, ArrowDownWideNarrow, Clock, Star, Database, Trash, CheckCircle, Archive, Lock, Unlock, Coffee, BatteryCharging, Plus, AlignLeft, ArrowLeft, TrendingUp, BookOpen, Flame, Gamepad, Code, ListTodo, Utensils, Trash2, RotateCcw, CalendarCheck, Feather, Anchor, LogOut, Save, Gamepad2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,10 +19,10 @@ interface ButtonReplicaProps {
 }
 
 const ButtonReplica: React.FC<ButtonReplicaProps> = ({ icon: Icon, label, description, variant = 'outline', className, iconClassName, size = 'icon', children }) => (
-  <div className="flex flex-col items-center space-y-2 p-4 border rounded-lg bg-card/50 shadow-sm animate-pop-in">
+  <Card className="flex flex-col items-center space-y-2 p-4 bg-card/50 shadow-sm animate-pop-in">
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant={variant} size={size} className={cn("h-10 w-10", className)}>
+        <Button variant={variant} size={size} className={cn("h-10 w-10", className)} aria-label={label}>
           <Icon className={cn("h-5 w-5", iconClassName)} />
           <span className="sr-only">{label}</span>
           {children}
@@ -34,10 +34,9 @@ const ButtonReplica: React.FC<ButtonReplicaProps> = ({ icon: Icon, label, descri
     </Tooltip>
     <p className="text-center text-sm font-medium text-foreground">{label}</p>
     <p className="text-center text-xs text-muted-foreground">{description}</p>
-  </div>
+  </Card>
 );
 
-// Explicitly define the type of the buttons array to prevent type widening of 'variant'
 const buttons: ButtonReplicaProps[] = [
     // --- Primary Scheduler Actions ---
     { icon: CalendarCheck, label: "Auto Schedule Day", description: "Automatically re-balance and schedule all flexible tasks from the sink and current day.", variant: 'default', className: "bg-logo-green text-primary-foreground h-14 w-full", size: 'default', children: <Star className="h-6 w-6 text-logo-yellow ml-2" /> },
@@ -99,25 +98,29 @@ const ModelPage: React.FC = () => {
       </p>
 
       {/* Section 1: Button Replicas */}
-      <div className="p-4 bg-card rounded-xl shadow-sm animate-hover-lift"> {/* Replaced Card with div, adjusted styling */}
-        <h2 className="text-xl font-bold flex items-center gap-2 text-primary px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
-          <ListTodo className="h-6 w-6" /> All Button Replicas
-        </h2>
-        <div className="p-0"> {/* Replaced CardContent with div */}
+      <Card className="p-4 rounded-xl shadow-sm animate-hover-lift">
+        <CardHeader className="px-0 pb-4">
+          <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+            <ListTodo className="h-6 w-6" /> All Button Replicas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {buttons.map((btn, index) => (
               <ButtonReplica key={index} {...btn} />
             ))}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Section 2: Active Task Explanation */}
-      <div className="p-4 bg-card rounded-xl shadow-sm animate-hover-lift"> {/* Replaced Card with div, adjusted styling */}
-        <h2 className="text-xl font-bold flex items-center gap-2 text-primary px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
-          <Zap className="h-6 w-6 text-logo-yellow" /> Active Task / Now Focus
-        </h2>
-        <div className="p-0 space-y-4 text-muted-foreground"> {/* Replaced CardContent with div, adjusted padding */}
+      <Card className="p-4 rounded-xl shadow-sm animate-hover-lift">
+        <CardHeader className="px-0 pb-4">
+          <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+            <Zap className="h-6 w-6 text-logo-yellow" /> Active Task / Now Focus
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 space-y-4 text-muted-foreground">
           <p>
             The <strong>Active Task</strong> (or <strong>Now Focus</strong>) is the scheduled item whose time slot currently overlaps with the system's current time (<code className="font-mono">T_current</code>). This is the task you should be focusing on right now.
           </p>
@@ -135,15 +138,17 @@ const ModelPage: React.FC = () => {
               <strong>Completion:</strong> Completing a task triggers XP gain and energy cost calculation. If the task is flexible, the schedule is immediately compacted to fill the gap.
             </li>
           </ul>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Section 3: Vibe Schedule Explanation */}
-      <div className="p-4 bg-card rounded-xl shadow-sm animate-hover-lift"> {/* Replaced Card with div, adjusted styling */}
-        <h2 className="text-xl font-bold flex items-center gap-2 text-primary px-0 pb-4"> {/* Replaced CardHeader/CardTitle with h2, adjusted padding */}
-          <Clock className="h-6 w-6 text-primary" /> Vibe Schedule
-        </h2>
-        <div className="p-0 space-y-4 text-muted-foreground"> {/* Replaced CardContent with div, adjusted padding */}
+      <Card className="p-4 rounded-xl shadow-sm animate-hover-lift">
+        <CardHeader className="px-0 pb-4">
+          <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+            <Clock className="h-6 w-6 text-primary" /> Vibe Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 space-y-4 text-muted-foreground">
           <p>
             The <strong>Vibe Schedule</strong> is the core time management tool, dynamically organizing your day based on fixed appointments, flexible tasks, and available time slots within your defined Workday Window. It aims to keep you in a state of "flow" by presenting a clear, prioritized timeline.
           </p>
@@ -164,8 +169,8 @@ const ModelPage: React.FC = () => {
               <strong>Dynamic Placement:</strong> When adding a new duration-based task, the system automatically finds the next available slot after the current time (<code className="font-mono">T_current</code>) or the Workday Start time.
             </li>
           </ul>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

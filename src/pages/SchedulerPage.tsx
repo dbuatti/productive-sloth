@@ -37,8 +37,8 @@ import { cn } from '@/lib/utils';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; 
 import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; 
 import { useNavigate } from 'react-router-dom';
-import AetherSink from '@/components/AetherSink'; // Import AetherSink
-import CreateTaskDialog from '@/components/CreateTaskDialog'; // NEW: Import CreateTaskDialog
+import AetherSink from '@/components/AetherSink';
+import CreateTaskDialog from '@/components/CreateTaskDialog';
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
@@ -100,7 +100,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   
   const [showRegenPodSetup, setShowRegenPodSetup] = useState(false); 
 
-  // NEW: State for CreateTaskDialog
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [createTaskDefaultValues, setCreateTaskDefaultValues] = useState<{
     defaultPriority: 'HIGH' | 'MEDIUM' | 'LOW';
@@ -134,9 +133,11 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     const constraints: TimeBlock[] = [];
     const addConstraint = (name: string, timeStr: string | null, duration: number | null) => {
       const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+
       if (timeStr && effectiveDuration > 0) {
         let anchorStart = setTimeOnDate(selectedDayAsDate, timeStr);
         let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+
         if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
         
         const overlaps = (isBefore(anchorEnd, workdayEndTimeForSelectedDay) || anchorEnd.getTime() === workdayEndTimeForSelectedDay.getTime()) && 
@@ -179,7 +180,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy]);
 
   const handleCompact = useCallback(async () => {
-    // Pass the profile object to compactScheduleLogic
     const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile);
     await compactScheduledTasks({ tasksToUpdate });
   }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile]);
@@ -367,7 +367,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
   }, [completeScheduledTaskMutation, rechargeEnergy, retireTask]);
 
-  // NEW: Handler for opening CreateTaskDialog from SchedulerInput
   const handleDetailedInject = useCallback(() => {
     setCreateTaskDefaultValues({
       defaultPriority: 'MEDIUM',
@@ -376,7 +375,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     setIsCreateTaskDialogOpen(true);
   }, [selectedDayAsDate]);
 
-  // NEW: Handler for opening CreateTaskDialog from free time slot click
   const handleFreeTimeClick = useCallback((startTime: Date, endTime: Date) => {
     setCreateTaskDefaultValues({
       defaultPriority: 'MEDIUM',
@@ -400,7 +398,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   return (
     <div className={cn(
-      "w-full pb-4 space-y-6", // Adjusted padding-bottom and added space-y-6 for overall spacing
+      "w-full pb-4 space-y-6",
     )}>
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
@@ -416,7 +414,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         />
       )}
 
-      {/* NEW: Create Task Dialog */}
       <CreateTaskDialog
         defaultPriority={createTaskDefaultValues.defaultPriority}
         defaultDueDate={createTaskDefaultValues.defaultDueDate}
@@ -432,26 +429,27 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         onOpenChange={setIsCreateTaskDialogOpen}
       />
 
-      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} />
+      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={overallLoading} />
       
-      <div className="space-y-6"> {/* Grouping related components for consistent spacing */}
+      <div className="space-y-6">
         <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} />
         <SchedulerSegmentedControl currentView={view} />
       </div>
 
-      <div className="space-y-6"> {/* Grouping related components for consistent spacing */}
+      <div className="space-y-6">
         {view === 'schedule' && (
           <>
-            {/* SchedulerContextBar - Removed card styling */}
             <SchedulerContextBar T_current={T_current} />
             
-            {/* Quick Add - Removed card styling */}
-            <div className="p-4"> {/* Removed bg-card rounded-xl shadow-sm */}
-              <h2 className="text-xl font-bold flex items-center gap-2 mb-4"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</h2>
-              <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} />
-            </div>
+            <Card className="p-4 rounded-xl shadow-sm">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} />
+              </CardContent>
+            </Card>
             
-            {/* SchedulerActionCenter - Removed card styling */}
             <SchedulerActionCenter 
               isProcessingCommand={overallLoading} 
               dbScheduledTasks={dbScheduledTasks} 
@@ -474,11 +472,15 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
               navigate={navigate}
             />
-            <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} />
-            <div className="p-0 bg-transparent rounded-none shadow-none"> {/* This already has no card styling */}
-              <h2 className="text-xl font-bold mb-4">Your Vibe Schedule</h2>
-              <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={handleFreeTimeClick} />
-            </div>
+            <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
+            <Card className="p-0 bg-transparent rounded-none shadow-none">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="text-xl font-bold">Your Vibe Schedule</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={handleFreeTimeClick} />
+              </CardContent>
+            </Card>
           </>
         )}
         {view === 'sink' && (

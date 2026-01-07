@@ -17,7 +17,8 @@ import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view
 import SinkKanbanBoard from './SinkKanbanBoard';
 import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
-import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments
+import { useEnvironments } from '@/hooks/use-environments';
+import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -60,16 +61,14 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   setRetiredSortBy 
 }) => {
   const { user } = useSession();
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // NEW: Use environments hook
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails } = useSchedulerTasks('');
   
-  // --- View Management ---
   const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
-  // ----------------------------
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
-  const [localInput, setLocalInput] = useState(''); // NEW: State for quick add input
+  const [localInput, setLocalInput] = useState('');
 
   const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
 
@@ -106,7 +105,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     }
   }, [updateRetiredTaskDetails]);
 
-  // NEW: Quick add handler for list view
   const handleQuickAddToList = useCallback(async (input: string) => {
     if (!user) return showError("User context missing.");
     if (!input.trim()) return;
@@ -117,13 +115,14 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     }
 
     await addRetiredTask(parsedTask);
-    setLocalInput(''); // Clear input after adding
+    setLocalInput('');
   }, [user, addRetiredTask]);
 
   const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
     <DropdownMenuItem 
       onClick={() => setRetiredSortBy(type)} 
       className={cn("cursor-pointer font-bold text-xs uppercase tracking-widest", retiredSortBy === type && 'bg-primary/10 text-primary')}
+      aria-label={`Sort by ${label}`}
     >
       <Icon className="mr-2 h-4 w-4" />
       {label}
@@ -139,6 +138,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             size="icon" 
             className={cn("h-8 w-8 rounded-md", viewMode === 'list' && "shadow-sm")}
             onClick={() => setViewMode('list')}
+            aria-label="Switch to List View"
           >
             <List className="h-4 w-4" />
           </Button>
@@ -152,6 +152,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             size="icon" 
             className={cn("h-8 w-8 rounded-md", viewMode === 'kanban' && "shadow-sm")}
             onClick={() => setViewMode('kanban')}
+            aria-label="Switch to Kanban View"
           >
             <LayoutDashboard className="h-4 w-4" />
           </Button>
@@ -161,7 +162,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     </div>
   );
 
-  // NEW: Get environment options for grouping
   const environmentOptions = useMemo(() => {
     return environments.map(env => ({
       value: env.value as TaskEnvironment,
@@ -172,9 +172,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   return (
     <>
-      <div className="p-4 bg-card rounded-xl shadow-sm w-full">
-        <div className={cn("pb-4 flex flex-row items-center justify-between")}>
-          <div className="flex items-center gap-3">
+      <Card className="p-4 rounded-xl shadow-sm w-full">
+        <CardHeader className={cn("pb-4 flex flex-row items-center justify-between p-0")}>
+          <CardTitle className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-secondary/50">
               <Trash2 className="h-5 w-5 text-muted-foreground" />
             </div>
@@ -182,7 +182,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               <span>Aether Sink</span>
               <span className="text-xs font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
             </h2>
-          </div>
+          </CardTitle>
           <div className="flex items-center gap-2">
             {/* View Toggle */}
             <ViewToggle />
@@ -195,14 +195,15 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                     variant="outline" 
                     size="sm" 
                     className="h-10 px-3 text-xs font-bold uppercase tracking-widest"
+                    aria-label="Group Kanban Board"
                   >
                     Group: {groupBy === 'environment' ? 'Env' : 'Priority'}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
                   <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Group By</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => setGroupBy('environment')} className="font-bold text-xs uppercase py-2 px-3">Environment</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setGroupBy('priority')} className="font-bold text-xs uppercase py-2 px-3">Priority</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupBy('environment')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Environment">Environment</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupBy('priority')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Priority">Priority</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -218,6 +219,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                       onClick={handleManualAetherSinkBackup}
                       disabled={isProcessingCommand}
                       className="h-10 w-10 text-primary"
+                      aria-label="Manual Aether Sink Backup"
                     >
                       {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
                     </Button>
@@ -232,6 +234,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                           variant="glass" 
                           disabled={retiredTasks.length === 0}
                           className="h-10 w-10"
+                          aria-label="Sort Aether Sink Tasks"
                         >
                           <ArrowDownWideNarrow className="h-4 w-4" />
                         </Button>
@@ -265,6 +268,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   onClick={onAutoScheduleSink}
                   disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
                   className="h-10 px-4 font-black uppercase tracking-widest text-[10px]"
+                  aria-label="Auto Sync all unlocked objectives"
                 >
                   {isProcessingCommand ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Sparkles className="h-3 w-3 mr-2" />}
                   Auto Sync
@@ -273,9 +277,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               <TooltipContent>Re-zone all unlocked objectives</TooltipContent>
             </Tooltip>
           </div>
-        </div>
+        </CardHeader>
         
-        <div className="px-2 pb-2 space-y-6">
+        <CardContent className="px-2 pb-2 space-y-6">
           {/* Input Form (Now enabled for List View) */}
           {viewMode === 'list' && (
             <form 
@@ -291,11 +295,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 onChange={(e) => setLocalInput(e.target.value)}
                 disabled={isProcessingCommand}
                 className="flex-grow h-12 bg-background/40 font-bold placeholder:font-medium placeholder:opacity-30"
+                aria-label="Quick add task to Aether Sink"
               />
               <Button 
                 type="submit" 
                 disabled={!localInput.trim() || isProcessingCommand}
                 className="h-12 w-12 rounded-xl"
+                aria-label="Add task to Aether Sink"
               >
                 {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
               </Button>
@@ -307,6 +313,11 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Sink...</p>
+              <div className="space-y-2 w-full px-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                ))}
+              </div>
             </div>
           ) : retiredTasks.length === 0 ? (
             /* Empty State */
@@ -330,7 +341,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   return (
                     <div 
                       key={task.id}
-                      onClick={() => handleOpenDetailDialog(task)} // Click to open details
+                      onClick={() => handleOpenDetailDialog(task)}
                       className={cn(
                         "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border-none transition-all duration-300 cursor-pointer animate-pop-in",
                         "bg-card/40 hover:bg-secondary/40",
@@ -339,6 +350,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                         isCompleted && "opacity-40 grayscale"
                       )}
                       style={{ borderLeft: isLocked ? '4px solid hsl(var(--primary))' : `4px solid ${accentColor}` }}
+                      aria-label={`Retired task: ${task.name}`}
                     >
                       <div className="flex items-center gap-4 flex-grow min-w-0">
                         <Button 
@@ -350,6 +362,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                             "h-9 w-9 shrink-0 rounded-full",
                             isCompleted ? "text-logo-green bg-logo-green/10" : "bg-secondary/50 text-muted-foreground/30 hover:bg-logo-green/10 hover:text-logo-green"
                           )}
+                          aria-label={isCompleted ? `Mark "${task.name}" as incomplete` : `Mark "${task.name}" as complete`}
                         >
                           <CheckCircle className={cn("h-5 w-5 transition-transform duration-500", !isCompleted && "group-hover:scale-110")} />
                         </Button>
@@ -393,6 +406,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                                 "h-9 w-9 rounded-lg transition-all",
                                 isLocked ? "text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary),0.1)]" : "text-muted-foreground/30"
                               )}
+                              aria-label={isLocked ? `Unlock "${task.name}"` : `Lock "${task.name}"`}
                             >
                               {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                             </Button>
@@ -407,6 +421,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                               onClick={(e) => handleAction(e, () => onRezoneTask(task))}
                               disabled={isLocked || isCompleted}
                               className="h-9 w-9 text-primary/40 hover:text-primary hover:bg-primary/10 rounded-lg"
+                              aria-label={`Re-zone "${task.name}" to schedule`}
                             >
                               <RotateCcw className="h-4 w-4" />
                             </Button>
@@ -421,6 +436,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                               onClick={(e) => handleAction(e, () => onRemoveRetiredTask(task.id, task.name))}
                               disabled={isLocked}
                               className="h-9 w-9 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                              aria-label={`Purge "${task.name}" from Aether Sink`}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -439,12 +455,12 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 onRemoveRetiredTask={onRemoveRetiredTask} 
                 onRezoneTask={onRezoneTask}
                 updateRetiredTask={handleUpdateRetiredTask}
-                onOpenDetailDialog={handleOpenDetailDialog} // Pass the handler
+                onOpenDetailDialog={handleOpenDetailDialog}
               />
             )
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
       
       <RetiredTaskDetailDialog 
         task={selectedRetiredTask} 

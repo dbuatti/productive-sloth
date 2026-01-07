@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
-import { BookOpen, Sparkles, Clock, ListTodo, Settings, Trophy, TrendingUp, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code, Star } from 'lucide-react'; // Removed Brain icon
+import { BookOpen, Sparkles, Clock, ListTodo, Settings, Trophy, TrendingUp, Trash2, Command, Palette, Zap, Flame, Coffee, CalendarDays, Globe, RefreshCcw, ChevronsUp, Shuffle, CalendarOff, AlertCircle, Lock, Unlock, PlusCircle, Gamepad, Code, Star } from 'lucide-react';
 import { EMOJI_MAP, EMOJI_HUE_MAP, calculateEnergyCost } from '@/lib/scheduler-utils';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/use-session';
@@ -16,10 +16,10 @@ const DocumentationPage: React.FC = () => {
   if (!user) {
     return (
       <div className="space-y-6 text-center text-muted-foreground">
-        <h1 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up"> {/* Changed text-3xl to text-2xl */}
+        <h1 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2 animate-slide-in-up">
           <BookOpen className="h-7 w-7 text-primary" /> App Documentation
         </h1>
-        <p className="text-base">Please log in to view the app documentation.</p> {/* Changed text-lg to text-base */}
+        <p className="text-base">Please log in to view the app documentation.</p>
       </div>
     );
   }
@@ -28,21 +28,21 @@ const DocumentationPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-slide-in-up">
-      <h1 className="text-3xl font-bold text-foreground flex items-center gap-3"> {/* Changed text-4xl to text-3xl */}
+      <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
         <BookOpen className="h-9 w-9 text-primary" /> AetherFlow App Documentation
       </h1>
-      <p className="text-base text-muted-foreground"> {/* Changed text-lg to text-base */}
+      <p className="text-base text-muted-foreground">
         Your comprehensive guide to mastering AetherFlow, the gamified productivity and scheduling app.
       </p>
 
       <Accordion type="multiple" defaultValue={['overview']} className="w-full space-y-4">
         {/* App Overview */}
-        <AccordionItem value="overview" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
+        <AccordionItem value="overview" className="rounded-xl shadow-sm bg-card border-none">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3">
             <Sparkles className="h-6 w-6 text-logo-yellow" /> App Overview
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
-            <div className="p-0 space-y-4"> {/* Replaced Card with div */}
+          <AccordionContent className="px-4 pb-4">
+            <CardContent className="p-0 space-y-4">
               <p>
                 AetherFlow is designed to transform your daily task management into an engaging, gamified experience.
                 By combining traditional to-do lists with RPG-inspired progression and a dynamic scheduler,
@@ -53,21 +53,21 @@ const DocumentationPage: React.FC = () => {
                 The Vibe Scheduler intelligently organizes your tasks, while the Aether Sink provides a space for retired items,
                 ensuring nothing truly gets lost.
               </p>
-            </div>
+            </CardContent>
           </AccordionContent>
         </AccordionItem>
 
         {/* Core Concepts */}
-        <AccordionItem value="core-concepts" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
+        <AccordionItem value="core-concepts" className="rounded-xl shadow-sm bg-card border-none">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3">
             <Palette className="h-6 w-6 text-primary" /> Core Concepts
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
-            <div className="p-0 space-y-6"> {/* Replaced Card with div */}
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+          <AccordionContent className="px-4 pb-4">
+            <CardContent className="p-0 space-y-6">
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <Gamepad className="h-5 w-5 text-logo-yellow" /> Gamification
               </h3>
-              <div className="space-y-2 text-muted-foreground"> {/* Changed p to div */}
+              <div className="space-y-2 text-muted-foreground">
                 <ul className="list-disc list-inside space-y-2">
                   <li>
                     <span className="font-semibold text-foreground">XP (Experience Points):</span> Earned by completing tasks. Higher priority tasks yield more XP.
@@ -88,14 +88,14 @@ const DocumentationPage: React.FC = () => {
                     <span className="font-semibold text-foreground">Notifications:</span> Customizable alerts for low energy (below {LOW_ENERGY_THRESHOLD}%) and daily challenge status.
                   </li>
                 </ul>
-              </div> {/* Closed div */}
+              </div>
 
               <Separator />
 
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <ListTodo className="h-5 w-5 text-primary" /> Task Management
               </h3>
-              <div className="space-y-2 text-muted-foreground"> {/* Changed p to div */}
+              <div className="space-y-2 text-muted-foreground">
                 <ul className="list-disc list-inside space-y-2">
                   <li>
                     <span className="font-semibold text-foreground">Priorities (High, Medium, Low):</span> Categorize tasks by importance. Higher priority tasks give more XP and cost more energy.
@@ -113,14 +113,14 @@ const DocumentationPage: React.FC = () => {
                     <span className="font-semibold text-foreground">Descriptions:</span> Add detailed notes to your tasks using the detailed task creation dialog or the task detail sheet.
                   </li>
                 </ul>
-              </div> {/* Closed div */}
+              </div>
 
               <Separator />
 
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" /> Vibe Scheduler
               </h3>
-              <div className="space-y-2 text-muted-foreground"> {/* Changed p to div */}
+              <div className="space-y-2 text-muted-foreground">
                 <ul className="list-disc list-inside space-y-2">
                   <li>
                     <span className="font-semibold text-foreground">Flexible Tasks:</span> Tasks that the scheduler can automatically place into available time slots.
@@ -150,19 +150,19 @@ const DocumentationPage: React.FC = () => {
                     <span className="font-semibold text-foreground">Time Off:</span> Dedicated blocks in your schedule for personal time, always treated as fixed.
                   </li>
                 </ul>
-              </div> {/* Closed div */}
-            </div>
+              </div>
+            </CardContent>
           </AccordionContent>
         </AccordionItem>
 
         {/* Features Breakdown */}
-        <AccordionItem value="features" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
+        <AccordionItem value="features" className="rounded-xl shadow-sm bg-card border-none">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3">
             <ListTodo className="h-6 w-6 text-logo-green" /> Features Breakdown
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
-            <div className="p-0 space-y-6"> {/* Replaced Card with div */}
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+          <AccordionContent className="px-4 pb-4">
+            <CardContent className="p-0 space-y-6">
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-logo-yellow" /> Dashboard
               </h3>
               <p className="text-muted-foreground">
@@ -173,7 +173,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <ListTodo className="h-5 w-5 text-primary" /> My Tasks
               </h3>
               <p className="text-muted-foreground">
@@ -183,7 +183,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" /> Vibe Scheduler
               </h3>
               <p className="text-muted-foreground">
@@ -194,7 +194,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" /> Analytics
               </h3>
               <p className="text-muted-foreground">
@@ -204,7 +204,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-logo-yellow" /> Achievements
               </h3>
               <p className="text-muted-foreground">
@@ -213,7 +213,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <Trash2 className="h-5 w-5 text-muted-foreground" /> Aether Sink
               </h3>
               <p className="text-muted-foreground">
@@ -223,7 +223,7 @@ const DocumentationPage: React.FC = () => {
 
               <Separator />
 
-              <h3 className="text-lg font-bold flex items-center gap-2"> {/* Changed text-xl to text-lg */}
+              <h3 className="text-lg font-bold flex items-center gap-2">
                 <Settings className="h-5 w-5 text-primary" /> Settings
               </h3>
               <p className="text-muted-foreground">
@@ -231,17 +231,17 @@ const DocumentationPage: React.FC = () => {
                 default auto-schedule times, and access developer tools. Includes a "Danger Zone" for
                 resetting game progress or deleting your account.
               </p>
-            </div>
+            </CardContent>
           </AccordionContent>
         </AccordionItem>
 
         {/* Emoji Guide */}
-        <AccordionItem value="emoji-guide" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
+        <AccordionItem value="emoji-guide" className="rounded-xl shadow-sm bg-card border-none">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3">
             <Palette className="h-6 w-6 text-logo-orange" /> Emoji & Color Guide
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
-            <div className="p-0 space-y-4"> {/* Replaced Card with div */}
+          <AccordionContent className="px-4 pb-4">
+            <CardContent className="p-0 space-y-4">
               <p className="text-muted-foreground">
                 AetherFlow automatically assigns an emoji and a color hue to your tasks based on keywords in their names.
                 This helps you quickly identify task types in your schedule.
@@ -262,21 +262,21 @@ const DocumentationPage: React.FC = () => {
               <p className="text-sm text-muted-foreground mt-4">
                 If no specific keyword is found, the default clipboard emoji (📋) and a blue hue are used.
               </p>
-            </div>
+            </CardContent>
           </AccordionContent>
         </AccordionItem>
 
         {/* Scheduler Commands */}
-        <AccordionItem value="scheduler-commands" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
+        <AccordionItem value="scheduler-commands" className="rounded-xl shadow-sm bg-card border-none">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3">
             <Command className="h-6 w-6 text-logo-green" /> Vibe Scheduler Commands
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
-            <div className="p-0 space-y-4"> {/* Replaced Card with div */}
+          <AccordionContent className="px-4 pb-4">
+            <CardContent className="p-0 space-y-4">
               <p className="text-muted-foreground">
                 The Vibe Scheduler input field understands natural language and specific commands to help you manage your schedule efficiently.
               </p>
-              <div className="space-y-3 text-muted-foreground"> {/* Changed p to div */}
+              <div className="space-y-3 text-muted-foreground">
                 <ul className="list-disc list-inside space-y-3">
                   <li>
                     <span className="font-semibold text-foreground">Add a duration-based task:</span>
@@ -328,10 +328,11 @@ const DocumentationPage: React.FC = () => {
                     <code className="block bg-muted p-2 rounded-md mt-1">aether dump mega</code> (or click <Globe className="inline-block h-4 w-4 align-text-bottom" />)
                   </li>
                 </ul>
-              </div> {/* Closed div */}
+              </div>
               <p className="text-sm text-muted-foreground mt-4">
                 <span className="font-semibold">Flags:</span>
                 <ul className="list-disc list-inside ml-4">
+                  <li><code className="font-mono">!</code>: Marks a task as critical (P: High). Must be the first character.</li>
                   <li><code className="font-mono">!</code>: Marks a task as critical (P: High). Must be the first character.</li>
                   <li><code className="font-mono">-</code>: Marks a task as backburner (P: Low). Must be the first or second character (after `!`).</li>
                   <li><code className="font-mono">sink</code>: Sends a duration-based task directly to the Aether Sink instead of scheduling it.</li>
@@ -339,17 +340,17 @@ const DocumentationPage: React.FC = () => {
                   <li>Energy cost is automatically calculated based on duration, criticality, and backburner status.</li>
                 </ul>
               </p>
-            </div>
+            </CardContent>
           </AccordionContent>
         </AccordionItem>
 
         {/* Technical Details */}
-        <AccordionItem value="technical-details" className="rounded-xl shadow-sm bg-card border-none"> {/* Added styling */}
-          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3"> {/* Adjusted padding */}
+        <AccordionItem value="technical-details" className="rounded-xl shadow-sm bg-card border-none">
+          <AccordionTrigger className="text-xl font-semibold flex items-center gap-2 px-4 py-3">
             <Code className="h-6 w-6 text-secondary-foreground" /> Technical Details
           </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4"> {/* Adjusted padding */}
-            <div className="p-0 space-y-4"> {/* Replaced Card with div */}
+          <AccordionContent className="px-4 pb-4">
+            <CardContent className="p-0 space-y-4">
               <p className="text-muted-foreground">
                 AetherFlow is built as a modern web application using the following technologies:
               </p>
@@ -364,7 +365,7 @@ const DocumentationPage: React.FC = () => {
                 The application leverages Supabase Edge Functions for server-side logic, such as fetching weather data,
                 and PostgreSQL for robust data storage with Row Level Security (RLS) for user data protection.
               </p>
-            </div>
+            </CardContent>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

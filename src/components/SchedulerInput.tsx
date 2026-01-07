@@ -3,9 +3,8 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, AlignLeft } from 'lucide-react'; // Changed Zap to AlignLeft for detailed inject
+import { Loader2, Plus, AlignLeft } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-// Removed useIsMobile as the behavior will now be consistent across devices
 
 interface SchedulerInputProps {
   onCommand: (input: string) => Promise<void>;
@@ -13,7 +12,7 @@ interface SchedulerInputProps {
   inputValue: string;
   setInputValue: (value: string) => void;
   placeholder?: string;
-  onDetailedInject: () => void; // UPDATED: onDetailedInject is now required
+  onDetailedInject: () => void;
 }
 
 const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
@@ -22,7 +21,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
   inputValue,
   setInputValue,
   placeholder = "e.g., 'Gym 60' or '!Report 45'",
-  onDetailedInject, // UPDATED
+  onDetailedInject,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -43,19 +42,18 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
         onKeyDown={handleKeyDown}
         disabled={isLoading}
         className="flex-grow h-11 bg-background/40 font-medium placeholder:font-normal placeholder:opacity-60 text-sm rounded-xl border-none"
-        aria-label="Quick add task input" // Added aria-label
+        aria-label="Quick add task input"
       />
       
-      {/* Dedicated Detailed Inject Button */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            onClick={onDetailedInject} // UPDATED: Call onDetailedInject
+            onClick={onDetailedInject}
             disabled={isLoading}
             variant="outline"
             size="icon"
             className="h-11 w-11 shrink-0 rounded-xl"
-            aria-label="Open detailed task creation dialog" // Added aria-label
+            aria-label="Open detailed task creation dialog"
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlignLeft className="h-4 w-4" />}
           </Button>

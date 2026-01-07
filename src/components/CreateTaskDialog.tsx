@@ -27,8 +27,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { format, isBefore, addDays, differenceInMinutes } from 'date-fns';
 import { useEnvironments } from '@/hooks/use-environments';
-import { NewDBScheduledTask, TaskEnvironment } from '@/types/scheduler'; // Import NewDBScheduledTask
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Import useSchedulerTasks
+import { NewDBScheduledTask, TaskEnvironment } from '@/types/scheduler';
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 
 const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
@@ -68,7 +68,7 @@ const getEnvironmentIconComponent = (iconName: string) => {
     case 'Laptop': return Laptop;
     case 'Globe': return Globe;
     case 'Music': return Music;
-    default: return Home; // Fallback
+    default: return Home;
   }
 };
 
@@ -82,7 +82,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   onOpenChange,
 }) => {
   const { addTask } = useTasks();
-  const { addScheduledTask } = useSchedulerTasks(format(defaultDueDate, 'yyyy-MM-dd')); // Initialize with defaultDueDate
+  const { addScheduledTask } = useSchedulerTasks(format(defaultDueDate, 'yyyy-MM-dd'));
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
   const isMobile = useIsMobile();
@@ -199,8 +199,8 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         scheduled_date: scheduledDateString,
         is_critical: isCritical,
         is_backburner: isBackburner,
-        is_flexible: false, // Explicitly timed tasks are not flexible
-        is_locked: true,    // Explicitly timed tasks are locked by default
+        is_flexible: false,
+        is_locked: true,
         energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost,
         is_custom_energy_cost: is_custom_energy_cost,
         task_environment: task_environment,
@@ -254,7 +254,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
             <FormItem>
               <FormLabel>Title</FormLabel>
               <FormControl>
-                <Input placeholder="Task title" {...field} />
+                <Input placeholder="Task title" {...field} aria-label="Task Title" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -273,6 +273,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   {...field} 
                   value={field.value || ''}
                   rows={4}
+                  aria-label="Task Description"
                 />
               </FormControl>
               <FormMessage />
@@ -287,7 +288,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Priority</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} aria-label="Task Priority">
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Priority" />
@@ -315,6 +316,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                     date={field.value} 
                     setDate={field.onChange} 
                     placeholder="Pick a date"
+                    aria-label="Task Due Date"
                   />
                 </FormControl>
                 <FormMessage />
@@ -323,7 +325,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           />
         </div>
 
-        {/* Optional Time Range Fields */}
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -332,7 +333,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
               <FormItem>
                 <FormLabel>Start Time (Optional)</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} value={field.value || ''} />
+                  <Input type="time" {...field} value={field.value || ''} aria-label="Task Start Time" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -345,7 +346,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
               <FormItem>
                 <FormLabel>End Time (Optional)</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} value={field.value || ''} />
+                  <Input type="time" {...field} value={field.value || ''} aria-label="Task End Time" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -353,14 +354,13 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           />
         </div>
 
-        {/* NEW: Task Environment */}
         <FormField
           control={form.control}
           name="task_environment"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Task Environment</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingEnvironments}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingEnvironments} aria-label="Task Environment">
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select environment" />
@@ -388,7 +388,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           )}
         />
 
-        {/* Critical Task Switch */}
         <FormField
           control={form.control}
           name="isCritical"
@@ -407,13 +406,13 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                     field.onChange(checked);
                     if (checked) form.setValue('isBackburner', false);
                   }}
+                  aria-label="Toggle Critical Task"
                 />
               </FormControl>
             </FormItem>
           )}
         />
 
-        {/* Backburner Task Switch */}
         <FormField
           control={form.control}
           name="isBackburner"
@@ -433,13 +432,13 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                     if (checked) form.setValue('isCritical', false);
                   }}
                   disabled={isCritical}
+                  aria-label="Toggle Backburner Task"
                 />
               </FormControl>
             </FormItem>
           )}
         />
 
-        {/* Custom Energy Cost Switch */}
         <FormField
           control={form.control}
           name="is_custom_energy_cost"
@@ -455,13 +454,13 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                 <Switch
                   checked={field.value}
                   onCheckedChange={field.onChange}
+                  aria-label="Toggle Custom Energy Cost"
                 />
               </FormControl>
             </FormItem>
           )}
         />
 
-        {/* Energy Cost Input (conditionally editable) */}
         <FormField
           control={form.control}
           name="energy_cost"
@@ -488,6 +487,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                         field.onChange(e);
                       }
                     }}
+                    aria-label="Energy Cost"
                   />
                 </FormControl>
               </div>
@@ -500,6 +500,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           type="submit" 
           disabled={isSubmitting || !isValid} 
           className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
+          aria-label="Create Task"
         >
           {isSubmitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -516,7 +517,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
     return (
       <Drawer open={isOpen} onOpenChange={onOpenChange}>
         <DrawerTrigger asChild>
-          <Button variant="outline" size="icon" className="hidden">
+          <Button variant="outline" size="icon" className="hidden" aria-label="Open Add Task Details Drawer">
             <AlignLeft className="h-4 w-4" />
             <span className="sr-only">Add Description</span>
           </Button>
@@ -534,7 +535,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="icon" className="hidden">
+        <Button variant="outline" size="icon" className="hidden" aria-label="Open Add Task Details Dialog">
           <AlignLeft className="h-4 w-4" />
           <span className="sr-only">Add Description</span>
         </Button>

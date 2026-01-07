@@ -58,38 +58,38 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
   ];
 
   const StatHUD = ({ label, value, icon: Icon, colorClass, shadowColor }: { label: string, value: string | number, icon: any, colorClass: string, shadowColor: string }) => (
-    <div className={cn("flex flex-col items-center justify-center p-5 border border-white/5 rounded-xl transition-all duration-300 hover:scale-105", shadowColor)}> {/* Replaced Card with div, adjusted styling */}
+    <Card className={cn("flex flex-col items-center justify-center p-5 border border-white/5 rounded-xl transition-all duration-300 hover:scale-105", shadowColor)}>
       <div className={cn("p-2 rounded-lg bg-background/50 mb-3", colorClass)}>
         <Icon className="h-5 w-5" />
       </div>
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mb-1">{label}</p>
       <p className="text-2xl font-black font-mono tracking-tighter text-foreground">{value}</p>
-    </div>
+    </Card>
   );
 
   return (
-    <div className="p-4 bg-card rounded-xl shadow-sm animate-pop-in overflow-hidden"> {/* Replaced Card with div, adjusted padding/styling */}
+    <Card className="p-4 rounded-xl shadow-sm animate-pop-in overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-logo-green opacity-50" />
       
-      <div className="px-2 pb-4 pt-8 border-b border-white/5 bg-background/20 backdrop-blur-md"> {/* Replaced CardHeader with div, adjusted padding */}
+      <CardHeader className="px-2 pb-4 pt-8 border-b border-white/5 bg-background/20 backdrop-blur-md p-0">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary">
             <Target className="h-3 w-3" /> System Debrief
           </div>
-          <h2 className="text-2xl font-black tracking-tighter uppercase text-foreground flex items-center gap-3"> {/* Replaced CardTitle with h2 */}
+          <CardTitle className="text-2xl font-black tracking-tighter uppercase text-foreground flex items-center gap-3">
             Recap <ChevronRight className="h-5 w-5 opacity-30" /> {format(new Date(selectedDayString), 'MMM d, yyyy')}
-          </h2>
+          </CardTitle>
         </div>
-      </div>
+      </CardHeader>
 
-      <div className="p-6 space-y-8"> {/* Replaced CardContent with div, adjusted padding */}
+      <CardContent className="p-6 space-y-8">
         {/* Luminous Narrative Message */}
-        <div className="relative p-6 rounded-2xl bg-primary/[0.03] border border-primary/10 overflow-hidden group">
+        <Card className="relative p-6 rounded-2xl bg-primary/[0.03] border border-primary/10 overflow-hidden group">
           <div className="absolute -top-12 -right-12 h-24 w-24 bg-primary/10 blur-[40px] rounded-full group-hover:opacity-100 transition-opacity opacity-50" />
           <p className="text-lg font-bold text-foreground leading-relaxed relative z-10 text-center italic">
             "{debriefMessage}"
           </p>
-        </div>
+        </Card>
 
         {/* Data Grid HUD */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -124,7 +124,7 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
         </div>
 
         {/* Reflection Terminal */}
-        <div className="space-y-4 p-6 rounded-2xl bg-secondary/20 border border-white/5">
+        <Card className="space-y-4 p-6 rounded-2xl bg-secondary/20 border border-white/5">
           <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-muted-foreground">
             <Lightbulb className="h-4 w-4 text-logo-yellow" /> Cognitive Calibration
           </h3>
@@ -140,7 +140,7 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
 
         {/* Collapsible History Log */}
         {completedScheduledTasks.length > 0 && (
@@ -166,8 +166,8 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
             </AccordionItem>
           </Accordion>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

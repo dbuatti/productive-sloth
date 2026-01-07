@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import QuickScheduleBlock from './QuickScheduleBlock';
 import { DBScheduledTask, SortBy } from '@/types/scheduler';
-import { useSession } from '@/hooks/use-session'; // NEW: Import useSession
+import { useSession } from '@/hooks/use-session';
 
 interface SchedulerActionCenterProps {
   isProcessingCommand: boolean;
@@ -64,12 +64,12 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   onStartRegenPod,
   navigate,
 }) => {
-  const { profile, updateProfile } = useSession(); // NEW: Get profile and updateProfile
-  const isCollapsed = profile?.is_action_center_collapsed ?? false; // NEW: Read from profile
+  const { profile, updateProfile } = useSession();
+  const isCollapsed = profile?.is_action_center_collapsed ?? false;
 
   const handleToggleCollapse = async () => {
     if (profile) {
-      await updateProfile({ is_action_center_collapsed: !isCollapsed }); // NEW: Persist to profile
+      await updateProfile({ is_action_center_collapsed: !isCollapsed });
     }
   };
 
@@ -96,6 +96,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             colorClass,
             (disabled || isProcessingCommand) && "opacity-40 cursor-not-allowed grayscale"
           )}
+          aria-label={label}
         >
           <Icon className="h-4 w-4 shrink-0" />
           <span>{label}</span>
@@ -106,11 +107,11 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   );
 
   return (
-    <div className="w-full"> {/* Removed p-4 bg-card rounded-xl shadow-sm */}
-      <div className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Replaced CardHeader with div */}
-        <h2 className="text-xl font-bold text-foreground flex items-center gap-2"> {/* Replaced CardTitle with h2 */}
+    <Card className="w-full p-4 rounded-xl shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+        <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
           <Cpu className="h-6 w-6 text-primary" /> Action Center
-        </h2>
+        </CardTitle>
         <div className="flex items-center gap-2">
           {/* Collapse Metrics Button */}
           <Tooltip>
@@ -120,6 +121,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 size="icon" 
                 onClick={handleToggleCollapse} 
                 className="h-8 w-8 text-muted-foreground hover:bg-secondary/50"
+                aria-label={isCollapsed ? "Expand Action Center" : "Collapse Action Center"}
               >
                 {isCollapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
                 <span className="sr-only">{isCollapsed ? "Expand Actions" : "Collapse Actions"}</span>
@@ -130,9 +132,9 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </TooltipContent>
           </Tooltip>
         </div>
-      </div>
+      </CardHeader>
 
-      <div className="p-3 space-y-4"> {/* Replaced CardContent with div, adjusted padding */}
+      <CardContent className="p-3 space-y-4">
         {isCollapsed ? (
           // Only show Smart Fill when collapsed
           <div className="space-y-3">
@@ -141,6 +143,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               disabled={isProcessingCommand || retiredTasksCount === 0}
               variant="aether"
               className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-md"
+              aria-label="Smart Fill Schedule"
             >
               {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
               Smart Fill
@@ -157,6 +160,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   disabled={isProcessingCommand || retiredTasksCount === 0}
                   variant="aether"
                   className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-md"
+                  aria-label="Smart Fill Schedule"
                 >
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
                   Smart Fill
@@ -166,6 +170,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   disabled={isProcessingCommand}
                   variant="outline"
                   className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10 shadow-sm"
+                  aria-label="Reshuffle All Flexible Tasks"
                 >
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
                   Reshuffle
@@ -191,7 +196,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 <ActionButton icon={Target} label="Focus" colorClass="text-accent" tooltip="Pull from Sink" onClick={onZoneFocus} disabled={retiredTasksCount === 0} />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-sm">
+                    <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-sm" aria-label="Sort Flexible Tasks">
                       <ArrowDownWideNarrow className="h-4 w-4" />
                       Sort
                     </Button>
@@ -200,7 +205,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                     <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Sort Parameters</DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-white/5" />
                     {sortOptions.map(opt => (
-                      <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 flex items-center font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20">
+                      <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 flex items-center font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20" aria-label={`Sort by ${opt.label}`}>
                         <opt.icon className="h-4 w-4 text-primary/70" /> {opt.label}
                       </DropdownMenuItem>
                     ))}
@@ -218,17 +223,17 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 <ActionButton icon={BatteryCharging} label="Regen Pod" colorClass="text-primary" tooltip="Deep Recovery" onClick={onStartRegenPod} />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-orange border-logo-orange/20 hover:bg-logo-orange/10 shadow-sm">
+                    <Button variant="outline" disabled={isProcessingCommand} className="h-12 w-full text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-orange border-logo-orange/20 hover:bg-logo-orange/10 shadow-sm" aria-label="Flush Tasks">
                       <Archive className="h-4 w-4" />
                       Flush
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="glass-card border-white/10 bg-background/95 backdrop-blur-xl min-w-[240px]">
-                    <DropdownMenuItem onClick={onAetherDump} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-logo-orange/10 cursor-pointer text-logo-orange">
+                    <DropdownMenuItem onClick={onAetherDump} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-logo-orange/10 cursor-pointer text-logo-orange" aria-label="Flush Today's Tasks">
                       <RefreshCcw className="h-4 w-4" /> Flush Today
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-white/5" />
-                    <DropdownMenuItem onClick={onAetherDumpMega} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-destructive/10 cursor-pointer text-destructive">
+                    <DropdownMenuItem onClick={onAetherDumpMega} className="gap-3 font-bold text-[10px] uppercase py-3 px-3 focus:bg-destructive/10 cursor-pointer text-destructive" aria-label="Global Flush of Tasks">
                       <Globe className="h-4 w-4" /> Global Flush
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -242,6 +247,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                 variant="ghost" 
                 className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full hover:bg-primary/5 shadow-sm"
                 onClick={() => navigate('/simplified-schedule')}
+                aria-label="View Weekly Vibe Schedule"
               >
                 <CalendarDays className="h-4 w-4 text-primary" />
                 Weekly Vibe View
@@ -249,8 +255,8 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
             </div>
           </>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

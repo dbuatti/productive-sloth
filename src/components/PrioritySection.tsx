@@ -1,14 +1,14 @@
 import React from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import TaskItem from './TaskItem';
-import { Task } from '@/types'; // Updated import to use the consolidated Task type
-import { ClipboardList } from 'lucide-react'; // Import ClipboardList
+import { Task } from '@/types';
+import { ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // NEW: Import Card components
 
 interface PrioritySectionProps {
   priority: string;
   tasks: Task[];
-  // onCompleteTask: (task: Task, isCompleted: boolean) => Promise<void>; // REMOVED: TaskItem now handles its own completion
 }
 
 const getPriorityColorClass = (priority: string) => {
@@ -24,20 +24,20 @@ const getPriorityColorClass = (priority: string) => {
   }
 };
 
-const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) => { // Removed onCompleteTask prop
+const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) => {
   return (
-    <AccordionItem value={priority} className="border-none rounded-xl shadow-sm bg-card animate-hover-lift"> {/* Removed border, adjusted styling */}
+    <AccordionItem value={priority} className="border-none rounded-xl shadow-sm bg-card animate-hover-lift">
       <AccordionTrigger className={cn(
         "text-base font-semibold capitalize p-4 transition-colors duration-200 hover:no-underline",
         getPriorityColorClass(priority)
-      )}>
+      )} aria-label={`Toggle ${priority} Priority Tasks`}>
         <div className="flex items-center gap-2">
           <ClipboardList className="h-5 w-5" />
           {priority} Priority ({tasks.length})
         </div>
       </AccordionTrigger>
       <AccordionContent className="p-4 pt-0">
-        <div className="space-y-2">
+        <CardContent className="p-0 space-y-2">
           {tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-4 text-muted-foreground text-sm space-y-2">
               <ClipboardList className="h-6 w-6" />
@@ -48,11 +48,10 @@ const PrioritySection: React.FC<PrioritySectionProps> = ({ priority, tasks }) =>
                 <TaskItem 
                   key={task.id} 
                   task={task} 
-                  // onCompleteTask={onCompleteTask} // REMOVED: TaskItem now handles its own completion
                 />
               ))
           )}
-        </div>
+        </CardContent>
       </AccordionContent>
     </AccordionItem>
   );

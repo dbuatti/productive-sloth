@@ -13,15 +13,15 @@ interface SchedulerContextBarProps {
 
 const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) => {
   return (
-    <div className="w-full"> {/* Removed p-2 animate-pop-in rounded-xl shadow-sm overflow-hidden bg-background/40 backdrop-blur-md */}
-      <div className="px-0"> {/* Replaced CardContent with div */}
+    <Card className="w-full p-2 animate-pop-in rounded-xl shadow-sm overflow-hidden bg-background/40 backdrop-blur-md">
+      <CardContent className="px-0 p-0">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 px-3">
           
           {/* Time Module - More Compact */}
           <div className="flex items-center gap-2 px-3 h-10 rounded-lg bg-primary/5 border border-primary/10 shrink-0">
             <Clock className="h-3.5 w-3.5 text-primary" />
-            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/50 mr-1">Time</span> {/* Adjusted font size */}
-            <span className="text-[10px] font-bold font-mono text-foreground"> {/* Adjusted font size */}
+            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/50 mr-1">Time</span>
+            <span className="text-[10px] font-bold font-mono text-foreground">
               {formatDateTime(T_current)}
             </span>
           </div>
@@ -37,8 +37,8 @@ const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) 
           </div>
 
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -22,7 +22,7 @@ import { adjustArrayLength } from '@/lib/utils';
 import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MealIdeasTab from '@/components/MealIdeasTab';
-import EnvironmentManager from '@/components/EnvironmentManager'; // NEW: Import EnvironmentManager
+import EnvironmentManager from '@/components/EnvironmentManager';
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -106,12 +106,10 @@ const SettingsPage: React.FC = () => {
     mode: 'onChange',
   });
 
-  // Use a ref to track the profile ID that was last used to initialize the form
   const initializedProfileId = useRef<string | null>(null);
 
   useEffect(() => {
     if (profile && profile.id && profile.id !== initializedProfileId.current) {
-      // Only reset the form if a new profile is loaded or if it's the initial load
       form.reset({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
@@ -138,9 +136,9 @@ const SettingsPage: React.FC = () => {
       setReflectionTimes(profile.reflection_times || ['12:00']);
       setReflectionDurations(profile.reflection_durations || [15]);
 
-      initializedProfileId.current = profile.id; // Mark this profile as initialized
+      initializedProfileId.current = profile.id;
     }
-  }, [profile, form]); // Dependencies: profile (for data), form (stable ref)
+  }, [profile, form]);
 
   const handleReflectionTimeChange = (index: number, value: string) => {
     const newTimes = [...reflectionTimes];
@@ -189,7 +187,6 @@ const SettingsPage: React.FC = () => {
   const handleToggle = async (key: keyof UserProfile, value: boolean) => {
     try {
       await updateProfile({ [key]: value });
-      // Update local state for immediate UI feedback
       if (key === 'enable_daily_challenge_notifications') setDailyChallengeNotifications(value);
       if (key === 'enable_low_energy_notifications') setLowEnergyNotifications(value);
       if (key === 'enable_delete_hotkeys') setEnableDeleteHotkeys(value);
@@ -232,7 +229,7 @@ const SettingsPage: React.FC = () => {
           <Settings className="h-7 w-7 text-primary" />
           Settings
         </h1>
-        <Button variant="outline" onClick={() => navigate('/scheduler')} className="flex items-center gap-2 h-10 text-base">
+        <Button variant="outline" onClick={() => navigate('/scheduler')} className="flex items-center gap-2 h-10 text-base" aria-label="Back to Scheduler">
           <ArrowLeft className="h-5 w-5" />
           Back
         </Button>
@@ -240,12 +237,14 @@ const SettingsPage: React.FC = () => {
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="p-4 bg-card rounded-xl shadow-sm">
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
-              <User className="h-5 w-5 text-primary" />
-              Profile
-            </h2>
-            <div className="p-0 space-y-4">
+          <Card className="p-4 rounded-xl shadow-sm">
+            <CardHeader className="px-0 pb-4 p-0">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <User className="h-5 w-5 text-primary" />
+                Profile
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -254,7 +253,7 @@ const SettingsPage: React.FC = () => {
                     <FormItem>
                       <FormLabel>First Name</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ''} />
+                        <Input {...field} value={field.value || ''} aria-label="First Name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -267,7 +266,7 @@ const SettingsPage: React.FC = () => {
                     <FormItem>
                       <FormLabel>Last Name</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ''} />
+                        <Input {...field} value={field.value || ''} aria-label="Last Name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -275,22 +274,24 @@ const SettingsPage: React.FC = () => {
                 />
               </div>
               <div className="flex justify-end pt-4">
-                <Button type="submit" disabled={isSubmitting || !isValid}>Save Changes</Button>
+                <Button type="submit" disabled={isSubmitting || !isValid} aria-label="Save Profile Changes">Save Changes</Button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
           
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
-              <Anchor className="h-5 w-5 text-primary" />
-              Temporal Anchors
-            </h2>
-            <div className="p-0">
+          <Card className="p-4 rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <CardHeader className="px-0 pb-4 p-0">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Anchor className="h-5 w-5 text-primary" />
+                Temporal Anchors
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
               <Tabs defaultValue="meals">
                 <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-secondary rounded-lg mb-6">
-                  <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest">Times</TabsTrigger>
-                  <TabsTrigger value="ideas" className="text-xs font-black uppercase tracking-widest">Ideas</TabsTrigger>
-                  <TabsTrigger value="reflections" className="text-xs font-black uppercase tracking-widest">Reflections</TabsTrigger>
+                  <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest" aria-label="Meal Times Tab">Times</TabsTrigger>
+                  <TabsTrigger value="ideas" className="text-xs font-black uppercase tracking-widest" aria-label="Meal Ideas Tab">Ideas</TabsTrigger>
+                  <TabsTrigger value="reflections" className="text-xs font-black uppercase tracking-widest" aria-label="Reflection Times Tab">Reflections</TabsTrigger>
                 </TabsList>
                 <TabsContent value="meals" className="space-y-6">
                   <div className="grid gap-4">
@@ -299,7 +300,7 @@ const SettingsPage: React.FC = () => {
                       { label: 'Lunch', timeKey: 'lunch_time' as const, durKey: 'lunch_duration_minutes' as const },
                       { label: 'Dinner', timeKey: 'dinner_time' as const, durKey: 'dinner_duration_minutes' as const }
                     ].map(({ label, timeKey, durKey }) => (
-                      <div key={label} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg border bg-background/50">
+                      <Card key={label} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-background/50">
                         <FormField
                           control={form.control}
                           name={timeKey}
@@ -307,7 +308,7 @@ const SettingsPage: React.FC = () => {
                             <FormItem>
                               <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">{label} Window Start</FormLabel>
                               <FormControl>
-                                <Input type="time" {...field} value={field.value || ''} />
+                                <Input type="time" {...field} value={field.value || ''} aria-label={`${label} Start Time`} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -320,17 +321,17 @@ const SettingsPage: React.FC = () => {
                             <FormItem>
                               <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Sync Duration (Min)</FormLabel>
                               <FormControl>
-                                <Input type="number" {...field} value={field.value ?? ''} />
+                                <Input type="number" {...field} value={field.value ?? ''} aria-label={`${label} Duration in Minutes`} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                      </div>
+                      </Card>
                     ))}
                   </div>
                   <div className="flex justify-end">
-                    <Button type="submit">Update Times</Button>
+                    <Button type="submit" aria-label="Update Meal Times">Update Times</Button>
                   </div>
                 </TabsContent>
                 <TabsContent value="ideas" className="animate-pop-in">
@@ -349,6 +350,7 @@ const SettingsPage: React.FC = () => {
                               field.onChange(val); 
                             }} 
                             defaultValue={field.value.toString()}
+                            aria-label="Reflection Count"
                           >
                             <SelectTrigger className="w-32">
                               <SelectValue />
@@ -363,20 +365,46 @@ const SettingsPage: React.FC = () => {
                       </FormItem>
                     )}
                   />
+                  {Array.from({ length: reflectionCount }).map((_, index) => (
+                    <Card key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-background/50">
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Reflection {index + 1} Time</FormLabel>
+                        <Input 
+                          type="time" 
+                          value={reflectionTimes[index] || ''} 
+                          onChange={(e) => handleReflectionTimeChange(index, e.target.value)} 
+                          aria-label={`Reflection ${index + 1} Time`}
+                        />
+                      </FormItem>
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Duration (Min)</FormLabel>
+                        <Input 
+                          type="number" 
+                          value={reflectionDurations[index] || ''} 
+                          onChange={(e) => handleReflectionDurationChange(index, parseInt(e.target.value, 10))} 
+                          min="5" 
+                          max="60" 
+                          aria-label={`Reflection ${index + 1} Duration in Minutes`}
+                        />
+                      </FormItem>
+                    </Card>
+                  ))}
                   <div className="flex justify-end">
-                    <Button type="submit">Update Reflections</Button>
+                    <Button type="submit" aria-label="Update Reflection Settings">Update Reflections</Button>
                   </div>
                 </TabsContent>
               </Tabs>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
           
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
-              <ListOrdered className="h-5 w-5 text-primary" />
-              Auto-Balance Logic
-            </h2>
-            <div className="p-0 space-y-6">
+          <Card className="p-4 rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <CardHeader className="px-0 pb-4 p-0">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ListOrdered className="h-5 w-5 text-primary" />
+                Auto-Balance Logic
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 space-y-6">
               <EnvironmentOrderSettings />
               <div className="pt-4 border-t border-white/5 space-y-4">
                 <FormField
@@ -397,6 +425,7 @@ const SettingsPage: React.FC = () => {
                         <Switch 
                           checked={field.value} 
                           onCheckedChange={(checked) => handleToggle('enable_environment_chunking', checked)} 
+                          aria-label="Toggle Environment Chunking"
                         />
                       </FormControl>
                     </FormItem>
@@ -420,33 +449,39 @@ const SettingsPage: React.FC = () => {
                         <Switch 
                           checked={field.value} 
                           onCheckedChange={(checked) => handleToggle('enable_macro_spread', checked)} 
+                          aria-label="Toggle Macro-Spread Distribution"
                         />
                       </FormControl>
                     </FormItem>
                   )}
                 />
               </div>
-            </div>
-          </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSubmitting || !isValid} aria-label="Save Auto-Balance Logic">Save Changes</Button>
+              </div>
+            </CardContent>
+          </Card>
           
-          {/* NEW: Environment Manager Section */}
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
-              <ListTodo className="h-5 w-5 text-primary" />
-              Environment Manager
-            </h2>
-            <div className="p-0">
+          <Card className="p-4 rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <CardHeader className="px-0 pb-4 p-0">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ListTodo className="h-5 w-5 text-primary" />
+                Environment Manager
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
               <EnvironmentManager />
-            </div>
-          </div>
+            </CardContent>
+          </Card>
           
-          {/* Calendar Preferences & View Settings */}
-          <div className="p-4 bg-card rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
-            <h2 className="flex items-center gap-2 text-lg px-0 pb-4">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              Calendar & View Preferences
-            </h2>
-            <div className="p-0 space-y-4">
+          <Card className="p-4 rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+            <CardHeader className="px-0 pb-4 p-0">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <CalendarDays className="h-5 w-5 text-primary" />
+                Calendar & View Preferences
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 space-y-4">
               <FormField
                 control={form.control}
                 name="week_starts_on"
@@ -462,6 +497,7 @@ const SettingsPage: React.FC = () => {
                       <Select 
                         onValueChange={(value) => field.onChange(parseInt(value, 10))} 
                         value={field.value.toString()}
+                        aria-label="Week Starts On"
                       >
                         <SelectTrigger className="w-[140px]">
                           <SelectValue placeholder="Select day" />
@@ -481,7 +517,6 @@ const SettingsPage: React.FC = () => {
                 )}
               />
               
-              {/* Dashboard Collapsed State */}
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
@@ -496,11 +531,11 @@ const SettingsPage: React.FC = () => {
                   <Switch 
                     checked={isDashboardCollapsed} 
                     onCheckedChange={(checked) => handleToggle('is_dashboard_collapsed', checked)} 
+                    aria-label="Toggle Dashboard Collapsed State"
                   />
                 </FormControl>
               </FormItem>
               
-              {/* Action Center Collapsed State */}
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
@@ -515,27 +550,49 @@ const SettingsPage: React.FC = () => {
                   <Switch 
                     checked={isActionCenterCollapsed} 
                     onCheckedChange={(checked) => handleToggle('is_action_center_collapsed', checked)} 
+                    aria-label="Toggle Action Center Collapsed State"
                   />
                 </FormControl>
               </FormItem>
               
               <div className="flex justify-end">
-                <Button type="submit" disabled={isSubmitting || !isValid}>Save Calendar Settings</Button>
+                <Button type="submit" disabled={isSubmitting || !isValid} aria-label="Save Calendar and View Settings">Save Calendar Settings</Button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
           
-          <div className="p-4 bg-card rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]">
-            <h2 className="flex items-center gap-2 text-lg text-destructive px-0 pb-4">
-              <Trash2 className="h-5 w-5" />
-              Danger Zone
-            </h2>
-            <div className="p-0">
-              <Button variant="destructive" className="w-full font-black uppercase" onClick={handleResetGameProgress}>
-                Wipe History
-              </Button>
-            </div>
-          </div>
+          <Card className="p-4 rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]">
+            <CardHeader className="px-0 pb-4 p-0">
+              <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+                <Trash2 className="h-5 w-5" />
+                Danger Zone
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full font-black uppercase" aria-label="Wipe History">
+                    Wipe History
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your game progress,
+                      including XP, levels, energy, and all tasks.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
+                      Continue
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
         </form>
       </Form>
     </div>

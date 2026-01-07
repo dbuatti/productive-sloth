@@ -14,7 +14,7 @@ import {
   Trash2, 
   Save, 
   X,
-  Star // Added Star icon for default indicator
+  Star
 } from 'lucide-react';
 import { useEnvironments } from '@/hooks/use-environments';
 import { showError } from '@/utils/toast';
@@ -43,8 +43,8 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils'; // Import cn for styling
-import { Switch } from '@/components/ui/switch'; // Import Switch
+import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 const iconOptions = [
   { value: 'Home', label: 'Home', icon: Home },
@@ -72,7 +72,7 @@ const EnvironmentManager: React.FC = () => {
     icon: 'Home',
     color: '#FF6B6B',
     drain_multiplier: 1.0,
-    is_default: false, // Default for new environments is false
+    is_default: false,
   });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
 
@@ -84,7 +84,7 @@ const EnvironmentManager: React.FC = () => {
     
     addEnvironment({
       ...newEnvironment,
-      value: newEnvironment.label.toLowerCase().replace(/\s+/g, '_'), // Generate value from label
+      value: newEnvironment.label.toLowerCase().replace(/\s+/g, '_'),
     });
     
     setNewEnvironment({
@@ -109,11 +109,11 @@ const EnvironmentManager: React.FC = () => {
     updateEnvironment({
       id,
       label: newEnvironment.label,
-      value: newEnvironment.label.toLowerCase().replace(/\s+/g, '_'), // Generate value from label
+      value: newEnvironment.label.toLowerCase().replace(/\s+/g, '_'),
       icon: newEnvironment.icon,
       color: newEnvironment.color,
       drain_multiplier: newEnvironment.drain_multiplier,
-      is_default: newEnvironment.is_default, // Include is_default in update
+      is_default: newEnvironment.is_default,
     });
     
     setEditingId(null);
@@ -133,7 +133,7 @@ const EnvironmentManager: React.FC = () => {
       icon: env.icon,
       color: env.color,
       drain_multiplier: env.drain_multiplier,
-      is_default: env.is_default, // Load current is_default status
+      is_default: env.is_default,
     });
   };
 
@@ -174,7 +174,7 @@ const EnvironmentManager: React.FC = () => {
         <h3 className="text-lg font-semibold">Your Environments</h3>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button aria-label="Add New Environment">
               <Plus className="h-4 w-4 mr-2" />
               Add Environment
             </Button>
@@ -191,6 +191,7 @@ const EnvironmentManager: React.FC = () => {
                   value={newEnvironment.label}
                   onChange={(e) => setNewEnvironment({...newEnvironment, label: e.target.value})}
                   placeholder="e.g., Coffee Shop"
+                  aria-label="Environment Label"
                 />
               </div>
               <div>
@@ -198,6 +199,7 @@ const EnvironmentManager: React.FC = () => {
                 <Select 
                   value={newEnvironment.icon} 
                   onValueChange={(value) => setNewEnvironment({...newEnvironment, icon: value})}
+                  aria-label="Environment Icon"
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select icon" />
@@ -241,9 +243,10 @@ const EnvironmentManager: React.FC = () => {
                   max="3"
                   value={newEnvironment.drain_multiplier}
                   onChange={(e) => setNewEnvironment({...newEnvironment, drain_multiplier: parseFloat(e.target.value) || 1.0})}
+                  aria-label="Energy Drain Multiplier"
                 />
               </div>
-              <Button onClick={handleAddEnvironment}>Add Environment</Button>
+              <Button onClick={handleAddEnvironment} aria-label="Add Environment">Add Environment</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -278,6 +281,7 @@ const EnvironmentManager: React.FC = () => {
                       <Input
                         value={newEnvironment.label}
                         onChange={(e) => setNewEnvironment({...newEnvironment, label: e.target.value})}
+                        aria-label={`Edit Label for ${env.label}`}
                       />
                     </div>
                     <div>
@@ -285,6 +289,7 @@ const EnvironmentManager: React.FC = () => {
                       <Select 
                         value={newEnvironment.icon} 
                         onValueChange={(value) => setNewEnvironment({...newEnvironment, icon: value})}
+                        aria-label={`Edit Icon for ${env.label}`}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select icon" />
@@ -313,7 +318,7 @@ const EnvironmentManager: React.FC = () => {
                             className={`h-6 w-6 rounded-full ${newEnvironment.color === color.value ? 'ring-2 ring-primary' : ''}`}
                             style={{ backgroundColor: color.value }}
                             onClick={() => setNewEnvironment({...newEnvironment, color: color.value})}
-                            aria-label={color.label}
+                            aria-label={`Select ${color.label} color for ${env.label}`}
                           />
                         ))}
                       </div>
@@ -327,6 +332,7 @@ const EnvironmentManager: React.FC = () => {
                         max="3"
                         value={newEnvironment.drain_multiplier}
                         onChange={(e) => setNewEnvironment({...newEnvironment, drain_multiplier: parseFloat(e.target.value) || 1.0})}
+                        aria-label={`Edit Drain Multiplier for ${env.label}`}
                       />
                     </div>
                     <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50">
@@ -334,14 +340,15 @@ const EnvironmentManager: React.FC = () => {
                       <Switch
                         checked={newEnvironment.is_default}
                         onCheckedChange={(checked) => setNewEnvironment({...newEnvironment, is_default: checked})}
+                        aria-label={`Toggle default status for ${env.label}`}
                       />
                     </div>
                     <div className="flex gap-2 mt-4">
-                      <Button size="sm" onClick={() => handleUpdateEnvironment(env.id)}>
+                      <Button size="sm" onClick={() => handleUpdateEnvironment(env.id)} aria-label={`Save changes for ${env.label}`}>
                         <Save className="h-4 w-4 mr-1" />
                         Save
                       </Button>
-                      <Button variant="outline" size="sm" onClick={cancelEditing}>
+                      <Button variant="outline" size="sm" onClick={cancelEditing} aria-label={`Cancel editing ${env.label}`}>
                         <X className="h-4 w-4 mr-1" />
                         Cancel
                       </Button>
@@ -373,6 +380,7 @@ const EnvironmentManager: React.FC = () => {
                         size="sm" 
                         onClick={() => startEditing(env)}
                         className="flex items-center gap-1 text-primary hover:bg-primary/10"
+                        aria-label={`Edit ${env.label}`}
                       >
                         <Edit className="h-4 w-4" />
                         Edit
@@ -381,9 +389,10 @@ const EnvironmentManager: React.FC = () => {
                         variant="destructive" 
                         size="sm" 
                         onClick={() => handleDeleteEnvironment(env.id, env.label)}
-                        disabled={env.is_default} // Disable delete if it's still a default
+                        disabled={env.is_default}
                         type="button"
                         className="flex items-center gap-1"
+                        aria-label={`Delete ${env.label}`}
                       >
                         <Trash2 className="h-4 w-4" />
                         Delete

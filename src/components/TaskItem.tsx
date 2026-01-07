@@ -14,31 +14,30 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card } from '@/components/ui/card';
-import { CheckedState } from "@radix-ui/react-checkbox"; // Import CheckedState
+import { CheckedState } from "@radix-ui/react-checkbox";
 
 interface TaskItemProps {
   task: Task;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteTask prop
+const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { deleteTask, updateTask } = useTasks(); // NEW: Use updateTask directly
+  const { deleteTask, updateTask } = useTasks();
   const navigate = useNavigate();
 
-  // Updated handleToggleComplete to use updateTask directly
   const handleToggleComplete = async (checked: CheckedState) => {
     await updateTask({ id: task.id, is_completed: !!checked });
   };
 
   const handleEditClick = (e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent parent click from firing if triggered by button
+    e?.stopPropagation();
     setSelectedTask(task);
     setIsSheetOpen(true);
   };
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent parent click from firing
+    e.stopPropagation();
     if (window.confirm(`Are you sure you want to delete "${task.title}"?`)) {
       try {
         await deleteTask(task.id);
@@ -51,7 +50,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteT
   };
 
   const handleScheduleNow = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent parent click from firing
+    e.stopPropagation();
     navigate('/scheduler', { 
       state: { 
         taskToSchedule: { 
@@ -91,16 +90,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteT
 
   return (
     <>
-      <div 
-        className={cn( // Replaced Card with div
-          "relative flex items-center justify-between p-4 transition-all duration-300 rounded-lg shadow-sm cursor-pointer", // Added cursor-pointer
+      <Card 
+        className={cn(
+          "relative flex items-center justify-between p-4 transition-all duration-300 rounded-lg shadow-sm cursor-pointer",
           "bg-card hover:bg-secondary/50 animate-hover-lift border-l-4",
           getPriorityLeftBorderClass(task.priority),
           task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
           "hover:shadow-lg hover:shadow-primary/10",
-          "border-b border-dashed border-border/50 last:border-b-0" // Kept bottom border for list separation
+          "border-b border-dashed border-border/50 last:border-b-0"
         )}
-        onClick={handleEditClick} // Make the entire div clickable to open details
+        onClick={handleEditClick}
+        aria-label={`Task: ${task.title}, Priority: ${task.priority}, Due: ${task.due_date ? format(new Date(task.due_date), "MMM d") : 'N/A'}`}
       >
         <div className="flex items-center space-x-4 flex-grow min-w-0">
           <Checkbox 
@@ -108,14 +108,14 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteT
             onCheckedChange={handleToggleComplete} 
             id={`task-${task.id}`}
             className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-6 w-6"
-            aria-label={`Mark task "${task.title}" as complete`} // Added aria-label
+            aria-label={`Mark task "${task.title}" as complete`}
           />
           
           <label 
             htmlFor={`task-${task.id}`} 
             className={`text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex flex-col items-start min-w-0 flex-grow`}
           >
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 w-full"> {/* Added flex-wrap and gap-y */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 w-full">
               {task.is_critical && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -132,7 +132,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteT
               <Badge 
                 variant="outline" 
                 className={cn(
-                  "capitalize px-2.5 py-1 text-xs font-semibold shrink-0", // Ensure badge doesn't shrink
+                  "capitalize px-2.5 py-1 text-xs font-semibold shrink-0",
                   getPriorityBadgeClasses(task.priority)
                 )}
               >
@@ -208,29 +208,29 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteT
             <Button 
               variant="ghost" 
               className="h-9 w-9 p-0 hover:bg-secondary transition-colors duration-200 shrink-0 ml-2"
-              onClick={(e) => e.stopPropagation()} // Prevent parent click from firing
-              aria-label="Task options menu" // Added aria-label
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Task options menu"
             >
               <span className="sr-only">Open menu</span>
               <MoreHorizontal className="h-4.5 w-4.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleScheduleNow} className="cursor-pointer">
+            <DropdownMenuItem onClick={handleScheduleNow} className="cursor-pointer" aria-label="Schedule Task Now">
               <Clock className="mr-2 h-4.5 w-4.5" />
               Schedule Now
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleEditClick} className="cursor-pointer">
+            <DropdownMenuItem onClick={handleEditClick} className="cursor-pointer" aria-label="Edit Task Details">
               <Pencil className="mr-2 h-4.5 w-4.5" />
               Edit Details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDeleteClick} className="text-destructive cursor-pointer">
+            <DropdownMenuItem onClick={handleDeleteClick} className="text-destructive cursor-pointer" aria-label="Delete Task">
               <Trash className="mr-2 h-4.5 w-4.5" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      </Card>
       
       <TaskDetailSheetForTasks 
         task={selectedTask} 

@@ -185,26 +185,35 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  useEffect(() => {
-    const handleAuthChange = async (event: string, currentSession: Session | null) => {
-      console.log("[SessionProvider] Auth state change event:", event); // ADDED LOG
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      
-      if (currentSession?.user) {
-        await fetchProfile(currentSession.user.id);
-        if (location.pathname === '/login') setRedirectPath('/');
-      } else if (event === 'SIGNED_OUT') {
-        setProfile(null);
-        queryClient.clear();
-        setRedirectPath('/login');
-      }
-    };
+  // Memoize the handler for auth state changes
+  const handleAuthChange = useCallback(async (event: string, currentSession: Session | null) => {
+    console.log("[SessionProvider] Auth state change event:", event);
+    setSession(currentSession);
+    setUser(currentSession?.user ?? null);
+    
+    if (currentSession?.user) {
+      await fetchProfile(currentSession.user.id);
+      if (location.pathname === '/login') setRedirectPath('/');
+    } else if (event === 'SIGNED_OUT') {
+      setProfile(null);
+      queryClient.clear();
+      setRedirectPath('/login');
+    }
+  }, [fetchProfile, queryClient, location.pathname]); // Dependencies for handleAuthChange
 
+  // Effect to set up the Supabase auth listener once
+  useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
       handleAuthChange(event, currentSession);
     });
 
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [handleAuthChange]); // Dependency on handleAuthChange ensures it uses the latest memoized version
+
+  // Effect to load the initial session once
+  useEffect(() => {
     const loadInitialSession = async () => {
       if (initialSessionLoadedRef.current) return;
       initialSessionLoadedRef.current = true;
@@ -226,9 +235,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     loadInitialSession();
-
-    return () => authListener.subscription.unsubscribe();
-  }, [fetchProfile, queryClient, location.pathname]);
+  }, [fetchProfile, queryClient, location.pathname]); // Dependencies for loadInitialSession
 
   useEffect(() => {
     if (!isAuthLoading && redirectPath && location.pathname !== redirectPath) {

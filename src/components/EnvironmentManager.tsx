@@ -42,6 +42,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils'; // Import cn for styling
 
 const iconOptions = [
   { value: 'Home', label: 'Home', icon: Home },
@@ -140,7 +141,6 @@ const EnvironmentManager: React.FC = () => {
   };
 
   const handleDeleteEnvironment = (id: string, label: string) => {
-    // Check if environment has tasks
     setDeleteTarget({ id, label });
   };
 
@@ -185,7 +185,6 @@ const EnvironmentManager: React.FC = () => {
                   placeholder="e.g., Coffee Shop"
                 />
               </div>
-              {/* Removed the 'Value' input field */}
               <div>
                 <Label htmlFor="icon">Icon</Label>
                 <Select 
@@ -248,30 +247,25 @@ const EnvironmentManager: React.FC = () => {
           const isEditing = editingId === env.id;
           
           return (
-            <Card key={env.id} className="relative">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  {isEditing ? (
-                    <Input
-                      value={newEnvironment.label}
-                      onChange={(e) => setNewEnvironment({...newEnvironment, label: e.target.value})}
-                      className="text-lg font-bold"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <IconComponent className="h-5 w-5" style={{ color: env.color }} />
-                      <span>{env.label}</span>
-                    </div>
-                  )}
-                  <Badge variant={env.is_default ? "default" : "secondary"}>
-                    {env.is_default ? "Default" : "Custom"}
-                  </Badge>
+            <Card key={env.id} className="relative p-4"> {/* Added p-4 for consistent padding */}
+              <CardHeader className="flex-row items-center justify-between space-y-0 p-0 mb-4"> {/* Adjusted header for flex row */}
+                <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                  <IconComponent className="h-6 w-6" style={{ color: env.color }} /> {/* Increased icon size */}
+                  <span>{env.label}</span>
                 </CardTitle>
+                <Badge 
+                  variant={env.is_default ? "default" : "secondary"}
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-tight",
+                    env.is_default ? "bg-primary/10 text-primary border-primary/20" : "bg-secondary text-secondary-foreground border-border"
+                  )}
+                >
+                  {env.is_default ? "Default" : "Custom"}
+                </Badge>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 p-0"> {/* Adjusted padding */}
                 {isEditing ? (
                   <>
-                    {/* Removed the 'Value' input field from editing as well */}
                     <div>
                       <Label>Label</Label>
                       <Input
@@ -328,7 +322,7 @@ const EnvironmentManager: React.FC = () => {
                         onChange={(e) => setNewEnvironment({...newEnvironment, drain_multiplier: parseFloat(e.target.value) || 1.0})}
                       />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mt-4"> {/* Added mt-4 for spacing */}
                       <Button size="sm" onClick={() => handleUpdateEnvironment(env.id)}>
                         <Save className="h-4 w-4 mr-1" />
                         Save
@@ -341,28 +335,33 @@ const EnvironmentManager: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium">Value:</span>
-                      <code className="bg-muted px-2 py-1 rounded">{env.value}</code>
+                    <div className="flex flex-col space-y-1 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground/80">Value:</span>
+                        <code className="bg-muted px-2 py-0.5 rounded text-xs">{env.value}</code>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground/80">Drain:</span>
+                        <span>{env.drain_multiplier}x</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground/80">Color:</span>
+                        <div 
+                          className="h-4 w-4 rounded-full border border-border" 
+                          style={{ backgroundColor: env.color }}
+                        />
+                        <span className="text-xs">{env.color}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium">Drain:</span>
-                      <span>{env.drain_multiplier}x</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="h-4 w-4 rounded-full" 
-                        style={{ backgroundColor: env.color }}
-                      />
-                      <span className="text-sm">{env.color}</span>
-                    </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mt-4"> {/* Added mt-4 for spacing */}
                       <Button 
+                        variant="outline" // Changed to outline
                         size="sm" 
                         onClick={() => startEditing(env)}
                         disabled={env.is_default}
+                        className="flex items-center gap-1 text-primary hover:bg-primary/10"
                       >
-                        <Edit className="h-4 w-4 mr-1" />
+                        <Edit className="h-4 w-4" />
                         Edit
                       </Button>
                       {!env.is_default && (
@@ -371,8 +370,9 @@ const EnvironmentManager: React.FC = () => {
                           size="sm" 
                           onClick={() => handleDeleteEnvironment(env.id, env.label)}
                           type="button"
+                          className="flex items-center gap-1"
                         >
-                          <Trash2 className="h-4 w-4 mr-1" />
+                          <Trash2 className="h-4 w-4" />
                           Delete
                         </Button>
                       )}

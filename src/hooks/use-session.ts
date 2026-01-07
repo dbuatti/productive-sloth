@@ -44,6 +44,7 @@ export interface UserProfile {
   vertical_zoom_index: number; // NEW: For Simplified Schedule view preference
   is_dashboard_collapsed: boolean; // NEW: Dashboard collapsed state
   is_action_center_collapsed: boolean; // NEW: Action Center collapsed state
+  updated_at: string; // NEW: Added updated_at
 }
 
 interface SessionContextType {

@@ -61,7 +61,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           lunch_duration_minutes, dinner_duration_minutes, custom_environment_order, reflection_count, 
           reflection_times, reflection_durations, enable_environment_chunking, enable_macro_spread, 
           week_starts_on, num_days_visible, vertical_zoom_index, is_dashboard_collapsed, 
-          is_action_center_collapsed
+          is_action_center_collapsed, updated_at
         `)
         .eq('id', userId)
         .single();
@@ -69,9 +69,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) {
         setProfile(null);
       } else if (data) {
-        // Deep compare to prevent unnecessary state updates if data is identical
-        if (!isEqual(profileRef.current, data)) {
-          setProfile(data as UserProfile);
+        // Create a copy of data without 'updated_at' for comparison
+        const dataWithoutUpdatedAt = { ...data };
+        delete dataWithoutUpdatedAt.updated_at;
+
+        const currentProfileWithoutUpdatedAt = profileRef.current ? { ...profileRef.current } : null;
+        if (currentProfileWithoutUpdatedAt) delete currentProfileWithoutUpdatedAt.updated_at;
+
+        // Only update profile state if there's a meaningful change (excluding updated_at)
+        if (!isEqual(currentProfileWithoutUpdatedAt, dataWithoutUpdatedAt)) {
+          setProfile(data as UserProfile); // Still set the full profile with updated_at
         }
         if (data.is_in_regen_pod && data.regen_pod_start_time) {
           const start = parseISO(data.regen_pod_start_time);

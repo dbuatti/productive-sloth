@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -82,8 +82,12 @@ const SettingsPage: React.FC = () => {
     mode: 'onChange',
   });
 
+  // Use a ref to track the profile ID that was last used to initialize the form
+  const initializedProfileId = useRef<string | null>(null);
+
   useEffect(() => {
-    if (profile) {
+    if (profile && profile.id && profile.id !== initializedProfileId.current) {
+      // Only reset the form if a new profile is loaded or if it's the initial load
       form.reset({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
@@ -109,8 +113,10 @@ const SettingsPage: React.FC = () => {
       setIsActionCenterCollapsed(profile.is_action_center_collapsed);
       setReflectionTimes(profile.reflection_times || ['12:00']);
       setReflectionDurations(profile.reflection_durations || [15]);
+
+      initializedProfileId.current = profile.id; // Mark this profile as initialized
     }
-  }, [profile, form]);
+  }, [profile, form]); // Dependencies: profile (for data), form (stable ref)
 
   const handleReflectionTimeChange = (index: number, value: string) => {
     const newTimes = [...reflectionTimes];

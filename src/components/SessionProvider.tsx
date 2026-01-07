@@ -193,13 +193,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if (currentSession?.user) {
       await fetchProfile(currentSession.user.id);
-      if (location.pathname === '/login') setRedirectPath('/');
+      // Redirection logic for /login after sign-in is now handled by the useEffect below
     } else if (event === 'SIGNED_OUT') {
       setProfile(null);
       queryClient.clear();
       setRedirectPath('/login');
     }
-  }, [fetchProfile, queryClient, location.pathname]); // Dependencies for handleAuthChange
+  }, [fetchProfile, queryClient]); // Removed location.pathname from dependencies
 
   // Effect to set up the Supabase auth listener once
   useEffect(() => {
@@ -225,7 +225,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         if (initialSession?.user) {
           await fetchProfile(initialSession.user.id);
-          if (location.pathname === '/login') setRedirectPath('/');
+          // Redirection logic for /login after sign-in is now handled by the useEffect below
         } else if (location.pathname !== '/login') {
           setRedirectPath('/login');
         }
@@ -242,7 +242,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       navigate(redirectPath, { replace: true });
       setRedirectPath(null);
     }
-  }, [redirectPath, navigate, location.pathname, isAuthLoading]);
+    // NEW: Handle redirection after successful login if currently on /login
+    if (!isAuthLoading && user && location.pathname === '/login') {
+      setRedirectPath('/');
+    }
+  }, [redirectPath, navigate, location.pathname, isAuthLoading, user]);
 
   const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasksToday', user?.id],

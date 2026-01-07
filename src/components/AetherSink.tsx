@@ -17,9 +17,7 @@ import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view
 import SinkKanbanBoard from './SinkKanbanBoard';
 import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
-import { useEnvironments } from '@/hooks/use-environments';
-
-const LOG_PREFIX = "[AETHER_SINK]";
+import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -62,7 +60,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   setRetiredSortBy 
 }) => {
   const { user } = useSession();
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // NEW: Use environments hook
   const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails } = useSchedulerTasks('');
   
   // --- View Management ---
@@ -71,7 +69,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
-  const [localInput, setLocalInput] = useState('');
+  const [localInput, setLocalInput] = useState(''); // NEW: State for quick add input
 
   const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
 
@@ -81,7 +79,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   }, []);
 
   const handleOpenDetailDialog = useCallback((task: RetiredTask) => {
-    console.log(`${LOG_PREFIX} Opening detail dialog for task:`, task.name);
     setSelectedRetiredTask(task);
     setIsDialogOpen(true);
   }, []);
@@ -119,17 +116,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
       return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
     }
 
-    console.log(`${LOG_PREFIX} Adding task to sink via quick add:`, parsedTask);
     await addRetiredTask(parsedTask);
     setLocalInput(''); // Clear input after adding
   }, [user, addRetiredTask]);
 
   const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
     <DropdownMenuItem 
-      onClick={() => {
-        console.log(`${LOG_PREFIX} Setting retired sort to: ${type}`);
-        setRetiredSortBy(type);
-      }} 
+      onClick={() => setRetiredSortBy(type)} 
       className={cn("cursor-pointer font-bold text-xs uppercase tracking-widest", retiredSortBy === type && 'bg-primary/10 text-primary')}
     >
       <Icon className="mr-2 h-4 w-4" />
@@ -145,10 +138,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             variant={viewMode === 'list' ? 'default' : 'ghost'} 
             size="icon" 
             className={cn("h-8 w-8 rounded-md", viewMode === 'list' && "shadow-sm")}
-            onClick={() => {
-              console.log(`${LOG_PREFIX} Setting view mode to: list`);
-              setViewMode('list');
-            }}
+            onClick={() => setViewMode('list')}
           >
             <List className="h-4 w-4" />
           </Button>
@@ -161,10 +151,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             variant={viewMode === 'kanban' ? 'default' : 'ghost'} 
             size="icon" 
             className={cn("h-8 w-8 rounded-md", viewMode === 'kanban' && "shadow-sm")}
-            onClick={() => {
-              console.log(`${LOG_PREFIX} Setting view mode to: kanban`);
-              setViewMode('kanban');
-            }}
+            onClick={() => setViewMode('kanban')}
           >
             <LayoutDashboard className="h-4 w-4" />
           </Button>
@@ -214,14 +201,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
                   <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Group By</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => {
-                    console.log(`${LOG_PREFIX} Setting group by to: environment`);
-                    setGroupBy('environment');
-                  }} className="font-bold text-xs uppercase py-2 px-3">Environment</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    console.log(`${LOG_PREFIX} Setting group by to: priority`);
-                    setGroupBy('priority');
-                  }} className="font-bold text-xs uppercase py-2 px-3">Priority</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupBy('environment')} className="font-bold text-xs uppercase py-2 px-3">Environment</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupBy('priority')} className="font-bold text-xs uppercase py-2 px-3">Priority</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

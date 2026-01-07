@@ -1,43 +1,33 @@
 import { useState, useEffect, useMemo, useContext, createContext } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music, Check, LucideIcon } from 'lucide-react';
-import { Environment } from '@/hooks/use-environments'; // Only import type
-
-// Helper to map string icon name to Lucide icon component
-export const getIconComponent = (iconName: string): LucideIcon => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home; // Fallback
-  }
-};
+import { Home, Laptop, Globe, Music, Check } from 'lucide-react';
 
 export interface EnvironmentOption {
-  id: string; // Add id here
   value: TaskEnvironment;
   label: string;
-  icon: LucideIcon;
-  color: string;
+  icon: React.ElementType;
 }
+
+export const environmentOptions: EnvironmentOption[] = [
+  { value: 'home', label: '🏠 At Home', icon: Home },
+  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
+  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
+  { value: 'piano', label: '🎹 Piano Practice', icon: Music },
+  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: Laptop },
+];
 
 export interface EnvironmentContextType {
   selectedEnvironments: TaskEnvironment[];
   toggleEnvironmentSelection: (env: TaskEnvironment) => void;
   setSelectedEnvironments: (envs: TaskEnvironment[]) => void;
   environmentOptions: EnvironmentOption[];
-  isLoadingEnvironments: boolean;
 }
-
-const LOG_PREFIX = "[ENVIRONMENT_CONTEXT]";
 
 export const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);
 
 export const useEnvironmentContext = () => {
   const context = useContext(EnvironmentContext);
   if (context === undefined) {
-    console.error(`${LOG_PREFIX} useEnvironmentContext called outside of provider`);
     throw new Error('useEnvironmentContext must be used within an EnvironmentProvider');
   }
   return context;

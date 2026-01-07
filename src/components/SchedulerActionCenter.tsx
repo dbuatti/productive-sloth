@@ -19,8 +19,6 @@ import QuickScheduleBlock from './QuickScheduleBlock';
 import { DBScheduledTask, SortBy } from '@/types/scheduler';
 import { useSession } from '@/hooks/use-session'; // NEW: Import useSession
 
-const LOG_PREFIX = "[SCHEDULER_ACTION_CENTER]";
-
 interface SchedulerActionCenterProps {
   isProcessingCommand: boolean;
   hasFlexibleTasksOnCurrentDay: boolean;
@@ -71,7 +69,6 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
 
   const handleToggleCollapse = async () => {
     if (profile) {
-      console.log(`${LOG_PREFIX} Toggling Action Center collapse state to: ${!isCollapsed}`);
       await updateProfile({ is_action_center_collapsed: !isCollapsed }); // NEW: Persist to profile
     }
   };
@@ -203,10 +200,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                     <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Sort Parameters</DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-white/5" />
                     {sortOptions.map(opt => (
-                      <DropdownMenuItem key={opt.value} onClick={() => {
-                        console.log(`${LOG_PREFIX} Setting sort preference to: ${opt.value}`);
-                        onSortFlexibleTasks(opt.value);
-                      }} className="gap-3 flex items-center font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20">
+                      <DropdownMenuItem key={opt.value} onClick={() => onSortFlexibleTasks(opt.value)} className="gap-3 flex items-center font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20">
                         <opt.icon className="h-4 w-4 text-primary/70" /> {opt.label}
                       </DropdownMenuItem>
                     ))}

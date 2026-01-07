@@ -9,6 +9,7 @@ import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, LOW_ENERGY_THRESHOLD, LOW_ENERGY_NO
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
+import { useEnvironmentContext } from '@/hooks/use-environment-context.ts';
 import { MealAssignment } from '@/hooks/use-meals';
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
@@ -28,7 +29,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  // Removed: const { selectedEnvironments } = useEnvironmentContext();
+  const { selectedEnvironments } = useEnvironmentContext();
   const initialSessionLoadedRef = useRef(false);
   const isLoading = isAuthLoading || isProfileLoading;
   const todayString = format(new Date(), 'yyyy-MM-dd');

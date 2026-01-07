@@ -8,8 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RetiredTask } from '@/types/scheduler';
 
-const LOG_PREFIX = "[KANBAN_COLUMN]";
-
 interface KanbanColumnProps {
   id: string; // e.g., 'home', 'laptop'
   title: string;
@@ -43,7 +41,6 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const handleSubmit = async () => {
     if (!localInput.trim()) return;
     setIsSubmitting(true);
-    console.log(`${LOG_PREFIX} Quick adding to column ${id}:`, localInput);
     await onQuickAdd(localInput, id);
     setLocalInput('');
     setIsSubmitting(false);
@@ -53,7 +50,15 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const receiverClasses = isOverColumn ? "bg-primary/10 ring-1 ring-primary/20" : "bg-transparent";
 
   const items = tasks.map(t => t.id);
-  // Removed placeholderIndex logic as manual placeholders are being removed.
+  const activeIndex = activeId ? items.indexOf(activeId) : -1;
+  const overIndex = overId ? items.indexOf(overId) : -1;
+
+  let placeholderIndex = -1;
+  if (isOverColumn && activeId && activeIndex === -1) {
+    placeholderIndex = overIndex === -1 ? items.length : overIndex;
+  } else if (isOverColumn && activeId && activeIndex !== -1) {
+    placeholderIndex = overIndex;
+  }
 
   return (
     <div 
@@ -78,13 +83,50 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
       <div className="flex flex-col gap-3 min-h-[100px] flex-1">
         <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-3 flex-1">
-            {tasks.map((task) => (
-              <SortableTaskCard 
-                key={task.id} 
-                task={task} 
-                onOpenDetailDialog={onOpenDetailDialog} // Pass the handler
-              />
-            ))}
+            {tasks.map((task, index) => {
+              const isPlaceholder = activeId === task.id;
+              
+              if (placeholderIndex === index && !isPlaceholder) {
+                return (
+                  <div 
+                    key="placeholder" 
+                    className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest mb-2"
+                    style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
+                  >
+                    Drop Here
+                  </div>
+                );
+              }
+              
+              return (
+                <SortableTaskCard 
+                  key={task.id} 
+                  task={task} 
+                  onOpenDetailDialog={onOpenDetailDialog} // Pass the handler
+                />
+              );
+            })}
+            
+            {/* Render placeholder at the end if the column is empty or the drop target is the end */}
+            {isOverColumn && tasks.length === 0 && (
+              <div 
+                key="placeholder-empty" 
+                className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
+                style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
+              >
+                Drop Here
+              </div>
+            )}
+            
+            {isOverColumn && tasks.length > 0 && placeholderIndex === tasks.length && (
+              <div 
+                key="placeholder-end" 
+                className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
+                style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
+              >
+                Drop Here
+              </div>
+            )}
           </div>
         </SortableContext>
         
@@ -98,7 +140,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
               value={localInput} 
               onChange={(e) => setLocalInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              placeholder="Inject objective: Name [dur] [!] [-]..."
+              placeholder="Inject objective: Name [dur]..."
               className="border-none bg-transparent focus-visible:ring-0 text-xs font-bold placeholder:opacity-20 h-10 px-3"
             />
             <Button 

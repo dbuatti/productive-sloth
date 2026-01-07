@@ -25,8 +25,6 @@ export interface NewEnvironment {
   drain_multiplier?: number;
 }
 
-const LOG_PREFIX = "[ENVIRONMENTS]";
-
 export const useEnvironments = () => {
   const queryClient = useQueryClient();
   const { user } = useSession();
@@ -35,12 +33,7 @@ export const useEnvironments = () => {
   const { data: environments = [], isLoading } = useQuery<Environment[]>({
     queryKey: ['environments', userId],
     queryFn: async () => {
-      console.log(`${LOG_PREFIX} Fetching environments for user: ${userId}`);
-      
-      if (!userId) {
-        console.log(`${LOG_PREFIX} No user ID, returning empty array`);
-        return [];
-      }
+      if (!userId) return [];
       
       const { data, error } = await supabase
         .from('environments')
@@ -48,12 +41,7 @@ export const useEnvironments = () => {
         .eq('user_id', userId)
         .order('created_at', { ascending: true });
       
-      if (error) {
-        console.error(`${LOG_PREFIX} Error fetching environments:`, error.message);
-        throw new Error(error.message);
-      }
-      
-      console.log(`${LOG_PREFIX} Successfully fetched ${data.length} environments`);
+      if (error) throw new Error(error.message);
       return data as Environment[];
     },
     enabled: !!userId,
@@ -61,12 +49,7 @@ export const useEnvironments = () => {
 
   const addEnvironment = useMutation({
     mutationFn: async (newEnvironment: NewEnvironment) => {
-      console.log(`${LOG_PREFIX} Adding new environment:`, newEnvironment);
-      
-      if (!userId) {
-        console.error(`${LOG_PREFIX} Cannot add environment: No user ID`);
-        throw new Error("User not authenticated.");
-      }
+      if (!userId) throw new Error("User not authenticated.");
       
       const environmentToInsert = {
         ...newEnvironment,
@@ -81,33 +64,21 @@ export const useEnvironments = () => {
         .select()
         .single();
       
-      if (error) {
-        console.error(`${LOG_PREFIX} Error adding environment:`, error.message);
-        throw new Error(error.message);
-      }
-      
-      console.log(`${LOG_PREFIX} Successfully added environment:`, data);
+      if (error) throw new Error(error.message);
       return data as Environment;
     },
-    onSuccess: (data) => {
-      console.log(`${LOG_PREFIX} addEnvironment onSuccess: Invalidating queries`);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['environments'] });
       showSuccess('Environment added successfully!');
     },
     onError: (error: any) => {
-      console.error(`${LOG_PREFIX} addEnvironment onError:`, error.message);
       showError(`Failed to add environment: ${error.message}`);
     }
   });
 
   const updateEnvironment = useMutation({
     mutationFn: async (environment: Partial<Environment> & { id: string }) => {
-      console.log(`${LOG_PREFIX} Updating environment:`, environment);
-      
-      if (!userId) {
-        console.error(`${LOG_PREFIX} Cannot update environment: No user ID`);
-        throw new Error("User not authenticated.");
-      }
+      if (!userId) throw new Error("User not authenticated.");
       
       const { data, error } = await supabase
         .from('environments')
@@ -117,33 +88,21 @@ export const useEnvironments = () => {
         .select()
         .single();
       
-      if (error) {
-        console.error(`${LOG_PREFIX} Error updating environment:`, error.message);
-        throw new Error(error.message);
-      }
-      
-      console.log(`${LOG_PREFIX} Successfully updated environment:`, data);
+      if (error) throw new Error(error.message);
       return data as Environment;
     },
-    onSuccess: (data) => {
-      console.log(`${LOG_PREFIX} updateEnvironment onSuccess: Invalidating queries`);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['environments'] });
       showSuccess('Environment updated successfully!');
     },
     onError: (error: any) => {
-      console.error(`${LOG_PREFIX} updateEnvironment onError:`, error.message);
       showError(`Failed to update environment: ${error.message}`);
     }
   });
 
   const deleteEnvironment = useMutation({
     mutationFn: async (id: string) => {
-      console.log(`${LOG_PREFIX} Deleting environment with ID: ${id}`);
-      
-      if (!userId) {
-        console.error(`${LOG_PREFIX} Cannot delete environment: No user ID`);
-        throw new Error("User not authenticated.");
-      }
+      if (!userId) throw new Error("User not authenticated.");
       
       // Check if this is a default environment
       const { data: env } = await supabase
@@ -154,7 +113,6 @@ export const useEnvironments = () => {
         .single();
       
       if (env?.is_default) {
-        console.error(`${LOG_PREFIX} Cannot delete default environment: ${id}`);
         throw new Error("Cannot delete default environments.");
       }
       
@@ -164,20 +122,13 @@ export const useEnvironments = () => {
         .eq('id', id)
         .eq('user_id', userId);
       
-      if (error) {
-        console.error(`${LOG_PREFIX} Error deleting environment:`, error.message);
-        throw new Error(error.message);
-      }
-      
-      console.log(`${LOG_PREFIX} Successfully deleted environment: ${id}`);
+      if (error) throw new Error(error.message);
     },
-    onSuccess: (data, id) => {
-      console.log(`${LOG_PREFIX} deleteEnvironment onSuccess: Invalidating queries`);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['environments'] });
       showSuccess('Environment deleted successfully!');
     },
     onError: (error: any) => {
-      console.error(`${LOG_PREFIX} deleteEnvironment onError:`, error.message);
       showError(`Failed to delete environment: ${error.message}`);
     }
   });

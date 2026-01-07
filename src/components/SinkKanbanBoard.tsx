@@ -229,7 +229,10 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       onDragEnd={handleDragEnd}
     >
       {/* The Columns Container: flex w-full gap-6 items-start */}
-      <div className="flex w-full gap-6 items-start pb-2 overflow-x-auto custom-scrollbar">
+      <div 
+        key="kanban-columns-container" // ADDED A KEY HERE
+        className="flex w-full gap-6 items-start pb-2 overflow-x-auto custom-scrollbar"
+      >
         {groupBy === 'environment' ? (
           environmentOptions.map((option) => {
             const columnTasks = groupedTasks[option.value] || [];

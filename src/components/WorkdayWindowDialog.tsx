@@ -68,7 +68,6 @@ const WorkdayWindowDialog: React.FC<WorkdayWindowDialogProps> = ({ open, onOpenC
       onOpenChange(false);
     } catch (error: any) {
       showError(`Failed to update workday window: ${error.message}`);
-      console.error("Workday window update error:", error);
     }
   };
 

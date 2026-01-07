@@ -106,7 +106,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const displayedDays = useMemo(() => {
     const startIndex = allDaysInFetchWindow.findIndex(day => isSameDay(day, currentPeriodStart));
     if (startIndex === -1) {
-      console.warn("currentPeriodStart not found in fetched window, resetting display to fetchWindowStart.");
       return allDaysInFetchWindow.slice(0, numDaysVisible);
     }
     return allDaysInFetchWindow.slice(startIndex, startIndex + numDaysVisible);
@@ -155,7 +154,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       showSuccess("View preferences saved!");
     } catch (error) {
       showError("Failed to save view preferences.");
-      console.error("Failed to save view preferences:", error);
     }
   };
 
@@ -168,7 +166,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       showSuccess(`Task "${task.name}" completed! +${task.energy_cost * 2} XP`);
     } catch (error) {
       showError(`Failed to complete task: ${task.name}`);
-      console.error("Error completing task from weekly grid:", error);
     }
   }, [completeScheduledTask, rechargeEnergy]);
 

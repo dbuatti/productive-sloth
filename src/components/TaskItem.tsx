@@ -45,7 +45,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => { // Removed onCompleteT
         toast.success(`Task "${task.title}" deleted.`);
       } catch (error) {
         toast.error("Failed to delete task.");
-        console.error("Failed to delete task:", error);
       }
     }
   };

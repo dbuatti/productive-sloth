@@ -1,3 +1,4 @@
+/// <reference lib="deno.ns" />
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
@@ -99,7 +100,6 @@ serve(async (req) => {
             .in('source_calendar_id', calendarIds);
             
         if (deleteError) {
-            console.error("Error deleting old calendar events:", deleteError.message);
             throw new Error("Failed to delete old calendar events.");
         }
         deletedCount = count ?? 0;
@@ -143,7 +143,6 @@ serve(async (req) => {
             .insert(tasksToInsert);
             
         if (insertError) {
-            console.error("Error inserting new calendar events:", insertError.message);
             throw new Error("Failed to insert new calendar events.");
         }
         syncedCount = tasksToInsert.length;
@@ -162,7 +161,6 @@ serve(async (req) => {
         .upsert(calendarUpdates, { onConflict: 'user_id, calendar_id' });
         
     if (updateSyncError) {
-        console.error("Error updating sync timestamps:", updateSyncError.message);
         // Note: We don't throw here as the main task is done.
     }
 
@@ -172,7 +170,6 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("Edge Function error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

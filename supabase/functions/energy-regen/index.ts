@@ -1,3 +1,4 @@
+/// <reference lib="deno.ns" />
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
@@ -47,7 +48,6 @@ serve(async (req) => {
       .select('id, energy, last_energy_regen_at, default_auto_schedule_start_time, default_auto_schedule_end_time, is_in_regen_pod, regen_pod_start_time');
 
     if (profilesError) {
-      console.error("Error fetching profiles:", profilesError.message);
       throw new Error("Failed to fetch profiles.");
     }
 
@@ -62,7 +62,6 @@ serve(async (req) => {
       .lt('end_time', todayEndUTC.toISOString());
 
     if (tasksError) {
-      console.error("Error fetching scheduled tasks:", tasksError.message);
       throw new Error("Failed to fetch scheduled tasks.");
     }
 
@@ -86,7 +85,6 @@ serve(async (req) => {
 
       // --- NEW: Skip passive regen if user is in the Pod ---
       if (profile.is_in_regen_pod) {
-        console.log(`Skipping passive regen for user ${userId}: Currently in Regen Pod.`);
         continue;
       }
       // -----------------------------------------------------
@@ -191,12 +189,8 @@ serve(async (req) => {
         .upsert(updates, { onConflict: 'id' });
 
       if (updateError) {
-        console.error("Error updating profiles energy:", updateError.message);
         throw new Error("Failed to update profiles energy.");
       }
-      console.log(`Successfully updated energy for ${updates.length} profiles.`);
-    } else {
-      console.log("No energy updates needed for any profiles.");
     }
 
     return new Response(JSON.stringify({ message: `Energy regeneration processed for ${profiles.length} users.` }), {
@@ -205,7 +199,6 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("Edge Function error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

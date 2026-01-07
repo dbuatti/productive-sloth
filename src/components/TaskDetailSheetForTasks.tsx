@@ -147,7 +147,7 @@ const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
       showSuccess("Task updated successfully!");
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to save task:", error);
+      // console.error("Failed to save task:", error);
     }
   };
 

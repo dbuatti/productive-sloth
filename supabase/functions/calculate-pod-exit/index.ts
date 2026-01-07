@@ -1,3 +1,4 @@
+/// <reference lib="deno.ns" />
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
@@ -106,7 +107,6 @@ serve(async (req) => {
         .single();
 
     if (profileFetchError || !profileData) {
-        console.error("Error fetching profile:", profileFetchError?.message);
         throw new Error("Failed to fetch user profile.");
     }
 
@@ -124,7 +124,6 @@ serve(async (req) => {
       .eq('id', userId);
 
     if (profileUpdateError) {
-      console.error("Error updating profile energy:", profileUpdateError.message);
       throw new Error("Failed to update profile energy.");
     }
 
@@ -134,7 +133,6 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("Edge Function error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

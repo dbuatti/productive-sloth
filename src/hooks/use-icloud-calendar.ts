@@ -134,12 +134,12 @@ export const useICloudCalendar = () => {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to sync calendar events.');
-      }
-      const data = await response.json();
-      return data as { syncedCount: number, deletedCount: number };
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to sync calendar events.');
+    }
+    const data = await response.json();
+    return data as { syncedCount: number, deletedCount: number };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });

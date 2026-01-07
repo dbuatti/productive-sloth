@@ -58,7 +58,6 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error(`${functionName} Auth Error: Missing Authorization header`);
       return new Response(JSON.stringify({ error: 'Unauthorized: Missing Authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -71,7 +70,6 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     if (!SUPABASE_URL) {
-      console.error(`${functionName} Configuration Error: SUPABASE_URL is not set.`);
       return new Response(JSON.stringify({ error: 'Configuration Error: SUPABASE_URL is not set.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -87,7 +85,6 @@ serve(async (req) => {
       });
       payload = verifiedPayload;
     } catch (jwtError: any) {
-      console.error(`${functionName} JWT Verification Error:`, jwtError);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -97,7 +94,6 @@ serve(async (req) => {
     const userId = payload.sub;
 
     if (!userId) {
-      console.error(`${functionName} Auth Error: Invalid JWT payload - missing user ID (sub).`);
       return new Response(JSON.stringify({ error: 'Unauthorized: Invalid JWT payload' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -115,7 +111,6 @@ serve(async (req) => {
 
     // 1. Delete scheduled tasks
     if (scheduledTaskIdsToDelete.length > 0) {
-      console.log(`${functionName} Deleting scheduled tasks:`, scheduledTaskIdsToDelete);
       const { error } = await supabaseClient
         .from('scheduled_tasks')
         .delete()
@@ -123,19 +118,16 @@ serve(async (req) => {
         .eq('user_id', userId)
         .eq('scheduled_date', selectedDate);
       if (error) throw new Error(`Failed to delete old scheduled tasks: ${error.message}`);
-      console.log(`${functionName} Scheduled tasks deleted successfully.`);
     }
 
     // 2. Delete retired tasks
     if (retiredTaskIdsToDelete.length > 0) {
-      console.log(`${functionName} Deleting retired tasks:`, retiredTaskIdsToDelete);
       const { error } = await supabaseClient
         .from('aethersink')
         .delete()
         .in('id', retiredTaskIdsToDelete)
         .eq('user_id', userId);
       if (error) throw new Error(`Failed to delete old retired tasks: ${error.message}`);
-      console.log(`${functionName} Retired tasks deleted successfully.`);
     }
 
     // 3. Insert/Update new scheduled tasks
@@ -147,29 +139,24 @@ serve(async (req) => {
 
       // 3a. Update existing tasks (where ID is present)
       if (tasksToUpdate.length > 0) {
-        console.log(`${functionName} Updating existing scheduled tasks: ${tasksToUpdate.length}`);
         const { error } = await supabaseClient
           .from('scheduled_tasks')
           .upsert(tasksToUpdate, { onConflict: 'id' }); 
         if (error) throw new Error(`Failed to update existing scheduled tasks: ${error.message}`);
-        console.log(`${functionName} Existing scheduled tasks updated successfully.`);
       }
 
       // 3b. Insert new tasks (where ID is missing)
       if (tasksToInsertNew.length > 0) {
-        console.log(`${functionName} Inserting new scheduled tasks: ${tasksToInsertNew.length}`);
         // CRITICAL: Use insert() for new tasks to allow DB to generate UUID
         const { error } = await supabaseClient
           .from('scheduled_tasks')
           .insert(tasksToInsertNew); 
         if (error) throw new Error(`Failed to insert new scheduled tasks: ${error.message}`);
-        console.log(`${functionName} New scheduled tasks inserted successfully.`);
       }
     }
 
     // 4. Insert tasks back into the sink (those that couldn't be placed)
     if (tasksToKeepInSink.length > 0) {
-      console.log(`${functionName} Re-inserting tasks into sink: ${tasksToKeepInSink.length}`);
       const tasksToKeepInSinkWithUserId = tasksToKeepInSink.map(task => ({ 
         ...task, 
         user_id: userId, 
@@ -192,7 +179,6 @@ serve(async (req) => {
         .from('aethersink')
         .insert(tasksToKeepInSinkWithUserId);
       if (error) throw new Error(`Failed to re-insert unscheduled tasks into sink: ${error.message}`);
-      console.log(`${functionName} Unscheduled tasks re-inserted into sink successfully.`);
     }
 
     return new Response(JSON.stringify({ tasksPlaced: tasksToInsert.length, tasksKeptInSink: tasksToKeepInSink.length }), {
@@ -201,7 +187,6 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error(`${functionName} Edge Function error:`, error.message, error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

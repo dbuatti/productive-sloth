@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
 import { EnvironmentContext, EnvironmentContextType, EnvironmentOption, getIconComponent } from '@/context/EnvironmentContext.ts';
 import { useEnvironments } from '@/hooks/use-environments';
@@ -37,7 +37,8 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [selectedEnvironments]);
 
-  const toggleEnvironmentSelection = (env: TaskEnvironment) => {
+  // Memoize toggleEnvironmentSelection
+  const toggleEnvironmentSelection = useCallback((env: TaskEnvironment) => {
     console.log(`${LOG_PREFIX} Toggling environment selection:`, env);
     setSelectedEnvironments(prev => {
       if (prev.includes(env)) {
@@ -50,7 +51,7 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return newSelection;
       }
     });
-  };
+  }, []); // No dependencies needed as setSelectedEnvironments is stable
 
   const environmentOptions: EnvironmentOption[] = useMemo(() => {
     const options = environments.map(env => ({
@@ -64,13 +65,14 @@ const EnvironmentProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return options;
   }, [environments]);
 
-  const value: EnvironmentContextType = {
+  // Memoize the context value
+  const value: EnvironmentContextType = useMemo(() => ({
     selectedEnvironments,
     toggleEnvironmentSelection,
-    setSelectedEnvironments,
+    setSelectedEnvironments, // useState setter is stable
     environmentOptions,
     isLoadingEnvironments,
-  };
+  }), [selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments, environmentOptions, isLoadingEnvironments]);
 
   console.log(`${LOG_PREFIX} Rendering provider with state:`, { selectedEnvironments, optionCount: environmentOptions.length, isLoadingEnvironments });
 

@@ -16,8 +16,36 @@ import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
 import ModelPage from "./pages/ModelPage";
 import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage"; // NEW IMPORT
+import { useSession } from "./hooks/use-session"; // Import useSession to get user ID
 
 const queryClient = new QueryClient();
+
+const AppContent = () => {
+  const { user } = useSession(); // Get user from session context
+
+  return (
+    <MainLayout key={user?.id || 'guest'}> {/* Added key prop */}
+      <Routes>
+        <Route path="/" element={<Navigate to="/scheduler" replace />} />
+        
+        {/* Secondary Pages (Accessed via Settings or direct link) */}
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/documentation" element={<DocumentationPage />} />
+        <Route path="/model" element={<ModelPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/simplified-schedule" element={<SimplifiedSchedulePage />} /> {/* NEW ROUTE */}
+        
+        {/* SCHEDULER CORE VIEWS (Primary Navigation) */}
+        <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
+        <Route path="/sink" element={<SchedulerPage view="sink" />} />
+        <Route path="/recap" element={<SchedulerPage view="recap" />} />
+        
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </MainLayout>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -29,26 +57,7 @@ const App = () => (
             <EnvironmentProvider>
               <SessionProvider>
                 <EnergyRegenInitializer />
-                <MainLayout>
-                  <Routes>
-                    <Route path="/" element={<Navigate to="/scheduler" replace />} />
-                    
-                    {/* Secondary Pages (Accessed via Settings or direct link) */}
-                    <Route path="/analytics" element={<AnalyticsPage />} />
-                    <Route path="/documentation" element={<DocumentationPage />} />
-                    <Route path="/model" element={<ModelPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/simplified-schedule" element={<SimplifiedSchedulePage />} /> {/* NEW ROUTE */}
-                    
-                    {/* SCHEDULER CORE VIEWS (Primary Navigation) */}
-                    <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
-                    <Route path="/sink" element={<SchedulerPage view="sink" />} />
-                    <Route path="/recap" element={<SchedulerPage view="recap" />} />
-                    
-                    <Route path="/login" element={<Login />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </MainLayout>
+                <AppContent /> {/* Render AppContent inside SessionProvider */}
               </SessionProvider>
             </EnvironmentProvider>
           </BrowserRouter>

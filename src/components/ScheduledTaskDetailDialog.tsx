@@ -38,9 +38,12 @@ import { useEnvironments } from '@/hooks/use-environments'; // Import useEnviron
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
-  start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
-  end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
-  break_duration: z.coerce.number().min(0).optional().nullable(),
+  start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").or(z.literal('')).nullable(),
+  end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").or(z.literal('')).nullable(),
+  break_duration: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.number().min(0, "Break duration cannot be negative.").nullable()
+  ),
   is_critical: z.boolean().default(false),
   is_backburner: z.boolean().default(false),
   is_flexible: z.boolean().default(true),
@@ -48,6 +51,14 @@ const formSchema = z.object({
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.string().default('laptop'), // Changed to z.string()
+}).refine(data => {
+  // Custom refinement: both start_time and end_time must be provided or both must be null/empty
+  const hasStartTime = data.start_time !== null && data.start_time !== "";
+  const hasEndTime = data.end_time !== null && data.end_time !== "";
+  return (hasStartTime && hasEndTime) || (!hasStartTime && !hasEndTime);
+}, {
+  message: "Both start and end times must be provided or both left empty.",
+  path: ["start_time"], // Attach error to start_time field
 });
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -98,8 +109,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
 
   useEffect(() => {
     if (task) {
-      const startTime = task.start_time ? format(parseISO(task.start_time), 'HH:mm') : '09:00';
-      const endTime = task.end_time ? format(parseISO(task.end_time), 'HH:mm') : '10:00';
+      const startTime = task.start_time ? format(parseISO(task.start_time), 'HH:mm') : '';
+      const endTime = task.end_time ? format(parseISO(task.end_time), 'HH:mm') : '';
       form.reset({
         name: task.name,
         start_time: startTime,
@@ -113,7 +124,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         is_custom_energy_cost: task.is_custom_energy_cost,
         task_environment: task.task_environment,
       });
-      if (!task.is_custom_energy_cost) {
+      if (!task.is_custom_energy_cost && startTime && endTime) {
         const selectedDayDate = parseISO(selectedDayString);
         let sTime = setTimeOnDate(selectedDayDate, startTime);
         let eTime = setTimeOnDate(selectedDayDate, endTime);
@@ -176,20 +187,37 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
     if (!task) return;
 
     const selectedDayDate = parseISO(selectedDayString);
-    let startTime = setTimeOnDate(selectedDayDate, values.start_time);
-    let endTime = setTimeOnDate(selectedDayDate, values.end_time);
+    
+    const finalStartTimeStr = values.start_time === "" ? null : values.start_time;
+    const finalEndTimeStr = values.end_time === "" ? null : values.end_time;
 
-    if (isBefore(endTime, startTime)) {
-      endTime = addDays(endTime, 1);
+    let finalStartTime: string | null = null;
+    let finalEndTime: string | null = null;
+
+    if (finalStartTimeStr && finalEndTimeStr) {
+      let startTime = setTimeOnDate(selectedDayDate, finalStartTimeStr);
+      let endTime = setTimeOnDate(selectedDayDate, finalEndTimeStr);
+
+      if (isBefore(endTime, startTime)) {
+        endTime = addDays(endTime, 1);
+      }
+      finalStartTime = startTime.toISOString();
+      finalEndTime = endTime.toISOString();
+    } else if (finalStartTimeStr === null && finalEndTimeStr === null) {
+      // Both are null, which is fine.
+    } else {
+      // This case should be caught by the refine, but as a fallback:
+      showError("Both start and end times must be provided or both left empty.");
+      return;
     }
 
     try {
       await updateScheduledTaskDetails({
         id: task.id,
         name: values.name,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-        break_duration: values.break_duration === 0 ? null : values.break_duration,
+        start_time: finalStartTime,
+        end_time: finalEndTime,
+        break_duration: values.break_duration,
         is_critical: values.is_critical,
         is_backburner: values.is_backburner,
         is_flexible: values.is_flexible,
@@ -259,7 +287,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                     <FormItem>
                       <FormLabel>Start Time</FormLabel>
                       <FormControl>
-                        <Input type="time" {...field} />
+                        <Input type="time" {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -272,7 +300,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                     <FormItem>
                       <FormLabel>End Time</FormLabel>
                       <FormControl>
-                        <Input type="time" {...field} />
+                        <Input type="time" {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -288,7 +316,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                   <FormItem>
                     <FormLabel>Break Duration (min)</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} min="0" />
+                      <Input type="number" {...field} min="0" value={field.value ?? ''} />
                     </FormControl>
                     <FormDescription>
                       Break duration associated with this task.

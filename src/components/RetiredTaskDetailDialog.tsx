@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,10 +33,26 @@ import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
 
+const getEnvironmentIconComponent = (iconName: string) => {
+  switch (iconName) {
+    case 'Home': return Home;
+    case 'Laptop': return Laptop;
+    case 'Globe': return Globe;
+    case 'Music': return Music;
+    default: return Home; // Fallback
+  }
+};
+
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
-  duration: z.coerce.number().min(1, "Duration must be at least 1 minute.").optional().nullable(),
-  break_duration: z.coerce.number().min(0).optional().nullable(),
+  duration: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.number().min(1, "Duration must be at least 1 minute.").nullable()
+  ),
+  break_duration: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.number().min(0, "Break duration cannot be negative.").nullable()
+  ),
   is_critical: z.boolean().default(false),
   is_backburner: z.boolean().default(false),
   is_locked: z.boolean().default(false),
@@ -51,16 +69,6 @@ interface RetiredTaskDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const getEnvironmentIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home; // Fallback
-  }
-};
 
 const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   task,
@@ -145,8 +153,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       await updateRetiredTaskDetails({
         id: task.id,
         name: values.name,
-        duration: values.duration === 0 ? null : values.duration,
-        break_duration: values.break_duration === 0 ? null : values.break_duration,
+        duration: values.duration,
+        break_duration: values.break_duration,
         is_critical: values.is_critical,
         is_backburner: values.is_backburner,
         is_locked: values.is_locked,
@@ -216,7 +224,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                     <FormItem>
                       <FormLabel>Duration (min)</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} min="1" />
+                        <Input type="number" {...field} min="1" value={field.value ?? ''} />
                       </FormControl>
                       <FormDescription>
                         Estimated time to complete.
@@ -232,7 +240,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                     <FormItem>
                       <FormLabel>Break Duration (min)</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} min="0" />
+                        <Input type="number" {...field} min="0" value={field.value ?? ''} />
                       </FormControl>
                       <FormDescription>
                         Break associated with this task.

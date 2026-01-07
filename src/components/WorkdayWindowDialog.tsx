@@ -26,8 +26,14 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
 
 const workdayWindowSchema = z.object({
-  default_auto_schedule_start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
-  default_auto_schedule_end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
+  default_auto_schedule_start_time: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable()
+  ),
+  default_auto_schedule_end_time: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable()
+  ),
 });
 
 type WorkdayWindowFormValues = z.infer<typeof workdayWindowSchema>;
@@ -52,8 +58,8 @@ const WorkdayWindowDialog: React.FC<WorkdayWindowDialogProps> = ({ open, onOpenC
   useEffect(() => {
     if (profile) {
       form.reset({
-        default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '09:00',
-        default_auto_schedule_end_time: profile.default_auto_schedule_end_time || '17:00',
+        default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '',
+        default_auto_schedule_end_time: profile.default_auto_schedule_end_time || '',
       });
     }
   }, [profile, form]);
@@ -110,7 +116,7 @@ const WorkdayWindowDialog: React.FC<WorkdayWindowDialogProps> = ({ open, onOpenC
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Input type="time" className="w-auto" {...field} />
+                    <Input type="time" className="w-auto" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -128,7 +134,7 @@ const WorkdayWindowDialog: React.FC<WorkdayWindowDialogProps> = ({ open, onOpenC
                         </FormDescription>
                       </div>
                   <FormControl>
-                    <Input type="time" className="w-auto" {...field} />
+                    <Input type="time" className="w-auto" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

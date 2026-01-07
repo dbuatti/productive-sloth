@@ -27,15 +27,22 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { format, isBefore, addDays, differenceInMinutes } from 'date-fns';
 import { useEnvironments } from '@/hooks/use-environments';
-import { TaskEnvironment } from '@/types/scheduler';
+import { NewDBScheduledTask, TaskEnvironment } from '@/types/scheduler'; // Import NewDBScheduledTask
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // Import useSchedulerTasks
 
 const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
   description: z.string().max(1000).optional(),
   priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   dueDate: z.date({ required_error: "Due date is required." }),
-  startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
-  endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
+  startTime: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable()
+  ).optional(),
+  endTime: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable()
+  ).optional(),
   isCritical: z.boolean().default(false),
   isBackburner: z.boolean().default(false),
   energy_cost: z.coerce.number().min(0).default(0),
@@ -75,6 +82,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   onOpenChange,
 }) => {
   const { addTask } = useTasks();
+  const { addScheduledTask } = useSchedulerTasks(format(defaultDueDate, 'yyyy-MM-dd')); // Initialize with defaultDueDate
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
   const isMobile = useIsMobile();
@@ -173,27 +181,59 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   }, [form]);
 
 
-  const onSubmit = (values: TaskCreationFormValues) => {
+  const onSubmit = async (values: TaskCreationFormValues) => {
     const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost, task_environment } = values;
 
-    const newTask: NewTask = {
-      title: title.trim(),
-      description: description?.trim() || undefined,
-      priority: priority,
-      due_date: dueDate.toISOString(),
-      is_critical: isCritical,
-      is_backburner: isBackburner,
-      energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost, 
-      is_custom_energy_cost: is_custom_energy_cost,
-      task_environment: task_environment,
-    };
+    const scheduledDateString = format(dueDate, 'yyyy-MM-dd');
 
-    addTask(newTask, {
-      onSuccess: () => {
-        onTaskCreated();
-        onOpenChange(false);
-      }
-    });
+    if (values.startTime && values.endTime) {
+      // This is a scheduled task
+      let startTime = setTimeOnDate(dueDate, values.startTime);
+      let endTime = setTimeOnDate(dueDate, values.endTime);
+      if (isBefore(endTime, startTime)) endTime = addDays(endTime, 1);
+
+      const newScheduledTask: NewDBScheduledTask = {
+        name: title.trim(),
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        scheduled_date: scheduledDateString,
+        is_critical: isCritical,
+        is_backburner: isBackburner,
+        is_flexible: false, // Explicitly timed tasks are not flexible
+        is_locked: true,    // Explicitly timed tasks are locked by default
+        energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost,
+        is_custom_energy_cost: is_custom_energy_cost,
+        task_environment: task_environment,
+      };
+
+      await addScheduledTask(newScheduledTask, {
+        onSuccess: () => {
+          onTaskCreated();
+          onOpenChange(false);
+        }
+      });
+
+    } else {
+      // This is a general task
+      const newTask: NewTask = {
+        title: title.trim(),
+        description: description?.trim() || undefined,
+        priority: priority,
+        due_date: dueDate.toISOString(),
+        is_critical: isCritical,
+        is_backburner: isBackburner,
+        energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost, 
+        is_custom_energy_cost: is_custom_energy_cost,
+        task_environment: task_environment,
+      };
+
+      await addTask(newTask, {
+        onSuccess: () => {
+          onTaskCreated();
+          onOpenChange(false);
+        }
+      });
+    }
   };
 
   const isSubmitting = form.formState.isSubmitting;

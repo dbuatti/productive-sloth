@@ -30,14 +30,38 @@ const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters.").nullable(),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters.").nullable(),
   avatar_url: z.string().url("Must be a valid URL.").nullable().or(z.literal('')),
-  default_auto_schedule_start_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  default_auto_schedule_end_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  breakfast_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  lunch_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  dinner_time: z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable(),
-  breakfast_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),
-  lunch_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),
-  dinner_duration_minutes: z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable(),
+  default_auto_schedule_start_time: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable()
+  ),
+  default_auto_schedule_end_time: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable()
+  ),
+  breakfast_time: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable()
+  ),
+  lunch_time: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable()
+  ),
+  dinner_time: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().regex(timeRegex, "Invalid time format (HH:MM)").nullable()
+  ),
+  breakfast_duration_minutes: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable()
+  ),
+  lunch_duration_minutes: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable()
+  ),
+  dinner_duration_minutes: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.coerce.number().min(5, "Min 5 min").max(120, "Max 120 min").nullable()
+  ),
   reflection_count: z.coerce.number().min(1).max(5),
   enable_environment_chunking: z.boolean(),
   enable_macro_spread: z.boolean(),
@@ -92,14 +116,14 @@ const SettingsPage: React.FC = () => {
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
         avatar_url: profile.avatar_url || '',
-        default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '09:00',
-        default_auto_schedule_end_time: profile.default_auto_schedule_end_time || '17:00',
-        breakfast_time: profile.breakfast_time || '08:00',
-        lunch_time: profile.lunch_time || '12:00',
-        dinner_time: profile.dinner_time || '18:00',
-        breakfast_duration_minutes: profile.breakfast_duration_minutes || 30,
-        lunch_duration_minutes: profile.lunch_duration_minutes || 45,
-        dinner_duration_minutes: profile.dinner_duration_minutes || 60,
+        default_auto_schedule_start_time: profile.default_auto_schedule_start_time || '',
+        default_auto_schedule_end_time: profile.default_auto_schedule_end_time || '',
+        breakfast_time: profile.breakfast_time || '',
+        lunch_time: profile.lunch_time || '',
+        dinner_time: profile.dinner_time || '',
+        breakfast_duration_minutes: profile.breakfast_duration_minutes || undefined,
+        lunch_duration_minutes: profile.lunch_duration_minutes || undefined,
+        dinner_duration_minutes: profile.dinner_duration_minutes || undefined,
         reflection_count: profile.reflection_count || 1,
         enable_environment_chunking: profile.enable_environment_chunking ?? true,
         enable_macro_spread: profile.enable_macro_spread ?? false,
@@ -296,7 +320,7 @@ const SettingsPage: React.FC = () => {
                             <FormItem>
                               <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Sync Duration (Min)</FormLabel>
                               <FormControl>
-                                <Input type="number" {...field} value={field.value || ''} />
+                                <Input type="number" {...field} value={field.value ?? ''} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>

@@ -30,7 +30,8 @@ const SimplifiedSchedulePage: React.FC = () => {
   const fetchWindowStart = useMemo(() => subDays(centerDate, Math.floor(FETCH_WINDOW_DAYS / 2)), [centerDate]);
   const fetchWindowEnd = useMemo(() => addDays(fetchWindowStart, FETCH_WINDOW_DAYS - 1), [fetchWindowStart]);
 
-  const allDaysInFetchWindow = useMemo(() => {
+  // Renamed from allDaysInFetchWindow to fullFetchWindowDays to avoid confusion with the sliced array
+  const fullFetchWindowDays = useMemo(() => {
     const days: string[] = [];
     let current = fetchWindowStart;
     while (isBefore(current, addDays(fetchWindowEnd, 1))) {
@@ -39,6 +40,21 @@ const SimplifiedSchedulePage: React.FC = () => {
     }
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
+
+  // NEW: This is the "Lens" logic to get exactly the days to render
+  const daysToRender = useMemo(() => {
+    if (!fullFetchWindowDays || fullFetchWindowDays.length === 0) return [];
+
+    // 1. Find the index of the date we want to start viewing from
+    const startIndex = fullFetchWindowDays.indexOf(currentPeriodStartString);
+    
+    // 2. Fallback: If for some reason today isn't in the window, start at the beginning
+    const safeStart = startIndex === -1 ? 0 : startIndex;
+
+    // 3. Slice the array to exactly the number of days the user wants to see
+    return fullFetchWindowDays.slice(safeStart, safeStart + numDaysVisible);
+  }, [fullFetchWindowDays, currentPeriodStartString, numDaysVisible]);
+
 
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, profileSettings } =
     useWeeklySchedulerTasks(currentPeriodStartString); // Pass centerDateString
@@ -107,41 +123,9 @@ const SimplifiedSchedulePage: React.FC = () => {
     // await completeScheduledTaskMutation(task);
   }, []);
 
-  // NEW: Filter the days to render based on currentPeriodStartString and numDaysVisible
-  const visibleDaysToRender = useMemo(() => {
-    const startIndex = allDaysInFetchWindow.indexOf(currentPeriodStartString);
-    if (startIndex === -1) {
-      // Fallback if currentPeriodStartString is not found (shouldn't happen with correct logic)
-      return allDaysInFetchWindow.slice(0, numDaysVisible);
-    }
-    return allDaysInFetchWindow.slice(startIndex, startIndex + numDaysVisible);
-  }, [allDaysInFetchWindow, currentPeriodStartString, numDaysVisible]);
-
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-3 text-muted-foreground">Loading schedule...</span>
-      </div>
-    );
-  }
-
-  if (!user || !profile) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-        <CalendarDays className="h-12 w-12 mb-4 opacity-40" />
-        <p className="text-lg font-semibold">Please log in to view your schedule.</p>
-        <Button onClick={() => navigate('/login')} className="mt-4">
-          Go to Login
-        </Button>
-      </div>
-    );
-  }
-
-  const workdayStartTime = profile.default_auto_schedule_start_time || '09:00';
-  const workdayEndTime = profile.default_auto_schedule_end_time || '17:00';
-  const weekStartsOn = (profile.week_starts_on ?? 0) as number;
+  // Derive workday start and end times from profile
+  const workdayStartTime = profile?.default_auto_schedule_start_time || '09:00';
+  const workdayEndTime = profile?.default_auto_schedule_end_time || '17:00';
 
   return (
     <div ref={gridRef} className="flex flex-col h-full w-full">
@@ -154,7 +138,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           workdayStartTime={workdayStartTime}
           workdayEndTime={workdayEndTime}
           isLoading={isLoading} // Pass the combined isLoading
-          weekStartsOn={weekStartsOn}
+          weekStartsOn={profile?.week_starts_on ?? 0} // Use profile directly for weekStartsOn
           onPeriodShift={handlePeriodShift}
           fetchWindowStart={fetchWindowStart}
           fetchWindowEnd={fetchWindowEnd}
@@ -162,7 +146,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           onSetCurrentVerticalZoomIndex={handleSetCurrentVerticalZoomIndex}
           profileSettings={profileSettings}
           scrollVersion={scrollVersion}
-          allDaysInFetchWindow={visibleDaysToRender} // NEW: Pass only the visible subset
+          allDaysInFetchWindow={daysToRender} // NEW: Pass only the visible subset
           columnWidth={columnWidth} // New prop
           onCompleteTask={handleCompleteTask} // New prop
           T_current={T_current} // New prop

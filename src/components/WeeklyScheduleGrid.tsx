@@ -195,8 +195,11 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       return (
         <div 
           key={dateString} 
-          style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }} 
-          className="flex-shrink-0 border-r border-white/5"
+          style={{ 
+            width: `${columnWidth}px`, 
+            flex: `0 0 ${columnWidth}px` // THIS IS THE KEY FIX
+          }} 
+          className="border-r border-white/5 h-full overflow-y-auto"
         >
           <DailyScheduleColumn 
             dateString={dateString} 

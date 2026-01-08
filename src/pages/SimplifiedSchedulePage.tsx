@@ -12,48 +12,71 @@ const SimplifiedSchedulePage: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, isLoading: isSessionLoading, T_current } = useSession();
   
-  const weekStartsOn = (profile?.week_starts_on ?? 0) as Day;
+  // Initialize numDaysVisible and currentVerticalZoomIndex from profile, default to 7 and 3
+  const initialNumDaysVisible = profile?.num_days_visible ?? 7;
+  const initialVerticalZoomIndex = profile?.vertical_zoom_index ?? 3;
+  const initialWeekStartsOn = (profile?.week_starts_on ?? 0) as Day;
+
+  const [numDaysVisible, setNumDaysVisible] = useState<number>(initialNumDaysVisible); 
+  const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(initialVerticalZoomIndex);
 
   // currentPeriodStart now represents the *first day* of the currently displayed block of numDaysVisible days.
-  const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(() => 
-    startOfWeek(new Date(), { weekStartsOn }) 
-  );
-  // Initialize numDaysVisible from profile, default to 7
-  const [numDaysVisible, setNumDaysVisible] = useState<number>(profile?.num_days_visible ?? 7); 
-
-  // Initialize currentVerticalZoomIndex from profile, default to 3 (for 1.00 zoom)
-  const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(profile?.vertical_zoom_index ?? 3);
+  // This state will only be updated by explicit user actions (nav buttons, Go to Today).
+  const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(() => {
+    const today = new Date();
+    let initialStart: Date;
+    if (initialNumDaysVisible === 1) {
+      initialStart = startOfDay(today);
+    } else if (initialNumDaysVisible === 3) {
+      initialStart = subDays(startOfDay(today), 1); // Today + 1 day before + 1 day after
+    } else if (initialNumDaysVisible === 5) {
+      initialStart = subDays(startOfDay(today), 2); // Today + 2 days before + 2 days after
+    } else { // 7, 14, 21 days - start of week
+      initialStart = startOfWeek(today, { weekStartsOn: initialWeekStartsOn });
+    }
+    return initialStart;
+  });
 
   // Pass currentPeriodStart as the centerDate to the hook, so it fetches a buffer around it
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStart);
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
 
-  // Adjust currentPeriodStart when numDaysVisible changes to keep "today" in view
-  useEffect(() => {
-    if (!profile) return; // Wait for profile to load
-
-    const today = new Date();
-    let newStart: Date;
-    if (numDaysVisible === 1) {
-      newStart = startOfDay(today);
-    } else if (numDaysVisible === 3) {
-      newStart = subDays(startOfDay(today), 1); // Today + 1 day before + 1 day after
-    } else if (numDaysVisible === 5) {
-      newStart = subDays(startOfDay(today), 2); // Today + 2 days before + 2 days after
-    } else { // 7, 14, 21 days - start of week
-      newStart = startOfWeek(today, { weekStartsOn: profile.week_starts_on as Day });
-    }
-    setCurrentPeriodStart(newStart);
-  }, [numDaysVisible, profile?.week_starts_on, profile]); // Depend on profile.week_starts_on and profile
-
   // Update numDaysVisible and currentVerticalZoomIndex when profile loads/changes
+  // This effect will also trigger a scroll to the new currentPeriodStart if it changes.
   useEffect(() => {
     if (profile) {
-      setNumDaysVisible(profile.num_days_visible ?? 7);
-      setCurrentVerticalZoomIndex(profile.vertical_zoom_index ?? 3);
+      const newNumDaysVisible = profile.num_days_visible ?? 7;
+      const newVerticalZoomIndex = profile.vertical_zoom_index ?? 3;
+      const newWeekStartsOn = (profile.week_starts_on ?? 0) as Day;
+
+      // Only update if values are actually different to prevent unnecessary re-renders
+      if (newNumDaysVisible !== numDaysVisible) {
+        setNumDaysVisible(newNumDaysVisible);
+      }
+      if (newVerticalZoomIndex !== currentVerticalZoomIndex) {
+        setCurrentVerticalZoomIndex(newVerticalZoomIndex);
+      }
+
+      // Recalculate currentPeriodStart based on new profile settings and go to today
+      // This ensures the view is correctly positioned when settings change or on initial profile load.
+      const today = new Date();
+      let newStart: Date;
+      if (newNumDaysVisible === 1) {
+        newStart = startOfDay(today);
+      } else if (newNumDaysVisible === 3) {
+        newStart = subDays(startOfDay(today), 1);
+      } else if (newNumDaysVisible === 5) {
+        newStart = subDays(startOfDay(today), 2);
+      } else {
+        newStart = startOfWeek(today, { weekStartsOn: newWeekStartsOn });
+      }
+      // Only update currentPeriodStart if it's actually different to avoid unnecessary scrolls
+      if (!isSameDay(currentPeriodStart, newStart)) {
+        setCurrentPeriodStart(newStart);
+      }
     }
-  }, [profile]);
+  }, [profile]); // Depend on profile to react to its loading/changes
 
   // Callback for WeeklyScheduleGrid to request a period shift
   const handlePeriodShift = useCallback((shiftDays: number) => {
@@ -96,7 +119,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           workdayEndTime={workdayEndTime}
           isLoading={isWeeklyTasksLoading}
           T_current={T_current}
-          weekStartsOn={weekStartsOn}
+          weekStartsOn={initialWeekStartsOn} // Use initialWeekStartsOn from profile
           onPeriodShift={handlePeriodShift} 
           fetchWindowStart={fetchWindowStart} 
           fetchWindowEnd={fetchWindowEnd}     

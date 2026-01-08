@@ -15,27 +15,29 @@ import DocumentationPage from "./pages/DocumentationPage";
 import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
 import ModelPage from "./pages/ModelPage";
-import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage"; // NEW IMPORT
-import { useSession } from "./hooks/use-session"; // Import useSession to get user ID
+import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage";
+import WellnessPage from "./pages/WellnessPage"; // NEW IMPORT
+import { useSession } from "./hooks/use-session";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  const { user } = useSession(); // Get user from session context
+  const { user } = useSession();
 
   return (
-    <MainLayout key={user?.id || 'guest'}> {/* Added key prop */}
+    <MainLayout key={user?.id || 'guest'}>
       <Routes>
         <Route path="/" element={<Navigate to="/scheduler" replace />} />
         
-        {/* Secondary Pages (Accessed via Settings or direct link) */}
+        {/* Secondary Pages */}
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/wellness" element={<WellnessPage />} /> {/* NEW ROUTE */}
         <Route path="/documentation" element={<DocumentationPage />} />
         <Route path="/model" element={<ModelPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/simplified-schedule" element={<SimplifiedSchedulePage />} /> {/* NEW ROUTE */}
+        <Route path="/simplified-schedule" element={<SimplifiedSchedulePage />} />
         
-        {/* SCHEDULER CORE VIEWS (Primary Navigation) */}
+        {/* SCHEDULER CORE VIEWS */}
         <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
         <Route path="/sink" element={<SchedulerPage view="sink" />} />
         <Route path="/recap" element={<SchedulerPage view="recap" />} />
@@ -57,7 +59,7 @@ const App = () => (
             <EnvironmentProvider>
               <SessionProvider>
                 <EnergyRegenInitializer />
-                <AppContent /> {/* Render AppContent inside SessionProvider */}
+                <AppContent />
               </SessionProvider>
             </EnvironmentProvider>
           </BrowserRouter>

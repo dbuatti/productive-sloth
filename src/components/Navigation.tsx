@@ -9,7 +9,8 @@ import {
   CheckCircle, 
   Code, 
   Sparkles,
-  CalendarDays
+  CalendarDays,
+  HeartPulse // NEW ICON
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -20,14 +21,14 @@ interface NavLinkItemProps {
   icon: React.ElementType;
   label: string;
   isCollapsed: boolean;
-  onClick?: () => void; // Added onClick prop
+  onClick?: () => void;
 }
 
 const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isCollapsed, onClick }) => {
   const content = (
     <NavLink
       to={to}
-      onClick={onClick} // Call onClick when NavLink is clicked
+      onClick={onClick}
       className={({ isActive }) =>
         cn(
           "group relative flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-bold tracking-tight transition-all duration-300 ease-aether-out",
@@ -74,7 +75,7 @@ const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isColl
 
 interface NavigationProps {
   isCollapsed: boolean;
-  onLinkClick?: () => void; // Added onLinkClick prop
+  onLinkClick?: () => void;
 }
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
@@ -85,6 +86,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
   ];
   
   const secondaryNavItems = [
+    { to: "/wellness", icon: HeartPulse, label: "Wellness & Balance" }, // NEW ITEM
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
     { to: "/documentation", icon: BookOpen, label: "Documentation" },
     { to: "/model", icon: Code, label: "App Model" },
@@ -123,7 +125,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
           icon={item.icon}
           label={item.label}
           isCollapsed={isCollapsed}
-          onClick={onLinkClick} // Pass onLinkClick to NavLinkItem
+          onClick={onLinkClick}
         />
       ))}
       
@@ -135,7 +137,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
           icon={item.icon}
           label={item.label}
           isCollapsed={isCollapsed}
-          onClick={onLinkClick} // Pass onLinkClick to NavLinkItem
+          onClick={onLinkClick}
         />
       ))}
 
@@ -147,7 +149,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
           icon={item.icon}
           label={item.label}
           isCollapsed={isCollapsed}
-          onClick={onLinkClick} // Pass onLinkClick to NavLinkItem
+          onClick={onLinkClick}
         />
       ))}
 

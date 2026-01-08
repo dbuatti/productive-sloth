@@ -11,14 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
-import RetiredTaskDetailDialog from './RetiredTaskDetailDialog';
+import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; // UPDATED: Import the sheet
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel, } from '@/components/ui/dropdown-menu';
 import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
 import SinkKanbanBoard from './SinkKanbanBoard';
 import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
 import { useEnvironments } from '@/hooks/use-environments';
-import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
+import { Skeleton } from '@/components/ui/skeleton';
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -27,12 +27,13 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
     case 'laptop': return <Laptop className={iconClass} />;
     case 'away': return <Globe className={iconClass} />;
     case 'piano': return <Music className={iconClass} />;
-    case 'laptop_piano': return (
-      <div className="relative">
-        <Laptop className={iconClass} />
-        <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
-      </div>
-    );
+    case 'laptop_piano':
+      return (
+        <div className="relative">
+          <Laptop className={iconClass} />
+          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
+        </div>
+      );
     default: return null;
   }
 };
@@ -178,7 +179,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             <div className="p-2 rounded-lg bg-secondary/50">
               <Trash2 className="h-5 w-5 text-muted-foreground" />
             </div>
-            <span className="text-xl font-black uppercase tracking-tighter flex items-center gap-2"> {/* Changed h2 to span */}
+            <span className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
               <span>Aether Sink</span>
               <span className="text-xs font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
             </span>
@@ -462,9 +463,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
         </CardContent>
       </Card>
       
-      <RetiredTaskDetailDialog 
+      <RetiredTaskDetailSheet 
         task={selectedRetiredTask} 
-        open={isDialogOpen} 
+        open={isDialogOpen && selectedRetiredTask !== null} 
         onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) setSelectedRetiredTask(null);

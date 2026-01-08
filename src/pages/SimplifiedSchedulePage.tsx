@@ -85,22 +85,7 @@ const SimplifiedSchedulePage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full w-full">
-      <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background/90 backdrop-blur-sm sticky top-0 z-30">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => navigate(-1)} 
-          className="h-10 w-10 text-muted-foreground hover:text-primary"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span className="sr-only">Back</span>
-        </Button>
-        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" /> Weekly Vibe
-        </h1>
-        <div className="w-10" /> 
-      </div>
-
+      {/* Removed the page-specific header to save vertical space */}
       <div className="flex-1 overflow-auto">
         <WeeklyScheduleGrid
           weeklyTasks={weeklyTasks}

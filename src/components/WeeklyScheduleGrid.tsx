@@ -67,25 +67,32 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   
   const currentVerticalZoomFactor = VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex];
 
-  // Removed gridContainerRef, gridContainerWidth, and the ResizeObserver useEffect
-  // Removed currentColumnWidth memo
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+  const [gridContainerWidth, setGridContainerWidth] = useState(0);
 
   useEffect(() => {
-    // This effect is now only for scrolling to today if needed, not for width calculation
-    const gridContainer = document.getElementById('weekly-schedule-grid-scroll-container');
-    if (gridContainer) {
-      const todayColumn = gridContainer.querySelector(`[data-date="${format(new Date(), 'yyyy-MM-dd')}"]`) as HTMLElement;
-      if (todayColumn) {
-        // Scroll to today's column if it's not fully visible
-        const containerRect = gridContainer.getBoundingClientRect();
-        const columnRect = todayColumn.getBoundingClientRect();
-
-        if (columnRect.left < containerRect.left || columnRect.right > containerRect.right) {
-          gridContainer.scrollLeft = todayColumn.offsetLeft - (containerRect.width / 2) + (columnRect.width / 2);
-        }
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries[0]) {
+        setGridContainerWidth(entries[0].contentRect.width);
       }
+    });
+
+    if (gridContainerRef.current) {
+      resizeObserver.observe(gridContainerRef.current);
     }
-  }, [currentPeriodStart, numDaysVisible]); // Re-run when period or visible days change
+
+    return () => {
+      if (gridContainerRef.current) {
+        resizeObserver.unobserve(gridContainerRef.current);
+      }
+    };
+  }, []);
+
+  const currentColumnWidth = useMemo(() => {
+    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
+    const effectiveContainerWidth = gridContainerWidth - timeAxisWidth;
+    return effectiveContainerWidth > 0 ? effectiveContainerWidth / numDaysVisible : 0;
+  }, [gridContainerWidth, numDaysVisible]);
 
   const allDaysInFetchWindow = useMemo(() => {
     const days: Date[] = [];
@@ -187,11 +194,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
     const { scrollWidth, scrollLeft, clientWidth } = event.currentTarget;
 
-    // Calculate the width of a single column based on current clientWidth and numDaysVisible
-    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
-    const effectiveContentWidth = clientWidth - timeAxisWidth;
-    const currentColumnWidth = effectiveContentWidth / numDaysVisible;
-
     const scrollThreshold = currentColumnWidth * SCROLL_BUFFER_DAYS;
 
     if (scrollLeft < scrollThreshold) {
@@ -205,12 +207,12 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         onPeriodShift(numDaysVisible);
       }
     }
-  }, [numDaysVisible, currentPeriodStart, fetchWindowStart, fetchWindowEnd, displayedDays, onPeriodShift]);
+  }, [currentColumnWidth, numDaysVisible, currentPeriodStart, fetchWindowStart, fetchWindowEnd, displayedDays, onPeriodShift]);
 
   return (
     <div className="flex flex-col w-full h-full">
       {/* Top Controls */}
-      <div className="flex items-center justify-between p-2 border-b border-border/50 bg-background/90 backdrop-blur-sm sticky top-0 z-20">
+      <div className="flex items-center justify-between py-1 px-2 border-b border-border/50 bg-background/90 backdrop-blur-sm sticky top-0 z-20">
         <div className="flex items-center gap-1 sm:gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -340,7 +342,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       </div>
 
       {/* Schedule Grid Container */}
-      <div id="weekly-schedule-grid-scroll-container" className="flex-1 overflow-auto custom-scrollbar" onScroll={handleScroll}>
+      <div ref={gridContainerRef} className="flex-1 overflow-auto custom-scrollbar" onScroll={handleScroll}>
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[300px] py-16 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
@@ -389,6 +391,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     isDetailedView={isDetailedView}
                     T_current={T_current}
                     zoomLevel={currentVerticalZoomFactor}
+                    columnWidth={currentColumnWidth}
                     onCompleteTask={handleCompleteScheduledTask} // NEW: Pass the handler
                   />
                 );

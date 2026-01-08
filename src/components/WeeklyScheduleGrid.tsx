@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
-import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter, startOfDay, subDays, Day, isSameDay, parseISO } from 'date-fns';
+import { format, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter, startOfDay, subDays, Day, isSameDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ interface WeeklyScheduleGridProps {
   fetchWindowEnd: Date;   
   currentVerticalZoomIndex: number; 
   setCurrentVerticalZoomIndex: React.Dispatch<React.SetStateAction<number>>; 
-  scrollTrigger: number;
+  // Removed scrollTrigger prop
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -59,7 +59,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   fetchWindowEnd,   
   currentVerticalZoomIndex,
   setCurrentVerticalZoomIndex,
-  scrollTrigger,
+  // Removed scrollTrigger from props
 }) => {
   console.log("[WeeklyScheduleGrid] Component Rendered");
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy } = useSession();
@@ -71,14 +71,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const gridScrollContainerRef = useRef<HTMLDivElement>(null);
   const [gridContainerWidth, setGridContainerWidth] = useState(0);
 
-  // Use refs to store latest values of props that shouldn't trigger the scroll effect
-  const currentPeriodStartRef = useRef(currentPeriodStartString);
-  const allDaysInFetchWindowRef = useRef<Date[]>([]);
-  const columnWidthRef = useRef(0);
-
-  useEffect(() => {
-    currentPeriodStartRef.current = currentPeriodStartString;
-  }, [currentPeriodStartString]);
+  // Ref to track if it's the initial mount
+  const isInitialMount = useRef(true);
 
   // Parse currentPeriodStartString to a Date object for internal use
   const currentPeriodStart = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
@@ -108,7 +102,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     const availableWidth = gridContainerWidth - timeAxisWidth;
     
     const calculatedWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible);
-    columnWidthRef.current = calculatedWidth; // Update ref here
     console.log("[WeeklyScheduleGrid] Calculated columnWidth:", calculatedWidth);
     return calculatedWidth;
   }, [gridContainerWidth, numDaysVisible]);
@@ -122,40 +115,38 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       current = addDays(current, 1);
     }
     console.log("[WeeklyScheduleGrid] allDaysInFetchWindow:", days.map(d => format(d, 'yyyy-MM-dd')));
-    allDaysInFetchWindowRef.current = days; // Update ref
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
-  // MODIFIED: Scroll effect now depends ONLY on scrollTrigger
+  // MODIFIED: Scroll effect now depends on currentPeriodStartString
   useEffect(() => {
-    // Only scroll if scrollTrigger has been incremented (i.e., not initial mount)
-    if (scrollTrigger === 0) return; 
-
-    console.log("[WeeklyScheduleGrid] Scroll effect triggered by scrollTrigger. currentPeriodStart:", currentPeriodStartRef.current);
+    console.log("[WeeklyScheduleGrid] Scroll effect triggered by currentPeriodStartString:", currentPeriodStartString);
     const gridContainer = gridScrollContainerRef.current;
-    if (gridContainer && currentPeriodStartRef.current && allDaysInFetchWindowRef.current.length > 0) {
-      const targetDateKey = currentPeriodStartRef.current;
+    if (gridContainer && currentPeriodStartString && allDaysInFetchWindow.length > 0) {
+      const targetDateKey = currentPeriodStartString;
       console.log("[WeeklyScheduleGrid] Attempting to scroll to targetDateKey:", targetDateKey);
 
-      const scrollTimer = setTimeout(() => {
-        const targetColumn = gridContainer.querySelector(`[data-date="${targetDateKey}"]`) as HTMLElement;
+      const targetColumn = gridContainer.querySelector(`[data-date="${targetDateKey}"]`) as HTMLElement;
+      
+      if (targetColumn) {
+        const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
+        const scrollPosition = targetColumn.offsetLeft - timeAxisWidth;
+        console.log(`[WeeklyScheduleGrid] Scrolling to position: ${scrollPosition} for column ${targetDateKey}`);
         
-        if (targetColumn) {
-          const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
-          const scrollPosition = targetColumn.offsetLeft - timeAxisWidth;
-          console.log(`[WeeklyScheduleGrid] Scrolling to position: ${scrollPosition} for column ${targetDateKey}`);
+        if (isInitialMount.current) {
+          gridContainer.scrollLeft = scrollPosition; // Set directly without animation
+          isInitialMount.current = false; // Mark initial scroll as done
+        } else {
           gridContainer.scrollTo({
             left: scrollPosition,
-            behavior: 'smooth'
+            behavior: 'smooth' // Animate subsequent scrolls
           });
-        } else {
-          console.warn(`[WeeklyScheduleGrid] Target column for ${targetDateKey} not found in DOM.`);
         }
-      }, 100);
-
-      return () => clearTimeout(scrollTimer);
+      } else {
+        console.warn(`[WeeklyScheduleGrid] Target column for ${targetDateKey} not found in DOM.`);
+      }
     }
-  }, [scrollTrigger]); // ONLY scrollTrigger here
+  }, [currentPeriodStartString, allDaysInFetchWindow]); // Now depends on currentPeriodStartString
 
   const handlePrevPeriod = () => {
     console.log("[WeeklyScheduleGrid] handlePrevPeriod called");
@@ -169,7 +160,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const handleGoToToday = () => {
     console.log("[WeeklyScheduleGrid] handleGoToToday called");
-    onPeriodShift(0); 
+    onPeriodShift(0); // This will cause SimplifiedSchedulePage to update currentPeriodStartString to today
   };
 
   const handleSelectVerticalZoom = (zoom: number) => {

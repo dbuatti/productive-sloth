@@ -16,10 +16,10 @@ const SimplifiedSchedulePage: React.FC = () => {
   const [numDaysVisible, setNumDaysVisible] = useState<number>(profile?.num_days_visible ?? 7); 
   const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(profile?.vertical_zoom_index ?? 3);
 
-  // currentPeriodStart should be initialized to today and then only changed by user navigation.
-  // Storing as a string to prevent unnecessary re-renders due to Date object reference changes.
+  // currentPeriodStartString is the source of truth for the visible period.
+  // It's initialized to today and only changes via user navigation.
   const [currentPeriodStartString, setCurrentPeriodStartString] = useState<string>(() => format(startOfDay(new Date()), 'yyyy-MM-dd'));
-  const [scrollTrigger, setScrollTrigger] = useState(1); // NEW: Initialize to 1 for initial scroll to today
+  // Removed scrollTrigger state
 
   // Pass currentPeriodStartString as the centerDate to the hook, so it fetches a buffer around it
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStartString);
@@ -49,13 +49,11 @@ const SimplifiedSchedulePage: React.FC = () => {
       const newDate = addDays(prevDate, shiftDays);
       return format(newDate, 'yyyy-MM-dd');
     });
-    setScrollTrigger(prev => prev + 1); // Trigger scroll
   }, []);
 
   const handleGoToToday = () => {
     const today = new Date();
     setCurrentPeriodStartString(format(startOfDay(today), 'yyyy-MM-dd'));
-    setScrollTrigger(prev => prev + 1); // Trigger scroll
   };
 
   if (isLoading) {
@@ -100,7 +98,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           fetchWindowEnd={fetchWindowEnd}     
           currentVerticalZoomIndex={currentVerticalZoomIndex} // Pass vertical zoom index
           setCurrentVerticalZoomIndex={setCurrentVerticalZoomIndex} // Pass vertical zoom index setter
-          scrollTrigger={scrollTrigger} // Pass scrollTrigger
+          // Removed scrollTrigger prop
         />
       </div>
     </div>

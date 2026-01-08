@@ -821,14 +821,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           // We only insert the newly placed retired tasks later.
           (dbTasks || []).forEach(t => {
               if (!tasksToInsert.some(inserted => inserted.id === t.id)) {
-                  if (!Array.isArray(tasksToInsert)) { console.error("[SchedulerEngine ERROR] tasksToInsert is not an array before push (sink-to-gaps)"); return; } // DEFENSIVE CHECK
                   tasksToInsert.push(t);
               }
           });
       } else {
           // Global Reshuffle: Keep only fixed/locked tasks, delete all flexible ones.
           (dbTasks || []).filter(t => !t.is_flexible || t.is_locked).forEach(t => {
-              if (!Array.isArray(tasksToInsert)) { console.error("[SchedulerEngine ERROR] tasksToInsert is not an array before push (all-flexible fixed)"); return; } // DEFENSIVE CHECK
               tasksToInsert.push({ ...t });
           });
       }
@@ -836,20 +834,18 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       // Determine which tasks go into the placement pool
       if (taskSource === 'all-flexible') {
         flexibleScheduled.forEach(t => {
-          if (!Array.isArray(unifiedPool)) { console.error("[SchedulerEngine ERROR] unifiedPool is not an array before push (flexible scheduled)"); return; } // DEFENSIVE CHECK
           unifiedPool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment });
           scheduledIdsToDelete.push(t.id);
         });
       }
       
       unlockedRetired.forEach(t => {
-          if (!Array.isArray(unifiedPool)) { console.error("[SchedulerEngine ERROR] unifiedPool is not an array before push (unlocked retired)"); return; } // DEFENSIVE CHECK
           unifiedPool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment });
       });
 
       const tasksToConsider = unifiedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
-      showSuccess(`Pool to Place: ${tasksToConsider.length} items`);
       console.log(`[SchedulerEngine] Unlocked Unified Pool: ${unifiedPool.length} items. Filtering for ${environmentsToFilterBy.length || 'all'} environments -> ${tasksToConsider.length} items.`);
+      showSuccess(`Pool to Place: ${tasksToConsider.length} items`);
       
       // 3. Sort the Pool
       let finalSortedPool: UnifiedTask[] = [];
@@ -857,21 +853,25 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const chunking = profile.enable_environment_chunking ?? true;
         const spread = profile.enable_macro_spread ?? false;
 
-        const groups: Record<TaskEnvironment, UnifiedTask[]> = { home: [], laptop: [], away: [], piano: [], laptop_piano: [] };
+        const groups: Record<TaskEnvironment, UnifiedTask[]> = {};
         tasksToConsider.forEach(t => {
           if (!groups[t.task_environment]) groups[t.task_environment] = []; // Ensure group exists
           groups[t.task_environment].push(t);
         });
 
-        // FIX: Ensure groups[env] is defined before accessing .length
-        const activeEnvs = (Object.keys(groups) as TaskEnvironment[]).filter(env => groups[env] && groups[env].length > 0);
+        // Get all unique environments present in the tasks
+        const allTaskEnvironments = Array.from(new Set(tasksToConsider.map(t => t.task_environment)));
+
+        // Combine custom order with any other environments from tasks, prioritizing custom order
+        const effectiveEnvOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+        const combinedEnvKeys = Array.from(new Set([...effectiveEnvOrder, ...allTaskEnvironments]));
+
+        // Filter to only include environments that actually have tasks
+        const orderedEnvs = combinedEnvKeys.filter(env => groups[env] && groups[env].length > 0);
         
-        const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-        // FIX: Ensure groups[env] is defined before accessing .length
-        const orderedEnvs = envOrder.filter(env => groups[env] && groups[env].length > 0);
         const quotaPerEnv = orderedEnvs.length > 0 ? Math.floor(netAvailableTime / orderedEnvs.length) : netAvailableTime;
 
-        activeEnvs.forEach(env => {
+        orderedEnvs.forEach(env => {
           groups[env].sort((a, b) => {
             if (a.is_critical && !b.is_critical) return -1;
             if (!a.is_critical && b.is_critical) return 1;
@@ -892,8 +892,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 while (group.length > 0 && envTimeUsed < quotaMinutes) {
                     const task = group[0];
                     const taskTotal = (task.duration || 30) + (task.break_duration || 0);
-                    if (envTimeUsed > 0 && (envTimeUsed + taskTotal > quotaMinutes)) break; 
-                    if (!Array.isArray(finalSortedPool)) { console.error("[SchedulerEngine ERROR] finalSortedPool is not an array before push (fillQuotaPass)"); return; } // DEFENSIVE CHECK
+                    if (envTimeUsed + taskTotal > quotaMinutes) break; // FIX: Removed envTimeUsed > 0
                     finalSortedPool.push(group.shift()!);
                     envTimeUsed += taskTotal;
                 }
@@ -905,7 +904,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             fillQuotaPass(Math.floor(quotaPerEnv / 2));
         } else if (chunking) {
             fillQuotaPass(quotaPerEnv);
-        } else {
+        } else { // This is the round-robin part
             let hasRemaining = true;
             while (hasRemaining) {
                 hasRemaining = false;
@@ -916,7 +915,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                         continue;
                     }
                     if (group.length > 0) {
-                        if (!Array.isArray(finalSortedPool)) { console.error("[SchedulerEngine ERROR] finalSortedPool is not an array before push (non-chunking)"); return; } // DEFENSIVE CHECK
                         finalSortedPool.push(group.shift()!);
                         hasRemaining = true;
                     }
@@ -924,6 +922,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             }
         }
         
+        // This loop is supposed to catch anything left over
         orderedEnvs.forEach(env => {
             const group = groups[env];
             if (!group) { // Defensive check
@@ -931,7 +930,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 return;
             }
             while (group.length > 0) {
-              if (!Array.isArray(finalSortedPool)) { console.error("[SchedulerEngine ERROR] finalSortedPool is not an array before push (remaining groups)"); return; } // DEFENSIVE CHECK
               finalSortedPool.push(group.shift()!);
             }
         });
@@ -963,7 +961,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         // Skip critical tasks if energy is low, and move them to sink
         if (t.is_critical && profile.energy < LOW_ENERGY_THRESHOLD) {
           if (t.source === 'scheduled') {
-            if (!Array.isArray(tasksToKeepInSink)) { console.error("[SchedulerEngine ERROR] tasksToKeepInSink is not an array before push (skipped critical scheduled)"); return; } // DEFENSIVE CHECK
             tasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner });
             scheduledIdsToDelete.push(t.originalId);
           }
@@ -1031,7 +1028,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (taskSource === 'sink-to-gaps') {
           (dbTasks || []).forEach(t => {
               if (!tasksToInsert.some(inserted => inserted.id === t.id)) {
-                  if (!Array.isArray(tasksToInsert)) { console.error("[SchedulerEngine ERROR] tasksToInsert is not an array before push (sink-to-gaps finalization)"); return; } // DEFENSIVE CHECK
                   tasksToInsert.push(t);
               }
           });

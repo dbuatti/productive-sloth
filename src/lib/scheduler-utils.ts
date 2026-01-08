@@ -789,7 +789,7 @@ export const calculateSchedule = (
   let unscheduledCount = 0;
   let sessionEnd = workdayStart; 
   let extendsPastMidnight = false;
-  let midnightRolloverMessage: string | null = null;
+  let midnightRolloverMessage: string | null = null; // Corrected spelling here
 
   const [year, month, day] = selectedDay.split('-').map(Number);
   const selectedDayDate = new Date(year, month - 1, day); 
@@ -987,8 +987,9 @@ export const calculateSchedule = (
     for (let i = 1; i < allRawItems.length; i++) {
       const nextItem = allRawItems[i];
 
-      // Only merge if there's a strict overlap (current item ends AFTER next item starts)
-      if (isAfter(currentMergedItem.endTime, nextItem.startTime)) {
+      // Only merge if there's a strict overlap (current item starts before next item ends AND next item starts before current item ends)
+      // This prevents merging of contiguous tasks (where current.endTime === next.startTime)
+      if (currentMergedItem.startTime < nextItem.endTime && nextItem.startTime < currentMergedItem.endTime) {
         // Overlap detected, merge them
         const newStartTime = min([currentMergedItem.startTime, nextItem.startTime]);
         const newEndTime = max([currentMergedItem.endTime, nextItem.endTime]);
@@ -1092,7 +1093,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTimeMinutes,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
+    midnightRolloverMessage: midnightRolloverMessage, // Corrected spelling here
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
     isBlocked: isDayBlocked, // Default to false

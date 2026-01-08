@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react'; // Added useCallback
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -14,8 +14,7 @@ const SimplifiedSchedulePage: React.FC = () => {
   
   const weekStartsOn = (profile?.week_starts_on ?? 0) as Day;
 
-  // currentPeriodStart now represents the *center* of the fetched window for useWeeklySchedulerTasks
-  // and the *start* of the displayed window for WeeklyScheduleGrid.
+  // currentPeriodStart now represents the *first day* of the currently displayed block of numDaysVisible days.
   const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(() => 
     startOfWeek(new Date(), { weekStartsOn }) 
   );
@@ -25,7 +24,7 @@ const SimplifiedSchedulePage: React.FC = () => {
   // Initialize currentVerticalZoomIndex from profile, default to 3 (for 1.00 zoom)
   const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(profile?.vertical_zoom_index ?? 3);
 
-  // Pass currentPeriodStart as the centerDate to the hook
+  // Pass currentPeriodStart as the centerDate to the hook, so it fetches a buffer around it
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStart);
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
@@ -39,10 +38,10 @@ const SimplifiedSchedulePage: React.FC = () => {
     if (numDaysVisible === 1) {
       newStart = startOfDay(today);
     } else if (numDaysVisible === 3) {
-      newStart = startOfDay(today); 
+      newStart = subDays(startOfDay(today), 1); // Today + 1 day before + 1 day after
     } else if (numDaysVisible === 5) {
-      newStart = subDays(startOfDay(today), 2); 
-    } else { // 7, 14, 21 days
+      newStart = subDays(startOfDay(today), 2); // Today + 2 days before + 2 days after
+    } else { // 7, 14, 21 days - start of week
       newStart = startOfWeek(today, { weekStartsOn: profile.week_starts_on as Day });
     }
     setCurrentPeriodStart(newStart);

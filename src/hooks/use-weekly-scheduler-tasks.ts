@@ -9,7 +9,7 @@ interface WeeklyTasks {
   [key: string]: DBScheduledTask[]; // Key is 'yyyy-MM-dd'
 }
 
-const FETCH_WINDOW_DAYS = 21; // Fetch 3 weeks of data at once
+const FETCH_WINDOW_DAYS = 42; // Increased fetch window to 42 days (e.g., 3 weeks before, 3 weeks after)
 
 export const useWeeklySchedulerTasks = (centerDate: Date) => { // Renamed weekStart to centerDate for clarity
   const { user, profile } = useSession();
@@ -19,8 +19,8 @@ export const useWeeklySchedulerTasks = (centerDate: Date) => { // Renamed weekSt
 
   // Calculate the actual start and end dates for the data fetch
   // We want the fetch window to be centered around the `centerDate`
-  // For a 21-day window, we need to go back ~10 days from centerDate to get the start of the window
-  const fetchWindowStart = startOfWeek(subDays(centerDate, Math.floor(FETCH_WINDOW_DAYS / 2)), { weekStartsOn });
+  // For a 42-day window, we need to go back ~21 days from centerDate to get the start of the window
+  const fetchWindowStart = subDays(centerDate, Math.floor(FETCH_WINDOW_DAYS / 2));
   const fetchWindowEnd = addDays(fetchWindowStart, FETCH_WINDOW_DAYS - 1);
 
   const formattedFetchWindowStart = format(fetchWindowStart, 'yyyy-MM-dd');

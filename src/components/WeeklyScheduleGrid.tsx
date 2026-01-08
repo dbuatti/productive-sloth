@@ -62,6 +62,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   currentVerticalZoomIndex,
   setCurrentVerticalZoomIndex,
 }) => {
+  console.log("[WeeklyScheduleGrid] Component Rendered");
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy } = useSession(); // Added rechargeEnergy
   const { completeScheduledTask } = useSchedulerTasks(''); // NEW: Use completeScheduledTask
   const [isDetailedView, setIsDetailedView] = useState(false);
@@ -72,9 +73,11 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const [gridContainerWidth, setGridContainerWidth] = useState(0);
 
   useEffect(() => {
+    console.log("[WeeklyScheduleGrid] ResizeObserver Effect Running");
     const resizeObserver = new ResizeObserver(entries => {
       if (entries[0]) {
         setGridContainerWidth(entries[0].contentRect.width);
+        console.log("[WeeklyScheduleGrid] Grid container width updated:", entries[0].contentRect.width);
       }
     });
 
@@ -96,32 +99,65 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     
     // If numDaysVisible is small, expand columns to fill available width, but respect min width
     // If numDaysVisible is large, ensure min width and allow scrolling
-    return Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible);
+    const calculatedWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible);
+    console.log("[WeeklyScheduleGrid] Calculated columnWidth:", calculatedWidth);
+    return calculatedWidth;
   }, [gridContainerWidth, numDaysVisible]);
 
   // allDaysInFetchWindow now represents the full buffer of fetched days
   const allDaysInFetchWindow = useMemo(() => {
+    console.log("[WeeklyScheduleGrid] Recalculating allDaysInFetchWindow");
     const days: Date[] = [];
     let current = fetchWindowStart;
     while (isBefore(current, addDays(fetchWindowEnd, 1))) {
       days.push(current);
       current = addDays(current, 1);
     }
+    console.log("[WeeklyScheduleGrid] allDaysInFetchWindow:", days.map(d => format(d, 'yyyy-MM-dd')));
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
-  // Removed the useEffect that scrolled to currentPeriodStart
-  // This was causing the snapping behavior.
+  // Effect to scroll to the currentPeriodStart when it changes
+  useEffect(() => {
+    console.log("[WeeklyScheduleGrid] Scroll to currentPeriodStart Effect Running");
+    const gridContainer = gridScrollContainerRef.current;
+    if (gridContainer && currentPeriodStart && allDaysInFetchWindow.length > 0) {
+      const targetDateKey = format(currentPeriodStart, 'yyyy-MM-dd');
+      console.log("[WeeklyScheduleGrid] Attempting to scroll to targetDateKey:", targetDateKey);
+
+      // Use a setTimeout to ensure the DOM has rendered the columns before attempting to scroll
+      const scrollTimer = setTimeout(() => {
+        const targetColumn = gridContainer.querySelector(`[data-date="${targetDateKey}"]`) as HTMLElement;
+        
+        if (targetColumn) {
+          const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
+          const scrollPosition = targetColumn.offsetLeft - timeAxisWidth;
+          console.log(`[WeeklyScheduleGrid] Scrolling to position: ${scrollPosition} for column ${targetDateKey}`);
+          gridContainer.scrollTo({
+            left: scrollPosition,
+            behavior: 'smooth'
+          });
+        } else {
+          console.warn(`[WeeklyScheduleGrid] Target column for ${targetDateKey} not found in DOM.`);
+        }
+      }, 100); // Small delay to allow rendering
+
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [currentPeriodStart, allDaysInFetchWindow, columnWidth]); // Re-run when currentPeriodStart or columnWidth changes
 
   const handlePrevPeriod = () => {
+    console.log("[WeeklyScheduleGrid] handlePrevPeriod called");
     setCurrentPeriodStart((prev: Date) => subDays(prev, numDaysVisible));
   };
 
   const handleNextPeriod = () => {
+    console.log("[WeeklyScheduleGrid] handleNextPeriod called");
     setCurrentPeriodStart((prev: Date) => addDays(prev, numDaysVisible));
   };
 
   const handleGoToToday = () => {
+    console.log("[WeeklyScheduleGrid] handleGoToToday called");
     const today = new Date();
     let newStart: Date;
     if (numDaysVisible === 1) {
@@ -133,10 +169,12 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     } else { // 7, 14, 21 days
       newStart = startOfWeek(today, { weekStartsOn: weekStartsOn as Day });
     }
+    console.log("[WeeklyScheduleGrid] handleGoToToday setting currentPeriodStart to:", format(newStart, 'yyyy-MM-dd'));
     setCurrentPeriodStart(newStart);
   };
 
   const handleSelectVerticalZoom = (zoom: number) => {
+    console.log("[WeeklyScheduleGrid] handleSelectVerticalZoom called with:", zoom);
     const newIndex = VERTICAL_ZOOM_LEVELS.indexOf(zoom);
     if (newIndex !== -1) {
       setCurrentVerticalZoomIndex(newIndex);
@@ -144,10 +182,12 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   };
 
   const handleSelectNumDaysVisible = (daysOption: number) => {
+    console.log("[WeeklyScheduleGrid] handleSelectNumDaysVisible called with:", daysOption);
     setNumDaysVisible(daysOption);
   };
 
   const handleSaveViewPreferences = async () => {
+    console.log("[WeeklyScheduleGrid] handleSaveViewPreferences called");
     try {
       await updateProfile({
         num_days_visible: numDaysVisible,
@@ -162,6 +202,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   // NEW: Handler for completing a scheduled task from the grid
   const handleCompleteScheduledTask = useCallback(async (task: DBScheduledTask) => {
+    console.log("[WeeklyScheduleGrid] handleCompleteScheduledTask called for task:", task.name);
     if (task.is_completed) return; // Already completed
     try {
       await completeScheduledTask(task); // Mark as completed in DB
@@ -194,6 +235,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
     // Removed the logic that called onPeriodShift based on scroll position.
     // This ensures free scrolling without automatic period changes.
+    console.log("[WeeklyScheduleGrid] handleScroll event triggered (no automatic shifting)");
   }, []);
 
   return (

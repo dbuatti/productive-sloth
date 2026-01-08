@@ -13,12 +13,12 @@ const SimplifiedSchedulePage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading, T_current } = useSession();
   
   // Initialize numDaysVisible and currentVerticalZoomIndex from profile, default to 7 and 3
-  // These states should be initialized once from the profile.
   const [numDaysVisible, setNumDaysVisible] = useState<number>(profile?.num_days_visible ?? 7); 
   const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(profile?.vertical_zoom_index ?? 3);
 
   // currentPeriodStart should be initialized to today and then only changed by user navigation.
   const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(() => startOfDay(new Date()));
+  const [scrollTrigger, setScrollTrigger] = useState(0); // NEW: State to trigger scroll
 
   // Pass currentPeriodStart as the centerDate to the hook, so it fetches a buffer around it
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStart);
@@ -47,7 +47,15 @@ const SimplifiedSchedulePage: React.FC = () => {
   // Callback for WeeklyScheduleGrid to request a period shift
   const handlePeriodShift = useCallback((shiftDays: number) => {
     setCurrentPeriodStart(prev => addDays(prev, shiftDays));
+    setScrollTrigger(prev => prev + 1); // Trigger scroll
   }, []);
+
+  const handleGoToToday = () => {
+    const today = new Date();
+    const newStart = startOfDay(today);
+    setCurrentPeriodStart(newStart);
+    setScrollTrigger(prev => prev + 1); // Trigger scroll
+  };
 
   if (isLoading) {
     return (
@@ -92,6 +100,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           fetchWindowEnd={fetchWindowEnd}     
           currentVerticalZoomIndex={currentVerticalZoomIndex} // NEW: Pass vertical zoom index
           setCurrentVerticalZoomIndex={setCurrentVerticalZoomIndex} // NEW: Pass vertical zoom index setter
+          scrollTrigger={scrollTrigger} // NEW: Pass scrollTrigger
         />
       </div>
     </div>

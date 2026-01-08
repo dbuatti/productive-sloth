@@ -37,6 +37,7 @@ interface WeeklyScheduleGridProps {
   fetchWindowEnd: Date;   
   currentVerticalZoomIndex: number; 
   setCurrentVerticalZoomIndex: React.Dispatch<React.SetStateAction<number>>; 
+  scrollTrigger: number; // NEW: Add scrollTrigger prop
 }
 
 const BASE_MINUTE_HEIGHT = 1.5; // Adjusted base height for 1 minute (more compact)
@@ -61,6 +62,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   fetchWindowEnd,   
   currentVerticalZoomIndex,
   setCurrentVerticalZoomIndex,
+  scrollTrigger, // Destructure new prop
 }) => {
   console.log("[WeeklyScheduleGrid] Component Rendered");
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy } = useSession(); // Added rechargeEnergy
@@ -92,19 +94,15 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     };
   }, []);
 
-  // Calculate column width dynamically
   const columnWidth = useMemo(() => {
-    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56; // Width of the fixed time axis
+    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
     const availableWidth = gridContainerWidth - timeAxisWidth;
     
-    // If numDaysVisible is small, expand columns to fill available width, but respect min width
-    // If numDaysVisible is large, ensure min width and allow scrolling
     const calculatedWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible);
     console.log("[WeeklyScheduleGrid] Calculated columnWidth:", calculatedWidth);
     return calculatedWidth;
   }, [gridContainerWidth, numDaysVisible]);
 
-  // allDaysInFetchWindow now represents the full buffer of fetched days
   const allDaysInFetchWindow = useMemo(() => {
     console.log("[WeeklyScheduleGrid] Recalculating allDaysInFetchWindow");
     const days: Date[] = [];
@@ -117,15 +115,14 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
-  // Effect to scroll to the currentPeriodStart when it changes
+  // MODIFIED: Scroll effect now depends on scrollTrigger
   useEffect(() => {
-    console.log("[WeeklyScheduleGrid] Scroll to currentPeriodStart Effect Running");
+    console.log("[WeeklyScheduleGrid] Scroll effect triggered by scrollTrigger. currentPeriodStart:", format(currentPeriodStart, 'yyyy-MM-dd'));
     const gridContainer = gridScrollContainerRef.current;
     if (gridContainer && currentPeriodStart && allDaysInFetchWindow.length > 0) {
       const targetDateKey = format(currentPeriodStart, 'yyyy-MM-dd');
       console.log("[WeeklyScheduleGrid] Attempting to scroll to targetDateKey:", targetDateKey);
 
-      // Use a setTimeout to ensure the DOM has rendered the columns before attempting to scroll
       const scrollTimer = setTimeout(() => {
         const targetColumn = gridContainer.querySelector(`[data-date="${targetDateKey}"]`) as HTMLElement;
         
@@ -140,30 +137,28 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         } else {
           console.warn(`[WeeklyScheduleGrid] Target column for ${targetDateKey} not found in DOM.`);
         }
-      }, 100); // Small delay to allow rendering
+      }, 100);
 
       return () => clearTimeout(scrollTimer);
     }
-  }, [currentPeriodStart, allDaysInFetchWindow, columnWidth]); // Re-run when currentPeriodStart or columnWidth changes
+  }, [scrollTrigger, currentPeriodStart, allDaysInFetchWindow, columnWidth]); // Added scrollTrigger here
 
   const handlePrevPeriod = () => {
     console.log("[WeeklyScheduleGrid] handlePrevPeriod called");
-    setCurrentPeriodStart((prev: Date) => subDays(prev, numDaysVisible));
+    onPeriodShift(-numDaysVisible); // Use onPeriodShift to update currentPeriodStart and scrollTrigger
   };
 
   const handleNextPeriod = () => {
     console.log("[WeeklyScheduleGrid] handleNextPeriod called");
-    setCurrentPeriodStart((prev: Date) => addDays(prev, numDaysVisible));
+    onPeriodShift(numDaysVisible); // Use onPeriodShift to update currentPeriodStart and scrollTrigger
   };
 
   const handleGoToToday = () => {
     console.log("[WeeklyScheduleGrid] handleGoToToday called");
     const today = new Date();
-    // Simply set the currentPeriodStart to the start of today
     const newStart = startOfDay(today);
-    
-    console.log("[WeeklyScheduleGrid] handleGoToToday setting currentPeriodStart to:", format(newStart, 'yyyy-MM-dd'));
-    setCurrentPeriodStart(newStart);
+    setCurrentPeriodStart(newStart); // This will update currentPeriodStart
+    onPeriodShift(0); // This will increment scrollTrigger, ensuring a scroll to today
   };
 
   const handleSelectVerticalZoom = (zoom: number) => {
@@ -193,13 +188,12 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   };
 
-  // NEW: Handler for completing a scheduled task from the grid
   const handleCompleteScheduledTask = useCallback(async (task: DBScheduledTask) => {
     console.log("[WeeklyScheduleGrid] handleCompleteScheduledTask called for task:", task.name);
-    if (task.is_completed) return; // Already completed
+    if (task.is_completed) return;
     try {
-      await completeScheduledTask(task); // Mark as completed in DB
-      await rechargeEnergy(-(task.energy_cost)); // Deduct energy
+      await completeScheduledTask(task);
+      await rechargeEnergy(-(task.energy_cost));
       showSuccess(`Task "${task.name}" completed! +${task.energy_cost * 2} XP`);
     } catch (error) {
       showError(`Failed to complete task: ${task.name}`);
@@ -226,8 +220,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }, [timeAxisStart, timeAxisEnd]);
 
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    // Removed the logic that called onPeriodShift based on scroll position.
-    // This ensures free scrolling without automatic period changes.
     console.log("[WeeklyScheduleGrid] handleScroll event triggered (no automatic shifting)");
   }, []);
 
@@ -345,7 +337,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             </Tooltip>
           </DropdownMenu>
 
-          {/* NEW: Save View Preferences Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -405,7 +396,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
             {/* Daily Columns (This is the horizontally scrollable content) */}
             <div className="flex">
-              {allDaysInFetchWindow.map((day) => { // Render all fetched days
+              {allDaysInFetchWindow.map((day) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
                 const tasksForDay = weeklyTasks[dateKey] || [];
                 return (
@@ -418,8 +409,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     isDetailedView={isDetailedView}
                     T_current={T_current}
                     zoomLevel={currentVerticalZoomFactor}
-                    columnWidth={columnWidth} // Pass calculated column width
-                    onCompleteTask={handleCompleteScheduledTask} // NEW: Pass the handler
+                    columnWidth={columnWidth}
+                    onCompleteTask={handleCompleteScheduledTask}
                   />
                 );
               })}

@@ -78,85 +78,70 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const gridScrollContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
-  const lastScrollVersion = useRef<number>(0); // Renamed from lastKnownDataLength to lastScrollVersion
+  const lastScrollVersion = useRef<number>(0);
+  const lastWidth = useRef(columnWidth); // NEW: Track last known column width
 
   const performScroll = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
     const container = gridScrollContainerRef.current;
     if (!container || allDaysInFetchWindow.length === 0) {
-      console.log(`[WeeklyScheduleGrid] performScroll: SKIPPED. Container: ${!!container}, allDaysInFetchWindow.length: ${allDaysInFetchWindow.length}`);
       return;
     }
 
     const targetIndex = allDaysInFetchWindow.indexOf(date);
     if (targetIndex !== -1) {
       const scrollPosition = targetIndex * columnWidth;
-      console.log(`[WeeklyScheduleGrid] performScroll: Scrolling to date '${date}' (index ${targetIndex}) with behavior '${behavior}'. Scroll position: ${scrollPosition}px`);
       container.scrollTo({ 
         left: scrollPosition, 
         behavior 
       });
-    } else {
-      console.log(`[WeeklyScheduleGrid] performScroll: Target date '${date}' not found in allDaysInFetchWindow.`);
     }
   }, [allDaysInFetchWindow, columnWidth]);
 
   // FIX: The Layout-First Guard
   useLayoutEffect(() => {
-    console.log(`[WeeklyScheduleGrid] useLayoutEffect: isLoading: ${isLoading}, allDaysInFetchWindow.length: ${allDaysInFetchWindow.length}, isInitialMount.current: ${isInitialMount.current}`);
-    // Only scroll if we have data AND we haven't successfully 
-    // focused the initial mount yet.
     if (isLoading || allDaysInFetchWindow.length === 0) {
-      console.log("[WeeklyScheduleGrid] useLayoutEffect: SKIPPED due to loading or empty data.");
       return;
     }
 
-    // This ensures we only "Initial Jump" once the data array is actually populated
-    if (isInitialMount.current && allDaysInFetchWindow.length > 0) {
-      console.log("[WeeklyScheduleGrid] useLayoutEffect: Performing initial scroll.");
-      // Use requestAnimationFrame to ensure the browser has painted 
-      // the new flex-basis of the columns
+    // NEW: If the width changed (e.g., from 100px to 335px), we MUST re-scroll
+    // to keep the same date focused at the new scale.
+    if (lastWidth.current !== columnWidth && !isInitialMount.current) {
+       performScroll(currentPeriodStartString, 'auto');
+       lastWidth.current = columnWidth;
+       return;
+    }
+
+    // 2. INITIAL JUMP
+    if (isInitialMount.current) {
       requestAnimationFrame(() => {
         performScroll(currentPeriodStartString, 'auto');
         isInitialMount.current = false;
-        lastScrollVersion.current = scrollVersion; // Update lastScrollVersion here
-        console.log(`[WeeklyScheduleGrid] useLayoutEffect: Initial scroll completed. isInitialMount set to false. lastScrollVersion set to ${scrollVersion}.`);
+        lastWidth.current = columnWidth; // NEW: Update lastWidth here
       });
     }
-  }, [isLoading, allDaysInFetchWindow, currentPeriodStartString, performScroll, scrollVersion]); // Added scrollVersion to dependencies
+  }, [isLoading, allDaysInFetchWindow, currentPeriodStartString, columnWidth, performScroll]);
 
   // 3. TODAY BUTTON: Handles explicit refocusing
   useEffect(() => {
-    console.log(`[WeeklyScheduleGrid] useEffect (scrollVersion): isLoading: ${isLoading}, isInitialMount.current: ${isInitialMount.current}, scrollVersion: ${scrollVersion}, lastScrollVersion.current: ${lastScrollVersion.current}`);
-    if (isLoading || isInitialMount.current) {
-      console.log("[WeeklyScheduleGrid] useEffect (scrollVersion): SKIPPED due to loading or initial mount.");
-      return;
-    }
-
     if (scrollVersion > lastScrollVersion.current) {
-      console.log(`[WeeklyScheduleGrid] useEffect (scrollVersion): scrollVersion (${scrollVersion}) > lastScrollVersion (${lastScrollVersion.current}). Performing scroll.`);
       performScroll(currentPeriodStartString, 'smooth');
       lastScrollVersion.current = scrollVersion;
-      console.log(`[WeeklyScheduleGrid] useEffect (scrollVersion): Scroll completed. lastScrollVersion updated to ${scrollVersion}.`);
     }
-  }, [scrollVersion, currentPeriodStartString, isLoading, performScroll]);
+  }, [scrollVersion, currentPeriodStartString, performScroll]);
 
   const handlePrevPeriod = useCallback(() => {
-    console.log("[WeeklyScheduleGrid] handlePrevPeriod called.");
     onPeriodShift(-numDaysVisible);
   }, [onPeriodShift, numDaysVisible]);
 
   const handleNextPeriod = useCallback(() => {
-    console.log("[WeeklyScheduleGrid] handleNextPeriod called.");
     onPeriodShift(numDaysVisible);
   }, [onPeriodShift, numDaysVisible]);
 
   const handleGoToToday = useCallback(() => {
-    console.log("[WeeklyScheduleGrid] handleGoToToday called.");
     onPeriodShift(0); 
   }, [onPeriodShift]);
 
   const handleSelectVerticalZoom = useCallback((zoom: number) => {
-    console.log(`[WeeklyScheduleGrid] handleSelectVerticalZoom called with zoom: ${zoom}.`);
     const newIndex = VERTICAL_ZOOM_LEVELS.indexOf(zoom);
     if (newIndex !== -1) {
       onSetCurrentVerticalZoomIndex(newIndex);
@@ -164,31 +149,25 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }, [onSetCurrentVerticalZoomIndex]);
 
   const handleSaveViewPreferences = useCallback(async () => {
-    console.log("[WeeklyScheduleGrid] handleSaveViewPreferences called.");
     try {
       await updateProfile({
         num_days_visible: numDaysVisible,
         vertical_zoom_index: currentVerticalZoomIndex,
       });
       showSuccess("View preferences saved!");
-      console.log("[WeeklyScheduleGrid] View preferences saved successfully.");
     } catch (error) {
       showError("Failed to save view preferences.");
-      console.error("[WeeklyScheduleGrid] Failed to save view preferences:", error);
     }
   }, [updateProfile, numDaysVisible, currentVerticalZoomIndex]);
 
   const handleCompleteScheduledTask = useCallback(async (task: DBScheduledTask) => {
-    console.log(`[WeeklyScheduleGrid] handleCompleteScheduledTask called for task: ${task.name}.`);
     if (task.is_completed) return;
     try {
       await completeScheduledTask(task);
       await rechargeEnergy(-(task.energy_cost));
       showSuccess(`Task "${task.name}" completed! +${task.energy_cost * 2} XP`);
-      console.log(`[WeeklyScheduleGrid] Task "${task.name}" completed successfully.`);
     } catch (error) {
       showError(`Failed to complete task: ${task.name}`);
-      console.error("[WeeklyScheduleGrid] Error completing task from weekly grid:", error);
     }
   }, [completeScheduledTask, rechargeEnergy]);
 
@@ -212,7 +191,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   // RENDER: Memoize to stop the "Double Render" flicker
   const dayElements = useMemo(() => {
-    console.log(`[WeeklyScheduleGrid] dayElements useMemo: isLoading: ${isLoading}, allDaysInFetchWindow.length: ${allDaysInFetchWindow.length}`);
     if (isLoading) return null; // Don't render empty columns while loading
     return allDaysInFetchWindow.map((dateString) => {
       const tasksForDay = weeklyTasks[dateString] || [];
@@ -222,7 +200,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           key={dateString} 
           style={{ 
             width: `${columnWidth}px`, 
-            flex: `0 0 ${columnWidth}px` // THIS IS THE KEY FIX
+            flex: `0 0 ${columnWidth}px`
           }} 
           className="border-r border-white/5 h-full overflow-y-auto"
         >
@@ -381,10 +359,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         id="weekly-schedule-grid-scroll-container" 
         className="flex-1 overflow-auto custom-scrollbar"
         style={{ 
-          scrollSnapType: 'none', // Critical: Removes the swipe-pause
-          WebkitOverflowScrolling: 'touch', // Critical: Smooth iOS momentum
-          touchAction: 'pan-x', // Ensures vertical scrolling doesn't break horizontal
-          willChange: 'transform' // Performance boost for long lists
+          scrollSnapType: 'none',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x',
+          willChange: 'transform'
         }}
       >
         {isLoading ? (

@@ -85,7 +85,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     const container = gridScrollContainerRef.current;
     // FIX: Add columnWidth check here to ensure stable layout before scrolling
     if (!container || allDaysInFetchWindow.length === 0 || columnWidth <= MIN_COLUMN_WIDTH) {
-      // console.log(`[WeeklyScheduleGrid] performScroll skipped: container: ${!!container}, days: ${allDaysInFetchWindow.length}, width: ${columnWidth}`);
       return;
     }
 
@@ -96,9 +95,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         left: scrollPosition, 
         behavior 
       });
-      // console.log(`[WeeklyScheduleGrid] Scrolled to ${date} at ${scrollPosition}px with behavior ${behavior}.`);
-    } else {
-      // console.warn(`[WeeklyScheduleGrid] Target date ${date} not found in allDaysInFetchWindow.`);
     }
   }, [allDaysInFetchWindow, columnWidth]);
 
@@ -107,14 +103,12 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     const isLayoutStable = columnWidth > MIN_COLUMN_WIDTH; // Your logs show 100 is the "unstable" fallback
     
     if (isLoading || allDaysInFetchWindow.length === 0 || !isLayoutStable) {
-      // console.log(`[WeeklyScheduleGrid] useLayoutEffect skipped: isLoading=${isLoading}, days=${allDaysInFetchWindow.length}, isLayoutStable=${isLayoutStable}`);
       return;
     }
 
     // A: Initial Mount - Use requestAnimationFrame to ensure the DOM is painted at the stable width
     if (isInitialMount.current) {
       requestAnimationFrame(() => {
-        // console.log(`[WeeklyScheduleGrid] Initial mount scroll to ${currentPeriodStartString} (auto).`);
         performScroll(currentPeriodStartString, 'auto');
         isInitialMount.current = false;
         lastWidth.current = columnWidth;
@@ -124,7 +118,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
     // B: Layout Shift Correction - If the ResizeObserver changes the width, snap back to the currentPeriodStartString
     if (Math.abs(lastWidth.current - columnWidth) > 1) { // Use a small threshold for floating point comparisons
-      // console.log(`[WeeklyScheduleGrid] Layout shift detected (${lastWidth.current} -> ${columnWidth}). Rescrolling to ${currentPeriodStartString} (auto).`);
       performScroll(currentPeriodStartString, 'auto');
       lastWidth.current = columnWidth;
     }
@@ -133,7 +126,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   // Handle manual "Today" button clicks
   useEffect(() => {
     if (scrollVersion > lastScrollVersion.current) {
-      // console.log(`[WeeklyScheduleGrid] Scroll version changed (${lastScrollVersion.current} -> ${scrollVersion}). Scrolling to ${currentPeriodStartString} (smooth).`);
       performScroll(currentPeriodStartString, 'smooth');
       lastScrollVersion.current = scrollVersion;
     }

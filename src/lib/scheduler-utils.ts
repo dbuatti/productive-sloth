@@ -820,18 +820,22 @@ export const calculateSchedule = (
       return;
     }
 
-    const startTimeUTC = parseISO(dbTask.start_time);
-    const endTimeUTC = parseISO(dbTask.end_time);
+    // Directly parse ISO strings to get Date objects representing the exact moment in time.
+    // JavaScript's Date object will handle the local timezone interpretation for comparisons and display.
+    let startTime = parseISO(dbTask.start_time);
+    let endTime = parseISO(dbTask.end_time);
 
-    // Correctly convert UTC Date objects to local Date objects on the selectedDayDate
-    let startTime = setMinutes(setHours(selectedDayDate, startTimeUTC.getHours()), startTimeUTC.getMinutes());
-    let endTime = setMinutes(setHours(selectedDayDate, endTimeUTC.getHours()), endTimeUTC.getMinutes());
-
-    if (isBefore(endTime, startTime)) {
+    // Ensure tasks are within the selected day's context, adjusting if they cross midnight
+    // This logic is primarily for display and summary, assuming dbTasks are already filtered by scheduled_date
+    if (isBefore(endTime, startTime) && isSameDay(startTime, selectedDayDate)) {
       endTime = addDays(endTime, 1);
       extendsPastMidnight = true;
       midnightRolloverMessage = "Schedule extends past midnight.";
+    } else if (isBefore(endTime, startTime) && !isSameDay(startTime, selectedDayDate)) {
+      // If the task starts on a previous day but ends on selectedDay, adjust startTime to selectedDayDate's start
+      startTime = setHours(setMinutes(selectedDayDate, startTime.getMinutes()), startTime.getHours());
     }
+
 
     const duration = differenceInMinutes(endTime, startTime);
     if (duration <= 0) return;

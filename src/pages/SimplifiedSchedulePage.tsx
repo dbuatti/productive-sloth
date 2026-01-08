@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
 import WeeklyScheduleGrid from '@/components/WeeklyScheduleGrid';
-import { format, startOfDay, parseISO, addDays, subDays, differenceInMinutes, isBefore } from 'date-fns'; // Added isBefore
-import { DBScheduledTask } from '@/types/scheduler'; // Added DBScheduledTask
+import { format, startOfDay, parseISO, addDays, subDays, differenceInMinutes, isBefore } from 'date-fns';
+import { DBScheduledTask } from '@/types/scheduler';
 
 const FETCH_WINDOW_DAYS = 42; // Needs to be consistent with useWeeklySchedulerTasks
 
@@ -107,6 +107,16 @@ const SimplifiedSchedulePage: React.FC = () => {
     // await completeScheduledTaskMutation(task);
   }, []);
 
+  // NEW: Filter the days to render based on currentPeriodStartString and numDaysVisible
+  const visibleDaysToRender = useMemo(() => {
+    const startIndex = allDaysInFetchWindow.indexOf(currentPeriodStartString);
+    if (startIndex === -1) {
+      // Fallback if currentPeriodStartString is not found (shouldn't happen with correct logic)
+      return allDaysInFetchWindow.slice(0, numDaysVisible);
+    }
+    return allDaysInFetchWindow.slice(startIndex, startIndex + numDaysVisible);
+  }, [allDaysInFetchWindow, currentPeriodStartString, numDaysVisible]);
+
 
   if (isLoading) {
     return (
@@ -152,7 +162,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           onSetCurrentVerticalZoomIndex={handleSetCurrentVerticalZoomIndex}
           profileSettings={profileSettings}
           scrollVersion={scrollVersion}
-          allDaysInFetchWindow={allDaysInFetchWindow} // New prop
+          allDaysInFetchWindow={visibleDaysToRender} // NEW: Pass only the visible subset
           columnWidth={columnWidth} // New prop
           onCompleteTask={handleCompleteTask} // New prop
           T_current={T_current} // New prop

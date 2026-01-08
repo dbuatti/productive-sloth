@@ -195,7 +195,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       return (
         <div 
           key={dateString} 
-          style={{ width: `${columnWidth}px` }} 
+          style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }} 
           className="flex-shrink-0 border-r border-white/5"
         >
           <DailyScheduleColumn 

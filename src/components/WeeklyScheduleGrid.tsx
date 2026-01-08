@@ -369,7 +369,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       <div 
         ref={gridScrollContainerRef} 
         id="weekly-schedule-grid-scroll-container" 
-        className="flex-1 overflow-auto custom-scrollbar" // Removed scroll-snap-x-mandatory
+        className="flex-1 overflow-auto custom-scrollbar"
         onScroll={handleScroll}
       >
         {isLoading ? (

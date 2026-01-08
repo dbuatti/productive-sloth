@@ -24,7 +24,7 @@ const AppContent = () => {
   const { user } = useSession(); // Get user from session context
 
   return (
-    <MainLayout key={user?.id || 'guest'}> {/* Added key prop */}
+    <MainLayout> {/* Removed key prop */}
       <Routes>
         <Route path="/" element={<Navigate to="/scheduler" replace />} />
         

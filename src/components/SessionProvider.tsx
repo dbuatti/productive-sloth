@@ -31,7 +31,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const location = useLocation();
   const queryClient = useQueryClient();
   const { selectedEnvironments } = useEnvironmentContext();
-  const initialSessionLoadedRef = useRef(false);
   const isLoading = isAuthLoading || isProfileLoading;
   const todayString = format(new Date(), 'yyyy-MM-dd');
 
@@ -206,68 +205,42 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // Memoize the handler for auth state changes
-  const handleAuthChange = useCallback(async (event: string, currentSession: Session | null) => {
-    console.log("[SessionProvider] Auth state change event:", event);
-    setSession(currentSession);
-    setUser(currentSession?.user ?? null);
-    
-    if (currentSession?.user) {
-      await fetchProfile(currentSession.user.id);
-      // Redirection logic for /login after sign-in is now handled by the useEffect below
-    } else if (event === 'SIGNED_OUT') {
-      setProfile(null);
-      queryClient.clear();
-      setRedirectPath('/login');
-    }
-  }, [fetchProfile, queryClient]); // Removed location.pathname from dependencies
-
-  // Effect to set up the Supabase auth listener once
+  // MODIFIED: Streamlined auth state handling
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      handleAuthChange(event, currentSession);
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log("[SessionProvider] Auth state change event:", event);
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setIsAuthLoading(false); // Auth is no longer loading after the first event
+
+      if (currentSession?.user) {
+        await fetchProfile(currentSession.user.id);
+        // If we are on the login page and a user signs in, redirect to home
+        if (location.pathname === '/login') {
+          setRedirectPath('/');
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null);
+        queryClient.clear();
+        setRedirectPath('/login');
+      } else if (event === 'INITIAL_SESSION' && !currentSession?.user && location.pathname !== '/login') {
+        // If it's an initial session and no user, and not already on login page, redirect to login
+        setRedirectPath('/login');
+      }
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [handleAuthChange]); // Dependency on handleAuthChange ensures it uses the latest memoized version
+  }, [fetchProfile, queryClient, location.pathname]); // Added location.pathname to dependencies for redirect logic
 
-  // Effect to load the initial session once
-  useEffect(() => {
-    const loadInitialSession = async () => {
-      if (initialSessionLoadedRef.current) return;
-      initialSessionLoadedRef.current = true;
-      
-      try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
-        
-        if (initialSession?.user) {
-          await fetchProfile(initialSession.user.id);
-          // Redirection logic for /login after sign-in is now handled by the useEffect below
-        } else if (location.pathname !== '/login') {
-          setRedirectPath('/login');
-        }
-      } finally {
-        setIsAuthLoading(false);
-      }
-    };
-
-    loadInitialSession();
-  }, [fetchProfile, queryClient, location.pathname]); // Dependencies for loadInitialSession
-
+  // Effect to handle redirection
   useEffect(() => {
     if (!isAuthLoading && redirectPath && location.pathname !== redirectPath) {
       navigate(redirectPath, { replace: true });
       setRedirectPath(null);
     }
-    // NEW: Handle redirection after successful login if currently on /login
-    if (!isAuthLoading && user && location.pathname === '/login') {
-      setRedirectPath('/');
-    }
-  }, [redirectPath, navigate, location.pathname, isAuthLoading, user]);
+  }, [redirectPath, navigate, location.pathname, isAuthLoading]);
 
   const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasksToday', user?.id],
@@ -301,6 +274,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_start_time) : startOfDay(T_current);
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_end_time) : addHours(startOfDay(T_current), 17);
     if (isBefore(end, start)) end = addDays(end, 1);
+
+    const isDayBlocked = profile?.blocked_days?.includes(todayString) ?? false;
+
     return calculateSchedule(
       dbScheduledTasksToday,
       todayString,
@@ -319,7 +295,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.reflection_count,
       profile.reflection_times,
       profile.reflection_durations,
-      mealAssignmentsToday // PASS MEAL ASSIGNMENTS
+      mealAssignmentsToday, // PASS MEAL ASSIGNMENTS
+      isDayBlocked // Pass isDayBlocked
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current, mealAssignmentsToday, todayString]);
 

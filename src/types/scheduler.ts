@@ -68,7 +68,7 @@ export interface DBScheduledTask {
   end_time: string | null;   // New: ISO date string for timed events
   scheduled_date: string; // New: Date (YYYY-MM-DD) for which the task is scheduled
   created_at: string;
-  updated_at: string; // NEW: Added updated_at
+  updated_at: string; // Added updated_at
   is_critical: boolean; // NEW: Critical Urgency Flag
   is_flexible: boolean; // NEW: Flag for schedule compaction
   is_locked: boolean; // NEW: Task Immutability Flag

@@ -7,7 +7,7 @@ import { Clock } from 'lucide-react';
 import { setTimeOnDate } from '@/lib/scheduler-utils';
 
 interface DailyScheduleColumnProps {
-  dayDate: Date; // The date for this column (local Date object for 00:00:00)
+  dateString: string; // Changed from dayDate: Date to dateString: string
   tasks: DBScheduledTask[];
   workdayStartTime: string; // HH:MM string from profile
   workdayEndTime: string;   // HH:MM string from profile
@@ -15,8 +15,8 @@ interface DailyScheduleColumnProps {
   T_current: Date; // Current time from SessionProvider
   zoomLevel: number; // Vertical zoom level prop
   columnWidth: number; // Horizontal zoom (column width) prop
-  onCompleteTask: (task: DBScheduledTask) => Promise<void>; // NEW: onCompleteTask prop
-  isDayBlocked: boolean; // NEW: Add isDayBlocked prop
+  onCompleteTask: (task: DBScheduledTask) => Promise<void>;
+  isDayBlocked: boolean;
 }
 
 const BASE_MINUTE_HEIGHT = 1.5; // Adjusted base height for 1 minute (more compact)
@@ -24,7 +24,7 @@ const MIN_TASK_HEIGHT_MINUTES = 10; // Minimum duration for a task to be rendere
 const MIN_TASK_HEIGHT_PX = MIN_TASK_HEIGHT_MINUTES * BASE_MINUTE_HEIGHT; // Minimum height in pixels
 
 const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
-  dayDate,
+  dateString, // Destructure dateString
   tasks,
   workdayStartTime,
   workdayEndTime,
@@ -32,9 +32,11 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   T_current,
   zoomLevel, // Vertical zoom level
   columnWidth,
-  onCompleteTask, // Destructure new prop
-  isDayBlocked, // Destructure new prop
+  onCompleteTask,
+  isDayBlocked,
 }) => {
+  // Parse dateString to a Date object for internal calculations
+  const dayDate = useMemo(() => parseISO(dateString), [dateString]);
   const isCurrentDay = isToday(dayDate);
 
   // Calculate workday start and end as local Date objects for the current dayDate
@@ -91,7 +93,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     <div 
       className={cn(
         "relative flex-shrink-0 border-r border-border/50 last:border-r-0 daily-schedule-column",
-        isDayBlocked && "bg-destructive/5 opacity-70 pointer-events-none" // Apply blocked styling
+        isDayBlocked && "bg-destructive/5 opacity-70 pointer-events-none"
       )}
       style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
       data-date={format(dayDate, 'yyyy-MM-dd')}
@@ -166,7 +168,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
                 "absolute left-1 right-1 rounded-md p-0.5 transition-all duration-300",
                 "bg-card/60 border border-white/5",
                 isPastTask && "opacity-40 grayscale",
-                isDayBlocked && "pointer-events-none" // Disable interaction if day is blocked
+                isDayBlocked && "pointer-events-none"
               )}
               style={{ top: `${top}px`, height: `${height}px` }}
             >

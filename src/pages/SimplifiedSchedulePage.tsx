@@ -9,6 +9,7 @@ import { format, startOfDay, parseISO, addDays, subDays, differenceInMinutes, is
 import { DBScheduledTask } from '@/types/scheduler';
 
 const FETCH_WINDOW_DAYS = 42; // Needs to be consistent with useWeeklySchedulerTasks
+const MIN_COLUMN_WIDTH = 100; // Defined here
 
 const SimplifiedSchedulePage: React.FC = () => {
   const navigate = useNavigate();
@@ -54,14 +55,15 @@ const SimplifiedSchedulePage: React.FC = () => {
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, profileSettings } =
     useWeeklySchedulerTasks(currentPeriodStartString); // Pass centerDateString
 
-  const isLoading = isSessionLoading || isWeeklyTasksLoading;
+  // FIX: Correctly derive overall loading state
+  const isLoading = isSessionLoading || isWeeklyTasksLoading; // Combined loading state
   console.log(`[SimplifiedSchedulePage] Overall isLoading: ${isLoading} (Session: ${isSessionLoading}, WeeklyTasks: ${isWeeklyTasksLoading})`);
 
   // Calculate column width based on container size and number of visible days
   const columnWidth = useMemo(() => {
     const timeAxisWidth = window.innerWidth < 640 ? 40 : 56; // Time axis width
     const availableWidth = gridContainerWidth - timeAxisWidth;
-    const calculatedWidth = Math.max(100, availableWidth / numDaysVisible); // Minimum column width 100px
+    const calculatedWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible); // Minimum column width 100px
     console.log(`[SimplifiedSchedulePage] Column Width calculated: ${calculatedWidth}px (Container: ${gridContainerWidth}, Visible: ${numDaysVisible})`);
     return calculatedWidth;
   }, [gridContainerWidth, numDaysVisible]);

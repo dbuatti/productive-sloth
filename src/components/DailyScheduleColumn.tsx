@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, isToday, isPast, isBefore, parseISO, setHours, setMinutes, addDays, differenceInMinutes, isAfter, addHours } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -36,14 +36,14 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   const isCurrentDay = isToday(dayDate);
 
   // Calculate workday start and end as local Date objects for the current dayDate
-  const localWorkdayStart = setTimeOnDate(dayDate, workdayStartTime);
-  let localWorkdayEnd = setTimeOnDate(dayDate, workdayEndTime);
+  const localWorkdayStart = useMemo(() => setTimeOnDate(dayDate, workdayStartTime), [dayDate, workdayStartTime]);
+  let localWorkdayEnd = useMemo(() => setTimeOnDate(dayDate, workdayEndTime), [dayDate, workdayEndTime]);
   if (isBefore(localWorkdayEnd, localWorkdayStart)) {
     localWorkdayEnd = addDays(localWorkdayEnd, 1);
   }
 
   // Calculate total minutes for the *display window*, which is now the workday window
-  const totalDisplayMinutes = differenceInMinutes(localWorkdayEnd, localWorkdayStart);
+  const totalDisplayMinutes = useMemo(() => differenceInMinutes(localWorkdayEnd, localWorkdayStart), [localWorkdayEnd, localWorkdayStart]);
   const dynamicMinuteHeight = BASE_MINUTE_HEIGHT * zoomLevel;
 
   // Generate time labels only for the workday window, every hour
@@ -57,7 +57,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     return labels;
   }, [localWorkdayStart, localWorkdayEnd]);
 
-  const getTaskPositionAndHeight = (task: DBScheduledTask) => {
+  const getTaskPositionAndHeight = useCallback((task: DBScheduledTask) => {
     if (!task.start_time || !task.end_time) {
       // This task is invalid for the grid, return zero dimensions
       return { top: 0, height: 0, durationMinutes: 0 };
@@ -83,13 +83,13 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     const height = Math.max(durationMinutes * dynamicMinuteHeight, MIN_TASK_HEIGHT_PX * zoomLevel); // Ensure minimum height
 
     return { top, height, durationMinutes };
-  };
+  }, [dayDate, localWorkdayStart, dynamicMinuteHeight, zoomLevel]);
 
   return (
     <div 
       className="relative flex-shrink-0 border-r border-border/50 last:border-r-0 daily-schedule-column"
-      style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }} // Explicit width and minWidth
-      data-date={format(dayDate, 'yyyy-MM-dd')} // Added data-date for scrolling
+      style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
+      data-date={format(dayDate, 'yyyy-MM-dd')}
     >
       {/* Day Header */}
       <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm p-2 border-b border-border/50 text-center">
@@ -169,7 +169,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
                 task={task} 
                 isDetailedView={isDetailedView} 
                 isCurrentlyActive={isCurrentlyActive} 
-                onCompleteTask={onCompleteTask} // NEW: Pass the handler
+                onCompleteTask={onCompleteTask}
               />
             </div>
           );
@@ -179,4 +179,4 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   );
 };
 
-export default DailyScheduleColumn;
+export default React.memo(DailyScheduleColumn);

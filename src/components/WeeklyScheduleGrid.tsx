@@ -23,7 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
-  currentPeriodStartString: string; // Changed to string
+  currentPeriodStartString: string;
   numDaysVisible: number; 
   setNumDaysVisible: (days: number) => void; 
   workdayStartTime: string; 
@@ -46,7 +46,7 @@ const MIN_COLUMN_WIDTH = 100;
 
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
-  currentPeriodStartString, // Destructure as string
+  currentPeriodStartString,
   isLoading,
   T_current,
   workdayStartTime,
@@ -66,10 +66,19 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const { completeScheduledTask } = useSchedulerTasks('');
   const [isDetailedView, setIsDetailedView] = useState(false);
   
-  const currentVerticalZoomFactor = VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex];
+  const currentVerticalZoomFactor = useMemo(() => VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex], [currentVerticalZoomIndex]);
 
   const gridScrollContainerRef = useRef<HTMLDivElement>(null);
   const [gridContainerWidth, setGridContainerWidth] = useState(0);
+
+  // Use refs to store latest values of props that shouldn't trigger the scroll effect
+  const currentPeriodStartRef = useRef(currentPeriodStartString);
+  const allDaysInFetchWindowRef = useRef<Date[]>([]);
+  const columnWidthRef = useRef(0);
+
+  useEffect(() => {
+    currentPeriodStartRef.current = currentPeriodStartString;
+  }, [currentPeriodStartString]);
 
   // Parse currentPeriodStartString to a Date object for internal use
   const currentPeriodStart = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
@@ -99,6 +108,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     const availableWidth = gridContainerWidth - timeAxisWidth;
     
     const calculatedWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible);
+    columnWidthRef.current = calculatedWidth; // Update ref here
     console.log("[WeeklyScheduleGrid] Calculated columnWidth:", calculatedWidth);
     return calculatedWidth;
   }, [gridContainerWidth, numDaysVisible]);
@@ -112,15 +122,19 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       current = addDays(current, 1);
     }
     console.log("[WeeklyScheduleGrid] allDaysInFetchWindow:", days.map(d => format(d, 'yyyy-MM-dd')));
+    allDaysInFetchWindowRef.current = days; // Update ref
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
   // MODIFIED: Scroll effect now depends ONLY on scrollTrigger
   useEffect(() => {
-    console.log("[WeeklyScheduleGrid] Scroll effect triggered by scrollTrigger. currentPeriodStart:", format(currentPeriodStart, 'yyyy-MM-dd'));
+    // Only scroll if scrollTrigger has been incremented (i.e., not initial mount)
+    if (scrollTrigger === 0) return; 
+
+    console.log("[WeeklyScheduleGrid] Scroll effect triggered by scrollTrigger. currentPeriodStart:", currentPeriodStartRef.current);
     const gridContainer = gridScrollContainerRef.current;
-    if (gridContainer && currentPeriodStart && allDaysInFetchWindow.length > 0) {
-      const targetDateKey = format(currentPeriodStart, 'yyyy-MM-dd');
+    if (gridContainer && currentPeriodStartRef.current && allDaysInFetchWindowRef.current.length > 0) {
+      const targetDateKey = currentPeriodStartRef.current;
       console.log("[WeeklyScheduleGrid] Attempting to scroll to targetDateKey:", targetDateKey);
 
       const scrollTimer = setTimeout(() => {
@@ -155,8 +169,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const handleGoToToday = () => {
     console.log("[WeeklyScheduleGrid] handleGoToToday called");
-    // onPeriodShift(0) will cause SimplifiedSchedulePage to update currentPeriodStartString to today
-    // and increment scrollTrigger, which will then trigger the scroll effect.
     onPeriodShift(0); 
   };
 
@@ -219,7 +231,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }, [timeAxisStart, timeAxisEnd]);
 
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    // This handler is now purely for logging or other non-scrolling side effects
     console.log("[WeeklyScheduleGrid] handleScroll event triggered (no automatic shifting)");
   }, []);
 
@@ -422,4 +433,4 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   );
 };
 
-export default WeeklyScheduleGrid;
+export default React.memo(WeeklyScheduleGrid);

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useRecoveryActivities, RecoveryActivity } from '@/hooks/use-recovery-activities';
 import RecoveryActivityManagerDialog from './RecoveryActivityManagerDialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 interface EnergyRegenPodModalProps {
   isOpen: boolean;
@@ -35,7 +36,8 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
   isProcessingCommand,
   totalDurationMinutes,
 }) => {
-  const { profile, T_current, exitRegenPodState } = useSession();
+  const { profile, exitRegenPodState } = useSession();
+  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
   const { activities, isLoading: isLoadingActivities } = useRecoveryActivities();
   
   const [podState, setPodState] = useState<keyof typeof PodState>('INITIAL');
@@ -76,6 +78,19 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
   const finalEnergy = Math.min(currentEnergy + calculatedEnergyGain, maxEnergy);
   const energyBarFill = Math.min(100, (finalEnergy / maxEnergy) * 100);
   
+  // --- Action Handlers ---
+  // Moved handleExitPod definition here
+  const handleExitPod = useCallback(async () => {
+    if (podState === 'EXITING') return;
+    setPodState('EXITING');
+    
+    // Call the session provider's exit logic which handles server calculation and profile reset
+    await exitRegenPodState();
+    
+    // Notify parent component (SchedulerPage) to close the modal
+    onExit();
+  }, [podState, exitRegenPodState, onExit]);
+
   // --- Initialization and Cleanup ---
   useEffect(() => {
     if (!isOpen) {
@@ -105,7 +120,7 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
   useEffect(() => {
     if (podState === 'RUNNING' && sessionStartTime) {
       const interval = setInterval(() => {
-        const now = new Date();
+        const now = T_current; // Use T_current
         const elapsed = differenceInMinutes(now, sessionStartTime);
         setElapsedMinutes(elapsed);
 
@@ -143,16 +158,15 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
 
       return () => clearInterval(interval);
     }
-  }, [podState, sessionStartTime, effectivePodDuration, showOptimizedCue]);
+  }, [podState, sessionStartTime, effectivePodDuration, showOptimizedCue, T_current, handleExitPod]);
 
-  // --- Action Handlers ---
   const handleStartPod = () => {
     if (!selectedActivity) {
         showError("Please select a recovery activity to start the Pod.");
         return;
     }
     
-    const start = new Date();
+    const start = T_current; // Use T_current
     
     // 1. Notify parent to start the session (updates profile state)
     const activityName = selectedActivity.name; 
@@ -162,17 +176,6 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
     setSessionStartTime(start);
     setPodState('RUNNING');
   };
-
-  const handleExitPod = useCallback(async () => {
-    if (podState === 'EXITING') return;
-    setPodState('EXITING');
-    
-    // Call the session provider's exit logic which handles server calculation and profile reset
-    await exitRegenPodState();
-    
-    // Notify parent component (SchedulerPage) to close the modal
-    onExit();
-  }, [podState, exitRegenPodState, onExit]);
 
   const isExiting = podState === 'EXITING' || isProcessingCommand;
   const isRunning = podState === 'RUNNING';

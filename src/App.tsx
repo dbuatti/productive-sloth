@@ -17,6 +17,7 @@ import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
 import ModelPage from "./pages/ModelPage";
 import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage"; // NEW IMPORT
 import { useSession } from "./hooks/use-session"; // Import useSession to get user ID
+import { CurrentTimeProvider } from "./components/CurrentTimeProvider"; // NEW: Import CurrentTimeProvider
 
 const queryClient = new QueryClient();
 
@@ -55,10 +56,12 @@ const App = () => (
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <EnvironmentProvider>
-              <SessionProvider>
-                <EnergyRegenInitializer />
-                <AppContent /> {/* Render AppContent inside SessionProvider */}
-              </SessionProvider>
+              <CurrentTimeProvider> {/* NEW: Wrap with CurrentTimeProvider */}
+                <SessionProvider>
+                  <EnergyRegenInitializer />
+                  <AppContent /> {/* Render AppContent inside SessionProvider */}
+                </SessionProvider>
+              </CurrentTimeProvider>
             </EnvironmentProvider>
           </BrowserRouter>
         </React.Fragment>

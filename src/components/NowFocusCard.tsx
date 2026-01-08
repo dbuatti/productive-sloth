@@ -9,16 +9,17 @@ import { ScheduledItem } from '@/types/scheduler';
 import { intervalToDuration } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
+import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 interface NowFocusCardProps {
   activeItem: ScheduledItem | null;
   nextItem: ScheduledItem | null;
-  T_current: Date;
   onEnterFocusMode: () => void;
   isLoading: boolean; // NEW: Add isLoading prop
 }
 
-const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, T_current, onEnterFocusMode, isLoading }) => {
+const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, onEnterFocusMode, isLoading }) => {
+  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const isMobile = useIsMobile();
 

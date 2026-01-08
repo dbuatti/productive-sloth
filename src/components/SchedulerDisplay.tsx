@@ -19,10 +19,10 @@ import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // NEW: Import Card components
+import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
-  T_current: Date;
   onRemoveTask: (taskId: string) => void;
   onRetireTask: (task: DBScheduledTask) => void;
   onCompleteTask: (task: DBScheduledTask, index?: number) => void;
@@ -53,7 +53,6 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   schedule,
-  T_current,
   onRemoveTask,
   onRetireTask,
   onCompleteTask,
@@ -65,6 +64,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   onToggleDayLock, // NEW
   isProcessingCommand, // Already exists
 }) => {
+  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
   const containerRef = useRef<HTMLDivElement>(null);
   const { toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString);
   const [selectedTask, setSelectedTask] = useState<DBScheduledTask | null>(null);

@@ -12,6 +12,7 @@ import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext } from '@/hooks/use-environment-context.ts';
 import { MealAssignment } from '@/hooks/use-meals';
 import isEqual from 'lodash.isequal'; // Import isEqual for deep comparison
+import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
@@ -24,7 +25,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpLevel, setLevelUpLevel] = useState(0);
-  const [T_current, setT_current] = useState(new Date());
   const [regenPodDurationMinutes, setRegenPodDurationMinutes] = useState(0);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -34,11 +34,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const initialSessionLoadedRef = useRef(false);
   const isLoading = isAuthLoading || isProfileLoading;
   const todayString = format(new Date(), 'yyyy-MM-dd');
-
-  useEffect(() => {
-    const interval = setInterval(() => setT_current(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
 
   // Use a ref to hold the latest profile for deep comparison in useCallback
   const profileRef = useRef(profile);
@@ -308,7 +304,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.is_in_regen_pod,
       profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null,
       regenPodDurationMinutes,
-      T_current,
+      T_current, // T_current is still needed here for schedule calculation
       profile.breakfast_time,
       profile.lunch_time,
       profile.dinner_time,
@@ -346,14 +342,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     triggerEnergyRegen,
     activeItemToday,
     nextItemToday,
-    T_current,
     startRegenPodState,
     exitRegenPodState,
     regenPodDurationMinutes
   }), [
     session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
     triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
-    updateProfile, updateSettings, updateBlockedDays, triggerEnergyRegen, activeItemToday, nextItemToday, T_current, 
+    updateProfile, updateSettings, updateBlockedDays, triggerEnergyRegen, activeItemToday, nextItemToday, 
     startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
 

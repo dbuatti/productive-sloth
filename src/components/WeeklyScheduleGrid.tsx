@@ -21,6 +21,7 @@ import { useSession } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
@@ -41,7 +42,6 @@ interface WeeklyScheduleGridProps {
   allDaysInFetchWindow: string[]; // Derived in SimplifiedSchedulePage
   columnWidth: number; // Derived in SimplifiedSchedulePage
   onCompleteTask: (task: DBScheduledTask) => Promise<void>; // Passed down to DailyScheduleColumn
-  T_current: Date; // Passed down to DailyScheduleColumn
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -68,10 +68,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   allDaysInFetchWindow, // New prop
   columnWidth, // New prop
   onCompleteTask, // New prop
-  T_current, // New prop
 }) => {
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy } = useSession();
   const { completeScheduledTask } = useSchedulerTasks('');
+  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
   const [isDetailedView, setIsDetailedView] = useState(false);
   
   const currentVerticalZoomFactor = useMemo(() => VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex], [currentVerticalZoomIndex]);
@@ -212,7 +212,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             workdayStartTime={workdayStartTime}
             workdayEndTime={workdayEndTime}
             isDetailedView={isDetailedView}
-            T_current={T_current}
             zoomLevel={currentVerticalZoomFactor}
             columnWidth={columnWidth}
             onCompleteTask={handleCompleteScheduledTask}
@@ -221,7 +220,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         </div>
       );
     });
-  }, [allDaysInFetchWindow, columnWidth, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, T_current, currentVerticalZoomFactor, handleCompleteScheduledTask, profileSettings?.blockedDays, isLoading]);
+  }, [allDaysInFetchWindow, columnWidth, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, currentVerticalZoomFactor, handleCompleteScheduledTask, profileSettings?.blockedDays, isLoading]);
 
 
   return (

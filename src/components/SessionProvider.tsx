@@ -208,7 +208,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Memoize the handler for auth state changes
   const handleAuthChange = useCallback(async (event: string, currentSession: Session | null) => {
-    console.log("[SessionProvider] Auth state change event:", event);
     setSession(currentSession);
     setUser(currentSession?.user ?? null);
     

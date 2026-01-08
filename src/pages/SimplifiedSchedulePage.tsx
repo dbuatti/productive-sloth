@@ -19,7 +19,7 @@ const SimplifiedSchedulePage: React.FC = () => {
     format(startOfDay(new Date()), 'yyyy-MM-dd')
   );
 
-  const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } =
+  const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd, profileSettings } =
     useWeeklySchedulerTasks(currentPeriodStartString);
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
@@ -87,6 +87,8 @@ const SimplifiedSchedulePage: React.FC = () => {
           fetchWindowEnd={fetchWindowEnd}
           currentVerticalZoomIndex={currentVerticalZoomIndex}
           onSetCurrentVerticalZoomIndex={handleSetCurrentVerticalZoomIndex}
+          // NEW: Pass profileSettings
+          profileSettings={profileSettings}
         />
       </div>
     </div>

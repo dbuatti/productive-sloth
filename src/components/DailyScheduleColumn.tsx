@@ -16,6 +16,7 @@ interface DailyScheduleColumnProps {
   zoomLevel: number; // Vertical zoom level prop
   columnWidth: number; // Horizontal zoom (column width) prop
   onCompleteTask: (task: DBScheduledTask) => Promise<void>; // NEW: onCompleteTask prop
+  isDayBlocked: boolean; // NEW: Add isDayBlocked prop
 }
 
 const BASE_MINUTE_HEIGHT = 1.5; // Adjusted base height for 1 minute (more compact)
@@ -32,6 +33,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   zoomLevel, // Vertical zoom level
   columnWidth,
   onCompleteTask, // Destructure new prop
+  isDayBlocked, // Destructure new prop
 }) => {
   const isCurrentDay = isToday(dayDate);
 
@@ -87,7 +89,10 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
 
   return (
     <div 
-      className="relative flex-shrink-0 border-r border-border/50 last:border-r-0 daily-schedule-column"
+      className={cn(
+        "relative flex-shrink-0 border-r border-border/50 last:border-r-0 daily-schedule-column",
+        isDayBlocked && "bg-destructive/5 opacity-70 pointer-events-none" // Apply blocked styling
+      )}
       style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }}
       data-date={format(dayDate, 'yyyy-MM-dd')}
     >
@@ -138,7 +143,6 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
           
           // Skip rendering if task is invalid or has zero duration/height
           if (!task.start_time || !task.end_time || durationMinutes <= 0) {
-            console.warn(`[DailyScheduleColumn] Skipping invalid task: ${task.name} (ID: ${task.id}) due to missing times or zero duration.`);
             return null;
           }
           
@@ -161,7 +165,8 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
               className={cn(
                 "absolute left-1 right-1 rounded-md p-0.5 transition-all duration-300",
                 "bg-card/60 border border-white/5",
-                isPastTask && "opacity-40 grayscale pointer-events-none"
+                isPastTask && "opacity-40 grayscale",
+                isDayBlocked && "pointer-events-none" // Disable interaction if day is blocked
               )}
               style={{ top: `${top}px`, height: `${height}px` }}
             >

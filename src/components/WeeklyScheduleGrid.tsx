@@ -35,6 +35,7 @@ interface WeeklyScheduleGridProps {
   fetchWindowEnd: Date;   
   currentVerticalZoomIndex: number; 
   onSetCurrentVerticalZoomIndex: (index: number) => void; // Changed to callback
+  profileSettings: any; // NEW: Add profileSettings prop
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -56,8 +57,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   fetchWindowEnd,   
   currentVerticalZoomIndex,
   onSetCurrentVerticalZoomIndex, // Destructure new prop
+  profileSettings, // Destructure new prop
 }) => {
-  console.log("[WeeklyScheduleGrid] Component Rendered");
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy, T_current } = useSession(); // Get T_current from useSession directly
   const { completeScheduledTask } = useSchedulerTasks('');
   const [isDetailedView, setIsDetailedView] = useState(false);
@@ -74,11 +75,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const currentPeriodStart = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
 
   useEffect(() => {
-    console.log("[WeeklyScheduleGrid] ResizeObserver Effect Running");
     const resizeObserver = new ResizeObserver(entries => {
       if (entries[0]) {
         setGridContainerWidth(entries[0].contentRect.width);
-        console.log("[WeeklyScheduleGrid] Grid container width updated:", entries[0].contentRect.width);
       }
     });
 
@@ -98,36 +97,30 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     const availableWidth = gridContainerWidth - timeAxisWidth;
     
     const calculatedWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible);
-    console.log("[WeeklyScheduleGrid] Calculated columnWidth:", calculatedWidth);
     return calculatedWidth;
   }, [gridContainerWidth, numDaysVisible]);
 
   const allDaysInFetchWindow = useMemo(() => {
-    console.log("[WeeklyScheduleGrid] Recalculating allDaysInFetchWindow");
     const days: Date[] = [];
     let current = fetchWindowStart;
     while (isBefore(current, addDays(fetchWindowEnd, 1))) {
       days.push(current);
       current = addDays(current, 1);
     }
-    console.log("[WeeklyScheduleGrid] allDaysInFetchWindow:", days.map(d => format(d, 'yyyy-MM-dd')));
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
   // MODIFIED: Scroll effect now depends ONLY on currentPeriodStartString
   useEffect(() => {
-    console.log("[WeeklyScheduleGrid] Scroll effect triggered by currentPeriodStartString:", currentPeriodStartString);
     const gridContainer = gridScrollContainerRef.current;
     if (gridContainer && currentPeriodStartString && allDaysInFetchWindow.length > 0) {
       const targetDateKey = currentPeriodStartString;
-      console.log("[WeeklyScheduleGrid] Attempting to scroll to targetDateKey:", targetDateKey);
 
       const targetColumn = gridContainer.querySelector(`[data-date="${targetDateKey}"]`) as HTMLElement;
       
       if (targetColumn) {
         const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
         const scrollPosition = targetColumn.offsetLeft - timeAxisWidth;
-        console.log(`[WeeklyScheduleGrid] Scrolling to position: ${scrollPosition} for column ${targetDateKey}`);
         
         if (isInitialMount.current) {
           gridContainer.scrollLeft = scrollPosition; // Set directly without animation
@@ -138,29 +131,23 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             behavior: 'smooth' // Animate subsequent scrolls
           });
         }
-      } else {
-        console.warn(`[WeeklyScheduleGrid] Target column for ${targetDateKey} not found in DOM.`);
       }
     }
   }, [currentPeriodStartString, allDaysInFetchWindow]); // allDaysInFetchWindow is still a dependency here because its content changes based on currentPeriodStartString
 
   const handlePrevPeriod = () => {
-    console.log("[WeeklyScheduleGrid] handlePrevPeriod called");
     onPeriodShift(-numDaysVisible);
   };
 
   const handleNextPeriod = () => {
-    console.log("[WeeklyScheduleGrid] handleNextPeriod called");
     onPeriodShift(numDaysVisible);
   };
 
   const handleGoToToday = () => {
-    console.log("[WeeklyScheduleGrid] handleGoToToday called");
     onPeriodShift(0); 
   };
 
   const handleSelectVerticalZoom = (zoom: number) => {
-    console.log("[WeeklyScheduleGrid] handleSelectVerticalZoom called with:", zoom);
     const newIndex = VERTICAL_ZOOM_LEVELS.indexOf(zoom);
     if (newIndex !== -1) {
       onSetCurrentVerticalZoomIndex(newIndex); // Use callback
@@ -168,12 +155,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   };
 
   const handleSelectNumDaysVisible = (daysOption: number) => {
-    console.log("[WeeklyScheduleGrid] handleSelectNumDaysVisible called with:", daysOption);
     onSetNumDaysVisible(daysOption); // Use callback
   };
 
   const handleSaveViewPreferences = async () => {
-    console.log("[WeeklyScheduleGrid] handleSaveViewPreferences called");
     try {
       await updateProfile({
         num_days_visible: numDaysVisible,
@@ -187,7 +172,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   };
 
   const handleCompleteScheduledTask = useCallback(async (task: DBScheduledTask) => {
-    console.log("[WeeklyScheduleGrid] handleCompleteScheduledTask called for task:", task.name);
     if (task.is_completed) return;
     try {
       await completeScheduledTask(task);
@@ -218,7 +202,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }, [timeAxisStart, timeAxisEnd]);
 
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    console.log("[WeeklyScheduleGrid] handleScroll event triggered (no automatic shifting)");
   }, []);
 
   return (
@@ -397,6 +380,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
               {allDaysInFetchWindow.map((day) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
                 const tasksForDay = weeklyTasks[dateKey] || [];
+                const isDayBlocked = profileSettings?.blockedDays?.includes(dateKey) ?? false; // Check if day is blocked
                 return (
                   <DailyScheduleColumn
                     key={dateKey}
@@ -409,6 +393,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     zoomLevel={currentVerticalZoomFactor}
                     columnWidth={columnWidth}
                     onCompleteTask={handleCompleteScheduledTask}
+                    isDayBlocked={isDayBlocked} // NEW: Pass blocked status
                   />
                 );
               })}

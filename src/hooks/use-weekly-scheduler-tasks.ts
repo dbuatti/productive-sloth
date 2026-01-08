@@ -4,6 +4,7 @@ import { DBScheduledTask } from '@/types/scheduler';
 import { useSession } from './use-session';
 import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max, Day, subDays } from 'date-fns';
 import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils';
+import { useMemo } from 'react'; // Import useMemo
 
 interface WeeklyTasks {
   [key: string]: DBScheduledTask[]; // Key is 'yyyy-MM-dd'
@@ -15,7 +16,37 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => { // Rename
   const { user, profile } = useSession();
   const userId = user?.id;
 
-  const weekStartsOn = (profile?.week_starts_on ?? 0) as Day;
+  // Memoize the relevant profile settings for the query key
+  const profileSettings = useMemo(() => {
+    if (!profile) return null;
+    return {
+      weekStartsOn: profile.week_starts_on ?? 0,
+      breakfastTime: profile.breakfast_time,
+      lunchTime: profile.lunch_time,
+      dinnerTime: profile.dinner_time,
+      breakfastDuration: profile.breakfast_duration_minutes,
+      lunchDuration: profile.lunch_duration_minutes,
+      dinnerDuration: profile.dinner_duration_minutes,
+      reflectionCount: profile.reflection_count,
+      reflectionTimes: profile.reflection_times,
+      reflectionDurations: profile.reflection_durations,
+      blockedDays: profile.blocked_days, // Include blockedDays here
+    };
+  }, [
+    profile?.week_starts_on,
+    profile?.breakfast_time,
+    profile?.lunch_time,
+    profile?.dinner_time,
+    profile?.breakfast_duration_minutes,
+    profile?.lunch_duration_minutes,
+    profile?.dinner_duration_minutes,
+    profile?.reflection_count,
+    profile?.reflection_times,
+    profile?.reflection_durations,
+    profile?.blocked_days,
+  ]);
+
+  const weekStartsOn = (profileSettings?.weekStartsOn ?? 0) as Day;
 
   // Parse the centerDateString to a Date object here for internal calculations
   const centerDate = parseISO(centerDateString);
@@ -29,10 +60,11 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => { // Rename
   const formattedFetchWindowStart = format(fetchWindowStart, 'yyyy-MM-dd');
   const formattedFetchWindowEnd = format(fetchWindowEnd, 'yyyy-MM-dd');
 
-  const queryKey = ['weeklyScheduledTasks', userId, formattedFetchWindowStart, formattedFetchWindowEnd, profile?.breakfast_time, profile?.lunch_time, profile?.dinner_time, profile?.breakfast_duration_minutes, profile?.lunch_duration_minutes, profile?.dinner_duration_minutes, profile?.reflection_count, profile?.reflection_times, profile?.reflection_durations, weekStartsOn];
+  // Use the memoized profileSettings object in the queryKey
+  const queryKey = ['weeklyScheduledTasks', userId, formattedFetchWindowStart, formattedFetchWindowEnd, profileSettings];
 
   const fetchWeeklyTasks = async (): Promise<WeeklyTasks> => {
-    if (!userId || !profile) return {};
+    if (!userId || !profileSettings) return {};
 
     // Fetch meal assignments for the wider window
     const { data: assignmentsData } = await supabase
@@ -79,8 +111,8 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => { // Rename
       const dayDate = addDays(fetchWindowStart, i);
       const dateKey = format(dayDate, 'yyyy-MM-dd');
 
-      const workdayStart = setTimeOnDate(dayDate, profile.default_auto_schedule_start_time || '00:00');
-      let workdayEnd = setTimeOnDate(dayDate, profile.default_auto_schedule_end_time || '23:59');
+      const workdayStart = setTimeOnDate(dayDate, profileSettings.breakfastTime || '00:00');
+      let workdayEnd = setTimeOnDate(dayDate, profileSettings.dinnerTime || '23:59');
       if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
 
       const addStaticTask = (name: string, timeStr: string | null, duration: number | null, isMealTask: boolean = true) => {
@@ -130,14 +162,14 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => { // Rename
         }
       };
 
-      addStaticTask('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
-      addStaticTask('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
-      addStaticTask('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+      addStaticTask('Breakfast', profileSettings.breakfastTime, profileSettings.breakfastDuration);
+      addStaticTask('Lunch', profileSettings.lunchTime, profileSettings.lunchDuration);
+      addStaticTask('Dinner', profileSettings.dinnerTime, profileSettings.dinnerDuration);
 
       // Inject Reflections
-      for (let r = 0; r < (profile.reflection_count || 0); r++) {
-        const rTime = profile.reflection_times?.[r];
-        const rDur = profile.reflection_durations?.[r];
+      for (let r = 0; r < (profileSettings.reflectionCount || 0); r++) {
+        const rTime = profileSettings.reflectionTimes?.[r];
+        const rDur = profileSettings.reflectionDurations?.[r];
         if (rTime && rDur) {
           addStaticTask(`Reflection Point ${r + 1}`, rTime, rDur, false);
         }
@@ -159,7 +191,7 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => { // Rename
   const { data: weeklyTasks = {}, isLoading, error } = useQuery<WeeklyTasks, Error>({
     queryKey,
     queryFn: fetchWeeklyTasks,
-    enabled: !!userId && !!profile,
+    enabled: !!userId && !!profileSettings, // Enable only if profileSettings is available
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
@@ -170,5 +202,6 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => { // Rename
     error,
     fetchWindowStart,
     fetchWindowEnd,
+    profileSettings, // Return profileSettings for use in WeeklyScheduleGrid
   };
 };

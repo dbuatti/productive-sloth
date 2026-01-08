@@ -19,7 +19,7 @@ const SimplifiedSchedulePage: React.FC = () => {
   // currentPeriodStart should be initialized to today and then only changed by user navigation.
   // Storing as a string to prevent unnecessary re-renders due to Date object reference changes.
   const [currentPeriodStartString, setCurrentPeriodStartString] = useState<string>(() => format(startOfDay(new Date()), 'yyyy-MM-dd'));
-  const [scrollTrigger, setScrollTrigger] = useState(0); // State to trigger scroll
+  const [scrollTrigger, setScrollTrigger] = useState(1); // NEW: Initialize to 1 for initial scroll to today
 
   // Pass currentPeriodStartString as the centerDate to the hook, so it fetches a buffer around it
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStartString);

@@ -18,6 +18,7 @@ const SimplifiedSchedulePage: React.FC = () => {
   const [currentPeriodStartString, setCurrentPeriodStartString] = useState<string>(() =>
     format(startOfDay(new Date()), 'yyyy-MM-dd')
   );
+  const [scrollVersion, setScrollVersion] = useState(0); // NEW: State for scroll version
 
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd, profileSettings } =
     useWeeklySchedulerTasks(currentPeriodStartString);
@@ -27,7 +28,11 @@ const SimplifiedSchedulePage: React.FC = () => {
   const handlePeriodShift = useCallback((shiftDays: number) => {
     setCurrentPeriodStartString((prev) => {
       const prevDate = parseISO(prev);
-      if (shiftDays === 0) return format(startOfDay(new Date()), 'yyyy-MM-dd');
+      if (shiftDays === 0) {
+        // If shifting to today, also increment scrollVersion to force refocus
+        setScrollVersion(prevVersion => prevVersion + 1);
+        return format(startOfDay(new Date()), 'yyyy-MM-dd');
+      }
       return format(addDays(prevDate, shiftDays), 'yyyy-MM-dd');
     });
   }, []);
@@ -87,8 +92,8 @@ const SimplifiedSchedulePage: React.FC = () => {
           fetchWindowEnd={fetchWindowEnd}
           currentVerticalZoomIndex={currentVerticalZoomIndex}
           onSetCurrentVerticalZoomIndex={handleSetCurrentVerticalZoomIndex}
-          // NEW: Pass profileSettings
           profileSettings={profileSettings}
+          scrollVersion={scrollVersion} // NEW: Pass scrollVersion
         />
       </div>
     </div>

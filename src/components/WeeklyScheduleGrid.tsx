@@ -37,6 +37,7 @@ interface WeeklyScheduleGridProps {
   currentVerticalZoomIndex: number; 
   onSetCurrentVerticalZoomIndex: (index: number) => void;
   profileSettings: any;
+  scrollVersion?: number; // NEW: Added scrollVersion prop
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -59,6 +60,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   currentVerticalZoomIndex,
   onSetCurrentVerticalZoomIndex,
   profileSettings,
+  scrollVersion = 0, // NEW: Default scrollVersion
 }) => {
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy, T_current } = useSession();
   const { completeScheduledTask } = useSchedulerTasks('');
@@ -70,8 +72,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const [gridContainerWidth, setGridContainerWidth] = useState(0);
 
   const isInitialMount = useRef(true);
-  // Track the actual targeted date to allow "Today" clicks to work
   const lastTargetDate = useRef<string | null>(null);
+  const lastScrollVersion = useRef<number>(0); // NEW: Track last scroll version
 
   const currentPeriodStart = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
 
@@ -133,24 +135,26 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   useEffect(() => {
     if (!gridScrollContainerRef.current) return;
 
-    // FORCE focus on initial load
+    // 1. Handle Initial Load: Instant Jump
     if (isInitialMount.current) {
-      // Use a small timeout to ensure DOM has calculated widths
       const timer = setTimeout(() => {
         scrollToDate(currentPeriodStartString, 'auto'); // 'auto' = instant jump
         isInitialMount.current = false;
-      }, 50); 
+        lastScrollVersion.current = scrollVersion; // Initialize lastScrollVersion
+      }, 100); // 100ms guard for DOM calc
       return () => clearTimeout(timer);
     }
 
-    // Programmatic change (User clicked "Today" or Arrows)
-    // We allow the scroll if the requested date is different OR if the user
-    // is explicitly clicking a button that triggers this prop.
-    if (currentPeriodStartString !== lastTargetDate.current) {
+    // 2. Handle "Today" Click or Forced Refocus
+    // If the scrollVersion has increased, the user explicitly asked for a refocus
+    const forceRefocus = scrollVersion > lastScrollVersion.current;
+    
+    if (forceRefocus || lastTargetDate.current !== currentPeriodStartString) {
       scrollToDate(currentPeriodStartString, 'smooth');
+      lastScrollVersion.current = scrollVersion; // Update lastScrollVersion
     }
 
-  }, [currentPeriodStartString, scrollToDate]); 
+  }, [currentPeriodStartString, scrollVersion, scrollToDate]); // Added scrollVersion to dependencies
 
   const handlePrevPeriod = () => {
     onPeriodShift(-numDaysVisible);

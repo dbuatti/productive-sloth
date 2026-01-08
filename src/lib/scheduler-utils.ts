@@ -295,38 +295,31 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   let shouldSink = false;
   let isFlexible = true; 
 
-  if (lowerInput.endsWith(' !')) {
+  // Check for Critical Flag (Prefix: !)
+  if (rawInput.startsWith('!')) {
     isCritical = true;
-    rawInput = rawInput.slice(0, -2).trim();
+    rawInput = rawInput.substring(1).trim();
     lowerInput = rawInput.toLowerCase();
   }
 
-  if (lowerInput.startsWith('-')) {
-    isBackburner = true;
-    rawInput = rawInput.slice(1).trim();
-    lowerInput = rawInput.toLowerCase();
-  }
-
-  if (lowerInput.endsWith(' sink')) {
-    shouldSink = true;
-    rawInput = rawInput.slice(0, -5).trim();
-    lowerInput = rawInput.toLowerCase();
-  }
-
-  if (lowerInput.endsWith(' fixed')) {
-    isFlexible = false;
-    rawInput = rawInput.slice(0, -6).trim();
-    lowerInput = rawInput.toLowerCase();
-  }
-  
-  if (rawInput.endsWith(' !')) {
-    isCritical = true;
-    rawInput = rawInput.slice(0, -2).trim();
-    lowerInput = rawInput.toLowerCase();
-  }
+  // Check for Backburner Flag (Prefix: -)
   if (rawInput.startsWith('-')) {
     isBackburner = true;
-    rawInput = rawInput.slice(1).trim();
+    rawInput = rawInput.substring(1).trim();
+    lowerInput = rawInput.toLowerCase();
+  }
+
+  // Check for Sink Flag (Suffix: sink)
+  if (lowerInput.endsWith(' sink')) {
+    shouldSink = true;
+    rawInput = rawInput.substring(0, rawInput.length - 5).trim();
+    lowerInput = rawInput.toLowerCase();
+  }
+
+  // Check for Fixed Flag (Suffix: fixed)
+  if (lowerInput.endsWith(' fixed')) {
+    isFlexible = false;
+    rawInput = rawInput.substring(0, rawInput.length - 6).trim();
     lowerInput = rawInput.toLowerCase();
   }
   
@@ -786,9 +779,9 @@ export const calculateSchedule = (
   reflectionCount: number = 0,
   reflectionTimes: string[] = [],
   reflectionDurations: number[] = [],
-  mealAssignments: any[] = [] // NEW: Accept meal assignments
+  mealAssignments: any[] = []
 ): FormattedSchedule => {
-  const items: ScheduledItem[] = [];
+  let allRawItems: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
   let totalBreakTimeMinutes = 0;
   let criticalTasksRemaining = 0;
@@ -800,125 +793,8 @@ export const calculateSchedule = (
   const [year, month, day] = selectedDay.split('-').map(Number);
   const selectedDayDate = new Date(year, month - 1, day); 
 
-  const addStaticAnchor = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => { // FIX: Changed mealType to generic name: string
-    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
-
-    if (timeStr && effectiveDuration > 0) {
-      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
-      let anchorEnd = addMinutes(anchorStart, effectiveDuration);
-
-      if (isBefore(anchorEnd, anchorStart)) {
-        anchorEnd = addDays(anchorEnd, 1);
-      }
-
-      const overlaps = (isBefore(anchorEnd, workdayEnd) || isEqual(anchorEnd, workdayEnd)) && 
-                       (isAfter(anchorStart, workdayStart) || isEqual(anchorStart, workdayStart));
-      
-      if (overlaps) {
-        const intersectionStart = max([anchorStart, workdayStart]);
-        const intersectionEnd = min([anchorEnd, workdayEnd]);
-        const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
-
-        if (finalDuration > 0) { 
-          // Determine meal type for lookup
-          const mealTypeKey = name.toLowerCase();
-          const isStandardMeal = ['breakfast', 'lunch', 'dinner'].includes(mealTypeKey);
-
-          // Check for assigned meal name
-          const assignment = isStandardMeal ? mealAssignments.find(a => a.meal_type === mealTypeKey) : undefined;
-          const assignedMealName = assignment?.meal_idea?.name;
-          
-          let finalName: string = name; // FIX: Explicitly type as string
-          if (assignedMealName) {
-            finalName = `${name}: ${assignedMealName}`;
-          }
-
-          const item: ScheduledItem = {
-            id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}-${Math.random().toString(36).substr(2, 4)}`,
-            type: type,
-            name: finalName, // Use the prefixed name
-            duration: finalDuration,
-            startTime: intersectionStart,
-            endTime: intersectionEnd,
-            emoji: emoji,
-            description: `${name} window`,
-            isTimedEvent: true,
-            color: type === 'meal' ? 'bg-logo-orange/20' : undefined,
-            isCritical: false,
-            isFlexible: false, 
-            isLocked: true,   
-            energyCost: type === 'meal' ? -10 : 0,  
-            isCompleted: false,
-            isCustomEnergyCost: false,
-            taskEnvironment: 'home', 
-            sourceCalendarId: null,
-            isBackburner: false,
-          };
-          items.push(item);
-          if (type === 'meal' || type === 'break') {
-            totalBreakTimeMinutes += item.duration;
-          } else {
-            totalActiveTimeMinutes += item.duration;
-          }
-          sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
-        }
-      }
-    }
-  };
-
-  addStaticAnchor('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
-  addStaticAnchor('Lunch', lunchTimeStr, '🥗', lunchDuration);
-  addStaticAnchor('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
-
-  if (reflectionCount > 0 && reflectionTimes.length > 0) {
-    for (let i = 0; i < reflectionCount; i++) {
-      const time = reflectionTimes[i];
-      const duration = reflectionDurations[i];
-      if (time) {
-        addStaticAnchor(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
-      }
-    }
-  }
-
-  const sortedTasks = [...dbTasks].sort((a, b) => {
-    if (a.start_time && b.start_time) {
-      return parseISO(a.start_time).getTime() - parseISO(b.start_time).getTime();
-    }
-    return 0;
-  });
-
-  if (isRegenPodActive && regenPodStartTime && isSameDay(regenPodStartTime, selectedDayDate)) {
-    const podStart = regenPodStartTime;
-    const podEnd = addMinutes(podStart, regenPodDurationMinutes);
-    
-    if (!isBefore(podEnd, T_current)) {
-        const podItem: ScheduledItem = {
-            id: 'regen-pod-active',
-            type: 'break', 
-            name: 'Energy Regen Pod',
-            duration: differenceInMinutes(podEnd, podStart),
-            startTime: podStart,
-            endTime: podEnd, 
-            emoji: '🔋',
-            description: getBreakDescription(regenPodDurationMinutes),
-            isTimedEvent: true,
-            isCritical: false,
-            isFlexible: false,
-            isLocked: true,
-            energyCost: 0,
-            isCompleted: false,
-            isCustomEnergyCost: false,
-            taskEnvironment: 'away',
-            sourceCalendarId: null,
-            isBackburner: false, 
-        };
-        items.push(podItem);
-        totalBreakTimeMinutes += podItem.duration;
-        sessionEnd = isAfter(podEnd, sessionEnd) ? podEnd : sessionEnd;
-    }
-  }
-
-  sortedTasks.forEach((dbTask) => {
+  // 1. Add Scheduled Tasks from DB
+  dbTasks.forEach((dbTask) => {
     if (!dbTask.start_time || !dbTask.end_time) {
       unscheduledCount++;
       return;
@@ -977,29 +853,216 @@ export const calculateSchedule = (
       sourceCalendarId: dbTask.source_calendar_id, 
       isBackburner: dbTask.is_backburner, 
     };
+    allRawItems.push(item);
+  });
 
-    items.push(item);
+  // 2. Add Static Anchors (Meals, Reflections, Regen Pod)
+  const addStaticAnchorItem = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => {
+    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
 
+    if (timeStr && effectiveDuration > 0) {
+      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
+      let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+
+      if (isBefore(anchorEnd, anchorStart)) {
+        anchorEnd = addDays(anchorEnd, 1);
+      }
+
+      const intersectionStart = max([anchorStart, workdayStart]);
+      const intersectionEnd = min([anchorEnd, workdayEnd]);
+      const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+
+      if (finalDuration > 0) { 
+        const mealTypeKey = name.toLowerCase();
+        const isStandardMeal = ['breakfast', 'lunch', 'dinner'].includes(mealTypeKey);
+        const assignment = isStandardMeal ? mealAssignments.find(a => a.assigned_date === selectedDay && a.meal_type === mealTypeKey) : undefined;
+        const assignedMealName = assignment?.meal_idea?.name;
+        
+        let finalName: string = name;
+        if (assignedMealName) {
+          finalName = `${name}: ${assignedMealName}`;
+        }
+
+        const item: ScheduledItem = {
+          id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}-${Math.random().toString(36).substr(2, 4)}`,
+          type: type,
+          name: finalName,
+          duration: finalDuration,
+          startTime: intersectionStart,
+          endTime: intersectionEnd,
+          emoji: emoji,
+          description: `${name} window`,
+          isTimedEvent: true,
+          color: type === 'meal' ? 'bg-logo-orange/20' : undefined,
+          isCritical: false,
+          isFlexible: false, 
+          isLocked: true,   
+          energyCost: type === 'meal' ? -10 : 0,  
+          isCompleted: false,
+          isCustomEnergyCost: false,
+          taskEnvironment: 'home', 
+          sourceCalendarId: null,
+          isBackburner: false,
+        };
+        allRawItems.push(item);
+      }
+    }
+  };
+
+  addStaticAnchorItem('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
+  addStaticAnchorItem('Lunch', lunchTimeStr, '🥗', lunchDuration);
+  addStaticAnchorItem('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
+
+  if (reflectionCount > 0 && reflectionTimes.length > 0) {
+    for (let i = 0; i < reflectionCount; i++) {
+      const time = reflectionTimes[i];
+      const duration = reflectionDurations[i];
+      if (time) {
+        addStaticAnchorItem(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
+      }
+    }
+  }
+
+  if (isRegenPodActive && regenPodStartTime && isSameDay(regenPodStartTime, selectedDayDate)) {
+    const podStart = regenPodStartTime;
+    const podEnd = addMinutes(podStart, regenPodDurationMinutes);
+    
+    if (!isBefore(podEnd, T_current)) {
+        const podItem: ScheduledItem = {
+            id: 'regen-pod-active',
+            type: 'break', 
+            name: 'Energy Regen Pod',
+            duration: differenceInMinutes(podEnd, podStart),
+            startTime: podStart,
+            endTime: podEnd, 
+            emoji: '🔋',
+            description: getBreakDescription(regenPodDurationMinutes),
+            isTimedEvent: true,
+            isCritical: false,
+            isFlexible: false,
+            isLocked: true,
+            energyCost: 0,
+            isCompleted: false,
+            isCustomEnergyCost: false,
+            taskEnvironment: 'away',
+            sourceCalendarId: null,
+            isBackburner: false, 
+        };
+        allRawItems.push(podItem);
+    }
+  }
+
+  // 3. Sort all raw items by start time
+  allRawItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+  // 4. Merge overlapping items into a final non-overlapping list
+  const finalItems: ScheduledItem[] = [];
+  if (allRawItems.length > 0) {
+    let currentMergedItem = { ...allRawItems[0] };
+
+    for (let i = 1; i < allRawItems.length; i++) {
+      const nextItem = allRawItems[i];
+
+      if (currentMergedItem.endTime > nextItem.startTime) {
+        // Overlap detected, merge them
+        const newStartTime = min([currentMergedItem.startTime, nextItem.startTime]);
+        const newEndTime = max([currentMergedItem.endTime, nextItem.endTime]);
+        const newDuration = differenceInMinutes(newEndTime, newStartTime);
+
+        // Prioritize dbTask over static anchors if they overlap, or combine names
+        let newName = currentMergedItem.name;
+        let newEmoji = currentMergedItem.emoji;
+        let newType = currentMergedItem.type;
+        let newEnergyCost = currentMergedItem.energyCost;
+        let newIsCritical = currentMergedItem.isCritical;
+        let newIsBackburner = currentMergedItem.isBackburner;
+        let newIsLocked = currentMergedItem.isLocked;
+        let newIsFlexible = currentMergedItem.isFlexible;
+        let newIsCompleted = currentMergedItem.isCompleted;
+        let newIsCustomEnergyCost = currentMergedItem.isCustomEnergyCost;
+        let newTaskEnvironment = currentMergedItem.taskEnvironment;
+        let newSourceCalendarId = currentMergedItem.sourceCalendarId;
+
+        // Simple prioritization: if nextItem is a 'task' and current is a 'meal'/'break', prioritize task
+        // Or if both are tasks, combine names.
+        if (nextItem.type === 'task' && (currentMergedItem.type === 'meal' || currentMergedItem.type === 'break')) {
+          newName = nextItem.name;
+          newEmoji = nextItem.emoji;
+          newType = nextItem.type;
+          newEnergyCost = nextItem.energyCost;
+          newIsCritical = nextItem.isCritical;
+          newIsBackburner = nextItem.isBackburner;
+          newIsLocked = nextItem.isLocked;
+          newIsFlexible = nextItem.isFlexible;
+          newIsCompleted = nextItem.isCompleted;
+          newIsCustomEnergyCost = nextItem.isCustomEnergyCost;
+          newTaskEnvironment = nextItem.taskEnvironment;
+          newSourceCalendarId = nextItem.sourceCalendarId;
+        } else if (currentMergedItem.type === 'task' && (nextItem.type === 'meal' || nextItem.type === 'break')) {
+          // current is task, next is meal/break, keep current
+        } else {
+          // Both are tasks, or both are static, or other combinations. Combine names.
+          newName = `${currentMergedItem.name} / ${nextItem.name}`;
+          // For emoji, pick the first one or a generic one
+          newEmoji = currentMergedItem.emoji; 
+          newType = 'task'; // Default to generic task if mixed
+          newEnergyCost = currentMergedItem.energyCost + nextItem.energyCost;
+          newIsCritical = currentMergedItem.isCritical || nextItem.isCritical;
+          newIsBackburner = currentMergedItem.isBackburner || nextItem.isBackburner;
+          newIsLocked = currentMergedItem.isLocked || nextItem.isLocked;
+          newIsFlexible = currentMergedItem.isFlexible && nextItem.isFlexible;
+          newIsCompleted = currentMergedItem.isCompleted && nextItem.isCompleted;
+          newIsCustomEnergyCost = currentMergedItem.isCustomEnergyCost || nextItem.isCustomEnergyCost;
+          // Environment and source calendar ID are tricky to merge, keep first for now
+        }
+
+        currentMergedItem = {
+          ...currentMergedItem,
+          id: currentMergedItem.id, // Keep original ID if it's a primary task, or generate new if truly merged
+          name: newName,
+          startTime: newStartTime,
+          endTime: newEndTime,
+          duration: newDuration,
+          emoji: newEmoji,
+          type: newType,
+          isCritical: newIsCritical,
+          isBackburner: newIsBackburner,
+          isLocked: newIsLocked,
+          isFlexible: newIsFlexible,
+          energyCost: newEnergyCost,
+          isCompleted: newIsCompleted,
+          isCustomEnergyCost: newIsCustomEnergyCost,
+          taskEnvironment: newTaskEnvironment,
+          sourceCalendarId: newSourceCalendarId,
+        };
+      } else {
+        // No overlap, push the current merged item and start a new one
+        finalItems.push(currentMergedItem);
+        currentMergedItem = { ...nextItem };
+      }
+    }
+    finalItems.push(currentMergedItem); // Push the last merged item
+  }
+
+  // 5. Recalculate summary based on finalItems
+  finalItems.forEach(item => {
     if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { 
-      totalActiveTimeMinutes += duration;
+      totalActiveTimeMinutes += item.duration;
     } else if (item.type === 'break' || item.type === 'meal') {
-      totalBreakTimeMinutes += duration;
+      totalBreakTimeMinutes += item.duration;
     }
 
     if (item.isCritical && !item.isCompleted) {
       criticalTasksRemaining++;
     }
-
     sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
   });
-
-  items.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
   const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);
   const totalActiveTimeMins = totalActiveTimeMinutes % 60;
 
   const summary: ScheduleSummary = {
-    totalTasks: items.length,
+    totalTasks: finalItems.length, // Count of merged items
     activeTime: { hours: totalActiveTimeHours, minutes: totalActiveTimeMins },
     breakTime: totalBreakTimeMinutes,
     sessionEnd: sessionEnd,
@@ -1010,8 +1073,8 @@ export const calculateSchedule = (
   };
 
   return {
-    items: items,
+    items: finalItems, // Use the merged items
     summary: summary,
-    dbTasks: dbTasks,
+    dbTasks: dbTasks, // Keep original dbTasks for other logic
   };
 };

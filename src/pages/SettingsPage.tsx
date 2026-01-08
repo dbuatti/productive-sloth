@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useForm } from 'react-hook-form'; // Corrected import path for useForm
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription, } from '@/components/ui/form';
@@ -11,7 +11,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu, CalendarOff } from 'lucide-react'; // Imported CalendarOff
+import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -23,7 +23,6 @@ import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MealIdeasTab from '@/components/MealIdeasTab';
 import EnvironmentManager from '@/components/EnvironmentManager';
-import BlockedDaysSettings from '@/components/BlockedDaysSettings'; // NEW: Import BlockedDaysSettings
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -559,19 +558,6 @@ const SettingsPage: React.FC = () => {
               <div className="flex justify-end">
                 <Button type="submit" disabled={isSubmitting || !isValid} aria-label="Save Calendar and View Settings">Save Calendar Settings</Button>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* NEW: Blocked Days Settings Card */}
-          <Card className="p-4 rounded-xl shadow-sm border-destructive/20 bg-destructive/[0.01]">
-            <CardHeader className="px-0 pb-4 p-0">
-              <CardTitle className="flex items-center gap-2 text-lg text-destructive">
-                <CalendarOff className="h-5 w-5" />
-                Blocked Days
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <BlockedDaysSettings />
             </CardContent>
           </Card>
           

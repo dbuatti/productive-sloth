@@ -87,7 +87,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
 
   return (
     <div 
-      className="relative flex-1 min-w-[100px] flex-shrink-0 border-r border-border/50 last:border-r-0 daily-schedule-column" // Added daily-schedule-column class
+      className="relative grow shrink-0 basis-0 min-w-[100px] border-r border-border/50 last:border-r-0 daily-schedule-column" // Changed flex-1 to grow shrink-0 basis-0
       data-date={format(dayDate, 'yyyy-MM-dd')} // Added data-date for scrolling
     >
       {/* Day Header */}

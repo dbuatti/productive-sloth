@@ -18,9 +18,11 @@ const SimplifiedSchedulePage: React.FC = () => {
   const numDaysVisible = profile?.num_days_visible ?? 7;
   const currentVerticalZoomIndex = profile?.vertical_zoom_index ?? 3;
 
-  const [currentPeriodStartString, setCurrentPeriodStartString] = useState<string>(() =>
-    format(startOfDay(new Date()), 'yyyy-MM-dd')
-  );
+  const [currentPeriodStartString, setCurrentPeriodStartString] = useState<string>(() => {
+    const initialDate = format(startOfDay(new Date()), 'yyyy-MM-dd');
+    console.log(`[SimplifiedSchedulePage] Initial currentPeriodStartString: ${initialDate}`);
+    return initialDate;
+  });
   const [scrollVersion, setScrollVersion] = useState(0); // NEW: State for scroll version
   const [gridContainerWidth, setGridContainerWidth] = useState(0); // State for grid container width
   const gridRef = React.useRef<HTMLDivElement>(null);
@@ -38,6 +40,7 @@ const SimplifiedSchedulePage: React.FC = () => {
       days.push(format(current, 'yyyy-MM-dd'));
       current = addDays(current, 1);
     }
+    console.log(`[SimplifiedSchedulePage] fullFetchWindowDays calculated. Length: ${days.length}, First: ${days[0]}, Last: ${days[days.length - 1]}`);
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
@@ -52,20 +55,25 @@ const SimplifiedSchedulePage: React.FC = () => {
     useWeeklySchedulerTasks(currentPeriodStartString); // Pass centerDateString
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
+  console.log(`[SimplifiedSchedulePage] Overall isLoading: ${isLoading} (Session: ${isSessionLoading}, WeeklyTasks: ${isWeeklyTasksLoading})`);
 
   // Calculate column width based on container size and number of visible days
   const columnWidth = useMemo(() => {
     const timeAxisWidth = window.innerWidth < 640 ? 40 : 56; // Time axis width
     const availableWidth = gridContainerWidth - timeAxisWidth;
     const calculatedWidth = Math.max(100, availableWidth / numDaysVisible); // Minimum column width 100px
+    console.log(`[SimplifiedSchedulePage] Column Width calculated: ${calculatedWidth}px (Container: ${gridContainerWidth}, Visible: ${numDaysVisible})`);
     return calculatedWidth;
   }, [gridContainerWidth, numDaysVisible]);
 
   // Observe container width for responsive column sizing
   useEffect(() => {
+    console.log("[SimplifiedSchedulePage] useEffect: Setting up ResizeObserver for gridRef.");
     const resizeObserver = new ResizeObserver(entries => {
       if (entries[0]) {
-        setGridContainerWidth(entries[0].contentRect.width);
+        const newWidth = entries[0].contentRect.width;
+        console.log(`[SimplifiedSchedulePage] ResizeObserver: Grid container width changed to ${newWidth}px.`);
+        setGridContainerWidth(newWidth);
       }
     });
 
@@ -74,6 +82,7 @@ const SimplifiedSchedulePage: React.FC = () => {
     }
 
     return () => {
+      console.log("[SimplifiedSchedulePage] useEffect Cleanup: Disconnecting ResizeObserver.");
       if (gridRef.current) {
         resizeObserver.unobserve(gridRef.current);
       }
@@ -83,25 +92,36 @@ const SimplifiedSchedulePage: React.FC = () => {
   const handlePeriodShift = useCallback((shiftDays: number) => {
     setCurrentPeriodStartString((prev) => {
       const prevDate = parseISO(prev);
+      let newDateString;
       if (shiftDays === 0) {
         // If shifting to today, also increment scrollVersion to force refocus
-        setScrollVersion(prevVersion => prevVersion + 1);
-        return format(startOfDay(new Date()), 'yyyy-MM-dd');
+        setScrollVersion(prevVersion => {
+          console.log(`[SimplifiedSchedulePage] handlePeriodShift: Setting scrollVersion to ${prevVersion + 1} for 'Today' jump.`);
+          return prevVersion + 1;
+        });
+        newDateString = format(startOfDay(new Date()), 'yyyy-MM-dd');
+      } else {
+        newDateString = format(addDays(prevDate, shiftDays), 'yyyy-MM-dd');
       }
-      return format(addDays(prevDate, shiftDays), 'yyyy-MM-dd');
+      console.log(`[SimplifiedSchedulePage] handlePeriodShift: Shifting by ${shiftDays} days. New currentPeriodStartString: ${newDateString}`);
+      return newDateString;
     });
   }, []);
 
   // Callbacks to update profile settings
   const handleSetNumDaysVisible = useCallback(async (days: number) => {
+    console.log(`[SimplifiedSchedulePage] handleSetNumDaysVisible: Attempting to set num_days_visible to ${days}.`);
     if (profile && days !== profile.num_days_visible) {
       await updateProfile({ num_days_visible: days });
+      console.log(`[SimplifiedSchedulePage] handleSetNumDaysVisible: Profile updated for num_days_visible: ${days}.`);
     }
   }, [profile, updateProfile]);
 
   const handleSetCurrentVerticalZoomIndex = useCallback(async (index: number) => {
+    console.log(`[SimplifiedSchedulePage] handleSetCurrentVerticalZoomIndex: Attempting to set vertical_zoom_index to ${index}.`);
     if (profile && index !== profile.vertical_zoom_index) {
       await updateProfile({ vertical_zoom_index: index });
+      console.log(`[SimplifiedSchedulePage] handleSetCurrentVerticalZoomIndex: Profile updated for vertical_zoom_index: ${index}.`);
     }
   }, [profile, updateProfile]);
 
@@ -110,7 +130,7 @@ const SimplifiedSchedulePage: React.FC = () => {
     // This function will be passed down to DailyScheduleColumn
     // and needs to be implemented here or in a shared hook if it modifies global state.
     // For now, it's a placeholder.
-    console.log("Complete task from SimplifiedSchedulePage:", task.name);
+    console.log("[SimplifiedSchedulePage] Complete task from SimplifiedSchedulePage:", task.name);
     // Example: Trigger a mutation to mark task as complete
     // await completeScheduledTaskMutation(task);
   }, []);

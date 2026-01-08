@@ -5,7 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
 import WeeklyScheduleGrid from '@/components/WeeklyScheduleGrid';
-import { format, startOfDay, parseISO, addDays } from 'date-fns';
+import { format, startOfDay, parseISO, addDays, subDays, differenceInMinutes, isBefore } from 'date-fns'; // Added isBefore
+import { DBScheduledTask } from '@/types/scheduler'; // Added DBScheduledTask
+
+const FETCH_WINDOW_DAYS = 42; // Needs to be consistent with useWeeklySchedulerTasks
 
 const SimplifiedSchedulePage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,11 +22,55 @@ const SimplifiedSchedulePage: React.FC = () => {
     format(startOfDay(new Date()), 'yyyy-MM-dd')
   );
   const [scrollVersion, setScrollVersion] = useState(0); // NEW: State for scroll version
+  const [gridContainerWidth, setGridContainerWidth] = useState(0); // State for grid container width
+  const gridRef = React.useRef<HTMLDivElement>(null);
 
-  const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd, profileSettings } =
-    useWeeklySchedulerTasks(currentPeriodStartString);
+  // Calculate fetch window based on currentPeriodStartString
+  const centerDate = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
+  const fetchWindowStart = useMemo(() => subDays(centerDate, Math.floor(FETCH_WINDOW_DAYS / 2)), [centerDate]);
+  const fetchWindowEnd = useMemo(() => addDays(fetchWindowStart, FETCH_WINDOW_DAYS - 1), [fetchWindowStart]);
+
+  const allDaysInFetchWindow = useMemo(() => {
+    const days: string[] = [];
+    let current = fetchWindowStart;
+    while (isBefore(current, addDays(fetchWindowEnd, 1))) {
+      days.push(format(current, 'yyyy-MM-dd'));
+      current = addDays(current, 1);
+    }
+    return days;
+  }, [fetchWindowStart, fetchWindowEnd]);
+
+  const { weeklyTasks, isLoading: isWeeklyTasksLoading, profileSettings } =
+    useWeeklySchedulerTasks(currentPeriodStartString); // Pass centerDateString
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
+
+  // Calculate column width based on container size and number of visible days
+  const columnWidth = useMemo(() => {
+    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56; // Time axis width
+    const availableWidth = gridContainerWidth - timeAxisWidth;
+    const calculatedWidth = Math.max(100, availableWidth / numDaysVisible); // Minimum column width 100px
+    return calculatedWidth;
+  }, [gridContainerWidth, numDaysVisible]);
+
+  // Observe container width for responsive column sizing
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries[0]) {
+        setGridContainerWidth(entries[0].contentRect.width);
+      }
+    });
+
+    if (gridRef.current) {
+      resizeObserver.observe(gridRef.current);
+    }
+
+    return () => {
+      if (gridRef.current) {
+        resizeObserver.unobserve(gridRef.current);
+      }
+    };
+  }, []);
 
   const handlePeriodShift = useCallback((shiftDays: number) => {
     setCurrentPeriodStartString((prev) => {
@@ -49,6 +96,17 @@ const SimplifiedSchedulePage: React.FC = () => {
       await updateProfile({ vertical_zoom_index: index });
     }
   }, [profile, updateProfile]);
+
+  // Callback for DailyScheduleColumn to complete tasks
+  const handleCompleteTask = useCallback(async (task: DBScheduledTask) => {
+    // This function will be passed down to DailyScheduleColumn
+    // and needs to be implemented here or in a shared hook if it modifies global state.
+    // For now, it's a placeholder.
+    console.log("Complete task from SimplifiedSchedulePage:", task.name);
+    // Example: Trigger a mutation to mark task as complete
+    // await completeScheduledTaskMutation(task);
+  }, []);
+
 
   if (isLoading) {
     return (
@@ -76,7 +134,7 @@ const SimplifiedSchedulePage: React.FC = () => {
   const weekStartsOn = (profile.week_starts_on ?? 0) as number;
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div ref={gridRef} className="flex flex-col h-full w-full">
       <div className="flex-1 overflow-hidden">
         <WeeklyScheduleGrid
           weeklyTasks={weeklyTasks}
@@ -85,7 +143,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           onSetNumDaysVisible={handleSetNumDaysVisible}
           workdayStartTime={workdayStartTime}
           workdayEndTime={workdayEndTime}
-          isLoading={isWeeklyTasksLoading}
+          isLoading={isLoading} // Pass the combined isLoading
           weekStartsOn={weekStartsOn}
           onPeriodShift={handlePeriodShift}
           fetchWindowStart={fetchWindowStart}
@@ -93,7 +151,11 @@ const SimplifiedSchedulePage: React.FC = () => {
           currentVerticalZoomIndex={currentVerticalZoomIndex}
           onSetCurrentVerticalZoomIndex={handleSetCurrentVerticalZoomIndex}
           profileSettings={profileSettings}
-          scrollVersion={scrollVersion} // NEW: Pass scrollVersion
+          scrollVersion={scrollVersion}
+          allDaysInFetchWindow={allDaysInFetchWindow} // New prop
+          columnWidth={columnWidth} // New prop
+          onCompleteTask={handleCompleteTask} // New prop
+          T_current={T_current} // New prop
         />
       </div>
     </div>

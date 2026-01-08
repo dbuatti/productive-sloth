@@ -29,15 +29,19 @@ interface WeeklyScheduleGridProps {
   onSetNumDaysVisible: (days: number) => void;
   workdayStartTime: string; 
   workdayEndTime: string;   
-  isLoading: boolean;
+  isLoading: boolean; // Combined loading state from SimplifiedSchedulePage
   weekStartsOn: number; 
   onPeriodShift: (shiftDays: number) => void; 
   fetchWindowStart: Date; 
   fetchWindowEnd: Date;   
   currentVerticalZoomIndex: number; 
   onSetCurrentVerticalZoomIndex: (index: number) => void;
-  profileSettings: any;
-  scrollVersion?: number; // NEW: Added scrollVersion prop
+  profileSettings: any; // Contains blockedDays
+  scrollVersion?: number;
+  allDaysInFetchWindow: string[]; // Derived in SimplifiedSchedulePage
+  columnWidth: number; // Derived in SimplifiedSchedulePage
+  onCompleteTask: (task: DBScheduledTask) => Promise<void>; // Passed down to DailyScheduleColumn
+  T_current: Date; // Passed down to DailyScheduleColumn
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -48,7 +52,7 @@ const MIN_COLUMN_WIDTH = 100;
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
   currentPeriodStartString,
-  isLoading,
+  isLoading, // Use the combined isLoading
   workdayStartTime,
   workdayEndTime,
   numDaysVisible,
@@ -60,101 +64,61 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   currentVerticalZoomIndex,
   onSetCurrentVerticalZoomIndex,
   profileSettings,
-  scrollVersion = 0, // NEW: Default scrollVersion
+  scrollVersion = 0,
+  allDaysInFetchWindow, // New prop
+  columnWidth, // New prop
+  onCompleteTask, // New prop
+  T_current, // New prop
 }) => {
-  const { updateProfile, isLoading: isSessionLoading, rechargeEnergy, T_current } = useSession();
+  const { updateProfile, isLoading: isSessionLoading, rechargeEnergy } = useSession();
   const { completeScheduledTask } = useSchedulerTasks('');
   const [isDetailedView, setIsDetailedView] = useState(false);
   
   const currentVerticalZoomFactor = useMemo(() => VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex], [currentVerticalZoomIndex]);
 
   const gridScrollContainerRef = useRef<HTMLDivElement>(null);
-  const [gridContainerWidth, setGridContainerWidth] = useState(0);
-
   const isInitialMount = useRef(true);
-  const lastTargetDate = useRef<string | null>(null);
-  const lastScrollVersion = useRef<number>(0); // NEW: Track last scroll version
-
-  const currentPeriodStart = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
-
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver(entries => {
-      if (entries[0]) {
-        setGridContainerWidth(entries[0].contentRect.width);
-      }
-    });
-
-    if (gridScrollContainerRef.current) {
-      resizeObserver.observe(gridScrollContainerRef.current);
-    }
-
-    return () => {
-      if (gridScrollContainerRef.current) {
-        resizeObserver.unobserve(gridScrollContainerRef.current);
-      }
-    };
-  }, []);
-
-  const columnWidth = useMemo(() => {
-    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
-    const availableWidth = gridContainerWidth - timeAxisWidth;
-    
-    const calculatedWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible);
-    return calculatedWidth;
-  }, [gridContainerWidth, numDaysVisible]);
-
-  const allDaysInFetchWindow = useMemo(() => {
-    const days: Date[] = [];
-    let current = fetchWindowStart;
-    while (isBefore(current, addDays(fetchWindowEnd, 1))) {
-      days.push(current);
-      current = addDays(current, 1);
-    }
-    return days;
-  }, [fetchWindowStart, fetchWindowEnd]);
+  const lastScrollVersion = useRef<number>(0);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // The Execution Function
-  const scrollToDate = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
+  const executeScroll = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
     const container = gridScrollContainerRef.current;
     if (!container) return;
 
-    const targetIndex = allDaysInFetchWindow.findIndex(day => format(day, 'yyyy-MM-dd') === date);
+    const targetIndex = allDaysInFetchWindow.findIndex(day => day === date); // Use string comparison
     if (targetIndex !== -1) {
-      const scrollPosition = targetIndex * columnWidth;
-      
       container.scrollTo({
-        left: scrollPosition,
+        left: targetIndex * columnWidth,
         behavior: behavior
       });
-      
-      lastTargetDate.current = date;
+      lastScrollVersion.current = scrollVersion; // Update lastScrollVersion here
     }
-  }, [allDaysInFetchWindow, columnWidth]);
+  }, [allDaysInFetchWindow, columnWidth, scrollVersion]);
 
   // Effect: Handle Initial Load & External Date Changes
   useEffect(() => {
-    if (!gridScrollContainerRef.current) return;
+    if (isLoading || !gridScrollContainerRef.current) return;
 
     // 1. Handle Initial Load: Instant Jump
     if (isInitialMount.current) {
-      const timer = setTimeout(() => {
-        scrollToDate(currentPeriodStartString, 'auto'); // 'auto' = instant jump
+      // Small delay to ensure the browser has painted the columns
+      scrollTimeoutRef.current = setTimeout(() => {
+        executeScroll(currentPeriodStartString, 'auto'); // 'auto' = instant jump
         isInitialMount.current = false;
-        lastScrollVersion.current = scrollVersion; // Initialize lastScrollVersion
-      }, 100); // 100ms guard for DOM calc
-      return () => clearTimeout(timer);
+      }, 50);
+      return () => {
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      };
     }
 
-    // 2. Handle "Today" Click or Forced Refocus
+    // 2. Handle "Today" click or programmatic shift
     // If the scrollVersion has increased, the user explicitly asked for a refocus
-    const forceRefocus = scrollVersion > lastScrollVersion.current;
-    
-    if (forceRefocus || lastTargetDate.current !== currentPeriodStartString) {
-      scrollToDate(currentPeriodStartString, 'smooth');
-      lastScrollVersion.current = scrollVersion; // Update lastScrollVersion
+    if (scrollVersion > lastScrollVersion.current) {
+      executeScroll(currentPeriodStartString, 'smooth');
     }
 
-  }, [currentPeriodStartString, scrollVersion, scrollToDate]); // Added scrollVersion to dependencies
+  }, [currentPeriodStartString, scrollVersion, isLoading, executeScroll]);
 
   const handlePrevPeriod = () => {
     onPeriodShift(-numDaysVisible);
@@ -205,8 +169,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }, [completeScheduledTask, rechargeEnergy]);
 
 
-  const timeAxisStart = useMemo(() => setTimeOnDate(currentPeriodStart, workdayStartTime), [currentPeriodStart, workdayStartTime]);
-  let timeAxisEnd = useMemo(() => setTimeOnDate(currentPeriodStart, workdayEndTime), [currentPeriodStart, workdayEndTime]);
+  const timeAxisStart = useMemo(() => setTimeOnDate(parseISO(currentPeriodStartString), workdayStartTime), [currentPeriodStartString, workdayStartTime]);
+  let timeAxisEnd = useMemo(() => setTimeOnDate(parseISO(currentPeriodStartString), workdayEndTime), [currentPeriodStartString, workdayEndTime]);
   if (isBefore(timeAxisEnd, timeAxisStart)) {
     timeAxisEnd = addDays(timeAxisEnd, 1);
   }
@@ -221,6 +185,36 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
     return labels;
   }, [timeAxisStart, timeAxisEnd]);
+
+  // RENDER: Memoize to stop the "Double Render" flicker
+  const dayElements = useMemo(() => {
+    if (isLoading) return null; // Don't render empty columns while loading
+    return allDaysInFetchWindow.map((dateString) => {
+      const tasksForDay = weeklyTasks[dateString] || [];
+      const isDayBlocked = profileSettings?.blockedDays?.includes(dateString) ?? false;
+      return (
+        <div 
+          key={dateString} 
+          style={{ width: `${columnWidth}px` }} 
+          className="flex-shrink-0 border-r border-white/5"
+        >
+          <DailyScheduleColumn 
+            dateString={dateString} 
+            tasks={tasksForDay}
+            workdayStartTime={workdayStartTime}
+            workdayEndTime={workdayEndTime}
+            isDetailedView={isDetailedView}
+            T_current={T_current}
+            zoomLevel={currentVerticalZoomFactor}
+            columnWidth={columnWidth}
+            onCompleteTask={onCompleteTask}
+            isDayBlocked={isDayBlocked}
+          />
+        </div>
+      );
+    });
+  }, [allDaysInFetchWindow, columnWidth, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, T_current, currentVerticalZoomFactor, onCompleteTask, profileSettings?.blockedDays, isLoading]);
+
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -358,7 +352,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         ref={gridScrollContainerRef} 
         id="weekly-schedule-grid-scroll-container" 
         className="flex-1 overflow-auto custom-scrollbar"
-        style={{ scrollSnapType: 'none' }} // Ensure CSS isn't forcing snapping
+        style={{ scrollSnapType: 'none', contain: 'content' }} 
       >
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[300px] py-16 gap-4">
@@ -395,26 +389,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
             {/* Daily Columns (This is the horizontally scrollable content) */}
             <div className="flex">
-              {allDaysInFetchWindow.map((day) => {
-                const dateKey = format(day, 'yyyy-MM-dd');
-                const tasksForDay = weeklyTasks[dateKey] || [];
-                const isDayBlocked = profileSettings?.blockedDays?.includes(dateKey) ?? false;
-                return (
-                  <DailyScheduleColumn
-                    key={dateKey}
-                    dateString={dateKey} // Pass date as string
-                    tasks={tasksForDay}
-                    workdayStartTime={workdayStartTime}
-                    workdayEndTime={workdayEndTime}
-                    isDetailedView={isDetailedView}
-                    T_current={T_current}
-                    zoomLevel={currentVerticalZoomFactor}
-                    columnWidth={columnWidth}
-                    onCompleteTask={handleCompleteScheduledTask}
-                    isDayBlocked={isDayBlocked}
-                  />
-                );
-              })}
+              {dayElements}
             </div>
           </div>
         )}

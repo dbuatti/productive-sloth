@@ -91,14 +91,14 @@ const SimplifiedSchedulePage: React.FC = () => {
           workdayStartTime={workdayStartTime}
           workdayEndTime={workdayEndTime}
           isLoading={isWeeklyTasksLoading}
-          T_current={T_current}
+          // T_current is no longer passed here
           weekStartsOn={initialWeekStartsOn} // Use initialWeekStartsOn from profile
           onPeriodShift={handlePeriodShift} 
           fetchWindowStart={fetchWindowStart} 
           fetchWindowEnd={fetchWindowEnd}     
           currentVerticalZoomIndex={currentVerticalZoomIndex} // Pass vertical zoom index
           setCurrentVerticalZoomIndex={setCurrentVerticalZoomIndex} // Pass vertical zoom index setter
-          // Removed scrollTrigger prop
+          // scrollTrigger is no longer passed here
         />
       </div>
     </div>

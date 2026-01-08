@@ -29,14 +29,14 @@ interface WeeklyScheduleGridProps {
   workdayStartTime: string; 
   workdayEndTime: string;   
   isLoading: boolean;
-  T_current: Date; 
+  // T_current is no longer passed here
   weekStartsOn: number; 
   onPeriodShift: (shiftDays: number) => void; 
   fetchWindowStart: Date; 
   fetchWindowEnd: Date;   
   currentVerticalZoomIndex: number; 
   setCurrentVerticalZoomIndex: React.Dispatch<React.SetStateAction<number>>; 
-  // Removed scrollTrigger prop
+  // scrollTrigger is no longer passed here
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -48,7 +48,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
   currentPeriodStartString,
   isLoading,
-  T_current,
+  // T_current is no longer destructured here
   workdayStartTime,
   workdayEndTime,
   numDaysVisible,
@@ -59,10 +59,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   fetchWindowEnd,   
   currentVerticalZoomIndex,
   setCurrentVerticalZoomIndex,
-  // Removed scrollTrigger from props
+  // scrollTrigger is no longer destructured here
 }) => {
   console.log("[WeeklyScheduleGrid] Component Rendered");
-  const { updateProfile, isLoading: isSessionLoading, rechargeEnergy } = useSession();
+  const { updateProfile, isLoading: isSessionLoading, rechargeEnergy, T_current } = useSession(); // Get T_current from useSession directly
   const { completeScheduledTask } = useSchedulerTasks('');
   const [isDetailedView, setIsDetailedView] = useState(false);
   
@@ -118,7 +118,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
-  // MODIFIED: Scroll effect now depends on currentPeriodStartString
+  // MODIFIED: Scroll effect now depends ONLY on currentPeriodStartString
   useEffect(() => {
     console.log("[WeeklyScheduleGrid] Scroll effect triggered by currentPeriodStartString:", currentPeriodStartString);
     const gridContainer = gridScrollContainerRef.current;
@@ -146,7 +146,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         console.warn(`[WeeklyScheduleGrid] Target column for ${targetDateKey} not found in DOM.`);
       }
     }
-  }, [currentPeriodStartString, allDaysInFetchWindow]); // Now depends on currentPeriodStartString
+  }, [currentPeriodStartString, allDaysInFetchWindow]); // allDaysInFetchWindow is still a dependency here because its content changes based on currentPeriodStartString
 
   const handlePrevPeriod = () => {
     console.log("[WeeklyScheduleGrid] handlePrevPeriod called");
@@ -160,7 +160,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const handleGoToToday = () => {
     console.log("[WeeklyScheduleGrid] handleGoToToday called");
-    onPeriodShift(0); // This will cause SimplifiedSchedulePage to update currentPeriodStartString to today
+    onPeriodShift(0); 
   };
 
   const handleSelectVerticalZoom = (zoom: number) => {
@@ -409,7 +409,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     workdayStartTime={workdayStartTime}
                     workdayEndTime={workdayEndTime}
                     isDetailedView={isDetailedView}
-                    T_current={T_current}
+                    T_current={T_current} // Pass T_current directly to DailyScheduleColumn
                     zoomLevel={currentVerticalZoomFactor}
                     columnWidth={columnWidth}
                     onCompleteTask={handleCompleteScheduledTask}

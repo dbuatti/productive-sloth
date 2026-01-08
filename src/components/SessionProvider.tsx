@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { SessionContext, UserProfile } from '@/hooks/use-session';
+import { UserProfile } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, differenceInMinutes, format } from 'date-fns';
 import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, LOW_ENERGY_THRESHOLD, LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES, DAILY_CHALLENGE_TASKS_REQUIRED, REGEN_POD_MAX_DURATION_MINUTES, } from '@/lib/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
+import { DBScheduledTask, ScheduledItem, TaskEnvironment } from '@/types/scheduler'; // Import TaskEnvironment
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext } from '@/hooks/use-environment-context.ts';
 import { MealAssignment } from '@/hooks/use-meals';
@@ -61,7 +61,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           lunch_duration_minutes, dinner_duration_minutes, custom_environment_order, reflection_count, 
           reflection_times, reflection_durations, enable_environment_chunking, enable_macro_spread, 
           week_starts_on, num_days_visible, vertical_zoom_index, is_dashboard_collapsed, 
-          is_action_center_collapsed, updated_at
+          is_action_center_collapsed, updated_at, blocked_days
         `)
         .eq('id', userId)
         .single();
@@ -298,7 +298,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.reflection_count,
       profile.reflection_times,
       profile.reflection_durations,
-      mealAssignmentsToday // PASS MEAL ASSIGNMENTS
+      mealAssignmentsToday, // PASS MEAL ASSIGNMENTS
+      profile // Pass the profile object
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current, mealAssignmentsToday, todayString]);
 

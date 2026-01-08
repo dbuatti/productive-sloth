@@ -1,6 +1,19 @@
-import React, { useContext } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { ScheduledItem, TaskEnvironment } from '@/types/scheduler'; // Import TaskEnvironment
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { showSuccess, showError } from '@/utils/toast';
+import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, differenceInMinutes, format } from 'date-fns';
+import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, LOW_ENERGY_THRESHOLD, LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES, DAILY_CHALLENGE_TASKS_REQUIRED, REGEN_POD_MAX_DURATION_MINUTES, } from '@/lib/constants';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
+import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
+import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import { MealAssignment } from '@/hooks/use-meals';
+import isEqual from 'lodash.isequal'; // Import isEqual for deep comparison
+
+const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
+const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 export interface UserProfile {
   id: string;
@@ -45,6 +58,7 @@ export interface UserProfile {
   is_dashboard_collapsed: boolean; // NEW: Dashboard collapsed state
   is_action_center_collapsed: boolean; // NEW: Action Center collapsed state
   updated_at: string; // NEW: Added updated_at
+  blocked_days: string[] | null; // NEW: Added blocked_days
 }
 
 interface SessionContextType {
@@ -74,10 +88,338 @@ interface SessionContextType {
 
 export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);
 
+export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpLevel, setLevelUpLevel] = useState(0);
+  const [T_current, setT_current] = useState(new Date());
+  const [regenPodDurationMinutes, setRegenPodDurationMinutes] = useState(0);
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const { selectedEnvironments } = useEnvironmentContext();
+  const initialSessionLoadedRef = useRef(false);
+  const isLoading = isAuthLoading || isProfileLoading;
+  const todayString = format(new Date(), 'yyyy-MM-dd');
+
+  useEffect(() => {
+    const interval = setInterval(() => setT_current(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Use a ref to hold the latest profile for deep comparison in useCallback
+  const profileRef = useRef(profile);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    setIsProfileLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+          id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, 
+          last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, 
+          tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, 
+          daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, 
+          enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, 
+          regen_pod_start_time, breakfast_time, lunch_time, dinner_time, breakfast_duration_minutes, 
+          lunch_duration_minutes, dinner_duration_minutes, custom_environment_order, reflection_count, 
+          reflection_times, reflection_durations, enable_environment_chunking, enable_macro_spread, 
+          week_starts_on, num_days_visible, vertical_zoom_index, is_dashboard_collapsed, 
+          is_action_center_collapsed, updated_at, blocked_days
+        `)
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        setProfile(null);
+      } else if (data) {
+        // Create a copy of data without 'updated_at' for comparison
+        const dataWithoutUpdatedAt = { ...data };
+        delete dataWithoutUpdatedAt.updated_at;
+
+        const currentProfileWithoutUpdatedAt = profileRef.current ? { ...profileRef.current } : null;
+        if (currentProfileWithoutUpdatedAt) delete currentProfileWithoutUpdatedAt.updated_at;
+
+        // Only update profile state if there's a meaningful change (excluding updated_at)
+        if (!isEqual(currentProfileWithoutUpdatedAt, dataWithoutUpdatedAt)) {
+          setProfile(data as UserProfile); // Still set the full profile with updated_at
+        }
+        if (data.is_in_regen_pod && data.regen_pod_start_time) {
+          const start = parseISO(data.regen_pod_start_time);
+          const elapsed = differenceInMinutes(new Date(), start);
+          const remaining = REGEN_POD_MAX_DURATION_MINUTES - elapsed;
+          setRegenPodDurationMinutes(Math.max(0, remaining));
+        } else {
+          setRegenPodDurationMinutes(0);
+        }
+      }
+    } catch (e) {
+      setProfile(null);
+    } finally {
+      setIsProfileLoading(false);
+    }
+  }, []); // No 'profile' in dependencies here, as we use profileRef.current
+
+  const refreshProfile = useCallback(async () => {
+    if (user?.id) await fetchProfile(user.id);
+  }, [user?.id, fetchProfile]);
+
+  const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
+    if (!user || !profile) return;
+    const newEnergy = Math.min(MAX_ENERGY, profile.energy + amount);
+    const { error } = await supabase.from('profiles').update({ energy: newEnergy }).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, profile, refreshProfile]);
+
+  const triggerLevelUp = useCallback((level: number) => {
+    setShowLevelUp(true);
+    setLevelUpLevel(level);
+  }, []);
+
+  const resetLevelUp = useCallback(() => {
+    setShowLevelUp(false);
+    setLevelUpLevel(0);
+  }, []);
+
+  const resetDailyStreak = useCallback(async () => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update({ daily_streak: 0, last_streak_update: null }).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const claimDailyReward = useCallback(async (xpAmount: number, energyAmount: number) => {
+    if (!user || !profile) return;
+    const newXp = profile.xp + xpAmount;
+    const newEnergy = Math.min(MAX_ENERGY, profile.energy + energyAmount);
+    const { error } = await supabase.from('profiles').update({ xp: newXp, energy: newEnergy, last_daily_reward_claim: new Date().toISOString() }).eq('id', user.id);
+    if (!error) {
+      await refreshProfile();
+      showSuccess("Reward claimed!");
+    }
+  }, [user, profile, refreshProfile]);
+
+  const updateNotificationPreferences = useCallback(async (preferences: any) => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update(preferences).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const updateSettings = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+    if (!error) await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const triggerEnergyRegen = useCallback(async () => {
+    if (!user) return;
+    await supabase.functions.invoke('trigger-energy-regen');
+    await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const startRegenPodState = useCallback(async (durationMinutes: number) => {
+    if (!user) return;
+    setRegenPodDurationMinutes(durationMinutes);
+    await supabase.from('profiles').update({ is_in_regen_pod: true, regen_pod_start_time: new Date().toISOString() }).eq('id', user.id);
+    await refreshProfile();
+  }, [user, refreshProfile]);
+
+  const exitRegenPodState = useCallback(async () => {
+    if (!user || !profile?.is_in_regen_pod) return;
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/calculate-pod-exit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          startTime: profile.regen_pod_start_time,
+          endTime: new Date().toISOString()
+        }),
+      });
+    } finally {
+      await supabase.from('profiles').update({ is_in_regen_pod: false, regen_pod_start_time: null }).eq('id', user.id);
+      await refreshProfile();
+      setRegenPodDurationMinutes(0);
+    }
+  }, [user, profile, refreshProfile, session?.access_token]);
+
+  // Memoize the handler for auth state changes
+  const handleAuthChange = useCallback(async (event: string, currentSession: Session | null) => {
+    console.log("[SessionProvider] Auth state change event:", event);
+    setSession(currentSession);
+    setUser(currentSession?.user ?? null);
+    
+    if (currentSession?.user) {
+      await fetchProfile(currentSession.user.id);
+      // Redirection logic for /login after sign-in is now handled by the useEffect below
+    } else if (event === 'SIGNED_OUT') {
+      setProfile(null);
+      queryClient.clear();
+      setRedirectPath('/login');
+    }
+  }, [fetchProfile, queryClient]); // Removed location.pathname from dependencies
+
+  // Effect to set up the Supabase auth listener once
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      handleAuthChange(event, currentSession);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [handleAuthChange]); // Dependency on handleAuthChange ensures it uses the latest memoized version
+
+  // Effect to load the initial session once
+  useEffect(() => {
+    const loadInitialSession = async () => {
+      if (initialSessionLoadedRef.current) return;
+      initialSessionLoadedRef.current = true;
+      
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+        
+        if (initialSession?.user) {
+          await fetchProfile(initialSession.user.id);
+          // Redirection logic for /login after sign-in is now handled by the useEffect below
+        } else if (location.pathname !== '/login') {
+          setRedirectPath('/login');
+        }
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    loadInitialSession();
+  }, [fetchProfile, queryClient, location.pathname]); // Dependencies for loadInitialSession
+
+  useEffect(() => {
+    if (!isAuthLoading && redirectPath && location.pathname !== redirectPath) {
+      navigate(redirectPath, { replace: true });
+      setRedirectPath(null);
+    }
+    // NEW: Handle redirection after successful login if currently on /login
+    if (!isAuthLoading && user && location.pathname === '/login') {
+      setRedirectPath('/');
+    }
+  }, [redirectPath, navigate, location.pathname, isAuthLoading, user]);
+
+  const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
+    queryKey: ['scheduledTasksToday', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data } = await supabase.from('scheduled_tasks').select('*')
+        .eq('user_id', user.id).eq('scheduled_date', todayString);
+      return data as DBScheduledTask[];
+    },
+    enabled: !!user?.id && !isAuthLoading,
+  });
+
+  // NEW: Fetch meal assignments for today
+  const { data: mealAssignmentsToday = [] } = useQuery<MealAssignment[]>({
+    queryKey: ['mealAssignmentsToday', user?.id, todayString],
+    queryFn: async () => {
+      if (!user?.id || !todayString) return [];
+      const { data, error } = await supabase
+        .from('meal_assignments')
+        .select('*, meal_idea:meal_ideas(*)')
+        .eq('assigned_date', todayString)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return data as MealAssignment[];
+    },
+    enabled: !!user?.id && !isAuthLoading,
+  });
+
+  const calculatedScheduleToday = useMemo(() => {
+    if (!profile) return null;
+    const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_start_time) : startOfDay(T_current);
+    let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_end_time) : addHours(startOfDay(T_current), 17);
+    if (isBefore(end, start)) end = addDays(end, 1);
+    return calculateSchedule(
+      dbScheduledTasksToday,
+      todayString,
+      start,
+      end,
+      profile.is_in_regen_pod,
+      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null,
+      regenPodDurationMinutes,
+      T_current,
+      profile.breakfast_time,
+      profile.lunch_time,
+      profile.dinner_time,
+      profile.breakfast_duration_minutes,
+      profile.lunch_duration_minutes,
+      profile.dinner_duration_minutes,
+      profile.reflection_count,
+      profile.reflection_times,
+      profile.reflection_durations,
+      mealAssignmentsToday, // PASS MEAL ASSIGNMENTS
+      profile // Pass the profile object
+    );
+  }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current, mealAssignmentsToday, todayString]);
+
+  const activeItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => T_current >= i.startTime && T_current < i.endTime) || null, [calculatedScheduleToday, T_current]);
+
+  const nextItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => i.startTime > T_current) || null, [calculatedScheduleToday, T_current]);
+
+  const contextValue = useMemo(() => ({
+    session, 
+    user, 
+    profile, 
+    isLoading, 
+    refreshProfile, 
+    rechargeEnergy, 
+    showLevelUp, 
+    levelUpLevel, 
+    triggerLevelUp, 
+    resetLevelUp, 
+    resetDailyStreak, 
+    claimDailyReward, 
+    updateNotificationPreferences, 
+    updateProfile, 
+    updateSettings,
+    triggerEnergyRegen,
+    activeItemToday,
+    nextItemToday,
+    T_current,
+    startRegenPodState,
+    exitRegenPodState,
+    regenPodDurationMinutes
+  }), [
+    session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
+    triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
+    updateProfile, updateSettings, triggerEnergyRegen, activeItemToday, nextItemToday, T_current, 
+    startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+  ]);
+
+  return (
+    <SessionContext.Provider value={contextValue}>
+      {!isAuthLoading ? children : null}
+    </SessionContext.Provider>
+  );
+};
+
 export const useSession = () => {
-  const context = useContext(SessionContext);
+  const context = React.useContext(SessionContext);
   if (context === undefined) {
-    throw new Error('useSession must be used within a SessionContextProvider');
+    throw new Error('useSession must be used within a SessionProvider');
   }
   return context;
 };

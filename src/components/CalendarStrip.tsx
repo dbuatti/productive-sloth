@@ -4,8 +4,9 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { format, addDays, isToday, parseISO, subDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { CalendarCheck, ChevronLeft, ChevronRight, Loader2, Zap } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight, Loader2, Zap, CalendarOff } from 'lucide-react'; // NEW: Import CalendarOff
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSession } from '@/hooks/use-session'; // NEW: Import useSession
 
 interface CalendarStripProps {
   selectedDay: string; 
@@ -22,6 +23,9 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
   isLoadingDatesWithTasks,
   weekStartsOn 
 }) => {
+  const { profile } = useSession(); // NEW: Get profile from session
+  const blockedDays = profile?.blocked_days || []; // NEW: Get blocked days
+
   const daysToDisplay = 14; // Changed from 7 to 14
   const [displayedWindowStart, setDisplayedWindowStart] = useState<Date>(() => {
     const today = new Date();
@@ -53,6 +57,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
       const isSelected = formattedDay === selectedDay;
       const hasTasks = datesWithTasks.includes(formattedDay);
       const isCurrentDay = isToday(day);
+      const isBlocked = blockedDays.includes(formattedDay); // NEW: Check if day is blocked
 
       return (
         <Button
@@ -63,9 +68,11 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
             "flex flex-col items-center justify-center h-16 w-11 shrink-0 rounded-xl transition-all duration-300 ease-aether-out relative", // Increased height to h-16
             "text-muted-foreground hover:text-primary hover:bg-primary/5",
             isSelected && "bg-card text-foreground shadow-md scale-105 z-10", // Removed border-primary/50, glass-card
-            !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]" // Kept subtle border for today
+            !isSelected && isCurrentDay && "border border-primary/20 bg-primary/[0.02]", // Kept subtle border for today
+            isBlocked && "bg-destructive/10 text-destructive hover:bg-destructive/20 border-destructive/50 cursor-not-allowed" // NEW: Blocked day styling
           )}
           data-date={formattedDay}
+          disabled={isBlocked} // NEW: Disable button if day is blocked
         >
           <span className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1"> {/* Adjusted font size */}
             {format(day, 'EEE')}
@@ -74,20 +81,24 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
             {format(day, 'd')}
           </span>
           
-          {hasTasks && (
+          {hasTasks && !isBlocked && ( // NEW: Only show task indicator if not blocked
             <div className={cn(
               "absolute bottom-0.5 h-1 w-1 rounded-full shadow-[0_0_8px_rgba(var(--logo-yellow),0.8)] mx-auto", // Adjusted bottom and added mx-auto
               "bg-logo-yellow"
             )} />
           )}
 
-          {isCurrentDay && !isSelected && (
+          {isCurrentDay && !isSelected && !isBlocked && ( // NEW: Only show today indicator if not blocked
             <div className="absolute top-1 right-1 h-1 w-1 rounded-full bg-primary animate-pulse" />
+          )}
+
+          {isBlocked && ( // NEW: Blocked icon
+            <CalendarOff className="absolute inset-0 h-full w-full p-2 text-destructive/50" />
           )}
         </Button>
       );
     });
-  }, [displayedWindowStart, selectedDay, datesWithTasks, daysToDisplay]);
+  }, [displayedWindowStart, selectedDay, datesWithTasks, daysToDisplay, blockedDays, setSelectedDay]); // NEW: Add blockedDays to dependencies
 
   const handlePrevPeriod = () => {
     setDisplayedWindowStart(prev => subDays(prev, daysToDisplay));

@@ -214,6 +214,14 @@ export interface ScheduleSummary {
   criticalTasksRemaining: number; // NEW: Count of critical tasks not yet completed
 }
 
+// Define FormattedSchedule here
+export interface FormattedSchedule {
+  items: ScheduledItem[];
+  summary: ScheduleSummary;
+  dbTasks: DBScheduledTask[]; // Added for type safety in SchedulerDisplay
+  isBlocked?: boolean; // NEW: Added isBlocked flag
+}
+
 // New type for fixed time markers
 export interface TimeMarker {
   id: string;
@@ -238,13 +246,6 @@ export interface CurrentTimeMarker {
   id: string;
   type: 'current-time';
   time: Date;
-}
-
-// Define FormattedSchedule here
-export interface FormattedSchedule {
-  items: ScheduledItem[];
-  summary: ScheduleSummary;
-  dbTasks: DBScheduledTask[]; // Added for type safety in SchedulerDisplay
 }
 
 export type DisplayItem = ScheduledItem | TimeMarker | FreeTimeItem | CurrentTimeMarker; // Added CurrentTimeMarker

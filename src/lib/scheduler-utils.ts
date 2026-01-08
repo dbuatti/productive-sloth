@@ -86,91 +86,91 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
-  'reflection': '✨',
+  'reflection': 180,
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
-  'gym': 200, 'workout': 200, 'run': 210, 'exercise': 200, 'fitness': 200,
-  'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
-  'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40,
-  'design': 320, 'writing': 320, 'art': 330, 'creative': 340, 'draw': 320,
-  'study': 150, 
-  'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260,
-  'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40,
-  'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, 'eat': 35,
-  'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
-  'gaming': 100, 'hobbies': 20, 'leisure': 150, 'movie': 0, 'relax': 160, 'chill': 150, 
-  'meditation': 160, 'yoga': 160, 'self-care': 300, 'wellness': 170, 'mindfulness': 160, 'nap': 20, 'rest': 150,
-  'break': 40, 'coffee': 30, 'walk': 100, 'stretch': 110, 'coffee break': 30,
+  'gym': 10, 'workout': 10, 'run': 10, 'exercise': 10, 'fitness': 10,
+  'email': 200, 'messages': 200, 'calls': 200, 'communication': 200, 'admin': 200, 'paperwork': 200,
+  'meeting': 240, 'work': 240, 'report': 240, 'professional': 240, 'project': 240, 'coding': 240, 'develop': 240, 'code': 240, 'bug': 240, 'fix': 240,
+  'design': 280, 'writing': 280, 'art': 280, 'creative': 280, 'draw': 280,
+  'study': 320, 
+  'reading': 320, 'course': 320, 'learn': 320, 'class': 320, 'lecture': 320,
+  'clean': 40, 'laundry': 40, 'organize': 40, 'household': 40, 'setup': 40,
+  'cook': 30, 'meal prep': 30, 'groceries': 30, 'food': 30, 'lunch': 30, 'dinner': 30, 'breakfast': 30, 'snack': 30, 'eat': 30, 
+  'brainstorm': 60, 'strategy': 60, 'review': 60, 'plan': 60,
+  'gaming': 120, 'hobbies': 120, 'leisure': 120, 'movie': 120, 'relax': 120, 'chill': 120,
+  'meditation': 180, 'yoga': 180, 'self-care': 180, 'wellness': 180, 'mindfulness': 180, 'nap': 180, 'rest': 180,
+  'break': 30, 'coffee': 30, 'walk': 30, 'stretch': 30, 'coffee break': 30,
   'piano': 270, 'music': 270, 'practice': 270,
-  'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200,
-  'shop': 180, 'bank': 220, 'post': 240, 'errands': 210,
-  'friends': 300, 'family': 300, 'social': 310,
-  'wake up': 60,
-  'coles': 180,
-  'woolworths': 180,
-  'lesson': 260,
-  'call': 250,
-  'phone': 255,
-  'text': 245,
-  'contact': 290,
-  'student': 265,
-  'rehearsal': 315,
+  'commute': 210, 'drive': 210, 'bus': 210, 'train': 210, 'travel': 210,
+  'shop': 150, 'bank': 150, 'post': 150, 'errands': 150,
+  'friends': 300, 'family': 300, 'social': 300,
+  'wake up': 50,
+  'coles': 150,
+  'woolworths': 150,
+  'lesson': 320,
+  'call': 200,
+  'phone': 200,
+  'text': 200,
+  'contact': 200,
+  'student': 320,
+  'rehearsal': 270,
   'time off': 100,
-  'message': 245,
-  'journal': 320,
-  'washing': 200,
-  'money': 60, 'transactions': 60,
-  'mop': 120, 'floor': 120,
-  'quote': 230, 'send quote': 230, 'generate quote': 230,
-  'doctor': 300, 'medical': 300,
-  'channel': 160, 'anxious': 160,
-  'recycling': 140, 'bin': 140,
-  'milk': 40, 'cartons': 40,
-  'sync': 290, 'standup': 290,
+  'message': 200,
+  'journal': 280,
+  'washing': 40,
+  'money': 150, 'transactions': 150,
+  'mop': 40, 'floor': 40,
+  'quote': 240, 'send quote': 240, 'generate quote': 240,
+  'doctor': 10, 'medical': 10,
+  'channel': 180, 'anxious': 180,
+  'recycling': 40, 'bin': 40,
+  'milk': 30, 'cartons': 30,
+  'sync': 240, 'standup': 240,
   'tutorial': 60,
-  'tv': 10,
-  'cobweb': 120,
-  'cables': 210,
-  'fold laundry': 130,
-  'load of laundry': 130,
-  'tidy': 140,
-  'room': 150,
-  'book': 220,
-  'waitress': 220,
-  'preparation': 220,
-  'lego': 100,
-  'organise': 200,
-  'shirts': 200,
-  'gigs': 200,
-  'charge': 210,
-  'vacuum': 210,
-  'put away': 220, // Corrected from 📦
-  'sheets': 220, // Corrected from 📦
-  'pants': 220, // Corrected from 📦
-  'medication': 300, // Corrected from 💊
-  'toothbrush': 300, // Corrected from 💊
-  'return message': 245, // Corrected from 💬
-  'voice deal': 200, // Corrected from 🎤
-  'find location': 210, // Corrected from 🗺️
-  'broom': 120, // Corrected from 🧹
-  'practise': 270, // Corrected from 🎹
-  'track': 270, // Corrected from 🎼
-  'catch up': 290, // Corrected from 🤝
-  'trim': 300, // Corrected from 💅
-  'cuticle': 300, // Corrected from 💅
-  'payment': 60,
-  'link': 60,
-  'send': 270,
-  'voice notes': 320,
-  'job notes': 230,
-  'process': 230,
-  'usb': 210,
-  'cable': 210,
-  'coil': 210,
-  'write up': 320,
-  'notes': 320,
-  'reflection': 60,
+  'tv': 120,
+  'cobweb': 40,
+  'cables': 40,
+  'fold laundry': 40,
+  'load of laundry': 40,
+  'tidy': 40,
+  'room': 40,
+  'book': 320,
+  'waitress': 240,
+  'preparation': 280,
+  'lego': 120,
+  'organise': 40,
+  'shirts': 40,
+  'gigs': 270,
+  'charge': 40,
+  'vacuum': 40,
+  'put away': 40,
+  'sheets': 40,
+  'pants': 40,
+  'medication': 10,
+  'toothbrush': 10,
+  'return message': 200,
+  'voice deal': 270,
+  'find location': 210,
+  'broom': 40,
+  'practise': 270,
+  'track': 270,
+  'catch up': 240,
+  'trim': 10,
+  'cuticle': 10,
+  'payment': 150,
+  'link': 200,
+  'send': 200,
+  'voice notes': 280,
+  'job notes': 280,
+  'process': 240,
+  'usb': 40,
+  'cable': 40,
+  'coil': 40,
+  'write up': 280,
+  'notes': 280,
+  'reflection': 180,
 };
 
 // --- Utility Functions ---
@@ -638,6 +638,11 @@ export const compactScheduleLogic = (
   T_current: Date,
   profile: UserProfile | null // NEW: Accept profile to get static anchors
 ): DBScheduledTask[] => {
+  // NEW: If the day is blocked, return an empty array of tasks to update
+  if (profile?.blocked_days?.includes(format(selectedDayDate, 'yyyy-MM-dd'))) {
+    return [];
+  }
+
   // 1. Separate tasks: Fixed/Locked/Completed stay put. Flexible/Incomplete move.
   const fixedTasks = currentDbTasks.filter(
     t => t.is_locked || !t.is_flexible || t.is_completed
@@ -779,7 +784,8 @@ export const calculateSchedule = (
   reflectionCount: number = 0,
   reflectionTimes: string[] = [],
   reflectionDurations: number[] = [],
-  mealAssignments: any[] = []
+  mealAssignments: any[] = [],
+  profile: UserProfile | null // NEW: Pass profile to check for blocked days
 ): FormattedSchedule => {
   let allRawItems: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
@@ -792,6 +798,27 @@ export const calculateSchedule = (
 
   const [year, month, day] = selectedDay.split('-').map(Number);
   const selectedDayDate = new Date(year, month - 1, day); 
+
+  // NEW: Check if the day is blocked
+  const isDayBlocked = profile?.blocked_days?.includes(selectedDay);
+
+  if (isDayBlocked) {
+    return {
+      items: [],
+      summary: {
+        totalTasks: 0,
+        activeTime: { hours: 0, minutes: 0 },
+        breakTime: 0,
+        sessionEnd: workdayStart,
+        extendsPastMidnight: false,
+        midnightRolloverMessage: null,
+        unscheduledCount: dbTasks.length, // All tasks are unscheduled if day is blocked
+        criticalTasksRemaining: 0,
+      },
+      dbTasks: dbTasks,
+      isBlocked: true, // NEW: Add isBlocked flag to the schedule
+    };
+  }
 
   // 1. Add Scheduled Tasks from DB
   dbTasks.forEach((dbTask) => {
@@ -1067,7 +1094,7 @@ export const calculateSchedule = (
     breakTime: totalBreakTimeMinutes,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage,
+    midnightRolloverMessage: midnightRoloverMessage,
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
   };
@@ -1076,5 +1103,6 @@ export const calculateSchedule = (
     items: finalItems, // Use the merged items
     summary: summary,
     dbTasks: dbTasks, // Keep original dbTasks for other logic
+    isBlocked: false, // Not blocked
   };
 };

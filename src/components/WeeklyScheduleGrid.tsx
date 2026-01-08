@@ -19,6 +19,7 @@ import DailyScheduleColumn from './DailyScheduleColumn';
 import { useSession } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // NEW: Import useSchedulerTasks
+import { Skeleton } from '@/components/ui/skeleton'; // Import Skeleton
 
 interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
@@ -38,8 +39,8 @@ interface WeeklyScheduleGridProps {
   setCurrentVerticalZoomIndex: React.Dispatch<React.SetStateAction<number>>; 
 }
 
-const BASE_MINUTE_HEIGHT = 2.5; 
-const VERTICAL_ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00]; 
+const BASE_MINUTE_HEIGHT = 1.5; // Adjusted base height for 1 minute (more compact)
+const VERTICAL_ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00, 1.25, 1.50]; // Added more zoom levels
 const VISIBLE_DAYS_OPTIONS = [1, 3, 5, 7, 14, 21]; 
 const SCROLL_BUFFER_DAYS = 2; // How many days from the edge to trigger a shift
 
@@ -343,9 +344,19 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       {/* Schedule Grid Container */}
       <div ref={gridContainerRef} className="flex-1 overflow-auto custom-scrollbar" onScroll={handleScroll}>
         {isLoading ? (
-          <div className="flex items-center justify-center h-full min-h-[300px]">
+          <div className="flex flex-col items-center justify-center h-full min-h-[300px] py-16 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
-            <span className="ml-2 text-muted-foreground">Loading weekly schedule...</span>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Timeline...</p>
+            <div className="flex w-full px-4 gap-2">
+              {Array.from({ length: numDaysVisible }).map((_, colIdx) => (
+                <div key={colIdx} className="flex-1 min-w-[150px] space-y-2">
+                  <Skeleton className="h-16 w-full rounded-xl" />
+                  <Skeleton className="h-12 w-full rounded-xl" />
+                  <Skeleton className="h-20 w-full rounded-xl" />
+                  <Skeleton className="h-16 w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="flex h-full">

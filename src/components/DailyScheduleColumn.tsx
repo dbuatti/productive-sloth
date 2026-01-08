@@ -18,7 +18,9 @@ interface DailyScheduleColumnProps {
   onCompleteTask: (task: DBScheduledTask) => Promise<void>; // NEW: onCompleteTask prop
 }
 
-const BASE_MINUTE_HEIGHT = 2.5; // Base height for 1 minute at 100% zoom
+const BASE_MINUTE_HEIGHT = 1.5; // Adjusted base height for 1 minute (more compact)
+const MIN_TASK_HEIGHT_MINUTES = 10; // Minimum duration for a task to be rendered
+const MIN_TASK_HEIGHT_PX = MIN_TASK_HEIGHT_MINUTES * BASE_MINUTE_HEIGHT; // Minimum height in pixels
 
 const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   dayDate,
@@ -78,7 +80,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
     const durationMinutes = differenceInMinutes(localTaskEnd, localTaskStart);
 
     const top = offsetMinutes * dynamicMinuteHeight;
-    const height = durationMinutes * dynamicMinuteHeight;
+    const height = Math.max(durationMinutes * dynamicMinuteHeight, MIN_TASK_HEIGHT_PX * zoomLevel); // Ensure minimum height
 
     return { top, height, durationMinutes };
   };
@@ -166,7 +168,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
                 task={task} 
                 isDetailedView={isDetailedView} 
                 isCurrentlyActive={isCurrentlyActive} 
-                onCompleteTask={onCompleteTask} // NEW: Pass onCompleteTask
+                onCompleteTask={onCompleteTask} // NEW: Pass the handler
               />
             </div>
           );

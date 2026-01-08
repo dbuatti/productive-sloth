@@ -91,7 +91,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         .eq('assigned_date', selectedDay)
         .eq('user_id', user.id);
       if (error) throw error;
-      return data as MealAssignment[];
+      return data;
     },
     enabled: !!user?.id && !!selectedDay,
   });
@@ -539,53 +539,29 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               navigate={navigate}
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
-            <Card className="p-0 bg-transparent rounded-none shadow-none">
-              <CardHeader className="p-0 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-xl font-bold flex items-center gap-2">Your Vibe Schedule</CardTitle>
-                {/* Padlock button */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleToggleDayLock}
-                      disabled={overallLoading || (dbScheduledTasks.length === 0 && !isDayLockedDown) || isSelectedDayBlocked}
-                      className="h-9 w-9 text-muted-foreground hover:text-primary transition-colors"
-                      aria-label={isDayLockedDown ? "Unlock all tasks for today" : "Lock all tasks for today"}
-                    >
-                      {isDayLockedDown ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isDayLockedDown ? "Unlock All Tasks for Today" : "Lock All Tasks for Today"}
-                  </TooltipContent>
-                </Tooltip>
-              </CardHeader>
-              <CardContent className="p-0">
-                {calculatedSchedule?.summary.isBlocked ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-destructive/50 bg-destructive/5">
-                    <CalendarDays className="h-10 w-10 mb-3 opacity-20 text-destructive" />
-                    <p className="font-bold uppercase tracking-widest text-xs text-destructive/60">Day Blocked</p>
-                    <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px] text-center">No tasks can be scheduled on this day.</p>
-                  </div>
-                ) : (
-                  <SchedulerDisplay 
-                    schedule={calculatedSchedule} 
-                    T_current={T_current} 
-                    onRemoveTask={(id) => removeScheduledTask(id)} 
-                    onRetireTask={(t) => retireTask(t)} 
-                    onCompleteTask={(t) => handleSchedulerAction('complete', t)} 
-                    activeItemId={activeItemToday?.id || null} 
-                    selectedDayString={selectedDay} 
-                    onScrollToItem={() => {}} 
-                    isProcessingCommand={isProcessingCommand} 
-                    onFreeTimeClick={handleFreeTimeClick} 
-                    isDayLockedDown={isDayLockedDown} // NEW
-                    onToggleDayLock={handleToggleDayLock} // NEW
-                  />
-                )}
-              </CardContent>
-            </Card>
+            {/* Removed the duplicate CardHeader and Card around SchedulerDisplay */}
+            {calculatedSchedule?.summary.isBlocked ? (
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-destructive/50 bg-destructive/5">
+                <CalendarDays className="h-10 w-10 mb-3 opacity-20 text-destructive" />
+                <p className="font-bold uppercase tracking-widest text-xs text-destructive/60">Day Blocked</p>
+                <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px] text-center">No tasks can be scheduled on this day.</p>
+              </div>
+            ) : (
+              <SchedulerDisplay 
+                schedule={calculatedSchedule} 
+                T_current={T_current} 
+                onRemoveTask={(id) => removeScheduledTask(id)} 
+                onRetireTask={(t) => retireTask(t)} 
+                onCompleteTask={(t) => handleSchedulerAction('complete', t)} 
+                activeItemId={activeItemToday?.id || null} 
+                selectedDayString={selectedDay} 
+                onScrollToItem={() => {}} 
+                isProcessingCommand={isProcessingCommand} 
+                onFreeTimeClick={handleFreeTimeClick} 
+                isDayLockedDown={isDayLockedDown} // NEW
+                onToggleDayLock={handleToggleDayLock} // NEW
+              />
+            )}
           </>
         )}
         {view === 'sink' && (

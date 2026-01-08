@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours, addDays, differenceInMinutes, max, min, isAfter } from 'date-fns';
-import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database, CalendarDays } from 'lucide-react';
+import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database, CalendarDays, Lock, Unlock } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment, TimeBlock } from '@/types/scheduler';
@@ -39,6 +39,8 @@ import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants';
 import { useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // NEW: Import Tooltip components
+import { Button } from '@/components/ui/button'; // NEW: Import Button
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
@@ -76,6 +78,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     completeScheduledTask: completeScheduledTaskMutation,
     removeRetiredTask,
     handleAutoScheduleAndSort,
+    toggleAllScheduledTasksLock, // NEW
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const { data: mealAssignments = [] } = useQuery<MealAssignment[]>({
@@ -122,6 +125,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const isRegenPodRunning = profile?.is_in_regen_pod ?? false;
   const isSelectedDayBlocked = profile?.blocked_days?.includes(selectedDay) ?? false; // NEW: Check if selected day is blocked
+
+  // NEW: Derive if the entire day is locked down
+  const isDayLockedDown = useMemo(() => {
+    if (dbScheduledTasks.length === 0) return false; // A day with no tasks cannot be "locked down"
+    return dbScheduledTasks.every(task => task.is_locked);
+  }, [dbScheduledTasks]);
 
   useEffect(() => {
     if (isRegenPodRunning) {
@@ -426,6 +435,22 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     setIsCreateTaskDialogOpen(true);
   }, [selectedDayAsDate, isSelectedDayBlocked]);
 
+  // NEW: Handler for toggling day lock
+  const handleToggleDayLock = useCallback(async () => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot lock/unlock tasks on a blocked day.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      await toggleAllScheduledTasksLock({ selectedDate: selectedDay, lockState: !isDayLockedDown });
+    } catch (e) {
+      // Error handled by mutation's onError
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  }, [selectedDay, isDayLockedDown, toggleAllScheduledTasksLock, isSelectedDayBlocked]);
+
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
   const calculatedSchedule = useMemo(() => {
@@ -515,8 +540,26 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
             <Card className="p-0 bg-transparent rounded-none shadow-none">
-              <CardHeader className="p-0 pb-4">
-                <CardTitle className="text-xl font-bold">Your Vibe Schedule</CardTitle>
+              <CardHeader className="p-0 pb-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-xl font-bold flex items-center gap-2">Your Vibe Schedule</CardTitle>
+                {/* Padlock button */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleToggleDayLock}
+                      disabled={overallLoading || (dbScheduledTasks.length === 0 && !isDayLockedDown) || isSelectedDayBlocked}
+                      className="h-9 w-9 text-muted-foreground hover:text-primary transition-colors"
+                      aria-label={isDayLockedDown ? "Unlock all tasks for today" : "Lock all tasks for today"}
+                    >
+                      {isDayLockedDown ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isDayLockedDown ? "Unlock All Tasks for Today" : "Lock All Tasks for Today"}
+                  </TooltipContent>
+                </Tooltip>
               </CardHeader>
               <CardContent className="p-0">
                 {calculatedSchedule?.summary.isBlocked ? (
@@ -526,7 +569,20 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
                     <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px] text-center">No tasks can be scheduled on this day.</p>
                   </div>
                 ) : (
-                  <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={handleFreeTimeClick} />
+                  <SchedulerDisplay 
+                    schedule={calculatedSchedule} 
+                    T_current={T_current} 
+                    onRemoveTask={(id) => removeScheduledTask(id)} 
+                    onRetireTask={(t) => retireTask(t)} 
+                    onCompleteTask={(t) => handleSchedulerAction('complete', t)} 
+                    activeItemId={activeItemToday?.id || null} 
+                    selectedDayString={selectedDay} 
+                    onScrollToItem={() => {}} 
+                    isProcessingCommand={isProcessingCommand} 
+                    onFreeTimeClick={handleFreeTimeClick} 
+                    isDayLockedDown={isDayLockedDown} // NEW
+                    onToggleDayLock={handleToggleDayLock} // NEW
+                  />
                 )}
               </CardContent>
             </Card>

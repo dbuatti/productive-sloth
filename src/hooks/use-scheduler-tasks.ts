@@ -506,6 +506,28 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   });
 
+  const toggleAllScheduledTasksLockMutation = useMutation({
+    mutationFn: async ({ selectedDate, lockState }: { selectedDate: string; lockState: boolean }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { error } = await supabase
+        .from('scheduled_tasks')
+        .update({ is_locked: lockState, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('scheduled_date', selectedDate);
+      if (error) throw new Error(error.message);
+    },
+    onSettled: (data, error, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId, variables.selectedDate] });
+      if (variables.selectedDate === todayString) {
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday', userId] });
+      }
+      showSuccess(variables.lockState ? 'Day locked down!' : 'Day unlocked!');
+    },
+    onError: (e) => {
+      showError(`Failed to toggle day lock: ${e.message}`);
+    }
+  });
+
   const toggleRetiredTaskLockMutation = useMutation({
     mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
@@ -1050,6 +1072,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     compactScheduledTasks: compactScheduledTasksMutation.mutateAsync,
     randomizeBreaks: randomizeBreaksMutation.mutateAsync,
     toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutateAsync,
+    toggleAllScheduledTasksLock: toggleAllScheduledTasksLockMutation.mutateAsync, // NEW
     toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutateAsync,
     aetherDump: aetherDumpMutation.mutateAsync,
     aetherDumpMega: aetherDumpMegaMutation.mutateAsync,

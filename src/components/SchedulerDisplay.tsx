@@ -18,6 +18,7 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // NEW: Import Card components
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -30,6 +31,8 @@ interface SchedulerDisplayProps {
   onScrollToItem: (itemId: string) => void;
   isProcessingCommand: boolean;
   onFreeTimeClick: (startTime: Date, endTime: Date) => void;
+  isDayLockedDown: boolean; // NEW
+  onToggleDayLock: () => Promise<void>; // NEW
 }
 
 const MINUTE_HEIGHT = 2.0; 
@@ -57,7 +60,10 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   activeItemId,
   selectedDayString,
   onFreeTimeClick,
-  onScrollToItem
+  onScrollToItem,
+  isDayLockedDown, // NEW
+  onToggleDayLock, // NEW
+  isProcessingCommand, // Already exists
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString);
@@ -131,161 +137,186 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
         </Button>
       )}
 
-      <div ref={containerRef} className="relative pl-2 pr-2 py-4 custom-scrollbar">
-        <div className="absolute left-[0.5rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" />
-
-        {finalDisplayItems.map((item, index) => {
-          if (item.type === 'free-time') {
-            const gap = item as FreeTimeItem;
-            return (
-              <div 
-                key={gap.id}
-                className="group relative flex gap-2 mb-3 cursor-pointer"
-                style={{ height: `${gap.duration * FREE_TIME_MINUTE_HEIGHT}px` }}
-                onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
-                aria-label={`Add task to free time slot from ${format(gap.startTime, 'HH:mm')} to ${format(gap.endTime, 'HH:mm')}`}
+      <Card className="p-0 bg-transparent rounded-none shadow-none">
+        <CardHeader className="p-0 pb-4 flex flex-row items-center justify-between"> {/* Ensure flex-row and justify-between */}
+          <CardTitle className="text-xl font-bold">Your Vibe Schedule</CardTitle>
+          {/* Padlock button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleDayLock}
+                disabled={isProcessingCommand || (schedule?.dbTasks.length === 0 && !isDayLockedDown)} // Disable if no tasks and not already locked
+                className="h-9 w-9 text-muted-foreground hover:text-primary transition-colors"
+                aria-label={isDayLockedDown ? "Unlock all tasks for today" : "Lock all tasks for today"}
               >
-                <div className="w-8 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
-                <div className="flex-1 flex items-center justify-center border-dashed border-transparent rounded-lg hover:bg-secondary/20 transition-colors">
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/40 transition-opacity">
-                    +{formatDurationToHoursMinutes(gap.duration)}
-                  </span>
-                </div>
-              </div>
-            );
-          }
+                {isDayLockedDown ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isDayLockedDown ? "Unlock All Tasks for Today" : "Lock All Tasks for Today"}
+            </TooltipContent>
+          </Tooltip>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div ref={containerRef} className="relative pl-2 pr-2 py-4 custom-scrollbar">
+            <div className="absolute left-[0.5rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" />
 
-          const taskItem = item as ScheduledItem;
-          const dbTask = schedule.dbTasks.find(t => t.id === taskItem.id);
-          const isActive = taskItem.id === activeItemId;
-          const isPastItem = isPast(taskItem.endTime) && !isActive;
-          const duration = differenceInMinutes(taskItem.endTime, taskItem.startTime);
-          
-          const actualHeight = Math.max(duration * MINUTE_HEIGHT, MIN_TASK_HEIGHT_PX);
-
-          const hue = getEmojiHue(taskItem.name);
-          const accentColor = `hsl(${hue} 70% 50%)`;
-
-          return (
-            <div key={taskItem.id} className="relative group flex gap-2 mb-3">
-              <div className="w-8 text-right shrink-0 pt-0.5">
-                <span className={cn(
-                  "text-[9px] font-bold font-mono leading-none transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground/40"
-                )}>
-                  {format(taskItem.startTime, 'HH:mm')}
-                </span>
-              </div>
-
-              <div 
-                className={cn(
-                  "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col px-2 py-1",
-                  isActive ? "bg-primary/10" : "bg-card/40 hover:bg-primary/5",
-                  isPastItem && "opacity-40 grayscale",
-                  "justify-start" 
-                )}
-                style={{ 
-                  height: `${actualHeight}px`,
-                  borderLeft: `3px solid ${isActive ? 'hsl(var(--primary))' : accentColor}`
-                }}
-                onClick={() => dbTask && handleTaskClick(dbTask)}
-                aria-label={`Scheduled task: ${taskItem.name}. Click for details.`}
-              >
-                {isActive && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent animate-pulse" />}
-
-                <div className="flex items-start justify-between gap-3 pr-32 py-0.5">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-lg leading-none">{taskItem.emoji}</span>
-                      <span className={cn(
-                        "text-sm font-bold truncate",
-                        isActive ? "text-primary" : "text-foreground"
-                      )}>
-                        {taskItem.name}
+            {finalDisplayItems.map((item, index) => {
+              if (item.type === 'free-time') {
+                const gap = item as FreeTimeItem;
+                return (
+                  <div 
+                    key={gap.id}
+                    className="group relative flex gap-2 mb-3 cursor-pointer"
+                    style={{ height: `${gap.duration * FREE_TIME_MINUTE_HEIGHT}px` }}
+                    onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
+                    aria-label={`Add task to free time slot from ${format(gap.startTime, 'HH:mm')} to ${format(gap.endTime, 'HH:mm')}`}
+                  >
+                    <div className="w-8 text-right opacity-20 font-mono text-[8px] pt-1">{format(gap.startTime, 'HH:mm')}</div>
+                    <div className="flex-1 flex items-center justify-center border-dashed border-transparent rounded-lg hover:bg-secondary/20 transition-colors">
+                      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/40 transition-opacity">
+                        +{formatDurationToHoursMinutes(gap.duration)}
                       </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-mono font-semibold text-muted-foreground/70 flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> {duration}m
-                      </span>
-                      {taskItem.isCritical && (
-                        <Badge variant="secondary" className="h-4 px-1.5 text-[8px] font-black bg-logo-yellow/20 text-logo-yellow border-logo-yellow/30">
-                          CRIT
-                        </Badge>
-                      )}
-                      {getEnvironmentIcon(taskItem.taskEnvironment)}
                     </div>
                   </div>
-                </div>
+                );
+              }
 
-                {dbTask && (
-                  <div className={cn(
-                    "absolute bottom-1 right-1 flex flex-row gap-1 shrink-0",
-                    isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity" // Always visible on mobile
-                  )}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" size="icon" 
-                          className={cn(
-                            "h-5 w-5 rounded-md transition-colors",
-                            dbTask.is_locked ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+              const taskItem = item as ScheduledItem;
+              const dbTask = schedule.dbTasks.find(t => t.id === taskItem.id);
+              const isActive = taskItem.id === activeItemId;
+              const isPastItem = isPast(taskItem.endTime) && !isActive;
+              const duration = differenceInMinutes(taskItem.endTime, taskItem.startTime);
+              
+              const actualHeight = Math.max(duration * MINUTE_HEIGHT, MIN_TASK_HEIGHT_PX);
+
+              const hue = getEmojiHue(taskItem.name);
+              const accentColor = `hsl(${hue} 70% 50%)`;
+
+              return (
+                <div key={taskItem.id} className="relative group flex gap-2 mb-3">
+                  <div className="w-8 text-right shrink-0 pt-0.5">
+                    <span className={cn(
+                      "text-[9px] font-bold font-mono leading-none transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground/40"
+                    )}>
+                      {format(taskItem.startTime, 'HH:mm')}
+                    </span>
+                  </div>
+
+                  <div 
+                    className={cn(
+                      "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col px-2 py-1",
+                      isActive ? "bg-primary/10" : "bg-card/40 hover:bg-primary/5",
+                      isPastItem && "opacity-40 grayscale",
+                      "justify-start" 
+                    )}
+                    style={{ 
+                      height: `${actualHeight}px`,
+                      borderLeft: `3px solid ${isActive ? 'hsl(var(--primary))' : accentColor}`
+                    }}
+                    onClick={() => dbTask && handleTaskClick(dbTask)}
+                    aria-label={`Scheduled task: ${taskItem.name}. Click for details.`}
+                  >
+                    {isActive && <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent animate-pulse" />}
+
+                    <div className="flex items-start justify-between gap-3 pr-32 py-0.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-lg leading-none">{taskItem.emoji}</span>
+                          <span className={cn(
+                            "text-sm font-bold truncate",
+                            isActive ? "text-primary" : "text-foreground"
+                          )}>
+                            {taskItem.name}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-mono font-semibold text-muted-foreground/70 flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {duration}m
+                          </span>
+                          {taskItem.isCritical && (
+                            <Badge variant="secondary" className="h-4 px-1.5 text-[8px] font-black bg-logo-yellow/20 text-logo-yellow border-logo-yellow/30">
+                              CRIT
+                            </Badge>
                           )}
-                          onClick={(e) => { e.stopPropagation(); toggleScheduledTaskLock({ taskId: dbTask.id, isLocked: !dbTask.is_locked }); }}
-                          aria-label={dbTask.is_locked ? `Unlock "${dbTask.name}"` : `Lock "${dbTask.name}"`}
-                        >
-                          {dbTask.is_locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3 opacity-50" />}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Lock</TooltipContent>
-                    </Tooltip>
+                          {getEnvironmentIcon(taskItem.taskEnvironment)}
+                        </div>
+                      </div>
+                    </div>
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" size="icon" className="h-5 w-5 rounded-md text-logo-green hover:bg-logo-green/20"
-                          onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask); }}
-                          aria-label={`Complete "${dbTask.name}"`}
-                        >
-                          <CheckCircle2 className="h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Complete</TooltipContent>
-                    </Tooltip>
+                    {dbTask && (
+                      <div className={cn(
+                        "absolute bottom-1 right-1 flex flex-row gap-1 shrink-0",
+                        isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity" // Always visible on mobile
+                      )}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" 
+                              className={cn(
+                                "h-5 w-5 rounded-md transition-colors",
+                                dbTask.is_locked ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+                              )}
+                              onClick={(e) => { e.stopPropagation(); toggleScheduledTaskLock({ taskId: dbTask.id, isLocked: !dbTask.is_locked }); }}
+                              aria-label={dbTask.is_locked ? `Unlock "${dbTask.name}"` : `Lock "${dbTask.name}"`}
+                            >
+                              {dbTask.is_locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3 opacity-50" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Lock</TooltipContent>
+                        </Tooltip>
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" size="icon" className="h-5 w-5 rounded-md text-logo-orange hover:bg-logo-orange/20"
-                          onClick={(e) => { e.stopPropagation(); onRetireTask(dbTask); }}
-                          aria-label={`Archive "${dbTask.name}"`}
-                        >
-                          <Archive className="h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Archive</TooltipContent>
-                    </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" className="h-5 w-5 rounded-md text-logo-green hover:bg-logo-green/20"
+                              onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask); }}
+                              aria-label={`Complete "${dbTask.name}"`}
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Complete</TooltipContent>
+                        </Tooltip>
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" size="icon" className="h-5 w-5 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
-                          onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id); }}
-                          aria-label={`Delete "${dbTask.name}"`}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Delete</TooltipContent>
-                    </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" className="h-5 w-5 rounded-md text-logo-orange hover:bg-logo-orange/20"
+                              onClick={(e) => { e.stopPropagation(); onRetireTask(dbTask); }}
+                              aria-label={`Archive "${dbTask.name}"`}
+                            >
+                              <Archive className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Archive</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" size="icon" className="h-5 w-5 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
+                              onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id); }}
+                              aria-label={`Delete "${dbTask.name}"`}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <ScheduledTaskDetailDialog
         task={selectedTask}

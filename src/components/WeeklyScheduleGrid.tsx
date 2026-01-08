@@ -70,6 +70,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   // Ref to track if it's the initial mount
   const isInitialMount = useRef(true);
+  // Ref to track the last date we scrolled to, to prevent re-snapping on re-renders
+  const lastScrolledDateRef = useRef<string | null>(null);
 
   // Parse currentPeriodStartString to a Date object for internal use
   const currentPeriodStart = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
@@ -116,6 +118,12 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     if (gridContainer && currentPeriodStartString && allDaysInFetchWindow.length > 0) {
       const targetDateKey = currentPeriodStartString;
 
+      // Only scroll if the target date has changed from the last time we scrolled
+      // OR if it's the initial mount
+      if (targetDateKey === lastScrolledDateRef.current && !isInitialMount.current) {
+        return;
+      }
+
       const targetColumn = gridContainer.querySelector(`[data-date="${targetDateKey}"]`) as HTMLElement;
       
       if (targetColumn) {
@@ -131,9 +139,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             behavior: 'smooth' // Animate subsequent scrolls
           });
         }
+        lastScrolledDateRef.current = targetDateKey; // Update the ref after scrolling
       }
     }
-  }, [currentPeriodStartString, allDaysInFetchWindow]); // allDaysInFetchWindow is still a dependency here because its content changes based on currentPeriodStartString
+  }, [currentPeriodStartString, allDaysInFetchWindow]);
 
   const handlePrevPeriod = () => {
     onPeriodShift(-numDaysVisible);

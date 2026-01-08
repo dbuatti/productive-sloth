@@ -29,19 +29,19 @@ interface WeeklyScheduleGridProps {
   onSetNumDaysVisible: (days: number) => void;
   workdayStartTime: string; 
   workdayEndTime: string;   
-  isLoading: boolean; // Combined loading state from SimplifiedSchedulePage
+  isLoading: boolean; 
   weekStartsOn: number; 
   onPeriodShift: (shiftDays: number) => void; 
   fetchWindowStart: Date; 
   fetchWindowEnd: Date;   
   currentVerticalZoomIndex: number; 
   onSetCurrentVerticalZoomIndex: (index: number) => void;
-  profileSettings: any; // Contains blockedDays
+  profileSettings: any; 
   scrollVersion?: number;
-  allDaysInFetchWindow: string[]; // Derived in SimplifiedSchedulePage
-  columnWidth: number; // Derived in SimplifiedSchedulePage
-  onCompleteTask: (task: DBScheduledTask) => Promise<void>; // Passed down to DailyScheduleColumn
-  T_current: Date; // Passed down to DailyScheduleColumn
+  allDaysInFetchWindow: string[]; 
+  columnWidth: number; 
+  onCompleteTask: (task: DBScheduledTask) => Promise<void>; 
+  T_current: Date; 
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -52,7 +52,7 @@ const MIN_COLUMN_WIDTH = 100;
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
   currentPeriodStartString,
-  isLoading, // Use the combined isLoading
+  isLoading, 
   workdayStartTime,
   workdayEndTime,
   numDaysVisible,
@@ -65,10 +65,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   onSetCurrentVerticalZoomIndex,
   profileSettings,
   scrollVersion = 0,
-  allDaysInFetchWindow, // New prop
-  columnWidth, // New prop
-  onCompleteTask, // New prop
-  T_current, // New prop
+  allDaysInFetchWindow, 
+  columnWidth, 
+  onCompleteTask, 
+  T_current, 
 }) => {
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy } = useSession();
   const { completeScheduledTask } = useSchedulerTasks('');
@@ -76,15 +76,13 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   
   const currentVerticalZoomFactor = useMemo(() => VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex], [currentVerticalZoomIndex]);
 
-  const gridScrollContainerRef = useRef<HTMLDivElement>(null); // This ref will now be on the horizontally scrollable part
-  // NEW: Use state instead of a ref for the mounting lock to survive re-renders
+  const gridScrollContainerRef = useRef<HTMLDivElement>(null);
   const [hasDoneInitialFocus, setHasDoneInitialFocus] = useState(false);
   const lastScrollVersion = useRef<number>(0);
-  const lastWidth = useRef(columnWidth); // Track width to detect layout shifts
+  const lastWidth = useRef(columnWidth);
 
   const performScroll = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
     const container = gridScrollContainerRef.current;
-    // FIX: Add columnWidth check here to ensure stable layout before scrolling
     if (!container || allDaysInFetchWindow.length === 0 || columnWidth <= MIN_COLUMN_WIDTH) {
       return;
     }
@@ -101,7 +99,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   // THE ATOMIC LOCK: Only focus when everything is 100% stable
   useLayoutEffect(() => {
-    const isLayoutStable = columnWidth > 101; // Avoid the 100px fallback
+    const isLayoutStable = columnWidth > 101;
     const isDataStable = !isLoading && allDaysInFetchWindow.length > 0;
     
     if (!isLayoutStable || !isDataStable) return;
@@ -110,27 +108,29 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     if (!hasDoneInitialFocus) {
       requestAnimationFrame(() => {
         performScroll(currentPeriodStartString, 'auto');
-        setHasDoneInitialFocus(true); // Lock the gate forever for this session
+        setHasDoneInitialFocus(true);
         lastWidth.current = columnWidth;
       });
       return;
     }
 
     // B: RE-SYNC ONLY ON RESIZE
-    if (Math.abs(lastWidth.current - columnWidth) > 1) { // Use a small threshold for floating point comparisons
+    if (Math.abs(lastWidth.current - columnWidth) > 1) {
       performScroll(currentPeriodStartString, 'auto');
       lastWidth.current = columnWidth;
     }
   }, [isLoading, allDaysInFetchWindow, currentPeriodStartString, columnWidth, performScroll, hasDoneInitialFocus]);
 
-  // TODAY BUTTON: Explicit refocusing
+  // TODAY BUTTON / SCROLL VERSION: Explicit refocusing
   useEffect(() => {
     if (scrollVersion > lastScrollVersion.current) {
+      // If we are already on the correct date, just re-sync scroll
       performScroll(currentPeriodStartString, 'smooth');
       lastScrollVersion.current = scrollVersion;
     }
   }, [scrollVersion, currentPeriodStartString, performScroll]);
 
+  // ... (rest of the component remains the same)
   const handlePrevPeriod = useCallback(() => {
     onPeriodShift(-numDaysVisible);
   }, [onPeriodShift, numDaysVisible]);
@@ -173,7 +173,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   }, [completeScheduledTask, rechargeEnergy]);
 
-
   const timeAxisStart = useMemo(() => setTimeOnDate(parseISO(currentPeriodStartString), workdayStartTime), [currentPeriodStartString, workdayStartTime]);
   let timeAxisEnd = useMemo(() => setTimeOnDate(parseISO(currentPeriodStartString), workdayEndTime), [currentPeriodStartString, workdayEndTime]);
   if (isBefore(timeAxisEnd, timeAxisStart)) {
@@ -191,9 +190,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     return labels;
   }, [timeAxisStart, timeAxisEnd]);
 
-  // RENDER: Memoize to stop the "Double Render" flicker
   const dayElements = useMemo(() => {
-    if (isLoading) return null; // Don't render empty columns while loading
+    if (isLoading) return null; 
     return allDaysInFetchWindow.map((dateString) => {
       const tasksForDay = weeklyTasks[dateString] || [];
       const isDayBlocked = profileSettings?.blockedDays?.includes(dateString) ?? false;
@@ -204,7 +202,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             width: `${columnWidth}px`, 
             flex: `0 0 ${columnWidth}px`
           }} 
-          className="flex-shrink-0" // Removed border-r and overflow-y-auto from here
+          className="flex-shrink-0" 
         >
           <DailyScheduleColumn 
             dateString={dateString} 
@@ -222,7 +220,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       );
     });
   }, [allDaysInFetchWindow, columnWidth, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, T_current, currentVerticalZoomFactor, handleCompleteScheduledTask, profileSettings?.blockedDays, isLoading]);
-
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -356,9 +353,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       </div>
 
       {/* Schedule Grid Container */}
-      <div className="flex flex-1 overflow-hidden"> {/* This div now manages the flex layout of time axis and scrollable content */}
+      <div className="flex flex-1 overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-[300px] py-16 gap-4 w-full"> {/* Added w-full */}
+          <div className="flex flex-col items-center justify-center h-full min-h-[300px] py-16 gap-4 w-full">
             <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Timeline...</p>
             <div className="flex w-full px-4 gap-2">
@@ -376,7 +373,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           <>
             {/* Time Axis (Fixed on left) */}
             <div className="w-10 sm:w-14 flex-shrink-0 border-r border-border/50 bg-background/90 backdrop-blur-sm sticky left-0 z-10">
-              <div className="h-[60px] border-b border-border/50" /> {/* Spacer for header */}
+              <div className="h-[60px] border-b border-border/50" />
               <div className="relative" style={{ height: `${totalDayMinutesForTimeAxis * currentVerticalZoomFactor}px` }}>
                 {timeLabels.map((label, i) => (
                   <div
@@ -392,15 +389,14 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
             {/* Daily Columns (This is the horizontally scrollable content) */}
             <div 
-              ref={gridScrollContainerRef} // Ref moved here
+              ref={gridScrollContainerRef}
               id="weekly-schedule-grid-scroll-container" 
               className={cn(
                 "flex overflow-x-auto custom-scrollbar flex-1",
-                // LOCK scrolling while loading to prevent browser scroll-restoration bugs
                 isLoading || columnWidth <= MIN_COLUMN_WIDTH ? "pointer-events-none overflow-x-hidden" : "overflow-x-auto"
               )}
               style={{ 
-                scrollSnapType: 'none', // Remove swiping pauses
+                scrollSnapType: 'none',
                 WebkitOverflowScrolling: 'touch', 
                 touchAction: 'pan-x',
                 willChange: 'transform'

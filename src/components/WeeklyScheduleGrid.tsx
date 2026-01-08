@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
-import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter, startOfDay, subDays, Day, isSameDay } from 'date-fns';
+import { format, startOfWeek, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter, startOfDay, subDays, Day, isSameDay } from 'date-fns'; // Added subDays
 import { cn } from '@/lib/utils';
 import SimplifiedScheduledTaskItem from './SimplifiedScheduledTaskItem';
 import { Button } from '@/components/ui/button';
@@ -159,16 +159,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const handleGoToToday = () => {
     console.log("[WeeklyScheduleGrid] handleGoToToday called");
     const today = new Date();
-    let newStart: Date;
-    if (numDaysVisible === 1) {
-      newStart = startOfDay(today);
-    } else if (numDaysVisible === 3) {
-      newStart = subDays(startOfDay(today), 1); 
-    } else if (numDaysVisible === 5) {
-      newStart = subDays(startOfDay(today), 2); 
-    } else { // 7, 14, 21 days
-      newStart = startOfWeek(today, { weekStartsOn: weekStartsOn as Day });
-    }
+    // Simply set the currentPeriodStart to the start of today
+    const newStart = startOfDay(today);
+    
     console.log("[WeeklyScheduleGrid] handleGoToToday setting currentPeriodStart to:", format(newStart, 'yyyy-MM-dd'));
     setCurrentPeriodStart(newStart);
   };

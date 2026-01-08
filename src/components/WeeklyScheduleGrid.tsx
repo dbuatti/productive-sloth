@@ -83,7 +83,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const performScroll = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
     const container = gridScrollContainerRef.current;
-    if (!container || allDaysInFetchWindow.length === 0) {
+    // FIX: Add columnWidth check here to ensure stable layout before scrolling
+    if (!container || allDaysInFetchWindow.length === 0 || columnWidth <= MIN_COLUMN_WIDTH) {
+      // console.log(`[WeeklyScheduleGrid] performScroll skipped: container: ${!!container}, days: ${allDaysInFetchWindow.length}, width: ${columnWidth}`);
       return;
     }
 
@@ -94,16 +96,18 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         left: scrollPosition, 
         behavior 
       });
+      // console.log(`[WeeklyScheduleGrid] Scrolled to ${date} at ${scrollPosition}px with behavior ${behavior}.`);
+    } else {
+      // console.warn(`[WeeklyScheduleGrid] Target date ${date} not found in allDaysInFetchWindow.`);
     }
   }, [allDaysInFetchWindow, columnWidth]);
 
-  // FIX: Stabilize scroll against layout shifts
+  // FIX: Wait for both Data (isLoading) and Layout (columnWidth > 100)
   useLayoutEffect(() => {
-    if (isLoading || allDaysInFetchWindow.length === 0 || !gridScrollContainerRef.current) {
-      return;
-    }
+    // 1. Guard: Don't scroll if loading OR if width is still the 100px fallback
+    if (isLoading || allDaysInFetchWindow.length === 0 || columnWidth <= MIN_COLUMN_WIDTH) return;
 
-    // A: Handle Initial Mount
+    // 2. Initial Mount: Instant Jump once width is stable
     if (isInitialMount.current) {
       requestAnimationFrame(() => {
         performScroll(currentPeriodStartString, 'auto');
@@ -113,8 +117,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       return;
     }
 
-    // B: Handle Layout Shifts (Corrects the "jump to the past" when width updates)
-    // Check if the columnWidth has changed significantly
+    // 3. Layout Shift Correction: If width changes, re-sync position
     if (Math.abs(lastWidth.current - columnWidth) > 1) { // Use a small threshold for floating point comparisons
       performScroll(currentPeriodStartString, 'auto');
       lastWidth.current = columnWidth;
@@ -202,7 +205,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             width: `${columnWidth}px`, 
             flex: `0 0 ${columnWidth}px`
           }} 
-          className="border-r border-white/5 h-full overflow-y-auto"
+          className="flex-shrink-0" // Removed border-r and overflow-y-auto from here
         >
           <DailyScheduleColumn 
             dateString={dateString} 
@@ -213,13 +216,13 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             T_current={T_current}
             zoomLevel={currentVerticalZoomFactor}
             columnWidth={columnWidth}
-            onCompleteTask={onCompleteTask}
+            onCompleteTask={handleCompleteScheduledTask}
             isDayBlocked={isDayBlocked}
           />
         </div>
       );
     });
-  }, [allDaysInFetchWindow, columnWidth, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, T_current, currentVerticalZoomFactor, onCompleteTask, profileSettings?.blockedDays, isLoading]);
+  }, [allDaysInFetchWindow, columnWidth, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, T_current, currentVerticalZoomFactor, handleCompleteScheduledTask, profileSettings?.blockedDays, isLoading]);
 
 
   return (

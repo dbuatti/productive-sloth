@@ -25,18 +25,16 @@ interface WeeklyScheduleGridProps {
   weeklyTasks: { [key: string]: DBScheduledTask[] };
   currentPeriodStartString: string;
   numDaysVisible: number; 
-  setNumDaysVisible: (days: number) => void; 
+  onSetNumDaysVisible: (days: number) => void; // Changed to callback
   workdayStartTime: string; 
   workdayEndTime: string;   
   isLoading: boolean;
-  // T_current is no longer passed here
   weekStartsOn: number; 
   onPeriodShift: (shiftDays: number) => void; 
   fetchWindowStart: Date; 
   fetchWindowEnd: Date;   
   currentVerticalZoomIndex: number; 
-  setCurrentVerticalZoomIndex: React.Dispatch<React.SetStateAction<number>>; 
-  // scrollTrigger is no longer passed here
+  onSetCurrentVerticalZoomIndex: (index: number) => void; // Changed to callback
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -48,18 +46,16 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
   currentPeriodStartString,
   isLoading,
-  // T_current is no longer destructured here
   workdayStartTime,
   workdayEndTime,
   numDaysVisible,
-  setNumDaysVisible,
+  onSetNumDaysVisible, // Destructure new prop
   weekStartsOn,
   onPeriodShift,
   fetchWindowStart,
   fetchWindowEnd,   
   currentVerticalZoomIndex,
-  setCurrentVerticalZoomIndex,
-  // scrollTrigger is no longer destructured here
+  onSetCurrentVerticalZoomIndex, // Destructure new prop
 }) => {
   console.log("[WeeklyScheduleGrid] Component Rendered");
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy, T_current } = useSession(); // Get T_current from useSession directly
@@ -167,13 +163,13 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     console.log("[WeeklyScheduleGrid] handleSelectVerticalZoom called with:", zoom);
     const newIndex = VERTICAL_ZOOM_LEVELS.indexOf(zoom);
     if (newIndex !== -1) {
-      setCurrentVerticalZoomIndex(newIndex);
+      onSetCurrentVerticalZoomIndex(newIndex); // Use callback
     }
   };
 
   const handleSelectNumDaysVisible = (daysOption: number) => {
     console.log("[WeeklyScheduleGrid] handleSelectNumDaysVisible called with:", daysOption);
-    setNumDaysVisible(daysOption);
+    onSetNumDaysVisible(daysOption); // Use callback
   };
 
   const handleSaveViewPreferences = async () => {

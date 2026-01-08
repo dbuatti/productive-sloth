@@ -9,10 +9,11 @@ import { format, startOfDay, parseISO, addDays } from 'date-fns';
 
 const SimplifiedSchedulePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, isLoading: isSessionLoading, T_current } = useSession();
+  const { user, profile, isLoading: isSessionLoading, T_current, updateProfile } = useSession();
 
-  const [numDaysVisible, setNumDaysVisible] = useState<number>(profile?.num_days_visible ?? 7);
-  const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(profile?.vertical_zoom_index ?? 3);
+  // Derive numDaysVisible and currentVerticalZoomIndex directly from profile
+  const numDaysVisible = profile?.num_days_visible ?? 7;
+  const currentVerticalZoomIndex = profile?.vertical_zoom_index ?? 3;
 
   const [currentPeriodStartString, setCurrentPeriodStartString] = useState<string>(() =>
     format(startOfDay(new Date()), 'yyyy-MM-dd')
@@ -23,15 +24,6 @@ const SimplifiedSchedulePage: React.FC = () => {
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
 
-  // Sync profile changes
-  useEffect(() => {
-    if (profile) {
-      if (profile.num_days_visible !== numDaysVisible) setNumDaysVisible(profile.num_days_visible ?? 7);
-      if (profile.vertical_zoom_index !== currentVerticalZoomIndex)
-        setCurrentVerticalZoomIndex(profile.vertical_zoom_index ?? 3);
-    }
-  }, [profile]);
-
   const handlePeriodShift = useCallback((shiftDays: number) => {
     setCurrentPeriodStartString((prev) => {
       const prevDate = parseISO(prev);
@@ -39,6 +31,19 @@ const SimplifiedSchedulePage: React.FC = () => {
       return format(addDays(prevDate, shiftDays), 'yyyy-MM-dd');
     });
   }, []);
+
+  // Callbacks to update profile settings
+  const handleSetNumDaysVisible = useCallback(async (days: number) => {
+    if (profile && days !== profile.num_days_visible) {
+      await updateProfile({ num_days_visible: days });
+    }
+  }, [profile, updateProfile]);
+
+  const handleSetCurrentVerticalZoomIndex = useCallback(async (index: number) => {
+    if (profile && index !== profile.vertical_zoom_index) {
+      await updateProfile({ vertical_zoom_index: index });
+    }
+  }, [profile, updateProfile]);
 
   if (isLoading) {
     return (
@@ -72,7 +77,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           weeklyTasks={weeklyTasks}
           currentPeriodStartString={currentPeriodStartString}
           numDaysVisible={numDaysVisible}
-          setNumDaysVisible={setNumDaysVisible}
+          onSetNumDaysVisible={handleSetNumDaysVisible}
           workdayStartTime={workdayStartTime}
           workdayEndTime={workdayEndTime}
           isLoading={isWeeklyTasksLoading}
@@ -81,7 +86,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           fetchWindowStart={fetchWindowStart}
           fetchWindowEnd={fetchWindowEnd}
           currentVerticalZoomIndex={currentVerticalZoomIndex}
-          setCurrentVerticalZoomIndex={setCurrentVerticalZoomIndex}
+          onSetCurrentVerticalZoomIndex={handleSetCurrentVerticalZoomIndex}
         />
       </div>
     </div>

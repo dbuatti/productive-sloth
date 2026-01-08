@@ -208,20 +208,23 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
     // Determine the index of the first visible day
     const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
-    const firstVisibleColumnIndex = Math.floor((scrollLeft + timeAxisWidth) / columnWidth);
+    const firstColumn = event.currentTarget.querySelector('.daily-schedule-column') as HTMLElement;
+    const actualColumnWidth = firstColumn ? firstColumn.offsetWidth : MIN_COLUMN_WIDTH; // Fallback to MIN_COLUMN_WIDTH
+
+    const firstVisibleColumnIndex = Math.floor((scrollLeft + timeAxisWidth) / actualColumnWidth);
     const firstVisibleDay = allDaysInFetchWindow[firstVisibleColumnIndex];
 
     if (!firstVisibleDay) return;
 
     // Check if we are near the start of the fetched window
-    if (scrollLeft < columnWidth * SCROLL_BUFFER_DAYS) {
+    if (scrollLeft < actualColumnWidth * SCROLL_BUFFER_DAYS) {
       // Shift the period back by numDaysVisible, but ensure we don't go past the actual fetch start
       if (!isSameDay(firstVisibleDay, fetchWindowStart)) {
         onPeriodShift(-numDaysVisible);
       }
     }
     // Check if we are near the end of the fetched window
-    else if (scrollLeft + clientWidth > scrollWidth - (columnWidth * SCROLL_BUFFER_DAYS)) {
+    else if (scrollLeft + clientWidth > scrollWidth - (actualColumnWidth * SCROLL_BUFFER_DAYS)) {
       // Shift the period forward by numDaysVisible, but ensure we don't go past the actual fetch end
       const lastRenderedDay = allDaysInFetchWindow[allDaysInFetchWindow.length - 1];
       if (!isSameDay(firstVisibleDay, lastRenderedDay)) { // Check against the first visible day, not the last rendered
@@ -366,7 +369,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       <div 
         ref={gridScrollContainerRef} 
         id="weekly-schedule-grid-scroll-container" 
-        className="flex-1 overflow-auto custom-scrollbar scroll-snap-x-mandatory" // Added scroll-snap-x-mandatory
+        className="flex-1 overflow-auto custom-scrollbar" // Removed scroll-snap-x-mandatory
         onScroll={handleScroll}
       >
         {isLoading ? (

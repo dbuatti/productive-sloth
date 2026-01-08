@@ -87,7 +87,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
 
   return (
     <div 
-      className="relative flex-shrink-0 border-r border-border/50 last:border-r-0 daily-schedule-column scroll-snap-align-start" // Added scroll-snap-align-start
+      className="relative flex-shrink-0 border-r border-border/50 last:border-r-0 daily-schedule-column" // Removed scroll-snap-align-start
       style={{ width: `${columnWidth}px`, minWidth: `${columnWidth}px` }} // Explicit width and minWidth
       data-date={format(dayDate, 'yyyy-MM-dd')} // Added data-date for scrolling
     >

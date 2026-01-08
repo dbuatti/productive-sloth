@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours, addDays, differenceInMinutes, max, min, isAfter } from 'date-fns';
-import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database, CalendarDays, Lock, Unlock, Ban } from 'lucide-react'; // Added Lock, Unlock, Ban
+import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database, CalendarDays } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment, TimeBlock } from '@/types/scheduler';
@@ -39,8 +39,6 @@ import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants';
 import { useNavigate } from 'react-router-dom';
 import AetherSink from '@/components/AetherSink';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
-import { Button } from '@/components/ui/button'; // Ensure Button is imported
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Ensure Tooltip is imported
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
@@ -78,7 +76,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     completeScheduledTask: completeScheduledTaskMutation,
     removeRetiredTask,
     handleAutoScheduleAndSort,
-    toggleAllFlexibleTasksLock, // NEW: Import the new mutation
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const { data: mealAssignments = [] } = useQuery<MealAssignment[]>({
@@ -124,14 +121,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   if (isBefore(workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay)) workdayEndTimeForSelectedDay = addDays(workdayEndTimeForSelectedDay, 1);
 
   const isRegenPodRunning = profile?.is_in_regen_pod ?? false;
-  const isSelectedDayBlocked = profile?.blocked_days?.includes(selectedDay) ?? false;
-
-  // NEW: Derive isDayLocked state
-  const isDayLocked = useMemo(() => {
-    const flexibleTasksOnDay = dbScheduledTasks.filter(t => t.is_flexible);
-    if (flexibleTasksOnDay.length === 0) return false; // No flexible tasks to lock/unlock
-    return flexibleTasksOnDay.every(t => t.is_locked);
-  }, [dbScheduledTasks]);
+  const isSelectedDayBlocked = profile?.blocked_days?.includes(selectedDay) ?? false; // NEW: Check if selected day is blocked
 
   useEffect(() => {
     if (isRegenPodRunning) {
@@ -179,53 +169,53 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay]);
 
   const handleRebalanceToday = useCallback(async () => {
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot auto-schedule on a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot auto-schedule on a blocked day.");
       return;
     }
     await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
-  }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked, isDayLocked]);
+  }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleReshuffleEverything = useCallback(async () => {
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot reshuffle on a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot reshuffle on a blocked day.");
       return;
     }
     await handleAutoScheduleAndSort(sortBy, 'all-flexible', [], selectedDay);
-  }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked, isDayLocked]);
+  }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleZoneFocus = useCallback(async () => {
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot zone focus on a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot zone focus on a blocked day.");
       return;
     }
     await handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay);
-  }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy, isSelectedDayBlocked, isDayLocked]);
+  }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleCompact = useCallback(async () => {
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot compact schedule on a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot compact schedule on a blocked day.");
       return;
     }
     const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile);
     await compactScheduledTasks({ tasksToUpdate });
-  }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile, isSelectedDayBlocked, isDayLocked]);
+  }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile, isSelectedDayBlocked]);
 
   const handleRandomize = useCallback(async () => {
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot randomize breaks on a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot randomize breaks on a blocked day.");
       return;
     }
     await randomizeBreaks({ selectedDate: selectedDay, workdayStartTime: workdayStartTimeForSelectedDay, workdayEndTime: workdayEndTimeForSelectedDay, currentDbTasks: dbScheduledTasks });
-  }, [selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, dbScheduledTasks, randomizeBreaks, isSelectedDayBlocked, isDayLocked]);
+  }, [selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, dbScheduledTasks, randomizeBreaks, isSelectedDayBlocked]);
 
   const handleRezone = useCallback(async (task: RetiredTask) => {
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot re-zone tasks to a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot re-zone tasks to a blocked day.");
       return;
     }
     await rezoneTask(task);
-  }, [rezoneTask, isSelectedDayBlocked, isDayLocked]);
+  }, [rezoneTask, isSelectedDayBlocked]);
 
   const handleRemoveRetired = useCallback(async (taskId: string) => {
     await removeRetiredTask(taskId);
@@ -238,8 +228,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const handleStartPodSession = useCallback(async (activityName: string, activityDuration: number) => {
     if (!user || !profile) return;
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot start Regen Pod on a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot start Regen Pod on a blocked day.");
       return;
     }
     setIsProcessingCommand(true);
@@ -268,34 +258,18 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
         setIsProcessingCommand(false);
     }
-  }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask, isSelectedDayBlocked, isDayLocked]);
+  }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask, isSelectedDayBlocked]);
 
   const handleExitPodSession = useCallback(async () => {
     await exitRegenPodState();
     setShowRegenPodSetup(false);
   }, [exitRegenPodState]);
 
-  // NEW: handleToggleDayLock function
-  const handleToggleDayLock = useCallback(async () => {
-    if (isSelectedDayBlocked) {
-      showError("Cannot modify lock status on a blocked day.");
-      return;
-    }
-    setIsProcessingCommand(true);
-    try {
-      await toggleAllFlexibleTasksLock({ selectedDate: selectedDay, lockStatus: !isDayLocked });
-    } catch (e: any) {
-      showError(`Failed to toggle day lock: ${e.message}`);
-    } finally {
-      setIsProcessingCommand(false);
-    }
-  }, [toggleAllFlexibleTasksLock, selectedDay, isDayLocked, isSelectedDayBlocked]);
-
 
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) return showError("Please log in.");
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot perform scheduling actions on a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot perform scheduling actions on a blocked day.");
       return;
     }
     setIsProcessingCommand(true);
@@ -407,13 +381,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, getStaticConstraints, isSelectedDayBlocked, isDayLocked]);
+  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, getStaticConstraints, isSelectedDayBlocked]);
 
   const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'exitFocus', task: DBScheduledTask) => {
-    if (isDayLocked && task.is_flexible) {
-      showError("Day is locked. Unlock to modify flexible tasks.");
-      return;
-    }
     setIsProcessingCommand(true);
     try {
       if (action === 'complete') {
@@ -428,11 +398,11 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [completeScheduledTaskMutation, rechargeEnergy, retireTask, isDayLocked]);
+  }, [completeScheduledTaskMutation, rechargeEnergy, retireTask]);
 
   const handleDetailedInject = useCallback(() => {
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot add tasks to a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot add tasks to a blocked day.");
       return;
     }
     setCreateTaskDefaultValues({
@@ -440,11 +410,11 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       defaultDueDate: selectedDayAsDate,
     });
     setIsCreateTaskDialogOpen(true);
-  }, [selectedDayAsDate, isSelectedDayBlocked, isDayLocked]);
+  }, [selectedDayAsDate, isSelectedDayBlocked]);
 
   const handleFreeTimeClick = useCallback((startTime: Date, endTime: Date) => {
-    if (isSelectedDayBlocked || isDayLocked) {
-      showError("Cannot add tasks to a blocked or locked day.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot add tasks to a blocked day.");
       return;
     }
     setCreateTaskDefaultValues({
@@ -454,7 +424,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       defaultEndTime: endTime,
     });
     setIsCreateTaskDialogOpen(true);
-  }, [selectedDayAsDate, isSelectedDayBlocked, isDayLocked]);
+  }, [selectedDayAsDate, isSelectedDayBlocked]);
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
@@ -517,12 +487,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
                 <CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <SchedulerInput onCommand={handleCommand} isLoading={overallLoading || isDayLocked || isSelectedDayBlocked} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} />
+                <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} />
               </CardContent>
             </Card>
             
             <SchedulerActionCenter 
-              isProcessingCommand={overallLoading || isDayLocked || isSelectedDayBlocked} 
+              isProcessingCommand={overallLoading} 
               dbScheduledTasks={dbScheduledTasks} 
               retiredTasksCount={retiredTasks.length} 
               sortBy={sortBy} 
@@ -543,49 +513,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
               navigate={navigate}
             />
-            <NowFocusCard 
-              activeItem={activeItemToday} 
-              nextItem={nextItemToday} 
-              T_current={T_current} 
-              onEnterFocusMode={() => {
-                if (isDayLocked || isSelectedDayBlocked) {
-                  showError("Cannot enter focus mode on a locked or blocked day.");
-                  return;
-                }
-                setIsFocusModeActive(true);
-              }} 
-              isLoading={overallLoading} 
-            />
+            <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
             <Card className="p-0 bg-transparent rounded-none shadow-none">
               <CardHeader className="p-0 pb-4">
-                <CardTitle className="text-xl font-bold flex items-center gap-2">
-                  <ListTodo className="h-6 w-6 text-primary" /> Your Vibe Schedule
-                  {isSelectedDayBlocked ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Ban className="h-5 w-5 text-destructive/60" />
-                      </TooltipTrigger>
-                      <TooltipContent>Day is blocked, cannot modify lock status.</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleToggleDayLock}
-                          disabled={isProcessingCommand}
-                          className="h-8 w-8 text-muted-foreground hover:text-primary"
-                          aria-label={isDayLocked ? "Unlock Day" : "Lock Day"}
-                        >
-                          {isDayLocked ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
-                          <span className="sr-only">{isDayLocked ? "Unlock Day" : "Lock Day"}</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>{isDayLocked ? "Unlock all flexible tasks for today" : "Lock all flexible tasks for today"}</TooltipContent>
-                    </Tooltip>
-                  )}
-                </CardTitle>
+                <CardTitle className="text-xl font-bold">Your Vibe Schedule</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {calculatedSchedule?.summary.isBlocked ? (
@@ -595,19 +526,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
                     <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px] text-center">No tasks can be scheduled on this day.</p>
                   </div>
                 ) : (
-                  <SchedulerDisplay 
-                    schedule={calculatedSchedule} 
-                    T_current={T_current} 
-                    onRemoveTask={(id) => removeScheduledTask(id)} 
-                    onRetireTask={(t) => retireTask(t)} 
-                    onCompleteTask={(t) => handleSchedulerAction('complete', t)} 
-                    activeItemId={activeItemToday?.id || null} 
-                    selectedDayString={selectedDay} 
-                    onScrollToItem={() => {}} 
-                    isProcessingCommand={isProcessingCommand} 
-                    onFreeTimeClick={handleFreeTimeClick} 
-                    isDayLocked={isDayLocked} // NEW: Pass isDayLocked
-                  />
+                  <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={handleFreeTimeClick} />
                 )}
               </CardContent>
             </Card>

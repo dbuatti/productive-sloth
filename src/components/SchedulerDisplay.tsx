@@ -18,7 +18,6 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { showError } from '@/utils/toast'; // NEW: Import showError
 
 interface SchedulerDisplayProps {
   schedule: FormattedSchedule | null;
@@ -31,7 +30,6 @@ interface SchedulerDisplayProps {
   onScrollToItem: (itemId: string) => void;
   isProcessingCommand: boolean;
   onFreeTimeClick: (startTime: Date, endTime: Date) => void;
-  isDayLocked: boolean; // NEW: Add isDayLocked prop
 }
 
 const MINUTE_HEIGHT = 2.0; 
@@ -59,8 +57,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   activeItemId,
   selectedDayString,
   onFreeTimeClick,
-  onScrollToItem,
-  isDayLocked, // Destructure new prop
+  onScrollToItem
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { toggleScheduledTaskLock } = useSchedulerTasks(selectedDayString);
@@ -105,11 +102,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
   }, [schedule]);
 
   const handleTaskClick = (task: DBScheduledTask) => {
-    // If the day is locked and the task is flexible, prevent opening the dialog
-    if (isDayLocked && task.is_flexible) {
-      showError("Day is locked. Unlock to modify flexible tasks.");
-      return;
-    }
     setSelectedTask(task);
     setIsDialogOpen(true);
   };
@@ -142,27 +134,13 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
       <div ref={containerRef} className="relative pl-2 pr-2 py-4 custom-scrollbar">
         <div className="absolute left-[0.5rem] top-0 bottom-0 w-px bg-gradient-to-b from-primary/50 via-primary/10 to-transparent" />
 
-        {/* NEW: Locked Day Overlay */}
-        {isDayLocked && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/5 backdrop-blur-sm rounded-xl pointer-events-none">
-            <div className="flex flex-col items-center text-primary/60">
-              <Lock className="h-12 w-12 mb-2" />
-              <p className="text-lg font-bold uppercase tracking-widest">Day Locked</p>
-              <p className="text-sm text-muted-foreground">Unlock to modify flexible tasks.</p>
-            </div>
-          </div>
-        )}
-
         {finalDisplayItems.map((item, index) => {
           if (item.type === 'free-time') {
             const gap = item as FreeTimeItem;
             return (
               <div 
                 key={gap.id}
-                className={cn(
-                  "group relative flex gap-2 mb-3 cursor-pointer",
-                  isDayLocked && "pointer-events-none opacity-50" // Disable free time clicks if day is locked
-                )}
+                className="group relative flex gap-2 mb-3 cursor-pointer"
                 style={{ height: `${gap.duration * FREE_TIME_MINUTE_HEIGHT}px` }}
                 onClick={() => onFreeTimeClick(gap.startTime, gap.endTime)}
                 aria-label={`Add task to free time slot from ${format(gap.startTime, 'HH:mm')} to ${format(gap.endTime, 'HH:mm')}`}
@@ -188,9 +166,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
           const hue = getEmojiHue(taskItem.name);
           const accentColor = `hsl(${hue} 70% 50%)`;
 
-          // NEW: Determine if task actions should be disabled
-          const isTaskActionDisabled = isDayLocked && taskItem.isFlexible;
-
           return (
             <div key={taskItem.id} className="relative group flex gap-2 mb-3">
               <div className="w-8 text-right shrink-0 pt-0.5">
@@ -207,7 +182,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                   "flex-1 rounded-xl border-none transition-all duration-300 relative overflow-hidden flex flex-col px-2 py-1",
                   isActive ? "bg-primary/10" : "bg-card/40 hover:bg-primary/5",
                   isPastItem && "opacity-40 grayscale",
-                  isTaskActionDisabled && "opacity-60 cursor-not-allowed", // Visual cue for disabled tasks
                   "justify-start" 
                 )}
                 style={{ 
@@ -259,7 +233,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                             dbTask.is_locked ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
                           )}
                           onClick={(e) => { e.stopPropagation(); toggleScheduledTaskLock({ taskId: dbTask.id, isLocked: !dbTask.is_locked }); }}
-                          disabled={isTaskActionDisabled} // Disable individual lock toggle if day is locked
                           aria-label={dbTask.is_locked ? `Unlock "${dbTask.name}"` : `Lock "${dbTask.name}"`}
                         >
                           {dbTask.is_locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3 opacity-50" />}
@@ -273,7 +246,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                         <Button 
                           variant="ghost" size="icon" className="h-5 w-5 rounded-md text-logo-green hover:bg-logo-green/20"
                           onClick={(e) => { e.stopPropagation(); onCompleteTask(dbTask); }}
-                          disabled={isTaskActionDisabled} // Disable complete if day is locked
                           aria-label={`Complete "${dbTask.name}"`}
                         >
                           <CheckCircle2 className="h-3 w-3" />
@@ -287,7 +259,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                         <Button 
                           variant="ghost" size="icon" className="h-5 w-5 rounded-md text-logo-orange hover:bg-logo-orange/20"
                           onClick={(e) => { e.stopPropagation(); onRetireTask(dbTask); }}
-                          disabled={isTaskActionDisabled} // Disable retire if day is locked
                           aria-label={`Archive "${dbTask.name}"`}
                         >
                           <Archive className="h-3 w-3" />
@@ -301,7 +272,6 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                         <Button 
                           variant="ghost" size="icon" className="h-5 w-5 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10"
                           onClick={(e) => { e.stopPropagation(); onRemoveTask(dbTask.id); }}
-                          disabled={isTaskActionDisabled} // Disable remove if day is locked
                           aria-label={`Delete "${dbTask.name}"`}
                         >
                           <Trash2 className="h-3 w-3" />

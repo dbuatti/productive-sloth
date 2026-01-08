@@ -11,7 +11,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu, Ban, X } from 'lucide-react'; // NEW: Import Ban and X icon
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -23,6 +23,9 @@ import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MealIdeasTab from '@/components/MealIdeasTab';
 import EnvironmentManager from '@/components/EnvironmentManager';
+import DatePicker from '@/components/DatePicker'; // NEW: Import DatePicker
+import { format, parseISO } from 'date-fns'; // NEW: Import format and parseISO
+import { Badge } from '@/components/ui/badge'; // NEW: Import Badge
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -71,7 +74,7 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const SettingsPage: React.FC = () => {
-  const { user, profile, isLoading: isSessionLoading, refreshProfile, updateNotificationPreferences, updateProfile, updateSettings } = useSession();
+  const { user, profile, isLoading: isSessionLoading, refreshProfile, updateNotificationPreferences, updateProfile, updateSettings, updateBlockedDays } = useSession();
   const { setTheme } = useTheme();
   const navigate = useNavigate();
   
@@ -83,7 +86,8 @@ const SettingsPage: React.FC = () => {
   const [isActionCenterCollapsed, setIsActionCenterCollapsed] = useState(profile?.is_action_center_collapsed ?? false);
   const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
-  
+  const [selectedBlockedDate, setSelectedBlockedDate] = useState<Date | undefined>(undefined); // NEW: State for date picker
+
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -213,6 +217,18 @@ const SettingsPage: React.FC = () => {
     } catch (error: any) {
       showError(`Reset failed: ${error.message}`);
     }
+  };
+
+  // NEW: Handle adding/removing blocked days
+  const handleToggleBlockedDay = async () => {
+    if (!selectedBlockedDate) {
+      showError("Please select a date to block/unblock.");
+      return;
+    }
+    const dateString = format(selectedBlockedDate, 'yyyy-MM-dd');
+    const isCurrentlyBlocked = profile?.blocked_days?.includes(dateString);
+    await updateBlockedDays(dateString, !isCurrentlyBlocked);
+    setSelectedBlockedDate(undefined); // Clear date picker after action
   };
 
   const isSubmitting = form.formState.isSubmitting;
@@ -554,6 +570,61 @@ const SettingsPage: React.FC = () => {
                   />
                 </FormControl>
               </FormItem>
+
+              {/* NEW: Blocked Days Section */}
+              <Card className="p-4 rounded-xl shadow-sm bg-background/50 border-destructive/20">
+                <CardHeader className="px-0 pb-4 p-0">
+                  <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+                    <Ban className="h-5 w-5" />
+                    Blocked Days
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0 space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Select dates to prevent any tasks from being scheduled on them.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <DatePicker 
+                      date={selectedBlockedDate} 
+                      setDate={setSelectedBlockedDate} 
+                      placeholder="Select a date"
+                    />
+                    <Button 
+                      onClick={handleToggleBlockedDay} 
+                      disabled={!selectedBlockedDate}
+                      className="flex-shrink-0"
+                      aria-label={selectedBlockedDate && profile?.blocked_days?.includes(format(selectedBlockedDate, 'yyyy-MM-dd')) ? "Unblock Day" : "Block Day"}
+                    >
+                      {selectedBlockedDate && profile?.blocked_days?.includes(format(selectedBlockedDate, 'yyyy-MM-dd')) ? 'Unblock' : 'Block'}
+                    </Button>
+                  </div>
+                  {profile?.blocked_days && profile.blocked_days.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest opacity-50">Currently Blocked</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.blocked_days.sort().map(day => (
+                          <Badge 
+                            key={day} 
+                            variant="destructive" 
+                            className="flex items-center gap-1 px-2 py-1 text-xs font-semibold"
+                          >
+                            {format(parseISO(day), 'MMM d, yyyy')}
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-4 w-4 p-0 text-destructive-foreground/70 hover:text-destructive-foreground"
+                              onClick={() => updateBlockedDays(day, false)}
+                              aria-label={`Unblock ${format(parseISO(day), 'MMM d, yyyy')}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
               
               <div className="flex justify-end">
                 <Button type="submit" disabled={isSubmitting || !isValid} aria-label="Save Calendar and View Settings">Save Calendar Settings</Button>

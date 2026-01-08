@@ -44,6 +44,7 @@ export interface UserProfile {
   vertical_zoom_index: number; // NEW: For Simplified Schedule view preference
   is_dashboard_collapsed: boolean; // NEW: Dashboard collapsed state
   is_action_center_collapsed: boolean; // NEW: Action Center collapsed state
+  blocked_days: string[] | null; // NEW: Array of 'YYYY-MM-DD' strings for blocked days
   updated_at: string; // NEW: Added updated_at
 }
 
@@ -63,6 +64,7 @@ interface SessionContextType {
   updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   updateSettings: (updates: Partial<UserProfile>) => Promise<void>;
+  updateBlockedDays: (dateString: string, isBlocked: boolean) => Promise<void>; // NEW: Function to manage blocked days
   activeItemToday: ScheduledItem | null;
   nextItemToday: ScheduledItem | null;
   T_current: Date;

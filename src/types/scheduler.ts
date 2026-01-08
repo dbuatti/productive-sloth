@@ -212,6 +212,7 @@ export interface ScheduleSummary {
   midnightRolloverMessage: string | null;
   unscheduledCount: number; // New: Count of tasks that couldn't fit within the workday window
   criticalTasksRemaining: number; // NEW: Count of critical tasks not yet completed
+  isBlocked: boolean; // NEW: Indicate if the day is blocked
 }
 
 // New type for fixed time markers

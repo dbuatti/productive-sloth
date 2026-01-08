@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours, addDays, differenceInMinutes, max, min, isAfter } from 'date-fns';
-import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database } from 'lucide-react';
+import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database, CalendarDays } from 'lucide-react'; // Added CalendarDays
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment, TimeBlock } from '@/types/scheduler';
@@ -121,6 +121,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   if (isBefore(workdayEndTimeForSelectedDay, workdayStartTimeForSelectedDay)) workdayEndTimeForSelectedDay = addDays(workdayEndTimeForSelectedDay, 1);
 
   const isRegenPodRunning = profile?.is_in_regen_pod ?? false;
+  const isSelectedDayBlocked = profile?.blocked_days?.includes(selectedDay) ?? false; // NEW: Check if selected day is blocked
 
   useEffect(() => {
     if (isRegenPodRunning) {
@@ -168,29 +169,53 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay]);
 
   const handleRebalanceToday = useCallback(async () => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot auto-schedule on a blocked day.");
+      return;
+    }
     await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
-  }, [handleAutoScheduleAndSort, selectedDay, sortBy]);
+  }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleReshuffleEverything = useCallback(async () => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot reshuffle on a blocked day.");
+      return;
+    }
     await handleAutoScheduleAndSort(sortBy, 'all-flexible', [], selectedDay);
-  }, [handleAutoScheduleAndSort, selectedDay, sortBy]);
+  }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleZoneFocus = useCallback(async () => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot zone focus on a blocked day.");
+      return;
+    }
     await handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay);
-  }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy]);
+  }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleCompact = useCallback(async () => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot compact schedule on a blocked day.");
+      return;
+    }
     const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile);
     await compactScheduledTasks({ tasksToUpdate });
-  }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile]);
+  }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile, isSelectedDayBlocked]);
 
   const handleRandomize = useCallback(async () => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot randomize breaks on a blocked day.");
+      return;
+    }
     await randomizeBreaks({ selectedDate: selectedDay, workdayStartTime: workdayStartTimeForSelectedDay, workdayEndTime: workdayEndTimeForSelectedDay, currentDbTasks: dbScheduledTasks });
-  }, [selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, dbScheduledTasks, randomizeBreaks]);
+  }, [selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, dbScheduledTasks, randomizeBreaks, isSelectedDayBlocked]);
 
   const handleRezone = useCallback(async (task: RetiredTask) => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot re-zone tasks to a blocked day.");
+      return;
+    }
     await rezoneTask(task);
-  }, [rezoneTask]);
+  }, [rezoneTask, isSelectedDayBlocked]);
 
   const handleRemoveRetired = useCallback(async (taskId: string) => {
     await removeRetiredTask(taskId);
@@ -203,6 +228,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const handleStartPodSession = useCallback(async (activityName: string, activityDuration: number) => {
     if (!user || !profile) return;
+    if (isSelectedDayBlocked) {
+      showError("Cannot start Regen Pod on a blocked day.");
+      return;
+    }
     setIsProcessingCommand(true);
     try {
         await startRegenPodState(activityDuration); 
@@ -229,7 +258,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
         setIsProcessingCommand(false);
     }
-  }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask]);
+  }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask, isSelectedDayBlocked]);
 
   const handleExitPodSession = useCallback(async () => {
     await exitRegenPodState();
@@ -239,6 +268,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) return showError("Please log in.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot perform scheduling actions on a blocked day.");
+      return;
+    }
     setIsProcessingCommand(true);
     try {
       const command = parseCommand(input);
@@ -348,7 +381,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, getStaticConstraints]);
+  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, getStaticConstraints, isSelectedDayBlocked]);
 
   const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'exitFocus', task: DBScheduledTask) => {
     setIsProcessingCommand(true);
@@ -368,14 +401,22 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [completeScheduledTaskMutation, rechargeEnergy, retireTask]);
 
   const handleDetailedInject = useCallback(() => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot add tasks to a blocked day.");
+      return;
+    }
     setCreateTaskDefaultValues({
       defaultPriority: 'MEDIUM',
       defaultDueDate: selectedDayAsDate,
     });
     setIsCreateTaskDialogOpen(true);
-  }, [selectedDayAsDate]);
+  }, [selectedDayAsDate, isSelectedDayBlocked]);
 
   const handleFreeTimeClick = useCallback((startTime: Date, endTime: Date) => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot add tasks to a blocked day.");
+      return;
+    }
     setCreateTaskDefaultValues({
       defaultPriority: 'MEDIUM',
       defaultDueDate: selectedDayAsDate,
@@ -383,7 +424,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       defaultEndTime: endTime,
     });
     setIsCreateTaskDialogOpen(true);
-  }, [selectedDayAsDate]);
+  }, [selectedDayAsDate, isSelectedDayBlocked]);
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
@@ -393,8 +434,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17);
     if (isBefore(end, start)) end = addDays(end, 1);
 
-    return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments);
-  }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, T_current, mealAssignments]);
+    return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments, isSelectedDayBlocked);
+  }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, T_current, mealAssignments, isSelectedDayBlocked]);
 
   return (
     <div className={cn(
@@ -432,7 +473,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={overallLoading} />
       
       <div className="space-y-6">
-        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} />
+        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} blockedDays={profile?.blocked_days || []} />
         <SchedulerSegmentedControl currentView={view} />
       </div>
 
@@ -478,7 +519,15 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
                 <CardTitle className="text-xl font-bold">Your Vibe Schedule</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={handleFreeTimeClick} />
+                {calculatedSchedule?.summary.isBlocked ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-destructive/50 bg-destructive/5">
+                    <CalendarDays className="h-10 w-10 mb-3 opacity-20 text-destructive" />
+                    <p className="font-bold uppercase tracking-widest text-xs text-destructive/60">Day Blocked</p>
+                    <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px] text-center">No tasks can be scheduled on this day.</p>
+                  </div>
+                ) : (
+                  <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={(id) => removeScheduledTask(id)} onRetireTask={(t) => retireTask(t)} onCompleteTask={(t) => handleSchedulerAction('complete', t)} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={handleFreeTimeClick} />
+                )}
               </CardContent>
             </Card>
           </>

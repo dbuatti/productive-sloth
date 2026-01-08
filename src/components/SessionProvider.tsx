@@ -61,7 +61,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           lunch_duration_minutes, dinner_duration_minutes, custom_environment_order, reflection_count, 
           reflection_times, reflection_durations, enable_environment_chunking, enable_macro_spread, 
           week_starts_on, num_days_visible, vertical_zoom_index, is_dashboard_collapsed, 
-          is_action_center_collapsed, updated_at
+          is_action_center_collapsed, blocked_days, updated_at
         `)
         .eq('id', userId)
         .single();
@@ -151,6 +151,27 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
     if (!error) await refreshProfile();
   }, [user, refreshProfile]);
+
+  const updateBlockedDays = useCallback(async (dateString: string, isBlocked: boolean) => {
+    if (!user || !profile) return;
+    let newBlockedDays = profile.blocked_days ? [...profile.blocked_days] : [];
+
+    if (isBlocked) {
+      if (!newBlockedDays.includes(dateString)) {
+        newBlockedDays.push(dateString);
+      }
+    } else {
+      newBlockedDays = newBlockedDays.filter(day => day !== dateString);
+    }
+
+    try {
+      await supabase.from('profiles').update({ blocked_days: newBlockedDays }).eq('id', user.id);
+      await refreshProfile();
+      showSuccess(isBlocked ? `Day ${dateString} blocked.` : `Day ${dateString} unblocked.`);
+    } catch (error: any) {
+      showError(`Failed to update blocked days: ${error.message}`);
+    }
+  }, [user, profile, refreshProfile]);
 
   const triggerEnergyRegen = useCallback(async () => {
     if (!user) return;
@@ -322,6 +343,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateNotificationPreferences, 
     updateProfile, 
     updateSettings,
+    updateBlockedDays, // NEW: Add updateBlockedDays to context
     triggerEnergyRegen,
     activeItemToday,
     nextItemToday,
@@ -332,7 +354,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }), [
     session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
     triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
-    updateProfile, updateSettings, triggerEnergyRegen, activeItemToday, nextItemToday, T_current, 
+    updateProfile, updateSettings, updateBlockedDays, triggerEnergyRegen, activeItemToday, nextItemToday, T_current, 
     startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
 

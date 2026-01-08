@@ -45,7 +45,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'milk': '🥛', 'cartons': '🥛',
   'sync': '🤝', 'standup': '🤝',
   'tutorial': '💡',
-  'tv': '10',
+  'tv': '📺',
   'cobweb': '🕸️',
   'cables': '🔌',
   'fold laundry': '🧺',
@@ -65,7 +65,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'sheets': '📦',
   'pants': '📦',
   'medication': '💊',
-  'toothbrush': '💊',
+  'toothbrush': '🪥',
   'return message': '💬',
   'voice deal': '🎤',
   'find location': '🗺️',
@@ -86,7 +86,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
-  'reflection': '✨',
+  'reflection': '✨', // Changed from number to emoji string
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -779,7 +779,8 @@ export const calculateSchedule = (
   reflectionCount: number = 0,
   reflectionTimes: string[] = [],
   reflectionDurations: number[] = [],
-  mealAssignments: any[] = []
+  mealAssignments: any[] = [],
+  isDayBlocked: boolean = false // NEW: Add isDayBlocked parameter
 ): FormattedSchedule => {
   let allRawItems: ScheduledItem[] = [];
   let totalActiveTimeMinutes = 0;
@@ -792,6 +793,25 @@ export const calculateSchedule = (
 
   const [year, month, day] = selectedDay.split('-').map(Number);
   const selectedDayDate = new Date(year, month - 1, day); 
+
+  // If the day is blocked, return an empty schedule with a specific message
+  if (isDayBlocked) {
+    return {
+      items: [],
+      summary: {
+        totalTasks: 0,
+        activeTime: { hours: 0, minutes: 0 },
+        breakTime: 0,
+        sessionEnd: workdayStart,
+        extendsPastMidnight: false,
+        midnightRolloverMessage: null,
+        unscheduledCount: 0,
+        criticalTasksRemaining: 0,
+        isBlocked: true, // Indicate that the day is blocked
+      },
+      dbTasks: [],
+    };
+  }
 
   // 1. Add Scheduled Tasks from DB
   dbTasks.forEach((dbTask) => {
@@ -893,7 +913,6 @@ export const calculateSchedule = (
           emoji: emoji,
           description: `${name} window`,
           isTimedEvent: true,
-          color: type === 'meal' ? 'bg-logo-orange/20' : undefined,
           isCritical: false,
           isFlexible: false, 
           isLocked: true,   
@@ -1070,6 +1089,7 @@ export const calculateSchedule = (
     midnightRolloverMessage: midnightRolloverMessage,
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
+    isBlocked: isDayBlocked, // Default to false
   };
 
   return {

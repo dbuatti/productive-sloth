@@ -149,7 +149,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'sheets': 220, // Corrected from 📦
   'pants': 220, // Corrected from 📦
   'medication': 300, // Corrected from 💊
-  'toothbrush': 300, // Corrected from 💊
+  'toothbrush': 300, // Corrected from 🪥
   'return message': 245, // Corrected from 💬
   'voice deal': 200, // Corrected from 🎤
   'find location': 210, // Corrected from 🗺️
@@ -823,8 +823,9 @@ export const calculateSchedule = (
     const startTimeUTC = parseISO(dbTask.start_time);
     const endTimeUTC = parseISO(dbTask.end_time);
 
-    let startTime = setTimeOnDate(selectedDayDate, format(startTimeUTC, 'HH:mm'));
-    let endTime = setTimeOnDate(selectedDayDate, format(endTimeUTC, 'HH:mm'));
+    // Correctly convert UTC Date objects to local Date objects on the selectedDayDate
+    let startTime = setMinutes(setHours(selectedDayDate, startTimeUTC.getHours()), startTimeUTC.getMinutes());
+    let endTime = setMinutes(setHours(selectedDayDate, endTimeUTC.getHours()), endTimeUTC.getMinutes());
 
     if (isBefore(endTime, startTime)) {
       endTime = addDays(endTime, 1);
@@ -982,7 +983,8 @@ export const calculateSchedule = (
     for (let i = 1; i < allRawItems.length; i++) {
       const nextItem = allRawItems[i];
 
-      if (currentMergedItem.endTime > nextItem.startTime) {
+      // Only merge if there's a strict overlap (current item ends AFTER next item starts)
+      if (isAfter(currentMergedItem.endTime, nextItem.startTime)) {
         // Overlap detected, merge them
         const newStartTime = min([currentMergedItem.startTime, nextItem.startTime]);
         const newEndTime = max([currentMergedItem.endTime, nextItem.endTime]);

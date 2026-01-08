@@ -110,20 +110,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
-  // Effect to scroll to the currentPeriodStart when it changes
-  useEffect(() => {
-    const gridContainer = gridScrollContainerRef.current;
-    if (gridContainer && currentPeriodStart) {
-      const targetDateKey = format(currentPeriodStart, 'yyyy-MM-dd');
-      const targetColumn = gridContainer.querySelector(`[data-date="${targetDateKey}"]`) as HTMLElement;
-      
-      if (targetColumn) {
-        // Calculate scroll position to snap the target column to the start of the visible area
-        const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
-        gridContainer.scrollLeft = targetColumn.offsetLeft - timeAxisWidth;
-      }
-    }
-  }, [currentPeriodStart, allDaysInFetchWindow, columnWidth]); // Re-run when currentPeriodStart or columnWidth changes
+  // Removed the useEffect that scrolled to currentPeriodStart
+  // This was causing the snapping behavior.
 
   const handlePrevPeriod = () => {
     setCurrentPeriodStart((prev: Date) => subDays(prev, numDaysVisible));
@@ -204,34 +192,9 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }, [timeAxisStart, timeAxisEnd]);
 
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const { scrollWidth, scrollLeft, clientWidth } = event.currentTarget;
-
-    // Determine the index of the first visible day
-    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
-    const firstColumn = event.currentTarget.querySelector('.daily-schedule-column') as HTMLElement;
-    const actualColumnWidth = firstColumn ? firstColumn.offsetWidth : MIN_COLUMN_WIDTH; // Fallback to MIN_COLUMN_WIDTH
-
-    const firstVisibleColumnIndex = Math.floor((scrollLeft + timeAxisWidth) / actualColumnWidth);
-    const firstVisibleDay = allDaysInFetchWindow[firstVisibleColumnIndex];
-
-    if (!firstVisibleDay) return;
-
-    // Check if we are near the start of the fetched window
-    if (scrollLeft < actualColumnWidth * SCROLL_BUFFER_DAYS) {
-      // Shift the period back by numDaysVisible, but ensure we don't go past the actual fetch start
-      if (!isSameDay(firstVisibleDay, fetchWindowStart)) {
-        onPeriodShift(-numDaysVisible);
-      }
-    }
-    // Check if we are near the end of the fetched window
-    else if (scrollLeft + clientWidth > scrollWidth - (actualColumnWidth * SCROLL_BUFFER_DAYS)) {
-      // Shift the period forward by numDaysVisible, but ensure we don't go past the actual fetch end
-      const lastRenderedDay = allDaysInFetchWindow[allDaysInFetchWindow.length - 1];
-      if (!isSameDay(firstVisibleDay, lastRenderedDay)) { // Check against the first visible day, not the last rendered
-        onPeriodShift(numDaysVisible);
-      }
-    }
-  }, [columnWidth, numDaysVisible, allDaysInFetchWindow, fetchWindowStart, onPeriodShift]);
+    // Removed the logic that called onPeriodShift based on scroll position.
+    // This ensures free scrolling without automatic period changes.
+  }, []);
 
   return (
     <div className="flex flex-col w-full h-full">

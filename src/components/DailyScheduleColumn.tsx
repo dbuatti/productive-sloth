@@ -52,14 +52,16 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
 
   // Generate time labels only for the workday window, every hour
   const timeLabels = useMemo(() => {
-    const labels: string[] = [];
+    const labels: { time: string; top: number }[] = [];
     let currentTime = localWorkdayStart;
     while (isBefore(currentTime, localWorkdayEnd)) {
-      labels.push(format(currentTime, 'h a'));
+      const offsetMinutes = differenceInMinutes(currentTime, localWorkdayStart);
+      const top = offsetMinutes * dynamicMinuteHeight;
+      labels.push({ time: format(currentTime, 'h a'), top });
       currentTime = addHours(currentTime, 1);
     }
     return labels;
-  }, [localWorkdayStart, localWorkdayEnd]);
+  }, [localWorkdayStart, localWorkdayEnd, dynamicMinuteHeight]);
 
   const getTaskPositionAndHeight = useCallback((task: DBScheduledTask) => {
     if (!task.start_time || !task.end_time) {
@@ -116,14 +118,22 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
 
       {/* Time Grid Lines and Tasks within Workday Window */}
       <div className="relative px-1" style={{ height: `${totalDisplayMinutes * dynamicMinuteHeight}px` }}>
-        {/* Time Grid Lines */}
+        {/* Time Grid Lines - Now properly aligned with zoom */}
         <div className="absolute inset-0">
-          {timeLabels.map((_, i) => (
+          {timeLabels.map((label, i) => (
             <div
               key={i}
               className="absolute left-0 right-0 border-t border-dashed border-border/20"
-              style={{ top: `${(i * 60) * dynamicMinuteHeight}px` }}
-            />
+              style={{ top: `${label.top}px` }}
+            >
+              {/* Time Label - Positioned at the line */}
+              <div 
+                className="absolute -left-10 w-8 text-right text-[8px] sm:text-[9px] font-mono text-muted-foreground/50"
+                style={{ top: '-8px' }}
+              >
+                {label.time}
+              </div>
+            </div>
           ))}
         </div>
 

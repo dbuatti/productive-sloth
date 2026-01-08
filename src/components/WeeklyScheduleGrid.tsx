@@ -130,7 +130,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   }, [scrollVersion, currentPeriodStartString, performScroll]);
 
-  // ... (rest of the component remains the same)
   const handlePrevPeriod = useCallback(() => {
     onPeriodShift(-numDaysVisible);
   }, [onPeriodShift, numDaysVisible]);
@@ -181,14 +180,16 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const totalDayMinutesForTimeAxis = useMemo(() => differenceInMinutes(timeAxisEnd, timeAxisStart), [timeAxisEnd, timeAxisEnd]);
 
   const timeLabels = useMemo(() => {
-    const labels: string[] = [];
+    const labels: { time: string; top: number }[] = [];
     let currentTime = timeAxisStart;
     while (isBefore(currentTime, timeAxisEnd)) {
-      labels.push(format(currentTime, 'h a'));
+      const offsetMinutes = differenceInMinutes(currentTime, timeAxisStart);
+      const top = offsetMinutes * BASE_MINUTE_HEIGHT * currentVerticalZoomFactor;
+      labels.push({ time: format(currentTime, 'h a'), top });
       currentTime = addHours(currentTime, 1);
     }
     return labels;
-  }, [timeAxisStart, timeAxisEnd]);
+  }, [timeAxisStart, timeAxisEnd, currentVerticalZoomFactor]);
 
   const dayElements = useMemo(() => {
     if (isLoading) return null; 
@@ -374,14 +375,14 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             {/* Time Axis (Fixed on left) */}
             <div className="w-10 sm:w-14 flex-shrink-0 border-r border-border/50 bg-background/90 backdrop-blur-sm sticky left-0 z-10">
               <div className="h-[60px] border-b border-border/50" />
-              <div className="relative" style={{ height: `${totalDayMinutesForTimeAxis * currentVerticalZoomFactor}px` }}>
+              <div className="relative" style={{ height: `${totalDayMinutesForTimeAxis * BASE_MINUTE_HEIGHT * currentVerticalZoomFactor}px` }}>
                 {timeLabels.map((label, i) => (
                   <div
-                    key={label + i}
+                    key={label.time + i}
                     className="absolute right-1 sm:right-2 text-[8px] sm:text-[10px] font-mono text-muted-foreground/60"
-                    style={{ top: `${(i * 60) * currentVerticalZoomFactor}px`, transform: 'translateY(-50%)' }}
+                    style={{ top: `${label.top}px`, transform: 'translateY(-50%)' }}
                   >
-                    {label}
+                    {label.time}
                   </div>
                 ))}
               </div>

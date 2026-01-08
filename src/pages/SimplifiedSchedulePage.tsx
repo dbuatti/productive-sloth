@@ -42,18 +42,10 @@ const SimplifiedSchedulePage: React.FC = () => {
   }, [fetchWindowStart, fetchWindowEnd]);
 
   // NEW: This is the "Lens" logic to get exactly the days to render
+  // We now pass the full window to the grid, and let the grid handle scrolling to the correct position.
   const daysToRender = useMemo(() => {
-    if (!fullFetchWindowDays || fullFetchWindowDays.length === 0) return [];
-
-    // 1. Find the index of the date we want to start viewing from
-    const startIndex = fullFetchWindowDays.indexOf(currentPeriodStartString);
-    
-    // 2. Fallback: If for some reason today isn't in the window, start at the beginning
-    const safeStart = startIndex === -1 ? 0 : startIndex;
-
-    // 3. Slice the array to exactly the number of days the user wants to see
-    return fullFetchWindowDays.slice(safeStart, safeStart + numDaysVisible);
-  }, [fullFetchWindowDays, currentPeriodStartString, numDaysVisible]);
+    return fullFetchWindowDays; // Pass the full 42 days
+  }, [fullFetchWindowDays]);
 
 
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, profileSettings } =
@@ -146,7 +138,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           onSetCurrentVerticalZoomIndex={handleSetCurrentVerticalZoomIndex}
           profileSettings={profileSettings}
           scrollVersion={scrollVersion}
-          allDaysInFetchWindow={daysToRender} // NEW: Pass only the visible subset
+          allDaysInFetchWindow={daysToRender} // NEW: Pass the full window
           columnWidth={columnWidth} // New prop
           onCompleteTask={handleCompleteTask} // New prop
           T_current={T_current} // New prop

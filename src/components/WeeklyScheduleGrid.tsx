@@ -118,7 +118,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       executeScroll(currentPeriodStartString, 'smooth');
     }
 
-  }, [currentPeriodStartString, scrollVersion, isLoading, executeScroll]);
+  }, [currentPeriodStartString, scrollVersion, isLoading, allDaysInFetchWindow, executeScroll]);
 
   const handlePrevPeriod = () => {
     onPeriodShift(-numDaysVisible);
@@ -355,7 +355,11 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         ref={gridScrollContainerRef} 
         id="weekly-schedule-grid-scroll-container" 
         className="flex-1 overflow-auto custom-scrollbar"
-        style={{ scrollSnapType: 'none', contain: 'content' }} 
+        style={{ 
+          scrollSnapType: 'none', // Disable snapping completely
+          WebkitOverflowScrolling: 'touch', // Enable smooth momentum scrolling
+          scrollBehavior: 'auto' // Manage behavior via JS scrollTo instead
+        }}
       >
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[300px] py-16 gap-4">

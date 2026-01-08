@@ -29,7 +29,7 @@ interface WeeklyScheduleGridProps {
   onSetNumDaysVisible: (days: number) => void;
   workdayStartTime: string; 
   workdayEndTime: string;   
-  isLoading: boolean;
+  isLoading: boolean; // New prop to prevent rendering until data is ready
   weekStartsOn: number; 
   onPeriodShift: (shiftDays: number) => void; 
   fetchWindowStart: Date; 
@@ -37,7 +37,7 @@ interface WeeklyScheduleGridProps {
   currentVerticalZoomIndex: number; 
   onSetCurrentVerticalZoomIndex: (index: number) => void;
   profileSettings: any;
-  scrollVersion?: number; // NEW: Added scrollVersion prop
+  scrollVersion?: number; 
 }
 
 const BASE_MINUTE_HEIGHT = 1.5;
@@ -48,7 +48,7 @@ const MIN_COLUMN_WIDTH = 100;
 const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   weeklyTasks,
   currentPeriodStartString,
-  isLoading,
+  isLoading, // Destructure new prop
   workdayStartTime,
   workdayEndTime,
   numDaysVisible,
@@ -60,7 +60,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   currentVerticalZoomIndex,
   onSetCurrentVerticalZoomIndex,
   profileSettings,
-  scrollVersion = 0, // NEW: Default scrollVersion
+  scrollVersion = 0, 
 }) => {
   const { updateProfile, isLoading: isSessionLoading, rechargeEnergy, T_current } = useSession();
   const { completeScheduledTask } = useSchedulerTasks('');
@@ -73,35 +73,60 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const isInitialMount = useRef(true);
   const lastTargetDate = useRef<string | null>(null);
-  const lastScrollVersion = useRef<number>(0); // NEW: Track last scroll version
+  const lastScrollVersion = useRef<number>(0);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentPeriodStart = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
 
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver(entries => {
-      if (entries[0]) {
-        setGridContainerWidth(entries[0].contentRect.width);
-      }
-    });
+  // --- Callbacks and Memos (defined before JSX usage) ---
 
-    if (gridScrollContainerRef.current) {
-      resizeObserver.observe(gridScrollContainerRef.current);
+  const handlePrevPeriod = useCallback(() => {
+    onPeriodShift(-numDaysVisible);
+  }, [onPeriodShift, numDaysVisible]);
+
+  const handleNextPeriod = useCallback(() => {
+    onPeriodShift(numDaysVisible);
+  }, [onPeriodShift, numDaysVisible]);
+
+  const handleGoToToday = useCallback(() => {
+    onPeriodShift(0); 
+  }, [onPeriodShift]);
+
+  const handleSelectVerticalZoom = useCallback((zoom: number) => {
+    const newIndex = VERTICAL_ZOOM_LEVELS.indexOf(zoom);
+    if (newIndex !== -1) {
+      onSetCurrentVerticalZoomIndex(newIndex);
     }
+  }, [onSetCurrentVerticalZoomIndex]);
 
-    return () => {
-      if (gridScrollContainerRef.current) {
-        resizeObserver.unobserve(gridScrollContainerRef.current);
-      }
-    };
-  }, []);
+  const handleSelectNumDaysVisible = useCallback((daysOption: number) => {
+    onSetNumDaysVisible(daysOption);
+  }, [onSetNumDaysVisible]);
 
-  const columnWidth = useMemo(() => {
-    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
-    const availableWidth = gridContainerWidth - timeAxisWidth;
-    
-    const calculatedWidth = Math.max(MIN_COLUMN_WIDTH, availableWidth / numDaysVisible);
-    return calculatedWidth;
-  }, [gridContainerWidth, numDaysVisible]);
+  const handleSaveViewPreferences = useCallback(async () => {
+    try {
+      await updateProfile({
+        num_days_visible: numDaysVisible,
+        vertical_zoom_index: currentVerticalZoomIndex,
+      });
+      showSuccess("View preferences saved!");
+    } catch (error) {
+      showError("Failed to save view preferences.");
+      console.error("Failed to save view preferences:", error);
+    }
+  }, [updateProfile, numDaysVisible, currentVerticalZoomIndex]);
+
+  const handleCompleteScheduledTask = useCallback(async (task: DBScheduledTask) => {
+    if (task.is_completed) return;
+    try {
+      await completeScheduledTask(task);
+      await rechargeEnergy(-(task.energy_cost));
+      showSuccess(`Task "${task.name}" completed! +${task.energy_cost * 2} XP`);
+    } catch (error) {
+      showError(`Failed to complete task: ${task.name}`);
+      console.error("Error completing task from weekly grid:", error);
+    }
+  }, [completeScheduledTask, rechargeEnergy]);
 
   const allDaysInFetchWindow = useMemo(() => {
     const days: Date[] = [];
@@ -112,6 +137,23 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
+
+  const timeAxisStart = useMemo(() => setTimeOnDate(currentPeriodStart, workdayStartTime), [currentPeriodStart, workdayStartTime]);
+  let timeAxisEnd = useMemo(() => setTimeOnDate(currentPeriodStart, workdayEndTime), [currentPeriodStart, workdayEndTime]);
+  if (isBefore(timeAxisEnd, timeAxisStart)) {
+    timeAxisEnd = addDays(timeAxisEnd, 1);
+  }
+  const totalDayMinutesForTimeAxis = useMemo(() => differenceInMinutes(timeAxisEnd, timeAxisStart), [timeAxisEnd, timeAxisStart]);
+
+  const timeLabels = useMemo(() => {
+    const labels: string[] = [];
+    let currentTime = timeAxisStart;
+    while (isBefore(currentTime, timeAxisEnd)) {
+      labels.push(format(currentTime, 'h a'));
+      currentTime = addHours(currentTime, 1);
+    }
+    return labels;
+  }, [timeAxisStart, timeAxisEnd]);
 
   // The Execution Function
   const scrollToDate = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
@@ -131,96 +173,78 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   }, [allDaysInFetchWindow, columnWidth]);
 
-  // Effect: Handle Initial Load & External Date Changes
+  // --- Effects ---
+
   useEffect(() => {
-    if (!gridScrollContainerRef.current) return;
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries[0]) {
+        setGridContainerWidth(entries[0].contentRect.width);
+      }
+    });
 
-    // 1. Handle Initial Load: Instant Jump
+    if (gridScrollContainerRef.current) {
+      resizeObserver.observe(gridScrollContainerRef.current);
+    }
+
+    return () => {
+      if (gridScrollContainerRef.current) {
+        resizeObserver.unobserve(gridScrollContainerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isLoading || !gridScrollContainerRef.current) return; // Corrected typo here
+
+    // Handle Initial Focus (Instant)
     if (isInitialMount.current) {
-      const timer = setTimeout(() => {
-        scrollToDate(currentPeriodStartString, 'auto'); // 'auto' = instant jump
+      // Small delay to ensure the browser has painted the columns
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrollToDate(currentPeriodStartString, 'auto');
         isInitialMount.current = false;
-        lastScrollVersion.current = scrollVersion; // Initialize lastScrollVersion
-      }, 100); // 100ms guard for DOM calc
-      return () => clearTimeout(timer);
+        lastScrollVersion.current = scrollVersion;
+      }, 50);
+      return () => {
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      };
     }
 
-    // 2. Handle "Today" Click or Forced Refocus
-    // If the scrollVersion has increased, the user explicitly asked for a refocus
-    const forceRefocus = scrollVersion > lastScrollVersion.current;
-    
-    if (forceRefocus || lastTargetDate.current !== currentPeriodStartString) {
+    // Handle "Today" click or programmatic shift
+    if (scrollVersion > lastScrollVersion.current) {
       scrollToDate(currentPeriodStartString, 'smooth');
-      lastScrollVersion.current = scrollVersion; // Update lastScrollVersion
+      lastScrollVersion.current = scrollVersion;
     }
+  }, [currentPeriodStartString, scrollVersion, isLoading, executeScroll, scrollToDate]); // Added scrollToDate to dependencies
 
-  }, [currentPeriodStartString, scrollVersion, scrollToDate]); // Added scrollVersion to dependencies
-
-  const handlePrevPeriod = () => {
-    onPeriodShift(-numDaysVisible);
-  };
-
-  const handleNextPeriod = () => {
-    onPeriodShift(numDaysVisible);
-  };
-
-  const handleGoToToday = () => {
-    onPeriodShift(0); 
-  };
-
-  const handleSelectVerticalZoom = (zoom: number) => {
-    const newIndex = VERTICAL_ZOOM_LEVELS.indexOf(zoom);
-    if (newIndex !== -1) {
-      onSetCurrentVerticalZoomIndex(newIndex);
-    }
-  };
-
-  const handleSelectNumDaysVisible = (daysOption: number) => {
-    onSetNumDaysVisible(daysOption);
-  };
-
-  const handleSaveViewPreferences = async () => {
-    try {
-      await updateProfile({
-        num_days_visible: numDaysVisible,
-        vertical_zoom_index: currentVerticalZoomIndex,
-      });
-      showSuccess("View preferences saved!");
-    } catch (error) {
-      showError("Failed to save view preferences.");
-      console.error("Failed to save view preferences:", error);
-    }
-  };
-
-  const handleCompleteScheduledTask = useCallback(async (task: DBScheduledTask) => {
-    if (task.is_completed) return;
-    try {
-      await completeScheduledTask(task);
-      await rechargeEnergy(-(task.energy_cost));
-      showSuccess(`Task "${task.name}" completed! +${task.energy_cost * 2} XP`);
-    } catch (error) {
-      showError(`Failed to complete task: ${task.name}`);
-      console.error("Error completing task from weekly grid:", error);
-    }
-  }, [completeScheduledTask, rechargeEnergy]);
-
-
-  const timeAxisStart = useMemo(() => setTimeOnDate(currentPeriodStart, workdayStartTime), [currentPeriodStart, workdayStartTime]);
-  let timeAxisEnd = useMemo(() => setTimeOnDate(currentPeriodStart, workdayEndTime), [currentPeriodStart, workdayEndTime]);
-  if (isBefore(timeAxisEnd, timeAxisStart)) {
-    timeAxisEnd = addDays(timeAxisEnd, 1);
-  }
-  const totalDayMinutesForTimeAxis = differenceInMinutes(timeAxisEnd, timeAxisStart);
-
-  const timeLabels = useMemo(() => {
-    const labels: string[] = [];
-    let currentTime = timeAxisStart;
-    while (isBefore(currentTime, timeAxisEnd)) {
-      labels.push(format(currentTime, 'h a'));
-      currentTime = addHours(currentTime, 1);
-    }
-    return labels;
-  }, [timeAxisStart, timeAxisEnd]);
+  // 3. RENDER: Memoize to stop the "Double Render" flicker
+  const dayElements = useMemo(() => {
+    if (isLoading) return null; // Don't render empty columns while loading
+    return allDaysInFetchWindow.map((day) => {
+      const dateKey = format(day, 'yyyy-MM-dd');
+      const tasksForDay = weeklyTasks[dateKey] || [];
+      const isDayBlocked = profileSettings?.blockedDays?.includes(dateKey) ?? false;
+      return (
+        <div 
+          key={dateKey} 
+          style={{ width: `${columnWidth}px` }} 
+          className="flex-shrink-0 border-r border-white/5"
+        >
+          <DailyScheduleColumn
+            dateString={dateKey}
+            tasks={tasksForDay}
+            workdayStartTime={workdayStartTime}
+            workdayEndTime={workdayEndTime}
+            isDetailedView={isDetailedView}
+            T_current={T_current}
+            zoomLevel={currentVerticalZoomFactor}
+            columnWidth={columnWidth}
+            onCompleteTask={handleCompleteScheduledTask}
+            isDayBlocked={isDayBlocked}
+          />
+        </div>
+      );
+    });
+  }, [allDaysInFetchWindow, columnWidth, blockedDays, isLoading, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, T_current, currentVerticalZoomFactor, handleCompleteScheduledTask, profileSettings?.blockedDays]);
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -358,7 +382,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         ref={gridScrollContainerRef} 
         id="weekly-schedule-grid-scroll-container" 
         className="flex-1 overflow-auto custom-scrollbar"
-        style={{ scrollSnapType: 'none' }} // Ensure CSS isn't forcing snapping
+        style={{ scrollSnapType: 'none', contain: 'content' }} // Added contain: 'content'
       >
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[300px] py-16 gap-4">
@@ -395,26 +419,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
             {/* Daily Columns (This is the horizontally scrollable content) */}
             <div className="flex">
-              {allDaysInFetchWindow.map((day) => {
-                const dateKey = format(day, 'yyyy-MM-dd');
-                const tasksForDay = weeklyTasks[dateKey] || [];
-                const isDayBlocked = profileSettings?.blockedDays?.includes(dateKey) ?? false;
-                return (
-                  <DailyScheduleColumn
-                    key={dateKey}
-                    dateString={dateKey} // Pass date as string
-                    tasks={tasksForDay}
-                    workdayStartTime={workdayStartTime}
-                    workdayEndTime={workdayEndTime}
-                    isDetailedView={isDetailedView}
-                    T_current={T_current}
-                    zoomLevel={currentVerticalZoomFactor}
-                    columnWidth={columnWidth}
-                    onCompleteTask={handleCompleteScheduledTask}
-                    isDayBlocked={isDayBlocked}
-                  />
-                );
-              })}
+              {dayElements} {/* Render memoized day elements */}
             </div>
           </div>
         )}

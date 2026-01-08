@@ -85,7 +85,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           onSetNumDaysVisible={handleSetNumDaysVisible}
           workdayStartTime={workdayStartTime}
           workdayEndTime={workdayEndTime}
-          isLoading={isWeeklyTasksLoading}
+          isLoading={isWeeklyTasksLoading} // Pass isLoading prop
           weekStartsOn={weekStartsOn}
           onPeriodShift={handlePeriodShift}
           fetchWindowStart={fetchWindowStart}
@@ -93,7 +93,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           currentVerticalZoomIndex={currentVerticalZoomIndex}
           onSetCurrentVerticalZoomIndex={handleSetCurrentVerticalZoomIndex}
           profileSettings={profileSettings}
-          scrollVersion={scrollVersion} // NEW: Pass scrollVersion
+          scrollVersion={scrollVersion} // Pass scrollVersion
         />
       </div>
     </div>

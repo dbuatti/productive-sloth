@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback, useState } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter, startOfDay, subDays, Day, isSameDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -70,7 +70,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const [gridContainerWidth, setGridContainerWidth] = useState(0);
 
   const isInitialMount = useRef(true);
-  const lastScrolledDateRef = useRef<string | null>(null);
+  // Track the actual targeted date to allow "Today" clicks to work
+  const lastTargetDate = useRef<string | null>(null);
 
   const currentPeriodStart = useMemo(() => parseISO(currentPeriodStartString), [currentPeriodStartString]);
 
@@ -110,38 +111,46 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     return days;
   }, [fetchWindowStart, fetchWindowEnd]);
 
-  // Scroll Logic: Focus on load, don't snap on update
-  useEffect(() => {
+  // The Execution Function
+  const scrollToDate = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
     const container = gridScrollContainerRef.current;
     if (!container) return;
 
-    // Only trigger scroll if the target date has actually changed 
-    // or if it is the very first load.
-    if (lastScrolledDateRef.current === currentPeriodStartString && !isInitialMount.current) {
-      return; 
-    }
-
-    const targetIndex = allDaysInFetchWindow.findIndex(day => format(day, 'yyyy-MM-dd') === currentPeriodStartString);
+    const targetIndex = allDaysInFetchWindow.findIndex(day => format(day, 'yyyy-MM-dd') === date);
     if (targetIndex !== -1) {
-      const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
       const scrollPosition = targetIndex * columnWidth;
       
-      // Update refs immediately
-      lastScrolledDateRef.current = currentPeriodStartString;
-
-      if (isInitialMount.current) {
-        // INSTANT focus on load
-        container.scrollLeft = scrollPosition;
-        isInitialMount.current = false;
-      } else {
-        // SMOOTH scroll only when explicitly changing period (via arrows)
-        container.scrollTo({
-          left: scrollPosition,
-          behavior: 'smooth'
-        });
-      }
+      container.scrollTo({
+        left: scrollPosition,
+        behavior: behavior
+      });
+      
+      lastTargetDate.current = date;
     }
-  }, [currentPeriodStartString, columnWidth, allDaysInFetchWindow]); // allDaysInFetchWindow is stable due to its own useMemo
+  }, [allDaysInFetchWindow, columnWidth]);
+
+  // Effect: Handle Initial Load & External Date Changes
+  useEffect(() => {
+    if (!gridScrollContainerRef.current) return;
+
+    // FORCE focus on initial load
+    if (isInitialMount.current) {
+      // Use a small timeout to ensure DOM has calculated widths
+      const timer = setTimeout(() => {
+        scrollToDate(currentPeriodStartString, 'auto'); // 'auto' = instant jump
+        isInitialMount.current = false;
+      }, 50); 
+      return () => clearTimeout(timer);
+    }
+
+    // Programmatic change (User clicked "Today" or Arrows)
+    // We allow the scroll if the requested date is different OR if the user
+    // is explicitly clicking a button that triggers this prop.
+    if (currentPeriodStartString !== lastTargetDate.current) {
+      scrollToDate(currentPeriodStartString, 'smooth');
+    }
+
+  }, [currentPeriodStartString, scrollToDate]); 
 
   const handlePrevPeriod = () => {
     onPeriodShift(-numDaysVisible);

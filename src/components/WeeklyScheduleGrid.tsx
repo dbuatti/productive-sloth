@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useMemo, useCallback, useState } from 'react';
+import React, { useLayoutEffect, useEffect, useRef, useMemo, useCallback, useState } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, addDays, isToday, isBefore, setHours, setMinutes, addHours, differenceInMinutes, isAfter, startOfDay, subDays, Day, isSameDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -81,8 +81,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const lastScrollVersion = useRef<number>(0);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // The Execution Function
-  const executeScroll = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
+  // 1. PURE SCROLL LOGIC
+  const performScroll = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
     const container = gridScrollContainerRef.current;
     if (!container) return;
 
@@ -96,54 +96,50 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   }, [allDaysInFetchWindow, columnWidth, scrollVersion]);
 
-  // Effect: Handle Initial Load & External Date Changes
+  // 2. INITIAL JUMP: useLayoutEffect fires before paint to stop flickering
+  useLayoutEffect(() => {
+    if (isLoading || allDaysInFetchWindow.length === 0 || !isInitialMount.current) return;
+
+    const timer = setTimeout(() => {
+      performScroll(currentPeriodStartString, 'auto'); // 'auto' = instant jump
+      isInitialMount.current = false;
+    }, 50); // Small delay to ensure the browser has painted the columns
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isLoading, allDaysInFetchWindow, currentPeriodStartString, performScroll]);
+
+  // 3. TODAY BUTTON: Handles explicit refocusing
   useEffect(() => {
-    if (isLoading || !gridScrollContainerRef.current) return;
+    if (isLoading || isInitialMount.current) return;
 
-    // 1. Handle Initial Load: Instant Jump
-    if (isInitialMount.current) {
-      // Small delay to ensure the browser has painted the columns
-      scrollTimeoutRef.current = setTimeout(() => {
-        executeScroll(currentPeriodStartString, 'auto'); // 'auto' = instant jump
-        isInitialMount.current = false;
-      }, 50);
-      return () => {
-        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-      };
-    }
-
-    // 2. Handle "Today" click or programmatic shift
-    // If the scrollVersion has increased, the user explicitly asked for a refocus
     if (scrollVersion > lastScrollVersion.current) {
-      executeScroll(currentPeriodStartString, 'smooth');
+      performScroll(currentPeriodStartString, 'smooth');
+      lastScrollVersion.current = scrollVersion;
     }
+  }, [scrollVersion, currentPeriodStartString, isLoading, performScroll]);
 
-  }, [currentPeriodStartString, scrollVersion, isLoading, allDaysInFetchWindow, executeScroll]);
-
-  const handlePrevPeriod = () => {
+  const handlePrevPeriod = useCallback(() => {
     onPeriodShift(-numDaysVisible);
-  };
+  }, [onPeriodShift, numDaysVisible]);
 
-  const handleNextPeriod = () => {
+  const handleNextPeriod = useCallback(() => {
     onPeriodShift(numDaysVisible);
-  };
+  }, [onPeriodShift, numDaysVisible]);
 
-  const handleGoToToday = () => {
+  const handleGoToToday = useCallback(() => {
     onPeriodShift(0); 
-  };
+  }, [onPeriodShift]);
 
-  const handleSelectVerticalZoom = (zoom: number) => {
+  const handleSelectVerticalZoom = useCallback((zoom: number) => {
     const newIndex = VERTICAL_ZOOM_LEVELS.indexOf(zoom);
     if (newIndex !== -1) {
       onSetCurrentVerticalZoomIndex(newIndex);
     }
-  };
+  }, [onSetCurrentVerticalZoomIndex]);
 
-  const handleSelectNumDaysVisible = (daysOption: number) => {
-    onSetNumDaysVisible(daysOption);
-  };
-
-  const handleSaveViewPreferences = async () => {
+  const handleSaveViewPreferences = useCallback(async () => {
     try {
       await updateProfile({
         num_days_visible: numDaysVisible,
@@ -154,7 +150,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       showError("Failed to save view preferences.");
       console.error("Failed to save view preferences:", error);
     }
-  };
+  }, [updateProfile, numDaysVisible, currentVerticalZoomIndex]);
 
   const handleCompleteScheduledTask = useCallback(async (task: DBScheduledTask) => {
     if (task.is_completed) return;
@@ -174,7 +170,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   if (isBefore(timeAxisEnd, timeAxisStart)) {
     timeAxisEnd = addDays(timeAxisEnd, 1);
   }
-  const totalDayMinutesForTimeAxis = differenceInMinutes(timeAxisEnd, timeAxisStart);
+  const totalDayMinutesForTimeAxis = useMemo(() => differenceInMinutes(timeAxisEnd, timeAxisStart), [timeAxisEnd, timeAxisStart]);
 
   const timeLabels = useMemo(() => {
     const labels: string[] = [];
@@ -287,7 +283,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 {VISIBLE_DAYS_OPTIONS.map((daysOption) => (
                   <DropdownMenuItem 
                     key={daysOption} 
-                    onClick={() => handleSelectNumDaysVisible(daysOption)}
+                    onClick={() => onSetNumDaysVisible(daysOption)}
                     className={cn(
                       "gap-3 font-bold text-[10px] uppercase py-2.5 px-3 focus:bg-primary/20 cursor-pointer",
                       numDaysVisible === daysOption && "bg-primary/10 text-primary"
@@ -356,9 +352,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         id="weekly-schedule-grid-scroll-container" 
         className="flex-1 overflow-auto custom-scrollbar"
         style={{ 
-          scrollSnapType: 'none', // Disable snapping completely
-          WebkitOverflowScrolling: 'touch', // Enable smooth momentum scrolling
-          scrollBehavior: 'auto' // Manage behavior via JS scrollTo instead
+          scrollSnapType: 'none', // Critical: Removes the swipe-pause
+          WebkitOverflowScrolling: 'touch', // Critical: Smooth iOS momentum
+          touchAction: 'pan-x', // Ensures vertical scrolling doesn't break horizontal
+          willChange: 'transform' // Performance boost for long lists
         }}
       >
         {isLoading ? (

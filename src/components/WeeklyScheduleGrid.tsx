@@ -67,32 +67,25 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   
   const currentVerticalZoomFactor = VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex];
 
-  const gridContainerRef = useRef<HTMLDivElement>(null);
-  const [gridContainerWidth, setGridContainerWidth] = useState(0);
+  // Removed gridContainerRef, gridContainerWidth, and the ResizeObserver useEffect
+  // Removed currentColumnWidth memo
 
   useEffect(() => {
-    const resizeObserver = new ResizeObserver(entries => {
-      if (entries[0]) {
-        setGridContainerWidth(entries[0].contentRect.width);
-      }
-    });
+    // This effect is now only for scrolling to today if needed, not for width calculation
+    const gridContainer = document.getElementById('weekly-schedule-grid-scroll-container');
+    if (gridContainer) {
+      const todayColumn = gridContainer.querySelector(`[data-date="${format(new Date(), 'yyyy-MM-dd')}"]`) as HTMLElement;
+      if (todayColumn) {
+        // Scroll to today's column if it's not fully visible
+        const containerRect = gridContainer.getBoundingClientRect();
+        const columnRect = todayColumn.getBoundingClientRect();
 
-    if (gridContainerRef.current) {
-      resizeObserver.observe(gridContainerRef.current);
+        if (columnRect.left < containerRect.left || columnRect.right > containerRect.right) {
+          gridContainer.scrollLeft = todayColumn.offsetLeft - (containerRect.width / 2) + (columnRect.width / 2);
+        }
+      }
     }
-
-    return () => {
-      if (gridContainerRef.current) {
-        resizeObserver.unobserve(gridContainerRef.current);
-      }
-    };
-  }, []);
-
-  const currentColumnWidth = useMemo(() => {
-    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
-    const effectiveContainerWidth = gridContainerWidth - timeAxisWidth;
-    return effectiveContainerWidth > 0 ? effectiveContainerWidth / numDaysVisible : 0;
-  }, [gridContainerWidth, numDaysVisible]);
+  }, [currentPeriodStart, numDaysVisible]); // Re-run when period or visible days change
 
   const allDaysInFetchWindow = useMemo(() => {
     const days: Date[] = [];
@@ -194,6 +187,11 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
     const { scrollWidth, scrollLeft, clientWidth } = event.currentTarget;
 
+    // Calculate the width of a single column based on current clientWidth and numDaysVisible
+    const timeAxisWidth = window.innerWidth < 640 ? 40 : 56;
+    const effectiveContentWidth = clientWidth - timeAxisWidth;
+    const currentColumnWidth = effectiveContentWidth / numDaysVisible;
+
     const scrollThreshold = currentColumnWidth * SCROLL_BUFFER_DAYS;
 
     if (scrollLeft < scrollThreshold) {
@@ -207,7 +205,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         onPeriodShift(numDaysVisible);
       }
     }
-  }, [currentColumnWidth, numDaysVisible, currentPeriodStart, fetchWindowStart, fetchWindowEnd, displayedDays, onPeriodShift]);
+  }, [numDaysVisible, currentPeriodStart, fetchWindowStart, fetchWindowEnd, displayedDays, onPeriodShift]);
 
   return (
     <div className="flex flex-col w-full h-full">
@@ -342,14 +340,14 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       </div>
 
       {/* Schedule Grid Container */}
-      <div ref={gridContainerRef} className="flex-1 overflow-auto custom-scrollbar" onScroll={handleScroll}>
+      <div id="weekly-schedule-grid-scroll-container" className="flex-1 overflow-auto custom-scrollbar" onScroll={handleScroll}>
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[300px] py-16 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Timeline...</p>
             <div className="flex w-full px-4 gap-2">
               {Array.from({ length: numDaysVisible }).map((_, colIdx) => (
-                <div key={colIdx} className="flex-1 min-w-[150px] space-y-2">
+                <div key={colIdx} className="flex-1 min-w-[100px] space-y-2">
                   <Skeleton className="h-16 w-full rounded-xl" />
                   <Skeleton className="h-12 w-full rounded-xl" />
                   <Skeleton className="h-20 w-full rounded-xl" />
@@ -377,7 +375,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             </div>
 
             {/* Daily Columns (This is the horizontally scrollable content) */}
-            <div className="flex">
+            <div className="flex flex-grow">
               {displayedDays.map((day) => {
                 const dateKey = format(day, 'yyyy-MM-dd');
                 const tasksForDay = weeklyTasks[dateKey] || [];
@@ -391,7 +389,6 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     isDetailedView={isDetailedView}
                     T_current={T_current}
                     zoomLevel={currentVerticalZoomFactor}
-                    columnWidth={currentColumnWidth}
                     onCompleteTask={handleCompleteScheduledTask} // NEW: Pass the handler
                   />
                 );

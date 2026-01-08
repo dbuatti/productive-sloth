@@ -14,7 +14,7 @@ interface DailyScheduleColumnProps {
   isDetailedView: boolean;
   T_current: Date; // Current time from SessionProvider
   zoomLevel: number; // Vertical zoom level prop
-  columnWidth: number; // Horizontal zoom (column width) prop
+  // Removed columnWidth: number;
   onCompleteTask: (task: DBScheduledTask) => Promise<void>; // NEW: onCompleteTask prop
 }
 
@@ -30,7 +30,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   isDetailedView,
   T_current,
   zoomLevel, // Vertical zoom level
-  columnWidth, // Destructure columnWidth
+  // Removed columnWidth,
   onCompleteTask, // Destructure new prop
 }) => {
   const isCurrentDay = isToday(dayDate);
@@ -87,8 +87,8 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
 
   return (
     <div 
-      className="relative flex-shrink-0 border-r border-border/50 last:border-r-0"
-      style={{ width: `${columnWidth}px` }}
+      className="relative flex-1 min-w-[100px] flex-shrink-0 border-r border-border/50 last:border-r-0"
+      data-date={format(dayDate, 'yyyy-MM-dd')} // Added data-date for scrolling
     >
       {/* Day Header */}
       <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm p-2 border-b border-border/50 text-center">

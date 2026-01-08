@@ -1053,7 +1053,7 @@ export const calculateSchedule = (
         } else if (currentMergedItem.type === 'task' && (nextItem.type === 'meal' || nextItem.type === 'break')) {
           // current is task, next is meal/break, keep current
         } else {
-          // Both are tasks, or both are static, or other combinations. Combine names.
+          // Both are tasks, or static, or other combinations. Combine names.
           newName = `${currentMergedItem.name} / ${nextItem.name}`;
           // For emoji, pick the first one or a generic one
           newEmoji = currentMergedItem.emoji; 

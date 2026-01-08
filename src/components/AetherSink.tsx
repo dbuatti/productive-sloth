@@ -112,7 +112,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
     const parsedTask = parseSinkTaskInput(input, user.id);
     if (!parsedTask) {
-      return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
+      return showError("Invalid task format. Use 'Name [dur] [!] [-] [W]'.");
     }
 
     await addRetiredTask(parsedTask);
@@ -291,7 +291,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               className="flex gap-2"
             >
               <Input 
-                placeholder="Inject objective: Name [dur] [!] [-]..." 
+                placeholder="Inject objective: Name [dur] [!] [-] [W]..." 
                 value={localInput} 
                 onChange={(e) => setLocalInput(e.target.value)}
                 disabled={isProcessingCommand}
@@ -391,6 +391,11 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                                 {task.energy_cost}<Zap className="h-3 w-3 fill-current" />
                               </span>
                             )}
+                            {task.is_work && (
+                              <span className="flex items-center gap-1.5 text-primary">
+                                W<Zap className="h-3 w-3 fill-current" />
+                              </span>
+                            )}
                             <span className="hidden xs:inline text-[8px] opacity-20">|</span>
                             <span className="text-[9px] opacity-40">{format(new Date(task.retired_at), 'MMM dd')}</span>
                           </div>
@@ -426,7 +431,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                             >
                               <RotateCcw className="h-4 w-4" />
                             </Button>
-                          </TooltipTrigger>
+                          </TooltipTooltip>
                           <TooltipContent>Re-zone Objective</TooltipContent>
                         </Tooltip>
                         <Tooltip>

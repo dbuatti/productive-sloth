@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase } from "lucide-react";
 
 import {
   Dialog,
@@ -51,6 +51,7 @@ const formSchema = z.object({
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.string().default('laptop'), // Changed to z.string()
+  is_work: z.boolean().default(false), // NEW: Add is_work flag
 }).refine(data => {
   // Custom refinement: both start_time and end_time must be provided or both must be null/empty
   const hasStartTime = data.start_time !== null && data.start_time !== "";
@@ -104,6 +105,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
       energy_cost: 0,
       is_custom_energy_cost: false,
       task_environment: 'laptop',
+      is_work: false, // NEW: Default to false
     },
   });
 
@@ -123,6 +125,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
         task_environment: task.task_environment,
+        is_work: task.is_work || false, // NEW: Reset is_work
       });
       if (!task.is_custom_energy_cost && startTime && endTime) {
         const selectedDayDate = parseISO(selectedDayString);
@@ -225,6 +228,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
         task_environment: values.task_environment,
+        is_work: values.is_work, // NEW: Include is_work flag
       });
       showSuccess("Scheduled task updated successfully!");
       onOpenChange(false);
@@ -444,6 +448,31 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                       <FormLabel>Locked Task</FormLabel>
                       <FormDescription>
                         Prevent the scheduler from moving or removing this task.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* NEW: Is Work Switch */}
+              <FormField
+                control={form.control}
+                name="is_work"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-primary" />
+                        <FormLabel className="text-base font-semibold">Work Task</FormLabel>
+                      </div>
+                      <FormDescription className="text-xs">
+                        Tag this task as work for analytics.
                       </FormDescription>
                     </div>
                     <FormControl>

@@ -1,17 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
-import { format, parseISO, startOfDay, addDays, subDays, differenceInMinutes, isAfter, isBefore, isSameDay } from 'date-fns';
+import { format, parseISO, startOfDay, addDays, subDays, differenceInMinutes, isAfter, isBefore, isSameDay, getDay } from 'date-fns';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, ReferenceLine, LabelList 
 } from 'recharts';
-import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase } from 'lucide-react';
+import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, Weekend } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch'; // Import Switch
 
 // --- Constants for Analysis ---
 const MAX_DAILY_MINUTES = 8 * 60; // 8 hours of work
@@ -37,12 +38,13 @@ interface WorkloadDistribution {
 const WellnessPage: React.FC = () => {
   const { user, profile } = useSession();
   const navigate = useNavigate();
+  const [skipWeekends, setSkipWeekends] = useState(true); // NEW: State for weekend skipping
 
   // We fetch a 14-day window for meaningful trends
   const centerDateString = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const { weeklyTasks, isLoading, profileSettings } = useWeeklySchedulerTasks(centerDateString);
 
-  // Calculate data for the last 7 days
+  // Calculate data for the last 7 days (PAST TRACKING)
   const last7DaysData = useMemo(() => {
     if (!weeklyTasks || !profileSettings) return null;
 
@@ -152,6 +154,15 @@ const WellnessPage: React.FC = () => {
     
     for (let i = 0; i < 14; i++) {
       const dayDate = addDays(today, i);
+      
+      // NEW: Skip weekends if toggle is enabled
+      if (skipWeekends) {
+        const dayOfWeek = getDay(dayDate); // 0 = Sunday, 6 = Saturday
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          continue;
+        }
+      }
+
       const dateKey = format(dayDate, 'yyyy-MM-dd');
       const tasks = weeklyTasks[dateKey] || [];
       
@@ -180,9 +191,15 @@ const WellnessPage: React.FC = () => {
       return format(lowestWorkDay.date, 'yyyy-MM-dd');
     }
     
-    // If all days are empty, suggest tomorrow
-    return format(addDays(today, 1), 'yyyy-MM-dd');
-  }, [weeklyTasks]);
+    // If all days are empty, suggest tomorrow (respecting weekend toggle)
+    let nextDay = addDays(today, 1);
+    if (skipWeekends) {
+      while (getDay(nextDay) === 0 || getDay(nextDay) === 6) {
+        nextDay = addDays(nextDay, 1);
+      }
+    }
+    return format(nextDay, 'yyyy-MM-dd');
+  }, [weeklyTasks, skipWeekends]);
 
   if (!user) {
     return (
@@ -394,6 +411,19 @@ const WellnessPage: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 space-y-4">
+            {/* NEW: Weekend Skip Toggle */}
+            <div className="flex items-center justify-between p-2 rounded-md bg-background/50 border border-white/5">
+              <div className="flex items-center gap-2">
+                <Weekend className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Skip Weekends</span>
+              </div>
+              <Switch 
+                checked={skipWeekends} 
+                onCheckedChange={setSkipWeekends} 
+                aria-label="Toggle skipping weekends for day off recommendation"
+              />
+            </div>
+
             {suggestedDayOff ? (
               <>
                 <p className="text-sm text-foreground">
@@ -402,7 +432,6 @@ const WellnessPage: React.FC = () => {
                 <Button onClick={() => {
                   // Navigate to settings to block the day
                   navigate('/settings');
-                  // You could also add a toast here
                 }}>
                   Block This Day
                 </Button>

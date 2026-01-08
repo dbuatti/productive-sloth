@@ -5,15 +5,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase } from "lucide-react";
 
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -59,6 +59,7 @@ const formSchema = z.object({
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.string().default('laptop'),
+  is_work: z.boolean().default(false), // NEW: Add is_work flag
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -90,6 +91,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       energy_cost: 0,
       is_custom_energy_cost: false,
       task_environment: 'laptop',
+      is_work: false, // NEW: Default to false
     },
   });
 
@@ -105,6 +107,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
         task_environment: task.task_environment,
+        is_work: task.is_work || false, // NEW: Reset is_work
       });
       if (!task.is_custom_energy_cost) {
         const duration = task.duration ?? 30;
@@ -158,6 +161,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
         task_environment: values.task_environment,
+        is_work: values.is_work, // NEW: Include is_work flag
       });
       showSuccess("Retired task updated successfully!");
       onOpenChange(false);
@@ -179,19 +183,16 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   const formattedOriginalDate = task.original_scheduled_date ? format(parseISO(task.original_scheduled_date), 'MMM d, yyyy') : 'N/A';
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-80 flex flex-col p-6 space-y-6 animate-slide-in-right">
-        <SheetHeader className="border-b pb-4">
-          <SheetTitle className="text-2xl font-bold flex items-center justify-between">
-            Retired Task Details
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-5 w-5" />
-            </Button>
-          </SheetTitle>
-          <SheetDescription className="text-sm text-muted-foreground">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in">
+        <DialogHeader className="border-b pb-4 mb-6">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-bold">Retired Task Details</DialogTitle>
+          </div>
+          <DialogDescription className="text-sm text-muted-foreground">
             Retired: {formattedRetiredAt} | Original Date: {formattedOriginalDate}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
@@ -356,6 +357,31 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 )}
               />
 
+              {/* NEW: Is Work Switch */}
+              <FormField
+                control={form.control}
+                name="is_work"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-primary" />
+                        <FormLabel className="text-base font-semibold">Work Task</FormLabel>
+                      </div>
+                      <FormDescription className="text-xs">
+                        Tag this task as work for analytics.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
               {/* Custom Energy Cost Switch */}
               <FormField
                 control={form.control}
@@ -430,8 +456,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
             </div>
           </form>
         </Form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 };
 

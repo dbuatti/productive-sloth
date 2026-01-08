@@ -78,37 +78,38 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const gridScrollContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
-  const lastScrollVersion = useRef<number>(0);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollVersion = useRef<number>(0); // Renamed from lastKnownDataLength to lastScrollVersion
 
-  // 1. PURE SCROLL LOGIC
   const performScroll = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
     const container = gridScrollContainerRef.current;
-    if (!container) return;
+    if (!container || allDaysInFetchWindow.length === 0) return;
 
-    const targetIndex = allDaysInFetchWindow.findIndex(day => day === date); // Use string comparison
+    const targetIndex = allDaysInFetchWindow.indexOf(date);
     if (targetIndex !== -1) {
-      container.scrollTo({
-        left: targetIndex * columnWidth,
-        behavior: behavior
+      container.scrollTo({ 
+        left: targetIndex * columnWidth, 
+        behavior 
       });
-      lastScrollVersion.current = scrollVersion; // Update lastScrollVersion here
     }
-  }, [allDaysInFetchWindow, columnWidth, scrollVersion]);
+  }, [allDaysInFetchWindow, columnWidth]);
 
-  // 2. INITIAL JUMP: useLayoutEffect fires before paint to stop flickering
+  // FIX: The Layout-First Guard
   useLayoutEffect(() => {
-    if (isLoading || allDaysInFetchWindow.length === 0 || !isInitialMount.current) return;
+    // Only scroll if we have data AND we haven't successfully 
+    // focused the initial mount yet.
+    if (isLoading || allDaysInFetchWindow.length === 0) return;
 
-    const timer = setTimeout(() => {
-      performScroll(currentPeriodStartString, 'auto'); // 'auto' = instant jump
-      isInitialMount.current = false;
-    }, 50); // Small delay to ensure the browser has painted the columns
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [isLoading, allDaysInFetchWindow, currentPeriodStartString, performScroll]);
+    // This ensures we only "Initial Jump" once the data array is actually populated
+    if (isInitialMount.current && allDaysInFetchWindow.length > 0) {
+      // Use requestAnimationFrame to ensure the browser has painted 
+      // the new flex-basis of the columns
+      requestAnimationFrame(() => {
+        performScroll(currentPeriodStartString, 'auto');
+        isInitialMount.current = false;
+        lastScrollVersion.current = scrollVersion; // Update lastScrollVersion here
+      });
+    }
+  }, [isLoading, allDaysInFetchWindow, currentPeriodStartString, performScroll, scrollVersion]); // Added scrollVersion to dependencies
 
   // 3. TODAY BUTTON: Handles explicit refocusing
   useEffect(() => {

@@ -48,7 +48,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     setIsProfileLoading(true);
     try {
-      const { data, error } = await supabase
+      let { data: profileData, error: fetchError } = await supabase
         .from('profiles')
         .select(`
           id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, 
@@ -65,11 +65,44 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .eq('id', userId)
         .single();
 
-      if (error) {
+      if (fetchError && fetchError.code === 'PGRST116') { // PGRST116 means no rows found
+        console.warn("[SessionProvider] Profile not found for user, attempting to create a new one.");
+        const { data: newProfileData, error: insertError } = await supabase
+          .from('profiles')
+          .insert({ 
+            id: userId, 
+            first_name: user?.user_metadata?.first_name || null, 
+            last_name: user?.user_metadata?.last_name || null 
+          })
+          .select(`
+            id, first_name, last_name, avatar_url, xp, level, daily_streak, last_streak_update, energy, 
+            last_daily_reward_claim, last_daily_reward_notification, last_low_energy_notification, 
+            tasks_completed_today, enable_daily_challenge_notifications, enable_low_energy_notifications, 
+            daily_challenge_target, default_auto_schedule_start_time, default_auto_schedule_end_time, 
+            enable_delete_hotkeys, enable_aethersink_backup, last_energy_regen_at, is_in_regen_pod, 
+            regen_pod_start_time, breakfast_time, lunch_time, dinner_time, breakfast_duration_minutes, 
+            lunch_duration_minutes, dinner_duration_minutes, custom_environment_order, reflection_count, 
+            reflection_times, reflection_durations, enable_environment_chunking, enable_macro_spread, 
+            week_starts_on, num_days_visible, vertical_zoom_index, is_dashboard_collapsed, 
+            is_action_center_collapsed, blocked_days, updated_at
+          `)
+          .single();
+        
+        if (insertError) {
+          console.error("[SessionProvider] Error creating profile:", insertError.message);
+          setProfile(null);
+          showError("Failed to create user profile.");
+        } else if (newProfileData) {
+          setProfile(newProfileData as UserProfile);
+          showSuccess("New user profile created!");
+        }
+      } else if (fetchError) {
+        console.error("[SessionProvider] Error fetching profile:", fetchError.message);
         setProfile(null);
-      } else if (data) {
+        showError("Failed to load user profile.");
+      } else if (profileData) {
         // Create a copy of data without 'updated_at' for comparison
-        const dataWithoutUpdatedAt = { ...data };
+        const dataWithoutUpdatedAt = { ...profileData };
         delete dataWithoutUpdatedAt.updated_at;
 
         const currentProfileWithoutUpdatedAt = profileRef.current ? { ...profileRef.current } : null;
@@ -77,10 +110,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         // Only update profile state if there's a meaningful change (excluding updated_at)
         if (!isEqual(currentProfileWithoutUpdatedAt, dataWithoutUpdatedAt)) {
-          setProfile(data as UserProfile); // Still set the full profile with updated_at
+          setProfile(profileData as UserProfile); // Still set the full profile with updated_at
         }
-        if (data.is_in_regen_pod && data.regen_pod_start_time) {
-          const start = parseISO(data.regen_pod_start_time);
+        if (profileData.is_in_regen_pod && profileData.regen_pod_start_time) {
+          const start = parseISO(profileData.regen_pod_start_time);
           const elapsed = differenceInMinutes(new Date(), start);
           const remaining = REGEN_POD_MAX_DURATION_MINUTES - elapsed;
           setRegenPodDurationMinutes(Math.max(0, remaining));
@@ -88,12 +121,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setRegenPodDurationMinutes(0);
         }
       }
-    } catch (e) {
+    } catch (e: any) {
+      console.error("[SessionProvider] Unexpected error in fetchProfile:", e.message);
       setProfile(null);
+      showError("An unexpected error occurred while loading profile.");
     } finally {
       setIsProfileLoading(false);
     }
-  }, []); // No 'profile' in dependencies here, as we use profileRef.current
+  }, [user]); // Added `user` to dependencies because `user?.user_metadata` is used.
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) await fetchProfile(user.id);
@@ -232,7 +267,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchProfile, queryClient, location.pathname]); // Added location.pathname to dependencies for redirect logic
+  }, [fetchProfile, queryClient, navigate, location.pathname, user]); // Added user to dependencies for fetchProfile
 
   // Effect to handle redirection
   useEffect(() => {

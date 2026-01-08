@@ -7,7 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, ReferenceLine, LabelList 
 } from 'recharts';
-import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo } from 'lucide-react'; // Added ListTodo
+import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +26,7 @@ interface DailyWorkload {
   taskCount: number;
   isOverwork: boolean;
   isWarning: boolean;
+  workTaskCount: number; // NEW: Count of work tasks
 }
 
 interface WorkloadDistribution {
@@ -56,6 +57,7 @@ const WellnessPage: React.FC = () => {
 
       let workMinutes = 0;
       let breakMinutes = 0;
+      let workTaskCount = 0;
 
       tasks.forEach(task => {
         if (!task.start_time || !task.end_time) return;
@@ -68,6 +70,10 @@ const WellnessPage: React.FC = () => {
           breakMinutes += duration;
         } else {
           workMinutes += duration;
+          // NEW: Count as work task if it has the is_work flag
+          if (task.is_work) {
+            workTaskCount++;
+          }
         }
       });
 
@@ -79,6 +85,7 @@ const WellnessPage: React.FC = () => {
         taskCount: tasks.length,
         isOverwork: workMinutes > MAX_DAILY_MINUTES,
         isWarning: workMinutes > WARNING_THRESHOLD && workMinutes <= MAX_DAILY_MINUTES,
+        workTaskCount, // NEW
       });
     }
 
@@ -135,20 +142,47 @@ const WellnessPage: React.FC = () => {
     return recs;
   }, [last7DaysData]);
 
-  // Suggest a day off
+  // Suggest a day off - FIXED TO LOOK INTO FUTURE
   const suggestedDayOff = useMemo(() => {
-    if (!last7DaysData) return null;
-    // Find the day with the lowest work time in the last 7 days
-    const sortedByLowest = [...last7DaysData].sort((a, b) => a.totalWorkMinutes - b.totalWorkMinutes);
+    if (!weeklyTasks) return null;
+    
+    // Look at the next 14 days starting from today
+    const today = startOfDay(new Date());
+    const futureDays: { date: Date; workMinutes: number }[] = [];
+    
+    for (let i = 0; i < 14; i++) {
+      const dayDate = addDays(today, i);
+      const dateKey = format(dayDate, 'yyyy-MM-dd');
+      const tasks = weeklyTasks[dateKey] || [];
+      
+      let workMinutes = 0;
+      tasks.forEach(task => {
+        if (!task.start_time || !task.end_time) return;
+        const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+        if (duration <= 0) return;
+        
+        // Only count non-break tasks
+        const isBreak = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+        if (!isBreak) {
+          workMinutes += duration;
+        }
+      });
+      
+      futureDays.push({ date: dayDate, workMinutes });
+    }
+    
+    // Find the day with the lowest work time in the next 14 days
+    const sortedByLowest = [...futureDays].sort((a, b) => a.workMinutes - b.workMinutes);
     const lowestWorkDay = sortedByLowest[0];
     
-    if (lowestWorkDay && lowestWorkDay.totalWorkMinutes > 0) {
-      // If the lowest work day is still a lot, suggest the next day
-      const nextDay = addDays(parseISO(lowestWorkDay.date), 1);
-      return format(nextDay, 'yyyy-MM-dd');
+    // Only suggest if the lowest day has some work scheduled (otherwise it's already a free day)
+    if (lowestWorkDay && lowestWorkDay.workMinutes > 0) {
+      return format(lowestWorkDay.date, 'yyyy-MM-dd');
     }
-    return null;
-  }, [last7DaysData]);
+    
+    // If all days are empty, suggest tomorrow
+    return format(addDays(today, 1), 'yyyy-MM-dd');
+  }, [weeklyTasks]);
 
   if (!user) {
     return (
@@ -203,7 +237,7 @@ const WellnessPage: React.FC = () => {
             <Activity className="h-8 w-8 text-primary" /> Wellness & Balance
           </h1>
           <p className="text-muted-foreground mt-1">
-            Insights to help you manage time blindness and prevent overwork.
+            Insights to help you manage time blindness and prevent overwork. <span className="font-semibold">Note:</span> Analytics track all scheduled activity, not just work tasks.
           </p>
         </div>
         <Button variant="outline" onClick={() => navigate('/scheduler')}>
@@ -258,14 +292,14 @@ const WellnessPage: React.FC = () => {
 
         <Card className="p-4">
           <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Tasks</CardTitle>
-            <ListTodo className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Work Tasks</CardTitle>
+            <Briefcase className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent className="p-0">
             <div className="text-2xl font-bold text-foreground">
-              {last7DaysData.reduce((sum, d) => sum + d.taskCount, 0)}
+              {last7DaysData.reduce((sum, d) => sum + d.workTaskCount, 0)}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Completed & Scheduled</div>
+            <div className="text-xs text-muted-foreground mt-1">Tagged as Work</div>
           </CardContent>
         </Card>
       </div>
@@ -363,7 +397,7 @@ const WellnessPage: React.FC = () => {
             {suggestedDayOff ? (
               <>
                 <p className="text-sm text-foreground">
-                  Based on your recent workload, we recommend scheduling a day off on <span className="font-bold text-primary">{format(parseISO(suggestedDayOff), 'EEEE, MMMM do')}</span>.
+                  Based on your upcoming workload, we recommend scheduling a day off on <span className="font-bold text-primary">{format(parseISO(suggestedDayOff), 'EEEE, MMMM do')}</span>.
                 </p>
                 <Button onClick={() => {
                   // Navigate to settings to block the day

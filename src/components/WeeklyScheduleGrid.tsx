@@ -44,7 +44,7 @@ interface WeeklyScheduleGridProps {
   T_current: Date; 
 }
 
-const BASE_MINUTE_HEIGHT = 1.5;
+const BASE_MINUTE_HEIGHT = 1.5; // Base height for 1 minute at 100% zoom
 const VERTICAL_ZOOM_LEVELS = [0.25, 0.50, 0.75, 1.00, 1.25, 1.50];
 const VISIBLE_DAYS_OPTIONS = [1, 3, 5, 7, 14, 21]; 
 const MIN_COLUMN_WIDTH = 100;
@@ -179,17 +179,20 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }
   const totalDayMinutesForTimeAxis = useMemo(() => differenceInMinutes(timeAxisEnd, timeAxisStart), [timeAxisEnd, timeAxisEnd]);
 
+  // DYNAMIC MINUTE HEIGHT CALCULATION FOR TIME AXIS
+  const dynamicMinuteHeight = useMemo(() => BASE_MINUTE_HEIGHT * currentVerticalZoomFactor, [currentVerticalZoomFactor]);
+
   const timeLabels = useMemo(() => {
     const labels: { time: string; top: number }[] = [];
     let currentTime = timeAxisStart;
     while (isBefore(currentTime, timeAxisEnd)) {
       const offsetMinutes = differenceInMinutes(currentTime, timeAxisStart);
-      const top = offsetMinutes * BASE_MINUTE_HEIGHT * currentVerticalZoomFactor;
+      const top = offsetMinutes * dynamicMinuteHeight;
       labels.push({ time: format(currentTime, 'h a'), top });
       currentTime = addHours(currentTime, 1);
     }
     return labels;
-  }, [timeAxisStart, timeAxisEnd, currentVerticalZoomFactor]);
+  }, [timeAxisStart, timeAxisEnd, dynamicMinuteHeight]);
 
   const dayElements = useMemo(() => {
     if (isLoading) return null; 
@@ -375,7 +378,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             {/* Time Axis (Fixed on left) */}
             <div className="w-10 sm:w-14 flex-shrink-0 border-r border-border/50 bg-background/90 backdrop-blur-sm sticky left-0 z-10">
               <div className="h-[60px] border-b border-border/50" />
-              <div className="relative" style={{ height: `${totalDayMinutesForTimeAxis * BASE_MINUTE_HEIGHT * currentVerticalZoomFactor}px` }}>
+              <div className="relative" style={{ height: `${totalDayMinutesForTimeAxis * dynamicMinuteHeight}px` }}>
                 {timeLabels.map((label, i) => (
                   <div
                     key={label.time + i}

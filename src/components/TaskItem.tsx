@@ -65,7 +65,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const handleToggleWork = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await updateTask({ id: task.id, is_work: !task.is_work });
+    await updateTask({ id: task.id, is_work: !task.is_work }); // NEW: Toggle is_work
   };
 
   const getPriorityBadgeClasses = (priority: Task['priority']) => {

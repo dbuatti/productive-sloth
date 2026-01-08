@@ -36,6 +36,7 @@ import { useSession } from '@/hooks/use-session';
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
+import { Badge } from '@/components/ui/badge'; // Added Badge import
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }).max(255),
@@ -115,7 +116,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
         const isCritical = form.getValues('isCritical');
         const isBackburner = form.getValues('isBackburner');
-        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical, isBackburner);
+        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical ?? false, isBackburner ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }

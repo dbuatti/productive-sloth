@@ -2,146 +2,81 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask } from '@/types/scheduler';
 import { useSession } from './use-session';
-import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max, Day, subDays } from 'date-fns';
-import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils';
-import { useMemo } from 'react'; // Import useMemo
+import { format, parseISO, addMinutes, isBefore, addDays, startOfDay, differenceInMinutes, max, min, isEqual, isAfter, addHours } from 'date-fns'; // Added addHours import
+import { setTimeOnDate } from '@/lib/scheduler-utils';
 
-interface WeeklyTasks {
-  [key: string]: DBScheduledTask[]; // Key is 'yyyy-MM-dd'
-}
-
-const FETCH_WINDOW_DAYS = 42; // Increased fetch window to 42 days (e.g., 3 weeks before, 3 weeks after)
-
-export const useWeeklySchedulerTasks = (centerDateString: string) => { // Renamed weekStart to centerDateString for clarity
+export const useWeeklySchedulerTasks = (centerDateString: string) => {
   const { user, profile } = useSession();
   const userId = user?.id;
 
-  // Memoize the relevant profile settings for the query key
-  const profileSettings = useMemo(() => {
-    if (!profile) return null;
-    return {
-      weekStartsOn: profile.week_starts_on ?? 0,
-      breakfastTime: profile.breakfast_time,
-      lunchTime: profile.lunch_time,
-      dinnerTime: profile.dinner_time,
-      breakfastDuration: profile.breakfast_duration_minutes,
-      lunchDuration: profile.lunch_duration_minutes,
-      dinnerDuration: profile.dinner_duration_minutes,
-      reflectionCount: profile.reflection_count,
-      reflectionTimes: profile.reflection_times,
-      reflectionDurations: profile.reflection_durations,
-      blockedDays: profile.blocked_days, // Include blockedDays here
-    };
-  }, [
-    profile?.week_starts_on,
-    profile?.breakfast_time,
-    profile?.lunch_time,
-    profile?.dinner_time,
-    profile?.breakfast_duration_minutes,
-    profile?.lunch_duration_minutes,
-    profile?.dinner_duration_minutes,
-    profile?.reflection_count,
-    profile?.reflection_times,
-    profile?.reflection_durations,
-    profile?.blocked_days,
-  ]);
+  const { data: weeklyTasks, isLoading } = useQuery<Record<string, DBScheduledTask[]>>({
+    queryKey: ['weeklySchedulerTasks', userId, centerDateString, profile?.id],
+    queryFn: async () => {
+      if (!userId || !profile) return {};
 
-  const weekStartsOn = (profileSettings?.weekStartsOn ?? 0) as Day;
+      const centerDate = parseISO(centerDateString);
+      const startDate = startOfDay(centerDate);
+      const endDate = addDays(startDate, 14); // Fetch 14 days window
 
-  // Parse the centerDateString to a Date object here for internal calculations
-  const centerDate = parseISO(centerDateString);
+      // 1. Fetch actual scheduled tasks
+      const { data: scheduledData, error: scheduledError } = await supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('scheduled_date', format(startDate, 'yyyy-MM-dd'))
+        .lte('scheduled_date', format(endDate, 'yyyy-MM-dd'));
 
-  // Calculate the actual start and end dates for the data fetch
-  // We want the fetch window to be centered around the `centerDate`
-  // For a 42-day window, we need to go back ~21 days from centerDate to get the start of the window
-  const fetchWindowStart = subDays(centerDate, Math.floor(FETCH_WINDOW_DAYS / 2));
-  const fetchWindowEnd = addDays(fetchWindowStart, FETCH_WINDOW_DAYS - 1); // Corrected typo: FETCH_FLOOR_DAYS to FETCH_WINDOW_DAYS
+      if (scheduledError) throw scheduledError;
 
-  const formattedFetchWindowStart = format(fetchWindowStart, 'yyyy-MM-dd');
-  const formattedFetchWindowEnd = format(fetchWindowEnd, 'yyyy-MM-dd');
-
-  // Use the memoized profileSettings object in the queryKey
-  const queryKey = ['weeklyScheduledTasks', userId, formattedFetchWindowStart, formattedFetchWindowEnd, profileSettings];
-
-  const fetchWeeklyTasks = async (): Promise<WeeklyTasks> => {
-    if (!userId || !profileSettings) return {};
-
-    // Fetch meal assignments for the wider window
-    const { data: assignmentsData } = await supabase
-      .from('meal_assignments')
-      .select('*, meal_idea:meal_ideas(*)')
-      .eq('user_id', userId)
-      .gte('assigned_date', formattedFetchWindowStart)
-      .lte('assigned_date', formattedFetchWindowEnd);
-
-    const { data, error } = await supabase
-      .from('scheduled_tasks')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('scheduled_date', formattedFetchWindowStart)
-      .lte('scheduled_date', formattedFetchWindowEnd)
-      .order('start_time', { ascending: true });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    const tasksByDay: WeeklyTasks = {};
-    // Initialize tasksByDay for all days in the fetch window
-    for (let i = 0; i < FETCH_WINDOW_DAYS; i++) {
-      const day = addDays(fetchWindowStart, i);
-      tasksByDay[format(day, 'yyyy-MM-dd')] = [];
-    }
-
-    (data as DBScheduledTask[]).forEach(task => {
-      const dateKey = format(parseISO(task.scheduled_date), 'yyyy-MM-dd');
-      if (tasksByDay[dateKey]) {
-        const isMealTask = ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
-        if (isMealTask) {
-          const assignment = assignmentsData?.find(a => a.assigned_date === dateKey && a.meal_type === task.name.toLowerCase());
-          if (assignment?.meal_idea?.name) {
-            task.name = assignment.meal_idea.name;
-          }
-        }
-        tasksByDay[dateKey].push(task);
+      const tasksByDay: Record<string, DBScheduledTask[]> = {};
+      
+      // Initialize days
+      for (let i = 0; i < 14; i++) {
+        const day = addDays(startDate, i);
+        const dayKey = format(day, 'yyyy-MM-dd');
+        tasksByDay[dayKey] = [];
       }
-    });
 
-    for (let i = 0; i < FETCH_WINDOW_DAYS; i++) { // Iterate over the full fetch window
-      const dayDate = addDays(fetchWindowStart, i);
-      const dateKey = format(dayDate, 'yyyy-MM-dd');
+      // Populate with real tasks
+      (scheduledData || []).forEach(task => {
+        const dayKey = task.scheduled_date;
+        if (!tasksByDay[dayKey]) tasksByDay[dayKey] = [];
+        tasksByDay[dayKey].push(task);
+      });
 
-      const workdayStart = setTimeOnDate(dayDate, profileSettings.breakfastTime || '00:00');
-      let workdayEnd = setTimeOnDate(dayDate, profileSettings.dinnerTime || '23:59');
-      if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
+      // 2. Generate Static Anchors (Meals/Reflections) for the window
+      const staticAnchors: DBScheduledTask[] = [];
+      
+      const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null, date: Date) => {
+        const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+        if (!timeStr || effectiveDuration <= 0) return;
 
-      const addStaticTask = (name: string, timeStr: string | null, duration: number | null, isMealTask: boolean = true) => {
-        if (timeStr && duration !== null && duration > 0) {
-          let anchorStart = setTimeOnDate(dayDate, timeStr);
-          let anchorEnd = addMinutes(anchorStart, duration);
+        let anchorStart = setTimeOnDate(date, timeStr);
+        let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+        if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
 
-          if (isBefore(anchorEnd, anchorStart)) {
-            anchorEnd = addDays(anchorEnd, 1);
-          }
+        // Workday window (using profile defaults or fallbacks)
+        const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(date, profile.default_auto_schedule_start_time) : startOfDay(date);
+        let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(date), profile.default_auto_schedule_end_time) : addHours(startOfDay(date), 17);
+        if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
 
+        // Check overlap
+        const overlaps = (isBefore(anchorEnd, workdayEnd) || isEqual(anchorEnd, workdayEnd)) && 
+                         (isAfter(anchorStart, workdayStart) || isEqual(anchorStart, workdayStart));
+        
+        if (overlaps) {
           const intersectionStart = max([anchorStart, workdayStart]);
           const intersectionEnd = min([anchorEnd, workdayEnd]);
+          const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
 
-          const effectiveDuration = differenceInMinutes(intersectionEnd, intersectionStart);
-
-          if (effectiveDuration > 0) {
-            let finalName = name;
-            if (isMealTask) {
-              const assignment = assignmentsData?.find(a => a.assigned_date === dateKey && a.meal_type === name.toLowerCase());
-              if (assignment?.meal_idea?.name) {
-                finalName = assignment.meal_idea.name;
-              }
-            }
-
-            tasksByDay[dateKey].push({
+          if (finalDuration > 0) {
+            const dateKey = format(date, 'yyyy-MM-dd');
+            const isMealTask = ['breakfast', 'lunch', 'dinner'].includes(name.toLowerCase());
+            
+            staticAnchors.push({
               id: `${isMealTask ? 'meal' : 'reflection'}-${name.toLowerCase().replace(/\s/g, '-')}-${dateKey}-${format(intersectionStart, 'HHmm')}`,
               user_id: userId,
-              name: finalName,
+              name: name,
               break_duration: null,
               start_time: intersectionStart.toISOString(),
               end_time: intersectionEnd.toISOString(),
@@ -154,54 +89,41 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => { // Rename
               energy_cost: isMealTask ? -10 : 0,
               is_completed: false,
               is_custom_energy_cost: false,
-              task_environment: isMealTask ? 'home' : 'laptop',
+              task_environment: 'home',
               source_calendar_id: null,
               is_backburner: false,
+              is_work: false, // Static anchors are not work
             });
           }
         }
       };
 
-      addStaticTask('Breakfast', profileSettings.breakfastTime, profileSettings.breakfastDuration);
-      addStaticTask('Lunch', profileSettings.lunchTime, profileSettings.lunchDuration);
-      addStaticTask('Dinner', profileSettings.dinnerTime, profileSettings.dinnerDuration);
+      // Generate anchors for the 14-day window
+      for (let i = 0; i < 14; i++) {
+        const day = addDays(startDate, i);
+        addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes, day);
+        addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes, day);
+        addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes, day);
 
-      // Inject Reflections
-      for (let r = 0; r < (profileSettings.reflectionCount || 0); r++) {
-        const rTime = profileSettings.reflectionTimes?.[r];
-        const rDur = profileSettings.reflectionDurations?.[r];
-        if (rTime && rDur) {
-          addStaticTask(`Reflection Point ${r + 1}`, rTime, rDur, false);
+        if (profile.reflection_count > 0 && profile.reflection_times) {
+          for (let r = 0; r < profile.reflection_count; r++) {
+            const rTime = profile.reflection_times[r];
+            const rDur = profile.reflection_durations?.[r];
+            addStaticConstraint(`Reflection Point ${r + 1}`, rTime, rDur, day);
+          }
         }
       }
-    }
 
-    Object.keys(tasksByDay).forEach(dateKey => {
-      tasksByDay[dateKey].sort((a, b) => {
-        if (a.start_time && b.start_time) {
-          return parseISO(a.start_time).getTime() - parseISO(b.start_time).getTime();
-        }
-        return 0;
+      // Merge anchors into tasksByDay
+      staticAnchors.forEach(anchor => {
+        if (!tasksByDay[anchor.scheduled_date]) tasksByDay[anchor.scheduled_date] = [];
+        tasksByDay[anchor.scheduled_date].push(anchor);
       });
-    });
 
-    return tasksByDay;
-  };
-
-  const { data: weeklyTasks = {}, isLoading, error } = useQuery<WeeklyTasks, Error>({
-    queryKey,
-    queryFn: fetchWeeklyTasks,
-    enabled: !!userId && !!profileSettings, // Enable only if profileSettings is available
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+      return tasksByDay;
+    },
+    enabled: !!userId && !!profile && !!centerDateString,
   });
 
-  return {
-    weeklyTasks,
-    isLoading,
-    error,
-    fetchWindowStart,
-    fetchWindowEnd,
-    profileSettings, // Return profileSettings for use in WeeklyScheduleGrid
-  };
+  return { weeklyTasks, isLoading, profileSettings: profile };
 };

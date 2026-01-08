@@ -20,7 +20,7 @@ const SchedulerInput: React.FC<SchedulerInputProps> = React.memo(({
   isLoading,
   inputValue,
   setInputValue,
-  placeholder = "e.g., 'Gym 60' or '!Report 45'",
+  placeholder = "e.g., 'Vocal Coaching 30 W' or '!Report 45'",
   onDetailedInject,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

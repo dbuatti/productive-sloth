@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Task, NewTask, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
+import { Task, NewTask, TaskStatusFilter, TemporalFilter, SortBy } from '@/types';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday } from 'date-fns';
@@ -129,6 +129,7 @@ export const useTasks = () => {
         metadata_xp: metadataXp,
         is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
         is_backburner: newTask.is_backburner ?? false,
+        is_work: newTask.is_work ?? false, // NEW: Add is_work flag
       };
       const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
       if (error) throw new Error(error.message);
@@ -165,7 +166,6 @@ export const useTasks = () => {
         // If energy_cost is provided (and custom might be true or false), update metadata_xp
         updatedMetadataXp = task.energy_cost * 2;
       }
-
 
       const { data, error } = await supabase
         .from('tasks')

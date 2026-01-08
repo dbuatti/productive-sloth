@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
-import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music } from 'lucide-react';
+import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music, Briefcase } from 'lucide-react';
 import DatePicker from './DatePicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,6 +48,7 @@ const TaskCreationSchema = z.object({
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'),
+  is_work: z.boolean().default(false), // NEW: Add is_work flag
 });
 
 type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
@@ -101,6 +102,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false),
       is_custom_energy_cost: false,
       task_environment: 'laptop',
+      is_work: false, // NEW: Default to false
     },
     mode: 'onChange',
   });
@@ -119,6 +121,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false),
         is_custom_energy_cost: false,
         task_environment: 'laptop',
+        is_work: false, // NEW: Reset is_work
       });
     }
   }, [isOpen, defaultPriority, defaultDueDate, defaultStartTime, defaultEndTime, form]);
@@ -182,7 +185,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
 
 
   const onSubmit = async (values: TaskCreationFormValues) => {
-    const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost, task_environment } = values;
+    const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost, task_environment, is_work } = values;
 
     const scheduledDateString = format(dueDate, 'yyyy-MM-dd');
 
@@ -204,6 +207,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost,
         is_custom_energy_cost: is_custom_energy_cost,
         task_environment: task_environment,
+        is_work: is_work, // NEW: Include is_work flag
       };
 
       await addScheduledTask(newScheduledTask, {
@@ -225,6 +229,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost, 
         is_custom_energy_cost: is_custom_energy_cost,
         task_environment: task_environment,
+        is_work: is_work, // NEW: Include is_work flag
       };
 
       await addTask(newTask, {
@@ -433,6 +438,32 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   }}
                   disabled={isCritical}
                   aria-label="Toggle Backburner Task"
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        {/* NEW: Is Work Switch */}
+        <FormField
+          control={form.control}
+          name="is_work"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-primary" />
+                  <FormLabel className="text-base font-semibold">Work Task</FormLabel>
+                </div>
+                <FormDescription className="text-xs">
+                  Tag this task as work for analytics.
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  aria-label="Toggle Work Task"
                 />
               </FormControl>
             </FormItem>

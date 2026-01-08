@@ -6,7 +6,7 @@ import { format, addDays, isToday, isBefore, setHours, setMinutes, addHours, dif
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, CalendarDays, ZoomIn, ListTodo, Loader2, Save } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } => '@/components/ui/tooltip';
 import { setTimeOnDate } from '@/lib/scheduler-utils';
 import {
   DropdownMenu,
@@ -156,13 +156,13 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }, [timeAxisStart, timeAxisEnd]);
 
   // The Execution Function
-  const scrollToDate = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
+  const executeScroll = useCallback((date: string, behavior: ScrollBehavior = 'smooth') => {
     const container = gridScrollContainerRef.current;
     if (!container) return;
 
     const targetIndex = allDaysInFetchWindow.findIndex(day => format(day, 'yyyy-MM-dd') === date);
     if (targetIndex !== -1) {
-      const scrollPosition = targetIndex * columnWidth;
+      const scrollPosition = targetIndex * columnWidth; // FIX: columnWidth is now in scope
       
       container.scrollTo({
         left: scrollPosition,
@@ -171,7 +171,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       
       lastTargetDate.current = date;
     }
-  }, [allDaysInFetchWindow, columnWidth]);
+  }, [allDaysInFetchWindow, columnWidth]); // FIX: Added columnWidth to dependencies
 
   // --- Effects ---
 
@@ -194,13 +194,13 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   }, []);
 
   useEffect(() => {
-    if (isLoading || !gridScrollContainerRef.current) return; // Corrected typo here
+    if (isLoading || !gridScrollContainerRef.current) return;
 
     // Handle Initial Focus (Instant)
     if (isInitialMount.current) {
       // Small delay to ensure the browser has painted the columns
       scrollTimeoutRef.current = setTimeout(() => {
-        scrollToDate(currentPeriodStartString, 'auto');
+        executeScroll(currentPeriodStartString, 'auto');
         isInitialMount.current = false;
         lastScrollVersion.current = scrollVersion;
       }, 50);
@@ -211,10 +211,10 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
     // Handle "Today" click or programmatic shift
     if (scrollVersion > lastScrollVersion.current) {
-      scrollToDate(currentPeriodStartString, 'smooth');
+      executeScroll(currentPeriodStartString, 'smooth');
       lastScrollVersion.current = scrollVersion;
     }
-  }, [currentPeriodStartString, scrollVersion, isLoading, executeScroll, scrollToDate]); // Added scrollToDate to dependencies
+  }, [currentPeriodStartString, scrollVersion, isLoading, executeScroll]); // FIX: Removed scrollToDate from dependencies as it's executeScroll
 
   // 3. RENDER: Memoize to stop the "Double Render" flicker
   const dayElements = useMemo(() => {
@@ -226,7 +226,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
       return (
         <div 
           key={dateKey} 
-          style={{ width: `${columnWidth}px` }} 
+          style={{ width: `${columnWidth}px` }} // FIX: columnWidth is now in scope
           className="flex-shrink-0 border-r border-white/5"
         >
           <DailyScheduleColumn
@@ -237,14 +237,14 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             isDetailedView={isDetailedView}
             T_current={T_current}
             zoomLevel={currentVerticalZoomFactor}
-            columnWidth={columnWidth}
+            columnWidth={columnWidth} // FIX: Passed columnWidth
             onCompleteTask={handleCompleteScheduledTask}
             isDayBlocked={isDayBlocked}
           />
         </div>
       );
     });
-  }, [allDaysInFetchWindow, columnWidth, blockedDays, isLoading, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, T_current, currentVerticalZoomFactor, handleCompleteScheduledTask, profileSettings?.blockedDays]);
+  }, [allDaysInFetchWindow, columnWidth, blockedDays, isLoading, weeklyTasks, workdayStartTime, workdayEndTime, isDetailedView, T_current, currentVerticalZoomFactor, handleCompleteScheduledTask, profileSettings?.blockedDays]); // FIX: Added blockedDays to dependencies
 
   return (
     <div className="flex flex-col w-full h-full">

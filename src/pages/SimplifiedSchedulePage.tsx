@@ -17,16 +17,16 @@ const SimplifiedSchedulePage: React.FC = () => {
   const [currentVerticalZoomIndex, setCurrentVerticalZoomIndex] = useState<number>(profile?.vertical_zoom_index ?? 3);
 
   // currentPeriodStart should be initialized to today and then only changed by user navigation.
-  const [currentPeriodStart, setCurrentPeriodStart] = useState<Date>(() => startOfDay(new Date()));
-  const [scrollTrigger, setScrollTrigger] = useState(0); // NEW: State to trigger scroll
+  // Storing as a string to prevent unnecessary re-renders due to Date object reference changes.
+  const [currentPeriodStartString, setCurrentPeriodStartString] = useState<string>(() => format(startOfDay(new Date()), 'yyyy-MM-dd'));
+  const [scrollTrigger, setScrollTrigger] = useState(0); // State to trigger scroll
 
-  // Pass currentPeriodStart as the centerDate to the hook, so it fetches a buffer around it
-  const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStart);
+  // Pass currentPeriodStartString as the centerDate to the hook, so it fetches a buffer around it
+  const { weeklyTasks, isLoading: isWeeklyTasksLoading, fetchWindowStart, fetchWindowEnd } = useWeeklySchedulerTasks(currentPeriodStartString);
 
   const isLoading = isSessionLoading || isWeeklyTasksLoading;
 
   // Effect to update numDaysVisible and currentVerticalZoomIndex when profile loads/changes
-  // This effect should NOT reset currentPeriodStart.
   useEffect(() => {
     if (profile) {
       const newNumDaysVisible = profile.num_days_visible ?? 7;
@@ -39,21 +39,22 @@ const SimplifiedSchedulePage: React.FC = () => {
       if (newVerticalZoomIndex !== currentVerticalZoomIndex) {
         setCurrentVerticalZoomIndex(newVerticalZoomIndex);
       }
-      // Removed the logic that was resetting currentPeriodStart here.
-      // currentPeriodStart is now solely managed by user navigation (prev/next/today buttons).
     }
   }, [profile, numDaysVisible, currentVerticalZoomIndex]); // Depend on profile to react to its loading/changes
 
   // Callback for WeeklyScheduleGrid to request a period shift
   const handlePeriodShift = useCallback((shiftDays: number) => {
-    setCurrentPeriodStart(prev => addDays(prev, shiftDays));
+    setCurrentPeriodStartString(prevString => {
+      const prevDate = parseISO(prevString);
+      const newDate = addDays(prevDate, shiftDays);
+      return format(newDate, 'yyyy-MM-dd');
+    });
     setScrollTrigger(prev => prev + 1); // Trigger scroll
   }, []);
 
   const handleGoToToday = () => {
     const today = new Date();
-    const newStart = startOfDay(today);
-    setCurrentPeriodStart(newStart);
+    setCurrentPeriodStartString(format(startOfDay(today), 'yyyy-MM-dd'));
     setScrollTrigger(prev => prev + 1); // Trigger scroll
   };
 
@@ -86,8 +87,7 @@ const SimplifiedSchedulePage: React.FC = () => {
       <div className="flex-1 overflow-auto">
         <WeeklyScheduleGrid
           weeklyTasks={weeklyTasks}
-          currentPeriodStart={currentPeriodStart} 
-          setCurrentPeriodStart={setCurrentPeriodStart} 
+          currentPeriodStartString={currentPeriodStartString} // Pass string
           numDaysVisible={numDaysVisible} 
           setNumDaysVisible={setNumDaysVisible} 
           workdayStartTime={workdayStartTime}
@@ -98,9 +98,9 @@ const SimplifiedSchedulePage: React.FC = () => {
           onPeriodShift={handlePeriodShift} 
           fetchWindowStart={fetchWindowStart} 
           fetchWindowEnd={fetchWindowEnd}     
-          currentVerticalZoomIndex={currentVerticalZoomIndex} // NEW: Pass vertical zoom index
-          setCurrentVerticalZoomIndex={setCurrentVerticalZoomIndex} // NEW: Pass vertical zoom index setter
-          scrollTrigger={scrollTrigger} // NEW: Pass scrollTrigger
+          currentVerticalZoomIndex={currentVerticalZoomIndex} // Pass vertical zoom index
+          setCurrentVerticalZoomIndex={setCurrentVerticalZoomIndex} // Pass vertical zoom index setter
+          scrollTrigger={scrollTrigger} // Pass scrollTrigger
         />
       </div>
     </div>

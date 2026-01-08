@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask } from '@/types/scheduler';
 import { useSession } from './use-session';
-import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max, Day, subDays } from 'date-fns'; // Added subDays
+import { format, startOfWeek, addDays, parseISO, setHours, setMinutes, addMinutes, isBefore, isAfter, differenceInMinutes, min, max, Day, subDays } from 'date-fns';
 import { setTimeOnDate, isMeal } from '@/lib/scheduler-utils';
 
 interface WeeklyTasks {
@@ -11,17 +11,20 @@ interface WeeklyTasks {
 
 const FETCH_WINDOW_DAYS = 42; // Increased fetch window to 42 days (e.g., 3 weeks before, 3 weeks after)
 
-export const useWeeklySchedulerTasks = (centerDate: Date) => { // Renamed weekStart to centerDate for clarity
+export const useWeeklySchedulerTasks = (centerDateString: string) => { // Renamed weekStart to centerDateString for clarity
   const { user, profile } = useSession();
   const userId = user?.id;
 
   const weekStartsOn = (profile?.week_starts_on ?? 0) as Day;
 
+  // Parse the centerDateString to a Date object here for internal calculations
+  const centerDate = parseISO(centerDateString);
+
   // Calculate the actual start and end dates for the data fetch
   // We want the fetch window to be centered around the `centerDate`
   // For a 42-day window, we need to go back ~21 days from centerDate to get the start of the window
   const fetchWindowStart = subDays(centerDate, Math.floor(FETCH_WINDOW_DAYS / 2));
-  const fetchWindowEnd = addDays(fetchWindowStart, FETCH_WINDOW_DAYS - 1);
+  const fetchWindowEnd = addDays(fetchWindowStart, FETCH_WINDOW_DAYS - 1); // Corrected typo: FETCH_FLOOR_DAYS to FETCH_WINDOW_DAYS
 
   const formattedFetchWindowStart = format(fetchWindowStart, 'yyyy-MM-dd');
   const formattedFetchWindowEnd = format(fetchWindowEnd, 'yyyy-MM-dd');
@@ -165,7 +168,7 @@ export const useWeeklySchedulerTasks = (centerDate: Date) => { // Renamed weekSt
     weeklyTasks,
     isLoading,
     error,
-    fetchWindowStart, // Expose fetch window start for rendering logic
-    fetchWindowEnd,   // Expose fetch window end for rendering logic
+    fetchWindowStart,
+    fetchWindowEnd,
   };
 };

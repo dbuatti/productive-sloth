@@ -7,15 +7,13 @@ import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
 import WeeklyScheduleGrid from '@/components/WeeklyScheduleGrid';
 import { format, startOfDay, parseISO, addDays, subDays, differenceInMinutes, isBefore } from 'date-fns';
 import { DBScheduledTask } from '@/types/scheduler';
-import { useCurrentTime } from '@/components/CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 const FETCH_WINDOW_DAYS = 42; // Needs to be consistent with useWeeklySchedulerTasks
 const MIN_COLUMN_WIDTH = 100; // Defined here
 
 const SimplifiedSchedulePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, isLoading: isSessionLoading, updateProfile } = useSession();
-  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
+  const { user, profile, isLoading: isSessionLoading, T_current, updateProfile } = useSession();
 
   // Derive numDaysVisible and currentVerticalZoomIndex directly from profile
   const numDaysVisible = profile?.num_days_visible ?? 7;
@@ -165,6 +163,7 @@ const SimplifiedSchedulePage: React.FC = () => {
           allDaysInFetchWindow={daysToRender} // NEW: Pass the full window
           columnWidth={columnWidth} // New prop
           onCompleteTask={handleCompleteTask} // New prop
+          T_current={T_current} // New prop
         />
       </div>
     </div>

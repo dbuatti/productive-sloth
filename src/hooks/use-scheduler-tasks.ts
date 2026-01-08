@@ -8,7 +8,6 @@ import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min, isEqual } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, LOW_ENERGY_THRESHOLD } from '@/lib/constants';
 import { mergeOverlappingTimeBlocks, getFreeTimeBlocks, findFirstAvailableSlot, isSlotFree, calculateEnergyCost, compactScheduleLogic, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
-import { useCurrentTime } from '@/components/CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 // Helper to log to both console and toast for visibility
 const engineLog = (message: string, type: 'info' | 'warn' | 'error' = 'info') => {
@@ -21,8 +20,7 @@ const engineLog = (message: string, type: 'info' | 'warn' | 'error' = 'info') =>
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
-  const { user, profile, session } = useSession();
-  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
+  const { user, profile, session, T_current } = useSession();
   const userId = user?.id;
 
   const formattedSelectedDate = selectedDate;
@@ -726,7 +724,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       showSuccess(`Window: ${format(targetWorkdayStart, 'HH:mm')} to ${format(targetWorkdayEnd, 'HH:mm')}`);
       console.log(`[SchedulerEngine] Target Window: ${format(targetWorkdayStart, 'HH:mm')} to ${format(targetWorkdayEnd, 'HH:mm')}`);
 
-      const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user.id', user.id).eq('scheduled_date', targetDateString);
+      const { data: dbTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', targetDateString);
       
       // 1. Identify Fixed Blocks (Scheduled Tasks + Static Anchors)
       
@@ -1065,8 +1063,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     isLoadingRetiredTasks,
     completedTasksForSelectedDayList,
     isLoadingCompletedTasksForSelectedDay,
-    retireTask,
-    rezoneTask,
+    retireTask: retireTaskMutation.mutateAsync,
+    rezoneTask: rezoneTaskMutation.mutateAsync,
     compactScheduledTasks: compactScheduledTasksMutation.mutateAsync,
     randomizeBreaks: randomizeBreaksMutation.mutateAsync,
     toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutateAsync,

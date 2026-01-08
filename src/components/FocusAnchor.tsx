@@ -9,23 +9,30 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Clock, Zap, Coffee } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile
-import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 const FocusAnchor: React.FC = () => {
-  const { activeItemToday, nextItemToday } = useSession(); 
-  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
+  const { activeItemToday, T_current } = useSession(); 
   
+  // Use local T_current for anchor timing if SessionProvider doesn't expose it (it does now, but keeping the local timer for robustness if needed)
+  const [localT_current, setLocalT_current] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLocalT_current(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile(); // Check if mobile
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   const updateRemaining = useCallback(() => {
-    if (!activeItemToday || isBefore(activeItemToday.endTime, T_current)) {
+    if (!activeItemToday || isBefore(activeItemToday.endTime, localT_current)) {
       setTimeRemaining('0s');
       return;
     }
-    const duration = intervalToDuration({ start: T_current, end: activeItemToday.endTime });
+    const duration = intervalToDuration({ start: localT_current, end: activeItemToday.endTime });
     const formatted = formatDuration(duration, {
       format: ['hours', 'minutes', 'seconds'],
       delimiter: ' ',
@@ -40,7 +47,7 @@ const FocusAnchor: React.FC = () => {
       },
     });
     setTimeRemaining(formatted || '0s');
-  }, [activeItemToday, T_current]);
+  }, [activeItemToday, localT_current]);
 
   useEffect(() => {
     updateRemaining();

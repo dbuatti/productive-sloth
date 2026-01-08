@@ -4,7 +4,6 @@ import { useSession } from '@/hooks/use-session';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Zap, Coffee, Clock } from 'lucide-react';
-import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 // Define Duration interface based on date-fns structure to resolve TS2304
 interface Duration {
@@ -34,8 +33,7 @@ const formatTimeRemaining = (duration: Duration): string => {
 };
 
 const MobileStatusIndicator: React.FC = () => {
-  const { activeItemToday } = useSession();
-  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
+  const { activeItemToday, T_current } = useSession();
   const navigate = useNavigate();
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 

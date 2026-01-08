@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -29,7 +28,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { activeItemToday, profile } = useSession();
-  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
 

@@ -41,11 +41,9 @@ import AetherSink from '@/components/AetherSink';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // NEW: Import Tooltip components
 import { Button } from '@/components/ui/button'; // NEW: Import Button
-import { useCurrentTime } from '@/components/CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
-  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
-  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
+  const { user, profile, isLoading: isSessionLoading, rechargeEnergy, T_current, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
@@ -469,7 +467,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       "w-full pb-4 space-y-6",
     )}>
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
-        <ImmersiveFocusMode activeItem={activeItemToday} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
+        <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
       )}
       
       {(showRegenPodSetup || isRegenPodRunning) && (
@@ -507,7 +505,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       <div className="space-y-6">
         {view === 'schedule' && (
           <>
-            <SchedulerContextBar />
+            <SchedulerContextBar T_current={T_current} />
             
             <Card className="p-4 rounded-xl shadow-sm">
               <CardHeader className="p-0 pb-4">
@@ -540,7 +538,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
               navigate={navigate}
             />
-            <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
+            <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
             {/* Removed the duplicate CardHeader and Card around SchedulerDisplay */}
             {calculatedSchedule?.summary.isBlocked ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-destructive/50 bg-destructive/5">
@@ -551,6 +549,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             ) : (
               <SchedulerDisplay 
                 schedule={calculatedSchedule} 
+                T_current={T_current} 
                 onRemoveTask={(id) => removeScheduledTask(id)} 
                 onRetireTask={(t) => retireTask(t)} 
                 onCompleteTask={(t) => handleSchedulerAction('complete', t)} 

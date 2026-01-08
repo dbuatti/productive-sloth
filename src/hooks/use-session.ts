@@ -67,6 +67,7 @@ interface SessionContextType {
   updateBlockedDays: (dateString: string, isBlocked: boolean) => Promise<void>; // NEW: Function to manage blocked days
   activeItemToday: ScheduledItem | null;
   nextItemToday: ScheduledItem | null;
+  T_current: Date;
   startRegenPodState: (durationMinutes: number) => Promise<void>;
   exitRegenPodState: () => Promise<void>;
   regenPodDurationMinutes: number;

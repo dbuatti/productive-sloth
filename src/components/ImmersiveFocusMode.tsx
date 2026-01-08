@@ -8,10 +8,10 @@ import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
 import { ScheduledItem, DBScheduledTask } from '@/types/scheduler';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 interface ImmersiveFocusModeProps {
   activeItem: ScheduledItem;
+  T_current: Date;
   onExit: () => void;
   onAction: (action: 'complete' | 'skip' | 'takeBreak' | 'startNext' | 'exitFocus', task: DBScheduledTask, isEarlyCompletion: boolean, remainingDurationMinutes?: number) => void;
   dbTask: DBScheduledTask | null;
@@ -21,12 +21,12 @@ interface ImmersiveFocusModeProps {
 
 const ImmersiveFocusMode: React.FC<ImmersiveFocusModeProps> = ({
   activeItem,
+  T_current,
   onAction,
   dbTask,
   nextItem, 
   isProcessingCommand, 
 }) => {
-  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   const updateRemaining = useCallback(() => {

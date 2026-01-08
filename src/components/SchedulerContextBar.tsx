@@ -6,15 +6,12 @@ import { formatDateTime } from '@/lib/scheduler-utils';
 import { Clock } from 'lucide-react';
 import WeatherWidget from './WeatherWidget';
 import EnvironmentMultiSelect from './EnvironmentMultiSelect';
-import { useCurrentTime } from './CurrentTimeProvider'; // NEW: Import useCurrentTime
 
 interface SchedulerContextBarProps {
-  // T_current is now obtained from useCurrentTime, no longer a prop
+  T_current: Date;
 }
 
-const SchedulerContextBar: React.FC<SchedulerContextBarProps> = () => {
-  const { T_current } = useCurrentTime(); // NEW: Get T_current from CurrentTimeProvider
-
+const SchedulerContextBar: React.FC<SchedulerContextBarProps> = ({ T_current }) => {
   return (
     <Card className="w-full p-2 animate-pop-in rounded-xl shadow-sm overflow-hidden bg-background/40 backdrop-blur-md">
       <CardContent className="px-0 p-0">

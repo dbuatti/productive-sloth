@@ -77,7 +77,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const currentVerticalZoomFactor = useMemo(() => VERTICAL_ZOOM_LEVELS[currentVerticalZoomIndex], [currentVerticalZoomIndex]);
 
   const gridScrollContainerRef = useRef<HTMLDivElement>(null); // This ref will now be on the horizontally scrollable part
-  const isInitialMount = useRef(true);
+  // NEW: Use state instead of a ref for the mounting lock to survive re-renders
+  const [hasDoneInitialFocus, setHasDoneInitialFocus] = useState(false);
   const lastScrollVersion = useRef<number>(0);
   const lastWidth = useRef(columnWidth); // Track width to detect layout shifts
 
@@ -98,32 +99,31 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   }, [allDaysInFetchWindow, columnWidth]);
 
-  // FIX: Wait for both Data stability and Layout stability (335px vs 100px)
+  // THE ATOMIC LOCK: Only focus when everything is 100% stable
   useLayoutEffect(() => {
-    const isLayoutStable = columnWidth > MIN_COLUMN_WIDTH; // Your logs show 100 is the "unstable" fallback
+    const isLayoutStable = columnWidth > 101; // Avoid the 100px fallback
+    const isDataStable = !isLoading && allDaysInFetchWindow.length > 0;
     
-    if (isLoading || allDaysInFetchWindow.length === 0 || !isLayoutStable) {
-      return;
-    }
+    if (!isLayoutStable || !isDataStable) return;
 
-    // A: Initial Mount - Use requestAnimationFrame to ensure the DOM is painted at the stable width
-    if (isInitialMount.current) {
+    // A: THE ONLY INITIAL JUMP ALLOWED
+    if (!hasDoneInitialFocus) {
       requestAnimationFrame(() => {
         performScroll(currentPeriodStartString, 'auto');
-        isInitialMount.current = false;
+        setHasDoneInitialFocus(true); // Lock the gate forever for this session
         lastWidth.current = columnWidth;
       });
       return;
     }
 
-    // B: Layout Shift Correction - If the ResizeObserver changes the width, snap back to the currentPeriodStartString
+    // B: RE-SYNC ONLY ON RESIZE
     if (Math.abs(lastWidth.current - columnWidth) > 1) { // Use a small threshold for floating point comparisons
       performScroll(currentPeriodStartString, 'auto');
       lastWidth.current = columnWidth;
     }
-  }, [isLoading, allDaysInFetchWindow, currentPeriodStartString, columnWidth, performScroll]);
+  }, [isLoading, allDaysInFetchWindow, currentPeriodStartString, columnWidth, performScroll, hasDoneInitialFocus]);
 
-  // Handle manual "Today" button clicks
+  // TODAY BUTTON: Explicit refocusing
   useEffect(() => {
     if (scrollVersion > lastScrollVersion.current) {
       performScroll(currentPeriodStartString, 'smooth');
@@ -179,7 +179,7 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   if (isBefore(timeAxisEnd, timeAxisStart)) {
     timeAxisEnd = addDays(timeAxisEnd, 1);
   }
-  const totalDayMinutesForTimeAxis = useMemo(() => differenceInMinutes(timeAxisEnd, timeAxisStart), [timeAxisEnd, timeAxisStart]);
+  const totalDayMinutesForTimeAxis = useMemo(() => differenceInMinutes(timeAxisEnd, timeAxisStart), [timeAxisEnd, timeAxisEnd]);
 
   const timeLabels = useMemo(() => {
     const labels: string[] = [];
@@ -400,8 +400,8 @@ const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 isLoading || columnWidth <= MIN_COLUMN_WIDTH ? "pointer-events-none overflow-x-hidden" : "overflow-x-auto"
               )}
               style={{ 
-                scrollSnapType: 'none',
-                WebkitOverflowScrolling: 'touch',
+                scrollSnapType: 'none', // Remove swiping pauses
+                WebkitOverflowScrolling: 'touch', 
                 touchAction: 'pan-x',
                 willChange: 'transform'
               }}

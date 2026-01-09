@@ -46,6 +46,7 @@ export interface UserProfile {
   is_action_center_collapsed: boolean; // NEW: Action Center collapsed state
   blocked_days: string[] | null; // NEW: Array of 'YYYY-MM-DD' strings for blocked days
   updated_at: string; // NEW: Added updated_at
+  neurodivergent_mode: boolean; // FIX: Added missing property
 }
 
 interface SessionContextType {

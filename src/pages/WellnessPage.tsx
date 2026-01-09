@@ -2,12 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
-import { format, parseISO, startOfDay, addDays, subDays, differenceInMinutes, isAfter, isBefore, isSameDay, getDay } from 'date-fns';
+import { format, parseISO, startOfDay, addDays, subDays, differenceInMinutes, isAfter, isBefore, isSameDay, getDay, getHours } from 'date-fns';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, ReferenceLine, LabelList 
 } from 'recharts';
-import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays, Flame } from 'lucide-react'; // Added Flame icon
+import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays, Flame, Clock, Home, Laptop, Globe, Music, Target } from 'lucide-react'; // Added new icons
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch'; // Import Switch
 import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
 import { TaskPriority } from '@/types'; // NEW: Import TaskPriority
+import { isMeal } from '@/lib/scheduler-utils'; // NEW: Import isMeal
 
 // --- Constants for Analysis ---
 const MAX_DAILY_MINUTES = 8 * 60; // 8 hours of work
@@ -31,9 +32,14 @@ interface DailyWorkload {
   isOverwork: boolean;
   isWarning: boolean;
   workTaskCount: number;
-  energyConsumed: number; // NEW
-  energyGained: number;   // NEW
-  workTasksByPriority: { HIGH: number; MEDIUM: number; LOW: number }; // NEW
+  energyConsumed: number;
+  energyGained: number;
+  workTasksByPriority: { HIGH: number; MEDIUM: number; LOW: number };
+  completedWorkTasks: number; // NEW
+  completedPersonalTasks: number; // NEW
+  completedTaskHours: number[]; // NEW: Array of hours when tasks were completed
+  completedTaskEnvironments: { environment: string; count: number }[]; // NEW
+  completedBreakEnvironments: { environment: string; count: number }[]; // NEW
 }
 
 interface WorkloadDistribution {
@@ -67,30 +73,48 @@ const WellnessPage: React.FC = () => {
       let breakMinutes = 0;
       let personalMinutes = 0;
       let workTaskCount = 0;
-      let energyConsumed = 0; // NEW
-      let energyGained = 0;   // NEW
-      const workTasksByPriority = { HIGH: 0, MEDIUM: 0, LOW: 0 }; // NEW
+      let energyConsumed = 0;
+      let energyGained = 0;
+      const workTasksByPriority = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+      let completedWorkTasks = 0; // NEW
+      let completedPersonalTasks = 0; // NEW
+      const completedTaskHours: number[] = Array(24).fill(0); // NEW
+      const completedTaskEnvironmentsMap = new Map<string, number>(); // NEW
+      const completedBreakEnvironmentsMap = new Map<string, number>(); // NEW
 
       tasks.forEach(task => {
         if (!task.start_time || !task.end_time) return;
         const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
         if (duration <= 0) return;
 
-        const isBreakOrMeal = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+        const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
         
         if (isBreakOrMeal) {
           breakMinutes += duration;
-          energyGained += Math.abs(task.energy_cost); // Meals/breaks give energy
+          energyGained += Math.abs(task.energy_cost);
+          if (task.task_environment) {
+            completedBreakEnvironmentsMap.set(task.task_environment, (completedBreakEnvironmentsMap.get(task.task_environment) || 0) + 1);
+          }
         } else {
-          energyConsumed += task.energy_cost; // Regular tasks consume energy
+          energyConsumed += task.energy_cost;
           if (task.is_work) {
             workMinutes += duration;
             workTaskCount++;
             if (task.is_critical) workTasksByPriority.HIGH++;
             else if (task.is_backburner) workTasksByPriority.LOW++;
             else workTasksByPriority.MEDIUM++;
+            completedWorkTasks++; // NEW
           } else {
             personalMinutes += duration;
+            completedPersonalTasks++; // NEW
+          }
+          // Track completed task hours and environments
+          if (task.is_completed && task.end_time) {
+            const completionHour = getHours(parseISO(task.end_time));
+            completedTaskHours[completionHour]++;
+            if (task.task_environment) {
+              completedTaskEnvironmentsMap.set(task.task_environment, (completedTaskEnvironmentsMap.get(task.task_environment) || 0) + 1);
+            }
           }
         }
       });
@@ -105,9 +129,14 @@ const WellnessPage: React.FC = () => {
         isOverwork: workMinutes > MAX_DAILY_MINUTES,
         isWarning: workMinutes > WARNING_THRESHOLD && workMinutes <= MAX_DAILY_MINUTES,
         workTaskCount,
-        energyConsumed, // NEW
-        energyGained,   // NEW
-        workTasksByPriority, // NEW
+        energyConsumed,
+        energyGained,
+        workTasksByPriority,
+        completedWorkTasks, // NEW
+        completedPersonalTasks, // NEW
+        completedTaskHours, // NEW
+        completedTaskEnvironments: Array.from(completedTaskEnvironmentsMap.entries()).map(([environment, count]) => ({ environment, count })), // NEW
+        completedBreakEnvironments: Array.from(completedBreakEnvironmentsMap.entries()).map(([environment, count]) => ({ environment, count })), // NEW
       });
     }
 
@@ -134,13 +163,18 @@ const WellnessPage: React.FC = () => {
       let energyConsumed = 0;
       let energyGained = 0;
       const workTasksByPriority = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+      let completedWorkTasks = 0;
+      let completedPersonalTasks = 0;
+      const completedTaskHours: number[] = Array(24).fill(0);
+      const completedTaskEnvironments: { environment: string; count: number }[] = [];
+      const completedBreakEnvironments: { environment: string; count: number }[] = [];
 
       tasks.forEach(task => {
         if (!task.start_time || !task.end_time) return;
         const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
         if (duration <= 0) return;
 
-        const isBreakOrMeal = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+        const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
 
         if (isBreakOrMeal) {
           breakMinutes += duration;
@@ -153,8 +187,10 @@ const WellnessPage: React.FC = () => {
             if (task.is_critical) workTasksByPriority.HIGH++;
             else if (task.is_backburner) workTasksByPriority.LOW++;
             else workTasksByPriority.MEDIUM++;
+            completedWorkTasks++;
           } else {
             personalMinutes += duration;
+            completedPersonalTasks++;
           }
         }
       });
@@ -172,6 +208,11 @@ const WellnessPage: React.FC = () => {
         energyConsumed,
         energyGained,
         workTasksByPriority,
+        completedWorkTasks,
+        completedPersonalTasks,
+        completedTaskHours,
+        completedTaskEnvironments,
+        completedBreakEnvironments,
       });
     }
 
@@ -249,6 +290,79 @@ const WellnessPage: React.FC = () => {
     ].filter(item => item.value > 0); // Only show priorities with tasks
   }, [last7DaysData]);
 
+  // NEW: Peak Productivity Time (Hour of Day)
+  const peakProductivityTime = useMemo(() => {
+    if (!last7DaysData) return null;
+    const allCompletedHours: number[] = Array(24).fill(0);
+    last7DaysData.forEach(day => {
+      day.completedTaskHours.forEach((count, hour) => {
+        allCompletedHours[hour] += count;
+      });
+    });
+
+    let peakHour = -1;
+    let maxTasks = 0;
+    allCompletedHours.forEach((count, hour) => {
+      if (count > maxTasks) {
+        maxTasks = count;
+        peakHour = hour;
+      }
+    });
+
+    if (peakHour === -1 || maxTasks === 0) return null;
+    
+    const period = peakHour < 12 ? 'Morning' : peakHour < 17 ? 'Afternoon' : peakHour < 21 ? 'Evening' : 'Night';
+    return { hour: peakHour, period, tasksCompleted: maxTasks };
+  }, [last7DaysData]);
+
+  // NEW: Most Effective Work Environment
+  const mostEffectiveWorkEnvironment = useMemo(() => {
+    if (!last7DaysData) return null;
+    const envCounts = new Map<string, number>();
+    last7DaysData.forEach(day => {
+      day.completedTaskEnvironments.forEach(env => {
+        envCounts.set(env.environment, (envCounts.get(env.environment) || 0) + env.count);
+      });
+    });
+
+    let bestEnv = '';
+    let maxCount = 0;
+    envCounts.forEach((count, env) => {
+      if (count > maxCount) {
+        maxCount = count;
+        bestEnv = env;
+      }
+    });
+
+    if (!bestEnv) return null;
+    const envOption = environmentOptions.find(opt => opt.value === bestEnv);
+    return { environment: envOption?.label || bestEnv, tasksCompleted: maxCount };
+  }, [last7DaysData]);
+
+  // NEW: Most Effective Break Environment
+  const mostEffectiveBreakEnvironment = useMemo(() => {
+    if (!last7DaysData) return null;
+    const envCounts = new Map<string, number>();
+    last7DaysData.forEach(day => {
+      day.completedBreakEnvironments.forEach(env => {
+        envCounts.set(env.environment, (envCounts.get(env.environment) || 0) + env.count);
+      });
+    });
+
+    let bestEnv = '';
+    let maxCount = 0;
+    envCounts.forEach((count, env) => {
+      if (count > maxCount) {
+        maxCount = count;
+        bestEnv = env;
+      }
+    });
+
+    if (!bestEnv) return null;
+    const envOption = environmentOptions.find(opt => opt.value === bestEnv);
+    return { environment: envOption?.label || bestEnv, breaksCompleted: maxCount };
+  }, [last7DaysData]);
+
   // NEW: Burnout Risk Calculation
   const burnoutRisk = useMemo(() => {
     if (!last7DaysData || !future7DaysData) return 'Low';
@@ -312,7 +426,7 @@ const WellnessPage: React.FC = () => {
     }
 
     // Future workload analysis (excluding today's data from future7DaysData for a clearer "upcoming" view)
-    const next3DaysWork = future7DaysData.slice(1, 4).reduce((sum, d) => sum + d.totalWorkMinutes, 0);
+    const next3DaysWork = future7DaysData.slice(1, 4).reduce((sum, d) => d.totalWorkMinutes, 0);
     const avgNext3DaysWork = next3DaysWork / 3;
 
     if (avgNext3DaysWork > MAX_DAILY_MINUTES) {
@@ -336,6 +450,28 @@ const WellnessPage: React.FC = () => {
       recs.push("A large portion of your work is high priority. Ensure you're not constantly in 'critical' mode.");
     }
 
+    // NEW: Peak Productivity Time recommendations
+    if (peakProductivityTime) {
+      recs.push(`You tend to be most productive in the ${peakProductivityTime.period} (around ${peakProductivityTime.hour}:00). Try scheduling your most critical tasks during this time.`);
+    }
+
+    // NEW: Optimal Work Environment recommendations
+    if (mostEffectiveWorkEnvironment) {
+      recs.push(`Your "${mostEffectiveWorkEnvironment.environment}" environment seems highly effective for work tasks. Maximize its use for focused work.`);
+    }
+
+    // NEW: Optimal Break Environment recommendations
+    if (mostEffectiveBreakEnvironment) {
+      recs.push(`Your "${mostEffectiveBreakEnvironment.environment}" environment is great for breaks. Ensure you utilize it for effective recovery.`);
+    }
+
+    // NEW: Neurodivergent mode specific advice
+    if (profile?.neurodivergent_mode) {
+      recs.push("Remember to utilize micro-breaks and sensory-friendly environments to maintain focus and prevent overstimulation.");
+      recs.push("Consider using visual timers and clear transition cues between tasks to aid executive function.");
+    }
+
+
     if (recs.length === 0 && totalWorkMinutes > 0) {
       recs.push("Great balance this week! Consider scheduling a day off to maintain this momentum.");
     } else if (recs.length === 0) {
@@ -343,7 +479,7 @@ const WellnessPage: React.FC = () => {
     }
 
     return recs;
-  }, [last7DaysData, future7DaysData, dailyEnergyBalanceData, workloadByPriorityData]);
+  }, [last7DaysData, future7DaysData, dailyEnergyBalanceData, workloadByPriorityData, peakProductivityTime, mostEffectiveWorkEnvironment, mostEffectiveBreakEnvironment, profile?.neurodivergent_mode]);
 
   // Suggest a day off - FIXED TO LOOK INTO FUTURE
   const suggestedDayOff = useMemo(() => {
@@ -374,7 +510,7 @@ const WellnessPage: React.FC = () => {
         if (duration <= 0) return;
         
         // Only count non-break tasks
-        const isBreak = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+        const isBreak = task.name.toLowerCase() === 'break' || isMeal(task.name);
         if (!isBreak) {
           workMinutes += duration;
         }
@@ -452,6 +588,11 @@ const WellnessPage: React.FC = () => {
     'High Priority': 'hsl(var(--destructive))',
     'Medium Priority': 'hsl(var(--logo-orange))',
     'Low Priority': 'hsl(var(--logo-green))',
+  };
+
+  const getEnvironmentIconComponent = (envValue: string) => {
+    const env = environmentOptions.find(opt => opt.value === envValue);
+    return env ? env.icon : Globe; // Default to Globe if not found
   };
 
   return (
@@ -556,6 +697,75 @@ const WellnessPage: React.FC = () => {
           {burnoutRisk === 'Low' && "Your current schedule appears well-balanced. Keep up the great work!"}
         </CardContent>
       </Card>
+
+      {/* NEW: Intelligence Cards Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Peak Productivity Time Card */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Peak Productivity Zone</CardTitle>
+            <Clock className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent className="p-0">
+            {peakProductivityTime ? (
+              <>
+                <div className="text-2xl font-bold text-foreground">
+                  {peakProductivityTime.hour}:00 - {peakProductivityTime.hour + 1}:00
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Most tasks completed in the {peakProductivityTime.period}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">No data yet.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Optimal Work Environment Card */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Optimal Work Environment</CardTitle>
+            <Laptop className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent className="p-0">
+            {mostEffectiveWorkEnvironment ? (
+              <>
+                <div className="text-2xl font-bold text-foreground">
+                  {mostEffectiveWorkEnvironment.environment}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Most work tasks completed here
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">No data yet.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Optimal Recovery Environment Card */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Optimal Recovery Environment</CardTitle>
+            <Coffee className="h-4 w-4 text-logo-orange" />
+          </CardHeader>
+          <CardContent className="p-0">
+            {mostEffectiveBreakEnvironment ? (
+              <>
+                <div className="text-2xl font-bold text-foreground">
+                  {mostEffectiveBreakEnvironment.environment}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Most breaks/meals taken here
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">No data yet.</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Main Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -748,6 +958,37 @@ const WellnessPage: React.FC = () => {
             </ResponsiveContainer>
           ) : (
             <div className="text-muted-foreground text-center">No work tasks with priority data.</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* NEW: Future Workload Chart */}
+      <Card className="p-4">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" /> Projected Workload (Next 7 Days)
+          </CardTitle>
+          <p className="text-muted-foreground mt-1 text-sm">
+            This chart shows the estimated work minutes for tasks tagged as "work" in your upcoming schedule.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0 h-[300px]">
+          {future7DaysData && (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={future7DaysData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                  formatter={(value: number) => [`${value} min`]}
+                />
+                <Legend />
+                <ReferenceLine y={MAX_DAILY_MINUTES} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label={{ value: 'Limit', position: 'top', fill: 'hsl(var(--destructive))' }} />
+                <ReferenceLine y={WARNING_THRESHOLD} stroke="hsl(var(--logo-orange))" strokeDasharray="3 3" label={{ value: 'Warning', position: 'top', fill: 'hsl(var(--logo-orange))' }} />
+                <Bar dataKey="totalWorkMinutes" fill="hsl(var(--primary))" name="Work Minutes" />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </CardContent>
       </Card>

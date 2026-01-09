@@ -7,7 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, ReferenceLine, LabelList 
 } from 'recharts';
-import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, Weekend } from 'lucide-react';
+import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -414,7 +414,7 @@ const WellnessPage: React.FC = () => {
             {/* NEW: Weekend Skip Toggle */}
             <div className="flex items-center justify-between p-2 rounded-md bg-background/50 border border-white/5">
               <div className="flex items-center gap-2">
-                <Weekend className="h-4 w-4 text-muted-foreground" />
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Skip Weekends</span>
               </div>
               <Switch 

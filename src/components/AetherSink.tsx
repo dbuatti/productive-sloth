@@ -431,7 +431,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                             >
                               <RotateCcw className="h-4 w-4" />
                             </Button>
-                          </TooltipTooltip>
+                          </TooltipTrigger>
                           <TooltipContent>Re-zone Objective</TooltipContent>
                         </Tooltip>
                         <Tooltip>

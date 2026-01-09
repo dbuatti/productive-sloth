@@ -99,6 +99,58 @@ const WellnessPage: React.FC = () => {
     return data;
   }, [weeklyTasks, profileSettings]);
 
+  // NEW: Calculate data for the next 7 days (FUTURE OUTLOOK)
+  const future7DaysData = useMemo(() => {
+    if (!weeklyTasks || !profileSettings) return null;
+
+    const data: DailyWorkload[] = [];
+    const today = startOfDay(new Date());
+
+    for (let i = 0; i < 7; i++) { // Next 7 days including today
+      const dayDate = addDays(today, i);
+      const dateKey = format(dayDate, 'yyyy-MM-dd');
+      const dayName = format(dayDate, 'EEE');
+      const tasks = weeklyTasks[dateKey] || [];
+
+      let workMinutes = 0;
+      let breakMinutes = 0;
+      let personalMinutes = 0;
+      let workTaskCount = 0;
+
+      tasks.forEach(task => {
+        if (!task.start_time || !task.end_time) return;
+        const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+        if (duration <= 0) return;
+
+        const isBreak = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+        if (isBreak) {
+          breakMinutes += duration;
+        } else {
+          if (task.is_work) {
+            workMinutes += duration;
+            workTaskCount++;
+          } else {
+            personalMinutes += duration;
+          }
+        }
+      });
+
+      data.push({
+        date: dateKey,
+        dayName,
+        totalWorkMinutes: workMinutes,
+        totalBreakMinutes: breakMinutes,
+        totalPersonalMinutes: personalMinutes,
+        taskCount: tasks.length,
+        isOverwork: workMinutes > MAX_DAILY_MINUTES,
+        isWarning: workMinutes > WARNING_THRESHOLD && workMinutes <= MAX_DAILY_MINUTES,
+        workTaskCount,
+      });
+    }
+
+    return data;
+  }, [weeklyTasks, profileSettings]);
+
   // Calculate workload distribution (work vs. break)
   const workloadDistribution = useMemo(() => {
     if (!last7DaysData) return null;
@@ -149,7 +201,7 @@ const WellnessPage: React.FC = () => {
 
   // Generate recommendations
   const recommendations = useMemo(() => {
-    if (!last7DaysData) return [];
+    if (!last7DaysData || !future7DaysData) return [];
 
     const recs: string[] = [];
     const avgWorkMinutes = last7DaysData.reduce((sum, d) => sum + d.totalWorkMinutes, 0) / 7;
@@ -159,6 +211,7 @@ const WellnessPage: React.FC = () => {
     const totalWorkMinutes = last7DaysData.reduce((sum, d) => sum + d.totalWorkMinutes, 0);
     const breakRatio = totalBreakMinutes / (totalWorkMinutes + totalBreakMinutes || 1);
 
+    // Past workload analysis
     if (avgWorkMinutes > MAX_DAILY_MINUTES) {
       recs.push("Your average daily workload is significantly high. Consider scheduling a full day off soon.");
     } else if (avgWorkMinutes > WARNING_THRESHOLD) {
@@ -177,6 +230,16 @@ const WellnessPage: React.FC = () => {
       recs.push("Your break-to-work ratio is low. Try adding a dedicated 15-minute 'do nothing' break between tasks.");
     }
 
+    // Future workload analysis (excluding today's data from future7DaysData for a clearer "upcoming" view)
+    const next3DaysWork = future7DaysData.slice(1, 4).reduce((sum, d) => sum + d.totalWorkMinutes, 0);
+    const avgNext3DaysWork = next3DaysWork / 3;
+
+    if (avgNext3DaysWork > MAX_DAILY_MINUTES) {
+        recs.push("Upcoming workload is extremely high in the next 3 days. Consider re-prioritizing or delegating tasks.");
+    } else if (avgNext3DaysWork > WARNING_THRESHOLD) {
+        recs.push("Your next few days show a high projected workload. Plan for extra breaks or early finishes.");
+    }
+
     if (recs.length === 0 && totalWorkMinutes > 0) {
       recs.push("Great balance this week! Consider scheduling a day off to maintain this momentum.");
     } else if (recs.length === 0) {
@@ -184,7 +247,7 @@ const WellnessPage: React.FC = () => {
     }
 
     return recs;
-  }, [last7DaysData]);
+  }, [last7DaysData, future7DaysData]);
 
   // Suggest a day off - FIXED TO LOOK INTO FUTURE
   const suggestedDayOff = useMemo(() => {
@@ -482,6 +545,37 @@ const WellnessPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* NEW: Future Workload Chart */}
+      <Card className="p-4">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" /> Projected Workload (Next 7 Days)
+          </CardTitle>
+          <p className="text-muted-foreground mt-1 text-sm">
+            This chart shows the estimated work minutes for tasks tagged as "work" in your upcoming schedule.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0 h-[300px]">
+          {future7DaysData && (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={future7DaysData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                  formatter={(value: number) => [`${value} min`]}
+                />
+                <Legend />
+                <ReferenceLine y={MAX_DAILY_MINUTES} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label={{ value: 'Limit', position: 'top', fill: 'hsl(var(--destructive))' }} />
+                <ReferenceLine y={WARNING_THRESHOLD} stroke="hsl(var(--logo-orange))" strokeDasharray="3 3" label={{ value: 'Warning', position: 'top', fill: 'hsl(var(--logo-orange))' }} />
+                <Bar dataKey="totalWorkMinutes" fill="hsl(var(--primary))" name="Work Minutes" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Recommendations & Suggestions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

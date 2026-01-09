@@ -7,13 +7,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, ReferenceLine, LabelList 
 } from 'recharts';
-import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays } from 'lucide-react';
+import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays, Flame } from 'lucide-react'; // Added Flame icon
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch'; // Import Switch
 import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
+import { TaskPriority } from '@/types'; // NEW: Import TaskPriority
 
 // --- Constants for Analysis ---
 const MAX_DAILY_MINUTES = 8 * 60; // 8 hours of work
@@ -25,11 +26,14 @@ interface DailyWorkload {
   dayName: string;
   totalWorkMinutes: number;
   totalBreakMinutes: number;
-  totalPersonalMinutes: number; // NEW
+  totalPersonalMinutes: number;
   taskCount: number;
   isOverwork: boolean;
   isWarning: boolean;
-  workTaskCount: number; // NEW: Count of work tasks
+  workTaskCount: number;
+  energyConsumed: number; // NEW
+  energyGained: number;   // NEW
+  workTasksByPriority: { HIGH: number; MEDIUM: number; LOW: number }; // NEW
 }
 
 interface WorkloadDistribution {
@@ -40,7 +44,7 @@ interface WorkloadDistribution {
 const WellnessPage: React.FC = () => {
   const { user, profile } = useSession();
   const navigate = useNavigate();
-  const [skipWeekends, setSkipWeekends] = useState(true); // NEW: State for weekend skipping
+  const [skipWeekends, setSkipWeekends] = useState(true);
 
   // We fetch a 14-day window for meaningful trends
   const centerDateString = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
@@ -61,24 +65,32 @@ const WellnessPage: React.FC = () => {
 
       let workMinutes = 0;
       let breakMinutes = 0;
-      let personalMinutes = 0; // NEW
+      let personalMinutes = 0;
       let workTaskCount = 0;
+      let energyConsumed = 0; // NEW
+      let energyGained = 0;   // NEW
+      const workTasksByPriority = { HIGH: 0, MEDIUM: 0, LOW: 0 }; // NEW
 
       tasks.forEach(task => {
         if (!task.start_time || !task.end_time) return;
         const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
         if (duration <= 0) return;
 
-        // Categorize as work or break
-        const isBreak = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
-        if (isBreak) {
+        const isBreakOrMeal = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+        
+        if (isBreakOrMeal) {
           breakMinutes += duration;
+          energyGained += Math.abs(task.energy_cost); // Meals/breaks give energy
         } else {
+          energyConsumed += task.energy_cost; // Regular tasks consume energy
           if (task.is_work) {
             workMinutes += duration;
             workTaskCount++;
+            if (task.is_critical) workTasksByPriority.HIGH++;
+            else if (task.is_backburner) workTasksByPriority.LOW++;
+            else workTasksByPriority.MEDIUM++;
           } else {
-            personalMinutes += duration; // NEW
+            personalMinutes += duration;
           }
         }
       });
@@ -88,11 +100,14 @@ const WellnessPage: React.FC = () => {
         dayName,
         totalWorkMinutes: workMinutes,
         totalBreakMinutes: breakMinutes,
-        totalPersonalMinutes: personalMinutes, // NEW
+        totalPersonalMinutes: personalMinutes,
         taskCount: tasks.length,
         isOverwork: workMinutes > MAX_DAILY_MINUTES,
         isWarning: workMinutes > WARNING_THRESHOLD && workMinutes <= MAX_DAILY_MINUTES,
-        workTaskCount, // NEW
+        workTaskCount,
+        energyConsumed, // NEW
+        energyGained,   // NEW
+        workTasksByPriority, // NEW
       });
     }
 
@@ -116,19 +131,28 @@ const WellnessPage: React.FC = () => {
       let breakMinutes = 0;
       let personalMinutes = 0;
       let workTaskCount = 0;
+      let energyConsumed = 0;
+      let energyGained = 0;
+      const workTasksByPriority = { HIGH: 0, MEDIUM: 0, LOW: 0 };
 
       tasks.forEach(task => {
         if (!task.start_time || !task.end_time) return;
         const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
         if (duration <= 0) return;
 
-        const isBreak = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
-        if (isBreak) {
+        const isBreakOrMeal = task.name.toLowerCase() === 'break' || ['breakfast', 'lunch', 'dinner'].includes(task.name.toLowerCase());
+
+        if (isBreakOrMeal) {
           breakMinutes += duration;
+          energyGained += Math.abs(task.energy_cost);
         } else {
+          energyConsumed += task.energy_cost;
           if (task.is_work) {
             workMinutes += duration;
             workTaskCount++;
+            if (task.is_critical) workTasksByPriority.HIGH++;
+            else if (task.is_backburner) workTasksByPriority.LOW++;
+            else workTasksByPriority.MEDIUM++;
           } else {
             personalMinutes += duration;
           }
@@ -145,6 +169,9 @@ const WellnessPage: React.FC = () => {
         isOverwork: workMinutes > MAX_DAILY_MINUTES,
         isWarning: workMinutes > WARNING_THRESHOLD && workMinutes <= MAX_DAILY_MINUTES,
         workTaskCount,
+        energyConsumed,
+        energyGained,
+        workTasksByPriority,
       });
     }
 
@@ -199,9 +226,63 @@ const WellnessPage: React.FC = () => {
     return data.sort((a, b) => b.minutes - a.minutes);
   }, [weeklyTasks]);
 
+  // NEW: Daily Energy Balance Data
+  const dailyEnergyBalanceData = useMemo(() => {
+    if (!last7DaysData) return null;
+    return last7DaysData.map(day => ({
+      dayName: day.dayName,
+      netEnergy: day.energyGained - day.energyConsumed,
+    }));
+  }, [last7DaysData]);
+
+  // NEW: Workload by Priority Data
+  const workloadByPriorityData = useMemo(() => {
+    if (!last7DaysData) return null;
+    const totalHigh = last7DaysData.reduce((sum, day) => sum + day.workTasksByPriority.HIGH, 0);
+    const totalMedium = last7DaysData.reduce((sum, day) => sum + day.workTasksByPriority.MEDIUM, 0);
+    const totalLow = last7DaysData.reduce((sum, day) => sum + day.workTasksByPriority.LOW, 0);
+
+    return [
+      { name: 'High Priority', value: totalHigh },
+      { name: 'Medium Priority', value: totalMedium },
+      { name: 'Low Priority', value: totalLow },
+    ].filter(item => item.value > 0); // Only show priorities with tasks
+  }, [last7DaysData]);
+
+  // NEW: Burnout Risk Calculation
+  const burnoutRisk = useMemo(() => {
+    if (!last7DaysData || !future7DaysData) return 'Low';
+
+    let riskScore = 0;
+
+    // Past workload
+    const overworkDays = last7DaysData.filter(d => d.isOverwork).length;
+    const warningDays = last7DaysData.filter(d => d.isWarning).length;
+    const totalBreakMinutes = last7DaysData.reduce((sum, d) => sum + d.totalBreakMinutes, 0);
+    const totalWorkMinutes = last7DaysData.reduce((sum, d) => sum + d.totalWorkMinutes, 0);
+    const breakRatio = totalBreakMinutes / (totalWorkMinutes + totalBreakMinutes || 1);
+
+    if (overworkDays > 0) riskScore += 3;
+    if (warningDays > 2) riskScore += 2;
+    if (breakRatio < RECOMMENDED_BREAK_RATIO && totalWorkMinutes > 0) riskScore += 2;
+
+    // Future workload (next 3 days, excluding today)
+    const next3DaysWork = future7DaysData.slice(1, 4).reduce((sum, d) => d.totalWorkMinutes > MAX_DAILY_MINUTES ? sum + 2 : (d.totalWorkMinutes > WARNING_THRESHOLD ? sum + 1 : sum), 0);
+    riskScore += next3DaysWork;
+
+    // Energy balance (if consistently negative)
+    const negativeEnergyDays = dailyEnergyBalanceData?.filter(d => d.netEnergy < 0).length || 0;
+    if (negativeEnergyDays >= 3) riskScore += 1;
+
+    if (riskScore >= 5) return 'High';
+    if (riskScore >= 2) return 'Medium';
+    return 'Low';
+  }, [last7DaysData, future7DaysData, dailyEnergyBalanceData]);
+
+
   // Generate recommendations
   const recommendations = useMemo(() => {
-    if (!last7DaysData || !future7DaysData) return [];
+    if (!last7DaysData || !future7DaysData || !dailyEnergyBalanceData || !workloadByPriorityData) return [];
 
     const recs: string[] = [];
     const avgWorkMinutes = last7DaysData.reduce((sum, d) => sum + d.totalWorkMinutes, 0) / 7;
@@ -240,6 +321,21 @@ const WellnessPage: React.FC = () => {
         recs.push("Your next few days show a high projected workload. Plan for extra breaks or early finishes.");
     }
 
+    // Energy balance recommendations
+    const consistentlyNegativeEnergy = dailyEnergyBalanceData.filter(d => d.netEnergy < 0).length >= 3;
+    if (consistentlyNegativeEnergy) {
+      recs.push("Your energy balance has been consistently negative. Prioritize recovery activities and breaks.");
+    } else if (dailyEnergyBalanceData.some(d => d.netEnergy > 0)) {
+      recs.push("Good energy management! Keep balancing tasks with sufficient recovery.");
+    }
+
+    // Workload by priority recommendations
+    const highPriorityWork = workloadByPriorityData.find(d => d.name === 'High Priority')?.value || 0;
+    const totalWorkTasks = workloadByPriorityData.reduce((sum, d) => sum + d.value, 0);
+    if (totalWorkTasks > 0 && (highPriorityWork / totalWorkTasks) > 0.5) {
+      recs.push("A large portion of your work is high priority. Ensure you're not constantly in 'critical' mode.");
+    }
+
     if (recs.length === 0 && totalWorkMinutes > 0) {
       recs.push("Great balance this week! Consider scheduling a day off to maintain this momentum.");
     } else if (recs.length === 0) {
@@ -247,7 +343,7 @@ const WellnessPage: React.FC = () => {
     }
 
     return recs;
-  }, [last7DaysData, future7DaysData]);
+  }, [last7DaysData, future7DaysData, dailyEnergyBalanceData, workloadByPriorityData]);
 
   // Suggest a day off - FIXED TO LOOK INTO FUTURE
   const suggestedDayOff = useMemo(() => {
@@ -349,6 +445,14 @@ const WellnessPage: React.FC = () => {
   }
 
   const COLORS = ['#0ea5e9', '#22c55e', '#eab308', '#f97316', '#ef4444'];
+  const PIE_COLORS = {
+    Work: 'hsl(var(--primary))',
+    Break: 'hsl(var(--logo-orange))',
+    Personal: 'hsl(var(--logo-green))',
+    'High Priority': 'hsl(var(--destructive))',
+    'Medium Priority': 'hsl(var(--logo-orange))',
+    'Low Priority': 'hsl(var(--logo-green))',
+  };
 
   return (
     <div className="space-y-8 animate-slide-in-up pb-12">
@@ -426,6 +530,33 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
+      {/* NEW: Burnout Risk Card */}
+      <Card className={cn(
+        "p-4 border-2",
+        burnoutRisk === 'High' && "border-destructive bg-destructive/10 text-destructive animate-pulse-glow",
+        burnoutRisk === 'Medium' && "border-logo-orange bg-logo-orange/10 text-logo-orange",
+        burnoutRisk === 'Low' && "border-logo-green bg-logo-green/10 text-logo-green"
+      )}>
+        <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <Flame className="h-5 w-5" /> Burnout Risk
+          </CardTitle>
+          <span className={cn(
+            "text-xl font-extrabold",
+            burnoutRisk === 'High' && "text-destructive",
+            burnoutRisk === 'Medium' && "text-logo-orange",
+            burnoutRisk === 'Low' && "text-logo-green"
+          )}>
+            {burnoutRisk}
+          </span>
+        </CardHeader>
+        <CardContent className="p-0 text-sm">
+          {burnoutRisk === 'High' && "Your current scheduling patterns indicate a high risk of burnout. Immediate action is recommended."}
+          {burnoutRisk === 'Medium' && "Your workload shows signs of potential imbalance. Monitor closely and consider adjustments."}
+          {burnoutRisk === 'Low' && "Your current schedule appears well-balanced. Keep up the great work!"}
+        </CardContent>
+      </Card>
+
       {/* Main Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Workload Chart */}
@@ -473,7 +604,7 @@ const WellnessPage: React.FC = () => {
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
                     {workloadDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.name === 'Work' ? COLORS[0] : COLORS[1]} />
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -509,7 +640,7 @@ const WellnessPage: React.FC = () => {
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
                     {workPersonalDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.name === 'Work' ? COLORS[0] : COLORS[2]} />
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -546,33 +677,77 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* NEW: Future Workload Chart */}
+      {/* NEW: Daily Energy Balance Chart */}
       <Card className="p-4">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-lg font-bold flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" /> Projected Workload (Next 7 Days)
+            <Zap className="h-5 w-5 text-logo-yellow" /> Daily Energy Balance (Last 7 Days)
           </CardTitle>
           <p className="text-muted-foreground mt-1 text-sm">
-            This chart shows the estimated work minutes for tasks tagged as "work" in your upcoming schedule.
+            Net energy change per day (Energy Gained from breaks/meals - Energy Consumed by tasks).
           </p>
         </CardHeader>
         <CardContent className="p-0 h-[300px]">
-          {future7DaysData && (
+          {dailyEnergyBalanceData && (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={future7DaysData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <BarChart data={dailyEnergyBalanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Net Energy', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                  formatter={(value: number) => [`${value} min`]}
+                  formatter={(value: number) => [`${value}⚡`]}
                 />
-                <Legend />
-                <ReferenceLine y={MAX_DAILY_MINUTES} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label={{ value: 'Limit', position: 'top', fill: 'hsl(var(--destructive))' }} />
-                <ReferenceLine y={WARNING_THRESHOLD} stroke="hsl(var(--logo-orange))" strokeDasharray="3 3" label={{ value: 'Warning', position: 'top', fill: 'hsl(var(--logo-orange))' }} />
-                <Bar dataKey="totalWorkMinutes" fill="hsl(var(--primary))" name="Work Minutes" />
+                <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                <Bar dataKey="netEnergy" name="Net Energy" fill="hsl(var(--primary))">
+                  {
+                    dailyEnergyBalanceData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.netEnergy >= 0 ? 'hsl(var(--logo-green))' : 'hsl(var(--destructive))'} />
+                    ))
+                  }
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* NEW: Workload by Priority Chart */}
+      <Card className="p-4">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" /> Workload by Priority (Last 7 Days)
+          </CardTitle>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Distribution of your work-tagged tasks by priority level.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0 h-[300px] flex items-center justify-center">
+          {workloadByPriorityData && workloadByPriorityData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={workloadByPriorityData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {workloadByPriorityData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                  formatter={(value: number, name: string) => [`${value} tasks`, name]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-muted-foreground text-center">No work tasks with priority data.</div>
           )}
         </CardContent>
       </Card>

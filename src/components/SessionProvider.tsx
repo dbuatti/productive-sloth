@@ -9,7 +9,7 @@ import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, LOW_ENERGY_THRESHOLD, LOW_ENERGY_NO
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
-import { useEnvironmentContext } from '@/hooks/use-environment-context.ts';
+import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { MealAssignment } from '@/hooks/use-meals';
 import isEqual from 'lodash.isequal'; // Import isEqual for deep comparison
 
@@ -61,7 +61,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           lunch_duration_minutes, dinner_duration_minutes, custom_environment_order, reflection_count, 
           reflection_times, reflection_durations, enable_environment_chunking, enable_macro_spread, 
           week_starts_on, num_days_visible, vertical_zoom_index, is_dashboard_collapsed, 
-          is_action_center_collapsed, blocked_days, updated_at
+          is_action_center_collapsed, blocked_days, updated_at, neurodivergent_mode, skipped_day_off_suggestions
         `)
         .eq('id', userId)
         .single();
@@ -170,6 +170,27 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       showSuccess(isBlocked ? `Day ${dateString} blocked.` : `Day ${dateString} unblocked.`);
     } catch (error: any) {
       showError(`Failed to update blocked days: ${error.message}`);
+    }
+  }, [user, profile, refreshProfile]);
+
+  const updateSkippedDayOffSuggestions = useCallback(async (dateString: string, skip: boolean) => {
+    if (!user || !profile) return;
+    let newSkippedSuggestions = profile.skipped_day_off_suggestions ? [...profile.skipped_day_off_suggestions] : [];
+
+    if (skip) {
+      if (!newSkippedSuggestions.includes(dateString)) {
+        newSkippedSuggestions.push(dateString);
+      }
+    } else {
+      newSkippedSuggestions = newSkippedSuggestions.filter(day => day !== dateString);
+    }
+
+    try {
+      await supabase.from('profiles').update({ skipped_day_off_suggestions: newSkippedSuggestions }).eq('id', user.id);
+      await refreshProfile();
+      showSuccess(skip ? `Day ${dateString} skipped for suggestion.` : `Day ${dateString} unskipped.`);
+    } catch (error: any) {
+      showError(`Failed to update skipped suggestions: ${error.message}`);
     }
   }, [user, profile, refreshProfile]);
 
@@ -318,7 +339,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.reflection_count,
       profile.reflection_times,
       profile.reflection_durations,
-      mealAssignmentsToday // PASS MEAL ASSIGNMENTS
+      mealAssignmentsToday, // PASS MEAL ASSIGNMENTS
+      profile.blocked_days?.includes(todayString) ?? false // Pass if today is blocked
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current, mealAssignmentsToday, todayString]);
 
@@ -343,6 +365,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateProfile, 
     updateSettings,
     updateBlockedDays, // NEW: Add updateBlockedDays to context
+    updateSkippedDayOffSuggestions, // NEW: Add updateSkippedDayOffSuggestions to context
     triggerEnergyRegen,
     activeItemToday,
     nextItemToday,
@@ -353,7 +376,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }), [
     session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
     triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
-    updateProfile, updateSettings, updateBlockedDays, triggerEnergyRegen, activeItemToday, nextItemToday, T_current, 
+    updateProfile, updateSettings, updateBlockedDays, updateSkippedDayOffSuggestions, triggerEnergyRegen, activeItemToday, nextItemToday, T_current, 
     startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
 

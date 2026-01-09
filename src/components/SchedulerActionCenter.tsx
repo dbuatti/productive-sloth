@@ -11,7 +11,8 @@ import {
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, ListTodo, BatteryCharging, Target, Cpu, Coffee, 
-  Archive, Repeat, Layers, CalendarDays, ChevronUp, ChevronDown 
+  Archive, Repeat, Layers, CalendarDays, ChevronUp, ChevronDown,
+  CalendarCheck // NEW: Import CalendarCheck icon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +41,7 @@ interface SchedulerActionCenterProps {
   onOpenWorkdayWindowDialog: () => void;
   onStartRegenPod: () => void;
   navigate: (path: string) => void;
+  onGlobalAutoSchedule: () => Promise<void>; // NEW: Add global auto-schedule handler
 }
 
 const DURATION_BUCKETS = [30, 60, 90];
@@ -63,6 +65,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   onOpenWorkdayWindowDialog,
   onStartRegenPod,
   navigate,
+  onGlobalAutoSchedule, // Destructure new prop
 }) => {
   const { profile, updateProfile } = useSession();
   const isCollapsed = profile?.is_action_center_collapsed ?? false;
@@ -239,6 +242,15 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <ActionButton icon={Database} label="Sync" colorClass="text-muted-foreground" tooltip="Refresh Data" onClick={onRefreshSchedule} />
+                {/* NEW: Global Auto-Schedule Button */}
+                <ActionButton 
+                  icon={CalendarCheck} 
+                  label="Global Auto" 
+                  colorClass="text-primary" 
+                  tooltip="Auto-schedule all flexible tasks from now into the future." 
+                  onClick={onGlobalAutoSchedule} 
+                  disabled={isProcessingCommand} 
+                />
               </div>
             </div>
 

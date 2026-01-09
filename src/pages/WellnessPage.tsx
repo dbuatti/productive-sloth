@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSession } from '@/hooks/use-session';
 import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // NEW: Import useSchedulerTasks
 import { format, parseISO, startOfDay, addDays, subDays, differenceInMinutes, isAfter, isBefore, isSameDay, getDay, getHours } from 'date-fns';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, ReferenceLine, LabelList 
 } from 'recharts';
-import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays, Flame, Clock, Home, Laptop, Globe, Music, Target } from 'lucide-react'; // Added new icons
+import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays, Flame, Clock, Home, Laptop, Globe, Music, Target, SkipForward } from 'lucide-react'; // Added new icons
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +22,7 @@ import { isMeal } from '@/lib/scheduler-utils'; // NEW: Import isMeal
 const MAX_DAILY_MINUTES = 8 * 60; // 8 hours of work
 const WARNING_THRESHOLD = 6 * 60; // 6 hours
 const RECOMMENDED_BREAK_RATIO = 0.2; // 20% of time should be breaks
+const AVERAGE_WORK_MINUTES_PER_DAY = 6 * 60; // 6 hours of work per day for "days worth" calculation
 
 interface DailyWorkload {
   date: string;
@@ -48,13 +50,14 @@ interface WorkloadDistribution {
 }
 
 const WellnessPage: React.FC = () => {
-  const { user, profile } = useSession();
+  const { user, profile, updateSkippedDayOffSuggestions } = useSession();
   const navigate = useNavigate();
   const [skipWeekends, setSkipWeekends] = useState(true);
 
   // We fetch a 14-day window for meaningful trends
   const centerDateString = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const { weeklyTasks, isLoading, profileSettings } = useWeeklySchedulerTasks(centerDateString);
+  const { allScheduledTasks, retiredTasks, isLoading: isLoadingSchedulerTasks } = useSchedulerTasks(centerDateString); // NEW: Fetch all scheduled and retired tasks
 
   // Calculate data for the last 7 days (PAST TRACKING)
   const last7DaysData = useMemo(() => {
@@ -481,18 +484,59 @@ const WellnessPage: React.FC = () => {
     return recs;
   }, [last7DaysData, future7DaysData, dailyEnergyBalanceData, workloadByPriorityData, peakProductivityTime, mostEffectiveWorkEnvironment, mostEffectiveBreakEnvironment, profile?.neurodivergent_mode]);
 
+  // Calculate total flexible task minutes (scheduled + retired)
+  const totalFlexibleTaskMinutes = useMemo(() => {
+    if (!allScheduledTasks || !retiredTasks) return 0;
+
+    const scheduledFlexibleMinutes = allScheduledTasks
+      .filter(task => task.is_flexible && !task.is_locked && !task.is_completed)
+      .reduce((sum, task) => {
+        if (task.start_time && task.end_time) {
+          return sum + differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+        }
+        return sum + 30; // Default duration if not specified
+      }, 0);
+
+    const retiredTaskMinutes = retiredTasks
+      .filter(task => !task.is_locked && !task.is_completed)
+      .reduce((sum, task) => sum + (task.duration || 30), 0);
+
+    return scheduledFlexibleMinutes + retiredTaskMinutes;
+  }, [allScheduledTasks, retiredTasks]);
+
+  // Calculate "Days Worth of Tasks"
+  const daysWorthOfTasks = useMemo(() => {
+    if (totalFlexibleTaskMinutes === 0) return 0;
+    return Math.round(totalFlexibleTaskMinutes / AVERAGE_WORK_MINUTES_PER_DAY);
+  }, [totalFlexibleTaskMinutes]);
+
   // Suggest a day off - FIXED TO LOOK INTO FUTURE
   const suggestedDayOff = useMemo(() => {
-    if (!weeklyTasks) return null;
+    if (!weeklyTasks || !allScheduledTasks || !retiredTasks || !profile) return null;
     
-    // Look at the next 14 days starting from today
+    const skippedSuggestions = profile.skipped_day_off_suggestions || [];
+
+    // Combine all flexible tasks (scheduled and retired) for workload calculation
+    const allFlexibleTasks = [
+      ...allScheduledTasks.filter(task => task.is_flexible && !task.is_locked && !task.is_completed),
+      ...retiredTasks.filter(task => !task.is_locked && !task.is_completed).map(task => ({
+        ...task,
+        start_time: null, // Treat retired tasks as unscheduled
+        end_time: null,
+        scheduled_date: '', // No specific scheduled date
+        is_flexible: true,
+      })),
+    ];
+
+    // Look at the next 30 days starting from today
     const today = startOfDay(new Date());
-    const futureDays: { date: Date; workMinutes: number }[] = [];
+    const futureDays: { date: Date; workMinutes: number; isBlocked: boolean }[] = [];
     
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 30; i++) { // Increased lookahead to 30 days
       const dayDate = addDays(today, i);
+      const dateKey = format(dayDate, 'yyyy-MM-dd');
       
-      // NEW: Skip weekends if toggle is enabled
+      // Skip weekends if toggle is enabled
       if (skipWeekends) {
         const dayOfWeek = getDay(dayDate); // 0 = Sunday, 6 = Saturday
         if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -500,26 +544,34 @@ const WellnessPage: React.FC = () => {
         }
       }
 
-      const dateKey = format(dayDate, 'yyyy-MM-dd');
-      const tasks = weeklyTasks[dateKey] || [];
+      // Skip if the day is explicitly blocked in profile settings
+      if (profile.blocked_days?.includes(dateKey)) {
+        continue;
+      }
+
+      // Skip if this day has been previously skipped for suggestions
+      if (skippedSuggestions.includes(dateKey)) {
+        continue;
+      }
+
+      const tasksForDay = weeklyTasks[dateKey] || [];
       
       let workMinutes = 0;
-      tasks.forEach(task => {
+      tasksForDay.forEach(task => {
         if (!task.start_time || !task.end_time) return;
         const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
         if (duration <= 0) return;
         
-        // Only count non-break tasks
         const isBreak = task.name.toLowerCase() === 'break' || isMeal(task.name);
         if (!isBreak) {
           workMinutes += duration;
         }
       });
       
-      futureDays.push({ date: dayDate, workMinutes });
+      futureDays.push({ date: dayDate, workMinutes, isBlocked: false }); // isBlocked is false because we already filtered blocked days
     }
     
-    // Find the day with the lowest work time in the next 14 days
+    // Find the day with the lowest work time in the next 30 days
     const sortedByLowest = [...futureDays].sort((a, b) => a.workMinutes - b.workMinutes);
     const lowestWorkDay = sortedByLowest[0];
     
@@ -528,15 +580,30 @@ const WellnessPage: React.FC = () => {
       return format(lowestWorkDay.date, 'yyyy-MM-dd');
     }
     
-    // If all days are empty, suggest tomorrow (respecting weekend toggle)
-    let nextDay = addDays(today, 1);
-    if (skipWeekends) {
-      while (getDay(nextDay) === 0 || getDay(nextDay) === 6) {
-        nextDay = addDays(nextDay, 1);
-      }
+    // If all days are empty or only contain breaks, suggest the next available day (respecting weekend/blocked toggle)
+    let nextAvailableDay = addDays(today, 1);
+    let found = false;
+    for (let i = 0; i < 30; i++) {
+      const checkDay = addDays(today, i);
+      const dateKey = format(checkDay, 'yyyy-MM-dd');
+      
+      if (skipWeekends && (getDay(checkDay) === 0 || getDay(checkDay) === 6)) continue;
+      if (profile.blocked_days?.includes(dateKey)) continue;
+      if (skippedSuggestions.includes(dateKey)) continue;
+
+      nextAvailableDay = checkDay;
+      found = true;
+      break;
     }
-    return format(nextDay, 'yyyy-MM-dd');
-  }, [weeklyTasks, skipWeekends]);
+    return found ? format(nextAvailableDay, 'yyyy-MM-dd') : null;
+
+  }, [weeklyTasks, skipWeekends, allScheduledTasks, retiredTasks, profile]);
+
+  const handleSkipSuggestion = useCallback(async () => {
+    if (suggestedDayOff && profile) {
+      await updateSkippedDayOffSuggestions(suggestedDayOff, true);
+    }
+  }, [suggestedDayOff, profile, updateSkippedDayOffSuggestions]);
 
   if (!user) {
     return (
@@ -547,7 +614,7 @@ const WellnessPage: React.FC = () => {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || isLoadingSchedulerTasks) {
     return (
       <div className="space-y-8 animate-slide-in-up">
         <Skeleton className="h-8 w-64 mb-4" />
@@ -657,16 +724,19 @@ const WellnessPage: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* NEW: Days Worth of Tasks Card */}
         <Card className="p-4">
           <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Work Tasks</CardTitle>
-            <Briefcase className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Days Worth of Tasks</CardTitle>
+            <ListTodo className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent className="p-0">
             <div className="text-2xl font-bold text-foreground">
-              {last7DaysData.reduce((sum, d) => sum + d.workTaskCount, 0)}
+              {daysWorthOfTasks}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Tagged as Work</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Estimated backlog (at {Math.round(AVERAGE_WORK_MINUTES_PER_DAY / 60)}h/day)
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1040,12 +1110,17 @@ const WellnessPage: React.FC = () => {
                 <p className="text-sm text-foreground">
                   Based on your upcoming workload, we recommend scheduling a day off on <span className="font-bold text-primary">{format(parseISO(suggestedDayOff), 'EEEE, MMMM do')}</span>.
                 </p>
-                <Button onClick={() => {
-                  // Navigate to settings to block the day
-                  navigate('/settings');
-                }}>
-                  Block This Day
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => {
+                    // Navigate to settings to block the day
+                    navigate('/settings');
+                  }}>
+                    Block This Day
+                  </Button>
+                  <Button variant="outline" onClick={handleSkipSuggestion}>
+                    <SkipForward className="h-4 w-4 mr-2" /> Skip Suggestion
+                  </Button>
+                </div>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">

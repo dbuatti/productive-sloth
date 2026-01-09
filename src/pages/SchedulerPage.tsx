@@ -201,6 +201,22 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     await handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay);
   }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy, isSelectedDayBlocked]);
 
+  const handleGlobalAutoSchedule = useCallback(async () => {
+    if (isSelectedDayBlocked) {
+      showError("Cannot global auto-schedule starting on a blocked day.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      await handleAutoScheduleAndSort(sortBy, 'global-all-future', [], selectedDay, 30); // Schedule for next 30 days
+      showSuccess("Global auto-schedule initiated for the next 30 days!");
+    } catch (e: any) {
+      showError(`Global auto-schedule failed: ${e.message}`);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  }, [handleAutoScheduleAndSort, sortBy, selectedDay, isSelectedDayBlocked]);
+
   const handleCompact = useCallback(async () => {
     if (isSelectedDayBlocked) {
       showError("Cannot compact schedule on a blocked day.");
@@ -261,7 +277,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             task_environment: 'away', 
         });
         
-        showSuccess(`Regen Pod activated for ${activityDuration} minutes!`);
+        showSuccess("Quick Break added! Time to recharge. ☕️");
     } catch (e: any) {
         showError(`Failed to start Regen Pod: ${e.message}`);
     } finally {
@@ -537,6 +553,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               onStartRegenPod={() => setShowRegenPodSetup(true)} 
               hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
               navigate={navigate}
+              onGlobalAutoSchedule={handleGlobalAutoSchedule} // NEW: Pass the handler
             />
             <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} T_current={T_current} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
             {/* Removed the duplicate CardHeader and Card around SchedulerDisplay */}

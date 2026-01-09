@@ -47,6 +47,7 @@ export interface UserProfile {
   blocked_days: string[] | null; // NEW: Array of 'YYYY-MM-DD' strings for blocked days
   updated_at: string; // NEW: Added updated_at
   neurodivergent_mode: boolean; // FIX: Added missing property
+  skipped_day_off_suggestions: string[] | null; // NEW: Skipped day off suggestions
 }
 
 interface SessionContextType {
@@ -66,6 +67,7 @@ interface SessionContextType {
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   updateSettings: (updates: Partial<UserProfile>) => Promise<void>;
   updateBlockedDays: (dateString: string, isBlocked: boolean) => Promise<void>; // NEW: Function to manage blocked days
+  updateSkippedDayOffSuggestions: (dateString: string, skip: boolean) => Promise<void>; // NEW: Function to manage skipped day off suggestions
   activeItemToday: ScheduledItem | null;
   nextItemToday: ScheduledItem | null;
   T_current: Date;

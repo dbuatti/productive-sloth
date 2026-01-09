@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch'; // Import Switch
+import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
 
 // --- Constants for Analysis ---
 const MAX_DAILY_MINUTES = 8 * 60; // 8 hours of work
@@ -24,6 +25,7 @@ interface DailyWorkload {
   dayName: string;
   totalWorkMinutes: number;
   totalBreakMinutes: number;
+  totalPersonalMinutes: number; // NEW
   taskCount: number;
   isOverwork: boolean;
   isWarning: boolean;
@@ -59,6 +61,7 @@ const WellnessPage: React.FC = () => {
 
       let workMinutes = 0;
       let breakMinutes = 0;
+      let personalMinutes = 0; // NEW
       let workTaskCount = 0;
 
       tasks.forEach(task => {
@@ -71,10 +74,11 @@ const WellnessPage: React.FC = () => {
         if (isBreak) {
           breakMinutes += duration;
         } else {
-          workMinutes += duration;
-          // NEW: Count as work task if it has the is_work flag
           if (task.is_work) {
+            workMinutes += duration;
             workTaskCount++;
+          } else {
+            personalMinutes += duration; // NEW
           }
         }
       });
@@ -84,6 +88,7 @@ const WellnessPage: React.FC = () => {
         dayName,
         totalWorkMinutes: workMinutes,
         totalBreakMinutes: breakMinutes,
+        totalPersonalMinutes: personalMinutes, // NEW
         taskCount: tasks.length,
         isOverwork: workMinutes > MAX_DAILY_MINUTES,
         isWarning: workMinutes > WARNING_THRESHOLD && workMinutes <= MAX_DAILY_MINUTES,
@@ -104,6 +109,43 @@ const WellnessPage: React.FC = () => {
       { name: 'Break', value: totalBreak },
     ];
   }, [last7DaysData]);
+
+  // NEW: Calculate Work vs. Personal Time Distribution
+  const workPersonalDistribution = useMemo(() => {
+    if (!last7DaysData) return null;
+    const totalWork = last7DaysData.reduce((sum, day) => sum + day.totalWorkMinutes, 0);
+    const totalPersonal = last7DaysData.reduce((sum, day) => sum + day.totalPersonalMinutes, 0);
+    return [
+      { name: 'Work', value: totalWork },
+      { name: 'Personal', value: totalPersonal },
+    ];
+  }, [last7DaysData]);
+
+  // NEW: Calculate Time by Environment
+  const environmentUsage = useMemo(() => {
+    if (!weeklyTasks) return null;
+    const usageMap = new Map<string, number>(); // Map environment value to total minutes
+
+    Object.values(weeklyTasks).flat().forEach(task => {
+      if (!task.start_time || !task.end_time || !task.task_environment) return;
+      const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+      if (duration <= 0) return;
+
+      const currentDuration = usageMap.get(task.task_environment) || 0;
+      usageMap.set(task.task_environment, currentDuration + duration);
+    });
+
+    // Convert map to array of objects for Recharts, mapping value to label
+    const data = Array.from(usageMap.entries()).map(([environmentValue, minutes]) => {
+      const envOption = environmentOptions.find(opt => opt.value === environmentValue);
+      return {
+        environment: envOption ? envOption.label : environmentValue, // Use label if found, else value
+        minutes,
+      };
+    });
+
+    return data.sort((a, b) => b.minutes - a.minutes);
+  }, [weeklyTasks]);
 
   // Generate recommendations
   const recommendations = useMemo(() => {
@@ -376,6 +418,65 @@ const WellnessPage: React.FC = () => {
                     formatter={(value: number, name: string) => [`${value} min`, name]}
                   />
                 </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* NEW Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Work vs. Personal Distribution */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-lg font-bold">Work vs. Personal Time</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 h-[300px] flex items-center justify-center">
+            {workPersonalDistribution && (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={workPersonalDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {workPersonalDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.name === 'Work' ? COLORS[0] : COLORS[2]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                    formatter={(value: number, name: string) => [`${value} min`, name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Environment Usage */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-lg font-bold">Time by Environment</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 h-[300px]">
+            {environmentUsage && (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={environmentUsage} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="environment" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                    formatter={(value: number) => [`${value} min`]}
+                  />
+                  <Bar dataKey="minutes" fill="hsl(var(--logo-green))" name="Minutes" />
+                </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>

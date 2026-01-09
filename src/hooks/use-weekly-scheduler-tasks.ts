@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask } from '@/types/scheduler';
 import { useSession } from './use-session';
-import { format, parseISO, addMinutes, isBefore, addDays, startOfDay, differenceInMinutes, max, min, isEqual, isAfter, addHours } from 'date-fns'; // Added addHours import
+import { format, parseISO, addMinutes, isBefore, addDays, startOfDay, differenceInMinutes, max, min, isEqual, isAfter, addHours, subDays } from 'date-fns'; // Added subDays import
 import { setTimeOnDate } from '@/lib/scheduler-utils';
 
 export const useWeeklySchedulerTasks = (centerDateString: string) => {
@@ -15,8 +15,8 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => {
       if (!userId || !profile) return {};
 
       const centerDate = parseISO(centerDateString);
-      const startDate = startOfDay(centerDate);
-      const endDate = addDays(startDate, 14); // Fetch 14 days window
+      const startDate = subDays(startOfDay(centerDate), 7); // Fetch 7 days in the past
+      const endDate = addDays(startDate, 30); // Fetch 30 days total (7 past + today + 22 future)
 
       // 1. Fetch actual scheduled tasks
       const { data: scheduledData, error: scheduledError } = await supabase
@@ -30,8 +30,8 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => {
 
       const tasksByDay: Record<string, DBScheduledTask[]> = {};
       
-      // Initialize days
-      for (let i = 0; i < 14; i++) {
+      // Initialize days for the full 30-day window
+      for (let i = 0; i <= differenceInMinutes(endDate, startDate) / (24 * 60); i++) {
         const day = addDays(startDate, i);
         const dayKey = format(day, 'yyyy-MM-dd');
         tasksByDay[dayKey] = [];
@@ -99,8 +99,8 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => {
         }
       };
 
-      // Generate anchors for the 14-day window
-      for (let i = 0; i < 14; i++) {
+      // Generate anchors for the full window
+      for (let i = 0; i <= differenceInMinutes(endDate, startDate) / (24 * 60); i++) {
         const day = addDays(startDate, i);
         addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes, day);
         addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes, day);

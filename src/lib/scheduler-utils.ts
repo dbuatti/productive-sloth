@@ -86,7 +86,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
-  'reflection': '✨', // Changed from number to emoji string
+  'reflection': '✨',
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useMemo, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSession } from '@/hooks/use-session';
@@ -835,7 +837,39 @@ const WellnessPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* 4. Intelligence Cards Row (Moved up) */}
+      {/* 4. Projected Workload Chart (NEW) */}
+      <Card className="p-4">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" /> Projected Workload (Next 7 Days)
+          </CardTitle>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Estimated work and break minutes based on your upcoming schedule.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0 h-[300px]">
+          {future7DaysData && (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={future7DaysData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                  formatter={(value: number, name: string) => [`${value} min`, name === 'totalWorkMinutes' ? 'Work' : 'Break']}
+                />
+                <Legend />
+                <ReferenceLine y={MAX_DAILY_MINUTES} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label={{ value: 'Limit', position: 'top', fill: 'hsl(var(--destructive))' }} />
+                <ReferenceLine y={WARNING_THRESHOLD} stroke="hsl(var(--logo-orange))" strokeDasharray="3 3" label={{ value: 'Warning', position: 'top', fill: 'hsl(var(--logo-orange))' }} />
+                <Bar dataKey="totalWorkMinutes" stackId="a" fill="hsl(var(--primary))" name="Work" />
+                <Bar dataKey="totalBreakMinutes" stackId="a" fill="hsl(var(--logo-orange))" name="Break" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 5. Intelligence Cards Row (Moved up) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* Peak Productivity Time Card */}
         <Card className="p-4">
@@ -904,7 +938,7 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* 5. Recommendations & Suggestions (AI Suggestions, Day Off Suggestion) (Moved up) */}
+      {/* 6. Recommendations & Suggestions (AI Suggestions, Day Off Suggestion) (Moved up) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recommendations */}
         <Card className="p-4">
@@ -967,67 +1001,6 @@ const WellnessPage: React.FC = () => {
               <div className="text-sm text-muted-foreground">
                 No immediate day off recommendation. Keep scheduling tasks to get personalized insights.
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 6. Main Charts Row (Daily Workload, Work vs. Break) (Moved down) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Workload Chart */}
-        <Card className="lg:col-span-2 p-4">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold">Daily Workload (Last 7 Days)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={last7DaysData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                  formatter={(value: number, name: string) => [`${value} min`, name === 'totalWorkMinutes' ? 'Work' : 'Break']}
-                />
-                <Legend />
-                <ReferenceLine y={MAX_DAILY_MINUTES} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label={{ value: 'Limit', position: 'top', fill: 'hsl(var(--destructive))' }} />
-                <ReferenceLine y={WARNING_THRESHOLD} stroke="hsl(var(--logo-orange))" strokeDasharray="3 3" label={{ value: 'Warning', position: 'top', fill: 'hsl(var(--logo-orange))' }} />
-                <Bar dataKey="totalWorkMinutes" stackId="a" fill="hsl(var(--primary))" name="Work" />
-                <Bar dataKey="totalBreakMinutes" stackId="a" fill="hsl(var(--logo-orange))" name="Break" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Distribution Pie Chart */}
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold">Work vs. Break</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 h-[300px] flex items-center justify-center">
-            {workloadDistribution && (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={workloadDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {workloadDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                    formatter={(value: number, name: string) => [`${value} min`, name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>

@@ -73,8 +73,8 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'practise': '🎹',
   'track': '🎼',
   'catch up': '🤝',
-  'trim': '💅',
-  'cuticle': '💅',
+  'trim': '💅', 
+  'cuticle': '💅', 
   'payment': '💸',
   'link': '🔗',
   'send': '📧',
@@ -86,7 +86,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
-  'reflection': 60,
+  'reflection': '🧠', // Changed to emoji
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -157,8 +157,8 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'practise': 270, 
   'track': 270, 
   'catch up': 290, 
-  'trim': 💅, 
-  'cuticle': 💅, 
+  'trim': 300, 
+  'cuticle': 300, 
   'payment': 60,
   'link': 60,
   'send': 270,

@@ -56,8 +56,11 @@ const WellnessPage: React.FC = () => {
 
   // We fetch a 14-day window for meaningful trends
   const centerDateString = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
-  const { weeklyTasks, isLoading, profileSettings } = useWeeklySchedulerTasks(centerDateString);
+  const { weeklyTasks, isLoading: isWeeklyTasksLoading, profileSettings } = useWeeklySchedulerTasks(centerDateString);
   const { allScheduledTasks, retiredTasks, isLoading: isLoadingSchedulerTasks } = useSchedulerTasks(centerDateString); // NEW: Fetch all scheduled and retired tasks
+
+  // CRITICAL FIX: Combine loading states
+  const isLoading = isWeeklyTasksLoading || isLoadingSchedulerTasks;
 
   // Calculate data for the last 7 days (PAST TRACKING)
   const last7DaysData = useMemo(() => {
@@ -87,7 +90,14 @@ const WellnessPage: React.FC = () => {
 
       tasks.forEach(task => {
         if (!task.start_time || !task.end_time) return;
-        const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+        
+        const parsedStartTime = parseISO(task.start_time);
+        const parsedEndTime = parseISO(task.end_time);
+
+        // CRITICAL FIX: Validate parsed dates
+        if (isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) return;
+
+        const duration = differenceInMinutes(parsedEndTime, parsedStartTime);
         if (duration <= 0) return;
 
         const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
@@ -113,7 +123,7 @@ const WellnessPage: React.FC = () => {
           }
           // Track completed task hours and environments
           if (task.is_completed && task.end_time) {
-            const completionHour = getHours(parseISO(task.end_time));
+            const completionHour = getHours(parsedEndTime); // Use already parsed and validated end time
             completedTaskHours[completionHour]++;
             if (task.task_environment) {
               completedTaskEnvironmentsMap.set(task.task_environment, (completedTaskEnvironmentsMap.get(task.task_environment) || 0) + 1);
@@ -174,7 +184,14 @@ const WellnessPage: React.FC = () => {
 
       tasks.forEach(task => {
         if (!task.start_time || !task.end_time) return;
-        const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+
+        const parsedStartTime = parseISO(task.start_time);
+        const parsedEndTime = parseISO(task.end_time);
+
+        // CRITICAL FIX: Validate parsed dates
+        if (isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) return;
+
+        const duration = differenceInMinutes(parsedEndTime, parsedStartTime);
         if (duration <= 0) return;
 
         const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
@@ -251,7 +268,14 @@ const WellnessPage: React.FC = () => {
 
     Object.values(weeklyTasks).flat().forEach(task => {
       if (!task.start_time || !task.end_time || !task.task_environment) return;
-      const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+      
+      const parsedStartTime = parseISO(task.start_time);
+      const parsedEndTime = parseISO(task.end_time);
+
+      // CRITICAL FIX: Validate parsed dates
+      if (isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) return;
+
+      const duration = differenceInMinutes(parsedEndTime, parsedStartTime);
       if (duration <= 0) return;
 
       const currentDuration = usageMap.get(task.task_environment) || 0;
@@ -492,9 +516,14 @@ const WellnessPage: React.FC = () => {
       .filter(task => task.is_flexible && !task.is_locked && !task.is_completed)
       .reduce((sum, task) => {
         if (task.start_time && task.end_time) {
-          return sum + differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
+          const parsedStart = parseISO(task.start_time);
+          const parsedEnd = parseISO(task.end_time);
+          // CRITICAL FIX: Validate parsed dates
+          if (!isNaN(parsedStart.getTime()) && !isNaN(parsedEnd.getTime())) {
+            return sum + differenceInMinutes(parsedEnd, parsedStart);
+          }
         }
-        return sum + 30; // Default duration if not specified
+        return sum + 30; // Default duration if not specified or invalid dates
       }, 0);
 
     const retiredTaskMinutes = retiredTasks
@@ -614,7 +643,7 @@ const WellnessPage: React.FC = () => {
     );
   }
 
-  if (isLoading || isLoadingSchedulerTasks) {
+  if (isLoading) {
     return (
       <div className="space-y-8 animate-slide-in-up">
         <Skeleton className="h-8 w-64 mb-4" />

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Briefcase, Coffee } from "lucide-react"; // NEW: Import Coffee icon
+import { X, Save, Loader2, Zap, Lock, Unlock, Briefcase, Coffee } from "lucide-react";
 
 import {
   Sheet,
@@ -36,7 +36,7 @@ import { useSession } from '@/hooks/use-session';
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
-import { Badge } from '@/components/ui/badge'; // Added Badge import
+import { Badge } from '@/components/ui/badge';
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }).max(255),
@@ -45,10 +45,20 @@ const formSchema = z.object({
   dueDate: z.date({ required_error: "Due date is required." }), 
   isCritical: z.boolean().default(false),
   isBackburner: z.boolean().default(false),
-  energy_cost: z.coerce.number().min(0).default(0),
+  energy_cost: z.coerce.number().default(0), // Removed .min(0)
   is_custom_energy_cost: z.boolean().default(false),
-  is_work: z.boolean().default(false), // NEW: Add is_work flag
-  is_break: z.boolean().default(false), // NEW: Add is_break flag
+  is_work: z.boolean().default(false),
+  is_break: z.boolean().default(false),
+}).refine(data => {
+  // If it's a break task and not custom energy cost, allow negative or zero
+  if (data.is_break && !data.is_custom_energy_cost) {
+    return data.energy_cost <= 0;
+  }
+  // Otherwise, energy cost must be non-negative
+  return data.energy_cost >= 0;
+}, {
+  message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
+  path: ["energy_cost"],
 });
 
 type TaskDetailFormValues = z.infer<typeof formSchema>;
@@ -79,8 +89,8 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
       isBackburner: false,
       energy_cost: 0,
       is_custom_energy_cost: false,
-      is_work: false, // NEW: Default to false
-      is_break: false, // NEW: Default to false
+      is_work: false,
+      is_break: false,
     },
     mode: 'onChange',
   });
@@ -96,10 +106,9 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
         isBackburner: task.is_backburner,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
-        is_work: task.is_work || false, // NEW: Reset is_work
-        is_break: task.is_break || false, // NEW: Reset is_break
+        is_work: task.is_work || false,
+        is_break: task.is_break || false,
       });
-      // NEW: Set initial calculated cost
       if (!task.is_custom_energy_cost) {
         setCalculatedEnergyCost(calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, task.is_critical, task.is_backburner, task.is_break));
       } else {
@@ -145,8 +154,8 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
         is_backburner: values.isBackburner,
         energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost,
         is_custom_energy_cost: values.is_custom_energy_cost,
-        is_work: values.is_work, // NEW: Include is_work flag
-        is_break: values.is_break, // NEW: Include is_break flag
+        is_work: values.is_work,
+        is_break: values.is_break,
       });
       showSuccess("Task updated successfully!");
       onOpenChange(false);
@@ -304,7 +313,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
                           field.onChange(checked);
                           if (checked) {
                             form.setValue('isBackburner', false);
-                            form.setValue('is_break', false); // Critical cannot be a break
+                            form.setValue('is_break', false);
                           }
                         }}
                       />
@@ -332,7 +341,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
                           field.onChange(checked);
                           if (checked) {
                             form.setValue('isCritical', false);
-                            form.setValue('is_break', false); // Backburner cannot be a break
+                            form.setValue('is_break', false);
                           }
                         }}
                         disabled={isCritical}
@@ -342,7 +351,6 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
                 )}
               />
 
-              {/* NEW: Is Break Switch */}
               <FormField
                 control={form.control}
                 name="is_break"
@@ -363,18 +371,17 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
                           if (checked) {
-                            form.setValue('isCritical', false); // Break cannot be critical
-                            form.setValue('isBackburner', false); // Break cannot be backburner
+                            form.setValue('isCritical', false);
+                            form.setValue('isBackburner', false);
                           }
                         }}
-                        disabled={isCritical || isBackburner} // Disable if critical or backburner
+                        disabled={isCritical || isBackburner}
                       />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              {/* NEW: Is Work Switch */}
               <FormField
                 control={form.control}
                 name="is_work"
@@ -439,7 +446,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
                         <Input 
                           type="number" 
                           {...field} 
-                          min="0" 
+                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}

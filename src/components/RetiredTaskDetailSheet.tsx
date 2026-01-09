@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee } from "lucide-react"; // NEW: Import Coffee icon
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee } from "lucide-react";
 
 import {
   Dialog,
@@ -39,7 +39,7 @@ const getEnvironmentIconComponent = (iconName: string) => {
     case 'Laptop': return Laptop;
     case 'Globe': return Globe;
     case 'Music': return Music;
-    default: return Home; // Fallback
+    default: return Home;
   }
 };
 
@@ -56,11 +56,21 @@ const formSchema = z.object({
   is_critical: z.boolean().default(false),
   is_backburner: z.boolean().default(false),
   is_completed: z.boolean().default(false),
-  energy_cost: z.coerce.number().min(0).default(0),
+  energy_cost: z.coerce.number().default(0), // Removed .min(0)
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.string().default('laptop'),
-  is_work: z.boolean().default(false), // NEW: Add is_work flag
-  is_break: z.boolean().default(false), // NEW: Add is_break flag
+  is_work: z.boolean().default(false),
+  is_break: z.boolean().default(false),
+}).refine(data => {
+  // If it's a break task and not custom energy cost, allow negative or zero
+  if (data.is_break && !data.is_custom_energy_cost) {
+    return data.energy_cost <= 0;
+  }
+  // Otherwise, energy cost must be non-negative
+  return data.energy_cost >= 0;
+}, {
+  message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
+  path: ["energy_cost"],
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -92,8 +102,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       energy_cost: 0,
       is_custom_energy_cost: false,
       task_environment: 'laptop',
-      is_work: false, // NEW: Default to false
-      is_break: false, // NEW: Default to false
+      is_work: false,
+      is_break: false,
     },
   });
 
@@ -109,8 +119,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
         task_environment: task.task_environment,
-        is_work: task.is_work || false, // NEW: Reset is_work
-        is_break: task.is_break || false, // NEW: Reset is_break
+        is_work: task.is_work || false,
+        is_break: task.is_break || false,
       });
       if (!task.is_custom_energy_cost) {
         const duration = task.duration ?? 30;
@@ -166,8 +176,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
         task_environment: values.task_environment,
-        is_work: values.is_work, // NEW: Include is_work flag
-        is_break: values.is_break, // NEW: Include is_break flag
+        is_work: values.is_work,
+        is_break: values.is_break,
       });
       showSuccess("Retired task updated successfully!");
       onOpenChange(false);
@@ -309,7 +319,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                           field.onChange(checked);
                           if (checked) {
                             form.setValue('is_backburner', false);
-                            form.setValue('is_break', false); // Critical cannot be a break
+                            form.setValue('is_break', false);
                           }
                         }}
                       />
@@ -337,7 +347,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                           field.onChange(checked);
                           if (checked) {
                             form.setValue('is_critical', false);
-                            form.setValue('is_break', false); // Backburner cannot be a break
+                            form.setValue('is_break', false);
                           }
                         }}
                         disabled={isCritical}
@@ -347,7 +357,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* NEW: Is Break Switch */}
               <FormField
                 control={form.control}
                 name="is_break"
@@ -368,11 +377,11 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
                           if (checked) {
-                            form.setValue('is_critical', false); // Break cannot be critical
-                            form.setValue('is_backburner', false); // Break cannot be backburner
+                            form.setValue('is_critical', false);
+                            form.setValue('is_backburner', false);
                           }
                         }}
-                        disabled={isCritical || isBackburner} // Disable if critical or backburner
+                        disabled={isCritical || isBackburner}
                       />
                     </FormControl>
                   </FormItem>
@@ -401,7 +410,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* NEW: Is Work Switch */}
               <FormField
                 control={form.control}
                 name="is_work"
@@ -466,7 +474,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                         <Input 
                           type="number" 
                           {...field} 
-                          min="0" 
+                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}

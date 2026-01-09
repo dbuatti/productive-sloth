@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee } from "lucide-react"; // NEW: Import Coffee icon
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee } from "lucide-react";
 
 import {
   Dialog,
@@ -34,7 +34,7 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
-import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
+import { useEnvironments } from '@/hooks/use-environments';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -48,19 +48,28 @@ const formSchema = z.object({
   is_backburner: z.boolean().default(false),
   is_flexible: z.boolean().default(true),
   is_locked: z.boolean().default(false),
-  energy_cost: z.coerce.number().min(0).default(0),
+  energy_cost: z.coerce.number().default(0), // Removed .min(0)
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.string().default('laptop'), // Changed to z.string()
-  is_work: z.boolean().default(false), // NEW: Add is_work flag
-  is_break: z.boolean().default(false), // NEW: Add is_break flag
+  task_environment: z.string().default('laptop'),
+  is_work: z.boolean().default(false),
+  is_break: z.boolean().default(false),
 }).refine(data => {
-  // Custom refinement: both start_time and end_time must be provided or both must be null/empty
+  // If it's a break task and not custom energy cost, allow negative or zero
+  if (data.is_break && !data.is_custom_energy_cost) {
+    return data.energy_cost <= 0;
+  }
+  // Otherwise, energy cost must be non-negative
+  return data.energy_cost >= 0;
+}, {
+  message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
+  path: ["energy_cost"],
+}).refine(data => {
   const hasStartTime = data.start_time !== null && data.start_time !== "";
   const hasEndTime = data.end_time !== null && data.end_time !== "";
   return (hasStartTime && hasEndTime) || (!hasStartTime && !hasEndTime);
 }, {
   message: "Both start and end times must be provided or both left empty.",
-  path: ["start_time"], // Attach error to start_time field
+  path: ["start_time"],
 });
 
 type ScheduledTaskDetailFormValues = z.infer<typeof formSchema>;
@@ -78,7 +87,7 @@ const getEnvironmentIconComponent = (iconName: string) => {
     case 'Laptop': return Laptop;
     case 'Globe': return Globe;
     case 'Music': return Music;
-    default: return Home; // Fallback
+    default: return Home;
   }
 };
 
@@ -89,7 +98,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   selectedDayString,
 }) => {
   const { updateScheduledTaskDetails } = useSchedulerTasks(selectedDayString);
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // Fetch environments
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<ScheduledTaskDetailFormValues>({
@@ -106,8 +115,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
       energy_cost: 0,
       is_custom_energy_cost: false,
       task_environment: 'laptop',
-      is_work: false, // NEW: Default to false
-      is_break: false, // NEW: Default to false
+      is_work: false,
+      is_break: false,
     },
   });
 
@@ -127,8 +136,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
         task_environment: task.task_environment,
-        is_work: task.is_work || false, // NEW: Reset is_work
-        is_break: task.is_break || false, // NEW: Reset is_break
+        is_work: task.is_work || false,
+        is_break: task.is_break || false,
       });
       if (!task.is_custom_energy_cost && startTime && endTime) {
         const selectedDayDate = parseISO(selectedDayString);
@@ -233,8 +242,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
         task_environment: values.task_environment,
-        is_work: values.is_work, // NEW: Include is_work flag
-        is_break: values.is_break, // NEW: Include is_break flag
+        is_work: values.is_work,
+        is_break: values.is_break,
       });
       showSuccess("Scheduled task updated successfully!");
       onOpenChange(false);
@@ -391,7 +400,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                           field.onChange(checked);
                           if (checked) {
                             form.setValue('is_backburner', false);
-                            form.setValue('is_break', false); // Critical cannot be a break
+                            form.setValue('is_break', false);
                           }
                         }}
                       />
@@ -419,7 +428,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                           field.onChange(checked);
                           if (checked) {
                             form.setValue('is_critical', false);
-                            form.setValue('is_break', false); // Backburner cannot be a break
+                            form.setValue('is_break', false);
                           }
                         }}
                         disabled={isCritical}
@@ -429,7 +438,6 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                 )}
               />
 
-              {/* NEW: Is Break Switch */}
               <FormField
                 control={form.control}
                 name="is_break"
@@ -450,11 +458,11 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
                           if (checked) {
-                            form.setValue('is_critical', false); // Break cannot be critical
-                            form.setValue('is_backburner', false); // Break cannot be backburner
+                            form.setValue('is_critical', false);
+                            form.setValue('is_backburner', false);
                           }
                         }}
-                        disabled={isCritical || isBackburner} // Disable if critical or backburner
+                        disabled={isCritical || isBackburner}
                       />
                     </FormControl>
                   </FormItem>
@@ -505,7 +513,6 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                 )}
               />
 
-              {/* NEW: Is Work Switch */}
               <FormField
                 control={form.control}
                 name="is_work"
@@ -570,7 +577,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                         <Input 
                           type="number" 
                           {...field} 
-                          min="0" 
+                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}

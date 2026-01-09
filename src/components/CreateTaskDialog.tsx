@@ -1,10 +1,12 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
-import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music, Briefcase, Coffee } from 'lucide-react'; // NEW: Import Coffee icon
+import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music, Briefcase, Coffee } from 'lucide-react';
 import DatePicker from './DatePicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,11 +47,21 @@ const TaskCreationSchema = z.object({
   ).optional(),
   isCritical: z.boolean().default(false),
   isBackburner: z.boolean().default(false),
-  energy_cost: z.coerce.number().min(0).default(0),
+  energy_cost: z.coerce.number().default(0), // Removed .min(0)
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'),
-  is_work: z.boolean().default(false), // NEW: Add is_work flag
-  is_break: z.boolean().default(false), // NEW: Add is_break flag
+  is_work: z.boolean().default(false),
+  is_break: z.boolean().default(false),
+}).refine(data => {
+  // If it's a break task and not custom energy cost, allow negative or zero
+  if (data.is_break && !data.is_custom_energy_cost) {
+    return data.energy_cost <= 0;
+  }
+  // Otherwise, energy cost must be non-negative
+  return data.energy_cost >= 0;
+}, {
+  message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
+  path: ["energy_cost"],
 });
 
 type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
@@ -103,8 +115,8 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false, false),
       is_custom_energy_cost: false,
       task_environment: 'laptop',
-      is_work: false, // NEW: Default to false
-      is_break: false, // NEW: Default to false
+      is_work: false,
+      is_break: false,
     },
     mode: 'onChange',
   });
@@ -123,8 +135,8 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false, false),
         is_custom_energy_cost: false,
         task_environment: 'laptop',
-        is_work: false, // NEW: Reset is_work
-        is_break: false, // NEW: Reset is_break
+        is_work: false,
+        is_break: false,
       });
     }
   }, [isOpen, defaultPriority, defaultDueDate, defaultStartTime, defaultEndTime, form]);
@@ -213,8 +225,8 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost,
         is_custom_energy_cost: is_custom_energy_cost,
         task_environment: task_environment,
-        is_work: is_work, // NEW: Include is_work flag
-        is_break: is_break, // NEW: Include is_break flag
+        is_work: is_work,
+        is_break: is_break,
       };
 
       await addScheduledTask(newScheduledTask, {
@@ -236,8 +248,8 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         energy_cost: is_custom_energy_cost ? energy_cost : calculatedEnergyCost, 
         is_custom_energy_cost: is_custom_energy_cost,
         task_environment: task_environment,
-        is_work: is_work, // NEW: Include is_work flag
-        is_break: is_break, // NEW: Include is_break flag
+        is_work: is_work,
+        is_break: is_break,
       };
 
       await addTask(newTask, {
@@ -420,7 +432,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                     field.onChange(checked);
                     if (checked) {
                       form.setValue('isBackburner', false);
-                      form.setValue('is_break', false); // Critical cannot be a break
+                      form.setValue('is_break', false);
                     }
                   }}
                   aria-label="Toggle Critical Task"
@@ -448,7 +460,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                     field.onChange(checked);
                     if (checked) {
                       form.setValue('isCritical', false);
-                      form.setValue('is_break', false); // Backburner cannot be a break
+                      form.setValue('is_break', false);
                     }
                   }}
                   disabled={isCritical}
@@ -459,7 +471,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           )}
         />
 
-        {/* NEW: Is Break Switch */}
         <FormField
           control={form.control}
           name="is_break"
@@ -480,11 +491,11 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   onCheckedChange={(checked) => {
                     field.onChange(checked);
                     if (checked) {
-                      form.setValue('isCritical', false); // Break cannot be critical
-                      form.setValue('isBackburner', false); // Break cannot be backburner
+                      form.setValue('isCritical', false);
+                      form.setValue('isBackburner', false);
                     }
                   }}
-                  disabled={isCritical || isBackburner} // Disable if critical or backburner
+                  disabled={isCritical || isBackburner}
                   aria-label="Toggle Break Task"
                 />
               </FormControl>
@@ -492,7 +503,6 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           )}
         />
 
-        {/* NEW: Is Work Switch */}
         <FormField
           control={form.control}
           name="is_work"
@@ -557,7 +567,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   <Input 
                     type="number" 
                     {...field} 
-                    min="0" 
+                    min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
                     className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                     readOnly={!isCustomEnergyCostEnabled}
                     value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}

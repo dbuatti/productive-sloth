@@ -1,7 +1,8 @@
-import React, { useContext } from 'react';
+import React, { createContext, useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { ScheduledItem, TaskEnvironment } from '@/types/scheduler'; // Import TaskEnvironment
+import { ScheduledItem } from '@/types/scheduler';
 
+// Define UserProfile interface here and export it
 export interface UserProfile {
   id: string;
   first_name: string | null;
@@ -32,24 +33,25 @@ export interface UserProfile {
   breakfast_duration_minutes: number | null;
   lunch_duration_minutes: number | null;
   dinner_duration_minutes: number | null;
-  custom_environment_order: TaskEnvironment[] | null; // NEW: Custom order for environment sorting
-  enable_environment_chunking: boolean; // NEW: Toggle for AA, BB vs AB, AB
-  enable_macro_spread: boolean; // NEW: Split chunks into two sessions per day
-  // NEW: Reflection Point configurations
-  reflection_count: number;
-  reflection_times: string[];
-  reflection_durations: number[];
-  week_starts_on: number; // NEW: 0 for Sunday, 1 for Monday
-  num_days_visible: number; // NEW: For Simplified Schedule view preference
-  vertical_zoom_index: number; // NEW: For Simplified Schedule view preference
-  is_dashboard_collapsed: boolean; // NEW: Dashboard collapsed state
-  is_action_center_collapsed: boolean; // NEW: Action Center collapsed state
-  blocked_days: string[] | null; // NEW: Array of 'YYYY-MM-DD' strings for blocked days
-  updated_at: string; // NEW: Added updated_at
-  neurodivergent_mode: boolean; // FIX: Added missing property
-  skipped_day_off_suggestions: string[] | null; // NEW: Skipped day off suggestions
+  custom_environment_order: string[] | null;
+  reflection_count: number | null;
+  reflection_times: string[] | null;
+  reflection_durations: number[] | null;
+  enable_environment_chunking: boolean | null;
+  enable_macro_spread: boolean | null;
+  week_starts_on: number | null;
+  num_days_visible: number | null;
+  vertical_zoom_index: number | null;
+  is_dashboard_collapsed: boolean | null;
+  is_action_center_collapsed: boolean | null;
+  blocked_days: string[] | null;
+  updated_at: string | null;
+  neurodivergent_mode: boolean | null;
+  skipped_day_off_suggestions: string[] | null;
+  timezone: string;
 }
 
+// Define the shape of the context value
 interface SessionContextType {
   session: Session | null;
   user: User | null;
@@ -63,26 +65,28 @@ interface SessionContextType {
   resetLevelUp: () => void;
   resetDailyStreak: () => Promise<void>;
   claimDailyReward: (xpAmount: number, energyAmount: number) => Promise<void>;
-  updateNotificationPreferences: (preferences: { enable_daily_challenge_notifications?: boolean; enable_low_energy_notifications?: boolean }) => Promise<void>;
+  updateNotificationPreferences: (preferences: any) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   updateSettings: (updates: Partial<UserProfile>) => Promise<void>;
-  updateBlockedDays: (dateString: string, isBlocked: boolean) => Promise<void>; // NEW: Function to manage blocked days
-  updateSkippedDayOffSuggestions: (dateString: string, skip: boolean) => Promise<void>; // NEW: Function to manage skipped day off suggestions
+  updateBlockedDays: (dateString: string, isBlocked: boolean) => Promise<void>;
+  updateSkippedDayOffSuggestions: (dateString: string, skip: boolean) => Promise<void>;
+  triggerEnergyRegen: () => Promise<void>;
   activeItemToday: ScheduledItem | null;
   nextItemToday: ScheduledItem | null;
   T_current: Date;
-  startRegenPodState: (activityName: string, activityDuration: number) => Promise<void>; // MODIFIED: Added activityName
+  startRegenPodState: (activityName: string, durationMinutes: number) => Promise<void>;
   exitRegenPodState: () => Promise<void>;
   regenPodDurationMinutes: number;
-  triggerEnergyRegen: () => Promise<void>;
 }
 
-export const SessionContext = React.createContext<SessionContextType | undefined>(undefined);
+// Create the context and export it
+export const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
+// Create the useSession hook and export it
 export const useSession = () => {
   const context = useContext(SessionContext);
   if (context === undefined) {
-    throw new Error('useSession must be used within a SessionContextProvider');
+    throw new Error('useSession must be used within a SessionProvider');
   }
   return context;
 };

@@ -1,6 +1,6 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
-import { UserProfile } from '@/hooks/use-session'; // Import UserProfile
+import { UserProfile } from '@/hooks/use-session'; // Import UserProfile from the hook file
 
 // --- Constants ---
 export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break', 'reflection'];
@@ -86,7 +86,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
-  'reflection': '✨',
+  'reflection': 60,
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -157,8 +157,8 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'practise': 270, 
   'track': 270, 
   'catch up': 290, 
-  'trim': 300, 
-  'cuticle': 300, 
+  'trim': 💅, 
+  'cuticle': 💅, 
   'payment': 60,
   'link': 60,
   'send': 270,

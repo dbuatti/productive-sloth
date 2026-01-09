@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
-import { SessionProvider } from "./components/SessionProvider";
+import { SessionProvider } from "./components/SessionProvider"; // Updated import path
 import { ThemeProvider } from "next-themes";
 import React from "react";
 import MainLayout from "./components/MainLayout";

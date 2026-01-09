@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { SessionContext, UserProfile } from '@/hooks/use-session';
+import { SessionContext, UserProfile } from '@/hooks/use-session'; // Import from the hook file
 import { showSuccess, showError } from '@/utils/toast';
 import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, differenceInMinutes, format } from 'date-fns';
 import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, LOW_ENERGY_THRESHOLD, LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES, DAILY_CHALLENGE_TASKS_REQUIRED, REGEN_POD_MAX_DURATION_MINUTES, } from '@/lib/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
+import { DBScheduledTask, ScheduledItem, CompletedTaskLogEntry } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { MealAssignment } from '@/hooks/use-meals';
@@ -70,8 +70,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) {
         setProfile(null);
       } else if (data) {
+        // Ensure timezone is always a string, defaulting to 'UTC' if null
+        const profileDataWithDefaultTimezone = { ...data, timezone: data.timezone || 'UTC' };
+
         // Create a copy of data without 'updated_at' for comparison
-        const dataWithoutUpdatedAt = { ...data };
+        const dataWithoutUpdatedAt = { ...profileDataWithDefaultTimezone };
         delete dataWithoutUpdatedAt.updated_at;
 
         const currentProfileWithoutUpdatedAt = profileRef.current ? { ...profileRef.current } : null;
@@ -79,10 +82,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         // Only update profile state if there's a meaningful change (excluding updated_at)
         if (!isEqual(currentProfileWithoutUpdatedAt, dataWithoutUpdatedAt)) {
-          setProfile(data as UserProfile); // Still set the full profile with updated_at
+          setProfile(profileDataWithDefaultTimezone as UserProfile); // Still set the full profile with updated_at
         }
-        if (data.is_in_regen_pod && data.regen_pod_start_time) {
-          const start = parseISO(data.regen_pod_start_time);
+        if (profileDataWithDefaultTimezone.is_in_regen_pod && profileDataWithDefaultTimezone.regen_pod_start_time) {
+          const start = parseISO(profileDataWithDefaultTimezone.regen_pod_start_time);
           const elapsed = differenceInMinutes(new Date(), start);
           const remaining = REGEN_POD_MAX_DURATION_MINUTES - elapsed;
           setRegenPodDurationMinutes(Math.max(0, remaining));
@@ -299,6 +302,56 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return data as DBScheduledTask[];
     },
     enabled: !!user?.id && !isAuthLoading,
+  });
+
+  // NEW: Query to explicitly call the get_completed_tasks_today RPC
+  const { data: completedTasksTodayFromRpc = [], isLoading: isLoadingCompletedTasksTodayFromRpc } = useQuery<CompletedTaskLogEntry[]>({
+    queryKey: ['completedTasksTodayFromRpc', user?.id, profile?.timezone],
+    queryFn: async () => {
+      if (!user?.id || !profile?.timezone) {
+        console.warn("[useSession] Skipping get_completed_tasks_today RPC: user ID or timezone missing.");
+        return [];
+      }
+      try {
+        const { data, error } = await supabase.rpc('get_completed_tasks_today', { 
+          p_user_id: user.id, 
+          p_timezone: profile.timezone 
+        });
+        if (error) {
+          console.error("[useSession] Error calling get_completed_tasks_today RPC:", error);
+          throw error;
+        }
+        // The RPC returns SETOF completedtasks, which is not directly CompletedTaskLogEntry.
+        // We need to map it to match the expected type, providing defaults for missing fields.
+        return (data || []).map((task: any) => ({
+          id: task.id,
+          user_id: task.user_id,
+          name: task.task_name, // Map task_name to name
+          effective_duration_minutes: task.duration_used || task.duration_scheduled || 30,
+          break_duration: null, // Not available in completedtasks directly
+          start_time: null, // Not available in completedtasks directly
+          end_time: null, // Not available in completedtasks directly
+          scheduled_date: format(parseISO(task.completed_at), 'yyyy-MM-dd'),
+          created_at: task.created_at,
+          updated_at: task.completed_at,
+          is_critical: task.is_critical,
+          is_flexible: false, // Completed tasks are not flexible
+          is_locked: false, // Completed tasks are not locked
+          energy_cost: task.energy_cost,
+          is_completed: true,
+          is_custom_energy_cost: false, // Not directly available, assume false
+          task_environment: 'laptop', // Not directly available, assume default
+          original_source: task.original_source || 'unknown',
+          is_work: task.is_work || false,
+          is_break: false, // Not directly available, assume false
+        })) as CompletedTaskLogEntry[];
+      } catch (e: any) {
+        console.error("[useSession] Failed to fetch completed tasks via RPC:", e.message);
+        return [];
+      }
+    },
+    enabled: !!user?.id && !!profile?.timezone && !isAuthLoading,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // NEW: Fetch meal assignments for today

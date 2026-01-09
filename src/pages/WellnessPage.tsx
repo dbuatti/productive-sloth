@@ -679,69 +679,7 @@ const WellnessPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Daily Work</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
-              {Math.round(last7DaysData.reduce((sum, d) => sum + d.totalWorkMinutes, 0) / 7 / 60)}h
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Target: {Math.round(MAX_DAILY_MINUTES / 60)}h
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Overwork Days</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className={cn("text-2xl font-bold", last7DaysData.filter(d => d.isOverwork).length > 0 ? "text-destructive" : "text-foreground")}>
-              {last7DaysData.filter(d => d.isOverwork).length}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">Last 7 Days</div>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Break Ratio</CardTitle>
-            <Coffee className="h-4 w-4 text-logo-orange" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
-              {Math.round((workloadDistribution?.find(w => w.name === 'Break')?.value || 0) / (workloadDistribution?.reduce((a, b) => a + b.value, 0) || 1) * 100)}%
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Target: {RECOMMENDED_BREAK_RATIO * 100}%
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* NEW: Days Worth of Tasks Card */}
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Days Worth of Tasks</CardTitle>
-            <ListTodo className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
-              {daysWorthOfTasks}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Estimated backlog (at {Math.round(AVERAGE_WORK_MINUTES_PER_DAY / 60)}h/day)
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* NEW: Burnout Risk Card */}
+      {/* 1. Burnout Risk Card (Moved to top) */}
       <Card className={cn(
         "p-4 border-2",
         burnoutRisk === 'High' && "border-destructive bg-destructive/10 text-destructive animate-pulse-glow",
@@ -768,7 +706,107 @@ const WellnessPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* NEW: Intelligence Cards Row */}
+      {/* 2. Key Metrics Cards (Reordered) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Overwork Days */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Overwork Days</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className={cn("text-2xl font-bold", last7DaysData.filter(d => d.isOverwork).length > 0 ? "text-destructive" : "text-foreground")}>
+              {last7DaysData.filter(d => d.isOverwork).length}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">Last 7 Days</div>
+          </CardContent>
+        </Card>
+
+        {/* Break Ratio */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Break Ratio</CardTitle>
+            <Coffee className="h-4 w-4 text-logo-orange" />
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="text-2xl font-bold text-foreground">
+              {Math.round((workloadDistribution?.find(w => w.name === 'Break')?.value || 0) / (workloadDistribution?.reduce((a, b) => a + b.value, 0) || 1) * 100)}%
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Target: {RECOMMENDED_BREAK_RATIO * 100}%
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Avg. Daily Work */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Daily Work</CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="text-2xl font-bold text-foreground">
+              {Math.round(last7DaysData.reduce((sum, d) => sum + d.totalWorkMinutes, 0) / 7 / 60)}h
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Target: {Math.round(MAX_DAILY_MINUTES / 60)}h
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Days Worth of Tasks Card */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Days Worth of Tasks</CardTitle>
+            <ListTodo className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="text-2xl font-bold text-foreground">
+              {daysWorthOfTasks}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Estimated backlog (at {Math.round(AVERAGE_WORK_MINUTES_PER_DAY / 60)}h/day)
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 3. Daily Energy Balance Chart (Moved up) */}
+      <Card className="p-4">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <Zap className="h-5 w-5 text-logo-yellow" /> Daily Energy Balance (Last 7 Days)
+          </CardTitle>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Net energy change per day (Energy Gained from breaks/meals - Energy Consumed by tasks).
+          </p>
+        </CardHeader>
+        <CardContent className="p-0 h-[300px]">
+          {dailyEnergyBalanceData && (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dailyEnergyBalanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Net Energy', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                  formatter={(value: number) => [`${value}⚡`]}
+                />
+                <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                <Bar dataKey="netEnergy" name="Net Energy" fill="hsl(var(--primary))">
+                  {
+                    dailyEnergyBalanceData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.netEnergy >= 0 ? 'hsl(var(--logo-green))' : 'hsl(var(--destructive))'} />
+                    ))
+                  }
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 4. Intelligence Cards Row (Moved up) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* Peak Productivity Time Card */}
         <Card className="p-4">
@@ -837,7 +875,75 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Main Charts Row */}
+      {/* 5. Recommendations & Suggestions (AI Suggestions, Day Off Suggestion) (Moved up) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recommendations */}
+        <Card className="p-4">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-primary" /> AI Suggestions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ul className="space-y-3">
+              {recommendations.map((rec, index) => (
+                <li key={index} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/30 border border-white/5">
+                  <span className="text-primary mt-1">•</span>
+                  <span className="text-sm text-foreground">{rec}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+
+        {/* Day Off Suggestion */}
+        <Card className="p-4 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-primary">
+              <Moon className="h-5 w-5" /> Recommended Day Off
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 space-y-4">
+            {/* NEW: Weekend Skip Toggle */}
+            <div className="flex items-center justify-between p-2 rounded-md bg-background/50 border border-white/5">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Skip Weekends</span>
+              </div>
+              <Switch 
+                checked={skipWeekends} 
+                onCheckedChange={setSkipWeekends} 
+                aria-label="Toggle skipping weekends for day off recommendation"
+              />
+            </div>
+
+            {suggestedDayOff ? (
+              <>
+                <p className="text-sm text-foreground">
+                  Based on your upcoming workload, we recommend scheduling a day off on <span className="font-bold text-primary">{format(parseISO(suggestedDayOff), 'EEEE, MMMM do')}</span>.
+                </p>
+                <div className="flex gap-2">
+                  <Button onClick={() => {
+                    // Navigate to settings to block the day
+                    navigate('/settings');
+                  }}>
+                    Block This Day
+                  </Button>
+                  <Button variant="outline" onClick={handleSkipSuggestion}>
+                    <SkipForward className="h-4 w-4 mr-2" /> Skip Suggestion
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No immediate day off recommendation. Keep scheduling tasks to get personalized insights.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 6. Main Charts Row (Daily Workload, Work vs. Break) (Moved down) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Workload Chart */}
         <Card className="lg:col-span-2 p-4">
@@ -898,7 +1004,7 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* NEW Charts Row */}
+      {/* 7. NEW Charts Row (Work vs. Personal, Environment Usage) (Moved down) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Work vs. Personal Distribution */}
         <Card className="p-4">
@@ -957,42 +1063,7 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* NEW: Daily Energy Balance Chart */}
-      <Card className="p-4">
-        <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-lg font-bold flex items-center gap-2">
-            <Zap className="h-5 w-5 text-logo-yellow" /> Daily Energy Balance (Last 7 Days)
-          </CardTitle>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Net energy change per day (Energy Gained from breaks/meals - Energy Consumed by tasks).
-          </p>
-        </CardHeader>
-        <CardContent className="p-0 h-[300px]">
-          {dailyEnergyBalanceData && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyEnergyBalanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Net Energy', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                  formatter={(value: number) => [`${value}⚡`]}
-                />
-                <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-                <Bar dataKey="netEnergy" name="Net Energy" fill="hsl(var(--primary))">
-                  {
-                    dailyEnergyBalanceData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.netEnergy >= 0 ? 'hsl(var(--logo-green))' : 'hsl(var(--destructive))'} />
-                    ))
-                  }
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* NEW: Workload by Priority Chart */}
+      {/* 8. Workload by Priority Chart (Moved down) */}
       <Card className="p-4">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -1032,7 +1103,7 @@ const WellnessPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* NEW: Future Workload Chart */}
+      {/* 9. Future Workload Chart (Moved to bottom) */}
       <Card className="p-4">
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -1062,74 +1133,6 @@ const WellnessPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
-
-      {/* Recommendations & Suggestions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recommendations */}
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-primary" /> AI Suggestions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ul className="space-y-3">
-              {recommendations.map((rec, index) => (
-                <li key={index} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/30 border border-white/5">
-                  <span className="text-primary mt-1">•</span>
-                  <span className="text-sm text-foreground">{rec}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        {/* Day Off Suggestion */}
-        <Card className="p-4 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-primary">
-              <Moon className="h-5 w-5" /> Recommended Day Off
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 space-y-4">
-            {/* NEW: Weekend Skip Toggle */}
-            <div className="flex items-center justify-between p-2 rounded-md bg-background/50 border border-white/5">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Skip Weekends</span>
-              </div>
-              <Switch 
-                checked={skipWeekends} 
-                onCheckedChange={setSkipWeekends} 
-                aria-label="Toggle skipping weekends for day off recommendation"
-              />
-            </div>
-
-            {suggestedDayOff ? (
-              <>
-                <p className="text-sm text-foreground">
-                  Based on your upcoming workload, we recommend scheduling a day off on <span className="font-bold text-primary">{format(parseISO(suggestedDayOff), 'EEEE, MMMM do')}</span>.
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={() => {
-                    // Navigate to settings to block the day
-                    navigate('/settings');
-                  }}>
-                    Block This Day
-                  </Button>
-                  <Button variant="outline" onClick={handleSkipSuggestion}>
-                    <SkipForward className="h-4 w-4 mr-2" /> Skip Suggestion
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Keep scheduling tasks to get a personalized day-off recommendation.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 };

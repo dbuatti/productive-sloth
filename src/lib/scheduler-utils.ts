@@ -86,7 +86,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'coil': '🔌',
   'write up': '✍️',
   'notes': '📝',
-  'reflection': '🧠', // Changed to emoji
+  'reflection': '🧠',
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -157,8 +157,8 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'practise': 270, 
   'track': 270, 
   'catch up': 290, 
-  'trim': 300, 
-  'cuticle': 300, 
+  'trim': 310, 
+  'cuticle': 310, 
   'payment': 60,
   'link': 60,
   'send': 270,
@@ -949,7 +949,7 @@ export const calculateSchedule = (
       if (finalDuration > 0) { 
         const mealTypeKey = name.toLowerCase();
         const isStandardMeal = ['breakfast', 'lunch', 'dinner'].includes(mealTypeKey);
-        const assignment = isStandardMeal ? mealAssignments.find(a => a.assigned_date === selectedDay && a.meal_type === mealTypeKey) : undefined;
+        const assignment = mealAssignments.find(a => a.assigned_date === selectedDay && a.meal_type === mealTypeKey);
         const assignedMealName = assignment?.meal_idea?.name;
         
         let finalName: string = name;

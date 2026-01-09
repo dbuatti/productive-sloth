@@ -6,7 +6,7 @@ import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sparkles, Zap, Settings, LogOut, Trophy } from 'lucide-react';
 import { cn, calculateLevelInfo } from '@/lib/utils';
-import { MAX_ENERGY } from '@/lib/constants';
+import { MAX_ENERGY, XP_PER_LEVEL } from '@/lib/constants'; // Import XP_PER_LEVEL
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +20,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { isToday, parseISO } from 'date-fns'; // Import for daily challenge logic
+import { isToday, parseISO } from 'date-fns';
+import { CustomProgress } from './CustomProgress'; // NEW: Import CustomProgress
 
 const ProfileDropdown: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
@@ -49,11 +50,15 @@ const ProfileDropdown: React.FC = () => {
   const userInitials = (profile?.first_name?.charAt(0) || userEmail.charAt(0) || 'U').toUpperCase() +
                        (profile?.last_name?.charAt(0) || userEmail.charAt(1) || 'N').toUpperCase();
 
-  const { level } = calculateLevelInfo(profile.xp);
+  const { level, xpTowardsNextLevel, xpNeededForNextLevel } = calculateLevelInfo(profile.xp);
   const isEnergyDeficit = profile.energy < 0;
   const energyDisplay = Math.max(0, profile.energy);
   const hasClaimedDailyChallengeToday = profile.last_daily_reward_claim ? isToday(parseISO(profile.last_daily_reward_claim)) : false;
   const isDailyChallengeComplete = profile.tasks_completed_today >= profile.daily_challenge_target;
+
+  // NEW: Calculate progress percentages
+  const xpProgressPercentage = (xpTowardsNextLevel / xpNeededForNextLevel) * 100;
+  const energyProgressPercentage = (profile.energy / MAX_ENERGY) * 100;
 
   // Determine the trigger content based on screen size
   const triggerContent = isMobile ? (
@@ -106,38 +111,71 @@ const ProfileDropdown: React.FC = () => {
           </AvatarFallback>
         )}
       </Avatar>
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="flex items-center gap-1 text-logo-yellow font-mono">
-              <Sparkles className="h-4 w-4" /> Lvl {level}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>Current Level</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className={cn("flex items-center gap-1 font-mono", isEnergyDeficit ? 'text-destructive' : 'text-logo-green')}>
-              <Zap className="h-4 w-4" /> {energyDisplay}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>Current Energy ({profile.energy} / {MAX_ENERGY})</p>
-          </TooltipContent>
-        </Tooltip>
-        {/* NEW: Daily Challenge Stat */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className={cn("flex items-center gap-1 font-mono", isDailyChallengeComplete && !hasClaimedDailyChallengeToday ? 'text-accent' : hasClaimedDailyChallengeToday ? 'text-logo-green' : 'text-muted-foreground')}>
-              <Trophy className="h-4 w-4" /> {profile.tasks_completed_today}/{profile.daily_challenge_target}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>Daily Challenge Progress</p>
-          </TooltipContent>
-        </Tooltip>
+      <div className="flex flex-col items-start gap-0.5"> {/* Changed to flex-col for progress bars */}
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1 text-logo-yellow font-mono">
+                <Sparkles className="h-4 w-4" /> Lvl {level}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Current Level</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className={cn("flex items-center gap-1 font-mono", isEnergyDeficit ? 'text-destructive' : 'text-logo-green')}>
+                <Zap className="h-4 w-4" /> {energyDisplay}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Current Energy ({profile.energy} / {MAX_ENERGY})</p>
+            </TooltipContent>
+          </Tooltip>
+          {/* Daily Challenge Stat */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className={cn("flex items-center gap-1 font-mono", isDailyChallengeComplete && !hasClaimedDailyChallengeToday ? 'text-accent' : hasClaimedDailyChallengeToday ? 'text-logo-green' : 'text-muted-foreground')}>
+                <Trophy className="h-4 w-4" /> {profile.tasks_completed_today}/{profile.daily_challenge_target}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Daily Challenge Progress</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        {/* NEW: Progress Bars */}
+        <div className="flex items-center gap-2 w-full">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="w-20"> {/* Fixed width for XP bar */}
+                <CustomProgress 
+                  value={xpProgressPercentage} 
+                  className="h-1.5 bg-logo-yellow/20" 
+                  indicatorClassName="bg-logo-yellow" 
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>{xpTowardsNextLevel} XP to next level</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="w-20"> {/* Fixed width for Energy bar */}
+                <CustomProgress 
+                  value={energyProgressPercentage} 
+                  className="h-1.5 bg-logo-green/20" 
+                  indicatorClassName={cn(isEnergyDeficit ? "bg-destructive" : "bg-logo-green")} 
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>{profile.energy} / {MAX_ENERGY} Energy</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
     </Button>
   );

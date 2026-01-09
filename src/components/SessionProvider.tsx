@@ -200,7 +200,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     await refreshProfile();
   }, [user, refreshProfile]);
 
-  const startRegenPodState = useCallback(async (durationMinutes: number) => {
+  const startRegenPodState = useCallback(async (activityName: string, durationMinutes: number) => {
     if (!user) return;
     setRegenPodDurationMinutes(durationMinutes);
     await supabase.from('profiles').update({ is_in_regen_pod: true, regen_pod_start_time: new Date().toISOString() }).eq('id', user.id);

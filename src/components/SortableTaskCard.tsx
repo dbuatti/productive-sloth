@@ -11,8 +11,8 @@ import {
 } from '@/lib/scheduler-utils';
 import { 
   Zap, Star, Lock, Unlock, 
-  Trash2, RotateCcw, Info, CheckCircle
-} from 'lucide-react';
+  Trash2, RotateCcw, Info, CheckCircle, Briefcase, Coffee
+} from 'lucide-react'; // NEW: Import Briefcase and Coffee icons
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -165,6 +165,8 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
       <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground/70">
         {task.is_critical && <Star className="h-3 w-3 text-logo-yellow fill-current" />}
         {task.is_backburner && <Badge variant="outline" className="px-1 h-4 text-[9px] font-black uppercase">Orbit</Badge>}
+        {task.is_work && <Briefcase className="h-3 w-3 text-primary" />} {/* NEW: Work Task Indicator */}
+        {task.is_break && <Coffee className="h-3 w-3 text-logo-orange" />} {/* NEW: Break Task Indicator */}
         <span className="flex items-center gap-1">
           {task.energy_cost > 0 ? `${task.energy_cost}⚡` : '0⚡'}
         </span>

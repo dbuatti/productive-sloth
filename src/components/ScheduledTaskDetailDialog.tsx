@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee } from "lucide-react"; // NEW: Import Coffee icon
 
 import {
   Dialog,
@@ -52,6 +52,7 @@ const formSchema = z.object({
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.string().default('laptop'), // Changed to z.string()
   is_work: z.boolean().default(false), // NEW: Add is_work flag
+  is_break: z.boolean().default(false), // NEW: Add is_break flag
 }).refine(data => {
   // Custom refinement: both start_time and end_time must be provided or both must be null/empty
   const hasStartTime = data.start_time !== null && data.start_time !== "";
@@ -106,6 +107,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
       is_custom_energy_cost: false,
       task_environment: 'laptop',
       is_work: false, // NEW: Default to false
+      is_break: false, // NEW: Default to false
     },
   });
 
@@ -126,6 +128,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         is_custom_energy_cost: task.is_custom_energy_cost,
         task_environment: task.task_environment,
         is_work: task.is_work || false, // NEW: Reset is_work
+        is_break: task.is_break || false, // NEW: Reset is_break
       });
       if (!task.is_custom_energy_cost && startTime && endTime) {
         const selectedDayDate = parseISO(selectedDayString);
@@ -133,7 +136,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         let eTime = setTimeOnDate(selectedDayDate, endTime);
         if (isBefore(eTime, sTime)) eTime = addDays(eTime, 1);
         const duration = Math.floor((eTime.getTime() - sTime.getTime()) / (1000 * 60));
-        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical, task.is_backburner));
+        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical, task.is_backburner, task.is_break));
       } else {
         setCalculatedEnergyCost(task.energy_cost);
       }
@@ -142,11 +145,12 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      if (!value.is_custom_energy_cost && (name === 'start_time' || name === 'end_time' || name === 'is_critical' || name === 'is_backburner')) {
+      if (!value.is_custom_energy_cost && (name === 'start_time' || name === 'end_time' || name === 'is_critical' || name === 'is_backburner' || name === 'is_break')) {
         const startTimeStr = value.start_time;
         const endTimeStr = value.end_time;
         const isCritical = value.is_critical;
         const isBackburner = value.is_backburner;
+        const isBreak = value.is_break;
 
         if (startTimeStr && endTimeStr) {
           const selectedDayDate = parseISO(selectedDayString);
@@ -157,7 +161,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
             endTime = addDays(endTime, 1);
           }
           const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
+          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
           setCalculatedEnergyCost(newEnergyCost);
           form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
         }
@@ -166,6 +170,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         const endTimeStr = form.getValues('end_time');
         const isCritical = form.getValues('is_critical');
         const isBackburner = form.getValues('is_backburner');
+        const isBreak = form.getValues('is_break');
 
         if (startTimeStr && endTimeStr) {
           const selectedDayDate = parseISO(selectedDayString);
@@ -176,7 +181,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
             endTime = addDays(endTime, 1);
           }
           const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
+          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
           setCalculatedEnergyCost(newEnergyCost);
           form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
         }
@@ -229,6 +234,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         is_custom_energy_cost: values.is_custom_energy_cost,
         task_environment: values.task_environment,
         is_work: values.is_work, // NEW: Include is_work flag
+        is_break: values.is_break, // NEW: Include is_break flag
       });
       showSuccess("Scheduled task updated successfully!");
       onOpenChange(false);
@@ -243,6 +249,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
   const isCritical = form.watch('is_critical');
   const isBackburner = form.watch('is_backburner');
+  const isBreak = form.watch('is_break');
 
   if (!task) return null;
 
@@ -382,7 +389,10 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) form.setValue('is_backburner', false);
+                          if (checked) {
+                            form.setValue('is_backburner', false);
+                            form.setValue('is_break', false); // Critical cannot be a break
+                          }
                         }}
                       />
                     </FormControl>
@@ -407,9 +417,44 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) form.setValue('is_critical', false);
+                          if (checked) {
+                            form.setValue('is_critical', false);
+                            form.setValue('is_break', false); // Backburner cannot be a break
+                          }
                         }}
                         disabled={isCritical}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* NEW: Is Break Switch */}
+              <FormField
+                control={form.control}
+                name="is_break"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Coffee className="h-4 w-4 text-logo-orange" />
+                        <FormLabel className="text-base font-semibold">Break Task</FormLabel>
+                      </div>
+                      <FormDescription className="text-xs">
+                        This task is a dedicated break or recovery activity.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          if (checked) {
+                            form.setValue('is_critical', false); // Break cannot be critical
+                            form.setValue('is_backburner', false); // Break cannot be backburner
+                          }
+                        }}
+                        disabled={isCritical || isBackburner} // Disable if critical or backburner
                       />
                     </FormControl>
                   </FormItem>

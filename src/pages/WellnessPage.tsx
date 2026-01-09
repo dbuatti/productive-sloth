@@ -100,7 +100,7 @@ const WellnessPage: React.FC = () => {
         const duration = differenceInMinutes(parsedEndTime, parsedStartTime);
         if (duration <= 0) return;
 
-        const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
+        const isBreakOrMeal = task.is_break || isMeal(task.name); // NEW: Check is_break flag
         
         if (isBreakOrMeal) {
           breakMinutes += duration;
@@ -194,7 +194,7 @@ const WellnessPage: React.FC = () => {
         const duration = differenceInMinutes(parsedEndTime, parsedStartTime);
         if (duration <= 0) return;
 
-        const isBreakOrMeal = task.name.toLowerCase() === 'break' || isMeal(task.name);
+        const isBreakOrMeal = task.is_break || isMeal(task.name); // NEW: Check is_break flag
 
         if (isBreakOrMeal) {
           breakMinutes += duration;
@@ -482,12 +482,12 @@ const WellnessPage: React.FC = () => {
       recs.push(`You tend to be most productive in the ${peakProductivityTime.period} (around ${peakProductivityTime.hour}:00). Try scheduling your most critical tasks during this time.`);
     }
 
-    // NEW: Optimal Work Environment recommendations
+    // NEW: Most Effective Work Environment
     if (mostEffectiveWorkEnvironment) {
       recs.push(`Your "${mostEffectiveWorkEnvironment.environment}" environment seems highly effective for work tasks. Maximize its use for focused work.`);
     }
 
-    // NEW: Optimal Break Environment recommendations
+    // NEW: Most Effective Break Environment
     if (mostEffectiveBreakEnvironment) {
       recs.push(`Your "${mostEffectiveBreakEnvironment.environment}" environment is great for breaks. Ensure you utilize it for effective recovery.`);
     }
@@ -591,7 +591,7 @@ const WellnessPage: React.FC = () => {
         const duration = differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time));
         if (duration <= 0) return;
         
-        const isBreak = task.name.toLowerCase() === 'break' || isMeal(task.name);
+        const isBreak = task.is_break || isMeal(task.name); // NEW: Check is_break flag
         if (!isBreak) {
           workMinutes += duration;
         }
@@ -1068,7 +1068,7 @@ const WellnessPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Environment Usage */}
+        {/* Environment Usage Chart */}
         <Card className="p-4">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-lg font-bold">Time by Environment</CardTitle>
@@ -1084,84 +1084,13 @@ const WellnessPage: React.FC = () => {
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                     formatter={(value: number) => [`${value} min`]}
                   />
-                  <Bar dataKey="minutes" fill="hsl(var(--logo-green))" name="Minutes" />
+                  <Bar dataKey="minutes" name="Minutes" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
       </div>
-
-      {/* 8. Workload by Priority Chart (Moved down) */}
-      <Card className="p-4">
-        <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-lg font-bold flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-primary" /> Workload by Priority (Last 7 Days)
-          </CardTitle>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Distribution of your work-tagged tasks by priority level.
-          </p>
-        </CardHeader>
-        <CardContent className="p-0 h-[300px] flex items-center justify-center">
-          {workloadByPriorityData && workloadByPriorityData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={workloadByPriorityData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {workloadByPriorityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                  formatter={(value: number, name: string) => [`${value} tasks`, name]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="text-muted-foreground text-center">No work tasks with priority data.</div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 9. Future Workload Chart (Moved to bottom) */}
-      <Card className="p-4">
-        <CardHeader className="p-0 pb-4">
-          <CardTitle className="text-lg font-bold flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" /> Projected Workload (Next 7 Days)
-          </CardTitle>
-          <p className="text-muted-foreground mt-1 text-sm">
-            This chart shows the estimated work minutes for tasks tagged as "work" in your upcoming schedule.
-          </p>
-        </CardHeader>
-        <CardContent className="p-0 h-[300px]">
-          {future7DaysData && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={future7DaysData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                  formatter={(value: number) => [`${value} min`]}
-                />
-                <Legend />
-                <ReferenceLine y={MAX_DAILY_MINUTES} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label={{ value: 'Limit', position: 'top', fill: 'hsl(var(--destructive))' }} />
-                <ReferenceLine y={WARNING_THRESHOLD} stroke="hsl(var(--logo-orange))" strokeDasharray="3 3" label={{ value: 'Warning', position: 'top', fill: 'hsl(var(--logo-orange))' }} />
-                <Bar dataKey="totalWorkMinutes" fill="hsl(var(--primary))" name="Work Minutes" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 };

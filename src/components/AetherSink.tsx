@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List } from 'lucide-react';
+import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee } from 'lucide-react'; // NEW: Import Briefcase and Coffee
 import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -112,7 +112,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
     const parsedTask = parseSinkTaskInput(input, user.id);
     if (!parsedTask) {
-      return showError("Invalid task format. Use 'Name [dur] [!] [-] [W]'.");
+      return showError("Invalid task format. Use 'Name [dur] [!] [-] [W] [B]'.");
     }
 
     await addRetiredTask(parsedTask);
@@ -198,13 +198,14 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                     className="h-10 px-3 text-xs font-bold uppercase tracking-widest"
                     aria-label="Group Kanban Board"
                   >
-                    Group: {groupBy === 'environment' ? 'Env' : 'Priority'}
+                    Group: {groupBy === 'environment' ? 'Env' : (groupBy === 'priority' ? 'Priority' : 'Type')}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
                   <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Group By</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => setGroupBy('environment')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Environment">Environment</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setGroupBy('priority')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Priority">Priority</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupBy('type')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Type">Type</DropdownMenuItem> {/* NEW: Type grouping option */}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -291,7 +292,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               className="flex gap-2"
             >
               <Input 
-                placeholder="Inject objective: Name [dur] [!] [-] [W]..." 
+                placeholder="Inject objective: Name [dur] [!] [-] [W] [B]..." 
                 value={localInput} 
                 onChange={(e) => setLocalInput(e.target.value)}
                 disabled={isProcessingCommand}
@@ -337,7 +338,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   const hue = getEmojiHue(task.name);
                   const emoji = assignEmoji(task.name);
                   const accentColor = `hsl(${hue} 70% 50%)`;
-                  const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted } = task;
+                  const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted, is_work: isWork, is_break: isBreak } = task;
                   
                   return (
                     <div 
@@ -375,6 +376,16 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                                 Orbit
                               </Badge>
                             )}
+                            {isWork && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-primary/20 text-primary/60">
+                                Work
+                              </Badge>
+                            )}
+                            {isBreak && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-logo-orange/20 text-logo-orange/60">
+                                Break
+                              </Badge>
+                            )}
                             <span className="text-xl shrink-0 group-hover:scale-125 transition-transform duration-500">{emoji}</span>
                             <span className={cn("font-black uppercase tracking-tighter truncate text-sm sm:text-base", isCompleted && "line-through")}>
                               {task.name}
@@ -389,11 +400,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                             {task.energy_cost > 0 && (
                               <span className="flex items-center gap-1.5 text-primary/80">
                                 {task.energy_cost}<Zap className="h-3 w-3 fill-current" />
-                              </span>
-                            )}
-                            {task.is_work && (
-                              <span className="flex items-center gap-1.5 text-primary">
-                                W<Zap className="h-3 w-3 fill-current" />
                               </span>
                             )}
                             <span className="hidden xs:inline text-[8px] opacity-20">|</span>

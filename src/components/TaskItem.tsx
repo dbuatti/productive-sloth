@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle, Briefcase } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle, Briefcase, Coffee } from "lucide-react"; // NEW: Import Coffee icon
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Task } from "@/types";
 import { useTasks } from "@/hooks/use-tasks";
@@ -58,6 +58,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           isCritical: task.is_critical,
           duration: 30,
           isWork: task.is_work, // NEW: Pass isWork flag
+          isBreak: task.is_break, // NEW: Pass isBreak flag
         } 
       } 
     });
@@ -66,6 +67,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const handleToggleWork = async (e: React.MouseEvent) => {
     e.stopPropagation();
     await updateTask({ id: task.id, is_work: !task.is_work }); // NEW: Toggle is_work
+  };
+
+  const handleToggleBreak = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await updateTask({ id: task.id, is_break: !task.is_break }); // NEW: Toggle is_break
   };
 
   const getPriorityBadgeClasses = (priority: Task['priority']) => {
@@ -208,6 +214,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                   </TooltipContent>
                 </Tooltip>
               )}
+
+              {/* NEW: Break Task Indicator */}
+              {task.is_break && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Coffee className="h-4 w-4 text-logo-orange shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Break Task</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             
             <div className="flex items-center space-x-4 text-xs mt-2 text-muted-foreground">
@@ -241,6 +259,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
             <DropdownMenuItem onClick={handleToggleWork} className="cursor-pointer" aria-label="Toggle Work Task">
               <Briefcase className="mr-2 h-4.5 w-4.5" />
               {task.is_work ? 'Remove Work Tag' : 'Mark as Work'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleToggleBreak} className="cursor-pointer" aria-label="Toggle Break Task">
+              <Coffee className="mr-2 h-4.5 w-4.5" />
+              {task.is_break ? 'Remove Break Tag' : 'Mark as Break'}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleEditClick} className="cursor-pointer" aria-label="Edit Task Details">
               <Pencil className="mr-2 h-4.5 w-4.5" />

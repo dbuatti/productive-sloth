@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export type SinkViewMode = 'list' | 'kanban';
-export type GroupingOption = 'environment' | 'priority';
+export type GroupingOption = 'environment' | 'priority' | 'type'; // Added 'type'
 
 interface SinkViewSettings {
   viewMode: SinkViewMode;
@@ -17,15 +17,19 @@ export const useSinkView = () => {
         try {
           const parsed = JSON.parse(saved) as SinkViewSettings;
           console.log(`[useSinkView] Loaded settings from localStorage:`, parsed);
+          // Ensure 'type' is a valid option if loaded from old settings
+          if (!['environment', 'priority', 'type'].includes(parsed.groupBy)) {
+            return { viewMode: 'kanban', groupBy: 'type' }; // Default to new Kanban view
+          }
           return parsed;
         } catch (e) {
           console.warn(`[useSinkView] Corrupted settings found, resetting to default.`);
-          return { viewMode: 'list', groupBy: 'environment' };
+          return { viewMode: 'kanban', groupBy: 'type' }; // Default to new Kanban view
         }
       }
     }
-    console.log(`[useSinkView] No saved settings, using default: { viewMode: 'list', groupBy: 'environment' }`);
-    return { viewMode: 'list', groupBy: 'environment' };
+    console.log(`[useSinkView] No saved settings, using default: { viewMode: 'kanban', groupBy: 'type' }`);
+    return { viewMode: 'kanban', groupBy: 'type' }; // Default to Kanban 'type' view
   });
 
   // Persist to localStorage whenever settings change

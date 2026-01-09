@@ -33,6 +33,7 @@ export interface Task {
   is_custom_energy_cost: boolean; // NEW: Added for custom energy cost
   is_backburner: boolean; // NEW: Backburner Urgency Flag
   is_work: boolean; // NEW: Work task flag for analytics
+  is_break: boolean; // NEW: Break task flag
 }
 
 export interface NewTask {
@@ -46,6 +47,7 @@ export interface NewTask {
   is_custom_energy_cost?: boolean; // NEW: Added for custom energy cost
   is_backburner?: boolean; // NEW: Backburner Urgency Flag
   is_work?: boolean; // NEW: Work task flag for analytics
+  is_break?: boolean; // NEW: Break task flag
 }
 
 // --- Scheduler Types ---
@@ -59,6 +61,7 @@ export interface RawTaskInput {
   isBackburner?: boolean; // NEW: Backburner Urgency Flag
   energyCost: number; // NEW: Made energyCost required
   isWork?: boolean; // NEW: Work task flag
+  isBreak?: boolean; // NEW: Break task flag
 }
 
 // Supabase-specific types for scheduled tasks
@@ -82,6 +85,7 @@ export interface DBScheduledTask {
   source_calendar_id: string | null; // NEW: Source calendar ID for read-only events
   is_backburner: boolean; // NEW: Backburner Urgency Flag
   is_work: boolean; // NEW: Work task flag for analytics
+  is_break: boolean; // NEW: Break task flag
 }
 
 export interface NewDBScheduledTask {
@@ -101,6 +105,7 @@ export interface NewDBScheduledTask {
   source_calendar_id?: string | null; // NEW: Source calendar ID
   is_backburner?: boolean; // NEW: Backburner Urgency Flag
   is_work?: boolean; // NEW: Work task flag for analytics
+  is_break?: boolean; // NEW: Break task flag
 }
 
 // New types for retired tasks (Aether Sink)
@@ -120,6 +125,7 @@ export interface RetiredTask {
   task_environment: TaskEnvironment; // NEW: Task environment
   is_backburner: boolean; // NEW: Backburner Urgency Flag
   is_work: boolean; // NEW: Work task flag for analytics
+  is_break: boolean; // NEW: Break task flag
 }
 
 export interface NewRetiredTask {
@@ -136,6 +142,7 @@ export interface NewRetiredTask {
   task_environment?: TaskEnvironment; // NEW: Task environment
   is_backburner?: boolean; // NEW: Backburner Urgency Flag
   is_work?: boolean; // NEW: Work task flag for analytics
+  is_break?: boolean; // NEW: Break task flag
 }
 
 // Helper type for unification (moved from SchedulerPage.tsx)
@@ -154,6 +161,7 @@ export interface UnifiedTask {
   created_at: string; // NEW: Add created_at for age sorting
   task_environment: TaskEnvironment; // NEW: Task environment
   is_work: boolean; // NEW: Work task flag for analytics
+  is_break: boolean; // NEW: Break task flag
 }
 
 // NEW: Payload for the atomic auto-balance mutation
@@ -188,6 +196,7 @@ export interface ScheduledItem {
   sourceCalendarId: string | null; // NEW: Source calendar ID
   isBackburner: boolean; // NEW: Backburner Urgency Flag
   isWork: boolean; // NEW: Work task flag for analytics
+  isBreak: boolean; // NEW: Break task flag
 }
 
 // NEW: Type for combined completed task log entry for recap metrics
@@ -211,6 +220,7 @@ export interface CompletedTaskLogEntry {
   task_environment: TaskEnvironment;
   original_source: 'scheduled_tasks' | 'aethersink' | 'tasks';
   is_work: boolean; // NEW: Work task flag for analytics
+  is_break: boolean; // NEW: Break task flag
 }
 
 export interface ScheduleSummary {

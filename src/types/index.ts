@@ -18,6 +18,7 @@ export interface Task {
   is_custom_energy_cost: boolean;
   is_backburner: boolean;
   is_work: boolean; // NEW: Added
+  is_break: boolean; // NEW: Added
   task_environment?: TaskEnvironment; // Added for consistency
 }
 
@@ -32,6 +33,7 @@ export interface NewTask {
   is_custom_energy_cost?: boolean;
   is_backburner?: boolean;
   is_work?: boolean; // NEW: Added
+  is_break?: boolean; // NEW: Added
   task_environment?: TaskEnvironment; // Added
 }
 

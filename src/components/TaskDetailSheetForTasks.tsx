@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Briefcase } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Briefcase, Coffee } from "lucide-react"; // NEW: Import Coffee icon
 
 import {
   Sheet,
@@ -48,6 +48,7 @@ const formSchema = z.object({
   energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
   is_work: z.boolean().default(false), // NEW: Add is_work flag
+  is_break: z.boolean().default(false), // NEW: Add is_break flag
 });
 
 type TaskDetailFormValues = z.infer<typeof formSchema>;
@@ -79,6 +80,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
       energy_cost: 0,
       is_custom_energy_cost: false,
       is_work: false, // NEW: Default to false
+      is_break: false, // NEW: Default to false
     },
     mode: 'onChange',
   });
@@ -95,10 +97,11 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
         is_work: task.is_work || false, // NEW: Reset is_work
+        is_break: task.is_break || false, // NEW: Reset is_break
       });
       // NEW: Set initial calculated cost
       if (!task.is_custom_energy_cost) {
-        setCalculatedEnergyCost(calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, task.is_critical, task.is_backburner));
+        setCalculatedEnergyCost(calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, task.is_critical, task.is_backburner, task.is_break));
       } else {
         setCalculatedEnergyCost(task.energy_cost);
       }
@@ -107,16 +110,18 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      if (!value.is_custom_energy_cost && (name === 'isCritical' || name === 'isBackburner')) {
+      if (!value.is_custom_energy_cost && (name === 'isCritical' || name === 'isBackburner' || name === 'is_break')) {
         const isCritical = value.isCritical ?? false;
         const isBackburner = value.isBackburner ?? false;
-        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical, isBackburner);
+        const isBreak = value.is_break ?? false;
+        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical, isBackburner, isBreak);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
         const isCritical = form.getValues('isCritical');
         const isBackburner = form.getValues('isBackburner');
-        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical ?? false, isBackburner ?? false);
+        const isBreak = form.getValues('is_break');
+        const newEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }
@@ -141,6 +146,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
         energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost,
         is_custom_energy_cost: values.is_custom_energy_cost,
         is_work: values.is_work, // NEW: Include is_work flag
+        is_break: values.is_break, // NEW: Include is_break flag
       });
       showSuccess("Task updated successfully!");
       onOpenChange(false);
@@ -154,6 +160,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
   const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
   const isCritical = form.watch('isCritical');
   const isBackburner = form.watch('isBackburner');
+  const isBreak = form.watch('is_break');
 
   if (!task) return null;
 
@@ -295,7 +302,10 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) form.setValue('isBackburner', false);
+                          if (checked) {
+                            form.setValue('isBackburner', false);
+                            form.setValue('is_break', false); // Critical cannot be a break
+                          }
                         }}
                       />
                     </FormControl>
@@ -320,9 +330,44 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) form.setValue('isCritical', false);
+                          if (checked) {
+                            form.setValue('isCritical', false);
+                            form.setValue('is_break', false); // Backburner cannot be a break
+                          }
                         }}
                         disabled={isCritical}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* NEW: Is Break Switch */}
+              <FormField
+                control={form.control}
+                name="is_break"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Coffee className="h-4 w-4 text-logo-orange" />
+                        <FormLabel className="text-base font-semibold">Break Task</FormLabel>
+                      </div>
+                      <FormDescription className="text-xs">
+                        This task is a dedicated break or recovery activity.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          if (checked) {
+                            form.setValue('isCritical', false); // Break cannot be critical
+                            form.setValue('isBackburner', false); // Break cannot be backburner
+                          }
+                        }}
+                        disabled={isCritical || isBackburner} // Disable if critical or backburner
                       />
                     </FormControl>
                   </FormItem>

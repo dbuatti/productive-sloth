@@ -118,7 +118,7 @@ export const useTasks = () => {
     mutationFn: async (newTask: NewTask) => {
       if (!userId) throw new Error("User not authenticated.");
       
-      const energyCost = newTask.energy_cost ?? calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, newTask.is_critical ?? false, newTask.is_backburner ?? false);
+      const energyCost = newTask.energy_cost ?? calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, newTask.is_critical ?? false, newTask.is_backburner ?? false, newTask.is_break ?? false);
       const metadataXp = energyCost * 2;
 
       const taskToInsert = { 
@@ -129,6 +129,7 @@ export const useTasks = () => {
         is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
         is_backburner: newTask.is_backburner ?? false,
         is_work: newTask.is_work ?? false, // NEW: Add is_work flag
+        is_break: newTask.is_break ?? false, // NEW: Add is_break flag
       };
       const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
       if (error) throw new Error(error.message);
@@ -149,14 +150,15 @@ export const useTasks = () => {
       let updatedEnergyCost = task.energy_cost;
       let updatedMetadataXp = task.metadata_xp;
 
-      if (task.is_custom_energy_cost === false && (task.is_critical !== undefined || task.is_backburner !== undefined || task.energy_cost === undefined)) {
+      if (task.is_custom_energy_cost === false && (task.is_critical !== undefined || task.is_backburner !== undefined || task.is_break !== undefined || task.energy_cost === undefined)) {
         // If is_custom_energy_cost is explicitly false, or energy_cost is not provided (meaning it should be calculated)
         // We need to fetch the current task to get its is_critical/is_backburner status if not provided in the update
         const currentTask = queryClient.getQueryData<Task[]>(['tasks', userId, temporalFilter, sortBy])?.find(t => t.id === task.id);
         const effectiveIsCritical = task.is_critical !== undefined ? task.is_critical : (currentTask?.is_critical ?? false);
         const effectiveIsBackburner = task.is_backburner !== undefined ? task.is_backburner : (currentTask?.is_backburner ?? false);
+        const effectiveIsBreak = task.is_break !== undefined ? task.is_break : (currentTask?.is_break ?? false);
         
-        updatedEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, effectiveIsCritical, effectiveIsBackburner);
+        updatedEnergyCost = calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, effectiveIsCritical, effectiveIsBackburner, effectiveIsBreak);
         updatedMetadataXp = updatedEnergyCost * 2;
       } else if (task.is_custom_energy_cost === true && task.energy_cost !== undefined) {
         // If custom energy cost is enabled and provided, update metadata_xp based on it

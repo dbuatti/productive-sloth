@@ -259,7 +259,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
     setIsProcessingCommand(true);
     try {
-        await startRegenPodState(activityDuration); 
+        await startRegenPodState(activityName, activityDuration); 
         
         const start = T_current;
         const end = addMinutes(start, activityDuration);

@@ -93,6 +93,7 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => {
               source_calendar_id: null,
               is_backburner: false,
               is_work: false, // Static anchors are not work
+              is_break: isMealTask, // NEW: Add is_break flag
             });
           }
         }

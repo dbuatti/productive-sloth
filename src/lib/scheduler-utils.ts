@@ -145,20 +145,20 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'gigs': 200,
   'charge': 210,
   'vacuum': 210,
-  'put away': 220, // Corrected from 📦
-  'sheets': 220, // Corrected from 📦
-  'pants': 220, // Corrected from 📦
-  'medication': 300, // Corrected from 💊
-  'toothbrush': 300, // Corrected from 🪥
-  'return message': 245, // Corrected from 💬
-  'voice deal': 200, // Corrected from 🎤
-  'find location': 210, // Corrected from 🗺️
-  'broom': 120, // Corrected from 🧹
-  'practise': 270, // Corrected from 🎹
-  'track': 270, // Corrected from 🎼
-  'catch up': 290, // Corrected from 🤝
-  'trim': 300, // Corrected from 💅
-  'cuticle': 300, // Corrected from 💅
+  'put away': '📦', // Corrected from 📦
+  'sheets': '📦', // Corrected from 📦
+  'pants': '📦', // Corrected from 📦
+  'medication': '💊', // Corrected from 💊
+  'toothbrush': '🪥', // Corrected from 🪥
+  'return message': '💬', // Corrected from 💬
+  'voice deal': '🎤', // Corrected from 🎤
+  'find location': '🗺️', // Corrected from 🗺️
+  'broom': '🧹', // Corrected from 🧹
+  'practise': '🎹', // Corrected from 🎹
+  'track': '🎼', // Corrected from 🎼
+  'catch up': '🤝', // Corrected from 🤝
+  'trim': '💅', // Corrected from 💅
+  'cuticle': '💅', // Corrected from 💅
   'payment': 60,
   'link': 60,
   'send': 270,
@@ -233,9 +233,12 @@ export const isMeal = (taskName: string): boolean => {
   return MEAL_KEYWORDS.some(keyword => lowerCaseTaskName.includes(keyword));
 };
 
-export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false): number => {
+export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false, isBreak: boolean = false): number => {
+  if (isBreak) { 
+    return -10; // Fixed energy gain for explicit breaks
+  }
   if (isMeal('meal')) { 
-    return -10; 
+    return -10; // Fixed energy gain for meals
   }
 
   let baseCost = Math.ceil(duration / 15) * 5; 
@@ -288,6 +291,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   shouldSink: boolean;
   energyCost: number;
   isWork: boolean; // NEW
+  isBreak: boolean; // NEW
 } | null => {
   let rawInput = input.trim();
   let lowerInput = rawInput.toLowerCase();
@@ -296,6 +300,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   let shouldSink = false;
   let isFlexible = true; 
   let isWork = false; // NEW
+  let isBreak = false; // NEW
 
   // Check for Critical Flag (Prefix: !)
   if (rawInput.startsWith('!')) {
@@ -331,6 +336,13 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     rawInput = rawInput.substring(0, rawInput.length - 2).trim();
     lowerInput = rawInput.toLowerCase();
   }
+
+  // Check for Break Flag (Suffix: B)
+  if (lowerInput.endsWith(' b')) {
+    isBreak = true;
+    rawInput = rawInput.substring(0, rawInput.length - 2).trim();
+    lowerInput = rawInput.toLowerCase();
+  }
   
   const timeOffMatch = rawInput.match(/^(time off)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeOffMatch) {
@@ -355,6 +367,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
       shouldSink: false,
       energyCost: 0,
       isWork: false, // Time off is not work
+      isBreak: false, // Time off is not a break task
     };
   }
 
@@ -371,9 +384,9 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
       
       const isMealTask = isMeal(name);
-      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner);
+      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
 
-      return { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost, isWork }; 
+      return { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost, isWork, isBreak }; 
     }
   }
 
@@ -385,8 +398,8 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
 
     if (name && duration > 0) {
       const isMealTask = isMeal(name);
-      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner);
-      return { name, duration, breakDuration, isCritical, isBackburner, isFlexible, shouldSink, energyCost, isWork };
+      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
+      return { name, duration, breakDuration, isCritical, isBackburner, isFlexible, shouldSink, energyCost, isWork, isBreak };
     }
   }
 
@@ -404,9 +417,10 @@ export const parseInjectionCommand = (input: string): {
   isBackburner?: boolean; 
   energyCost: number;
   isWork: boolean; // NEW
+  isBreak: boolean; // NEW
 } | null => {
   const lowerInput = input.toLowerCase().trim();
-  const injectMatch = lowerInput.match(/^inject\s+"([^"]+)"(?:\s+(\d+))?(?:\s+(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s+(!))?(?:\s+(-))?(?:\s+(fixed))?(?:\s+(w))?$/);
+  const injectMatch = lowerInput.match(/^inject\s+"([^"]+)"(?:\s+(\d+))?(?:\s+(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s+(!))?(?:\s+(-))?(?:\s+(fixed))?(?:\s+(w))?(?:\s+(b))?$/);
 
   if (injectMatch) {
     const taskName = injectMatch[1];
@@ -417,16 +431,19 @@ export const parseInjectionCommand = (input: string): {
     const isBackburner = !!injectMatch[10]; 
     const isFlexible = !injectMatch[11]; 
     const isWork = !!injectMatch[12]; // NEW
+    const isBreak = !!injectMatch[13]; // NEW
 
     let calculatedEnergyCost = 0;
     const isMealTask = isMeal(taskName);
 
-    if (isMealTask) {
+    if (isBreak) {
+      calculatedEnergyCost = -10;
+    } else if (isMealTask) {
       calculatedEnergyCost = -10;
     } else if (duration) {
-      calculatedEnergyCost = calculateEnergyCost(duration, isCritical, isBackburner);
+      calculatedEnergyCost = calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
     } else {
-      calculatedEnergyCost = calculateEnergyCost(30, isCritical, isBackburner); 
+      calculatedEnergyCost = calculateEnergyCost(30, isCritical, isBackburner, isBreak); 
     }
 
     return {
@@ -439,6 +456,7 @@ export const parseInjectionCommand = (input: string): {
       isFlexible,
       energyCost: calculatedEnergyCost,
       isWork,
+      isBreak,
     };
   }
   return null;
@@ -500,6 +518,7 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   let isCritical = false;
   let isBackburner = false; 
   let isWork = false; // NEW
+  let isBreak = false; // NEW
 
   if (name.endsWith(' !')) {
     isCritical = true;
@@ -517,6 +536,12 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
     name = name.slice(0, -2).trim();
   }
 
+  // Check for Break Flag (Suffix: B)
+  if (name.endsWith(' b')) {
+    isBreak = true;
+    name = name.slice(0, -2).trim();
+  }
+
   const durationMatch = name.match(/^(.*?)\s+(\d+)$/);
   if (durationMatch) {
     name = durationMatch[1].trim();
@@ -526,7 +551,7 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   if (!name) return null;
 
   const isMealTask = isMeal(name);
-  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner); 
+  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner, isBreak); 
 
   return {
     user_id: userId,
@@ -542,6 +567,7 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
     task_environment: 'laptop', 
     is_backburner: isBackburner, 
     is_work: isWork, // NEW
+    is_break: isBreak, // NEW
   };
 };
 
@@ -862,7 +888,7 @@ export const calculateSchedule = (
     if (duration <= 0) return;
 
     const isTimeOff = dbTask.name.toLowerCase() === 'time off';
-    const isBreak = dbTask.name.toLowerCase() === 'break';
+    const isBreak = dbTask.name.toLowerCase() === 'break' || dbTask.is_break; // Check new is_break flag
     const isMealTask = isMeal(dbTask.name);
     const isCalendarEvent = !!dbTask.source_calendar_id; 
 
@@ -899,6 +925,7 @@ export const calculateSchedule = (
       sourceCalendarId: dbTask.source_calendar_id, 
       isBackburner: dbTask.is_backburner, 
       isWork: dbTask.is_work || false, // NEW: Add isWork flag
+      isBreak: dbTask.is_break || false, // NEW: Add isBreak flag
     };
     allRawItems.push(item);
   });
@@ -950,6 +977,7 @@ export const calculateSchedule = (
           sourceCalendarId: null,
           isBackburner: false,
           isWork: false, // Static anchors are not work
+          isBreak: type === 'break' || type === 'meal', // Mark as break if it's a break or meal type
         };
         allRawItems.push(item);
       }
@@ -995,6 +1023,7 @@ export const calculateSchedule = (
             sourceCalendarId: null,
             isBackburner: false,
             isWork: false, // Regen Pod is not work
+            isBreak: true, // Regen Pod is a break
         };
         allRawItems.push(podItem);
     }
@@ -1033,6 +1062,7 @@ export const calculateSchedule = (
         let newTaskEnvironment = currentMergedItem.taskEnvironment;
         let newSourceCalendarId = currentMergedItem.sourceCalendarId;
         let newIsWork = currentMergedItem.isWork; // NEW
+        let newIsBreak = currentMergedItem.isBreak; // NEW
 
         // Simple prioritization: if nextItem is a 'task' and current is a 'meal'/'break', prioritize task
         // Or if both are tasks, combine names.
@@ -1050,6 +1080,7 @@ export const calculateSchedule = (
           newTaskEnvironment = nextItem.taskEnvironment;
           newSourceCalendarId = nextItem.sourceCalendarId;
           newIsWork = nextItem.isWork; // NEW
+          newIsBreak = nextItem.isBreak; // NEW
         } else if (currentMergedItem.type === 'task' && (nextItem.type === 'meal' || nextItem.type === 'break')) {
           // current is task, next is meal/break, keep current
         } else {
@@ -1067,6 +1098,7 @@ export const calculateSchedule = (
           newIsCustomEnergyCost = currentMergedItem.isCustomEnergyCost || nextItem.isCustomEnergyCost;
           // Environment and source calendar ID are tricky to merge, keep first for now
           newIsWork = currentMergedItem.isWork || nextItem.isWork; // NEW
+          newIsBreak = currentMergedItem.isBreak || nextItem.isBreak; // NEW
         }
 
         currentMergedItem = {
@@ -1088,6 +1120,7 @@ export const calculateSchedule = (
           taskEnvironment: newTaskEnvironment,
           sourceCalendarId: newSourceCalendarId,
           isWork: newIsWork, // NEW
+          isBreak: newIsBreak, // NEW
         };
       } else {
         // No overlap, push the current merged item and start a new one

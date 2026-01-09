@@ -12,18 +12,18 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { RetiredTask, TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music, Star, Info, AlertCircle } from 'lucide-react';
+import { Home, Laptop, Globe, Music, Star, Info, AlertCircle, Briefcase, Coffee } from 'lucide-react'; // NEW: Import Briefcase and Coffee
 import KanbanColumn from './KanbanColumn';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import { parseSinkTaskInput } from '@/lib/scheduler-utils';
-import { useEnvironments } from '@/hooks/use-environments'; // NEW: Import useEnvironments hook
+import { useEnvironments } from '@/hooks/use-environments';
 
 // --- Main Kanban Board Component ---
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
-  groupBy: 'environment' | 'priority';
+  groupBy: 'environment' | 'priority' | 'type'; // NEW: Added 'type' grouping
   onRemoveRetiredTask: (id: string, name: string) => void;
   onRezoneTask: (task: RetiredTask) => void;
   updateRetiredTask: (updates: Partial<RetiredTask> & { id: string }) => Promise<void>;
@@ -40,7 +40,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   onOpenDetailDialog, // Destructure new prop
 }) => {
   const { user } = useSession();
-  const { environments, isLoading } = useEnvironments(); // NEW: Use environments hook
+  const { environments, isLoading } = useEnvironments();
   const { addRetiredTask } = useSchedulerTasks('');
   
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -67,11 +67,15 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       environments.forEach(env => {
         groups[env.value] = [];
       });
-    } else {
+    } else if (groupBy === 'priority') {
       // Use priority groups
       groups['critical'] = [];
       groups['standard'] = [];
       groups['backburner'] = [];
+    } else if (groupBy === 'type') { // NEW: Group by type
+      groups['work'] = [];
+      groups['not-work'] = [];
+      groups['breaks'] = [];
     }
 
     retiredTasks.forEach(task => {
@@ -79,10 +83,14 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       
       if (groupBy === 'environment') {
         groupKey = task.task_environment || 'laptop';
-      } else {
+      } else if (groupBy === 'priority') {
         if (task.is_critical) groupKey = 'critical';
         else if (task.is_backburner) groupKey = 'backburner';
         else groupKey = 'standard';
+      } else if (groupBy === 'type') { // NEW: Grouping logic for 'type'
+        if (task.is_break) groupKey = 'breaks';
+        else if (task.is_work) groupKey = 'work';
+        else groupKey = 'not-work';
       }
       
       if (!groups[groupKey]) groups[groupKey] = [];
@@ -121,13 +129,21 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       if (validEnvironment) {
         updateData = { task_environment: overContainerId as TaskEnvironment };
       }
-    } else {
+    } else if (groupBy === 'priority') {
       if (overContainerId === 'critical') {
-        updateData = { is_critical: true, is_backburner: false };
+        updateData = { is_critical: true, is_backburner: false, is_break: false }; // NEW: Cannot be break if critical
       } else if (overContainerId === 'backburner') {
-        updateData = { is_critical: false, is_backburner: true };
+        updateData = { is_critical: false, is_backburner: true, is_break: false }; // NEW: Cannot be break if backburner
       } else if (overContainerId === 'standard') {
-        updateData = { is_critical: false, is_backburner: false };
+        updateData = { is_critical: false, is_backburner: false, is_break: false }; // NEW: Default to not break
+      }
+    } else if (groupBy === 'type') { // NEW: Grouping logic for 'type'
+      if (overContainerId === 'work') {
+        updateData = { is_work: true, is_break: false };
+      } else if (overContainerId === 'not-work') {
+        updateData = { is_work: false, is_break: false };
+      } else if (overContainerId === 'breaks') {
+        updateData = { is_break: true, is_work: false };
       }
     }
     
@@ -139,13 +155,13 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
     if (!user) return showError("User context missing.");
     
-    // 1. Parse the input string (Name [dur] [!] [-])
+    // 1. Parse the input string (Name [dur] [!] [-] [W] [B])
     const parsedTask = parseSinkTaskInput(input, user.id);
     if (!parsedTask) {
-      return showError("Invalid task format. Use 'Name [dur] [!] [-]'.");
+      return showError("Invalid task format. Use 'Name [dur] [!] [-] [W] [B]'.");
     }
     
-    // 2. Override environment/priority based on the column ID
+    // 2. Override environment/priority/type based on the column ID
     let finalTask = { ...parsedTask };
     
     if (groupBy === 'environment') {
@@ -154,17 +170,31 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       if (validEnvironment) {
         finalTask.task_environment = columnId as TaskEnvironment;
       }
-    } else {
+    } else if (groupBy === 'priority') {
       if (columnId === 'critical') {
         finalTask.is_critical = true;
         finalTask.is_backburner = false;
+        finalTask.is_break = false; // NEW: Cannot be break if critical
       } else if (columnId === 'backburner') {
         finalTask.is_critical = false;
         finalTask.is_backburner = true;
+        finalTask.is_break = false; // NEW: Cannot be break if backburner
       } else {
         // standard
         finalTask.is_critical = false;
         finalTask.is_backburner = false;
+        finalTask.is_break = false; // NEW: Default to not break
+      }
+    } else if (groupBy === 'type') { // NEW: Grouping logic for 'type'
+      if (columnId === 'work') {
+        finalTask.is_work = true;
+        finalTask.is_break = false;
+      } else if (columnId === 'not-work') {
+        finalTask.is_work = false;
+        finalTask.is_break = false;
+      } else if (columnId === 'breaks') {
+        finalTask.is_break = true;
+        finalTask.is_work = false;
       }
     }
     
@@ -198,6 +228,13 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     { value: 'critical', label: '🔥 Critical', icon: Star },
     { value: 'standard', label: '⚪ Standard', icon: Info },
     { value: 'backburner', label: '🔵 Backburner', icon: AlertCircle },
+  ];
+
+  // NEW: Type options for grouping
+  const typeOptions = [
+    { value: 'work', label: '💻 Work', icon: Briefcase, color: 'hsl(var(--primary))' },
+    { value: 'not-work', label: '✨ Not Work', icon: Star, color: 'hsl(var(--logo-yellow))' },
+    { value: 'breaks', label: '☕ Breaks', icon: Coffee, color: 'hsl(var(--logo-orange))' },
   ];
 
   if (isLoading) {
@@ -245,7 +282,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
               />
             );
           })
-        ) : (
+        ) : groupBy === 'priority' ? (
           priorityOptions.map((option) => {
             const columnTasks = groupedTasks[option.value] || [];
             const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
@@ -258,6 +295,29 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
                 id={option.value}
                 title={option.label}
                 icon={<IconComponent className="h-4 w-4" />}
+                tasks={columnTasks}
+                totalEnergy={totalEnergy}
+                onQuickAdd={handleQuickAdd}
+                activeTaskHeight={activeTaskHeight}
+                activeId={activeId}
+                overId={overId}
+                onOpenDetailDialog={onOpenDetailDialog} // Pass the handler down
+              />
+            );
+          })
+        ) : ( // NEW: Group by type
+          typeOptions.map((option) => {
+            const columnTasks = groupedTasks[option.value] || [];
+            const totalEnergy = columnTasks.reduce((sum, t) => sum + (t.energy_cost || 0), 0);
+            
+            const IconComponent = option.icon;
+            
+            return (
+              <KanbanColumn
+                key={option.value}
+                id={option.value}
+                title={option.label}
+                icon={<IconComponent className="h-4 w-4" style={{ color: option.color }} />}
                 tasks={columnTasks}
                 totalEnergy={totalEnergy}
                 onQuickAdd={handleQuickAdd}

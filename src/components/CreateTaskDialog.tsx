@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
-import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music, Briefcase } from 'lucide-react';
+import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music, Briefcase, Coffee } from 'lucide-react'; // NEW: Import Coffee icon
 import DatePicker from './DatePicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -49,6 +49,7 @@ const TaskCreationSchema = z.object({
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'),
   is_work: z.boolean().default(false), // NEW: Add is_work flag
+  is_break: z.boolean().default(false), // NEW: Add is_break flag
 });
 
 type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
@@ -99,10 +100,11 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       endTime: defaultEndTime ? format(defaultEndTime, 'HH:mm') : undefined,
       isCritical: false,
       isBackburner: false,
-      energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false),
+      energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false, false),
       is_custom_energy_cost: false,
       task_environment: 'laptop',
       is_work: false, // NEW: Default to false
+      is_break: false, // NEW: Default to false
     },
     mode: 'onChange',
   });
@@ -118,10 +120,11 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         endTime: defaultEndTime ? format(defaultEndTime, 'HH:mm') : undefined,
         isCritical: false,
         isBackburner: false,
-        energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false),
+        energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false, false),
         is_custom_energy_cost: false,
         task_environment: 'laptop',
         is_work: false, // NEW: Reset is_work
+        is_break: false, // NEW: Reset is_break
       });
     }
   }, [isOpen, defaultPriority, defaultDueDate, defaultStartTime, defaultEndTime, form]);
@@ -129,9 +132,10 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      if (!value.is_custom_energy_cost && (name === 'isCritical' || name === 'isBackburner' || name === 'startTime' || name === 'endTime')) {
+      if (!value.is_custom_energy_cost && (name === 'isCritical' || name === 'isBackburner' || name === 'is_break' || name === 'startTime' || name === 'endTime')) {
         const isCritical = value.isCritical ?? false;
         const isBackburner = value.isBackburner ?? false;
+        const isBreak = value.is_break ?? false;
         let duration = DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION;
 
         if (value.startTime && value.endTime && value.dueDate) {
@@ -141,12 +145,13 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           duration = differenceInMinutes(end, start);
         }
         
-        const newEnergyCost = calculateEnergyCost(duration, isCritical, isBackburner);
+        const newEnergyCost = calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
         const isCritical = form.getValues('isCritical');
         const isBackburner = form.getValues('isBackburner');
+        const isBreak = form.getValues('is_break');
         let duration = DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION;
 
         const formValues = form.getValues();
@@ -157,7 +162,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           duration = differenceInMinutes(end, start);
         }
 
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }
@@ -168,6 +173,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   useEffect(() => {
     const initialIsCritical = form.getValues('isCritical');
     const initialIsBackburner = form.getValues('isBackburner');
+    const initialIsBreak = form.getValues('is_break');
     let initialDuration = DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION;
 
     const formValues = form.getValues();
@@ -178,14 +184,14 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       initialDuration = differenceInMinutes(end, start);
     }
 
-    const initialEnergyCost = calculateEnergyCost(initialDuration, initialIsCritical, initialIsBackburner);
+    const initialEnergyCost = calculateEnergyCost(initialDuration, initialIsCritical, initialIsBackburner, initialIsBreak);
     setCalculatedEnergyCost(initialEnergyCost);
     form.setValue('energy_cost', initialEnergyCost);
   }, [form]);
 
 
   const onSubmit = async (values: TaskCreationFormValues) => {
-    const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost, task_environment, is_work } = values;
+    const { title, priority, dueDate, description, isCritical, isBackburner, energy_cost, is_custom_energy_cost, task_environment, is_work, is_break } = values;
 
     const scheduledDateString = format(dueDate, 'yyyy-MM-dd');
 
@@ -208,6 +214,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         is_custom_energy_cost: is_custom_energy_cost,
         task_environment: task_environment,
         is_work: is_work, // NEW: Include is_work flag
+        is_break: is_break, // NEW: Include is_break flag
       };
 
       await addScheduledTask(newScheduledTask, {
@@ -230,6 +237,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         is_custom_energy_cost: is_custom_energy_cost,
         task_environment: task_environment,
         is_work: is_work, // NEW: Include is_work flag
+        is_break: is_break, // NEW: Include is_break flag
       };
 
       await addTask(newTask, {
@@ -246,6 +254,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost'); 
   const isCritical = form.watch('isCritical');
   const isBackburner = form.watch('isBackburner');
+  const isBreak = form.watch('is_break');
   const hasTimeRange = form.watch('startTime') && form.watch('endTime');
 
   const formContent = (
@@ -409,7 +418,10 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   checked={field.value}
                   onCheckedChange={(checked) => {
                     field.onChange(checked);
-                    if (checked) form.setValue('isBackburner', false);
+                    if (checked) {
+                      form.setValue('isBackburner', false);
+                      form.setValue('is_break', false); // Critical cannot be a break
+                    }
                   }}
                   aria-label="Toggle Critical Task"
                 />
@@ -434,10 +446,46 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   checked={field.value}
                   onCheckedChange={(checked) => {
                     field.onChange(checked);
-                    if (checked) form.setValue('isCritical', false);
+                    if (checked) {
+                      form.setValue('isCritical', false);
+                      form.setValue('is_break', false); // Backburner cannot be a break
+                    }
                   }}
                   disabled={isCritical}
                   aria-label="Toggle Backburner Task"
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        {/* NEW: Is Break Switch */}
+        <FormField
+          control={form.control}
+          name="is_break"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Coffee className="h-4 w-4 text-logo-orange" />
+                  <FormLabel className="text-base font-semibold">Break Task</FormLabel>
+                </div>
+                <FormDescription className="text-xs">
+                  This task is a dedicated break or recovery activity.
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={(checked) => {
+                    field.onChange(checked);
+                    if (checked) {
+                      form.setValue('isCritical', false); // Break cannot be critical
+                      form.setValue('isBackburner', false); // Break cannot be backburner
+                    }
+                  }}
+                  disabled={isCritical || isBackburner} // Disable if critical or backburner
+                  aria-label="Toggle Break Task"
                 />
               </FormControl>
             </FormItem>

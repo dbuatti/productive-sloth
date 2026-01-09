@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { RetiredTask } from '@/types/scheduler';
 
 interface KanbanColumnProps {
-  id: string; // e.g., 'home', 'laptop'
+  id: string; // e.g., 'work', 'not-work', 'breaks'
   title: string;
   icon: React.ReactNode;
   tasks: RetiredTask[];

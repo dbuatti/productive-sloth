@@ -313,6 +313,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return [];
       }
       try {
+        console.log("[SessionProvider] Calling get_completed_tasks_today RPC with:", {
+          p_user_id: user.id,
+          p_timezone: profile.timezone
+        });
         const { data, error } = await supabase.rpc('get_completed_tasks_today', { 
           p_user_id: user.id, 
           p_timezone: profile.timezone 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Trash2, Plus, CheckCircle, Coffee, ListTodo, Loader2, Clock, CalendarDays } from 'lucide-react'; // NEW: Import CalendarDays
+import { Sparkles, Trash2, Plus, CheckCircle, Coffee, ListTodo, Loader2, Clock, CalendarDays, HeartPulse } from 'lucide-react'; // NEW: Import HeartPulse
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
   { to: "/sink", icon: Trash2, label: "Sink", matchPath: '/sink' },
   { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' },
   { to: "/analytics", icon: Sparkles, label: "Stats", matchPath: '/analytics' },
-  { to: "/simplified-schedule", icon: CalendarDays, label: "Weekly", matchPath: '/simplified-schedule' }, // NEW NAV ITEM
+  { to: "/wellness", icon: HeartPulse, label: "Wellness", matchPath: '/wellness' }, // NEW NAV ITEM
 ];
 
 const BottomNavigationBar: React.FC = () => {
@@ -54,6 +54,7 @@ const BottomNavigationBar: React.FC = () => {
         energy_cost: 0, // Breaks have 0 energy cost (but trigger regen)
         is_custom_energy_cost: false,
         task_environment: 'away', // Default environment for breaks
+        is_break: true, // Mark as a break task
       });
       
       // NEW: Trigger energy regen immediately upon starting a break
@@ -151,7 +152,7 @@ const BottomNavigationBar: React.FC = () => {
         
         {/* Nav Item 4: Stats */}
         <div className="col-span-1 flex items-center justify-center h-full">
-            {renderNavItem(navItems[3])}
+            {renderNavItem(navItems[4])} {/* Changed to navItems[4] for Wellness */}
         </div>
       </div>
     </div>

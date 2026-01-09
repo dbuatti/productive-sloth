@@ -3,7 +3,7 @@ import { DBScheduledTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
-import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle, Info } from 'lucide-react'; // Added Info icon
+import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle, Info, Briefcase, Coffee } from 'lucide-react'; // Added Briefcase and Coffee icons
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Import the dialog
@@ -118,6 +118,22 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
                     <Info className="h-2.5 w-2.5 text-muted-foreground/50" />
                   </TooltipTrigger>
                   <TooltipContent>Backburner Task</TooltipContent>
+                </Tooltip>
+              )}
+              {task.is_work && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Briefcase className="h-2.5 w-2.5 text-primary" />
+                  </TooltipTrigger>
+                  <TooltipContent>Work Task</TooltipContent>
+                </Tooltip>
+              )}
+              {task.is_break && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Coffee className="h-2.5 w-2.5 text-logo-orange" />
+                  </TooltipTrigger>
+                  <TooltipContent>Break Task</TooltipContent>
                 </Tooltip>
               )}
             </div>

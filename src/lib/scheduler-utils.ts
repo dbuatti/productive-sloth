@@ -145,20 +145,20 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'gigs': 200,
   'charge': 210,
   'vacuum': 210,
-  'put away': '📦', // Corrected from 📦
-  'sheets': '📦', // Corrected from 📦
-  'pants': '📦', // Corrected from 📦
-  'medication': '💊', // Corrected from 💊
-  'toothbrush': '🪥', // Corrected from 🪥
-  'return message': '💬', // Corrected from 💬
-  'voice deal': '🎤', // Corrected from 🎤
-  'find location': '🗺️', // Corrected from 🗺️
-  'broom': '🧹', // Corrected from 🧹
-  'practise': '🎹', // Corrected from 🎹
-  'track': '🎼', // Corrected from 🎼
-  'catch up': '🤝', // Corrected from 🤝
-  'trim': '💅', // Corrected from 💅
-  'cuticle': '💅', // Corrected from 💅
+  'put away': 150, 
+  'sheets': 150, 
+  'pants': 150, 
+  'medication': 300, 
+  'toothbrush': 120, 
+  'return message': 245, 
+  'voice deal': 200, 
+  'find location': 210, 
+  'broom': 120, 
+  'practise': 270, 
+  'track': 270, 
+  'catch up': 290, 
+  'trim': 300, 
+  'cuticle': 300, 
   'payment': 60,
   'link': 60,
   'send': 270,

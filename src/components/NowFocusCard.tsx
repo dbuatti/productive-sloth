@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Zap, Coffee, Clock, Layout, ChevronRight, Target } from 'lucide-react';
+import { Zap, Coffee, Clock, Layout, ChevronRight, Target, Briefcase } from 'lucide-react'; // NEW: Import Briefcase icon
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
 import { ScheduledItem } from '@/types/scheduler';

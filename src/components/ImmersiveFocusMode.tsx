@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { intervalToDuration, formatDuration, isBefore } from 'date-fns';
-import { X, CheckCircle, Archive, Clock, Zap, Coffee, ChevronRight, Target } from 'lucide-react';
+import { X, CheckCircle, Archive, Clock, Zap, Coffee, ChevronRight, Target, Briefcase } from 'lucide-react'; // NEW: Import Briefcase icon
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';

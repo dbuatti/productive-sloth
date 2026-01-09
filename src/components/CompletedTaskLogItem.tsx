@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Zap, Sparkles, Clock, Utensils } from 'lucide-react';
+import { CheckCircle, Zap, Sparkles, Clock, Utensils, Coffee } from 'lucide-react'; // NEW: Import Coffee icon
 import { cn } from '@/lib/utils';
 import { CompletedTaskLogEntry } from '@/types/scheduler'; // FIX: Import CompletedTaskLogEntry
 import { format, parseISO, differenceInMinutes } from 'date-fns';
@@ -21,7 +21,7 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
 
   const xpEarned = task.energy_cost * 2;
   const completedTime = task.updated_at ? format(parseISO(task.updated_at), 'h:mm a') : 'N/A';
-  const isEnergyGain = task.energy_cost < 0 || isMeal(task.name);
+  const isEnergyGain = task.energy_cost < 0 || isMeal(task.name) || task.is_break; // NEW: Check is_break
 
   return (
     <div
@@ -58,7 +58,7 @@ const CompletedTaskLogItem: React.FC<CompletedTaskLogItemProps> = ({ task }) => 
                 isEnergyGain ? "text-logo-green" : "text-logo-yellow"
               )}>
                 {isEnergyGain ? `+${Math.abs(task.energy_cost)}` : task.energy_cost} 
-                {isEnergyGain ? <Utensils className="h-4 w-4" /> : <Zap className="h-4 w-4" />} {/* Increased icon size */}
+                {isEnergyGain ? (task.is_break ? <Coffee className="h-4 w-4" /> : <Utensils className="h-4 w-4" />) : <Zap className="h-4 w-4" />} {/* NEW: Conditional icon for break */}
               </span>
             </TooltipTrigger>
             <TooltipContent>

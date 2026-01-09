@@ -12,7 +12,7 @@ import {
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, ListTodo, BatteryCharging, Target, Cpu, Coffee, 
   Archive, Repeat, Layers, CalendarDays, ChevronUp, ChevronDown,
-  CalendarCheck // NEW: Import CalendarCheck icon
+  CalendarCheck, HeartPulse // NEW: Import HeartPulse icon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -263,6 +263,15 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               >
                 <CalendarDays className="h-4 w-4 text-primary" />
                 Weekly Vibe View
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full hover:bg-primary/5 shadow-sm mt-2"
+                onClick={() => navigate('/wellness')}
+                aria-label="View Wellness & Balance"
+              >
+                <HeartPulse className="h-4 w-4 text-primary" />
+                Wellness & Balance
               </Button>
             </div>
           </>

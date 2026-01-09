@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CompletedTaskLogItem from './CompletedTaskLogItem';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DailyVibeRecapCardProps {
   scheduleSummary: ScheduleSummary | null;
@@ -66,6 +67,31 @@ const DailyVibeRecapCard: React.FC<DailyVibeRecapCardProps> = ({
       <p className="text-2xl font-black font-mono tracking-tighter text-foreground">{value}</p>
     </Card>
   );
+
+  if (!scheduleSummary) {
+    return (
+      <Card className="p-4 rounded-xl shadow-sm animate-pop-in overflow-hidden">
+        <CardHeader className="px-2 pb-4 pt-8 border-b border-white/5 bg-background/20 backdrop-blur-md p-0">
+          <Skeleton className="h-6 w-48 mb-2" />
+          <Skeleton className="h-8 w-64" />
+        </CardHeader>
+        <CardContent className="p-6 space-y-8">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center justify-center p-5 border border-white/5 rounded-xl space-y-2">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-6 w-24" />
+              </div>
+            ))}
+          </div>
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-4 rounded-xl shadow-sm animate-pop-in overflow-hidden">

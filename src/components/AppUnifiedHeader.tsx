@@ -33,6 +33,7 @@ const AppUnifiedHeader: React.FC<AppUnifiedHeaderProps> = ({ onToggleMobileMenu 
             size="icon"
             onClick={onToggleMobileMenu}
             className="h-10 w-10 text-muted-foreground hover:text-primary transition-colors"
+            aria-label="Toggle mobile menu"
           >
             <CustomMenuIcon />
             <span className="sr-only">Toggle Menu</span>
@@ -41,6 +42,7 @@ const AppUnifiedHeader: React.FC<AppUnifiedHeaderProps> = ({ onToggleMobileMenu 
           <Link 
             to="/" 
             className="flex items-center gap-2 group active:scale-95 transition-transform duration-200"
+            aria-label="Go to Home"
           >
             <div className="relative">
               <img 

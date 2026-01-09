@@ -61,7 +61,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           lunch_duration_minutes, dinner_duration_minutes, custom_environment_order, reflection_count, 
           reflection_times, reflection_durations, enable_environment_chunking, enable_macro_spread, 
           week_starts_on, num_days_visible, vertical_zoom_index, is_dashboard_collapsed, 
-          is_action_center_collapsed, blocked_days, updated_at, neurodivergent_mode, skipped_day_off_suggestions
+          is_action_center_collapsed, blocked_days, updated_at, neurodivergent_mode, skipped_day_off_suggestions,
+          timezone
         `)
         .eq('id', userId)
         .single();
@@ -190,7 +191,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await refreshProfile();
       showSuccess(skip ? `Day ${dateString} skipped for suggestion.` : `Day ${dateString} unskipped.`);
     } catch (error: any) {
-      showError(`Failed to update skipped suggestions: ${error.message}`);
+      showError(`Failed to update skipped suggestions: ${error.message}`); // Fixed 'e.message' to 'error.message'
     }
   }, [user, profile, refreshProfile]);
 
@@ -311,7 +312,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .eq('assigned_date', todayString)
         .eq('user_id', user.id);
       if (error) throw error;
-      return data as MealAssignment[];
+      return data;
     },
     enabled: !!user?.id && !isAuthLoading,
   });

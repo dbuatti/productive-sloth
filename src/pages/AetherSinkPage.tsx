@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import AetherSink from '@/components/AetherSink';
-import { RetiredTaskSortBy } from '@/types/scheduler';
+import { RetiredTaskSortBy, RetiredTask } from '@/types/scheduler'; // Added RetiredTask import
 
 const AetherSinkPage: React.FC = () => {
   const navigate = useNavigate();

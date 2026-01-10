@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee } from 'lucide-react'; 
-import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
+import { RetiredTask, RetiredTaskSortBy, TaskEnvironment, NewRetiredTask } from '@/types/scheduler'; // NEW: Import NewRetiredTask
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useSession } from '@/hooks/use-session';
@@ -85,14 +84,21 @@ const ViewToggle = ({ viewMode, setViewMode }: { viewMode: SinkViewMode, setView
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
-  onRezoneTask: (task: RetiredTask) => void;
-  onRemoveRetiredTask: (taskId: string, taskName: string) => void;
-  onAutoScheduleSink: () => void;
-  isLoading: boolean;
+  isLoading: boolean; // Changed from isLoadingRetiredTasks
+  onRemoveRetiredTask: (taskId: string, taskName: string) => Promise<void>;
+  onRezoneTask: (task: RetiredTask) => Promise<void>;
+  onAutoScheduleSink: () => Promise<void>;
   isProcessingCommand: boolean;
   profile: UserProfile | null;
   retiredSortBy: RetiredTaskSortBy;
   setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
+  // Props passed directly from useRetiredTasks
+  addRetiredTask: (newTask: NewRetiredTask) => Promise<RetiredTask>;
+  toggleRetiredTaskLock: ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => Promise<void>;
+  completeRetiredTask: (task: RetiredTask) => Promise<void>;
+  updateRetiredTaskStatus: ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => Promise<void>;
+  updateRetiredTaskDetails: (task: Partial<RetiredTask> & { id: string }) => Promise<RetiredTask | undefined>;
+  triggerAetherSinkBackup: () => Promise<void>;
 }
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ 
@@ -100,15 +106,20 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   onRezoneTask, 
   onRemoveRetiredTask, 
   onAutoScheduleSink, 
-  isLoading, 
+  isLoading, // Changed from isLoadingRetiredTasks
   isProcessingCommand, 
   profile, 
   retiredSortBy, 
-  setRetiredSortBy 
+  setRetiredSortBy,
+  addRetiredTask, // Directly from useRetiredTasks
+  toggleRetiredTaskLock, // Directly from useRetiredTasks
+  completeRetiredTask, // Directly from useRetiredTasks
+  updateRetiredTaskStatus, // Directly from useRetiredTasks
+  updateRetiredTaskDetails, // Directly from useRetiredTasks
+  triggerAetherSinkBackup, // Directly from useRetiredTasks
 }) => {
   const { user } = useSession();
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
-  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails } = useSchedulerTasks('');
   
   const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
 
@@ -262,7 +273,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 variant="aether" 
                 size="sm" 
                 onClick={onAutoScheduleSink}
-                disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
+                disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand} // Changed isLoadingRetiredTasks to isLoading
                 className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-lg"
                 aria-label="Auto Sync all unlocked objectives"
               >
@@ -303,7 +314,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
           </form>
         )}
         
-        {isLoading || isLoadingEnvironments ? (
+        {isLoading || isLoadingEnvironments ? ( // Changed isLoadingRetiredTasks to isLoading
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Sink...</p>

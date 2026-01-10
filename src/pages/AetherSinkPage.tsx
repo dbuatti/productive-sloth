@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
+import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import AetherSink from '@/components/AetherSink';
-import { RetiredTaskSortBy, RetiredTask } from '@/types/scheduler'; // Added RetiredTask import
+import { RetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
 
 const AetherSinkPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useSession();
+  const { user, profile } = useSession();
   
   // We need to fetch retired tasks. 
   // Since useSchedulerTasks requires a selectedDate, we pass today's date, 
@@ -19,19 +20,23 @@ const AetherSinkPage: React.FC = () => {
   const { 
     retiredTasks, 
     isLoadingRetiredTasks, 
-    rezoneTask, 
-    removeRetiredTask, 
-    handleAutoScheduleAndSort, 
-    sortBy, 
-    retiredSortBy, 
-    setRetiredSortBy,
     addRetiredTask,
-    toggleRetiredTaskLock,
-    completeRetiredTask,
-    updateRetiredTaskStatus,
+    removeRetiredTask, 
     updateRetiredTaskDetails,
-    triggerAetherSinkBackup
-  } = useSchedulerTasks(todayString);
+    updateRetiredTaskStatus,
+    completeRetiredTask,
+    toggleRetiredTaskLock,
+    triggerAetherSinkBackup,
+    rezoneTask: rezoneRetiredTaskMutation, // Renamed to avoid conflict
+    setRetiredSortBy,
+    retiredSortBy,
+  } = useRetiredTasks(); // Use the new hook for retired tasks
+
+  const {
+    addScheduledTask,
+    handleAutoScheduleAndSort, // Keep for auto-schedule functionality
+    sortBy, // Keep for auto-schedule functionality
+  } = useSchedulerTasks(todayString); // Keep for scheduled task actions
 
   const [isProcessingCommand, setIsProcessingCommand] = useState(false);
 
@@ -39,6 +44,8 @@ const AetherSinkPage: React.FC = () => {
   const handleAutoScheduleSink = useCallback(async () => {
     setIsProcessingCommand(true);
     try {
+      // This will now use the handleAutoScheduleAndSort from useSchedulerTasks
+      // which will fetch retired tasks internally if needed.
       await handleAutoScheduleAndSort(sortBy, 'sink-only', [], todayString);
     } finally {
       setIsProcessingCommand(false);
@@ -48,11 +55,33 @@ const AetherSinkPage: React.FC = () => {
   const handleRezone = useCallback(async (task: RetiredTask) => {
     setIsProcessingCommand(true);
     try {
-      await rezoneTask(task);
+      const rezonedTaskData = await rezoneRetiredTaskMutation(task); // Rezone from the retired hook
+      if (rezonedTaskData) {
+        // Now add it to the scheduled tasks using the scheduled tasks hook
+        // We need to find a slot for it first, similar to how quick add works.
+        // For simplicity, we'll just add it as a flexible task for now.
+        // A more robust solution would involve finding a slot here.
+        await addScheduledTask({
+          name: rezonedTaskData.name,
+          duration: rezonedTaskData.duration || 30, // Default duration if not set
+          break_duration: rezonedTaskData.break_duration,
+          scheduled_date: todayString, // Rezone to today by default
+          is_critical: rezonedTaskData.is_critical,
+          is_flexible: true, // Re-zoned tasks are flexible by default
+          is_locked: false,
+          energy_cost: rezonedTaskData.energy_cost,
+          is_completed: false,
+          is_custom_energy_cost: rezonedTaskData.is_custom_energy_cost,
+          task_environment: rezonedTaskData.task_environment,
+          is_backburner: rezonedTaskData.is_backburner,
+          is_work: rezonedTaskData.is_work,
+          is_break: rezonedTaskData.is_break,
+        });
+      }
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [rezoneTask]);
+  }, [rezoneRetiredTaskMutation, addScheduledTask, todayString]);
 
   const handleRemove = useCallback(async (id: string, name: string) => {
     setIsProcessingCommand(true);
@@ -82,9 +111,15 @@ const AetherSinkPage: React.FC = () => {
         onAutoScheduleSink={handleAutoScheduleSink} 
         isLoading={isLoadingRetiredTasks} 
         isProcessingCommand={isProcessingCommand} 
-        profile={null} // Profile not needed for basic sink operations here
+        profile={profile} // Pass profile for backup check
         retiredSortBy={retiredSortBy} 
         setRetiredSortBy={setRetiredSortBy} 
+        addRetiredTask={addRetiredTask}
+        toggleRetiredTaskLock={toggleRetiredTaskLock}
+        completeRetiredTask={completeRetiredTask}
+        updateRetiredTaskStatus={updateRetiredTaskStatus}
+        updateRetiredTaskDetails={updateRetiredTaskDetails}
+        triggerAetherSinkBackup={triggerAetherSinkBackup}
       />
     </div>
   );

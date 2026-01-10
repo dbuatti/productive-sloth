@@ -8,11 +8,11 @@ import { RetiredTask, TaskEnvironment } from '@/types/scheduler';
 import { Home, Laptop, Globe, Music, Star, Info, Briefcase, Coffee, Loader2 } from 'lucide-react';
 import KanbanColumn from './KanbanColumn';
 import SortableTaskCard from './SortableTaskCard';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
 import { parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { useEnvironments } from '@/hooks/use-environments';
+import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
 
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
@@ -28,7 +28,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
 }) => {
   const { user } = useSession();
   const { environments, isLoading } = useEnvironments();
-  const { addRetiredTask } = useSchedulerTasks('');
+  const { addRetiredTask } = useRetiredTasks(); // NEW: Use addRetiredTask from useRetiredTasks
   
   const [activeTask, setActiveTask] = useState<RetiredTask | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -125,6 +125,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     if (!parsed) return showError("Invalid format: 'Name [dur] [!] [-] [W] [B]...'");
     
     // Override parsed flags based on the target column
+    // This logic is duplicated from SinkKanbanBoard, but necessary here for quick add
     if (groupBy === 'environment') parsed.task_environment = columnId as TaskEnvironment;
     else if (groupBy === 'priority') {
       parsed.is_critical = columnId === 'critical';
@@ -139,7 +140,6 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     
     // Recalculate energy cost based on final flags and duration
     // Note: parseSinkTaskInput already calculates energy, but we need to recalculate if flags were overridden
-    // We rely on the mutation to handle the final energy cost calculation if needed, but for consistency:
     // const finalEnergyCost = calculateEnergyCost(parsed.duration || 30, parsed.is_critical || false, parsed.is_backburner || false, parsed.is_break || false);
     // parsed.energy_cost = finalEnergyCost;
 

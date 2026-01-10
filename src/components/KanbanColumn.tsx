@@ -6,7 +6,11 @@ import { cn } from '@/lib/utils';
 import SortableTaskCard from './SortableTaskCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RetiredTask } from '@/types/scheduler';
+import { RetiredTask, TaskEnvironment } from '@/types/scheduler'; // NEW: Import TaskEnvironment
+import { useSession } from '@/hooks/use-session';
+import { parseSinkTaskInput } => '@/lib/scheduler-utils';
+import { showError } from '@/utils/toast';
+import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
 
 interface KanbanColumnProps {
   id: string; // e.g., 'work', 'not-work', 'breaks'
@@ -14,11 +18,9 @@ interface KanbanColumnProps {
   icon: React.ReactNode;
   tasks: RetiredTask[];
   totalEnergy: number;
-  onQuickAdd: (text: string, columnId: string) => Promise<void>;
   activeTaskHeight?: number;
   activeId: string | null;
   overId: string | null;
-  // NEW: Prop for opening the detail dialog
   onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
@@ -28,7 +30,6 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   icon, 
   tasks, 
   totalEnergy, 
-  onQuickAdd, 
   activeTaskHeight = 80, 
   activeId, 
   overId,
@@ -37,13 +38,38 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const { setNodeRef, isOver } = useDroppable({ id });
   const [localInput, setLocalInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useSession();
+  const { addRetiredTask } = useRetiredTasks(); // NEW: Use addRetiredTask from useRetiredTasks
 
   const handleSubmit = async () => {
     if (!localInput.trim()) return;
+    if (!user) return showError("User missing.");
+
     setIsSubmitting(true);
-    await onQuickAdd(localInput, id);
-    setLocalInput('');
-    setIsSubmitting(false);
+    try {
+      const parsed = parseSinkTaskInput(localInput, user.id);
+      if (!parsed) return showError("Invalid format: 'Name [dur] [!] [-] [W] [B]...'");
+      
+      // Override parsed flags based on the target column
+      // This logic is duplicated from SinkKanbanBoard, but necessary here for quick add
+      if (id) { // Assuming id is the columnId
+        if (id === 'critical') { parsed.is_critical = true; parsed.is_backburner = false; parsed.is_break = false; }
+        else if (id === 'backburner') { parsed.is_critical = false; parsed.is_backburner = true; parsed.is_break = false; }
+        else if (id === 'standard') { parsed.is_critical = false; parsed.is_backburner = false; parsed.is_break = false; }
+        else if (id === 'work') { parsed.is_work = true; parsed.is_break = false; parsed.is_critical = false; parsed.is_backburner = false; }
+        else if (id === 'breaks') { parsed.is_break = true; parsed.is_work = false; parsed.is_critical = false; parsed.is_backburner = false; }
+        else if (['home', 'laptop', 'away', 'piano', 'laptop_piano'].includes(id)) { // Check if it's an environment
+          parsed.task_environment = id as TaskEnvironment;
+        }
+      }
+      
+      await addRetiredTask(parsed); // Use the new addRetiredTask
+      setLocalInput('');
+    } catch (e: any) {
+      showError(`Failed to add task: ${e.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isOverColumn = isOver || (overId && tasks.some(t => t.id === overId));

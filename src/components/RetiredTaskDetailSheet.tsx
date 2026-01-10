@@ -27,11 +27,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from '@/components/ui/switch';
 import { RetiredTask, TaskEnvironment } from "@/types/scheduler";
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEnvironments } from '@/hooks/use-environments';
+import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
 
 const getEnvironmentIconComponent = (iconName: string) => {
   switch (iconName) {
@@ -86,7 +86,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
+  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useRetiredTasks(); // NEW: Use useRetiredTasks
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 

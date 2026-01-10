@@ -17,14 +17,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion } from 'framer-motion';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showError } from '@/utils/toast';
+import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks'; // NEW: Import useSchedulerTasks
+import { addMinutes, parseISO, format } from 'date-fns';
 
 interface SortableCardProps {
   task: RetiredTask;
-  // NEW: Prop to open the detail dialog
   onOpenDetailDialog: (task: RetiredTask) => void;
-  isOverTarget?: boolean; // NEW PROP
+  isOverTarget?: boolean;
 }
 
 const getEnvironmentIcon = (environment: string) => {
@@ -56,12 +57,14 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
   } = useSortable({ id: task.id });
   
   const { 
-    rezoneTask, 
+    rezoneTask: rezoneRetiredTaskMutation, // Renamed to avoid conflict
     removeRetiredTask, 
     toggleRetiredTaskLock, 
     completeRetiredTask, 
     updateRetiredTaskStatus 
-  } = useSchedulerTasks('');
+  } = useRetiredTasks(); // Use the new hook for retired tasks
+
+  const { addScheduledTask } = useSchedulerTasks(task.original_scheduled_date); // Use for scheduling
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -77,14 +80,9 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
     action();
   };
   
-  // NEW: Handle click to open details, but only if not dragging
   const handleCardClick = (e: React.MouseEvent) => {
-    // Check if the drag operation is active or just finished (using isDragging as a proxy)
     if (isDragging) return; 
-    
-    // Prevent opening if a button inside the card was clicked
     if ((e.target as HTMLElement).closest('button')) return;
-
     onOpenDetailDialog(task);
   };
 
@@ -93,6 +91,39 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
     task.is_completed 
       ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false })
       : await completeRetiredTask(task);
+  };
+
+  const handleRezone = async () => {
+    try {
+      const rezonedTaskData = await rezoneRetiredTaskMutation(task);
+      if (rezonedTaskData) {
+        // Calculate start and end times for the new scheduled task
+        const duration = rezonedTaskData.duration || 30;
+        const now = new Date();
+        const startTime = now; // Default to now
+        const endTime = addMinutes(startTime, duration);
+        
+        await addScheduledTask({
+          name: rezonedTaskData.name,
+          start_time: startTime.toISOString(), // Convert duration to start_time
+          end_time: endTime.toISOString(),     // Convert duration to end_time
+          break_duration: rezonedTaskData.break_duration,
+          scheduled_date: format(startTime, 'yyyy-MM-dd'), // Rezone to today by default
+          is_critical: rezonedTaskData.is_critical,
+          is_flexible: true, // Re-zoned tasks are flexible by default
+          is_locked: false,
+          energy_cost: rezonedTaskData.energy_cost,
+          is_completed: false,
+          is_custom_energy_cost: rezonedTaskData.is_custom_energy_cost,
+          task_environment: rezonedTaskData.task_environment,
+          is_backburner: rezonedTaskData.is_backburner,
+          is_work: rezonedTaskData.is_work,
+          is_break: rezonedTaskData.is_break,
+        });
+      }
+    } catch (e: any) {
+      showError(`Failed to re-zone task: ${e.message}`);
+    }
   };
 
   if (isDragging) {
@@ -155,7 +186,7 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={(e) => handleAction(e, () => rezoneTask(task))}>
+              <Button variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={(e) => handleAction(e, () => handleRezone())}>
                 <RotateCcw className="h-3.5 w-3.5 text-primary" />
               </Button>
             </TooltipTrigger>

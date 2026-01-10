@@ -5,7 +5,7 @@ import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours
 import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database, CalendarDays, Lock, Unlock } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
-import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment, TimeBlock } from '@/types/scheduler';
+import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment, TimeBlock, NewDBScheduledTask } from '@/types/scheduler';
 import {
   calculateSchedule,
   parseTaskInput,
@@ -19,6 +19,7 @@ import {
 import { showSuccess, showError } from '@/utils/toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
 import { useSession } from '@/hooks/use-session';
 import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel';
 import NowFocusCard from '@/components/NowFocusCard';
@@ -61,30 +62,31 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     dbScheduledTasks,
     isLoading: isSchedulerTasksLoading, 
     addScheduledTask, 
-    addRetiredTask,
     removeScheduledTask, 
-    clearScheduledTasks,
+    clearScheduledTasks, // Now from useSchedulerTasks
     datesWithTasks,
     isLoadingDatesWithTasks,
-    retiredTasks,
-    isLoadingRetiredTasks,
-    completedTasksForSelectedDayList,
-    isLoadingCompletedTasksForSelectedDay,
     retireTask,
-    rezoneTask,
     compactScheduledTasks,
     randomizeBreaks,
     aetherDump,
     aetherDumpMega,
     sortBy,
     setSortBy,
-    retiredSortBy,
-    setRetiredSortBy,
     completeScheduledTask: completeScheduledTaskMutation,
-    removeRetiredTask,
     handleAutoScheduleAndSort,
     toggleAllScheduledTasksLock,
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
+
+  const {
+    retiredTasks,
+    isLoadingRetiredTasks,
+    addRetiredTask, // Now from useRetiredTasks
+    removeRetiredTask, // Now from useRetiredTasks
+    rezoneTask, // Now from useRetiredTasks
+    retiredSortBy,
+    setRetiredSortBy,
+  } = useRetiredTasks(); // NEW: Use useRetiredTasks
 
   const { data: mealAssignments = [] } = useQuery<MealAssignment[]>({
     queryKey: ['mealAssignments', user?.id, selectedDay],
@@ -211,11 +213,54 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       showError("Cannot re-zone tasks to a blocked day.");
       return;
     }
-    await rezoneTask(task);
-  }, [rezoneTask, isSelectedDayBlocked]);
+    try {
+      const rezonedTaskData = await rezoneTask(task); // Use rezoneTask from useRetiredTasks
+      if (rezonedTaskData) {
+        // Calculate start and end times for the new scheduled task
+        const duration = rezonedTaskData.duration || 30;
+        const breakDuration = rezonedTaskData.break_duration || 0;
+        const totalDuration = duration + breakDuration;
+        
+        const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
+          start: parseISO(t.start_time!),
+          end: parseISO(t.end_time!),
+          duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
+        }));
+        const allConstraints = mergeOverlappingTimeBlocks([...occupiedBlocks, ...staticConstraints]);
+        const searchStart = isBefore(workdayStartTimeForSelectedDay, T_current) && isSameDay(selectedDayAsDate, new Date()) ? T_current : workdayStartTimeForSelectedDay;
+        const slot = findFirstAvailableSlot(totalDuration, allConstraints, searchStart, workdayEndTimeForSelectedDay);
+
+        if (slot) {
+          await addScheduledTask({
+            name: rezonedTaskData.name,
+            start_time: slot.start.toISOString(),
+            end_time: slot.end.toISOString(),
+            break_duration: rezonedTaskData.break_duration,
+            scheduled_date: selectedDay,
+            is_critical: rezonedTaskData.is_critical,
+            is_flexible: true, // Re-zoned tasks are flexible by default
+            is_locked: false,
+            energy_cost: rezonedTaskData.energy_cost,
+            is_completed: false,
+            is_custom_energy_cost: rezonedTaskData.is_custom_energy_cost,
+            task_environment: rezonedTaskData.task_environment,
+            is_backburner: rezonedTaskData.is_backburner,
+            is_work: rezonedTaskData.is_work,
+            is_break: rezonedTaskData.is_break,
+          });
+          showSuccess(`Re-zoned "${rezonedTaskData.name}" to schedule!`);
+        } else {
+          showError(`No slot found for "${rezonedTaskData.name}" within constraints. Keeping in Sink.`);
+          // If no slot, re-add to sink (or do nothing as it's not removed yet)
+        }
+      }
+    } catch (e: any) {
+      showError(`Failed to re-zone task: ${e.message}`);
+    }
+  }, [rezoneTask, addScheduledTask, selectedDay, dbScheduledTasks, staticConstraints, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, selectedDayAsDate, isSelectedDayBlocked]);
 
   const handleRemoveRetired = useCallback(async (taskId: string) => {
-    await removeRetiredTask(taskId);
+    await removeRetiredTask(taskId); // Use removeRetiredTask from useRetiredTasks
   }, [removeRetiredTask]);
 
   const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
@@ -325,7 +370,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       const task = parseTaskInput(input, selectedDayAsDate);
       if (task) {
         if (task.shouldSink) {
-          await addRetiredTask({ 
+          await addRetiredTask({ // Use addRetiredTask from useRetiredTasks
             user_id: user.id, 
             name: task.name, 
             duration: task.duration || 30, 
@@ -367,7 +412,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             showSuccess(`Scheduled "${task.name}" at ${format(slot.start, 'h:mm a')}`);
           } else {
             showError(`No slot found for "${task.name}" within constraints. Sending to Sink.`);
-            await addRetiredTask({
+            await addRetiredTask({ // Use addRetiredTask from useRetiredTasks
               user_id: user.id,
               name: task.name,
               duration: task.duration,

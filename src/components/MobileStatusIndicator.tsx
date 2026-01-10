@@ -33,8 +33,18 @@ const formatTimeRemaining = (duration: Duration): string => {
 };
 
 const MobileStatusIndicator: React.FC = () => {
-  const { activeItemToday, T_current } = useSession();
+  const { activeItemToday } = useSession();
   const navigate = useNavigate();
+  
+  // Local timer for high-frequency UI updates
+  const [T_current, setT_current] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setT_current(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   const updateRemaining = useCallback(() => {

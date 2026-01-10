@@ -9,7 +9,7 @@ import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTim
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
-  const { user, profile, session, T_current } = useSession();
+  const { user, profile, session } = useSession();
   const userId = user?.id;
 
   const formattedSelectedDate = selectedDate;
@@ -128,6 +128,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         case 'NAME_DESC': query = query.order('name', { ascending: false }); break;
         case 'DURATION_ASC': query = query.order('duration', { ascending: true, nullsFirst: true }); break;
         case 'DURATION_DESC': query = query.order('duration', { ascending: false }); break;
+        case 'ENERGY_ASC': query = query.order('energy_cost', { ascending: true }); break;
         case 'ENERGY_ASC': query = query.order('energy_cost', { ascending: true }); break;
         case 'ENERGY_DESC': query = query.order('energy_cost', { ascending: false }); break;
         case 'RETIRED_AT_OLDEST': query = query.order('retired_at', { ascending: true }); break;
@@ -420,6 +421,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDateAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDateAsDate);
       let targetWorkdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDateAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDateAsDate), 17);
       if (isBefore(targetWorkdayEnd, targetWorkdayStart)) targetWorkdayEnd = addDays(targetWorkdayEnd, 1);
+      
+      const T_current = new Date();
       const isTodaySelected = isSameDay(targetDateAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
@@ -550,6 +553,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(currentDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(currentDayAsDate);
         let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(currentDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(currentDayAsDate), 17);
         if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
+        
+        const T_current = new Date();
         const effectiveStart = (isSameDay(currentDayAsDate, T_current) && isBefore(workdayStart, T_current)) ? T_current : workdayStart;
 
         const { data: dbTasksForDay } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', currentDateString);
@@ -632,7 +637,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     } catch (e: any) {
       showError(`Engine Error: ${e.message}`);
     }
-  }, [user, profile, retiredTasks, T_current, autoBalanceScheduleMutation, dbScheduledTasks, todayString]);
+  }, [user, profile, retiredTasks, autoBalanceScheduleMutation, dbScheduledTasks, todayString]);
 
   return {
     dbScheduledTasks, dbScheduledTasksWithMeals: dbScheduledTasks, isLoading, addScheduledTask: addScheduledTaskMutation.mutateAsync, addRetiredTask: addRetiredTaskMutation.mutateAsync,

@@ -24,7 +24,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpLevel, setLevelUpLevel] = useState(0);
-  const [T_current, setT_current] = useState(new Date());
   const [regenPodDurationMinutes, setRegenPodDurationMinutes] = useState(0);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -34,13 +33,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const initialSessionLoadedRef = useRef(false);
   const isLoading = isAuthLoading || isProfileLoading;
   const todayString = format(new Date(), 'yyyy-MM-dd');
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setT_current(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const profileRef = useRef(profile);
   useEffect(() => {
@@ -317,9 +309,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const calculatedScheduleToday = useMemo(() => {
     if (!profile) return null;
-    const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_start_time) : startOfDay(T_current);
-    let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(T_current), profile.default_auto_schedule_end_time) : addHours(startOfDay(T_current), 17);
+    const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(new Date()), profile.default_auto_schedule_start_time) : startOfDay(new Date());
+    let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(new Date()), profile.default_auto_schedule_end_time) : addHours(startOfDay(new Date()), 17);
     if (isBefore(end, start)) end = addDays(end, 1);
+    
+    // We pass a dummy T_current (today's start) to calculateSchedule to keep the structure stable
+    // Active task detection is now handled by components with their own local timers.
     return calculateSchedule(
       dbScheduledTasksToday,
       todayString,
@@ -328,7 +323,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.is_in_regen_pod,
       profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null,
       regenPodDurationMinutes,
-      T_current,
+      start, // Stable T_current for structural calculation
       profile.breakfast_time,
       profile.lunch_time,
       profile.dinner_time,
@@ -341,10 +336,20 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       mealAssignmentsToday,
       profile.blocked_days?.includes(todayString) ?? false
     );
-  }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current, mealAssignmentsToday, todayString]);
+  }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
-  const activeItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => T_current >= i.startTime && T_current < i.endTime) || null, [calculatedScheduleToday, T_current]);
-  const nextItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => i.startTime > T_current) || null, [calculatedScheduleToday, T_current]);
+  // Derived tasks for the "Now" display without 1-sec dependency
+  const activeItemToday = useMemo(() => {
+    if (!calculatedScheduleToday) return null;
+    const now = new Date();
+    return calculatedScheduleToday.items.find(i => now >= i.startTime && now < i.endTime) || null;
+  }, [calculatedScheduleToday]);
+
+  const nextItemToday = useMemo(() => {
+    if (!calculatedScheduleToday) return null;
+    const now = new Date();
+    return calculatedScheduleToday.items.find(i => i.startTime > now) || null;
+  }, [calculatedScheduleToday]);
 
   const contextValue = useMemo(() => {
     console.log("[SessionProvider] Re-computing context value.");
@@ -352,13 +357,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
       triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
       updateProfile, updateSettings, updateBlockedDays, updateSkippedDayOffSuggestions, triggerEnergyRegen, 
-      activeItemToday, nextItemToday, T_current, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+      activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
     };
   }, [
     session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
     triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
     updateProfile, updateSettings, updateBlockedDays, updateSkippedDayOffSuggestions, triggerEnergyRegen, 
-    activeItemToday, nextItemToday, T_current, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+    activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
 
   return (

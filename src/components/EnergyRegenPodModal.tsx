@@ -35,9 +35,16 @@ const EnergyRegenPodModal: React.FC<EnergyRegenPodModalProps> = ({
   isProcessingCommand,
   totalDurationMinutes,
 }) => {
-  const { profile, T_current, exitRegenPodState } = useSession();
+  const { profile, exitRegenPodState } = useSession();
   const { activities, isLoading: isLoadingActivities } = useRecoveryActivities();
   
+  // Local timer for high-frequency updates
+  const [T_current, setT_current] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setT_current(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [podState, setPodState] = useState<keyof typeof PodState>('INITIAL');
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);

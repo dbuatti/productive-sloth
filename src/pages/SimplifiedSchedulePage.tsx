@@ -13,7 +13,14 @@ const MIN_COLUMN_WIDTH = 100;
 
 const SimplifiedSchedulePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, T_current, updateProfile } = useSession();
+  const { user, profile, updateProfile } = useSession();
+
+  // Local timer for high-frequency UI updates (schedule line)
+  const [T_current, setT_current] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setT_current(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Derive settings directly from profile
   const numDaysVisible = profile?.num_days_visible ?? 7;

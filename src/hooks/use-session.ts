@@ -73,7 +73,6 @@ interface SessionContextType {
   triggerEnergyRegen: () => Promise<void>;
   activeItemToday: ScheduledItem | null;
   nextItemToday: ScheduledItem | null;
-  T_current: Date;
   startRegenPodState: (activityName: string, durationMinutes: number) => Promise<void>;
   exitRegenPodState: () => Promise<void>;
   regenPodDurationMinutes: number;

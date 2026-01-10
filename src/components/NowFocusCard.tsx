@@ -2,23 +2,22 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Zap, Coffee, Clock, Layout, ChevronRight, Target, Briefcase } from 'lucide-react'; // NEW: Import Briefcase icon
+import { Zap, Coffee, Clock, Layout, ChevronRight, Target, Briefcase } from 'lucide-react'; 
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
 import { ScheduledItem } from '@/types/scheduler';
 import { intervalToDuration } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface NowFocusCardProps {
   activeItem: ScheduledItem | null;
   nextItem: ScheduledItem | null;
-  T_current: Date;
   onEnterFocusMode: () => void;
-  isLoading: boolean; // NEW: Add isLoading prop
+  isLoading: boolean;
 }
 
-const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, T_current, onEnterFocusMode, isLoading }) => {
+const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, nextItem, onEnterFocusMode, isLoading }) => {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
@@ -29,6 +28,7 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
     }
 
     const updateRemaining = () => {
+      const T_current = new Date();
       const duration = intervalToDuration({ 
         start: T_current, 
         end: activeItem.endTime > T_current ? activeItem.endTime : T_current 
@@ -45,7 +45,7 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
     updateRemaining();
     const interval = setInterval(updateRemaining, 1000);
     return () => clearInterval(interval);
-  }, [activeItem, T_current]);
+  }, [activeItem]);
 
   if (isLoading) {
     return (

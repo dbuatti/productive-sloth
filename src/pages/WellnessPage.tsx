@@ -54,7 +54,7 @@ const WellnessPage: React.FC = () => {
   const centerDateString = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, profileSettings } = useWeeklySchedulerTasks(centerDateString);
   const { dbScheduledTasks, isLoading: isLoadingSchedulerTasks } = useSchedulerTasks(centerDateString);
-  const { retiredTasks, isLoading: isLoadingRetiredTasks } = useRetiredTasks(); // NEW: Get retired tasks from useRetiredTasks
+  const { retiredTasks, isLoadingRetiredTasks } = useRetiredTasks(); // Corrected: Destructure isLoadingRetiredTasks directly
 
   const isLoading = isWeeklyTasksLoading || isLoadingSchedulerTasks || isLoadingRetiredTasks;
 

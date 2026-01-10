@@ -496,16 +496,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           }
         }
 
-        if (taskSource === 'global-all-future') {
-          globalTasksToPlace.length = 0;
-          globalTasksToPlace.push(...tasksRemainingForDay);
-        } else {
-          tasksRemainingForDay.forEach(t => globalTasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: currentDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
+        if (taskSource === 'global-all-future' && globalTasksToPlace.length > 0) {
+          globalTasksToPlace.forEach(t => globalTasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
         }
-      }
-
-      if (taskSource === 'global-all-future' && globalTasksToPlace.length > 0) {
-        globalTasksToPlace.forEach(t => globalTasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
       }
 
       await autoBalanceScheduleMutation.mutateAsync({ 
@@ -529,6 +522,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     sortBy, setSortBy, updateScheduledTaskDetails: updateScheduledTaskDetailsMutation.mutateAsync,
     completeScheduledTask: completeScheduledTaskMutation.mutateAsync,
     handleAutoScheduleAndSort,
-    randomizeBreaks: randomizeBreaksMutation.mutateAsync
+    randomizeBreaks: randomizeBreaksMutation.mutateAsync,
+    clearScheduledTasks: clearScheduledTasksMutation.mutateAsync, // Added clearScheduledTasks
   };
 };

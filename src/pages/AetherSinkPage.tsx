@@ -7,6 +7,7 @@ import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useR
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import AetherSink from '@/components/AetherSink';
 import { RetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
+import { addMinutes, format } from 'date-fns'; // Import addMinutes and format
 
 const AetherSinkPage: React.FC = () => {
   const navigate = useNavigate();
@@ -61,11 +62,17 @@ const AetherSinkPage: React.FC = () => {
         // We need to find a slot for it first, similar to how quick add works.
         // For simplicity, we'll just add it as a flexible task for now.
         // A more robust solution would involve finding a slot here.
+        const duration = rezonedTaskData.duration || 30; // Default duration if not set
+        const now = new Date();
+        const startTime = now; // Default to now
+        const endTime = addMinutes(startTime, duration);
+
         await addScheduledTask({
           name: rezonedTaskData.name,
-          duration: rezonedTaskData.duration || 30, // Default duration if not set
+          start_time: startTime.toISOString(), // Convert duration to start_time
+          end_time: endTime.toISOString(),     // Convert duration to end_time
           break_duration: rezonedTaskData.break_duration,
-          scheduled_date: todayString, // Rezone to today by default
+          scheduled_date: format(startTime, 'yyyy-MM-dd'), // Rezone to today by default
           is_critical: rezonedTaskData.is_critical,
           is_flexible: true, // Re-zoned tasks are flexible by default
           is_locked: false,

@@ -122,10 +122,11 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
     if (!user) return showError("User missing.");
     const parsed = parseSinkTaskInput(input, user.id);
-    if (!parsed) return showError("Invalid format: 'Name [dur] [!] [-] [W] [B]...'");
+    if (!parsed) {
+      return showError("Invalid format: 'Name [dur] [!] [-] [W] [B]...'");
+    }
     
     // Override parsed flags based on the target column
-    // This logic is duplicated from SinkKanbanBoard, but necessary here for quick add
     if (groupBy === 'environment') parsed.task_environment = columnId as TaskEnvironment;
     else if (groupBy === 'priority') {
       parsed.is_critical = columnId === 'critical';
@@ -138,11 +139,6 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       parsed.is_backburner = false;
     }
     
-    // Recalculate energy cost based on final flags and duration
-    // Note: parseSinkTaskInput already calculates energy, but we need to recalculate if flags were overridden
-    // const finalEnergyCost = calculateEnergyCost(parsed.duration || 30, parsed.is_critical || false, parsed.is_backburner || false, parsed.is_break || false);
-    // parsed.energy_cost = finalEnergyCost;
-
     await addRetiredTask(parsed);
   }, [user, groupBy, addRetiredTask]);
 

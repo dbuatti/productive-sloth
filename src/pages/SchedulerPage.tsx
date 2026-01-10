@@ -76,6 +76,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     completeScheduledTask: completeScheduledTaskMutation,
     handleAutoScheduleAndSort,
     toggleAllScheduledTasksLock,
+    isLoadingCompletedTasksForSelectedDay, // Corrected: Destructure from useSchedulerTasks
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const {
@@ -356,10 +357,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
           case 'aether dump': await aetherDump(); break;
           case 'aether dump mega': await aetherDumpMega(); break;
           case 'break':
-            const breakDur = command.duration || 15;
-            const bStart = T_current;
-            const bEnd = addMinutes(bStart, breakDur);
-            await addScheduledTask({ name: 'Quick Break', start_time: bStart.toISOString(), end_time: bEnd.toISOString(), break_duration: breakDur, scheduled_date: selectedDay, is_critical: false, is_flexible: false, is_locked: true, energy_cost: 0, task_environment: 'away' });
+            // This case is now handled by handleQuickBreak, which is passed to SchedulerInput
+            // For direct command input, we can still implement it here if needed,
+            // but the quick break button is the primary way.
+            await handleQuickBreak(); // Re-use the quick break logic
             break;
           default: showError("Unknown engine command.");
         }

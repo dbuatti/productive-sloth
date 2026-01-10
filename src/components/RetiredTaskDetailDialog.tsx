@@ -20,7 +20,7 @@ import {
   FormDescription,
   FormField,
   FormItem,
-  FormLabel,
+  FormLabel, // Ensure FormLabel is imported
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -245,7 +245,7 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                   name="break_duration"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Break Duration (min)</Label>
+                      <FormLabel>Break Duration (min)</FormLabel> {/* Corrected closing tag */}
                       <FormControl>
                         <Input type="number" {...field} min="0" value={field.value ?? ''} />
                       </FormControl>

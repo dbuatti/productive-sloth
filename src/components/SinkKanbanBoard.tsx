@@ -3,18 +3,18 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { useTasks } from '@/hooks/use-tasks';
 import { useSession } from '@/hooks/use-session';
 import { useEnvironments } from '@/hooks/use-environments';
-import TaskCard from './TaskCard'; // Corrected import
-import { TaskPriority } from '@/types';
-import { DBScheduledTask, RetiredTask } from '@/types/scheduler'; // Added RetiredTask import
+import TaskCard from './TaskCard'; // Corrected import (assuming default export)
+import { TaskPriority, Task } from '@/types'; // Added Task import
+import { DBScheduledTask, RetiredTask } from '@/types/scheduler';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { Button } from './ui/button';
 import { Plus, Home, Laptop, Globe, Music, Zap, Briefcase, Coffee } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { cn } from '@/lib/utils';
-import CreateTaskDialog from './CreateTaskDialog'; // Corrected import
-import TaskDetailSheetForTasks from './TaskDetailSheetForTasks'; // Corrected import
-import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Corrected import
-import RetiredTaskDetailDialog from './RetiredTaskDetailDialog'; // Corrected import
+import CreateTaskDialog from './CreateTaskDialog'; // Corrected import (assuming default export)
+import TaskDetailSheetForTasks from './TaskDetailSheetForTasks'; // Corrected import (assuming default export)
+import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Corrected import (assuming default export)
+import RetiredTaskDetailDialog from './RetiredTaskDetailDialog'; // Corrected import (assuming default export)
 import {
   Select,
   SelectContent,
@@ -31,33 +31,37 @@ interface SinkKanbanBoardProps {
   selectedDay: Date;
 }
 
+// Define a union type for all possible task types in the board
+type BoardTask = (Task & { type: 'general' }) | (DBScheduledTask & { type: 'scheduled' }) | (RetiredTask & { type: 'retired' });
+
 // Define a type for the grouped tasks structure
 interface GroupedTask {
   label: string;
   icon?: React.ElementType;
   color?: string;
-  tasks: (DBScheduledTask | any | RetiredTask)[]; // Loosened type to accommodate general and retired tasks
+  tasks: BoardTask[];
 }
 
 const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ selectedDay }) => {
   const { tasks: generalTasks, isLoading: isLoadingGeneralTasks } = useTasks();
-  // Corrected destructuring from useSchedulerTasks
-  const { dbScheduledTasks, dbRetiredTasks, isLoading: isLoadingScheduledTasks } = useSchedulerTasks(format(selectedDay, 'yyyy-MM-dd'));
+  // Corrected destructuring from useSchedulerTasks to match its actual return type
+  // Assuming useSchedulerTasks returns 'retiredTasks' directly, not 'dbRetiredTasks'
+  const { dbScheduledTasks, retiredTasks, isLoading: isLoadingScheduledTasks } = useSchedulerTasks(format(selectedDay, 'yyyy-MM-dd'));
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const { profile } = useSession();
 
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<DBScheduledTask | null>(null);
-  const [selectedGeneralTaskForDetail, setSelectedGeneralTaskForDetail] = useState<any | null>(null);
-  const [selectedRetiredTaskForDetail, setSelectedRetiredTaskForDetail] = useState<RetiredTask | null>(null); // Corrected type
+  const [selectedGeneralTaskForDetail, setSelectedGeneralTaskForDetail] = useState<Task | null>(null); // Corrected type
+  const [selectedRetiredTaskForDetail, setSelectedRetiredTaskForDetail] = useState<RetiredTask | null>(null);
   const [groupBy, setGroupBy] = useState<GroupByOption>('environment');
   const [showCompleted, setShowCompleted] = useState(false);
 
   const allTasks = useMemo(() => {
-    const combined = [
+    const combined: BoardTask[] = [ // Explicitly type combined array
       ...generalTasks.map(task => ({ ...task, type: 'general' })),
-      ...dbScheduledTasks.map(task => ({ ...task, type: 'scheduled' })), // Used dbScheduledTasks
-      ...dbRetiredTasks.map(task => ({ ...task, type: 'retired' })), // Used dbRetiredTasks
+      ...dbScheduledTasks.map(task => ({ ...task, type: 'scheduled' })),
+      ...retiredTasks.map(task => ({ ...task, type: 'retired' })),
     ];
 
     return combined.filter(task => {
@@ -69,14 +73,14 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ selectedDay }) => {
       }
       return true; // General tasks are always shown
     });
-  }, [generalTasks, dbScheduledTasks, dbRetiredTasks, selectedDay]); // Updated dependencies
+  }, [generalTasks, dbScheduledTasks, retiredTasks, selectedDay]);
 
   const filteredTasks = useMemo(() => {
     return allTasks.filter(task => showCompleted || !task.is_completed);
   }, [allTasks, showCompleted]);
 
   const groupedTasks = useMemo(() => {
-    const groups: Record<string, GroupedTask> = {}; // Corrected type for groups
+    const groups: Record<string, GroupedTask> = {};
 
     filteredTasks.forEach(task => {
       let groupKey: string;
@@ -88,17 +92,18 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ selectedDay }) => {
         groupKey = task.task_environment || 'unknown';
         const env = environments.find(e => e.value === groupKey);
         groupLabel = env?.label || 'Unknown Environment';
-        groupIcon = env?.icon; // Directly use the React.ElementType
+        groupIcon = env?.icon;
         groupColor = env?.color;
       } else if (groupBy === 'priority') {
-        groupKey = task.priority || 'MEDIUM';
+        // All task types (Task, DBScheduledTask, RetiredTask) are expected to have a 'priority'
+        groupKey = task.priority || 'MEDIUM'; 
         groupLabel = groupKey.charAt(0).toUpperCase() + groupKey.slice(1).toLowerCase();
-        groupIcon = Zap; // Example icon for priority
+        groupIcon = Zap;
         groupColor = groupKey === 'HIGH' ? '#FF6B6B' : groupKey === 'MEDIUM' ? '#FFB347' : '#4ECDC4';
       } else if (groupBy === 'status') {
         groupKey = task.is_completed ? 'completed' : 'pending';
         groupLabel = task.is_completed ? 'Completed' : 'Pending';
-        groupIcon = task.is_completed ? Checkbox : Plus; // Example icons for status
+        groupIcon = task.is_completed ? Checkbox : Plus;
         groupColor = task.is_completed ? '#4ECDC4' : '#FF6B6B';
       } else {
         groupKey = 'all';
@@ -108,7 +113,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ selectedDay }) => {
       }
 
       if (!groups[groupKey]) {
-        groups[groupKey] = { // Initialize as GroupedTask object
+        groups[groupKey] = {
           label: groupLabel,
           icon: groupIcon,
           color: groupColor,
@@ -118,7 +123,6 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ selectedDay }) => {
       groups[groupKey].tasks.push(task);
     });
 
-    // Sort groups by a predefined order if applicable, or alphabetically
     const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
       if (groupBy === 'priority') {
         const priorityOrder: Record<string, number> = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
@@ -134,7 +138,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ selectedDay }) => {
     setIsCreateTaskDialogOpen(true);
   };
 
-  const handleTaskCardClick = useCallback((task: any) => {
+  const handleTaskCardClick = useCallback((task: BoardTask) => { // Type task as BoardTask
     if (task.type === 'scheduled') {
       setSelectedTaskForDetail(task);
     } else if (task.type === 'general') {

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { format, isSameDay, startOfDay, endOfDay, parseISO, addDays, subDays } from 'date-fns';
-import { Calendar as CalendarIcon, Plus, Settings, ListOrdered, LayoutDashboard, BarChart3, Archive, Sun, Moon, Laptop, ChevronLeft, ChevronRight, RefreshCcw, Zap, Home, Music, Globe, Briefcase, Coffee } from 'lucide-react';
+import { format, isSameDay, startOfDay, endOfDay, parseISO, addDays, subDays, setHours, setMinutes } from 'date-fns'; // Added setHours, setMinutes
+import { Calendar as CalendarIcon, Plus, Settings, ListOrdered, LayoutDashboard, BarChart3, Archive, Sun, Moon, Laptop, ChevronLeft, ChevronRight, RefreshCcw, Zap, Home, Music, Globe, Briefcase, Coffee, Loader2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -8,22 +8,22 @@ import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import { useProfile } from '@/hooks/use-profile';
-import { useEnergy } from '@/hooks/use-energy';
+import { useProfile } from '@/hooks/use-profile'; // Assuming this hook exists
+import { useEnergy } from '@/hooks/use-energy'; // Assuming this hook exists
 import { useEnvironments } from '@/hooks/use-environments';
 import { useTheme } from 'next-themes';
-import { TaskPriority } from '@/types';
+import { TaskPriority, Task } from '@/types'; // Added Task import
 import { DBScheduledTask, NewDBScheduledTask, RetiredTask, TaskEnvironment } from '@/types/scheduler';
-import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
+import { calculateEnergyCost } from '@/lib/scheduler-utils'; // Removed setTimeOnDate
 import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
 import { showSuccess, showError } from '@/utils/toast';
-import { CreateTaskDialog } from '@/components/CreateTaskDialog';
-import { ScheduledTaskDetailDialog } from '@/components/ScheduledTaskDetailDialog';
-import { TaskDetailSheetForTasks } from '@/components/TaskDetailSheetForTasks';
-import { RetiredTaskDetailDialog } from '@/components/RetiredTaskDetailDialog';
-import { SchedulerDashboardPanel } from '@/components/SchedulerDashboardPanel';
-import { EnvironmentOrderSettings } from '@/components/EnvironmentOrderSettings';
-import { EnvironmentManager } from '@/components/EnvironmentManager';
+import CreateTaskDialog from '@/components/CreateTaskDialog'; // Corrected import
+import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog'; // Corrected import
+import TaskDetailSheetForTasks from '@/components/TaskDetailSheetForTasks'; // Corrected import
+import RetiredTaskDetailDialog from '@/components/RetiredTaskDetailDialog'; // Corrected import
+import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel'; // Corrected import
+import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings'; // Corrected import
+import EnvironmentManager from '@/components/EnvironmentManager'; // Corrected import
 import {
   Select,
   SelectContent,
@@ -40,6 +40,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import SinkKanbanBoard from '@/components/SinkKanbanBoard'; // Corrected import
+import { supabase } from '@/lib/supabase'; // Assuming supabase client is imported from here
 
 type GroupingOption = 'environment' | 'priority' | 'status';
 
@@ -47,7 +48,8 @@ const AetherSink: React.FC = () => {
   const { user, isLoading: isLoadingSession } = useSession();
   const { profile, updateProfile } = useProfile();
   const { tasks: generalTasks, isLoading: isLoadingGeneralTasks, addTask, updateTask, deleteTask } = useTasks();
-  const { dbScheduledTasks, dbRetiredTasks, isLoading: isLoadingScheduledTasks, addScheduledTask, updateScheduledTaskDetails, deleteScheduledTask, completeScheduledTask, rezoneScheduledTask, updateRetiredTask, deleteRetiredTask, rezoneRetiredTask, randomizeBreaks } = useSchedulerTasks(format(new Date(), 'yyyy-MM-dd'));
+  // Corrected destructuring from useSchedulerTasks to include all necessary functions
+  const { dbScheduledTasks, retiredTasks, isLoading: isLoadingScheduledTasks, addScheduledTask, updateScheduledTaskDetails, deleteScheduledTask, completeScheduledTask, rezoneScheduledTask, updateRetiredTask, deleteRetiredTask, rezoneRetiredTask, randomizeBreaks } = useSchedulerTasks(format(new Date(), 'yyyy-MM-dd'));
   const { energy, isLoading: isLoadingEnergy, updateEnergy } = useEnergy();
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const { theme, setTheme } = useTheme();
@@ -56,7 +58,7 @@ const AetherSink: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [selectedScheduledTaskForDetail, setSelectedScheduledTaskForDetail] = useState<DBScheduledTask | null>(null);
-  const [selectedGeneralTaskForDetail, setSelectedGeneralTaskForDetail] = useState<any | null>(null);
+  const [selectedGeneralTaskForDetail, setSelectedGeneralTaskForDetail] = useState<Task | null>(null); // Corrected type
   const [selectedRetiredTaskForDetail, setSelectedRetiredTaskForDetail] = useState<RetiredTask | null>(null);
   const [groupBy, setGroupBy] = useState<GroupingOption>('environment');
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -66,8 +68,8 @@ const AetherSink: React.FC = () => {
   }, [dbScheduledTasks, selectedDay]);
 
   const currentDayRetiredTasks = useMemo(() => {
-    return dbRetiredTasks.filter(task => isSameDay(parseISO(task.original_scheduled_date), selectedDay));
-  }, [dbRetiredTasks, selectedDay]);
+    return retiredTasks.filter(task => isSameDay(parseISO(task.original_scheduled_date), selectedDay));
+  }, [retiredTasks, selectedDay]);
 
   const availableEnergy = energy?.current_energy ?? 0;
   const maxEnergy = profile?.max_energy ?? 100;
@@ -98,7 +100,7 @@ const AetherSink: React.FC = () => {
     setSelectedScheduledTaskForDetail(task);
   };
 
-  const handleOpenGeneralTaskDetailSheet = (task: any) => {
+  const handleOpenGeneralTaskDetailSheet = (task: Task) => { // Corrected type
     setSelectedGeneralTaskForDetail(task);
   };
 
@@ -158,7 +160,16 @@ const AetherSink: React.FC = () => {
 
   const handleRandomizeBreaks = async () => {
     try {
-      await randomizeBreaks(format(selectedDay, 'yyyy-MM-dd'));
+      // Construct Date objects for workday start/end times
+      const workdayStartTime = profile?.workday_start_time ? parseISO(profile.workday_start_time) : setHours(setMinutes(selectedDay, 0), 9);
+      const workdayEndTime = profile?.workday_end_time ? parseISO(profile.workday_end_time) : setHours(setMinutes(selectedDay, 0), 17);
+
+      await randomizeBreaks({
+        selectedDate: format(selectedDay, 'yyyy-MM-dd'),
+        workdayStartTime: workdayStartTime,
+        workdayEndTime: workdayEndTime,
+        currentDbTasks: currentDayScheduledTasks,
+      });
       showSuccess("Breaks randomized for the day!");
     } catch (error) {
       showError("Failed to randomize breaks.");
@@ -303,7 +314,7 @@ const AetherSink: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Zap className="h-5 w-5 text-logo-yellow" />
                 <span className="font-semibold">{availableEnergy} / {maxEnergy}</span>
-                <Progress value={energyPercentage} className="w-24" indicatorColor="bg-logo-yellow" />
+                <Progress value={energyPercentage} className="w-24 [&>*]:bg-logo-yellow" />
               </div>
               <Button onClick={() => handleOpenCreateTaskDialog('MEDIUM', selectedDay)} aria-label="Add New Task">
                 <Plus className="mr-2 h-4 w-4" /> Add Task

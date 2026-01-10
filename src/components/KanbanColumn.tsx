@@ -81,7 +81,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
       </div>
       
       <div className="flex flex-col gap-3 min-h-[100px] flex-1">
-        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={tasks.map(t => t.id)} id={id} strategy={verticalListSortingStrategy}>
           <div className="space-y-3 flex-1">
             {tasks.map((task, index) => {
               const isPlaceholder = activeId === task.id;

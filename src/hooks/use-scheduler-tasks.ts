@@ -709,8 +709,17 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId || !session?.access_token) throw new Error("Authentication required.");
       const { data, error } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
-      if (error) throw new Error(data.error || error.message);
-      if (data.error) throw new Error(data.error);
+      
+      // 1. Handle network/invocation error
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // 2. Handle application error returned in the data body (e.g., 500 response with JSON body { error: "..." })
+      if (data && data.error) {
+        throw new Error(data.error);
+      }
+      
       return data;
     },
     onSettled: (data, error, variables) => {

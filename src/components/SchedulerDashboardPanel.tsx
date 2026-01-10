@@ -1,15 +1,15 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListTodo, Zap, Coffee, Flag, ChevronsUp, RefreshCcw, Loader2, Trash2, ChevronUp, ChevronDown, RotateCcw, Clock, Hourglass, AlertTriangle } from 'lucide-react'; // Icons for the stat cards, added Hourglass and AlertTriangle
+import { ListTodo, Zap, Coffee, Flag, ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
 import { ScheduleSummary } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSession } from '@/hooks/use-session';
-import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SchedulerDashboardPanelProps {
   scheduleSummary: ScheduleSummary | null;
@@ -17,12 +17,32 @@ interface SchedulerDashboardPanelProps {
   isProcessingCommand: boolean;
   hasFlexibleTasks: boolean;
   onRefreshSchedule: () => void;
-  isLoading: boolean; // NEW: Add isLoading prop
+  isLoading: boolean;
 }
 
-const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ scheduleSummary, onAetherDump, isProcessingCommand, hasFlexibleTasks, onRefreshSchedule, isLoading }) => {
+const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ 
+  scheduleSummary, 
+  onAetherDump, 
+  isProcessingCommand, 
+  hasFlexibleTasks, 
+  onRefreshSchedule, 
+  isLoading 
+}) => {
   const { profile, updateProfile } = useSession();
   const isCollapsed = profile?.is_dashboard_collapsed ?? false;
+  
+  // Debug logs for tracking rerenders
+  const renderCount = useRef(0);
+  useEffect(() => {
+    renderCount.current++;
+    console.log(`[SchedulerDashboardPanel] Render #${renderCount.current}`, {
+      isLoading,
+      isProcessingCommand,
+      hasSummary: !!scheduleSummary,
+      isCollapsed,
+      profileId: profile?.id
+    });
+  });
 
   const handleToggleCollapse = async () => {
     if (profile) {
@@ -89,7 +109,6 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
             <ListTodo className="h-6 w-6 text-primary" /> Session Dashboard
           </CardTitle>
           <div className="flex items-center gap-2">
-            {/* Collapse Metrics Button */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 

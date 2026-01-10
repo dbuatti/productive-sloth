@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { SessionContext, UserProfile } from '@/hooks/use-session'; // Import from the hook file
+import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { isToday, parseISO, isPast, addMinutes, startOfDay, isBefore, addDays, addHours, differenceInMinutes, format } from 'date-fns';
 import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, LOW_ENERGY_THRESHOLD, LOW_ENERGY_NOTIFICATION_COOLDOWN_MINUTES, DAILY_CHALLENGE_TASKS_REQUIRED, REGEN_POD_MAX_DURATION_MINUTES, } from '@/lib/constants';
@@ -11,7 +11,7 @@ import { DBScheduledTask, ScheduledItem, CompletedTaskLogEntry } from '@/types/s
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { MealAssignment } from '@/hooks/use-meals';
-import isEqual from 'lodash.isequal'; // Import isEqual for deep comparison
+import isEqual from 'lodash.isequal';
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
@@ -36,11 +36,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const todayString = format(new Date(), 'yyyy-MM-dd');
 
   useEffect(() => {
-    const interval = setInterval(() => setT_current(new Date()), 1000);
+    const interval = setInterval(() => {
+      setT_current(new Date());
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Use a ref to hold the latest profile for deep comparison in useCallback
   const profileRef = useRef(profile);
   useEffect(() => {
     profileRef.current = profile;
@@ -68,22 +69,21 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .single();
 
       if (error) {
+        console.error("[SessionProvider] fetchProfile error:", error);
         setProfile(null);
       } else if (data) {
-        // Ensure timezone is always a string, defaulting to 'UTC' if null
         const profileDataWithDefaultTimezone = { ...data, timezone: data.timezone || 'UTC' };
-
-        // Create a copy of data without 'updated_at' for comparison
         const dataWithoutUpdatedAt = { ...profileDataWithDefaultTimezone };
         delete dataWithoutUpdatedAt.updated_at;
 
         const currentProfileWithoutUpdatedAt = profileRef.current ? { ...profileRef.current } : null;
         if (currentProfileWithoutUpdatedAt) delete currentProfileWithoutUpdatedAt.updated_at;
 
-        // Only update profile state if there's a meaningful change (excluding updated_at)
         if (!isEqual(currentProfileWithoutUpdatedAt, dataWithoutUpdatedAt)) {
-          setProfile(profileDataWithDefaultTimezone as UserProfile); // Still set the full profile with updated_at
+          console.log("[SessionProvider] Profile data changed, updating state.");
+          setProfile(profileDataWithDefaultTimezone as UserProfile);
         }
+        
         if (profileDataWithDefaultTimezone.is_in_regen_pod && profileDataWithDefaultTimezone.regen_pod_start_time) {
           const start = parseISO(profileDataWithDefaultTimezone.regen_pod_start_time);
           const elapsed = differenceInMinutes(new Date(), start);
@@ -94,11 +94,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
     } catch (e) {
+      console.error("[SessionProvider] fetchProfile Exception:", e);
       setProfile(null);
     } finally {
       setIsProfileLoading(false);
     }
-  }, []); // No 'profile' in dependencies here, as we use profileRef.current
+  }, []);
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) await fetchProfile(user.id);
@@ -194,7 +195,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await refreshProfile();
       showSuccess(skip ? `Day ${dateString} skipped for suggestion.` : `Day ${dateString} unskipped.`);
     } catch (error: any) {
-      showError(`Failed to update skipped suggestions: ${error.message}`); // Fixed 'e.message' to 'error.message'
+      showError(`Failed to update skipped suggestions: ${error.message}`);
     }
   }, [user, profile, refreshProfile]);
 
@@ -231,22 +232,20 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // Memoize the handler for auth state changes
   const handleAuthChange = useCallback(async (event: string, currentSession: Session | null) => {
+    console.log(`[SessionProvider] Auth event: ${event}`);
     setSession(currentSession);
     setUser(currentSession?.user ?? null);
     
     if (currentSession?.user) {
       await fetchProfile(currentSession.user.id);
-      // Redirection logic for /login after sign-in is now handled by the useEffect below
     } else if (event === 'SIGNED_OUT') {
       setProfile(null);
       queryClient.clear();
       setRedirectPath('/login');
     }
-  }, [fetchProfile, queryClient]); // Removed location.pathname from dependencies
+  }, [fetchProfile, queryClient]);
 
-  // Effect to set up the Supabase auth listener once
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
       handleAuthChange(event, currentSession);
@@ -255,9 +254,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [handleAuthChange]); // Dependency on handleAuthChange ensures it uses the latest memoized version
+  }, [handleAuthChange]);
 
-  // Effect to load the initial session once
   useEffect(() => {
     const loadInitialSession = async () => {
       if (initialSessionLoadedRef.current) return;
@@ -270,7 +268,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         if (initialSession?.user) {
           await fetchProfile(initialSession.user.id);
-          // Redirection logic for /login after sign-in is now handled by the useEffect below
         } else if (location.pathname !== '/login') {
           setRedirectPath('/login');
         }
@@ -280,14 +277,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     loadInitialSession();
-  }, [fetchProfile, queryClient, location.pathname]); // Dependencies for loadInitialSession
+  }, [fetchProfile, queryClient, location.pathname]);
 
   useEffect(() => {
     if (!isAuthLoading && redirectPath && location.pathname !== redirectPath) {
       navigate(redirectPath, { replace: true });
       setRedirectPath(null);
     }
-    // NEW: Handle redirection after successful login if currently on /login
     if (!isAuthLoading && user && location.pathname === '/login') {
       setRedirectPath('/');
     }
@@ -304,61 +300,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     enabled: !!user?.id && !isAuthLoading,
   });
 
-  // NEW: Query to explicitly call the get_completed_tasks_today RPC
-  const { data: completedTasksTodayFromRpc = [], isLoading: isLoadingCompletedTasksTodayFromRpc } = useQuery<CompletedTaskLogEntry[]>({
-    queryKey: ['completedTasksTodayFromRpc', user?.id, profile?.timezone],
-    queryFn: async () => {
-      if (!user?.id || !profile?.timezone) {
-        console.warn("[useSession] Skipping get_completed_tasks_today RPC: user ID or timezone missing.");
-        return [];
-      }
-      try {
-        console.log("[SessionProvider] Calling get_completed_tasks_today RPC with:", {
-          p_user_id: user.id,
-          p_timezone: profile.timezone
-        });
-        const { data, error } = await supabase.rpc('get_completed_tasks_today', { 
-          p_user_id: user.id, 
-          p_timezone: profile.timezone 
-        });
-        if (error) {
-          console.error("[useSession] Error calling get_completed_tasks_today RPC:", error);
-          throw error;
-        }
-        // The RPC returns SETOF completedtasks, which is not directly CompletedTaskLogEntry.
-        // We need to map it to match the expected type, providing defaults for missing fields.
-        return (data || []).map((task: any) => ({
-          id: task.id,
-          user_id: task.user_id,
-          name: task.task_name, // Map task_name to name
-          effective_duration_minutes: task.duration_used || task.duration_scheduled || 30,
-          break_duration: null, // Not available in completedtasks directly
-          start_time: null, // Not available in completedtasks directly
-          end_time: null, // Not available in completedtasks directly
-          scheduled_date: format(parseISO(task.completed_at), 'yyyy-MM-dd'),
-          created_at: task.created_at,
-          updated_at: task.completed_at,
-          is_critical: task.is_critical,
-          is_flexible: false, // Completed tasks are not flexible
-          is_locked: false, // Completed tasks are not locked
-          energy_cost: task.energy_cost,
-          is_completed: true,
-          is_custom_energy_cost: false, // Not directly available, assume false
-          task_environment: 'laptop', // Not directly available, assume default
-          original_source: task.original_source || 'unknown',
-          is_work: task.is_work || false,
-          is_break: false, // Not directly available, assume false
-        })) as CompletedTaskLogEntry[];
-      } catch (e: any) {
-        console.error("[useSession] Failed to fetch completed tasks via RPC:", e.message);
-        return [];
-      }
-    },
-    enabled: !!user?.id && !!profile?.timezone && !isAuthLoading,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
-
-  // NEW: Fetch meal assignments for today
   const { data: mealAssignmentsToday = [] } = useQuery<MealAssignment[]>({
     queryKey: ['mealAssignmentsToday', user?.id, todayString],
     queryFn: async () => {
@@ -397,45 +338,27 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       profile.reflection_count,
       profile.reflection_times,
       profile.reflection_durations,
-      mealAssignmentsToday, // PASS MEAL ASSIGNMENTS
-      profile.blocked_days?.includes(todayString) ?? false // Pass if today is blocked
+      mealAssignmentsToday,
+      profile.blocked_days?.includes(todayString) ?? false
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, T_current, mealAssignmentsToday, todayString]);
 
   const activeItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => T_current >= i.startTime && T_current < i.endTime) || null, [calculatedScheduleToday, T_current]);
-
   const nextItemToday = useMemo(() => calculatedScheduleToday?.items.find(i => i.startTime > T_current) || null, [calculatedScheduleToday, T_current]);
 
-  const contextValue = useMemo(() => ({
-    session, 
-    user, 
-    profile, 
-    isLoading, 
-    refreshProfile, 
-    rechargeEnergy, 
-    showLevelUp, 
-    levelUpLevel, 
-    triggerLevelUp, 
-    resetLevelUp, 
-    resetDailyStreak, 
-    claimDailyReward, 
-    updateNotificationPreferences, 
-    updateProfile, 
-    updateSettings,
-    updateBlockedDays, // NEW: Add updateBlockedDays to context
-    updateSkippedDayOffSuggestions, // NEW: Add updateSkippedDayOffSuggestions to context
-    triggerEnergyRegen,
-    activeItemToday,
-    nextItemToday,
-    T_current,
-    startRegenPodState,
-    exitRegenPodState,
-    regenPodDurationMinutes
-  }), [
+  const contextValue = useMemo(() => {
+    console.log("[SessionProvider] Re-computing context value.");
+    return {
+      session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
+      triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
+      updateProfile, updateSettings, updateBlockedDays, updateSkippedDayOffSuggestions, triggerEnergyRegen, 
+      activeItemToday, nextItemToday, T_current, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+    };
+  }, [
     session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
     triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 
-    updateProfile, updateSettings, updateBlockedDays, updateSkippedDayOffSuggestions, triggerEnergyRegen, activeItemToday, nextItemToday, T_current, 
-    startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+    updateProfile, updateSettings, updateBlockedDays, updateSkippedDayOffSuggestions, triggerEnergyRegen, 
+    activeItemToday, nextItemToday, T_current, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
 
   return (

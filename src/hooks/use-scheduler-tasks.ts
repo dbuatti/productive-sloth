@@ -293,17 +293,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['retiredTasks'] })
   });
 
-  // NEW: Bulk Remove Retired Tasks Mutation
-  const bulkRemoveRetiredTasksMutation = useMutation({
-    mutationFn: async (taskIds: string[]) => {
-      if (!userId) throw new Error("User not authenticated.");
-      if (taskIds.length === 0) return;
-      const { error } = await supabase.from('aethersink').delete().in('id', taskIds).eq('user_id', userId);
-      if (error) throw new Error(error.message);
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['retiredTasks'] })
-  });
-
   const updateRetiredTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<RetiredTask> & { id: string }) => {
       const { data, error } = await supabase
@@ -481,71 +470,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
       if (variables.original_scheduled_date === todayString) queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
       showSuccess("Objective rezoned successfully!");
-    }
-  });
-
-  // NEW: Bulk Rezone Retired Tasks Mutation
-  const bulkRezoneRetiredTasksMutation = useMutation({
-    mutationFn: async (taskIds: string[]) => {
-      if (!userId || !profile) throw new Error("User context missing.");
-      if (taskIds.length === 0) return;
-
-      const tasksToRezone = retiredTasks.filter(task => taskIds.includes(task.id));
-      if (tasksToRezone.length === 0) return;
-
-      const effectiveSelectedDate = formattedSelectedDate || format(new Date(), 'yyyy-MM-dd');
-      const targetDateAsDate = parseISO(effectiveSelectedDate);
-      const targetWorkdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDateAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDateAsDate);
-      let targetWorkdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDateAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDateAsDate), 17);
-      if (isBefore(targetWorkdayEnd, targetWorkdayStart)) targetWorkdayEnd = addDays(targetWorkdayEnd, 1);
-      
-      const T_current = new Date();
-      const isTodaySelected = isSameDay(targetDateAsDate, T_current);
-      let placementCursor = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
-
-      const staticConstraints = getStaticConstraints(profile, targetDateAsDate, targetWorkdayStart, targetWorkdayEnd);
-      const scheduledFixedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => {
-        const start = setTimeOnDate(targetDateAsDate, format(parseISO(t.start_time!), 'HH:mm'));
-        let end = setTimeOnDate(targetDateAsDate, format(parseISO(t.end_time!), 'HH:mm'));
-        if (isBefore(end, start)) end = addDays(end, 1);
-        return { start, end, duration: differenceInMinutes(end, start) };
-      });
-
-      let currentOccupiedBlocks = mergeOverlappingTimeBlocks([...scheduledFixedBlocks, ...staticConstraints]);
-      const tasksToInsert: NewDBScheduledTask[] = [];
-      const tasksToDeleteFromSink: string[] = [];
-
-      for (const task of tasksToRezone) {
-        const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
-        const slot = findFirstAvailableSlot(taskTotalDuration, currentOccupiedBlocks, placementCursor, targetWorkdayEnd);
-
-        if (slot) {
-          tasksToInsert.push({
-            user_id: userId, name: task.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), break_duration: task.break_duration, scheduled_date: effectiveSelectedDate, is_critical: task.is_critical, is_flexible: true, is_locked: false, energy_cost: task.energy_cost, is_completed: task.is_completed, is_custom_energy_cost: task.is_custom_energy_cost, task_environment: task.task_environment, is_backburner: task.is_backburner, is_work: task.is_work || false, is_break: task.is_break || false
-          });
-          currentOccupiedBlocks.push({ start: slot.start, end: slot.end, duration: taskTotalDuration });
-          currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
-          placementCursor = slot.end;
-          tasksToDeleteFromSink.push(task.id);
-        } else {
-          showError(`Could not re-zone "${task.name}". No available slot.`);
-        }
-      }
-
-      if (tasksToInsert.length > 0) {
-        const { error: insertError } = await supabase.from('scheduled_tasks').insert(tasksToInsert);
-        if (insertError) throw new Error(insertError.message);
-      }
-      if (tasksToDeleteFromSink.length > 0) {
-        const { error: deleteError } = await supabase.from('aethersink').delete().in('id', tasksToDeleteFromSink).eq('user_id', userId);
-        if (deleteError) throw new Error(deleteError.message);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
-      queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] });
     }
   });
 
@@ -748,9 +672,16 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           }
         }
 
-        if (taskSource === 'global-all-future' && globalTasksToPlace.length > 0) {
-          globalTasksToPlace.forEach(t => globalTasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
+        if (taskSource === 'global-all-future') {
+          globalTasksToPlace.length = 0;
+          globalTasksToPlace.push(...tasksRemainingForDay);
+        } else {
+          tasksRemainingForDay.forEach(t => globalTasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: currentDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
         }
+      }
+
+      if (taskSource === 'global-all-future' && globalTasksToPlace.length > 0) {
+        globalTasksToPlace.forEach(t => globalTasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
       }
 
       await autoBalanceScheduleMutation.mutateAsync({ 
@@ -775,8 +706,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutateAsync, updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutateAsync,
     completeScheduledTask: completeScheduledTaskMutation.mutateAsync, completeRetiredTask: completeRetiredTaskMutation.mutateAsync,
     removeRetiredTask: removeRetiredTaskMutation.mutateAsync, triggerAetherSinkBackup: triggerAetherSinkBackupMutation.mutateAsync, handleAutoScheduleAndSort,
-    randomizeBreaks: randomizeBreaksMutation.mutateAsync,
-    bulkRemoveRetiredTasks: bulkRemoveRetiredTasksMutation.mutateAsync, // NEW
-    bulkRezoneRetiredTasks: bulkRezoneRetiredTasksMutation.mutateAsync, // NEW
+    randomizeBreaks: randomizeBreaksMutation.mutateAsync
   };
 };

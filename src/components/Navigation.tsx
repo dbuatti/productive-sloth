@@ -82,11 +82,11 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
   const primaryNavItems = [
     { to: "/scheduler", icon: Clock, label: "Vibe Schedule" },
     { to: "/sink", icon: Trash2, label: "Aether Sink" },
-    { to: "/recap", icon: CheckCircle, label: "Daily Recap" },
+    { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, // UPDATED: Link to new RecapPage
   ];
   
   const secondaryNavItems = [
-    { to: "/wellness", icon: HeartPulse, label: "Wellness & Balance" }, // NEW ITEM
+    { to: "/wellness", icon: HeartPulse, label: "Wellness & Balance" },
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
     { to: "/documentation", icon: BookOpen, label: "Documentation" },
     { to: "/model", icon: Code, label: "App Model" },

@@ -20,9 +20,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: "/scheduler", icon: Clock, label: "Schedule", matchPath: '/scheduler' },
   { to: "/sink", icon: Trash2, label: "Sink", matchPath: '/sink' },
-  { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' },
+  { to: "/recap", icon: CheckCircle, label: "Recap", matchPath: '/recap' }, // UPDATED: Link to new RecapPage
   { to: "/analytics", icon: Sparkles, label: "Stats", matchPath: '/analytics' },
-  { to: "/wellness", icon: HeartPulse, label: "Wellness", matchPath: '/wellness' }, // NEW NAV ITEM
+  { to: "/wellness", icon: HeartPulse, label: "Wellness", matchPath: '/wellness' },
 ];
 
 const BottomNavigationBar: React.FC = () => {
@@ -152,7 +152,7 @@ const BottomNavigationBar: React.FC = () => {
         
         {/* Nav Item 4: Stats */}
         <div className="col-span-1 flex items-center justify-center h-full">
-            {renderNavItem(navItems[4])} {/* Changed to navItems[4] for Wellness */}
+            {renderNavItem(navItems[4])}
         </div>
       </div>
     </div>

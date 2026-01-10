@@ -17,7 +17,8 @@ import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
 import ModelPage from "./pages/ModelPage";
 import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage";
 import WellnessPage from "./pages/WellnessPage";
-import AetherSinkPage from "./pages/AetherSinkPage"; // NEW IMPORT
+import AetherSinkPage from "./pages/AetherSinkPage";
+import RecapPage from "./pages/RecapPage"; // NEW IMPORT
 import { useSession } from "./hooks/use-session";
 
 const queryClient = new QueryClient();
@@ -45,8 +46,8 @@ const AppContent = () => {
         
         {/* SCHEDULER CORE VIEWS */}
         <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
-        <Route path="/sink" element={<AetherSinkPage />} /> {/* CHANGED: Point to new page */}
-        {/* REMOVED: /recap route */}
+        <Route path="/sink" element={<AetherSinkPage />} />
+        <Route path="/recap" element={<RecapPage />} /> {/* NEW: Add RecapPage route */}
         
         <Route path="/login" element={<Login />} />
         <Route path="*" element={<NotFound />} />

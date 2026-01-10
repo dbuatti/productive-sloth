@@ -6,7 +6,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { SessionProvider } from "./components/SessionProvider"; // Updated import path
 import { ThemeProvider } from "next-themes";
-import React from "react";
+import React, { useEffect } from "react";
 import MainLayout from "./components/MainLayout";
 import SettingsPage from "./pages/SettingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -23,6 +23,11 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { user } = useSession();
+  
+  // Log to track if AppContent remounts unnecessarily
+  useEffect(() => {
+    console.log("[AppContent] Mounted/Re-rendered. User ID:", user?.id);
+  });
 
   return (
     <MainLayout key={user?.id || 'guest'}>

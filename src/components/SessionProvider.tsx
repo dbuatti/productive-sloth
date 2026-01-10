@@ -39,6 +39,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     profileRef.current = profile;
   }, [profile]);
 
+  // NEW: Local state for derived active items, updated only if content changes
+  const [activeItemToday, setActiveItemToday] = useState<ScheduledItem | null>(null);
+  const [nextItemToday, setNextItemToday] = useState<ScheduledItem | null>(null);
+
+
   const fetchProfile = useCallback(async (userId: string) => {
     setIsProfileLoading(true);
     try {
@@ -317,8 +322,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(new Date()), profile.default_auto_schedule_end_time) : addHours(startOfDay(new Date()), 17);
     if (isBefore(end, start)) end = addDays(end, 1);
     
-    // We pass a dummy T_current (today's start) to calculateSchedule to keep the structure stable
-    // Active task detection is now handled by components with their own local timers.
+    // We pass a stable T_current (today's start) for structural calculation stability
     return calculateSchedule(
       dbScheduledTasksToday,
       todayString,
@@ -342,18 +346,26 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
-  // Derived tasks for the "Now" display without 1-sec dependency
-  const activeItemToday = useMemo(() => {
-    if (!calculatedScheduleToday) return null;
-    const now = new Date();
-    return calculatedScheduleToday.items.find(i => now >= i.startTime && now < i.endTime) || null;
-  }, [calculatedScheduleToday]);
+  // NEW: Stabilized derivation of active/next items
+  useEffect(() => {
+    if (!calculatedScheduleToday) {
+      if (activeItemToday !== null) setActiveItemToday(null);
+      if (nextItemToday !== null) setNextItemToday(null);
+      return;
+    }
 
-  const nextItemToday = useMemo(() => {
-    if (!calculatedScheduleToday) return null;
     const now = new Date();
-    return calculatedScheduleToday.items.find(i => i.startTime > now) || null;
-  }, [calculatedScheduleToday]);
+    const newActiveItem = calculatedScheduleToday.items.find(i => now >= i.startTime && now < i.endTime) || null;
+    const newNextItem = calculatedScheduleToday.items.find(i => i.startTime > now) || null;
+
+    // Only update state if the content has actually changed
+    if (!isEqual(activeItemToday, newActiveItem)) {
+      setActiveItemToday(newActiveItem);
+    }
+    if (!isEqual(nextItemToday, newNextItem)) {
+      setNextItemToday(newNextItem);
+    }
+  }, [calculatedScheduleToday]); // Depend only on the stable calculatedScheduleToday
 
   const contextValue = useMemo(() => {
     // Only log if we actually have data to prevent spam

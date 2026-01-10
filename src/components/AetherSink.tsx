@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee } from 'lucide-react'; // NEW: Import Briefcase and Coffee
+import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee } from 'lucide-react'; 
 import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
-import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; // UPDATED: Import the sheet
+import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel, } from '@/components/ui/dropdown-menu';
 import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
 import SinkKanbanBoard from './SinkKanbanBoard';
@@ -37,6 +37,50 @@ const getEnvironmentIcon = (environment: TaskEnvironment) => {
     default: return null;
   }
 };
+
+const SortItem = ({ type, label, icon: Icon, currentSort, onSelect }: { type: RetiredTaskSortBy, label: string, icon: any, currentSort: RetiredTaskSortBy, onSelect: (s: RetiredTaskSortBy) => void }) => (
+  <DropdownMenuItem 
+    onClick={() => onSelect(type)} 
+    className={cn("cursor-pointer font-bold text-xs uppercase tracking-widest", currentSort === type && 'bg-primary/10 text-primary')}
+    aria-label={`Sort by ${label}`}
+  >
+    <Icon className="mr-2 h-4 w-4" />
+    {label}
+  </DropdownMenuItem>
+);
+
+const ViewToggle = ({ viewMode, setViewMode }: { viewMode: SinkViewMode, setViewMode: (m: SinkViewMode) => void }) => (
+  <div className="flex bg-secondary/50 rounded-lg p-1 border border-white/5">
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button 
+          variant={viewMode === 'list' ? 'default' : 'ghost'} 
+          size="icon" 
+          className={cn("h-8 w-8 rounded-md", viewMode === 'list' && "shadow-sm")}
+          onClick={() => setViewMode('list')}
+          aria-label="Switch to List View"
+        >
+          <List className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>List View</TooltipContent>
+    </Tooltip>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button 
+          variant={viewMode === 'kanban' ? 'default' : 'ghost'} 
+          size="icon" 
+          className={cn("h-8 w-8 rounded-md", viewMode === 'kanban' && "shadow-sm")}
+          onClick={() => setViewMode('kanban')}
+          aria-label="Switch to Kanban View"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Kanban View</TooltipContent>
+    </Tooltip>
+  </div>
+);
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -119,58 +163,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     setLocalInput('');
   }, [user, addRetiredTask]);
 
-  const SortItem = ({ type, label, icon: Icon }: { type: RetiredTaskSortBy, label: string, icon: any }) => (
-    <DropdownMenuItem 
-      onClick={() => setRetiredSortBy(type)} 
-      className={cn("cursor-pointer font-bold text-xs uppercase tracking-widest", retiredSortBy === type && 'bg-primary/10 text-primary')}
-      aria-label={`Sort by ${label}`}
-    >
-      <Icon className="mr-2 h-4 w-4" />
-      {label}
-    </DropdownMenuItem>
-  );
-
-  const ViewToggle = () => (
-    <div className="flex bg-secondary/50 rounded-lg p-1 border border-white/5">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button 
-            variant={viewMode === 'list' ? 'default' : 'ghost'} 
-            size="icon" 
-            className={cn("h-8 w-8 rounded-md", viewMode === 'list' && "shadow-sm")}
-            onClick={() => setViewMode('list')}
-            aria-label="Switch to List View"
-          >
-            <List className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>List View</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button 
-            variant={viewMode === 'kanban' ? 'default' : 'ghost'} 
-            size="icon" 
-            className={cn("h-8 w-8 rounded-md", viewMode === 'kanban' && "shadow-sm")}
-            onClick={() => setViewMode('kanban')}
-            aria-label="Switch to Kanban View"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Kanban View</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-
-  const environmentOptions = useMemo(() => {
-    return environments.map(env => ({
-      value: env.value as TaskEnvironment,
-      label: env.label,
-      icon: getEnvironmentIcon(env.value as TaskEnvironment)
-    }));
-  }, [environments]);
-
   return (
     <>
       <Card className="p-4 rounded-xl shadow-sm w-full">
@@ -185,10 +177,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             </span>
           </CardTitle>
           <div className="flex items-center gap-2">
-            {/* View Toggle */}
-            <ViewToggle />
+            <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
             
-            {/* Grouping Dropdown (Only for Kanban) */}
             {viewMode === 'kanban' && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -205,12 +195,11 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Group By</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => setGroupBy('environment')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Environment">Environment</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setGroupBy('priority')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Priority">Priority</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setGroupBy('type')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Type">Type</DropdownMenuItem> {/* NEW: Type grouping option */}
+                  <DropdownMenuItem onClick={() => setGroupBy('type')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Type">Type</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
             
-            {/* Backup & Sort (Only for List View) */}
             {viewMode === 'list' && (
               <>
                 <Tooltip>
@@ -246,17 +235,17 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                   </Tooltip>
                   <DropdownMenuContent align="end" className="glass-card min-w-48 border-white/10 bg-background/95 backdrop-blur-xl">
                     <DropdownMenuLabel className="text-[10px] uppercase font-black tracking-[0.2em] opacity-50 mb-1">Sorting Logic</DropdownMenuLabel>
-                    <SortItem type="RETIRED_AT_NEWEST" label="Retired (Newest)" icon={CalendarDays} />
-                    <SortItem type="RETIRED_AT_OLDEST" label="Retired (Oldest)" icon={CalendarDays} />
+                    <SortItem type="RETIRED_AT_NEWEST" label="Retired (Newest)" icon={CalendarDays} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <SortItem type="RETIRED_AT_OLDEST" label="Retired (Oldest)" icon={CalendarDays} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
                     <DropdownMenuSeparator className="my-2 bg-white/5" />
-                    <SortItem type="DURATION_DESC" label="Duration (Long)" icon={Clock} />
-                    <SortItem type="DURATION_ASC" label="Duration (Short)" icon={Clock} />
+                    <SortItem type="DURATION_DESC" label="Duration (Long)" icon={Clock} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <SortItem type="DURATION_ASC" label="Duration (Short)" icon={Clock} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
                     <DropdownMenuSeparator className="my-2 bg-white/5" />
-                    <SortItem type="ENERGY_DESC" label="Energy (High)" icon={Zap} />
-                    <SortItem type="ENERGY_ASC" label="Energy (Low)" icon={Zap} />
+                    <SortItem type="ENERGY_DESC" label="Energy (High)" icon={Zap} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <SortItem type="ENERGY_ASC" label="Energy (Low)" icon={Zap} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
                     <DropdownMenuSeparator className="my-2 bg-white/5" />
-                    <SortItem type="NAME_ASC" label="Name (A-Z)" icon={SortAsc} />
-                    <SortItem type="EMOJI" label="Vibe (Emoji)" icon={Smile} />
+                    <SortItem type="NAME_ASC" label="Name (A-Z)" icon={SortAsc} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <SortItem type="EMOJI" label="Vibe (Emoji)" icon={Smile} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -282,7 +271,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
         </CardHeader>
         
         <CardContent className="px-2 pb-2 space-y-6">
-          {/* Input Form (Now enabled for List View) */}
           {viewMode === 'list' && (
             <form 
               onSubmit={(e) => {
@@ -310,7 +298,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             </form>
           )}
           
-          {/* Loading State */}
           {isLoading || isLoadingEnvironments ? (
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
@@ -322,7 +309,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               </div>
             </div>
           ) : retiredTasks.length === 0 ? (
-            /* Empty State */
             <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10">
               <Ghost className="h-12 w-12 text-muted-foreground/20" />
               <div className="space-y-1">
@@ -331,7 +317,6 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               </div>
             </div>
           ) : (
-            /* View Content Toggle */
             viewMode === 'list' ? (
               <div className="grid gap-2 pr-2 scrollbar-none max-h-[600px] overflow-y-auto custom-scrollbar">
                 {retiredTasks.map((task) => {

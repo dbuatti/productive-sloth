@@ -126,7 +126,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const isRegenPodRunning = profile?.is_in_regen_pod ?? false;
   const isSelectedDayBlocked = profile?.blocked_days?.includes(selectedDay) ?? false;
 
-  // NEW: Derive if the entire day is locked down
   const isDayLockedDown = useMemo(() => {
     if (dbScheduledTasks.length === 0) return false;
     return dbScheduledTasks.every(task => task.is_locked);
@@ -159,7 +158,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
           const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
           if (finalDuration > 0) {
             constraints.push({ start: intersectionStart, end: intersectionEnd, duration: finalDuration });
-            console.log(`[QuickAdd] Constraint: ${name} (${finalDuration}m) ${format(intersectionStart, 'HH:mm')}-${format(intersectionEnd, 'HH:mm')}`);
           }
         }
       }
@@ -262,13 +260,13 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         await startRegenPodState(activityName, durationMinutes); 
         
         const start = T_current;
-        const end = addMinutes(start, durationMinutes); // Use durationMinutes here
+        const end = addMinutes(start, durationMinutes); 
         
         await addScheduledTask({
             name: `Regen Pod: ${activityName}`,
             start_time: start.toISOString(),
             end_time: end.toISOString(),
-            break_duration: durationMinutes, // Use durationMinutes here
+            break_duration: durationMinutes, 
             scheduled_date: selectedDay,
             is_critical: false,
             is_flexible: false, 
@@ -312,7 +310,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         is_locked: true, 
         energy_cost: 0, 
         task_environment: 'away',
-        is_break: true, // Mark as break
+        is_break: true, 
       });
       showSuccess("Quick Break added! Time to recharge. ☕️");
     } catch (e: any) {
@@ -365,8 +363,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             is_backburner: task.isBackburner 
           });
         } else if (task.duration) {
-          console.log(`[QuickAdd] Processing: "${task.name}" (${task.duration}m)`);
-          
           const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
             start: parseISO(t.start_time!),
             end: parseISO(t.end_time!),
@@ -374,18 +370,13 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
           }));
           
           const staticConstraints = getStaticConstraints();
-          
           const allConstraints = mergeOverlappingTimeBlocks([...occupiedBlocks, ...staticConstraints]);
-          console.log(`[QuickAdd] Total Constraints: ${allConstraints.length} blocks`);
-          allConstraints.forEach(c => console.log(`[QuickAdd] Constraint: ${format(c.start, 'HH:mm')}-${format(c.end, 'HH:mm')}`));
-
           const taskTotalDuration = task.duration + (task.breakDuration || 0);
           const searchStart = isBefore(workdayStartTimeForSelectedDay, T_current) && isSameDay(selectedDayAsDate, new Date()) ? T_current : workdayStartTimeForSelectedDay;
           
           const slot = findFirstAvailableSlot(taskTotalDuration, allConstraints, searchStart, workdayEndTimeForSelectedDay);
 
           if (slot) {
-            console.log(`[QuickAdd] Found Slot: ${format(slot.start, 'HH:mm')} - ${format(slot.end, 'HH:mm')}`);
             await addScheduledTask({
               name: task.name,
               start_time: slot.start.toISOString(),
@@ -483,7 +474,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     setIsCreateTaskDialogOpen(true);
   }, [selectedDayAsDate, isSelectedDayBlocked]);
 
-  // NEW: Handler for toggling day lock
   const handleToggleDayLock = useCallback(async () => {
     if (isSelectedDayBlocked) {
       showError("Cannot lock/unlock tasks on a blocked day.");
@@ -493,7 +483,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     try {
       await toggleAllScheduledTasksLock({ selectedDate: selectedDay, lockState: !isDayLockedDown });
     } catch (e) {
-      // Error handled by mutation's onError
     } finally {
       setIsProcessingCommand(false);
     }
@@ -510,17 +499,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments, isSelectedDayBlocked);
   }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, T_current, mealAssignments, isSelectedDayBlocked]);
 
-  // Helper component to keep the standard UI width
-  const CenteredWrapper = ({ children }: { children: React.ReactNode }) => (
-    <div className="max-w-4xl mx-auto w-full space-y-6">
-      {children}
-    </div>
-  );
+  const wrapperClass = "max-w-4xl mx-auto w-full space-y-6";
 
   return (
-    <div className={cn(
-      "w-full pb-4 space-y-6",
-    )}>
+    <div className="w-full pb-4 space-y-6">
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
         <ImmersiveFocusMode activeItem={activeItemToday} T_current={T_current} onExit={() => setIsFocusModeActive(false)} onAction={(action, task) => handleSchedulerAction(action as any, task)} dbTask={calculatedSchedule.dbTasks.find(t => t.id === activeItemToday.id) || null} nextItem={nextItemToday} isProcessingCommand={isProcessingCommand} />
       )}
@@ -550,22 +532,20 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         onOpenChange={setIsCreateTaskDialogOpen}
       />
 
-      {/* DASHBOARD - Always Centered */}
-      <CenteredWrapper>
+      <div className={wrapperClass}>
         <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={overallLoading} />
-      </CenteredWrapper>
+      </div>
       
-      {/* CALENDAR & TABS - Always Centered */}
-      <CenteredWrapper>
+      <div className={wrapperClass}>
         <div className="space-y-6">
           <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} blockedDays={profile?.blocked_days || []} />
           <SchedulerSegmentedControl currentView={view} />
         </div>
-      </CenteredWrapper>
+      </div>
 
       <div className="space-y-6">
         {view === 'schedule' && (
-          <CenteredWrapper>
+          <div className={wrapperClass}>
             <SchedulerContextBar T_current={T_current} />
             
             <Card className="p-4 rounded-xl shadow-sm">
@@ -623,12 +603,11 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
                 onToggleDayLock={handleToggleDayLock}
               />
             )}
-          </CenteredWrapper>
+          </div>
         )}
         
         {view === 'sink' && (
           <div className="w-full overflow-x-auto pb-4">
-            {/* SINK - Remains Full Width */}
             <AetherSink 
               retiredTasks={retiredTasks} 
               onRezoneTask={(t) => rezoneTask(t)} 
@@ -644,9 +623,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         )}
         
         {view === 'recap' && calculatedSchedule && (
-          <CenteredWrapper>
+          <div className={wrapperClass}>
             <DailyVibeRecapCard scheduleSummary={calculatedSchedule.summary} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={calculatedSchedule.summary.activeTime.hours * 60 + calculatedSchedule.summary.activeTime.minutes} totalBreakTimeMinutes={calculatedSchedule.summary.breakTime} />
-          </CenteredWrapper>
+          </div>
         )}
       </div>
       <WorkdayWindowDialog open={showWorkdayWindowDialog} onOpenChange={setShowWorkdayWindowDialog} />

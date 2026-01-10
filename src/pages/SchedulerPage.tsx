@@ -77,6 +77,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     handleAutoScheduleAndSort,
     toggleAllScheduledTasksLock,
     isLoadingCompletedTasksForSelectedDay, // Corrected: Destructure from useSchedulerTasks
+    // autoBalanceScheduleMutation, // REMOVED: Not directly exposed by useSchedulerTasks
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const {
@@ -242,8 +243,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             is_flexible: true, // Re-zoned tasks are flexible by default
             is_locked: false,
             energy_cost: rezonedTaskData.energy_cost,
-            is_completed: false,
-            is_custom_energy_cost: rezonedTaskData.is_custom_energy_cost,
             task_environment: rezonedTaskData.task_environment,
             is_backburner: rezonedTaskData.is_backburner,
             is_work: rezonedTaskData.is_work,
@@ -340,6 +339,89 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
   }, [user, profile, T_current, selectedDay, addScheduledTask, isSelectedDayBlocked]);
 
+  const handleQuickScheduleBlock = useCallback(async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
+    if (!user || !profile) return showError("Please log in.");
+    if (isSelectedDayBlocked) {
+      showError("Cannot schedule tasks on a blocked day.");
+      return;
+    }
+    setIsProcessingCommand(true);
+    try {
+      const availableTasks = retiredTasks.filter(t => !t.is_locked && !t.is_completed);
+      if (availableTasks.length === 0) {
+        showError("No available tasks in Aether Sink to schedule.");
+        return;
+      }
+
+      // Sort tasks based on preference
+      const sortedTasks = [...availableTasks].sort((a, b) => {
+        const durA = a.duration || 30;
+        const durB = b.duration || 30;
+        return sortPreference === 'shortestFirst' ? durA - durB : durB - durA;
+      });
+
+      let minutesToFill = duration;
+      const tasksToInsert: NewDBScheduledTask[] = [];
+      const retiredIdsToDelete: string[] = [];
+
+      // Get current occupied blocks for the day
+      const currentOccupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
+        start: parseISO(t.start_time!),
+        end: parseISO(t.end_time!),
+        duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
+      }));
+      const allConstraints = mergeOverlappingTimeBlocks([...currentOccupiedBlocks, ...staticConstraints]);
+      
+      let currentPlacementCursor = isBefore(workdayStartTimeForSelectedDay, T_current) && isSameDay(selectedDayAsDate, new Date()) ? T_current : workdayStartTimeForSelectedDay;
+
+      for (const task of sortedTasks) {
+        if (minutesToFill <= 0) break;
+
+        const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
+
+        // Find a slot for this specific task
+        const slot = findFirstAvailableSlot(taskTotalDuration, allConstraints, currentPlacementCursor, workdayEndTimeForSelectedDay);
+
+        if (slot && taskTotalDuration <= minutesToFill) { // Only take whole tasks that fit within the remaining block duration
+          tasksToInsert.push({
+            name: task.name,
+            start_time: slot.start.toISOString(),
+            end_time: slot.end.toISOString(),
+            break_duration: task.break_duration || null,
+            scheduled_date: selectedDay,
+            is_critical: task.is_critical,
+            is_flexible: true, // Tasks from sink are flexible by default
+            is_locked: false,
+            energy_cost: task.energy_cost,
+            is_custom_energy_cost: task.is_custom_energy_cost,
+            task_environment: task.task_environment,
+            is_backburner: task.is_backburner,
+            is_work: task.is_work,
+            is_break: task.is_break,
+          });
+          retiredIdsToDelete.push(task.id);
+          minutesToFill -= taskTotalDuration;
+
+          // Update occupied blocks and cursor for subsequent placements
+          allConstraints.push({ start: slot.start, end: slot.end, duration: taskTotalDuration });
+          mergeOverlappingTimeBlocks(allConstraints); // Re-merge to keep it clean
+          currentPlacementCursor = slot.end;
+        }
+      }
+
+      if (tasksToInsert.length > 0) {
+        await handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay); // Use handleAutoScheduleAndSort to perform the actual DB operations
+        showSuccess(`Scheduled ${tasksToInsert.length} tasks for ${duration} minutes!`);
+      } else {
+        showError("Could not find suitable tasks or slots to fill the requested duration.");
+      }
+
+    } catch (e: any) {
+      showError(`Quick schedule block failed: ${e.message}`);
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  }, [user, profile, retiredTasks, dbScheduledTasks, selectedDay, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, staticConstraints, handleAutoScheduleAndSort, sortBy, isSelectedDayBlocked]);
 
   const handleCommand = useCallback(async (input: string) => {
     if (!user || !profile) return showError("Please log in.");
@@ -612,7 +694,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             onZoneFocus={handleZoneFocus} 
             onRechargeEnergy={() => rechargeEnergy()} 
             onQuickBreak={handleQuickBreak} 
-            onQuickScheduleBlock={() => Promise.resolve()} 
+            onQuickScheduleBlock={handleQuickScheduleBlock} // Pass the new handler
             onSortFlexibleTasks={handleSortFlexibleTasks} 
             onAetherDump={aetherDump} 
             onAetherDumpMega={aetherDumpMega} 

@@ -33,7 +33,7 @@ interface SchedulerActionCenterProps {
   onZoneFocus: () => Promise<void>;
   onRechargeEnergy: () => Promise<void>;
   onQuickBreak: () => Promise<void>;
-  onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>;
+  onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>; // Updated prop type
   onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
   onAetherDump: () => Promise<void>;
   onAetherDumpMega: () => Promise<void>;
@@ -57,7 +57,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   onZoneFocus,
   onRechargeEnergy,
   onQuickBreak,
-  onQuickScheduleBlock,
+  onQuickScheduleBlock, // Destructure the updated prop
   onSortFlexibleTasks,
   onAetherDump,
   onAetherDumpMega,
@@ -184,7 +184,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   <QuickScheduleBlock
                     key={duration}
                     duration={duration}
-                    onScheduleBlock={onQuickScheduleBlock}
+                    onScheduleBlock={onQuickScheduleBlock} // Pass the prop directly
                     isProcessingCommand={isProcessingCommand}
                   />
                 ))}

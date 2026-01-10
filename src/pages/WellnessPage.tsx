@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-import { environmentOptions } from '@/hooks/use-environment-context';
+import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { TaskPriority } from '@/types';
 import { isMeal } from '@/lib/scheduler-utils';
 
@@ -50,6 +50,8 @@ const WellnessPage: React.FC = () => {
   const { user, profile, updateSkippedDayOffSuggestions } = useSession();
   const navigate = useNavigate();
   const [skipWeekends, setSkipWeekends] = useState(true);
+  
+  const { environmentOptions } = useEnvironmentContext();
 
   const centerDateString = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const { weeklyTasks, isLoading: isWeeklyTasksLoading, profileSettings } = useWeeklySchedulerTasks(centerDateString);
@@ -107,7 +109,6 @@ const WellnessPage: React.FC = () => {
           if (task.is_work) {
             workMinutes += duration;
             workTaskCount++;
-            // Assuming priority is derived from is_critical and is_backburner for scheduled tasks
             if (task.is_critical) workTasksByPriority.HIGH++;
             else if (task.is_backburner) workTasksByPriority.LOW++;
             else workTasksByPriority.MEDIUM++;
@@ -229,7 +230,7 @@ const WellnessPage: React.FC = () => {
     return Array.from(usageMap.entries()).map(([envVal, minutes]) => ({
       environment: environmentOptions.find(o => o.value === envVal)?.label || envVal, minutes
     })).sort((a, b) => b.minutes - a.minutes);
-  }, [weeklyTasks]);
+  }, [weeklyTasks, environmentOptions]);
 
   const dailyEnergyBalanceData = useMemo(() => {
     if (!last7DaysData) return null;
@@ -269,7 +270,7 @@ const WellnessPage: React.FC = () => {
     envCounts.forEach((count, env) => { if (count > maxCount) { maxCount = count; bestEnv = env; } });
     if (!bestEnv) return null;
     return { environment: environmentOptions.find(o => o.value === bestEnv)?.label || bestEnv, tasksCompleted: maxCount };
-  }, [last7DaysData]);
+  }, [last7DaysData, environmentOptions]);
 
   const mostEffectiveBreakEnvironment = useMemo(() => {
     if (!last7DaysData) return null;
@@ -280,7 +281,7 @@ const WellnessPage: React.FC = () => {
     envCounts.forEach((count, env) => { if (count > maxCount) { maxCount = count; bestEnv = env; } });
     if (!bestEnv) return null;
     return { environment: environmentOptions.find(o => o.value === bestEnv)?.label || bestEnv, breaksCompleted: maxCount };
-  }, [last7DaysData]);
+  }, [last7DaysData, environmentOptions]);
 
   const burnoutRisk = useMemo(() => {
     if (!last7DaysData || !future7DaysData) return 'Low';
@@ -381,7 +382,6 @@ const WellnessPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-slide-in-up pb-12">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
@@ -396,7 +396,6 @@ const WellnessPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4">
           <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
@@ -455,9 +454,7 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Main Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Workload Chart */}
         <Card className="lg:col-span-2 p-4">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-lg font-bold">Daily Workload (Last 7 Days)</CardTitle>
@@ -482,7 +479,6 @@ const WellnessPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Work vs. Personal Distribution Pie Chart */}
         <Card className="p-4">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-lg font-bold">Work vs. Personal Time</CardTitle>
@@ -516,9 +512,7 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Additional Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Daily Energy Balance */}
         <Card className="p-4">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-lg font-bold">Daily Energy Balance (Last 7 Days)</CardTitle>
@@ -553,7 +547,6 @@ const WellnessPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Workload by Priority */}
         <Card className="p-4">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-lg font-bold">Workload by Priority</CardTitle>
@@ -587,7 +580,6 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Insight Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <Card className="p-4">
           <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
@@ -650,9 +642,7 @@ const WellnessPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Recommendations & Suggestions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recommendations */}
         <Card className="p-4">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -671,7 +661,6 @@ const WellnessPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Day Off Suggestion */}
         <Card className="p-4 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-lg font-bold flex items-center gap-2 text-primary">

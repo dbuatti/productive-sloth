@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Check, ChevronDown, X, Filter, Zap } from "lucide-react";
-import { cn, getLucideIconComponent } from "@/lib/utils"; // Import getLucideIconComponent
+import { cn, getLucideIconComponent } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -16,15 +16,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useEnvironmentContext, environmentOptions } from "@/hooks/use-environment-context";
+import { useEnvironmentContext } from "@/hooks/use-environment-context";
 
 const EnvironmentMultiSelect: React.FC = () => {
-  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments } = useEnvironmentContext();
+  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments, environmentOptions } = useEnvironmentContext();
   const [open, setOpen] = React.useState(false);
 
   const selectedOptions = React.useMemo(() => {
     return environmentOptions.filter(opt => selectedEnvironments.includes(opt.value));
-  }, [selectedEnvironments]);
+  }, [selectedEnvironments, environmentOptions]);
 
   const handleClearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,7 +34,7 @@ const EnvironmentMultiSelect: React.FC = () => {
   const renderSelectedBadges = () => {
     if (selectedOptions.length === 0) {
       return (
-        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest"> {/* Adjusted text color and size */}
+        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest">
           <Zap className="h-3 w-3" /> All Zones
         </div>
       );
@@ -59,7 +59,7 @@ const EnvironmentMultiSelect: React.FC = () => {
     return (
       <div className="flex flex-wrap gap-1.5">
         {selectedOptions.map(option => {
-          const IconComponent = getLucideIconComponent(option.icon); // Use the shared utility, pass string directly
+          const IconComponent = getLucideIconComponent(option.icon);
           return (
             <Badge 
               key={option.value} 
@@ -103,7 +103,7 @@ const EnvironmentMultiSelect: React.FC = () => {
               </div>
               {environmentOptions.map((option) => {
                 const isSelected = selectedEnvironments.includes(option.value);
-                const IconComponent = getLucideIconComponent(option.icon); // Use the shared utility, pass string directly
+                const IconComponent = getLucideIconComponent(option.icon);
                 return (
                   <CommandItem
                     key={option.value}

@@ -10,10 +10,11 @@ import KanbanColumn from './KanbanColumn';
 import SortableTaskCard from './SortableTaskCard';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
-import { parseSinkTaskInput } from '@/lib/scheduler-utils'; // Corrected import syntax
+import { parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { useEnvironments } from '@/hooks/use-environments';
-import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
-import { getLucideIconComponent, cn } from '@/lib/utils'; // Import getLucideIconComponent and cn
+import { useRetiredTasks } from '@/hooks/use-retired-tasks';
+import { getLucideIconComponent, cn } from '@/lib/utils';
+import { useEnvironmentContext } from '@/hooks/use-environment-context';
 
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
@@ -28,8 +29,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   retiredTasks, groupBy, updateRetiredTask, onOpenDetailDialog 
 }) => {
   const { user } = useSession();
-  const { environments, isLoading } = useEnvironments();
-  const { addRetiredTask } = useRetiredTasks(); // NEW: Use addRetiredTask from useRetiredTasks
+  const { environments, isLoading: envLoading } = useEnvironments();
+  const { addRetiredTask } = useRetiredTasks();
   
   const [activeTask, setActiveTask] = useState<RetiredTask | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -39,22 +40,47 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Helper to normalize environment strings for matching
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
   const groupedTasks = useMemo(() => {
     const groups: Record<string, RetiredTask[]> = {};
     
-    // Define all possible columns based on grouping type
+    // 1. Initialize empty groups for all valid database environments
     if (groupBy === 'environment') {
-      // Initialize groups with actual user environments
-      environments.forEach(env => groups[env.value] = []);
+      environments.forEach(env => {
+        groups[env.value] = [];
+      });
+    } else if (groupBy === 'priority') {
+      ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
+    } else {
+      ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
     }
-    else if (groupBy === 'priority') ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
-    else ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
 
+    // 2. Assign tasks to groups
     retiredTasks.forEach(task => {
       let key = 'standard';
-      if (groupBy === 'environment') key = task.task_environment || 'laptop'; // Use task_environment value
-      else if (groupBy === 'priority') key = task.is_critical ? 'critical' : (task.is_backburner ? 'backburner' : 'standard');
-      else key = task.is_break ? 'breaks' : (task.is_work ? 'work' : 'not-work');
+      
+      if (groupBy === 'environment') {
+        const taskEnvRaw = task.task_environment || 'laptop';
+        const taskEnvNorm = normalize(taskEnvRaw);
+        
+        // Try to find a matching environment in the DB by value or normalized match
+        const matchingEnv = environments.find(e => 
+          e.value === taskEnvRaw || 
+          normalize(e.value) === taskEnvNorm || 
+          normalize(e.label) === taskEnvNorm
+        );
+
+        // If we found a match in the DB, use its actual value key
+        // Otherwise, use the raw value (this handles the "laptop" vs "laptop_desk" situation)
+        key = matchingEnv ? matchingEnv.value : taskEnvRaw;
+
+      } else if (groupBy === 'priority') {
+        key = task.is_critical ? 'critical' : (task.is_backburner ? 'backburner' : 'standard');
+      } else {
+        key = task.is_break ? 'breaks' : (task.is_work ? 'work' : 'not-work');
+      }
       
       if (!groups[key]) groups[key] = [];
       groups[key].push(task);
@@ -63,14 +89,12 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   }, [retiredTasks, groupBy, environments]);
 
   const handleDragStart = (event: DragStartEvent) => {
-    console.log("[Kanban] Drag Start:", event.active.id, "from container:", event.active.data.current?.sortable?.containerId);
     const task = retiredTasks.find(t => t.id === event.active.id);
     setActiveTask(task || null);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     setOverId(event.over?.id as string || null);
-    console.log("[Kanban] Drag Over:", event.active.id, "over:", event.over?.id, "in container:", event.over?.data.current?.sortable?.containerId || event.over?.id);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -78,12 +102,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     setActiveTask(null);
     setOverId(null);
     
-    console.log("[Kanban] Drag End. Active:", active.id, "Over:", over?.id);
-
-    if (!over) {
-      console.log("[Kanban] Drag ended outside of a droppable area.");
-      return;
-    }
+    if (!over) return;
     
     const overContainerId = over.data.current?.sortable?.containerId || over.id;
     const task = retiredTasks.find(t => t.id === active.id);
@@ -91,58 +110,42 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     
     let update: Partial<RetiredTask> = {};
     
-    // 1. Determine the update based on the target column ID
     if (groupBy === 'environment') {
-      // Check if the target ID is a valid environment value from the user's environments
-      if (environments.some(e => e.value === overContainerId)) {
-        update = { task_environment: overContainerId as TaskEnvironment };
-        console.log(`[Kanban] Updating environment to: ${overContainerId}`);
-      }
+      // Use the actual DB value for the drop target
+      update = { task_environment: overContainerId as TaskEnvironment };
     } else if (groupBy === 'priority') {
       if (overContainerId === 'critical') update = { is_critical: true, is_backburner: false, is_break: false };
       else if (overContainerId === 'backburner') update = { is_critical: false, is_backburner: true, is_break: false };
-      else if (overContainerId === 'standard') update = { is_critical: false, is_backburner: false, is_break: false };
-      console.log(`[Kanban] Updating priority to: ${overContainerId}`);
+      else update = { is_critical: false, is_backburner: false, is_break: false };
     } else if (groupBy === 'type') {
       if (overContainerId === 'work') update = { is_work: true, is_break: false };
-      else if (overContainerId === 'not-work') update = { is_work: false, is_break: false };
       else if (overContainerId === 'breaks') update = { is_break: true, is_work: false };
-      console.log(`[Kanban] Updating type to: ${overContainerId}`);
+      else update = { is_work: false, is_break: false };
     }
     
-    // 2. Apply the update if changes were determined
     if (Object.keys(update).length > 0) {
-      console.log("[Kanban] Applying update:", update);
       updateRetiredTask({ id: task.id, ...update });
-    } else {
-      console.log("[Kanban] No relevant column change detected, skipping update.");
     }
   };
 
   const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
     if (!user) return showError("User missing.");
     const parsed = parseSinkTaskInput(input, user.id);
-    if (!parsed) {
-      return showError("Invalid format: 'Name [dur] [!] [-] [W] [B]...'");
-    }
+    if (!parsed) return showError("Invalid format.");
     
-    // Override parsed flags based on the target column
     if (groupBy === 'environment') parsed.task_environment = columnId as TaskEnvironment;
     else if (groupBy === 'priority') {
       parsed.is_critical = columnId === 'critical';
       parsed.is_backburner = columnId === 'backburner';
-      parsed.is_break = false; // Priority columns are generally not breaks
     } else if (groupBy === 'type') {
       parsed.is_work = columnId === 'work';
       parsed.is_break = columnId === 'breaks';
-      parsed.is_critical = false; // Type columns override priority/criticality for simplicity
-      parsed.is_backburner = false;
     }
     
     await addRetiredTask(parsed);
   }, [user, groupBy, addRetiredTask]);
 
-  if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
+  if (envLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
@@ -151,10 +154,10 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
           let label = id;
           let Icon: React.ElementType = Info;
 
+          const env = environments.find(e => e.value === id);
           if (groupBy === 'environment') {
-            const env = environments.find(e => e.value === id);
             label = env?.label || id;
-            Icon = getLucideIconComponent(env?.icon || 'Info'); // Use the shared utility
+            Icon = getLucideIconComponent(env?.icon || 'Info');
           } else if (groupBy === 'priority') {
             label = id === 'critical' ? '🔥 Critical' : id === 'backburner' ? '🔵 Backburner' : '⚪ Standard';
             Icon = id === 'critical' ? Star : Info;

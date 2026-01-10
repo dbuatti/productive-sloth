@@ -3,23 +3,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { useSession } from '@/hooks/use-session';
 import { useTasks } from '@/hooks/use-tasks';
-import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
-import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks'; // NEW: Import useWeeklySchedulerTasks
-import { useCompletedTasksAnalytics } from '@/hooks/use-completed-tasks-analytics'; // NEW: Import new hook
-import { Loader2, TrendingUp, CheckCircle, Sparkles, Zap, ListTodo, CalendarOff, Clock, Home, Laptop, Globe, Music, Archive, Star, Briefcase, Coffee } from 'lucide-react'; // NEW: Added icons
-import { format, parseISO, startOfDay, subDays, addDays, differenceInMinutes } from 'date-fns'; // NEW: Added differenceInMinutes
+import { useRetiredTasks } from '@/hooks/use-retired-tasks';
+import { useWeeklySchedulerTasks } from '@/hooks/use-weekly-scheduler-tasks';
+import { useCompletedTasksAnalytics } from '@/hooks/use-completed-tasks-analytics';
+import { Loader2, TrendingUp, CheckCircle, Sparkles, Zap, ListTodo, CalendarOff, Clock, Home, Laptop, Globe, Music, Archive, Star, Briefcase, Coffee } from 'lucide-react';
+import { format, parseISO, startOfDay, subDays, addDays, differenceInMinutes } from 'date-fns';
 import { XP_PER_LEVEL } from '@/lib/constants';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
-import { cn } from '@/lib/utils'; // NEW: Import cn
+import { useEnvironmentContext } from '@/hooks/use-environment-context';
+import { cn } from '@/lib/utils';
 
 const AnalyticsPage: React.FC = () => {
   const { isLoading: isSessionLoading, user, profile } = useSession();
-  const { isLoading: isTasksLoading } = useTasks(); // Keep for general task count if needed
-  const { retiredTasks, isLoadingRetiredTasks } = useRetiredTasks(); // NEW: For Aether Sink analytics
-  const { weeklyTasks, isLoading: isWeeklySchedulerTasksLoading } = useWeeklySchedulerTasks(format(new Date(), 'yyyy-MM-dd')); // NEW: For future projections
+  const { isLoading: isTasksLoading } = useTasks();
+  const { retiredTasks, isLoadingRetiredTasks } = useRetiredTasks();
+  const { weeklyTasks, isLoading: isWeeklySchedulerTasksLoading } = useWeeklySchedulerTasks(format(new Date(), 'yyyy-MM-dd'));
   const { 
     dailySummary, 
     priorityDistribution, 
@@ -28,13 +28,15 @@ const AnalyticsPage: React.FC = () => {
     totalEnergyConsumed, 
     totalEnergyGained, 
     isLoading: isLoadingCompletedTasksAnalytics 
-  } = useCompletedTasksAnalytics(7); // NEW: Use new hook for completed tasks
+  } = useCompletedTasksAnalytics(7);
+  
+  const { environmentOptions } = useEnvironmentContext();
 
   const navigate = useNavigate();
 
   const isLoading = isSessionLoading || isTasksLoading || isLoadingRetiredTasks || isWeeklySchedulerTasksLoading || isLoadingCompletedTasksAnalytics;
 
-  // --- NEW: Future Workload Projection ---
+  // --- Future Workload Projection ---
   const futureWorkloadData = useMemo(() => {
     if (!weeklyTasks) return [];
     const dataMap = new Map<string, { date: string, workMinutes: number, breakMinutes: number }>();
@@ -68,12 +70,11 @@ const AnalyticsPage: React.FC = () => {
     });
   }, [weeklyTasks]);
 
-  // --- NEW: Aether Sink Analytics ---
+  // --- Aether Sink Analytics ---
   const sinkPriorityDistribution = useMemo(() => {
     if (!retiredTasks) return [];
     const priorityCounts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
     retiredTasks.forEach(task => {
-      // Assuming retired tasks have is_critical and is_backburner flags
       if (task.is_critical) priorityCounts.HIGH++;
       else if (task.is_backburner) priorityCounts.LOW++;
       else priorityCounts.MEDIUM++;
@@ -85,14 +86,14 @@ const AnalyticsPage: React.FC = () => {
     if (!retiredTasks) return [];
     const envCounts = new Map<string, number>();
     retiredTasks.forEach(task => {
-      const env = task.task_environment || 'laptop'; // Default to 'laptop'
+      const env = task.task_environment || 'laptop';
       envCounts.set(env, (envCounts.get(env) || 0) + 1);
     });
     return Array.from(envCounts.entries()).map(([environment, count]) => ({
       name: environmentOptions.find(o => o.value === environment)?.label || environment,
       value: count,
     })).filter(item => item.value > 0);
-  }, [retiredTasks]);
+  }, [retiredTasks, environmentOptions]);
 
   const totalSinkTasks = retiredTasks.length;
   const totalSinkDuration = retiredTasks.reduce((sum, task) => sum + (task.duration || 0), 0);
@@ -335,7 +336,7 @@ const AnalyticsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* NEW: Future Workload Projection */}
+      {/* Upcoming Workload Projection */}
       <Card className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.7s' }}>
         <CardHeader className="px-0 pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -366,7 +367,7 @@ const AnalyticsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* NEW: Aether Sink Overview */}
+      {/* Aether Sink Overview */}
       <Card className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.8s' }}>
         <CardHeader className="px-0 pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -395,7 +396,7 @@ const AnalyticsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* NEW: Aether Sink Distribution Charts */}
+      {/* Aether Sink Distribution Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card className="p-4 bg-card rounded-xl shadow-sm animate-slide-in-up animate-hover-lift" style={{ animationDelay: '0.9s' }}>
           <CardHeader className="px-0 pb-4">

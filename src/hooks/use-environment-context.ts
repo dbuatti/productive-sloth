@@ -1,26 +1,18 @@
-import { useState, useEffect, useMemo, useContext, createContext } from 'react';
+import { useContext, createContext } from 'react';
 import { TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music, Check } from 'lucide-react';
 
 export interface EnvironmentOption {
   value: TaskEnvironment;
   label: string;
-  icon: string; // Changed to string
+  icon: string;
 }
-
-export const environmentOptions: EnvironmentOption[] = [
-  { value: 'home', label: '🏠 At Home', icon: 'Home' }, // Use string name
-  { value: 'laptop', label: '💻 Laptop/Desk', icon: 'Laptop' }, // Use string name
-  { value: 'away', label: '🗺️ Away/Errands', icon: 'Globe' }, // Use string name
-  { value: 'piano', label: '🎹 Piano Practice', icon: 'Music' }, // Use string name
-  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: 'Laptop' }, // Use string name
-];
 
 export interface EnvironmentContextType {
   selectedEnvironments: TaskEnvironment[];
   toggleEnvironmentSelection: (env: TaskEnvironment) => void;
   setSelectedEnvironments: (envs: TaskEnvironment[]) => void;
-  environmentOptions: EnvironmentOption[];
+  environmentOptions: EnvironmentOption[]; // Now populated from the database
+  isLoading: boolean;
 }
 
 export const EnvironmentContext = createContext<EnvironmentContextType | undefined>(undefined);

@@ -26,7 +26,6 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const { user } = useSession();
   
-  // Log to track if AppContent remounts unnecessarily
   useEffect(() => {
     console.log("[AppContent] Mounted/Re-rendered. User ID:", user?.id);
   });
@@ -36,7 +35,6 @@ const AppContent = () => {
       <Routes>
         <Route path="/" element={<Navigate to="/scheduler" replace />} />
         
-        {/* Secondary Pages */}
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/wellness" element={<WellnessPage />} />
         <Route path="/documentation" element={<DocumentationPage />} />
@@ -44,7 +42,6 @@ const AppContent = () => {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/simplified-schedule" element={<SimplifiedSchedulePage />} />
         
-        {/* SCHEDULER CORE VIEWS */}
         <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
         <Route path="/sink" element={<AetherSinkPage />} />
         <Route path="/recap" element={<RecapPage />} />
@@ -63,12 +60,12 @@ const App = () => (
         <React.Fragment>
           <Sonner />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <EnvironmentProvider>
-              <SessionProvider>
+            <SessionProvider>
+              <EnvironmentProvider>
                 <EnergyRegenInitializer />
                 <AppContent />
-              </SessionProvider>
-            </EnvironmentProvider>
+              </EnvironmentProvider>
+            </SessionProvider>
           </BrowserRouter>
         </React.Fragment>
       </TooltipProvider>

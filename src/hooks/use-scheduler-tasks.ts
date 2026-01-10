@@ -652,57 +652,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         // --- LOGS ---
         console.log(`[AutoBalance] Tasks to place (after filtering): ${filteredPool.length}`);
 
-        // *** NEW: APPLY ENVIRONMENT CHUNKING & MACRO-SPREAD LOGIC ***
-        let placementOrder: UnifiedTask[] = [];
-        const enableChunking = profile.enable_environment_chunking ?? true;
-        const enableSpread = profile.enable_macro_spread ?? false;
-        const envOrder = profile.custom_environment_order || ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-
-        if (enableChunking || enableSpread) {
-          // Group tasks by environment
-          const tasksByEnv: Record<string, UnifiedTask[]> = {};
-          envOrder.forEach(env => tasksByEnv[env] = []);
-          filteredPool.forEach(task => {
-            const env = task.task_environment || 'laptop';
-            if (!tasksByEnv[env]) tasksByEnv[env] = [];
-            tasksByEnv[env].push(task);
-          });
-
-          // Create ordered chunks
-          const orderedChunks: UnifiedTask[][] = [];
-          let allEmpty = false;
-          while (!allEmpty) {
-            allEmpty = true;
-            for (const env of envOrder) {
-              if (tasksByEnv[env] && tasksByEnv[env].length > 0) {
-                const chunk: UnifiedTask[] = [];
-                const task = tasksByEnv[env].shift();
-                if (task) chunk.push(task);
-                
-                if (enableSpread && tasksByEnv[env].length > 0) {
-                  const secondTask = tasksByEnv[env].shift();
-                  if (secondTask) chunk.push(secondTask);
-                }
-                
-                if (chunk.length > 0) {
-                  orderedChunks.push(chunk);
-                  allEmpty = false;
-                }
-              }
-            }
-          }
-          placementOrder = orderedChunks.flat();
-          console.log(`[AutoBalance] Chunking/Spreading applied. New order:`, placementOrder.map(t => t.name));
-        } else {
-          // No chunking/spreading, use the filtered and sorted pool
-          placementOrder = filteredPool;
-        }
-        // *** END OF NEW LOGIC ***
-
         let placementCursor = effectiveStart;
         const tasksRemainingForDay: UnifiedTask[] = [];
 
-        for (const t of placementOrder) {
+        for (const t of filteredPool) {
           const taskTotal = (t.duration || 30) + (t.break_duration || 0);
           const slot = findFirstAvailableSlot(taskTotal, currentOccupied, placementCursor, workdayEnd);
 

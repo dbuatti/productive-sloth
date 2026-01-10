@@ -31,9 +31,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
 
-  // Define full-width routes
-  const fullWidthRoutes = ['/scheduler', '/sink', '/simplified-schedule'];
-  const isFullWidth = fullWidthRoutes.some(route => location.pathname.startsWith(route));
+  const isSimplifiedSchedulePage = location.pathname === '/simplified-schedule';
+  const isSinkPage = location.pathname === '/sink';
 
   // State for mobile menu
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -48,18 +47,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, []);
 
   const sidebarWidth = isSidebarCollapsed ? "w-[72px]" : "w-[250px]";
-  const contentPaddingLeft = isMobile ? "lg:pl-0" : (isSidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[250px]");
+  const contentPaddingLeft = isMobile || isSimplifiedSchedulePage ? "lg:pl-0" : (isSidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[250px]");
 
   const mainContent = (
     <main className={cn(
       "flex flex-1 flex-col gap-4 overflow-auto",
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4"),
+      // Conditional styling for simplified schedule and sink pages
+      !isSimplifiedSchedulePage && !isSinkPage && !isMobile && "max-w-4xl mx-auto"
     )}>
       <div className={cn(
         "w-full",
         "px-3 md:px-8",
-        // Apply full-width styling for specific pages
-        isFullWidth && !isMobile ? "max-w-full px-0" : "max-w-4xl mx-auto"
+        // Remove width constraints for specific views
+        (isSimplifiedSchedulePage || isSinkPage) && "max-w-full"
       )}>
         {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
         {children}
@@ -92,7 +93,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       )}
 
       {/* Desktop Sidebar */}
-      {!isMobile && !isFullWidth && (
+      {!isMobile && !isSimplifiedSchedulePage && (
         <div 
           className={cn(
             "fixed top-0 left-0 z-30 h-screen border-r border-border/50 bg-sidebar transition-all duration-300 ease-in-out pt-[64px]",

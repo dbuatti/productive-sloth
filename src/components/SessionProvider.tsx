@@ -46,6 +46,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const fetchProfile = useCallback(async (userId: string) => {
     setIsProfileLoading(true);
+    console.log(`[SessionProvider] Fetching profile for user: ${userId}`);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -70,6 +71,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setProfile(null);
       } else if (data) {
         const profileDataWithDefaultTimezone = { ...data, timezone: data.timezone || 'UTC' };
+        // Remove 'updated_at' from comparison as it changes frequently and shouldn't trigger a full profile re-render
         const dataWithoutUpdatedAt = { ...profileDataWithDefaultTimezone };
         delete dataWithoutUpdatedAt.updated_at;
 
@@ -102,59 +104,98 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user?.id) await fetchProfile(user.id);
+    if (user?.id) {
+      console.log("[SessionProvider] Refreshing profile...");
+      await fetchProfile(user.id);
+    }
   }, [user?.id, fetchProfile]);
 
   const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
     if (!user || !profile) return;
+    console.log(`[SessionProvider] Recharging energy by ${amount}. Current: ${profile.energy}`);
     const newEnergy = Math.min(MAX_ENERGY, profile.energy + amount);
     const { error } = await supabase.from('profiles').update({ energy: newEnergy }).eq('id', user.id);
-    if (!error) await refreshProfile();
+    if (!error) {
+      console.log(`[SessionProvider] Energy recharged to: ${newEnergy}.`);
+      await refreshProfile();
+    } else {
+      console.error("[SessionProvider] Error recharging energy:", error);
+    }
   }, [user, profile, refreshProfile]);
 
   const triggerLevelUp = useCallback((level: number) => {
+    console.log(`[SessionProvider] Triggering Level Up to: ${level}`);
     setShowLevelUp(true);
     setLevelUpLevel(level);
   }, []);
 
   const resetLevelUp = useCallback(() => {
+    console.log("[SessionProvider] Resetting Level Up state.");
     setShowLevelUp(false);
     setLevelUpLevel(0);
   }, []);
 
   const resetDailyStreak = useCallback(async () => {
     if (!user) return;
+    console.log("[SessionProvider] Resetting daily streak.");
     const { error } = await supabase.from('profiles').update({ daily_streak: 0, last_streak_update: null }).eq('id', user.id);
-    if (!error) await refreshProfile();
+    if (!error) {
+      console.log("[SessionProvider] Daily streak reset successfully.");
+      await refreshProfile();
+    } else {
+      console.error("[SessionProvider] Error resetting daily streak:", error);
+    }
   }, [user, refreshProfile]);
 
   const claimDailyReward = useCallback(async (xpAmount: number, energyAmount: number) => {
     if (!user || !profile) return;
+    console.log(`[SessionProvider] Claiming daily reward: +${xpAmount} XP, +${energyAmount} Energy.`);
     const newXp = profile.xp + xpAmount;
     const newEnergy = Math.min(MAX_ENERGY, profile.energy + energyAmount);
     const { error } = await supabase.from('profiles').update({ xp: newXp, energy: newEnergy, last_daily_reward_claim: new Date().toISOString() }).eq('id', user.id);
     if (!error) {
+      console.log("[SessionProvider] Daily reward claimed successfully.");
       await refreshProfile();
       showSuccess("Reward claimed!");
+    } else {
+      console.error("[SessionProvider] Error claiming daily reward:", error);
     }
   }, [user, profile, refreshProfile]);
 
   const updateNotificationPreferences = useCallback(async (preferences: any) => {
     if (!user) return;
+    console.log("[SessionProvider] Updating notification preferences:", preferences);
     const { error } = await supabase.from('profiles').update(preferences).eq('id', user.id);
-    if (!error) await refreshProfile();
+    if (!error) {
+      console.log("[SessionProvider] Notification preferences updated.");
+      await refreshProfile();
+    } else {
+      console.error("[SessionProvider] Error updating notification preferences:", error);
+    }
   }, [user, refreshProfile]);
 
   const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
     if (!user) return;
+    console.log("[SessionProvider] Updating profile:", updates);
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-    if (!error) await refreshProfile();
+    if (!error) {
+      console.log("[SessionProvider] Profile updated successfully.");
+      await refreshProfile();
+    } else {
+      console.error("[SessionProvider] Error updating profile:", error);
+    }
   }, [user, refreshProfile]);
 
   const updateSettings = useCallback(async (updates: Partial<UserProfile>) => {
     if (!user) return;
+    console.log("[SessionProvider] Updating settings:", updates);
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-    if (!error) await refreshProfile();
+    if (!error) {
+      console.log("[SessionProvider] Settings updated successfully.");
+      await refreshProfile();
+    } else {
+      console.error("[SessionProvider] Error updating settings:", error);
+    }
   }, [user, refreshProfile]);
 
   const updateBlockedDays = useCallback(async (dateString: string, isBlocked: boolean) => {
@@ -169,11 +210,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       newBlockedDays = newBlockedDays.filter(day => day !== dateString);
     }
 
+    console.log(`[SessionProvider] ${isBlocked ? 'Blocking' : 'Unblocking'} day: ${dateString}. New blocked days:`, newBlockedDays);
     try {
       await supabase.from('profiles').update({ blocked_days: newBlockedDays }).eq('id', user.id);
       await refreshProfile();
       showSuccess(isBlocked ? `Day ${dateString} blocked.` : `Day ${dateString} unblocked.`);
     } catch (error: any) {
+      console.error("[SessionProvider] Failed to update blocked days:", error);
       showError(`Failed to update blocked days: ${error.message}`);
     }
   }, [user, profile, refreshProfile]);
@@ -190,45 +233,77 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       newSkippedSuggestions = newSkippedSuggestions.filter(day => day !== dateString);
     }
 
+    console.log(`[SessionProvider] ${skip ? 'Skipping' : 'Unskipping'} day off suggestion: ${dateString}. New skipped suggestions:`, newSkippedSuggestions);
     try {
       await supabase.from('profiles').update({ skipped_day_off_suggestions: newSkippedSuggestions }).eq('id', user.id);
       await refreshProfile();
       showSuccess(skip ? `Day ${dateString} skipped for suggestion.` : `Day ${dateString} unskipped.`);
     } catch (error: any) {
+      console.error("[SessionProvider] Failed to update skipped suggestions:", error);
       showError(`Failed to update skipped suggestions: ${error.message}`);
     }
   }, [user, profile, refreshProfile]);
 
   const triggerEnergyRegen = useCallback(async () => {
     if (!user) return;
-    await supabase.functions.invoke('trigger-energy-regen');
-    await refreshProfile();
+    console.log("[SessionProvider] Triggering energy regeneration via Edge Function.");
+    try {
+      const { error } = await supabase.functions.invoke('trigger-energy-regen');
+      if (error) {
+        throw new Error(error.message);
+      }
+      console.log("[SessionProvider] Energy regeneration triggered successfully.");
+      await refreshProfile();
+    } catch (e: any) {
+      console.error("[SessionProvider] Failed to trigger energy regeneration:", e.message);
+    }
   }, [user, refreshProfile]);
 
   const startRegenPodState = useCallback(async (activityName: string, durationMinutes: number) => {
     if (!user) return;
+    console.log(`[SessionProvider] Starting Regen Pod for activity: ${activityName}, duration: ${durationMinutes} min.`);
     setRegenPodDurationMinutes(durationMinutes);
-    await supabase.from('profiles').update({ is_in_regen_pod: true, regen_pod_start_time: new Date().toISOString() }).eq('id', user.id);
-    await refreshProfile();
+    const { error } = await supabase.from('profiles').update({ is_in_regen_pod: true, regen_pod_start_time: new Date().toISOString() }).eq('id', user.id);
+    if (!error) {
+      console.log("[SessionProvider] Profile updated for Regen Pod start.");
+      await refreshProfile();
+    } else {
+      console.error("[SessionProvider] Error starting Regen Pod state:", error);
+    }
   }, [user, refreshProfile]);
 
   const exitRegenPodState = useCallback(async () => {
     if (!user || !profile?.is_in_regen_pod) return;
+    console.log("[SessionProvider] Exiting Regen Pod state.");
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/calculate-pod-exit`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/calculate-pod-exit`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           startTime: profile.regen_pod_start_time,
           endTime: new Date().toISOString()
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to calculate pod exit energy.');
+      }
+      console.log("[SessionProvider] Pod exit calculation successful.");
+    } catch (e: any) {
+      console.error("[SessionProvider] Failed to calculate pod exit energy:", e.message);
     } finally {
-      await supabase.from('profiles').update({ is_in_regen_pod: false, regen_pod_start_time: null }).eq('id', user.id);
-      await refreshProfile();
-      setRegenPodDurationMinutes(0);
+      const { error } = await supabase.from('profiles').update({ is_in_regen_pod: false, regen_pod_start_time: null }).eq('id', user.id);
+      if (!error) {
+        console.log("[SessionProvider] Profile updated for Regen Pod exit.");
+        await refreshProfile();
+        setRegenPodDurationMinutes(0);
+      } else {
+        console.error("[SessionProvider] Error exiting Regen Pod state:", error);
+      }
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
@@ -240,6 +315,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (currentSession?.user) {
       await fetchProfile(currentSession.user.id);
     } else if (event === 'SIGNED_OUT') {
+      console.log("[SessionProvider] User signed out, clearing profile and queries.");
       setProfile(null);
       queryClient.clear();
       setRedirectPath('/login');
@@ -260,6 +336,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const loadInitialSession = async () => {
       if (initialSessionLoadedRef.current) return;
       initialSessionLoadedRef.current = true;
+      console.log("[SessionProvider] Loading initial session...");
       
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
@@ -269,10 +346,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (initialSession?.user) {
           await fetchProfile(initialSession.user.id);
         } else if (location.pathname !== '/login') {
+          console.log("[SessionProvider] No initial session, redirecting to login.");
           setRedirectPath('/login');
         }
       } finally {
         setIsAuthLoading(false);
+        console.log("[SessionProvider] Initial session load complete.");
       }
     };
 
@@ -281,10 +360,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     if (!isAuthLoading && redirectPath && location.pathname !== redirectPath) {
+      console.log(`[SessionProvider] Navigating from ${location.pathname} to ${redirectPath}`);
       navigate(redirectPath, { replace: true });
       setRedirectPath(null);
     }
     if (!isAuthLoading && user && location.pathname === '/login') {
+      console.log("[SessionProvider] User authenticated, redirecting from login to /.");
       setRedirectPath('/');
     }
   }, [redirectPath, navigate, location.pathname, isAuthLoading, user]);
@@ -293,8 +374,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     queryKey: ['scheduledTasksToday', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data } = await supabase.from('scheduled_tasks').select('*')
+      console.log(`[SessionProvider] Fetching scheduled tasks for today (${todayString}) for user: ${user.id}`);
+      const { data, error } = await supabase.from('scheduled_tasks').select('*')
         .eq('user_id', user.id).eq('scheduled_date', todayString);
+      if (error) {
+        console.error("[SessionProvider] Error fetching scheduled tasks for today:", error);
+        throw error;
+      }
       return data as DBScheduledTask[];
     },
     enabled: !!user?.id && !isAuthLoading,
@@ -304,12 +390,16 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     queryKey: ['mealAssignmentsToday', user?.id, todayString],
     queryFn: async () => {
       if (!user?.id || !todayString) return [];
+      console.log(`[SessionProvider] Fetching meal assignments for today (${todayString}) for user: ${user.id}`);
       const { data, error } = await supabase
         .from('meal_assignments')
         .select('*, meal_idea:meal_ideas(*)')
         .eq('assigned_date', todayString)
         .eq('user_id', user.id);
-      if (error) throw error;
+      if (error) {
+        console.error("[SessionProvider] Error fetching meal assignments for today:", error);
+        throw error;
+      }
       return data;
     },
     enabled: !!user?.id && !isAuthLoading,
@@ -317,7 +407,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Memoize the calculation to prevent object reference churn
   const calculatedScheduleToday = useMemo(() => {
-    if (!profile) return null;
+    if (!profile) {
+      console.log("[SessionProvider] No profile, skipping schedule calculation.");
+      return null;
+    }
+    console.log("[SessionProvider] Calculating schedule for today...");
     const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(new Date()), profile.default_auto_schedule_start_time) : startOfDay(new Date());
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(new Date()), profile.default_auto_schedule_end_time) : addHours(startOfDay(new Date()), 17);
     if (isBefore(end, start)) end = addDays(end, 1);
@@ -349,7 +443,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // NEW: Stabilized derivation of active/next items
   useEffect(() => {
     if (!calculatedScheduleToday) {
-      if (activeItemToday !== null) setActiveItemToday(null);
+      if (activeItemToday !== null) {
+        console.log("[SessionProvider] Clearing active/next items (no schedule).");
+        setActiveItemToday(null);
+      }
       if (nextItemToday !== null) setNextItemToday(null);
       return;
     }
@@ -360,12 +457,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Only update state if the content has actually changed
     if (!isEqual(activeItemToday, newActiveItem)) {
+      console.log("[SessionProvider] Active item changed:", newActiveItem?.name);
       setActiveItemToday(newActiveItem);
     }
     if (!isEqual(nextItemToday, newNextItem)) {
+      console.log("[SessionProvider] Next item changed:", newNextItem?.name);
       setNextItemToday(newNextItem);
     }
-  }, [calculatedScheduleToday]); // Depend only on the stable calculatedScheduleToday
+  }, [calculatedScheduleToday, activeItemToday, nextItemToday]); // Depend only on the stable calculatedScheduleToday
 
   const contextValue = useMemo(() => {
     // Only log if we actually have data to prevent spam

@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSession } from '@/hooks/use-session';
 import { getDisplayNameFromEmail } from '@/lib/user-utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,6 +28,10 @@ const ProfileDropdown: React.FC = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
+  useEffect(() => {
+    console.log("[ProfileDropdown] Rendered. User ID:", user?.id, "Profile XP:", profile?.xp);
+  });
+
   if (!user || !profile || isSessionLoading) {
     return (
       <div className="h-10 w-24 rounded-full bg-muted animate-pulse" />
@@ -35,10 +39,12 @@ const ProfileDropdown: React.FC = () => {
   }
 
   const handleSignOut = async () => {
+    console.log("[ProfileDropdown] Signing out user.");
     await supabase.auth.signOut();
   };
 
   const handleGoToSettings = () => {
+    console.log("[ProfileDropdown] Navigating to settings.");
     navigate('/settings');
   };
 

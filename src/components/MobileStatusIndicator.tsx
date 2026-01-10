@@ -47,6 +47,10 @@ const MobileStatusIndicator: React.FC = () => {
 
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
+  useEffect(() => {
+    console.log("[MobileStatusIndicator] Rendered. Active Item:", activeItemToday?.name);
+  });
+
   const updateRemaining = useCallback(() => {
     if (!activeItemToday || isBefore(activeItemToday.endTime, T_current)) {
       setTimeRemaining('0s');
@@ -85,7 +89,10 @@ const MobileStatusIndicator: React.FC = () => {
         bgColor,
         "lg:hidden animate-slide-in-up" // Only visible on mobile
       )}
-      onClick={() => navigate('/scheduler')}
+      onClick={() => {
+        console.log("[MobileStatusIndicator] Navigating to scheduler.");
+        navigate('/scheduler');
+      }}
     >
       <div className="flex items-center gap-2 text-sm font-semibold truncate min-w-0 max-w-[60%]">
         {icon}

@@ -44,6 +44,7 @@ export const useCompletedTasksAnalytics = (daysToLookBack: number = 7): Complete
     queryKey: ['completedTasksAnalytics', userId, daysToLookBack],
     queryFn: async () => {
       if (!userId) return [];
+      console.log(`[useCompletedTasksAnalytics] Fetching completed tasks for analytics for user: ${userId}, days: ${daysToLookBack}`);
 
       const endDate = startOfDay(new Date());
       const startDate = subDays(endDate, daysToLookBack - 1); // Include today
@@ -55,9 +56,12 @@ export const useCompletedTasksAnalytics = (daysToLookBack: number = 7): Complete
         .gte('completed_at', startDate.toISOString())
         .lte('completed_at', endDate.toISOString());
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useCompletedTasksAnalytics] Error fetching completed tasks for analytics:", error);
+        throw new Error(error.message);
+      }
       
-      return (data || []).map(task => ({
+      const mappedTasks = (data || []).map(task => ({
         ...task,
         effective_duration_minutes: task.duration_used || task.duration_scheduled || 30,
         name: task.task_name,
@@ -65,11 +69,14 @@ export const useCompletedTasksAnalytics = (daysToLookBack: number = 7): Complete
         // Ensure priority is set for analytics, defaulting to MEDIUM if not explicitly available
         priority: (task as any).priority || 'MEDIUM', 
       })) as CompletedTaskLogEntry[];
+      console.log(`[useCompletedTasksAnalytics] Fetched ${mappedTasks.length} completed tasks.`);
+      return mappedTasks;
     },
     enabled: !!userId,
   });
 
   const analyticsData = useMemo(() => {
+    console.log("[useCompletedTasksAnalytics] Calculating analytics data from completed tasks.");
     const dailySummaryMap = new Map<string, DailyCompletedSummary>();
     const lastNDays = generateDateRange(daysToLookBack);
 
@@ -121,6 +128,10 @@ export const useCompletedTasksAnalytics = (daysToLookBack: number = 7): Complete
     const priorityDistribution = Object.entries(priorityCounts)
       .map(([name, value]) => ({ name: name as TaskPriority, value }))
       .filter(item => item.value > 0);
+    
+    console.log("[useCompletedTasksAnalytics] Daily Summary:", dailySummary);
+    console.log("[useCompletedTasksAnalytics] Priority Distribution:", priorityDistribution);
+    console.log("[useCompletedTasksAnalytics] Totals: Tasks:", totalCompletedTasks, "XP:", totalXpEarned, "Energy Consumed:", totalEnergyConsumed, "Energy Gained:", totalEnergyGained);
 
     return {
       dailySummary,

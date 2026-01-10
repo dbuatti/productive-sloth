@@ -30,6 +30,7 @@ export const useReflections = (reflectionDate?: string) => {
 
   const fetchReflections = async (): Promise<Reflection[]> => {
     if (!userId) return [];
+    console.log(`[useReflections] Fetching reflections for user: ${userId}, date: ${reflectionDate || 'all'}`);
     let query = supabase
       .from('reflections')
       .select('*')
@@ -40,7 +41,11 @@ export const useReflections = (reflectionDate?: string) => {
     }
 
     const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[useReflections] Error fetching reflections:", error);
+      throw new Error(error.message);
+    }
+    console.log(`[useReflections] Fetched ${data.length} reflections.`);
     return data as Reflection[];
   };
 
@@ -53,12 +58,18 @@ export const useReflections = (reflectionDate?: string) => {
   const addReflectionMutation = useMutation({
     mutationFn: async (newReflection: NewReflection) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useReflections] Adding new reflection for date:", newReflection.reflection_date);
       const reflectionToInsert = { ...newReflection, user_id: userId };
       const { data, error } = await supabase.from('reflections').insert(reflectionToInsert).select().single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useReflections] Error adding reflection:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useReflections] Reflection added successfully:", data.id);
       return data as Reflection;
     },
     onSuccess: () => {
+      console.log("[useReflections] Invalidate queries after addReflection.");
       queryClient.invalidateQueries({ queryKey: ['reflections'] });
       showSuccess('Reflection saved!');
     },
@@ -70,6 +81,7 @@ export const useReflections = (reflectionDate?: string) => {
   const updateReflectionMutation = useMutation({
     mutationFn: async (updatedReflection: Partial<Reflection> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useReflections] Updating reflection:", updatedReflection.id, "for date:", updatedReflection.reflection_date);
       const { data, error } = await supabase
         .from('reflections')
         .update(updatedReflection)
@@ -77,10 +89,15 @@ export const useReflections = (reflectionDate?: string) => {
         .eq('user_id', userId)
         .select()
         .single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useReflections] Error updating reflection:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useReflections] Reflection updated successfully:", data.id);
       return data as Reflection;
     },
     onSuccess: () => {
+      console.log("[useReflections] Invalidate queries after updateReflection.");
       queryClient.invalidateQueries({ queryKey: ['reflections'] });
       showSuccess('Reflection updated!');
     },
@@ -92,10 +109,16 @@ export const useReflections = (reflectionDate?: string) => {
   const deleteReflectionMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useReflections] Deleting reflection:", id);
       const { error } = await supabase.from('reflections').delete().eq('id', id).eq('user_id', userId);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useReflections] Error deleting reflection:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useReflections] Reflection deleted successfully:", id);
     },
     onSuccess: () => {
+      console.log("[useReflections] Invalidate queries after deleteReflection.");
       queryClient.invalidateQueries({ queryKey: ['reflections'] });
       showSuccess('Reflection deleted.');
     },

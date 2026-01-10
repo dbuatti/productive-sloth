@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
-import { SessionProvider } from "./components/SessionProvider"; // Updated import path
+import { SessionProvider } from "./components/SessionProvider";
 import { ThemeProvider } from "next-themes";
 import React, { useEffect } from "react";
 import MainLayout from "./components/MainLayout";
@@ -18,7 +18,7 @@ import ModelPage from "./pages/ModelPage";
 import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage";
 import WellnessPage from "./pages/WellnessPage";
 import AetherSinkPage from "./pages/AetherSinkPage";
-import RecapPage from "./pages/RecapPage"; // NEW IMPORT
+import RecapPage from "./pages/RecapPage";
 import { useSession } from "./hooks/use-session";
 
 const queryClient = new QueryClient();
@@ -47,7 +47,7 @@ const AppContent = () => {
         {/* SCHEDULER CORE VIEWS */}
         <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
         <Route path="/sink" element={<AetherSinkPage />} />
-        <Route path="/recap" element={<RecapPage />} /> {/* NEW: Add RecapPage route */}
+        <Route path="/recap" element={<RecapPage />} />
         
         <Route path="/login" element={<Login />} />
         <Route path="*" element={<NotFound />} />

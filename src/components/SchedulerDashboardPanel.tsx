@@ -46,6 +46,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
   });
 
   const handleToggleCollapse = async () => {
+    console.log("[SchedulerDashboardPanel] Toggling collapse state.");
     if (profile) {
       await updateProfile({ is_dashboard_collapsed: !isCollapsed });
     }
@@ -127,7 +128,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={handleToggleCollapse}
+                  onClick={handleToggleCollapse} 
                   className="h-8 w-8 text-muted-foreground hover:bg-secondary/50"
                   aria-label={isCollapsed ? "Expand Dashboard Metrics" : "Collapse Dashboard Metrics"}
                 >

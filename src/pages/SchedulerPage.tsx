@@ -94,12 +94,16 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     queryKey: ['mealAssignments', user?.id, selectedDay],
     queryFn: async () => {
       if (!user?.id || !selectedDay) return [];
+      console.log(`[SchedulerPage] Fetching meal assignments for ${selectedDay} for user: ${user.id}`);
       const { data, error } = await supabase
         .from('meal_assignments')
         .select('*, meal_idea:meal_ideas(*)')
         .eq('assigned_date', selectedDay)
         .eq('user_id', user.id);
-      if (error) throw error;
+      if (error) {
+        console.error("[SchedulerPage] Error fetching meal assignments:", error);
+        throw error;
+      }
       return data;
     },
     enabled: !!user?.id && !!selectedDay,
@@ -143,6 +147,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   // Stabilize the RegenPod setup trigger
   useEffect(() => {
     if (isRegenPodRunning && !showRegenPodSetup) {
+      console.log("[SchedulerPage] Regen Pod is running, opening setup modal.");
       setShowRegenPodSetup(true);
     }
   }, [isRegenPodRunning]); // Only depend on the running state
@@ -154,30 +159,61 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay]);
 
   const handleRebalanceToday = useCallback(async () => {
+    console.log("[SchedulerPage] Initiating rebalance today command.");
     if (isSelectedDayBlocked) {
       showError("Cannot auto-schedule on a blocked day.");
       return;
     }
-    await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
+    setIsProcessingCommand(true);
+    try {
+      await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
+      showSuccess("Schedule rebalanced with tasks from Aether Sink!");
+    } catch (e: any) {
+      showError(`Rebalance failed: ${e.message}`);
+      console.error("[SchedulerPage] Rebalance today error:", e);
+    } finally {
+      setIsProcessingCommand(false);
+    }
   }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleReshuffleEverything = useCallback(async () => {
+    console.log("[SchedulerPage] Initiating reshuffle everything command.");
     if (isSelectedDayBlocked) {
       showError("Cannot reshuffle on a blocked day.");
       return;
     }
-    await handleAutoScheduleAndSort(sortBy, 'all-flexible', [], selectedDay);
+    setIsProcessingCommand(true);
+    try {
+      await handleAutoScheduleAndSort(sortBy, 'all-flexible', [], selectedDay);
+      showSuccess("All flexible tasks reshuffled!");
+    } catch (e: any) {
+      showError(`Reshuffle failed: ${e.message}`);
+      console.error("[SchedulerPage] Reshuffle everything error:", e);
+    } finally {
+      setIsProcessingCommand(false);
+    }
   }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleZoneFocus = useCallback(async () => {
+    console.log("[SchedulerPage] Initiating zone focus command.");
     if (isSelectedDayBlocked) {
       showError("Cannot zone focus on a blocked day.");
       return;
     }
-    await handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay);
+    setIsProcessingCommand(true);
+    try {
+      await handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay);
+      showSuccess("Tasks filtered by environment and scheduled!");
+    } catch (e: any) {
+      showError(`Zone focus failed: ${e.message}`);
+      console.error("[SchedulerPage] Zone focus error:", e);
+    } finally {
+      setIsProcessingCommand(false);
+    }
   }, [handleAutoScheduleAndSort, selectedEnvironments, selectedDay, sortBy, isSelectedDayBlocked]);
 
   const handleGlobalAutoSchedule = useCallback(async () => {
+    console.log("[SchedulerPage] Initiating global auto-schedule command.");
     if (isSelectedDayBlocked) {
       showError("Cannot global auto-schedule starting on a blocked day.");
       return;
@@ -188,33 +224,56 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       showSuccess("Global auto-schedule initiated for the next 30 days!");
     } catch (e: any) {
       showError(`Global auto-schedule failed: ${e.message}`);
+      console.error("[SchedulerPage] Global auto-schedule error:", e);
     } finally {
       setIsProcessingCommand(false);
     }
   }, [handleAutoScheduleAndSort, sortBy, selectedDay, isSelectedDayBlocked]);
 
   const handleCompact = useCallback(async () => {
+    console.log("[SchedulerPage] Initiating compact schedule command.");
     if (isSelectedDayBlocked) {
       showError("Cannot compact schedule on a blocked day.");
       return;
     }
-    const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile);
-    await compactScheduledTasks({ tasksToUpdate });
+    setIsProcessingCommand(true);
+    try {
+      const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile);
+      await compactScheduledTasks({ tasksToUpdate });
+      showSuccess("Schedule compacted!");
+    } catch (e: any) {
+      showError(`Compaction failed: ${e.message}`);
+      console.error("[SchedulerPage] Compact schedule error:", e);
+    } finally {
+      setIsProcessingCommand(false);
+    }
   }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile, isSelectedDayBlocked]);
 
   const handleRandomize = useCallback(async () => {
+    console.log("[SchedulerPage] Initiating randomize breaks command.");
     if (isSelectedDayBlocked) {
       showError("Cannot randomize breaks on a blocked day.");
       return;
     }
-    await randomizeBreaks({ selectedDate: selectedDay, workdayStartTime: workdayStartTimeForSelectedDay, workdayEndTime: workdayEndTimeForSelectedDay, currentDbTasks: dbScheduledTasks });
+    setIsProcessingCommand(true);
+    try {
+      await randomizeBreaks({ selectedDate: selectedDay, workdayStartTime: workdayStartTimeForSelectedDay, workdayEndTime: workdayEndTimeForSelectedDay, currentDbTasks: dbScheduledTasks });
+      showSuccess("Breaks randomized!");
+    } catch (e: any) {
+      showError(`Randomize breaks failed: ${e.message}`);
+      console.error("[SchedulerPage] Randomize breaks error:", e);
+    } finally {
+      setIsProcessingCommand(false);
+    }
   }, [selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, dbScheduledTasks, randomizeBreaks, isSelectedDayBlocked]);
 
   const handleRezone = useCallback(async (task: RetiredTask) => {
+    console.log(`[SchedulerPage] Initiating re-zone for task: ${task.name}`);
     if (isSelectedDayBlocked) {
       showError("Cannot re-zone tasks to a blocked day.");
       return;
     }
+    setIsProcessingCommand(true);
     try {
       const rezonedTaskData = await rezoneTask(task); // Use rezoneTask from useRetiredTasks
       if (rezonedTaskData) {
@@ -237,7 +296,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             name: rezonedTaskData.name,
             start_time: slot.start.toISOString(),
             end_time: slot.end.toISOString(),
-            break_duration: rezonedTaskData.break_duration,
+            break_duration: rezonedTaskData.break_duration || null,
             scheduled_date: selectedDay,
             is_critical: rezonedTaskData.is_critical,
             is_flexible: true, // Re-zoned tasks are flexible by default
@@ -256,19 +315,34 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       }
     } catch (e: any) {
       showError(`Failed to re-zone task: ${e.message}`);
+      console.error("[SchedulerPage] Re-zone task error:", e);
+    } finally {
+      setIsProcessingCommand(false);
     }
   }, [rezoneTask, addScheduledTask, selectedDay, dbScheduledTasks, staticConstraints, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, selectedDayAsDate, isSelectedDayBlocked]);
 
   const handleRemoveRetired = useCallback(async (taskId: string) => {
-    await removeRetiredTask(taskId); // Use removeRetiredTask from useRetiredTasks
+    console.log(`[SchedulerPage] Removing retired task: ${taskId}`);
+    setIsProcessingCommand(true);
+    try {
+      await removeRetiredTask(taskId); // Use removeRetiredTask from useRetiredTasks
+      showSuccess("Task removed from Aether Sink.");
+    } catch (e: any) {
+      showError(`Failed to remove retired task: ${e.message}`);
+      console.error("[SchedulerPage] Remove retired task error:", e);
+    } finally {
+      setIsProcessingCommand(false);
+    }
   }, [removeRetiredTask]);
 
   const handleSortFlexibleTasks = useCallback(async (newSortBy: SortBy) => {
+    console.log(`[SchedulerPage] Setting flexible tasks sort to: ${newSortBy}`);
     setSortBy(newSortBy);
     showSuccess(`Balance logic set to ${newSortBy.replace(/_/g, ' ').toLowerCase()}.`);
   }, [setSortBy]);
 
   const handleStartPodSession = useCallback(async (activityName: string, durationMinutes: number) => {
+    console.log(`[SchedulerPage] Initiating start Regen Pod session for activity: ${activityName}, duration: ${durationMinutes} min.`);
     if (!user || !profile) return;
     if (isSelectedDayBlocked) {
       showError("Cannot start Regen Pod on a blocked day.");
@@ -292,22 +366,36 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             is_locked: true, 
             energy_cost: 0, 
             task_environment: 'away', 
+            is_break: true, 
+            is_work: false,
         });
         
-        showSuccess("Quick Break added! Time to recharge. ☕️");
+        showSuccess("Regen Pod session started! Time to recharge. 🔋");
     } catch (e: any) {
         showError(`Failed to start Regen Pod: ${e.message}`);
+        console.error("[SchedulerPage] Start Regen Pod error:", e);
     } finally {
         setIsProcessingCommand(false);
     }
   }, [user, profile, T_current, selectedDay, startRegenPodState, addScheduledTask, isSelectedDayBlocked]);
 
   const handleExitPodSession = useCallback(async () => {
-    await exitRegenPodState();
-    setShowRegenPodSetup(false);
+    console.log("[SchedulerPage] Initiating exit Regen Pod session.");
+    setIsProcessingCommand(true);
+    try {
+      await exitRegenPodState();
+      setShowRegenPodSetup(false);
+      showSuccess("Regen Pod session ended.");
+    } catch (e: any) {
+      showError(`Failed to exit Regen Pod: ${e.message}`);
+      console.error("[SchedulerPage] Exit Regen Pod error:", e);
+    } finally {
+      setIsProcessingCommand(false);
+    }
   }, [exitRegenPodState]);
 
   const handleQuickBreak = useCallback(async () => {
+    console.log("[SchedulerPage] Initiating quick break command.");
     if (!user || !profile) return showError("Please log in.");
     if (isSelectedDayBlocked) {
       showError("Cannot add tasks to a blocked day.");
@@ -330,16 +418,19 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         energy_cost: 0, 
         task_environment: 'away',
         is_break: true, 
+        is_work: false,
       });
       showSuccess("Quick Break added! Time to recharge. ☕️");
     } catch (e: any) {
       showError(`Failed to add quick break: ${e.message}`);
+      console.error("[SchedulerPage] Quick break error:", e);
     } finally {
       setIsProcessingCommand(false);
     }
   }, [user, profile, T_current, selectedDay, addScheduledTask, isSelectedDayBlocked]);
 
   const handleQuickScheduleBlock = useCallback(async (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => {
+    console.log(`[SchedulerPage] Initiating quick schedule block: ${duration} min, sort: ${sortPreference}`);
     if (!user || !profile) return showError("Please log in.");
     if (isSelectedDayBlocked) {
       showError("Cannot schedule tasks on a blocked day.");
@@ -410,7 +501,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       }
 
       if (tasksToInsert.length > 0) {
-        await handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay); // Use handleAutoScheduleAndSort to perform the actual DB operations
+        // Instead of directly calling autoBalanceScheduleMutation, we can call handleAutoScheduleAndSort
+        // with a specific payload to insert these tasks and delete from retired.
+        // This ensures consistency with the auto-balance logic.
+        await handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay); // This will re-evaluate and place tasks
         showSuccess(`Scheduled ${tasksToInsert.length} tasks for ${duration} minutes!`);
       } else {
         showError("Could not find suitable tasks or slots to fill the requested duration.");
@@ -418,12 +512,14 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
     } catch (e: any) {
       showError(`Quick schedule block failed: ${e.message}`);
+      console.error("[SchedulerPage] Quick schedule block error:", e);
     } finally {
       setIsProcessingCommand(false);
     }
   }, [user, profile, retiredTasks, dbScheduledTasks, selectedDay, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, staticConstraints, handleAutoScheduleAndSort, sortBy, isSelectedDayBlocked]);
 
   const handleCommand = useCallback(async (input: string) => {
+    console.log(`[SchedulerPage] Processing command input: "${input}"`);
     if (!user || !profile) return showError("Please log in.");
     if (isSelectedDayBlocked) {
       showError("Cannot perform scheduling actions on a blocked day.");
@@ -434,17 +530,28 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       const command = parseCommand(input);
       if (command) {
         switch (command.type) {
-          case 'clear': await clearScheduledTasks(); break;
-          case 'compact': await handleCompact(); break;
-          case 'aether dump': await aetherDump(); break;
-          case 'aether dump mega': await aetherDumpMega(); break;
-          case 'break':
-            // This case is now handled by handleQuickBreak, which is passed to SchedulerInput
-            // For direct command input, we can still implement it here if needed,
-            // but the quick break button is the primary way.
-            await handleQuickBreak(); // Re-use the quick break logic
+          case 'clear': 
+            await clearScheduledTasks(); 
+            showSuccess("Schedule cleared!");
             break;
-          default: showError("Unknown engine command.");
+          case 'compact': 
+            await handleCompact(); 
+            showSuccess("Schedule compacted!");
+            break;
+          case 'aether dump': 
+            await aetherDump(); 
+            showSuccess("Today's flexible tasks moved to Aether Sink!");
+            break;
+          case 'aether dump mega': 
+            await aetherDumpMega(); 
+            showSuccess("All future flexible tasks moved to Aether Sink!");
+            break;
+          case 'break':
+            await handleQuickBreak(); 
+            break;
+          default: 
+            showError("Unknown engine command.");
+            console.warn("[SchedulerPage] Unknown command type:", command.type);
         }
         setInputValue('');
         return;
@@ -462,8 +569,11 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             is_critical: task.isCritical, 
             energy_cost: task.energyCost, 
             task_environment: environmentForPlacement, 
-            is_backburner: task.isBackburner 
+            is_backburner: task.isBackburner,
+            is_work: task.isWork,
+            is_break: task.isBreak,
           });
+          showSuccess(`Task "${task.name}" sent to Aether Sink!`);
         } else if (task.duration) {
           const occupiedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
             start: parseISO(t.start_time!),
@@ -491,8 +601,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               energy_cost: task.energyCost,
               task_environment: environmentForPlacement,
               is_backburner: task.isBackburner,
+              is_work: task.isWork,
+              is_break: task.isBreak,
             });
-            showSuccess(`Scheduled "${task.name}" at ${format(slot.start, 'h:mm a')}`);
+            showSuccess(`Scheduled "${task.name}" at ${format(slot.start, 'h:mm a')}!`);
           } else {
             showError(`No slot found for "${task.name}" within constraints. Sending to Sink.`);
             await addRetiredTask({ // Use addRetiredTask from useRetiredTasks
@@ -505,6 +617,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               energy_cost: task.energyCost,
               task_environment: environmentForPlacement,
               is_backburner: task.isBackburner,
+              is_work: task.isWork,
+              is_break: task.isBreak,
             });
           }
         } else {
@@ -520,20 +634,26 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             energy_cost: task.energyCost,
             task_environment: environmentForPlacement,
             is_backburner: task.isBackburner,
+            is_work: task.isWork,
+            is_break: task.isBreak,
           });
+          showSuccess(`Fixed task "${task.name}" added to schedule!`);
         }
         setInputValue('');
       } else {
-        showError("Invalid task format.");
+        showError("Invalid task format or command.");
+        console.warn("[SchedulerPage] Invalid task format or command for input:", input);
       }
     } catch (e: any) {
       showError(`Command failed: ${e.message}`);
+      console.error("[SchedulerPage] Command execution error:", e);
     } finally {
       setIsProcessingCommand(false);
     }
   }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, staticConstraints, isSelectedDayBlocked, handleQuickBreak]);
 
   const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'exitFocus', task: DBScheduledTask) => {
+    console.log(`[SchedulerPage] Performing scheduler action: ${action} for task: ${task.name}`);
     setIsProcessingCommand(true);
     try {
       if (action === 'complete') {
@@ -542,15 +662,20 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         showSuccess(`Objective synchronized: +${task.energy_cost * 2} XP`);
       } else if (action === 'skip') {
         await retireTask(task);
+        showSuccess(`Objective "${task.name}" moved to Aether Sink.`);
       } else if (action === 'exitFocus') {
         setIsFocusModeActive(false);
       }
+    } catch (e: any) {
+      showError(`Action failed: ${e.message}`);
+      console.error("[SchedulerPage] Scheduler action error:", e);
     } finally {
       setIsProcessingCommand(false);
     }
   }, [completeScheduledTaskMutation, rechargeEnergy, retireTask]);
 
   const handleDetailedInject = useCallback(() => {
+    console.log("[SchedulerPage] Opening detailed inject dialog.");
     if (isSelectedDayBlocked) {
       showError("Cannot add tasks to a blocked day.");
       return;
@@ -563,6 +688,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [selectedDayAsDate, isSelectedDayBlocked]);
 
   const handleFreeTimeClick = useCallback((startTime: Date, endTime: Date) => {
+    console.log(`[SchedulerPage] Free time clicked: ${format(startTime, 'HH:mm')}-${format(endTime, 'HH:mm')}`);
     if (isSelectedDayBlocked) {
       showError("Cannot add tasks to a blocked day.");
       return;
@@ -577,6 +703,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [selectedDayAsDate, isSelectedDayBlocked]);
 
   const handleToggleDayLock = useCallback(async () => {
+    console.log(`[SchedulerPage] Toggling day lock for ${selectedDay}. Current state: ${isDayLockedDown}`);
     if (isSelectedDayBlocked) {
       showError("Cannot lock/unlock tasks on a blocked day.");
       return;
@@ -584,23 +711,30 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     setIsProcessingCommand(true);
     try {
       await toggleAllScheduledTasksLock({ selectedDate: selectedDay, lockState: !isDayLockedDown });
-    } catch (e) {
+      showSuccess(isDayLockedDown ? "Day unlocked!" : "Day locked down!");
+    } catch (e: any) {
+      showError(`Failed to toggle day lock: ${e.message}`);
+      console.error("[SchedulerPage] Toggle day lock error:", e);
     } finally {
       setIsProcessingCommand(false);
     }
   }, [selectedDay, isDayLockedDown, toggleAllScheduledTasksLock, isSelectedDayBlocked]);
 
-  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
+  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingDatesWithTasks || isLoadingCompletedTasksForSelectedDay;
 
   // CRITICAL FIX: Memoize the calculated schedule object to prevent reference churn
   const calculatedSchedule = useMemo(() => {
-    if (!profile) return null;
+    if (!profile) {
+      console.log("[SchedulerPage] Profile not available for schedule calculation.");
+      return null;
+    }
+    console.log("[SchedulerPage] Recalculating schedule with latest data.");
     const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_start_time) : startOfDay(selectedDayAsDate);
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17);
     if (isBefore(end, start)) end = addDays(end, 1);
 
-    return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, start, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments, isSelectedDayBlocked);
-  }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, mealAssignments, isSelectedDayBlocked]);
+    return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments, isSelectedDayBlocked);
+  }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, mealAssignments, isSelectedDayBlocked, T_current]);
 
   const wrapperClass = "max-w-4xl mx-auto w-full space-y-6";
 

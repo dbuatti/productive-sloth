@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSession } from '@/hooks/use-session';
 import { cn } from '@/lib/utils';
 import ThemeToggle from './ThemeToggle';
@@ -17,6 +17,10 @@ interface AppUnifiedHeaderProps {
 const AppUnifiedHeader: React.FC<AppUnifiedHeaderProps> = ({ onToggleMobileMenu }) => {
   const { profile } = useSession();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    console.log("[AppUnifiedHeader] Rendered. Profile ID:", profile?.id, "Is Mobile:", isMobile);
+  });
 
   if (!profile) return null;
 

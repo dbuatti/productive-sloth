@@ -21,12 +21,17 @@ export const useICloudCalendar = () => {
   // --- 1. Fetch User's Selected/Synced Calendars (from DB) ---
   const fetchUserCalendars = useCallback(async (): Promise<UserCalendar[]> => {
     if (!userId) return [];
+    console.log(`[useICloudCalendar] Fetching user calendars for user: ${userId}`);
     const { data, error } = await supabase
       .from('user_calendars')
       .select('*')
       .eq('user_id', userId);
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[useICloudCalendar] Error fetching user calendars:", error);
+      throw new Error(error.message);
+    }
+    console.log(`[useICloudCalendar] Fetched ${data.length} user calendars.`);
     return data as UserCalendar[];
   }, [userId]);
 
@@ -39,6 +44,7 @@ export const useICloudCalendar = () => {
   // --- 2. Fetch Available Calendars (Mock API Call via Edge Function) ---
   const fetchAvailableCalendars = useCallback(async (): Promise<AvailableCalendar[]> => {
     if (!userId || !session?.access_token) return [];
+    console.log(`[useICloudCalendar] Fetching available calendars for user: ${userId}`);
     
     // In a real app, this would initiate the OAuth flow if needed, 
     // then fetch the list of calendars using the stored credentials.
@@ -55,9 +61,11 @@ export const useICloudCalendar = () => {
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error("[useICloudCalendar] Failed to fetch available calendars:", errorData);
       throw new Error(errorData.error || 'Failed to fetch available calendars.');
     }
     const data = await response.json();
+    console.log(`[useICloudCalendar] Fetched ${data.calendars.length} available calendars.`);
     return data.calendars as AvailableCalendar[];
   }, [userId, session?.access_token]);
 
@@ -73,6 +81,7 @@ export const useICloudCalendar = () => {
   const updateCalendarSelectionMutation = useMutation({
     mutationFn: async (calendar: { calendar_id: string, calendar_name: string, is_enabled: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log(`[useICloudCalendar] Updating calendar selection for ${calendar.calendar_name} to enabled: ${calendar.is_enabled}`);
       
       const existing = userCalendars.find(uc => uc.calendar_id === calendar.calendar_id);
       
@@ -83,7 +92,11 @@ export const useICloudCalendar = () => {
           .update({ is_enabled: calendar.is_enabled })
           .eq('id', existing.id)
           .eq('user_id', userId);
-        if (error) throw new Error(error.message);
+        if (error) {
+          console.error("[useICloudCalendar] Error updating existing calendar selection:", error);
+          throw new Error(error.message);
+        }
+        console.log(`[useICloudCalendar] Updated existing calendar ${calendar.calendar_name}.`);
       } else if (calendar.is_enabled) {
         // Insert new entry if enabling
         const { error } = await supabase
@@ -94,11 +107,16 @@ export const useICloudCalendar = () => {
             calendar_name: calendar.calendar_name, 
             is_enabled: true 
           });
-        if (error) throw new Error(error.message);
+        if (error) {
+          console.error("[useICloudCalendar] Error inserting new calendar selection:", error);
+          throw new Error(error.message);
+        }
+        console.log(`[useICloudCalendar] Inserted new calendar ${calendar.calendar_name}.`);
       }
       // If disabling a non-existent calendar, do nothing.
     },
     onSuccess: () => {
+      console.log("[useICloudCalendar] Invalidate queries after updateCalendarSelection.");
       queryClient.invalidateQueries({ queryKey: syncQueryKey });
       // No success toast here, handled by SettingsPage
     },
@@ -116,6 +134,7 @@ export const useICloudCalendar = () => {
         showError("No calendars enabled for sync.");
         return { syncedCount: 0, deletedCount: 0 };
       }
+      console.log(`[useICloudCalendar] Initiating event sync for calendars: ${calendarIdsToSync.join(', ')}`);
 
       const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/sync-icloud-events`;
 
@@ -134,14 +153,17 @@ export const useICloudCalendar = () => {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to sync calendar events.');
-      }
-      const data = await response.json();
-      return data as { syncedCount: number, deletedCount: number };
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("[useICloudCalendar] Failed to sync calendar events via Edge Function:", errorData);
+      throw new Error(errorData.error || 'Failed to sync calendar events.');
+    }
+    const data = await response.json();
+    console.log(`[useICloudCalendar] Event sync successful. Synced: ${data.syncedCount}, Deleted: ${data.deletedCount}`);
+    return data as { syncedCount: number, deletedCount: number };
     },
     onSuccess: (data) => {
+      console.log("[useICloudCalendar] Invalidate queries after syncEvents.");
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks', userId] });
       queryClient.invalidateQueries({ queryKey: ['datesWithTasks', userId] });
       queryClient.invalidateQueries({ queryKey: syncQueryKey }); // Update last_synced_at
@@ -158,6 +180,7 @@ export const useICloudCalendar = () => {
   const calendarsToSync = userCalendars.filter(uc => uc.is_enabled).map(uc => uc.calendar_id);
 
   const toggleCalendarSelection = useCallback((calendar: AvailableCalendar, isEnabled: boolean) => {
+    console.log(`[useICloudCalendar] Toggling calendar selection for ${calendar.name} to ${isEnabled}.`);
     updateCalendarSelectionMutation.mutate({
       calendar_id: calendar.id,
       calendar_name: calendar.name,
@@ -166,6 +189,7 @@ export const useICloudCalendar = () => {
   }, [updateCalendarSelectionMutation]);
 
   const triggerSync = useCallback(() => {
+    console.log("[useICloudCalendar] Triggering manual calendar sync.");
     if (calendarsToSync.length > 0) {
       syncEventsMutation.mutate(calendarsToSync);
     } else {

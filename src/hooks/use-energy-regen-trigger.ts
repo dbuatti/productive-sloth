@@ -19,10 +19,12 @@ export const useEnergyRegenTrigger = () => {
   const triggerRegen = useCallback(async () => {
     const currentProfile = profileRef.current; // Use the ref to get the latest profile
     if (!user || !currentProfile || isTriggeringRef.current) {
+      console.log("[useEnergyRegenTrigger] Skipping triggerRegen: user, profile, or already triggering.");
       return;
     }
 
     isTriggeringRef.current = true; // Set ref to true when starting
+    console.log("[useEnergyRegenTrigger] Triggering energy regeneration via Edge Function.");
     try {
       const { error } = await supabase.functions.invoke('trigger-energy-regen', {
         method: 'POST',
@@ -32,13 +34,15 @@ export const useEnergyRegenTrigger = () => {
       if (error) {
         throw new Error(error.message);
       }
+      console.log("[useEnergyRegenTrigger] Energy regeneration Edge Function invoked successfully.");
       
       // Add a small delay to ensure profile refresh has time to propagate
       await new Promise(resolve => setTimeout(resolve, 2000)); 
       await refreshProfile();
+      console.log("[useEnergyRegenTrigger] Profile refreshed after energy regeneration.");
 
     } catch (e: any) {
-      // console.error("[EnergyRegen] Failed to trigger energy regeneration:", e.message);
+      console.error("[useEnergyRegenTrigger] Failed to trigger energy regeneration:", e.message);
     } finally {
       isTriggeringRef.current = false; // Reset ref to false
     }
@@ -46,6 +50,7 @@ export const useEnergyRegenTrigger = () => {
 
   useEffect(() => {
     if (!user || !profile) {
+      console.log("[useEnergyRegenTrigger] Skipping effect: user or profile not available.");
       return;
     }
 
@@ -56,10 +61,13 @@ export const useEnergyRegenTrigger = () => {
 
     if (!lastRegenAt) {
       shouldTrigger = true;
+      console.log("[useEnergyRegenTrigger] No last_energy_regen_at found, should trigger.");
     } else {
       const minutesSinceLastRegen = differenceInMinutes(now, lastRegenAt);
+      console.log(`[useEnergyRegenTrigger] Minutes since last regen: ${minutesSinceLastRegen}`);
       if (minutesSinceLastRegen >= REGEN_COOLDOWN_MINUTES) {
         shouldTrigger = true;
+        console.log(`[useEnergyRegenTrigger] Cooldown (${REGEN_COOLDOWN_MINUTES} min) passed, should trigger.`);
       }
     }
 

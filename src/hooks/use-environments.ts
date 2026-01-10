@@ -34,6 +34,7 @@ export const useEnvironments = () => {
     queryKey: ['environments', userId],
     queryFn: async () => {
       if (!userId) return [];
+      console.log(`[useEnvironments] Fetching environments for user: ${userId}`);
       
       const { data, error } = await supabase
         .from('environments')
@@ -41,7 +42,11 @@ export const useEnvironments = () => {
         .eq('user_id', userId)
         .order('created_at', { ascending: true });
       
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useEnvironments] Error fetching environments:", error);
+        throw new Error(error.message);
+      }
+      console.log(`[useEnvironments] Fetched ${data.length} environments.`);
       return data as Environment[];
     },
     enabled: !!userId,
@@ -50,6 +55,7 @@ export const useEnvironments = () => {
   const addEnvironment = useMutation({
     mutationFn: async (newEnvironment: NewEnvironment) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useEnvironments] Adding new environment:", newEnvironment.label);
       
       const environmentToInsert = {
         ...newEnvironment,
@@ -64,10 +70,15 @@ export const useEnvironments = () => {
         .select()
         .single();
       
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useEnvironments] Error adding environment:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useEnvironments] Environment added successfully:", data.label);
       return data as Environment;
     },
     onSuccess: () => {
+      console.log("[useEnvironments] Invalidate queries after addEnvironment.");
       queryClient.invalidateQueries({ queryKey: ['environments'] });
       showSuccess('Environment added successfully!');
     },
@@ -79,6 +90,7 @@ export const useEnvironments = () => {
   const updateEnvironment = useMutation({
     mutationFn: async (environment: Partial<Environment> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useEnvironments] Updating environment:", environment.id, environment.label);
       
       // Allow updating is_default status
       const { data, error } = await supabase
@@ -89,10 +101,15 @@ export const useEnvironments = () => {
         .select()
         .single();
       
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useEnvironments] Error updating environment:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useEnvironments] Environment updated successfully:", data.label);
       return data as Environment;
     },
     onSuccess: () => {
+      console.log("[useEnvironments] Invalidate queries after updateEnvironment.");
       queryClient.invalidateQueries({ queryKey: ['environments'] });
       showSuccess('Environment updated successfully!');
     },
@@ -104,6 +121,7 @@ export const useEnvironments = () => {
   const deleteEnvironment = useMutation({
     mutationFn: async (id: string) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useEnvironments] Deleting environment:", id);
       
       // The check for `is_default` is now removed here, as the UI will control it.
       // If `is_default` is set to false, it can be deleted.
@@ -113,9 +131,14 @@ export const useEnvironments = () => {
         .eq('id', id)
         .eq('user_id', userId);
       
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useEnvironments] Error deleting environment:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useEnvironments] Environment deleted successfully:", id);
     },
     onSuccess: () => {
+      console.log("[useEnvironments] Invalidate queries after deleteEnvironment.");
       queryClient.invalidateQueries({ queryKey: ['environments'] });
       showSuccess('Environment deleted successfully!');
     },

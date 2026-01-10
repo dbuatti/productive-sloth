@@ -27,6 +27,10 @@ const FocusAnchor: React.FC = () => {
   const isMobile = useIsMobile(); // Check if mobile
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
+  useEffect(() => {
+    console.log("[FocusAnchor] Rendered. Active Item:", activeItemToday?.name, "Is Mobile:", isMobile);
+  });
+
   const updateRemaining = useCallback(() => {
     if (!activeItemToday || isBefore(activeItemToday.endTime, T_current)) {
       setTimeRemaining('0s');
@@ -76,7 +80,10 @@ const FocusAnchor: React.FC = () => {
       <TooltipTrigger asChild>
         <Button
           variant="outline"
-          onClick={() => navigate('/scheduler')}
+          onClick={() => {
+            console.log("[FocusAnchor] Navigating to scheduler.");
+            navigate('/scheduler');
+          }}
           className={cn(
             "fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-full shadow-lg transition-all duration-300 ease-in-out",
             "border-2",

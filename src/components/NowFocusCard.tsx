@@ -22,6 +22,7 @@ const NowFocusCard: React.FC<NowFocusCardProps> = React.memo(({ activeItem, next
   const isMobile = useIsMobile();
 
   useEffect(() => {
+    console.log("[NowFocusCard] Rendered. Active Item:", activeItem?.name, "Next Item:", nextItem?.name, "Is Loading:", isLoading);
     if (!activeItem) {
       setTimeRemaining(null);
       return;

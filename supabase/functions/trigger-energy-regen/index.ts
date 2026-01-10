@@ -13,19 +13,25 @@ const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 serve(async (req) => {
+  const functionName = "[trigger-energy-regen]";
   if (req.method === 'OPTIONS') {
+    console.log(`${functionName} OPTIONS request received.`);
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log(`${functionName} Request received.`);
     // Get environment variables
+    // @ts-ignore
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!SUPABASE_SERVICE_ROLE_KEY) {
+        console.error(`${functionName} SUPABASE_SERVICE_ROLE_KEY is missing.`);
         throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing.");
     }
 
     const energyRegenUrl = `${SUPABASE_URL}/functions/v1/energy-regen`;
+    console.log(`${functionName} Invoking energy-regen function at: ${energyRegenUrl}`);
 
     // 1. Invoke the main energy-regen function using fetch and Service Role Key
     const response = await fetch(energyRegenUrl, {
@@ -39,9 +45,10 @@ serve(async (req) => {
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error("Error response from energy-regen:", response.status, errorText);
+        console.error(`${functionName} Error response from energy-regen: Status ${response.status}, Body: ${errorText}`);
         throw new Error(`Energy-regen failed with status ${response.status}: ${errorText}`);
     }
+    console.log(`${functionName} Energy regeneration triggered successfully.`);
 
     return new Response(JSON.stringify({ message: "Energy regeneration triggered successfully." }), {
       status: 200,
@@ -49,7 +56,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("Edge Function error:", error.message);
+    console.error(`${functionName} Edge Function error: ${error.message}`);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

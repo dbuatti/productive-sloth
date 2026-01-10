@@ -13,10 +13,12 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => {
     queryKey: ['weeklySchedulerTasks', userId, centerDateString, profile?.id],
     queryFn: async () => {
       if (!userId || !profile) return {};
+      console.log(`[useWeeklySchedulerTasks] Fetching weekly tasks for user: ${userId}, centerDate: ${centerDateString}`);
 
       const centerDate = parseISO(centerDateString);
       const startDate = subDays(startOfDay(centerDate), 7); // Fetch 7 days in the past
       const endDate = addDays(startDate, 30); // Fetch 30 days total (7 past + today + 22 future)
+      console.log(`[useWeeklySchedulerTasks] Fetch window: ${format(startDate, 'yyyy-MM-dd')} to ${format(endDate, 'yyyy-MM-dd')}`);
 
       // 1. Fetch actual scheduled tasks
       const { data: scheduledData, error: scheduledError } = await supabase
@@ -26,7 +28,11 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => {
         .gte('scheduled_date', format(startDate, 'yyyy-MM-dd'))
         .lte('scheduled_date', format(endDate, 'yyyy-MM-dd'));
 
-      if (scheduledError) throw scheduledError;
+      if (scheduledError) {
+        console.error("[useWeeklySchedulerTasks] Error fetching scheduled tasks:", scheduledError);
+        throw scheduledError;
+      }
+      console.log(`[useWeeklySchedulerTasks] Fetched ${scheduledData.length} scheduled tasks.`);
 
       const tasksByDay: Record<string, DBScheduledTask[]> = {};
       
@@ -43,6 +49,7 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => {
         if (!tasksByDay[dayKey]) tasksByDay[dayKey] = [];
         tasksByDay[dayKey].push(task);
       });
+      console.log("[useWeeklySchedulerTasks] Populated tasks into daily buckets.");
 
       // 2. Generate Static Anchors (Meals/Reflections) for the window
       const staticAnchors: DBScheduledTask[] = [];
@@ -114,12 +121,14 @@ export const useWeeklySchedulerTasks = (centerDateString: string) => {
           }
         }
       }
+      console.log(`[useWeeklySchedulerTasks] Generated ${staticAnchors.length} static anchor tasks.`);
 
       // Merge anchors into tasksByDay
       staticAnchors.forEach(anchor => {
         if (!tasksByDay[anchor.scheduled_date]) tasksByDay[anchor.scheduled_date] = [];
         tasksByDay[anchor.scheduled_date].push(anchor);
       });
+      console.log("[useWeeklySchedulerTasks] Merged static anchors into daily tasks.");
 
       return tasksByDay;
     },

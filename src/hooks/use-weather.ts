@@ -29,6 +29,7 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
   const [locationError, setLocationError] = useState<string | null>(null);
 
   const fetchWeatherData = async (): Promise<WeatherData> => {
+    console.log(`[useWeather] Fetching weather data for city: ${city}, lat: ${lat}, lon: ${lon}`);
     const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/get-weather`;
 
     const payload = { city, lat, lon };
@@ -43,9 +44,11 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error("[useWeather] Failed to fetch weather data via Edge Function:", errorData);
       throw new Error(errorData.error || 'Failed to fetch weather data via Edge Function');
     }
     const data = await response.json();
+    console.log("[useWeather] Weather data fetched successfully:", data);
 
     return {
       temperature: data.main.temp,
@@ -70,6 +73,7 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
 
   useEffect(() => {
     if (error) {
+      console.error("[useWeather] Weather fetch error:", error);
       showError(`Weather fetch error: ${error.message}`);
     }
   }, [error]);
@@ -77,9 +81,11 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
   // Handle geolocation if no explicit lat/lon/city is provided
   useEffect(() => {
     if (enabled && !lat && !lon && !city) {
+      console.log("[useWeather] Attempting to get geolocation.");
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            console.log("[useWeather] Geolocation obtained, but not automatically used by useWeather hook. Pass lat/lon or city explicitly.");
             // For now, we'll rely on the user explicitly passing lat/lon or city
             // or the default city in the WeatherWidget.
             // If you want to use geolocation, you'd need to update state here
@@ -88,12 +94,14 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
             // console.log("Geolocation obtained, but not automatically used by useWeather hook. Pass lat/lon or city explicitly.");
           },
           (geoError) => {
+            console.error("[useWeather] Geolocation error:", geoError);
             setLocationError(`Geolocation error: ${geoError.message}. Defaulting to Melbourne.`);
             showError(`Geolocation error: ${geoError.message}. Defaulting to Melbourne.`);
           },
           { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
         );
       } else {
+        console.warn("[useWeather] Geolocation is not supported by browser.");
         setLocationError("Geolocation is not supported by your browser. Defaulting to Melbourne.");
         showError("Geolocation is not supported by your browser. Defaulting to Melbourne.");
       }

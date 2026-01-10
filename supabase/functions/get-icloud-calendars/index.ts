@@ -17,14 +17,18 @@ const MOCK_CALENDARS = [
 ];
 
 serve(async (req) => {
+  const functionName = "[get-icloud-calendars]";
   if (req.method === 'OPTIONS') {
+    console.log(`${functionName} OPTIONS request received.`);
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log(`${functionName} Request received.`);
     // --- Authentication Check (Required for all user-facing functions) ---
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error(`${functionName} Unauthorized: Missing Authorization header`);
       return new Response(JSON.stringify({ error: 'Unauthorized: Missing Authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -36,13 +40,14 @@ serve(async (req) => {
     // For this mock, we just verify the JWT structure.
     
     // --- Mock Success Response ---
+    console.log(`${functionName} Returning mock calendars.`);
     return new Response(JSON.stringify({ calendars: MOCK_CALENDARS }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error: any) {
-    console.error("Edge Function error:", error.message);
+    console.error(`${functionName} Edge Function error: ${error.message}`);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

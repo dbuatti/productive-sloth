@@ -22,15 +22,19 @@ interface PodExitPayload {
 }
 
 serve(async (req) => {
+  const functionName = "[calculate-pod-exit]";
   if (req.method === 'OPTIONS') {
+    console.log(`${functionName} OPTIONS request received.`);
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const now = new Date(); 
+    console.log(`${functionName} Request received at ${now.toISOString()}`);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error(`${functionName} Unauthorized: Missing Authorization header`);
       return new Response(JSON.stringify({ error: 'Unauthorized: Missing Authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -43,6 +47,7 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     if (!SUPABASE_URL) {
+      console.error(`${functionName} Configuration Error: SUPABASE_URL is not set.`);
       return new Response(JSON.stringify({ error: 'Configuration Error: SUPABASE_URL is not set.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -57,7 +62,9 @@ serve(async (req) => {
         algorithms: ['ES256'],
       });
       payload = verifiedPayload;
+      console.log(`${functionName} JWT verified successfully for user: ${payload.sub}`);
     } catch (jwtError: any) {
+      console.error(`${functionName} Unauthorized: Invalid JWT token - ${jwtError.message}`);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -66,6 +73,7 @@ serve(async (req) => {
     
     const userId = payload.sub;
     if (!userId) {
+      console.error(`${functionName} Unauthorized: Invalid JWT payload - missing user ID (sub).`);
       return new Response(JSON.stringify({ error: 'Unauthorized: Invalid JWT payload' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -73,14 +81,17 @@ serve(async (req) => {
     }
 
     const { startTime, endTime }: PodExitPayload = await req.json();
+    console.log(`${functionName} Received payload: startTime=${startTime}, endTime=${endTime}`);
 
     const podStart = dateFns.parseISO(startTime);
     const podEnd = dateFns.parseISO(endTime);
     
     // Calculate actual duration spent in the pod
     const durationMinutes = dateFns.differenceInMinutes(podEnd, podStart);
+    console.log(`${functionName} Pod duration calculated: ${durationMinutes} minutes.`);
     
     if (durationMinutes <= 0) {
+        console.log(`${functionName} Pod exited immediately or duration is zero/negative. No energy gained.`);
         return new Response(JSON.stringify({ energyGained: 0, durationMinutes: 0, message: "Pod exited immediately." }), {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -89,6 +100,7 @@ serve(async (req) => {
 
     // Calculate energy gain
     const energyGained = Math.floor(durationMinutes * REGEN_POD_RATE_PER_MINUTE);
+    console.log(`${functionName} Energy gained: ${energyGained}⚡`);
 
     // Use Service Role Key for profile update
     const supabaseClient = createClient(
@@ -99,6 +111,7 @@ serve(async (req) => {
     );
 
     // 1. Fetch current profile data
+    console.log(`${functionName} Fetching current profile energy for user: ${userId}`);
     const { data: profileData, error: profileFetchError } = await supabaseClient
         .from('profiles')
         .select('energy')
@@ -106,14 +119,16 @@ serve(async (req) => {
         .single();
 
     if (profileFetchError || !profileData) {
-        console.error("Error fetching profile:", profileFetchError?.message);
+        console.error(`${functionName} Error fetching profile: ${profileFetchError?.message}`);
         throw new Error("Failed to fetch user profile.");
     }
 
     const currentEnergy = profileData.energy ?? 0;
     const newEnergy = Math.min(currentEnergy + energyGained, MAX_ENERGY);
+    console.log(`${functionName} Current energy: ${currentEnergy}, New energy: ${newEnergy} (capped at ${MAX_ENERGY})`);
 
     // 2. Update profile energy
+    console.log(`${functionName} Updating profile energy for user: ${userId}`);
     const { error: profileUpdateError } = await supabaseClient
       .from('profiles')
       .update({ 
@@ -124,9 +139,10 @@ serve(async (req) => {
       .eq('id', userId);
 
     if (profileUpdateError) {
-      console.error("Error updating profile energy:", profileUpdateError.message);
+      console.error(`${functionName} Error updating profile energy: ${profileUpdateError.message}`);
       throw new Error("Failed to update profile energy.");
     }
+    console.log(`${functionName} Profile energy updated successfully.`);
 
     return new Response(JSON.stringify({ energyGained, durationMinutes }), {
       status: 200,
@@ -134,7 +150,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("Edge Function error:", error.message);
+    console.error(`${functionName} Edge Function error: ${error.message}`);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

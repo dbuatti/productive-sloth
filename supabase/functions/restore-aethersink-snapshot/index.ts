@@ -15,13 +15,14 @@ interface RestorePayload {
 }
 
 serve(async (req) => {
+  const functionName = "[restore-aethersink-snapshot]";
   if (req.method === 'OPTIONS') {
+    console.log(`${functionName} OPTIONS request received.`);
     return new Response(null, { headers: corsHeaders });
   }
 
-  const functionName = "[restore-aethersink-snapshot]";
-
   try {
+    console.log(`${functionName} Request received.`);
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error(`${functionName} Auth Error: Missing Authorization header`);
@@ -51,8 +52,9 @@ serve(async (req) => {
         algorithms: ['ES256'],
       });
       payload = verifiedPayload;
+      console.log(`${functionName} JWT verified successfully for user: ${payload.sub}`);
     } catch (jwtError: any) {
-      console.error(`${functionName} JWT Verification Error:`, jwtError);
+      console.error(`${functionName} JWT Verification Error: ${jwtError.message}`);
       return new Response(JSON.stringify({ error: `Unauthorized: Invalid JWT token - ${jwtError.message}` }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -69,6 +71,7 @@ serve(async (req) => {
     }
 
     const { snapshotId }: RestorePayload = await req.json();
+    console.log(`${functionName} Received payload: snapshotId=${snapshotId}`);
 
     const supabaseClient = createClient(
       // @ts-ignore
@@ -87,7 +90,7 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !snapshot) {
-      console.error(`${functionName} Error fetching snapshot:`, fetchError?.message || 'Snapshot not found');
+      console.error(`${functionName} Error fetching snapshot: ${fetchError?.message || 'Snapshot not found'}`);
       throw new Error(`Failed to retrieve snapshot: ${fetchError?.message || 'Snapshot not found'}`);
     }
 
@@ -96,6 +99,7 @@ serve(async (req) => {
       console.error(`${functionName} Invalid snapshot data format: sink_data is not an array.`);
       throw new Error('Invalid snapshot data format.');
     }
+    console.log(`${functionName} Snapshot contains ${tasksToRestore.length} tasks.`);
 
     // 2. Delete all UNLOCKED tasks from the current aethersink for this user
     console.log(`${functionName} Deleting unlocked tasks from current aethersink for user ${userId}`);
@@ -106,7 +110,7 @@ serve(async (req) => {
       .eq('is_locked', false); // Only delete unlocked tasks
 
     if (deleteError) {
-      console.error(`${functionName} Error deleting current aethersink tasks:`, deleteError.message);
+      console.error(`${functionName} Error deleting current aethersink tasks: ${deleteError.message}`);
       throw new Error(`Failed to clear current Aether Sink: ${deleteError.message}`);
     }
     console.log(`${functionName} Unlocked tasks cleared from Aether Sink.`);
@@ -135,7 +139,7 @@ serve(async (req) => {
         .insert(sanitizedTasksToInsert);
 
       if (insertError) {
-        console.error(`${functionName} Error inserting tasks from snapshot:`, insertError.message);
+        console.error(`${functionName} Error inserting tasks from snapshot: ${insertError.message}`);
         throw new Error(`Failed to restore tasks from snapshot: ${insertError.message}`);
       }
       console.log(`${functionName} Tasks restored successfully.`);
@@ -149,7 +153,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error(`${functionName} Edge Function error:`, error.message);
+    console.error(`${functionName} Edge Function error: ${error.message}`);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

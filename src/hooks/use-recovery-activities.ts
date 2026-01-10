@@ -34,13 +34,18 @@ export const useRecoveryActivities = () => {
 
   const fetchActivities = async (): Promise<RecoveryActivity[]> => {
     if (!userId) return [];
+    console.log(`[useRecoveryActivities] Fetching activities for user: ${userId}`);
     const { data, error } = await supabase
       .from('recovery_activities')
       .select('*')
       .eq('user_id', userId)
       .order('name', { ascending: true });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[useRecoveryActivities] Error fetching activities:", error);
+      throw new Error(error.message);
+    }
+    console.log(`[useRecoveryActivities] Fetched ${data.length} activities.`);
     return data as RecoveryActivity[];
   };
 
@@ -54,7 +59,7 @@ export const useRecoveryActivities = () => {
   useEffect(() => {
     if (userId && !isLoading && activities.length === 0) {
       const initializeDefaults = async () => {
-        // console.log("Initializing default recovery activities...");
+        console.log("[useRecoveryActivities] Initializing default recovery activities...");
         const activitiesToInsert = DEFAULT_ACTIVITIES.map(activity => ({
           ...activity,
           user_id: userId,
@@ -65,8 +70,9 @@ export const useRecoveryActivities = () => {
           .insert(activitiesToInsert);
 
         if (error) {
-          // console.error("Failed to insert default recovery activities:", error.message);
+          console.error("[useRecoveryActivities] Failed to insert default recovery activities:", error.message);
         } else {
+          console.log("[useRecoveryActivities] Default recovery activities inserted, invalidating queries.");
           queryClient.invalidateQueries({ queryKey });
         }
       };
@@ -78,12 +84,18 @@ export const useRecoveryActivities = () => {
   const addActivityMutation = useMutation({
     mutationFn: async (newActivity: NewRecoveryActivity) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useRecoveryActivities] Adding new activity:", newActivity.name);
       const activityToInsert = { ...newActivity, user_id: userId };
       const { data, error } = await supabase.from('recovery_activities').insert(activityToInsert).select().single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useRecoveryActivities] Error adding activity:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useRecoveryActivities] Activity added successfully:", data.name);
       return data as RecoveryActivity;
     },
     onSuccess: () => {
+      console.log("[useRecoveryActivities] Invalidate queries after addActivity.");
       queryClient.invalidateQueries({ queryKey });
       showSuccess('Recovery activity added!');
     },
@@ -95,6 +107,7 @@ export const useRecoveryActivities = () => {
   const updateActivityMutation = useMutation({
     mutationFn: async (activity: Partial<RecoveryActivity> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useRecoveryActivities] Updating activity:", activity.id, activity.name);
       const { data, error } = await supabase
         .from('recovery_activities')
         .update(activity)
@@ -103,10 +116,15 @@ export const useRecoveryActivities = () => {
         .select()
         .single();
       
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useRecoveryActivities] Error updating activity:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useRecoveryActivities] Activity updated successfully:", data.name);
       return data as RecoveryActivity;
     },
     onSuccess: () => {
+      console.log("[useRecoveryActivities] Invalidate queries after updateActivity.");
       queryClient.invalidateQueries({ queryKey });
       showSuccess('Recovery activity updated!');
     },
@@ -118,10 +136,16 @@ export const useRecoveryActivities = () => {
   const deleteActivityMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("[useRecoveryActivities] Deleting activity:", id);
       const { error } = await supabase.from('recovery_activities').delete().eq('id', id).eq('user_id', userId);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useRecoveryActivities] Error deleting activity:", error);
+        throw new Error(error.message);
+      }
+      console.log("[useRecoveryActivities] Activity deleted successfully:", id);
     },
     onSuccess: () => {
+      console.log("[useRecoveryActivities] Invalidate queries after deleteActivity.");
       queryClient.invalidateQueries({ queryKey });
       showSuccess('Recovery activity deleted.');
     },

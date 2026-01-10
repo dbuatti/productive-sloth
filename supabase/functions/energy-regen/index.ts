@@ -26,7 +26,9 @@ const isMeal = (taskName: string): boolean => {
 };
 
 serve(async (req) => {
+  const functionName = "[energy-regen]";
   if (req.method === 'OPTIONS') {
+    console.log(`${functionName} OPTIONS request received.`);
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -40,20 +42,24 @@ serve(async (req) => {
     );
 
     const now = new Date(); // Current time in UTC
+    console.log(`${functionName} Request received at ${now.toISOString()}`);
 
     // 1. Fetch all profiles, including new Pod state fields
+    console.log(`${functionName} Fetching all profiles for energy regeneration calculation.`);
     const { data: profiles, error: profilesError } = await supabaseClient
       .from('profiles')
       .select('id, energy, last_energy_regen_at, default_auto_schedule_start_time, default_auto_schedule_end_time, is_in_regen_pod, regen_pod_start_time');
 
     if (profilesError) {
-      console.error("Error fetching profiles:", profilesError.message);
+      console.error(`${functionName} Error fetching profiles: ${profilesError.message}`);
       throw new Error("Failed to fetch profiles.");
     }
+    console.log(`${functionName} Fetched ${profiles.length} profiles.`);
 
     // 2. Fetch all scheduled tasks for today (UTC) for all users
     const todayStartUTC = dateFns.startOfDay(now);
     const todayEndUTC = dateFns.addDays(todayStartUTC, 1);
+    console.log(`${functionName} Fetching scheduled tasks from ${todayStartUTC.toISOString()} to ${todayEndUTC.toISOString()}.`);
 
     const { data: scheduledTasks, error: tasksError } = await supabaseClient
       .from('scheduled_tasks')
@@ -62,9 +68,10 @@ serve(async (req) => {
       .lt('end_time', todayEndUTC.toISOString());
 
     if (tasksError) {
-      console.error("Error fetching scheduled tasks:", tasksError.message);
+      console.error(`${functionName} Error fetching scheduled tasks: ${tasksError.message}`);
       throw new Error("Failed to fetch scheduled tasks.");
     }
+    console.log(`${functionName} Fetched ${scheduledTasks.length} scheduled tasks.`);
 
     // Group scheduled tasks by user_id for quick lookup
     const scheduledTasksMap = new Map<string, typeof scheduledTasks>();
@@ -83,17 +90,20 @@ serve(async (req) => {
       const currentEnergy = profile.energy ?? MAX_ENERGY; 
       const userId = profile.id;
       const lastRegenAt = profile.last_energy_regen_at ? dateFns.parseISO(profile.last_energy_regen_at) : now;
+      console.log(`${functionName} Processing user ${userId}. Current energy: ${currentEnergy}, Last regen: ${lastRegenAt.toISOString()}`);
 
       // --- NEW: Skip passive regen if user is in the Pod ---
       if (profile.is_in_regen_pod) {
-        console.log(`Skipping passive regen for user ${userId}: Currently in Regen Pod.`);
+        console.log(`${functionName} Skipping passive regen for user ${userId}: Currently in Regen Pod.`);
         continue;
       }
       // -----------------------------------------------------
 
       const elapsedMinutes = dateFns.differenceInMinutes(now, lastRegenAt);
+      console.log(`${functionName} Elapsed minutes since last regen for ${userId}: ${elapsedMinutes}`);
 
       if (elapsedMinutes <= 0 || currentEnergy >= MAX_ENERGY) {
+        console.log(`${functionName} No time elapsed or energy is already full for ${userId}. Skipping.`);
         continue; // No time elapsed or energy is already full
       }
 
@@ -125,8 +135,10 @@ serve(async (req) => {
             if (currentTimeCursor >= taskStart && currentTimeCursor < taskEnd) {
               if (task.name?.toLowerCase() === 'break') {
                 isDuringBreak = true;
+                console.log(`${functionName} User ${userId} is on a scheduled break.`);
               } else if (isMeal(task.name)) { 
                 isDuringMeal = true;
+                console.log(`${functionName} User ${userId} is on a scheduled meal.`);
               }
               // If it's a task or time-off, no passive boost applies, so we can break early
               if (!isDuringBreak && !isDuringMeal) break; 
@@ -137,6 +149,7 @@ serve(async (req) => {
         // If it's during a meal, skip passive/boosted regeneration for this chunk
         if (isDuringMeal) {
             currentTimeCursor = actualIntervalEnd;
+            console.log(`${functionName} Skipping regen for user ${userId} due to meal.`);
             continue;
         }
 
@@ -152,6 +165,7 @@ serve(async (req) => {
 
           if (dateFns.isAfter(currentTimeCursor, workdayEnd) || dateFns.isBefore(currentTimeCursor, workdayStart)) {
             isDuringNighttime = true;
+            console.log(`${functionName} User ${userId} is in nighttime window.`);
           }
         } else {
           // Fallback to a fixed nighttime window if no default auto-schedule times are set
@@ -159,14 +173,17 @@ serve(async (req) => {
           const hour = currentTimeCursor.getUTCHours();
           if (hour >= 22 || hour < 6) { // 10 PM UTC to 6 AM UTC
             isDuringNighttime = true;
+            console.log(`${functionName} User ${userId} is in fallback nighttime window.`);
           }
         }
 
         if (isDuringBreak) {
           regenForChunk += durationInChunk * BREAK_ENERGY_BOOST_PER_MINUTE;
+          console.log(`${functionName} Applying break boost for user ${userId}.`);
         }
         if (isDuringNighttime) {
           regenForChunk += durationInChunk * NIGHT_ENERGY_BOOST_PER_MINUTE;
+          console.log(`${functionName} Applying nighttime boost for user ${userId}.`);
         }
 
         totalEnergyGained += regenForChunk;
@@ -181,22 +198,24 @@ serve(async (req) => {
           energy: Math.round(newEnergy), // Ensure energy is an integer before upserting
           last_energy_regen_at: now.toISOString(),
         });
+        console.log(`${functionName} User ${userId} energy updated from ${currentEnergy} to ${Math.round(newEnergy)}.`);
       }
     }
 
     // Perform batch update
     if (updates.length > 0) {
+      console.log(`${functionName} Performing batch update for ${updates.length} profiles.`);
       const { error: updateError } = await supabaseClient
         .from('profiles')
         .upsert(updates, { onConflict: 'id' });
 
       if (updateError) {
-        console.error("Error updating profiles energy:", updateError.message);
+        console.error(`${functionName} Error updating profiles energy: ${updateError.message}`);
         throw new Error("Failed to update profiles energy.");
       }
-      console.log(`Successfully updated energy for ${updates.length} profiles.`);
+      console.log(`${functionName} Successfully updated energy for ${updates.length} profiles.`);
     } else {
-      console.log("No energy updates needed for any profiles.");
+      console.log(`${functionName} No energy updates needed for any profiles.`);
     }
 
     return new Response(JSON.stringify({ message: `Energy regeneration processed for ${profiles.length} users.` }), {
@@ -205,7 +224,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("Edge Function error:", error.message);
+    console.error(`${functionName} Edge Function error: ${error.message}`);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

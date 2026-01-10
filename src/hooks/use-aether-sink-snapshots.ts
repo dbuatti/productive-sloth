@@ -22,12 +22,17 @@ export const useAetherSinkSnapshots = () => {
     queryKey: ['aetherSinkSnapshots', userId],
     queryFn: async () => {
       if (!userId) return [];
+      console.log(`[useAetherSinkSnapshots] Fetching snapshots for user: ${userId}`);
       const { data, error } = await supabase
         .from('aethersink_snapshots')
         .select('*')
         .eq('user_id', userId)
         .order('backup_timestamp', { ascending: false }); // Newest first
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useAetherSinkSnapshots] Error fetching snapshots:", error);
+        throw new Error(error.message);
+      }
+      console.log(`[useAetherSinkSnapshots] Fetched ${data.length} snapshots.`);
       return data as AetherSinkSnapshot[];
     },
     enabled: !!userId,
@@ -36,6 +41,7 @@ export const useAetherSinkSnapshots = () => {
   const restoreSnapshotMutation = useMutation({
     mutationFn: async (snapshotId: number) => {
       if (!userId || !session?.access_token) throw new Error("User not authenticated.");
+      console.log(`[useAetherSinkSnapshots] Restoring snapshot: ${snapshotId}`);
 
       const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/restore-aethersink-snapshot`;
 
@@ -50,11 +56,14 @@ export const useAetherSinkSnapshots = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("[useAetherSinkSnapshots] Failed to restore Aether Sink snapshot via Edge Function:", errorData);
         throw new Error(errorData.error || 'Failed to restore Aether Sink snapshot.');
       }
+      console.log(`[useAetherSinkSnapshots] Snapshot ${snapshotId} restored successfully via Edge Function.`);
       return await response.json();
     },
     onSuccess: () => {
+      console.log("[useAetherSinkSnapshots] Invalidate queries after restoreSnapshot.");
       queryClient.invalidateQueries({ queryKey: ['aetherSinkSnapshots'] });
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] }); // Invalidate retired tasks to show restored state
       showSuccess("Aether Sink restored successfully!");
@@ -67,14 +76,20 @@ export const useAetherSinkSnapshots = () => {
   const deleteSnapshotMutation = useMutation({
     mutationFn: async (snapshotId: number) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log(`[useAetherSinkSnapshots] Deleting snapshot: ${snapshotId}`);
       const { error } = await supabase
         .from('aethersink_snapshots')
         .delete()
         .eq('snapshot_id', snapshotId)
         .eq('user_id', userId);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("[useAetherSinkSnapshots] Error deleting snapshot:", error);
+        throw new Error(error.message);
+      }
+      console.log(`[useAetherSinkSnapshots] Snapshot ${snapshotId} deleted successfully.`);
     },
     onSuccess: () => {
+      console.log("[useAetherSinkSnapshots] Invalidate queries after deleteSnapshot.");
       queryClient.invalidateQueries({ queryKey: ['aetherSinkSnapshots'] });
       showSuccess("Snapshot deleted.");
     },

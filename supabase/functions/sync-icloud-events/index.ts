@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 // @ts-ignore
 import * as jose from "https://esm.sh/jose@5.2.4";
 // @ts-ignore
-import * as dateFns from 'https://esm.sh/date-fns@2.30.0';
+import * as dateFns from "https://esm.sh/date-fns@2.30.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -64,14 +64,18 @@ const generateMockEvents = (calendarIds: string[], startDate: string, endDate: s
 };
 
 serve(async (req) => {
+  const functionName = "[sync-icloud-events]";
   if (req.method === 'OPTIONS') {
+    console.log(`${functionName} OPTIONS request received.`);
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { userId, calendarIds, startDate, endDate } = await req.json();
+    console.log(`${functionName} Request received for userId: ${userId}, calendarIds: ${calendarIds}, startDate: ${startDate}, endDate: ${endDate}`);
     
     if (!userId || !calendarIds || calendarIds.length === 0) {
+        console.error(`${functionName} Missing user ID or calendar IDs.`);
         return new Response(JSON.stringify({ error: 'Missing user ID or calendar IDs.' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -88,10 +92,12 @@ serve(async (req) => {
 
     // 1. Simulate fetching events from iCloud API
     const iCloudEvents = generateMockEvents(calendarIds, startDate, endDate);
+    console.log(`${functionName} Generated ${iCloudEvents.length} mock iCloud events.`);
     
     // 2. Delete existing scheduled_tasks that originated from these calendars
     let deletedCount = 0;
     if (calendarIds.length > 0) {
+        console.log(`${functionName} Deleting existing scheduled tasks from calendars: ${calendarIds.join(', ')}`);
         const { count, error: deleteError } = await supabaseClient
             .from('scheduled_tasks')
             .delete({ count: 'exact' })
@@ -99,10 +105,11 @@ serve(async (req) => {
             .in('source_calendar_id', calendarIds);
             
         if (deleteError) {
-            console.error("Error deleting old calendar events:", deleteError.message);
+            console.error(`${functionName} Error deleting old calendar events: ${deleteError.message}`);
             throw new Error("Failed to delete old calendar events.");
         }
         deletedCount = count ?? 0;
+        console.log(`${functionName} Deleted ${deletedCount} old calendar events.`);
     }
 
     // 3. Prepare new events for insertion
@@ -133,20 +140,25 @@ serve(async (req) => {
             // Other required fields (defaults)
             break_duration: null,
             is_custom_energy_cost: false,
+            is_backburner: false,
+            is_work: false,
+            is_break: false,
         };
     });
 
     let syncedCount = 0;
     if (tasksToInsert.length > 0) {
+        console.log(`${functionName} Inserting ${tasksToInsert.length} new calendar events.`);
         const { error: insertError } = await supabaseClient
             .from('scheduled_tasks')
             .insert(tasksToInsert);
             
         if (insertError) {
-            console.error("Error inserting new calendar events:", insertError.message);
+            console.error(`${functionName} Error inserting new calendar events: ${insertError.message}`);
             throw new Error("Failed to insert new calendar events.");
         }
         syncedCount = tasksToInsert.length;
+        console.log(`${functionName} Inserted ${syncedCount} new calendar events.`);
     }
     
     // 4. Update last_synced_at for the user's selected calendars
@@ -157,14 +169,16 @@ serve(async (req) => {
         last_synced_at: now,
     }));
     
+    console.log(`${functionName} Updating last_synced_at for selected calendars.`);
     const { error: updateSyncError } = await supabaseClient
         .from('user_calendars')
         .upsert(calendarUpdates, { onConflict: 'user_id, calendar_id' });
         
     if (updateSyncError) {
-        console.error("Error updating sync timestamps:", updateSyncError.message);
+        console.error(`${functionName} Error updating sync timestamps: ${updateSyncError.message}`);
         // Note: We don't throw here as the main task is done.
     }
+    console.log(`${functionName} Calendar sync complete. Synced: ${syncedCount}, Deleted: ${deletedCount}`);
 
     return new Response(JSON.stringify({ syncedCount, deletedCount }), {
       status: 200,
@@ -172,7 +186,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("Edge Function error:", error.message);
+    console.error(`${functionName} Edge Function error: ${error.message}`);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

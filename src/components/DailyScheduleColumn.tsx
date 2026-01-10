@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
 import { format, isToday, isPast, isBefore, parseISO, setHours, setMinutes, addDays, differenceInMinutes, isAfter, addHours } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,7 @@ const BASE_MINUTE_HEIGHT = 1.5; // Adjusted base height for 1 minute (more compa
 const MIN_TASK_HEIGHT_MINUTES = 10; // Minimum duration for a task to be rendered
 const MIN_TASK_HEIGHT_PX = MIN_TASK_HEIGHT_MINUTES * BASE_MINUTE_HEIGHT; // Minimum height in pixels
 
-const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
+const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = React.memo(({
   dateString, // Destructure dateString
   tasks,
   workdayStartTime,
@@ -38,6 +38,10 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   // Parse dateString to a Date object for internal calculations
   const dayDate = useMemo(() => parseISO(dateString), [dateString]);
   const isCurrentDay = isToday(dayDate);
+
+  useEffect(() => {
+    console.log(`[DailyScheduleColumn] Rendered for day: ${dateString}. Tasks: ${tasks.length}, Blocked: ${isDayBlocked}`);
+  });
 
   // Calculate workday start and end as local Date objects for the current dayDate
   const localWorkdayStart = useMemo(() => setTimeOnDate(dayDate, workdayStartTime), [dayDate, workdayStartTime]);
@@ -66,6 +70,7 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
   const getTaskPositionAndHeight = useCallback((task: DBScheduledTask) => {
     if (!task.start_time || !task.end_time) {
       // This task is invalid for the grid, return zero dimensions
+      console.warn(`[DailyScheduleColumn] Task ${task.name} has invalid start/end times.`);
       return { top: 0, height: 0, durationMinutes: 0 };
     }
     
@@ -116,76 +121,49 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
         </p>
       </div>
 
-      {/* Time Grid Lines and Tasks within Workday Window */}
-      <div className="relative px-1" style={{ height: `${totalDisplayMinutes * dynamicMinuteHeight}px` }}>
-        {/* Time Grid Lines - Now properly aligned with zoom */}
-        <div className="absolute inset-0">
-          {timeLabels.map((label, i) => (
-            <div
-              key={i}
-              className="absolute left-0 right-0 border-t border-dashed border-border/20"
-              style={{ top: `${label.top}px` }}
-            >
-              {/* Time Label - Positioned at the line */}
-              <div 
-                className="absolute -left-10 w-8 text-right text-[8px] sm:text-[9px] font-mono text-muted-foreground/50"
-                style={{ top: '-8px' }}
-              >
-                {label.time}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Current Time Indicator (only for today, within workday) */}
-        {isCurrentDay && isAfter(T_current, localWorkdayStart) && isBefore(T_current, localWorkdayEnd) && (
+      {/* Time Grid Lines */}
+      <div className="absolute inset-0 pointer-events-none">
+        {timeLabels.map((label, i) => (
           <div
-            className="absolute left-0 right-0 h-0.5 bg-live-progress z-20 animate-pulse"
-            style={{
-              top: `${differenceInMinutes(T_current, localWorkdayStart) * dynamicMinuteHeight}px`,
-            }}
-          >
-            <div className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full bg-live-progress shadow-[0_0_10px_hsl(var(--live-progress))]" />
-          </div>
-        )}
+            key={`grid-line-${label.time}-${i}`}
+            className="absolute left-0 right-0 h-px bg-border/50"
+            style={{ top: `${label.top + 30}px` }} // Adjust for header height
+          />
+        ))}
+      </div>
 
-        {/* Tasks */}
-        {tasks.map((task) => {
+      {/* Tasks */}
+      <div 
+        className="relative pt-[30px]" // Padding top to account for header
+        style={{ height: `${totalDisplayMinutes * dynamicMinuteHeight}px` }}
+      >
+        {tasks.map(task => {
           const { top, height, durationMinutes } = getTaskPositionAndHeight(task);
           
-          // Skip rendering if task is invalid or has zero duration/height
-          if (!task.start_time || !task.end_time || durationMinutes <= 0) {
+          // Only render if task has valid position and height
+          if (height <= 0 || top < 0 || top > totalDisplayMinutes * dynamicMinuteHeight) {
+            console.warn(`[DailyScheduleColumn] Skipping render for task "${task.name}" due to invalid position/height. Top: ${top}, Height: ${height}`);
             return null;
           }
-          
-          const isPastTask = isPast(parseISO(task.end_time!)) && !isCurrentDay;
-          const isCurrentlyActive = isCurrentDay && T_current >= parseISO(task.start_time!) && T_current < parseISO(task.end_time!);
 
-          // Only render tasks that fall within the workday window
-          const taskStartLocal = setTimeOnDate(dayDate, format(parseISO(task.start_time!), 'HH:mm'));
-          let taskEndLocal = setTimeOnDate(dayDate, format(parseISO(task.end_time!), 'HH:mm'));
-          if (isBefore(taskEndLocal, taskStartLocal)) taskEndLocal = addDays(taskEndLocal, 1);
-
-          // Check if the task actually overlaps with the defined workday window
-          const overlapsWorkday = isBefore(taskStartLocal, localWorkdayEnd) && isAfter(taskEndLocal, localWorkdayStart);
-
-          if (!overlapsWorkday) return null;
+          const isPastTask = isPast(task.end_time ? parseISO(task.end_time) : new Date());
+          const isCurrentlyActive = isCurrentDay && T_current >= (task.start_time ? parseISO(task.start_time) : new Date()) && T_current < (task.end_time ? parseISO(task.end_time) : new Date());
 
           return (
             <div
               key={task.id}
               className={cn(
-                "absolute left-1 right-1 rounded-md p-0.5 transition-all duration-300",
-                "bg-card/60 border border-white/5",
-                isPastTask && "opacity-40 grayscale",
-                isDayBlocked && "pointer-events-none"
+                "absolute left-1 right-1", // Adjusted left/right for padding
+                "transition-all duration-300 ease-in-out",
+                isPastTask && "opacity-50",
+                isCurrentlyActive && "z-10"
               )}
               style={{ top: `${top}px`, height: `${height}px` }}
             >
               <SimplifiedScheduledTaskItem 
                 task={task} 
                 isDetailedView={isDetailedView} 
-                isCurrentlyActive={isCurrentlyActive} 
+                isCurrentlyActive={isCurrentlyActive}
                 onCompleteTask={onCompleteTask}
               />
             </div>
@@ -194,6 +172,6 @@ const DailyScheduleColumn: React.FC<DailyScheduleColumnProps> = ({
       </div>
     </div>
   );
-};
+});
 
-export default React.memo(DailyScheduleColumn);
+export default DailyScheduleColumn;

@@ -119,20 +119,22 @@ serve(async (req) => {
     if (tasksToRestore.length > 0) {
       console.log(`${functionName} Inserting ${tasksToRestore.length} tasks from snapshot into aethersink.`);
       // Ensure user_id is correctly set for each task and other defaults are handled
-      const sanitizedTasksToInsert = tasksToRestore.map((task: any) => ({
-        ...task,
-        user_id: userId,
-        retired_at: new Date().toISOString(), // Update retired_at to now
-        is_locked: task.is_locked ?? false,
-        is_completed: task.is_completed ?? false,
-        is_custom_energy_cost: task.is_custom_energy_cost ?? false,
-        task_environment: task.task_environment ?? 'laptop',
-        is_backburner: task.is_backburner ?? false,
-        is_work: task.is_work ?? false,
-        is_break: task.is_break ?? false,
-        // Ensure 'id' is not passed for new inserts, let DB generate
-        id: undefined, 
-      }));
+      const sanitizedTasksToInsert = tasksToRestore.map((task: any) => {
+        // Omit the 'id' property to let the database generate a new UUID
+        const { id, ...rest } = task; 
+        return {
+          ...rest, // Use the rest of the task properties
+          user_id: userId,
+          retired_at: new Date().toISOString(), // Update retired_at to now
+          is_locked: task.is_locked ?? false,
+          is_completed: task.is_completed ?? false,
+          is_custom_energy_cost: task.is_custom_energy_cost ?? false,
+          task_environment: task.task_environment ?? 'laptop',
+          is_backburner: task.is_backburner ?? false,
+          is_work: task.is_work ?? false,
+          is_break: task.is_break ?? false,
+        };
+      });
 
       const { error: insertError } = await supabaseClient
         .from('aethersink')

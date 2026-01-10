@@ -3,19 +3,27 @@ import { TaskEnvironment } from '@/types/scheduler';
 import { useSession } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown, ListOrdered } from 'lucide-react';
-import { environmentOptions } from '@/hooks/use-environment-context';
-import { cn } from '@/lib/utils';
+import { useEnvironments } from '@/hooks/use-environments';
 import { showSuccess } from '@/utils/toast';
 
 const DEFAULT_ORDER: TaskEnvironment[] = ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
 
 const EnvironmentOrderSettings: React.FC = () => {
   const { profile, updateProfile } = useSession();
+  const { environments, isLoading } = useEnvironments();
   
+  // Use profile order if it exists, otherwise default, but ensure it includes all available environments
   const currentOrder = profile?.custom_environment_order || DEFAULT_ORDER;
+  
+  // Filter out any environments from currentOrder that don't exist in the user's environments
+  // and append any missing environments from the user's list to the end
+  const validEnvironments = environments.map(e => e.value);
+  const filteredOrder = currentOrder.filter(env => validEnvironments.includes(env));
+  const missingEnvironments = validEnvironments.filter(env => !filteredOrder.includes(env));
+  const finalOrder = [...filteredOrder, ...missingEnvironments];
 
   const moveItem = async (index: number, direction: 'up' | 'down') => {
-    const newOrder = [...currentOrder];
+    const newOrder = [...finalOrder];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     
     if (targetIndex < 0 || targetIndex >= newOrder.length) return;
@@ -30,6 +38,8 @@ const EnvironmentOrderSettings: React.FC = () => {
     }
   };
 
+  if (isLoading) return <div>Loading environments...</div>;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-base font-semibold text-foreground">
@@ -40,8 +50,8 @@ const EnvironmentOrderSettings: React.FC = () => {
       </p>
 
       <div className="space-y-2">
-        {currentOrder.map((envKey, index) => {
-          const option = environmentOptions.find(opt => opt.value === envKey);
+        {finalOrder.map((envKey, index) => {
+          const option = environments.find(opt => opt.value === envKey);
           if (!option) return null;
 
           return (
@@ -50,7 +60,7 @@ const EnvironmentOrderSettings: React.FC = () => {
               className="flex items-center justify-between p-3 rounded-lg border bg-secondary/30 transition-all hover:bg-secondary/50"
             >
               <div className="flex items-center gap-3">
-                <span className="text-xs font-bold font-mono opacity-30">0{index + 1}</span>
+                <span className="text-xs font-bold font-mono opacity-30">{index + 1}</span>
                 <option.icon className="h-4 w-4 text-primary" />
                 <span className="text-sm font-bold uppercase tracking-tight">{option.label}</span>
               </div>
@@ -70,7 +80,7 @@ const EnvironmentOrderSettings: React.FC = () => {
                   size="icon" 
                   className="h-8 w-8" 
                   onClick={() => moveItem(index, 'down')}
-                  disabled={index === currentOrder.length - 1}
+                  disabled={index === finalOrder.length - 1}
                 >
                   <ChevronDown className="h-4 w-4" />
                 </Button>

@@ -27,17 +27,14 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import WorkdayWindowDialog from '@/components/WorkdayWindowDialog';
 import ImmersiveFocusMode from '@/components/ImmersiveFocusMode';
-import SchedulerSegmentedControl from '@/components/SchedulerSegmentedControl';
 import SchedulerContextBar from '@/components/SchedulerContextBar';
 import SchedulerActionCenter from '@/components/SchedulerActionCenter';
-import DailyVibeRecapCard from '@/components/DailyVibeRecapCard';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { MealAssignment } from '@/hooks/use-meals';
 import { cn } from '@/lib/utils';
 import EnergyRegenPodModal from '@/components/EnergyRegenPodModal'; 
 import { REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants'; 
 import { useNavigate } from 'react-router-dom';
-import AetherSink from '@/components/AetherSink';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
@@ -488,6 +485,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     );
   }
 
+  // Only show Scheduler components if view is 'schedule'
+  if (view !== 'schedule') return null;
+
   return (
     <div className="w-full pb-4 space-y-6">
       {isFocusModeActive && activeItemToday && calculatedSchedule && (
@@ -520,100 +520,87 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       />
 
       <div className={wrapperClass}>
-        <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={overallLoading} />
+        {/* 
+          KEY FIX: Pass stable props to SchedulerDashboardPanel.
+          We are passing the memoized calculatedSchedule.summary.
+        */}
+        <SchedulerDashboardPanel 
+          scheduleSummary={calculatedSchedule?.summary || null} 
+          onAetherDump={aetherDump} 
+          isProcessingCommand={isProcessingCommand} 
+          hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} 
+          onRefreshSchedule={() => queryClient.invalidateQueries()} 
+          isLoading={overallLoading} 
+        />
       </div>
       
       <div className={wrapperClass}>
         <div className="space-y-6">
           <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} blockedDays={profile?.blocked_days || []} />
-          <SchedulerSegmentedControl currentView={view} />
+          {/* REMOVED: SchedulerSegmentedControl */}
         </div>
       </div>
 
       <div className="space-y-6">
-        {view === 'schedule' && (
-          <div className={wrapperClass}>
-            <SchedulerContextBar />
-            
-            <Card className="p-4 rounded-xl shadow-sm">
-              <CardHeader className="p-0 pb-4">
-                <CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} onQuickBreak={handleQuickBreak} />
-              </CardContent>
-            </Card>
-            
-            <SchedulerActionCenter 
-              isProcessingCommand={overallLoading} 
-              dbScheduledTasks={dbScheduledTasks} 
-              retiredTasksCount={retiredTasks.length} 
-              sortBy={sortBy} 
-              onRebalanceToday={handleRebalanceToday} 
-              onReshuffleEverything={handleReshuffleEverything}
-              onCompactSchedule={handleCompact} 
-              onRandomizeBreaks={handleRandomize} 
-              onZoneFocus={handleZoneFocus} 
-              onRechargeEnergy={() => rechargeEnergy()} 
-              onQuickBreak={handleQuickBreak} 
-              onQuickScheduleBlock={() => Promise.resolve()} 
-              onSortFlexibleTasks={handleSortFlexibleTasks} 
-              onAetherDump={aetherDump} 
-              onAetherDumpMega={aetherDumpMega} 
-              onRefreshSchedule={() => queryClient.invalidateQueries()} 
-              onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} 
-              onStartRegenPod={() => setShowRegenPodSetup(true)} 
-              hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
-              navigate={navigate}
-              onGlobalAutoSchedule={handleGlobalAutoSchedule}
-            />
-            <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
-            {calculatedSchedule?.summary.isBlocked ? (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-destructive/50 bg-destructive/5">
-                <CalendarDays className="h-10 w-10 mb-3 opacity-20 text-destructive" />
-                <p className="font-bold uppercase tracking-widest text-xs text-destructive/60">Day Blocked</p>
-                <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px] text-center">No tasks can be scheduled on this day.</p>
-              </div>
-            ) : (
-              <SchedulerDisplay 
-                schedule={calculatedSchedule} 
-                T_current={T_current} 
-                onRemoveTask={(id) => removeScheduledTask(id)} 
-                onRetireTask={(t) => retireTask(t)} 
-                onCompleteTask={(t) => handleSchedulerAction('complete', t)} 
-                activeItemId={activeItemToday?.id || null} 
-                selectedDayString={selectedDay} 
-                onScrollToItem={() => {}} 
-                isProcessingCommand={isProcessingCommand} 
-                onFreeTimeClick={handleFreeTimeClick} 
-                isDayLockedDown={isDayLockedDown}
-                onToggleDayLock={handleToggleDayLock}
-              />
-            )}
-          </div>
-        )}
-        
-        {view === 'sink' && (
-          <div className="w-full overflow-x-auto pb-4">
-            <AetherSink 
-              retiredTasks={retiredTasks} 
-              onRezoneTask={(t) => rezoneTask(t)} 
-              onRemoveRetiredTask={(id) => removeRetiredTask(id)} 
-              onAutoScheduleSink={() => handleAutoScheduleAndSort(sortBy, 'sink-only', [], selectedDay)} 
-              isLoading={overallLoading} 
+        <div className={wrapperClass}>
+          <SchedulerContextBar />
+          
+          <Card className="p-4 rounded-xl shadow-sm">
+            <CardHeader className="p-0 pb-4">
+              <CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} onQuickBreak={handleQuickBreak} />
+            </CardContent>
+          </Card>
+          
+          <SchedulerActionCenter 
+            isProcessingCommand={overallLoading} 
+            dbScheduledTasks={dbScheduledTasks} 
+            retiredTasksCount={retiredTasks.length} 
+            sortBy={sortBy} 
+            onRebalanceToday={handleRebalanceToday} 
+            onReshuffleEverything={handleReshuffleEverything}
+            onCompactSchedule={handleCompact} 
+            onRandomizeBreaks={handleRandomize} 
+            onZoneFocus={handleZoneFocus} 
+            onRechargeEnergy={() => rechargeEnergy()} 
+            onQuickBreak={handleQuickBreak} 
+            onQuickScheduleBlock={() => Promise.resolve()} 
+            onSortFlexibleTasks={handleSortFlexibleTasks} 
+            onAetherDump={aetherDump} 
+            onAetherDumpMega={aetherDumpMega} 
+            onRefreshSchedule={() => queryClient.invalidateQueries()} 
+            onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} 
+            onStartRegenPod={() => setShowRegenPodSetup(true)} 
+            hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)}
+            navigate={navigate}
+            onGlobalAutoSchedule={handleGlobalAutoSchedule}
+          />
+          <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
+          {calculatedSchedule?.summary.isBlocked ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-destructive/50 bg-destructive/5">
+              <CalendarDays className="h-10 w-10 mb-3 opacity-20 text-destructive" />
+              <p className="font-bold uppercase tracking-widest text-xs text-destructive/60">Day Blocked</p>
+              <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px] text-center">No tasks can be scheduled on this day.</p>
+            </div>
+          ) : (
+            <SchedulerDisplay 
+              schedule={calculatedSchedule} 
+              T_current={T_current} 
+              onRemoveTask={(id) => removeScheduledTask(id)} 
+              onRetireTask={(t) => retireTask(t)} 
+              onCompleteTask={(t) => handleSchedulerAction('complete', t)} 
+              activeItemId={activeItemToday?.id || null} 
+              selectedDayString={selectedDay} 
+              onScrollToItem={() => {}} 
               isProcessingCommand={isProcessingCommand} 
-              profile={profile} 
-              retiredSortBy={retiredSortBy} 
-              setRetiredSortBy={setRetiredSortBy} 
+              onFreeTimeClick={handleFreeTimeClick} 
+              isDayLockedDown={isDayLockedDown}
+              onToggleDayLock={handleToggleDayLock}
             />
-          </div>
-        )}
-        
-        {view === 'recap' && calculatedSchedule && (
-          <div className={wrapperClass}>
-            <DailyVibeRecapCard scheduleSummary={calculatedSchedule.summary} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={calculatedSchedule.summary.activeTime.hours * 60 + calculatedSchedule.summary.activeTime.minutes} totalBreakTimeMinutes={calculatedSchedule.summary.breakTime} />
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <WorkdayWindowDialog open={showWorkdayWindowDialog} onOpenChange={setShowWorkdayWindowDialog} />
     </div>

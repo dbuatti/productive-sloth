@@ -5,7 +5,7 @@ import { DBScheduledTask, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortB
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, parseISO, format, addMinutes, isBefore, addDays, differenceInMinutes, addHours, isSameDay, max, min } from 'date-fns';
-import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal } from '@/lib/scheduler-utils';
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
@@ -579,24 +579,55 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
         const { data: dbTasksForDay } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', currentDateString);
         
-        const fixedBlocks: TimeBlock[] = (dbTasksForDay || []).filter(t => (taskSource === 'sink-to-gaps' || !t.is_flexible || t.is_locked)).filter(t => t.start_time && t.end_time).map(t => {
+        // --- LOGS START ---
+        console.log(`[AutoBalance] Processing day: ${currentDateString}`);
+        // --- LOGS END ---
+
+        // 1. Identify Static Anchors (Meals/Reflections) to protect them
+        const staticAnchors = (dbTasksForDay || []).filter(t => {
+            const nameLower = t.name.toLowerCase();
+            const isMealTask = isMeal(t.name);
+            const isReflection = nameLower.startsWith('reflection');
+            return isMealTask || isReflection;
+        });
+
+        // 2. Identify Fixed/Locked blocks (including static anchors)
+        const fixedBlocks: TimeBlock[] = (dbTasksForDay || []).filter(t => {
+            // If it's a static anchor, it's fixed
+            const nameLower = t.name.toLowerCase();
+            const isMealTask = isMeal(t.name);
+            const isReflection = nameLower.startsWith('reflection');
+            if (isMealTask || isReflection) return true;
+
+            // If source is 'sink-to-gaps', we only move sink tasks, so existing scheduled tasks are fixed
+            if (taskSource === 'sink-to-gaps') return true;
+
+            // Otherwise, respect the flags
+            return !t.is_flexible || t.is_locked;
+        }).filter(t => t.start_time && t.end_time).map(t => {
           const start = setTimeOnDate(currentDayAsDate, format(parseISO(t.start_time!), 'HH:mm'));
           let end = setTimeOnDate(currentDayAsDate, format(parseISO(t.end_time!), 'HH:mm'));
           if (isBefore(end, start)) end = addDays(end, 1);
           return { start, end, duration: differenceInMinutes(end, start) };
         });
 
-        // NEW: Add static constraints (meals, reflections)
+        // NEW: Add static constraints (meals, reflections) from profile settings
         const staticConstraints = getStaticConstraints(profile, currentDayAsDate, workdayStart, workdayEnd);
         
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
+        
+        // --- LOGS ---
+        console.log(`[AutoBalance] Fixed blocks count: ${currentOccupied.length}`, currentOccupied);
+
         let tasksToConsiderForDay: UnifiedTask[] = [];
         
         if (taskSource === 'global-all-future') {
           tasksToConsiderForDay = [...globalTasksToPlace];
         } else {
-          const flexibleScheduled = (dbTasksForDay || []).filter(t => t.is_flexible && !t.is_locked);
+          // Filter out static anchors from flexible tasks to prevent them from being moved
+          const flexibleScheduled = (dbTasksForDay || []).filter(t => t.is_flexible && !t.is_locked && !isMeal(t.name) && !t.name.toLowerCase().startsWith('reflection'));
           const unlockedRetired = retiredTasks.filter(t => !t.is_locked);
+          
           flexibleScheduled.forEach(t => {
             tasksToConsiderForDay.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
             globalScheduledIdsToDelete.push(t.id);
@@ -607,6 +638,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           });
         }
 
+        // Apply Environment Filtering
         const filteredPool = tasksToConsiderForDay.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment)).sort((a, b) => {
           if (a.is_critical && !b.is_critical) return -1;
           if (!a.is_critical && b.is_critical) return 1;
@@ -616,6 +648,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           if (!a.is_break && b.is_break) return 1;
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         });
+
+        // --- LOGS ---
+        console.log(`[AutoBalance] Tasks to place (after filtering): ${filteredPool.length}`);
 
         let placementCursor = effectiveStart;
         const tasksRemainingForDay: UnifiedTask[] = [];
@@ -634,8 +669,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
             currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
             placementCursor = slot.end;
+            // --- LOGS ---
+            console.log(`[AutoBalance] Placed task "${t.name}" at ${format(slot.start, 'HH:mm')}`);
           } else {
             tasksRemainingForDay.push(t);
+            // --- LOGS ---
+            console.log(`[AutoBalance] Failed to place "${t.name}", keeping in sink.`);
           }
         }
 

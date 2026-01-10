@@ -16,7 +16,8 @@ import EnvironmentProvider from "./components/EnvironmentProvider";
 import EnergyRegenInitializer from "./components/EnergyRegenInitializer";
 import ModelPage from "./pages/ModelPage";
 import SimplifiedSchedulePage from "./pages/SimplifiedSchedulePage";
-import WellnessPage from "./pages/WellnessPage"; // NEW IMPORT
+import WellnessPage from "./pages/WellnessPage";
+import AetherSinkPage from "./pages/AetherSinkPage"; // NEW IMPORT
 import { useSession } from "./hooks/use-session";
 
 const queryClient = new QueryClient();
@@ -36,7 +37,7 @@ const AppContent = () => {
         
         {/* Secondary Pages */}
         <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/wellness" element={<WellnessPage />} /> {/* NEW ROUTE */}
+        <Route path="/wellness" element={<WellnessPage />} />
         <Route path="/documentation" element={<DocumentationPage />} />
         <Route path="/model" element={<ModelPage />} />
         <Route path="/settings" element={<SettingsPage />} />
@@ -44,8 +45,8 @@ const AppContent = () => {
         
         {/* SCHEDULER CORE VIEWS */}
         <Route path="/scheduler" element={<SchedulerPage view="schedule" />} />
-        <Route path="/sink" element={<SchedulerPage view="sink" />} />
-        <Route path="/recap" element={<SchedulerPage view="recap" />} />
+        <Route path="/sink" element={<AetherSinkPage />} /> {/* CHANGED: Point to new page */}
+        {/* REMOVED: /recap route */}
         
         <Route path="/login" element={<Login />} />
         <Route path="*" element={<NotFound />} />

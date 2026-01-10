@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
-  DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel 
+  DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel, 
 } from '@/components/ui/dropdown-menu';
 import { 
   Zap, Shuffle, ChevronsUp, RefreshCcw, Globe, Loader2, 
@@ -41,7 +41,7 @@ interface SchedulerActionCenterProps {
   onOpenWorkdayWindowDialog: () => void;
   onStartRegenPod: () => void;
   navigate: (path: string) => void;
-  onGlobalAutoSchedule: () => Promise<void>; // NEW: Add global auto-schedule handler
+  onGlobalAutoSchedule: () => Promise<void>;
 }
 
 const DURATION_BUCKETS = [30, 60, 90];

@@ -36,9 +36,19 @@ serve(async (req) => {
     
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    // @ts-ignore
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
     if (!SUPABASE_URL) {
       console.error(`${functionName} Configuration Error: SUPABASE_URL is not set.`);
       return new Response(JSON.stringify({ error: 'Configuration Error: SUPABASE_URL is not set.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+      console.error(`${functionName} Configuration Error: SUPABASE_SERVICE_ROLE_KEY is not set.`);
+      return new Response(JSON.stringify({ error: 'Configuration Error: SUPABASE_SERVICE_ROLE_KEY is not set.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -75,9 +85,9 @@ serve(async (req) => {
 
     const supabaseClient = createClient(
       // @ts-ignore
-      Deno.env.get('SUPABASE_URL') ?? '',
+      SUPABASE_URL ?? '',
       // @ts-ignore
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' // Use service role key for direct DB access
+      SUPABASE_SERVICE_ROLE_KEY ?? '' // Use service role key for direct DB access
     );
 
     // 1. Fetch the snapshot data

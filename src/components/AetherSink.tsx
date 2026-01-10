@@ -19,6 +19,7 @@ import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
 import { useEnvironments } from '@/hooks/use-environments';
 import { Skeleton } from '@/components/ui/skeleton';
+import { motion } from 'framer-motion'; // Import motion for animations
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -164,18 +165,23 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   }, [user, addRetiredTask]);
 
   return (
-    <div className="container mx-auto w-full space-y-6 pb-8"> {/* Added container mx-auto and adjusted padding */}
-      <div className={cn("pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4")}> {/* Adjusted padding and added responsiveness */}
+    <motion.div 
+      className="w-full space-y-6 pb-8 px-4 md:px-8 lg:px-12" // Adjusted padding for better responsiveness
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+    >
+      <div className={cn("pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4")}>
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-secondary/50 border border-white/5 shadow-sm"> {/* Added border and shadow */}
-            <Trash2 className="h-6 w-6 text-muted-foreground" /> {/* Increased icon size */}
+          <div className="p-3 rounded-lg bg-secondary/50 border border-white/5 shadow-sm">
+            <Trash2 className="h-6 w-6 text-muted-foreground" />
           </div>
-          <span className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2"> {/* Increased font size */}
+          <span className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
             <span>Aether Sink</span>
-            <span className="text-sm font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span> {/* Adjusted font size */}
+            <span className="text-sm font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-3"> {/* Added flex-wrap for responsiveness */}
+        <div className="flex flex-wrap items-center gap-3">
           <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
           
           {viewMode === 'kanban' && (
@@ -184,7 +190,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="h-10 px-3 text-xs font-bold uppercase tracking-widest rounded-lg" /* Added rounded-lg */
+                  className="h-10 px-3 text-xs font-bold uppercase tracking-widest rounded-lg"
                   aria-label="Group Kanban Board"
                 >
                   Group: {groupBy === 'environment' ? 'Env' : (groupBy === 'priority' ? 'Priority' : 'Type')}
@@ -208,7 +214,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                     size="icon" 
                     onClick={handleManualAetherSinkBackup}
                     disabled={isProcessingCommand}
-                    className="h-10 w-10 text-primary rounded-lg" /* Added rounded-lg */
+                    className="h-10 w-10 text-primary rounded-lg"
                     aria-label="Manual Aether Sink Backup"
                   >
                     {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
@@ -223,7 +229,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                       <Button 
                         variant="glass" 
                         disabled={retiredTasks.length === 0}
-                        className="h-10 w-10 rounded-lg" /* Added rounded-lg */
+                        className="h-10 w-10 rounded-lg"
                         aria-label="Sort Aether Sink Tasks"
                       >
                         <ArrowDownWideNarrow className="h-4 w-4" />
@@ -257,7 +263,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 size="sm" 
                 onClick={onAutoScheduleSink}
                 disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
-                className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-lg" /* Added rounded-lg */
+                className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-lg"
                 aria-label="Auto Sync all unlocked objectives"
               >
                 {isProcessingCommand ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Sparkles className="h-3 w-3 mr-2" />}
@@ -276,14 +282,14 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               e.preventDefault();
               handleQuickAddToList(localInput);
             }} 
-            className="flex gap-2 glass-card p-2 rounded-xl shadow-sm" /* Added glass-card styling */
+            className="flex gap-2 glass-card p-2 rounded-xl shadow-sm"
           >
             <Input 
               placeholder="Inject objective: Name [dur] [!] [-] [W] [B]..." 
               value={localInput} 
               onChange={(e) => setLocalInput(e.target.value)}
               disabled={isProcessingCommand}
-              className="flex-grow h-12 bg-transparent font-bold placeholder:font-medium placeholder:opacity-30 border-none focus-visible:ring-0" /* Adjusted styling */
+              className="flex-grow h-12 bg-transparent font-bold placeholder:font-medium placeholder:opacity-30 border-none focus-visible:ring-0"
               aria-label="Quick add task to Aether Sink"
             />
             <Button 
@@ -308,7 +314,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             </div>
           </div>
         ) : retiredTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10">
+          <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10 animate-pop-in"> {/* Added animate-pop-in */}
             <Ghost className="h-12 w-12 text-muted-foreground/20" />
             <div className="space-y-1">
               <p className="text-sm font-black uppercase tracking-tighter text-muted-foreground/60">Aether Sink Vacant</p>
@@ -465,7 +471,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
           if (!open) setSelectedRetiredTask(null);
         }} 
       />
-    </div>
+    </motion.div>
   );
 });
 

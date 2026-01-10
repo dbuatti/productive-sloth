@@ -1,191 +1,179 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import { 
-  DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, 
-  useSensor, useSensors, DragStartEvent, DragOverEvent, DragOverlay, defaultDropAnimationSideEffects
-} from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { RetiredTask, TaskEnvironment } from '@/types/scheduler';
-import { Home, Laptop, Globe, Music, Star, Info, Briefcase, Coffee, Loader2 } from 'lucide-react';
-import KanbanColumn from './KanbanColumn';
-import SortableTaskCard from './SortableTaskCard';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/hooks/use-session';
-import { showError } from '@/utils/toast';
-import { parseSinkTaskInput } from '@/lib/scheduler-utils';
+import { TaskEnvironment } from '@/types/scheduler';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Home, Laptop, Globe, Music, Zap, Briefcase, Coffee, Star, Clock, CalendarDays, ListOrdered } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useEnvironments } from '@/hooks/use-environments';
+import { Environment } from '@/hooks/use-environments'; // Import Environment type
+import { TaskPriority } from '@/types';
 
 interface SinkKanbanBoardProps {
-  retiredTasks: RetiredTask[];
-  groupBy: 'environment' | 'priority' | 'type';
-  onRemoveRetiredTask: (id: string, name: string) => void;
-  onRezoneTask: (task: RetiredTask) => void;
-  updateRetiredTask: (updates: Partial<RetiredTask> & { id: string }) => Promise<void>;
-  onOpenDetailDialog: (task: RetiredTask) => void;
+  selectedDayString: string;
 }
 
-const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ 
-  retiredTasks, groupBy, updateRetiredTask, onOpenDetailDialog 
-}) => {
-  const { user } = useSession();
-  const { environments, isLoading } = useEnvironments();
-  const { addRetiredTask } = useSchedulerTasks('');
-  
-  const [activeTask, setActiveTask] = useState<RetiredTask | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
+type GroupByOption = 'environment' | 'priority';
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ selectedDayString }) => {
+  const { user } = useSession();
+  const userId = user?.id;
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
+  const [groupBy, setGroupBy] = useState<GroupByOption>('environment');
+
+  const { data: retiredTasks = [], isLoading: isLoadingRetiredTasks } = useQuery<any[]>({
+    queryKey: ['retired_tasks_for_sink', userId, selectedDayString],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from('retired_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('scheduled_date', selectedDayString)
+        .order('retired_at', { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!userId,
+  });
 
   const groupedTasks = useMemo(() => {
-    const groups: Record<string, RetiredTask[]> = {};
-    
-    // Define all possible columns based on grouping type
-    if (groupBy === 'environment') {
-      environments.forEach(env => groups[env.value] = []);
-      // Ensure default 'laptop' is always present if environments are still loading/empty
-      if (environments.length === 0) groups['laptop'] = [];
-    }
-    else if (groupBy === 'priority') ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
-    else ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
+    const groups: Record<string, any[]> = {};
 
     retiredTasks.forEach(task => {
-      let key = 'standard';
-      if (groupBy === 'environment') key = task.task_environment || 'laptop';
-      else if (groupBy === 'priority') key = task.is_critical ? 'critical' : (task.is_backburner ? 'backburner' : 'standard');
-      else key = task.is_break ? 'breaks' : (task.is_work ? 'work' : 'not-work');
-      
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(task);
-    });
-    return groups;
-  }, [retiredTasks, groupBy, environments]);
-
-  const handleDragStart = (event: DragStartEvent) => {
-    console.log("[Kanban] Drag Start:", event.active.id, "from container:", event.active.data.current?.sortable?.containerId);
-    const task = retiredTasks.find(t => t.id === event.active.id);
-    setActiveTask(task || null);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    setOverId(event.over?.id as string || null);
-    console.log("[Kanban] Drag Over:", event.active.id, "over:", event.over?.id, "in container:", event.over?.data.current?.sortable?.containerId || event.over?.id);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveTask(null);
-    setOverId(null);
-    
-    console.log("[Kanban] Drag End. Active:", active.id, "Over:", over?.id);
-
-    if (!over) {
-      console.log("[Kanban] Drag ended outside of a droppable area.");
-      return;
-    }
-    
-    const overContainerId = over.data.current?.sortable?.containerId || over.id;
-    const task = retiredTasks.find(t => t.id === active.id);
-    if (!task) return;
-    
-    let update: Partial<RetiredTask> = {};
-    
-    // 1. Determine the update based on the target column ID
-    if (groupBy === 'environment') {
-      // Check if the target ID is a valid environment value
-      if (environments.some(e => e.value === overContainerId) || overContainerId === 'laptop') {
-        update = { task_environment: overContainerId as TaskEnvironment };
-        console.log(`[Kanban] Updating environment to: ${overContainerId}`);
+      let groupKey: string;
+      if (groupBy === 'environment') {
+        groupKey = task.task_environment || 'unknown';
+      } else { // groupBy === 'priority'
+        groupKey = task.priority || 'MEDIUM';
       }
-    } else if (groupBy === 'priority') {
-      if (overContainerId === 'critical') update = { is_critical: true, is_backburner: false, is_break: false };
-      else if (overContainerId === 'backburner') update = { is_critical: false, is_backburner: true, is_break: false };
-      else if (overContainerId === 'standard') update = { is_critical: false, is_backburner: false, is_break: false };
-      console.log(`[Kanban] Updating priority to: ${overContainerId}`);
-    } else if (groupBy === 'type') {
-      if (overContainerId === 'work') update = { is_work: true, is_break: false };
-      else if (overContainerId === 'not-work') update = { is_work: false, is_break: false };
-      else if (overContainerId === 'breaks') update = { is_break: true, is_work: false };
-      console.log(`[Kanban] Updating type to: ${overContainerId}`);
-    }
-    
-    // 2. Apply the update if changes were determined
-    if (Object.keys(update).length > 0) {
-      console.log("[Kanban] Applying update:", update);
-      updateRetiredTask({ id: task.id, ...update });
-    } else {
-      console.log("[Kanban] No relevant column change detected, skipping update.");
-    }
-  };
 
-  const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
-    if (!user) return showError("User missing.");
-    const parsed = parseSinkTaskInput(input, user.id);
-    if (!parsed) return showError("Invalid format: 'Name [dur] [!] [-] [W] [B]...'");
-    
-    // Override parsed flags based on the target column
-    if (groupBy === 'environment') parsed.task_environment = columnId as TaskEnvironment;
-    else if (groupBy === 'priority') {
-      parsed.is_critical = columnId === 'critical';
-      parsed.is_backburner = columnId === 'backburner';
-      parsed.is_break = false; // Priority columns are generally not breaks
-    } else if (groupBy === 'type') {
-      parsed.is_work = columnId === 'work';
-      parsed.is_break = columnId === 'breaks';
-      parsed.is_critical = false; // Type columns override priority/criticality for simplicity
-      parsed.is_backburner = false;
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(task);
+    });
+
+    return groups;
+  }, [retiredTasks, groupBy]);
+
+  const getPriorityBadgeClasses = useCallback((priority: TaskPriority) => {
+    switch (priority) {
+      case 'HIGH':
+        return 'bg-destructive text-destructive-foreground border-destructive';
+      case 'MEDIUM':
+        return 'bg-logo-orange/20 text-logo-orange border-logo-orange';
+      case 'LOW':
+        return 'bg-logo-green/20 text-logo-green border-logo-green';
+      default:
+        return 'bg-muted text-muted-foreground border-border';
     }
-    
-    // Recalculate energy cost based on final flags and duration
-    // Note: parseSinkTaskInput already calculates energy, but we need to recalculate if flags were overridden
-    // We rely on the mutation to handle the final energy cost calculation if needed, but for consistency:
-    // const finalEnergyCost = calculateEnergyCost(parsed.duration || 30, parsed.is_critical || false, parsed.is_backburner || false, parsed.is_break || false);
-    // parsed.energy_cost = finalEnergyCost;
+  }, []);
 
-    await addRetiredTask(parsed);
-  }, [user, groupBy, addRetiredTask]);
+  if (isLoadingRetiredTasks || isLoadingEnvironments) {
+    return <div>Loading...</div>;
+  }
 
-  if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
+  if (retiredTasks.length === 0) {
+    return (
+      <div className="text-center text-muted-foreground py-8">
+        No tasks have been retired for {selectedDayString}.
+      </div>
+    );
+  }
+
+  const sortedGroupKeys = useMemo(() => {
+    if (groupBy === 'environment') {
+      // Sort environments by custom order if available, otherwise alphabetically
+      const customOrder = environments.map(env => env.value);
+      return Object.keys(groupedTasks).sort((a, b) => {
+        const indexA = customOrder.indexOf(a);
+        const indexB = customOrder.indexOf(b);
+        if (indexA === -1 && indexB === -1) return a.localeCompare(b); // Both not in custom order, sort alphabetically
+        if (indexA === -1) return 1; // A not in custom order, B comes first
+        if (indexB === -1) return -1; // B not in custom order, A comes first
+        return indexA - indexB; // Sort by custom order
+      });
+    } else { // groupBy === 'priority'
+      const priorityOrder: Record<TaskPriority, number> = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+      return Object.keys(groupedTasks).sort((a, b) => {
+        const priorityA = priorityOrder[a as TaskPriority] || 0;
+        const priorityB = priorityOrder[b as TaskPriority] || 0;
+        return priorityB - priorityA; // Descending priority
+      });
+    }
+  }, [groupedTasks, groupBy, environments]);
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-      <div className="flex w-full gap-6 items-start pb-4 overflow-x-auto custom-scrollbar">
-        {Object.entries(groupedTasks).map(([id, tasks]) => {
+    <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <ListOrdered className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium text-muted-foreground">Group by:</span>
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
+          className="bg-background border rounded-md px-2 py-1 text-sm"
+        >
+          <option value="environment">Environment</option>
+          <option value="priority">Priority</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {sortedGroupKeys.map(id => {
+          const tasksInGroup = groupedTasks[id];
           let label = id;
-          let Icon = Info;
+          let Icon: React.ElementType = Home; // Default icon
+          let color = 'hsl(var(--primary))';
+
           if (groupBy === 'environment') {
             const env = environments.find(e => e.value === id);
             label = env?.label || id;
-            Icon = env?.icon === 'Home' ? Home : env?.icon === 'Laptop' ? Laptop : env?.icon === 'Globe' ? Globe : Music;
+            Icon = env?.icon || Home; // Directly use env.icon, fallback to Home
+            color = env?.color || 'hsl(var(--primary))';
           } else if (groupBy === 'priority') {
-            label = id === 'critical' ? '🔥 Critical' : id === 'backburner' ? '🔵 Backburner' : '⚪ Standard';
-            Icon = id === 'critical' ? Star : Info;
-          } else {
-            label = id === 'work' ? '💻 Work' : id === 'breaks' ? '☕ Breaks' : '✨ Not Work';
-            Icon = id === 'work' ? Briefcase : (id === 'breaks' ? Coffee : Star);
+            label = `${id} Priority`;
+            switch (id as TaskPriority) {
+              case 'HIGH': Icon = Star; color = 'hsl(var(--destructive))'; break;
+              case 'MEDIUM': Icon = Clock; color = 'hsl(var(--logo-orange))'; break;
+              case 'LOW': Icon = CalendarDays; color = 'hsl(var(--logo-green))'; break;
+              default: Icon = Home; color = 'hsl(var(--primary))'; break;
+            }
           }
 
           return (
-            <KanbanColumn 
-              key={id} 
-              id={id} 
-              title={label} 
-              icon={<Icon className="h-4 w-4" />} 
-              tasks={tasks} 
-              totalEnergy={tasks.reduce((s, t) => s + (t.energy_cost || 0), 0)} 
-              onQuickAdd={handleQuickAdd} 
-              activeId={activeTask?.id || null} 
-              overId={overId} 
-              onOpenDetailDialog={onOpenDetailDialog} 
-            />
+            <Card key={id} className="relative">
+              <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                  <Icon className="h-5 w-5" style={{ color }} />
+                  <span>{label} ({tasksInGroup.length})</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {tasksInGroup.map(task => (
+                  <div key={task.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-sm">
+                    <span className="font-medium">{task.name}</span>
+                    <div className="flex items-center gap-2">
+                      {task.is_work && <Badge variant="secondary" className="bg-blue-500/20 text-blue-500 border-blue-500/30">Work</Badge>}
+                      {task.is_break && <Badge variant="secondary" className="bg-logo-orange/20 text-logo-orange border-logo-orange/30">Break</Badge>}
+                      <Badge variant="outline" className={getPriorityBadgeClasses(task.priority)}>
+                        {task.priority}
+                      </Badge>
+                      <span className="flex items-center gap-1 text-logo-yellow font-semibold">
+                        <Zap className="h-3 w-3" /> {task.energy_cost}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           );
         })}
       </div>
-      <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.5' } } }) }}>
-        {activeTask ? <SortableTaskCard task={activeTask} onOpenDetailDialog={onOpenDetailDialog} /> : null}
-      </DragOverlay>
-    </DndContext>
+    </div>
   );
 };
 

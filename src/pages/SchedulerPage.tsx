@@ -510,6 +510,13 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments, isSelectedDayBlocked);
   }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, T_current, mealAssignments, isSelectedDayBlocked]);
 
+  // Helper component to keep the standard UI width
+  const CenteredWrapper = ({ children }: { children: React.ReactNode }) => (
+    <div className="max-w-4xl mx-auto w-full space-y-6">
+      {children}
+    </div>
+  );
+
   return (
     <div className={cn(
       "w-full pb-4 space-y-6",
@@ -543,16 +550,22 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
         onOpenChange={setIsCreateTaskDialogOpen}
       />
 
-      <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={overallLoading} />
+      {/* DASHBOARD - Always Centered */}
+      <CenteredWrapper>
+        <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={overallLoading} />
+      </CenteredWrapper>
       
-      <div className="space-y-6">
-        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} blockedDays={profile?.blocked_days || []} />
-        <SchedulerSegmentedControl currentView={view} />
-      </div>
+      {/* CALENDAR & TABS - Always Centered */}
+      <CenteredWrapper>
+        <div className="space-y-6">
+          <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} blockedDays={profile?.blocked_days || []} />
+          <SchedulerSegmentedControl currentView={view} />
+        </div>
+      </CenteredWrapper>
 
       <div className="space-y-6">
         {view === 'schedule' && (
-          <>
+          <CenteredWrapper>
             <SchedulerContextBar T_current={T_current} />
             
             <Card className="p-4 rounded-xl shadow-sm">
@@ -610,10 +623,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
                 onToggleDayLock={handleToggleDayLock}
               />
             )}
-          </>
+          </CenteredWrapper>
         )}
+        
         {view === 'sink' && (
           <div className="w-full overflow-x-auto pb-4">
+            {/* SINK - Remains Full Width */}
             <AetherSink 
               retiredTasks={retiredTasks} 
               onRezoneTask={(t) => rezoneTask(t)} 
@@ -627,7 +642,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             />
           </div>
         )}
-        {view === 'recap' && calculatedSchedule && <DailyVibeRecapCard scheduleSummary={calculatedSchedule.summary} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={calculatedSchedule.summary.activeTime.hours * 60 + calculatedSchedule.summary.activeTime.minutes} totalBreakTimeMinutes={calculatedSchedule.summary.breakTime} />}
+        
+        {view === 'recap' && calculatedSchedule && (
+          <CenteredWrapper>
+            <DailyVibeRecapCard scheduleSummary={calculatedSchedule.summary} tasksCompletedToday={completedTasksForSelectedDayList.length} xpEarnedToday={0} profileEnergy={profile?.energy || 0} criticalTasksCompletedToday={0} selectedDayString={selectedDay} completedScheduledTasks={completedTasksForSelectedDayList} totalActiveTimeMinutes={calculatedSchedule.summary.activeTime.hours * 60 + calculatedSchedule.summary.activeTime.minutes} totalBreakTimeMinutes={calculatedSchedule.summary.breakTime} />
+          </CenteredWrapper>
+        )}
       </div>
       <WorkdayWindowDialog open={showWorkdayWindowDialog} onOpenChange={setShowWorkdayWindowDialog} />
     </div>

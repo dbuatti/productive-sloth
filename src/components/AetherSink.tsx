@@ -165,7 +165,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 
   return (
     <>
-      <Card className="p-4 rounded-xl shadow-sm w-full">
+      <Card className="w-full p-4 rounded-xl shadow-sm">
         <CardHeader className={cn("pb-4 flex flex-row items-center justify-between p-0")}>
           <CardTitle className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-secondary/50">

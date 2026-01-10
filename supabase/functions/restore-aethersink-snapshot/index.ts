@@ -136,9 +136,11 @@ serve(async (req) => {
         };
       });
 
+      // Use upsert to handle potential conflicts on unique constraints
+      console.log(`${functionName} Attempting upsert with onConflict: 'user_id, name, original_scheduled_date'`);
       const { error: insertError } = await supabaseClient
         .from('aethersink')
-        .insert(sanitizedTasksToInsert);
+        .upsert(sanitizedTasksToInsert, { onConflict: 'user_id, name, original_scheduled_date' }); // Use upsert to handle conflicts
 
       if (insertError) {
         console.error(`${functionName} Error inserting tasks from snapshot: ${insertError.message}`);

@@ -12,7 +12,7 @@ import {
 import { 
   Zap, Star, Lock, Unlock, 
   Trash2, RotateCcw, Info, CheckCircle, Briefcase, Coffee
-} from 'lucide-react'; // NEW: Import Briefcase and Coffee icons
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ListTodo, Zap, Coffee, Flag, ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
 import { ScheduleSummary } from '@/types/scheduler';
@@ -20,6 +20,7 @@ interface SchedulerDashboardPanelProps {
   isLoading: boolean;
 }
 
+// Memoize the component to prevent re-renders when parent state changes frequently
 const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({
   scheduleSummary,
   onAetherDump,
@@ -215,5 +216,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
     </div>
   );
 });
+
+SchedulerDashboardPanel.displayName = 'SchedulerDashboardPanel';
 
 export default SchedulerDashboardPanel;

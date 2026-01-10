@@ -57,7 +57,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   }, [retiredTasks, groupBy, environments]);
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveTask(retiredTasks.find(t => t.id === event.active.id) || null);
+    const task = retiredTasks.find(t => t.id === event.active.id);
+    setActiveTask(task || null);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -126,7 +127,18 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
           }
 
           return (
-            <KanbanColumn key={id} id={id} title={label} icon={<Icon className="h-4 w-4" />} tasks={tasks} totalEnergy={tasks.reduce((s, t) => s + (t.energy_cost || 0), 0)} onQuickAdd={handleQuickAdd} activeId={activeTask?.id || null} overId={overId} onOpenDetailDialog={onOpenDetailDialog} />
+            <KanbanColumn 
+              key={id} 
+              id={id} 
+              title={label} 
+              icon={<Icon className="h-4 w-4" />} 
+              tasks={tasks} 
+              totalEnergy={tasks.reduce((s, t) => s + (t.energy_cost || 0), 0)} 
+              onQuickAdd={handleQuickAdd} 
+              activeId={activeTask?.id || null} 
+              overId={overId} 
+              onOpenDetailDialog={onOpenDetailDialog} 
+            />
           );
         })}
       </div>

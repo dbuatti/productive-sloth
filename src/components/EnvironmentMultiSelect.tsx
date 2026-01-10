@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, X, Filter, Zap } from "lucide-react";
-import { cn, getLucideIconComponent } from "@/lib/utils"; // Import getLucideIconComponent
+import { Check, ChevronDown, X, Filter, Zap, Loader2 } from "lucide-react"; // Added Loader2
+import { cn, getLucideIconComponent } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -16,15 +16,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useEnvironmentContext, environmentOptions } from "@/hooks/use-environment-context";
+import { useEnvironmentContext } from "@/hooks/use-environment-context"; // Import useEnvironmentContext
 
 const EnvironmentMultiSelect: React.FC = () => {
-  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments } = useEnvironmentContext();
+  const { selectedEnvironments, toggleEnvironmentSelection, setSelectedEnvironments, allUserEnvironments, isLoadingEnvironments } = useEnvironmentContext(); // Use dynamic environments
   const [open, setOpen] = React.useState(false);
 
   const selectedOptions = React.useMemo(() => {
-    return environmentOptions.filter(opt => selectedEnvironments.includes(opt.value));
-  }, [selectedEnvironments]);
+    return allUserEnvironments.filter(opt => selectedEnvironments.includes(opt.value));
+  }, [selectedEnvironments, allUserEnvironments]);
 
   const handleClearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,7 +34,7 @@ const EnvironmentMultiSelect: React.FC = () => {
   const renderSelectedBadges = () => {
     if (selectedOptions.length === 0) {
       return (
-        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest"> {/* Adjusted text color and size */}
+        <div className="flex items-center gap-2 text-muted-foreground/70 italic font-medium text-xs uppercase tracking-widest">
           <Zap className="h-3 w-3" /> All Zones
         </div>
       );
@@ -59,7 +59,7 @@ const EnvironmentMultiSelect: React.FC = () => {
     return (
       <div className="flex flex-wrap gap-1.5">
         {selectedOptions.map(option => {
-          const IconComponent = getLucideIconComponent(option.icon); // Use the shared utility, pass string directly
+          const IconComponent = getLucideIconComponent(option.icon);
           return (
             <Badge 
               key={option.value} 
@@ -86,6 +86,7 @@ const EnvironmentMultiSelect: React.FC = () => {
             "w-full justify-between h-10 px-3 border-white/5 shadow-sm transition-all duration-300 rounded-lg",
             open && "border-primary/40 ring-1 ring-primary/20"
           )}
+          disabled={isLoadingEnvironments} // Disable if environments are loading
         >
           <div className="flex items-center gap-2 truncate max-w-[calc(100%-24px)]">
             <Filter className={cn("h-3.5 w-3.5 transition-colors", selectedOptions.length > 0 ? "text-primary" : "text-muted-foreground/30")} />
@@ -101,30 +102,36 @@ const EnvironmentMultiSelect: React.FC = () => {
               <div className="px-2 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">
                 Environment Filter
               </div>
-              {environmentOptions.map((option) => {
-                const isSelected = selectedEnvironments.includes(option.value);
-                const IconComponent = getLucideIconComponent(option.icon); // Use the shared utility, pass string directly
-                return (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => toggleEnvironmentSelection(option.value)}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 mb-1",
-                      "hover:bg-primary/10 data-[selected='true']:bg-primary/5",
-                      isSelected && "text-primary font-bold"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex items-center justify-center h-5 w-5 rounded border transition-all duration-300",
-                      isSelected ? "bg-primary border-primary shadow-[0_0_8px_hsl(var(--primary))]" : "border-white/10 bg-white/5"
-                    )}>
-                      {isSelected && <Check className="h-3 w-3 text-background stroke-[4px]" />}
-                    </div>
-                    <IconComponent className={cn("h-4 w-4 transition-colors", isSelected ? "text-primary" : "text-muted-foreground/50")} />
-                    <span className="text-sm tracking-tight">{option.label}</span>
-                  </CommandItem>
-                );
-              })}
+              {isLoadingEnvironments ? (
+                <CommandItem disabled className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+                </CommandItem>
+              ) : (
+                allUserEnvironments.map((option) => {
+                  const isSelected = selectedEnvironments.includes(option.value);
+                  const IconComponent = getLucideIconComponent(option.icon);
+                  return (
+                    <CommandItem
+                      key={option.value}
+                      onSelect={() => toggleEnvironmentSelection(option.value)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 mb-1",
+                        "hover:bg-primary/10 data-[selected='true']:bg-primary/5",
+                        isSelected && "text-primary font-bold"
+                      )}
+                    >
+                      <div className={cn(
+                        "flex items-center justify-center h-5 w-5 rounded border transition-all duration-300",
+                        isSelected ? "bg-primary border-primary shadow-[0_0_8px_hsl(var(--primary))]" : "border-white/10 bg-white/5"
+                      )}>
+                        {isSelected && <Check className="h-3 w-3 text-background stroke-[4px]" />}
+                      </div>
+                      <IconComponent className={cn("h-4 w-4 transition-colors", isSelected ? "text-primary" : "text-muted-foreground/50")} />
+                      <span className="text-sm tracking-tight">{option.label}</span>
+                    </CommandItem>
+                  );
+                })
+              )}
             </CommandGroup>
           </CommandList>
         </Command>

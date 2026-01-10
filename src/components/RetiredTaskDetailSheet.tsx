@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm } from "@hookform/react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
@@ -31,33 +31,32 @@ import { showSuccess, showError } from "@/utils/toast";
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEnvironments } from '@/hooks/use-environments';
-import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
-import { getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
+import { useRetiredTasks } from '@/hooks/use-retired-tasks';
+import { getLucideIconComponent } from '@/lib/utils';
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Import useEnvironmentContext
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
   duration: z.preprocess(
     (val) => (val === "" ? null : val),
-    z.number().min(1, "Duration must be at least 1 minute.").nullable()
+    z.coerce.number().min(1, "Duration must be at least 1 minute.").nullable()
   ),
   break_duration: z.preprocess(
     (val) => (val === "" ? null : val),
-    z.number().min(0, "Break duration cannot be negative.").nullable()
+    z.coerce.number().min(0, "Break duration cannot be negative.").nullable()
   ),
   is_critical: z.boolean().default(false),
   is_backburner: z.boolean().default(false),
   is_completed: z.boolean().default(false),
-  energy_cost: z.coerce.number().default(0), // Removed .min(0)
+  energy_cost: z.coerce.number().default(0),
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.string().default('laptop'),
+  task_environment: z.string().min(1, "Environment is required."), // Changed to z.string()
   is_work: z.boolean().default(false),
   is_break: z.boolean().default(false),
 }).refine(data => {
-  // If it's a break task and not custom energy cost, allow negative or zero
   if (data.is_break && !data.is_custom_energy_cost) {
     return data.energy_cost <= 0;
   }
-  // Otherwise, energy cost must be non-negative
   return data.energy_cost >= 0;
 }, {
   message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
@@ -77,8 +76,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useRetiredTasks(); // NEW: Use useRetiredTasks
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
+  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useRetiredTasks();
+  const { allUserEnvironments, isLoadingEnvironments } = useEnvironmentContext(); // Use dynamic environments
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<RetiredTaskDetailFormValues>({
@@ -270,8 +269,8 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {environments.map(env => {
-                          const IconComponent = getLucideIconComponent(env.icon); // Use the shared utility
+                        {allUserEnvironments.map(env => {
+                          const IconComponent = getLucideIconComponent(env.icon);
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">
@@ -465,7 +464,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                         <Input 
                           type="number" 
                           {...field} 
-                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
+                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"}
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}

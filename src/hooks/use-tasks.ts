@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Task, NewTask, TaskStatusFilter, TemporalFilter, SortBy, TaskPriority } from '@/types'; // Added TaskPriority import
+import { Task, NewTask, TaskStatusFilter, TemporalFilter, SortBy, TaskPriority } from '@/types';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, subDays, formatISO, parseISO, isToday, isYesterday } from 'date-fns';
 import { XP_PER_LEVEL, MAX_ENERGY, DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
+import { TaskEnvironment } from '@/types/scheduler'; // Import TaskEnvironment
 
 const getDateRange = (filter: TemporalFilter): { start: string, end: string } | null => {
   const now = new Date();
@@ -17,7 +18,7 @@ const getDateRange = (filter: TemporalFilter): { start: string, end: string } | 
 
   switch (filter) {
     case 'TODAY':
-      startDate = new Date(0); // Effectively all tasks up to end of today
+      startDate = new Date(0);
       endDate = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
       break;
     case 'YESTERDAY':
@@ -49,7 +50,6 @@ const sortTasks = (tasks: Task[], sortBy: SortBy): Task[] => {
       const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
       if (priorityDiff !== 0) return priorityDiff;
     }
-    // Fallback to due date if priorities are the same
     if (a.due_date && b.due_date) {
       return parseISO(a.due_date).getTime() - parseISO(b.due_date).getTime();
     }
@@ -89,7 +89,7 @@ export const useTasks = () => {
     } else if (currentSortBy === 'TIME_LATEST_TO_EARLIEST') {
       query = query.order('due_date', { ascending: false });
     } else {
-      query = query.order('created_at', { ascending: false }); // Default sort
+      query = query.order('created_at', { ascending: false });
     }
 
     const { data, error } = await query;
@@ -143,8 +143,9 @@ export const useTasks = () => {
         metadata_xp: metadataXp,
         is_custom_energy_cost: newTask.is_custom_energy_cost ?? false,
         is_backburner: newTask.is_backburner ?? false,
-        is_work: newTask.is_work ?? false, // NEW: Add is_work flag
-        is_break: newTask.is_break ?? false, // NEW: Add is_break flag
+        is_work: newTask.is_work ?? false,
+        is_break: newTask.is_break ?? false,
+        task_environment: newTask.task_environment ?? 'laptop', // Ensure default environment
       };
       const { data, error } = await supabase.from('tasks').insert(taskToInsert).select().single();
       if (error) {
@@ -169,13 +170,10 @@ export const useTasks = () => {
       if (!userId) throw new Error("User not authenticated.");
       console.log("[useTasks] Updating task:", task.id, task.title);
       
-      // NEW: Recalculate energy_cost and metadata_xp if not custom and critical status changes
       let updatedEnergyCost = task.energy_cost;
       let updatedMetadataXp = task.metadata_xp;
 
       if (task.is_custom_energy_cost === false && (task.is_critical !== undefined || task.is_backburner !== undefined || task.is_break !== undefined || task.energy_cost === undefined)) {
-        // If is_custom_energy_cost is explicitly false, or energy_cost is not provided (meaning it should be calculated)
-        // We need to fetch the current task to get its is_critical/is_backburner status if not provided in the update
         const currentTask = queryClient.getQueryData<Task[]>(['tasks', userId, temporalFilter, sortBy])?.find(t => t.id === task.id);
         const effectiveIsCritical = task.is_critical !== undefined ? task.is_critical : (currentTask?.is_critical ?? false);
         const effectiveIsBackburner = task.is_backburner !== undefined ? task.is_backburner : (currentTask?.is_backburner ?? false);
@@ -185,11 +183,9 @@ export const useTasks = () => {
         updatedMetadataXp = updatedEnergyCost * 2;
         console.log(`[useTasks] Recalculated energy_cost: ${updatedEnergyCost}, metadata_xp: ${updatedMetadataXp}`);
       } else if (task.is_custom_energy_cost === true && task.energy_cost !== undefined) {
-        // If custom energy cost is enabled and provided, update metadata_xp based on it
         updatedMetadataXp = task.energy_cost * 2;
         console.log(`[useTasks] Custom energy_cost: ${task.energy_cost}, updated metadata_xp: ${updatedMetadataXp}`);
       } else if (task.energy_cost !== undefined) {
-        // If energy_cost is provided (and custom might be true or false), update metadata_xp
         updatedMetadataXp = task.energy_cost * 2;
         console.log(`[useTasks] Energy_cost provided: ${task.energy_cost}, updated metadata_xp: ${updatedMetadataXp}`);
       }
@@ -198,8 +194,8 @@ export const useTasks = () => {
         .from('tasks')
         .update({ 
           ...task, 
-          energy_cost: updatedEnergyCost, // NEW: Use updated energy cost
-          metadata_xp: updatedMetadataXp, // NEW: Use updated metadata XP
+          energy_cost: updatedEnergyCost,
+          metadata_xp: updatedMetadataXp,
           updated_at: new Date().toISOString(),
         })
         .eq('id', task.id)

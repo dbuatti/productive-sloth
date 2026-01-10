@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm } from "@hookform/react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, getLucideIconComponent } from "@/lib/utils"; // Import getLucideIconComponent
 import { Task, TaskPriority } from "@/types";
 import DatePicker from "./DatePicker";
 import { useTasks } from '@/hooks/use-tasks';
@@ -37,6 +37,7 @@ import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
+import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Import useEnvironmentContext
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }).max(255),
@@ -45,16 +46,15 @@ const formSchema = z.object({
   dueDate: z.date({ required_error: "Due date is required." }), 
   isCritical: z.boolean().default(false),
   isBackburner: z.boolean().default(false),
-  energy_cost: z.coerce.number().default(0), // Removed .min(0)
+  energy_cost: z.coerce.number().default(0),
   is_custom_energy_cost: z.boolean().default(false),
+  task_environment: z.string().min(1, "Environment is required."), // Changed to z.string()
   is_work: z.boolean().default(false),
   is_break: z.boolean().default(false),
 }).refine(data => {
-  // If it's a break task and not custom energy cost, allow negative or zero
   if (data.is_break && !data.is_custom_energy_cost) {
     return data.energy_cost <= 0;
   }
-  // Otherwise, energy cost must be non-negative
   return data.energy_cost >= 0;
 }, {
   message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
@@ -76,6 +76,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
 }) => {
   const { updateTask } = useTasks();
   const { profile } = useSession();
+  const { allUserEnvironments, isLoadingEnvironments } = useEnvironmentContext(); // Use dynamic environments
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<TaskDetailFormValues>({
@@ -89,6 +90,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
       isBackburner: false,
       energy_cost: 0,
       is_custom_energy_cost: false,
+      task_environment: 'laptop', // Default to 'laptop'
       is_work: false,
       is_break: false,
     },
@@ -106,6 +108,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
         isBackburner: task.is_backburner,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
+        task_environment: task.task_environment || 'laptop', // Ensure default if null
         is_work: task.is_work || false,
         is_break: task.is_break || false,
       });
@@ -154,6 +157,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
         is_backburner: values.isBackburner,
         energy_cost: values.is_custom_energy_cost ? values.energy_cost : calculatedEnergyCost,
         is_custom_energy_cost: values.is_custom_energy_cost,
+        task_environment: values.task_environment,
         is_work: values.is_work,
         is_break: values.is_break,
       });
@@ -446,7 +450,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
                         <Input 
                           type="number" 
                           {...field} 
-                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
+                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"}
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
@@ -468,7 +472,7 @@ const TaskDetailSheetForTasks: React.FC<TaskDetailSheetForTasksProps> = ({
               <Button 
                 type="submit" 
                 disabled={isSubmitting || !isValid} 
-                className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
+                className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

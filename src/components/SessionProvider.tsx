@@ -307,6 +307,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     enabled: !!user?.id && !isAuthLoading,
   });
 
+  // Memoize the calculation to prevent object reference churn
   const calculatedScheduleToday = useMemo(() => {
     if (!profile) return null;
     const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(new Date()), profile.default_auto_schedule_start_time) : startOfDay(new Date());
@@ -352,7 +353,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [calculatedScheduleToday]);
 
   const contextValue = useMemo(() => {
-    console.log("[SessionProvider] Re-computing context value.");
+    // Only log if we actually have data to prevent spam
+    if (profile) {
+        console.log("[SessionProvider] Context computed.");
+    }
     return {
       session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
       triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateNotificationPreferences, 

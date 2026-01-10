@@ -47,7 +47,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const { selectedEnvironments } = useEnvironmentContext();
   const environmentForPlacement = selectedEnvironments[0] || 'laptop';
   
-  const [selectedDay, setSelectedDay] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  // Initialize date once on mount to prevent re-initialization on re-renders
+  const [selectedDay, setSelectedDay] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const scheduleContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -138,11 +139,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     return dbScheduledTasks.every(task => task.is_locked);
   }, [dbScheduledTasks]);
 
+  // Stabilize the RegenPod setup trigger
   useEffect(() => {
-    if (isRegenPodRunning) {
+    if (isRegenPodRunning && !showRegenPodSetup) {
       setShowRegenPodSetup(true);
     }
-  }, [isRegenPodRunning]);
+  }, [isRegenPodRunning]); // Only depend on the running state
 
   const getStaticConstraints = useCallback((): TimeBlock[] => {
     if (!profile) return [];
@@ -507,6 +509,15 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, mealAssignments, isSelectedDayBlocked]);
 
   const wrapperClass = "max-w-4xl mx-auto w-full space-y-6";
+
+  // If profile is loading, show a minimal loader to prevent double render flash
+  if (isSessionLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full pb-4 space-y-6">

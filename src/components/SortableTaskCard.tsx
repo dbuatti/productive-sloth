@@ -126,7 +126,7 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={(e) => handleAction(e, handleToggleComplete)}>
+              <Button variant="ghost" size="icon" className="h-6 w-6 p-0" onClick={(e) => handleAction(e, () => handleToggleComplete())}>
                 <CheckCircle className={cn("h-3.5 w-3.5", task.is_completed ? "text-logo-green fill-current" : "text-muted-foreground")} />
               </Button>
             </TooltipTrigger>

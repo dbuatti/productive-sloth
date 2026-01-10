@@ -245,7 +245,7 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                   name="break_duration"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Break Duration (min)</FormLabel>
+                      <FormLabel>Break Duration (min)</Label>
                       <FormControl>
                         <Input type="number" {...field} min="0" value={field.value ?? ''} />
                       </FormControl>
@@ -272,11 +272,11 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                       </FormControl>
                       <SelectContent>
                         {environments.map(env => {
-                          const Icon = env.icon; // Directly use the React.ElementType
+                          const IconComponent = env.icon; // Directly use the React.ElementType
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">
-                                <Icon className="h-4 w-4" />
+                                <IconComponent className="h-4 w-4" />
                                 {env.label}
                               </div>
                             </SelectItem>

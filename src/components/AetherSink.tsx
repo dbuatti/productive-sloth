@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee } from 'lucide-react'; 
+import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee, Search, AlertTriangle } from 'lucide-react'; 
 import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -10,7 +10,7 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useSession } from '@/hooks/use-session';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel, } from '@/components/ui/dropdown-menu';
 import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { useEnvironments } from '@/hooks/use-environments';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion'; // Import motion for animations
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'; // Import AlertDialog
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -108,15 +109,29 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
 }) => {
   const { user } = useSession();
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
-  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails } = useSchedulerTasks('');
+  const { 
+    toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, 
+    triggerAetherSinkBackup, updateRetiredTaskDetails, bulkRemoveRetiredTasks, bulkRezoneRetiredTasks 
+  } = useSchedulerTasks('');
   
   const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
   const [localInput, setLocalInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // NEW: State for search term
 
   const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
+  const unlockedRetiredTaskIds = useMemo(() => retiredTasks.filter(task => !task.is_locked).map(task => task.id), [retiredTasks]);
+
+  const filteredTasks = useMemo(() => {
+    if (!searchTerm) return retiredTasks;
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    return retiredTasks.filter(task => 
+      task.name.toLowerCase().includes(lowerCaseSearchTerm) ||
+      task.task_environment.toLowerCase().includes(lowerCaseSearchTerm)
+    );
+  }, [retiredTasks, searchTerm]);
 
   const handleAction = useCallback((e: React.MouseEvent, action: () => void) => {
     e.stopPropagation();
@@ -163,6 +178,24 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     await addRetiredTask(parsedTask);
     setLocalInput('');
   }, [user, addRetiredTask]);
+
+  const handlePurgeAllUnlocked = useCallback(async () => {
+    if (unlockedRetiredTaskIds.length === 0) {
+      showError("No unlocked tasks to purge.");
+      return;
+    }
+    await bulkRemoveRetiredTasks(unlockedRetiredTaskIds);
+    showSuccess(`Purged ${unlockedRetiredTaskIds.length} unlocked tasks.`);
+  }, [unlockedRetiredTaskIds, bulkRemoveRetiredTasks]);
+
+  const handleRezoneAllUnlocked = useCallback(async () => {
+    if (unlockedRetiredTaskIds.length === 0) {
+      showError("No unlocked tasks to re-zone.");
+      return;
+    }
+    await bulkRezoneRetiredTasks(unlockedRetiredTaskIds);
+    showSuccess(`Re-zoned ${unlockedRetiredTaskIds.length} unlocked tasks.`);
+  }, [unlockedRetiredTaskIds, bulkRezoneRetiredTasks]);
 
   return (
     <motion.div 
@@ -276,6 +309,18 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
       </div>
       
       <div className="px-2 pb-2 space-y-6">
+        {/* NEW: Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+          <Input
+            placeholder="Search tasks in Aether Sink..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-10 bg-background/40 font-medium placeholder:font-normal placeholder:opacity-60 text-sm rounded-xl border-none"
+            aria-label="Search Aether Sink tasks"
+          />
+        </div>
+
         {viewMode === 'list' && (
           <form 
             onSubmit={(e) => {
@@ -313,8 +358,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               ))}
             </div>
           </div>
-        ) : retiredTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10 animate-pop-in"> {/* Added animate-pop-in */}
+        ) : filteredTasks.length === 0 ? ( // Use filteredTasks here
+          <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10 animate-pop-in">
             <Ghost className="h-12 w-12 text-muted-foreground/20" />
             <div className="space-y-1">
               <p className="text-sm font-black uppercase tracking-tighter text-muted-foreground/60">Aether Sink Vacant</p>
@@ -324,7 +369,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
         ) : (
           viewMode === 'list' ? (
             <div className="grid gap-2 pr-2 scrollbar-none max-h-[600px] overflow-y-auto custom-scrollbar">
-              {retiredTasks.map((task) => {
+              {filteredTasks.map((task) => { // Use filteredTasks here
                 const hue = getEmojiHue(task.name);
                 const emoji = assignEmoji(task.name);
                 const accentColor = `hsl(${hue} 70% 50%)`;
@@ -452,7 +497,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             </div>
           ) : (
             <SinkKanbanBoard 
-              retiredTasks={retiredTasks} 
+              retiredTasks={filteredTasks} // Pass filtered tasks to Kanban board
               groupBy={groupBy} 
               onRemoveRetiredTask={onRemoveRetiredTask} 
               onRezoneTask={onRezoneTask}
@@ -462,6 +507,69 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
           )
         )}
       </div>
+
+      {/* NEW: Bulk Actions Section */}
+      {retiredTasks.length > 0 && (
+        <div className="px-2 pt-4 border-t border-border/50 space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" /> Bulk Operations
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Apply actions to all currently unlocked tasks in the Aether Sink.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  onClick={handleRezoneAllUnlocked}
+                  disabled={unlockedRetiredTaskIds.length === 0 || isProcessingCommand}
+                  className="h-12 w-full text-primary border-primary/20 hover:bg-primary/10"
+                >
+                  <RotateCcw className="h-5 w-5 mr-2" />
+                  Re-zone All ({unlockedRetiredTaskIds.length})
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Move all unlocked tasks to today's schedule.</TooltipContent>
+            </Tooltip>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="destructive" 
+                      disabled={unlockedRetiredTaskIds.length === 0 || isProcessingCommand}
+                      className="h-12 w-full"
+                    >
+                      <Trash2 className="h-5 w-5 mr-2" />
+                      Purge All ({unlockedRetiredTaskIds.length})
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Permanently delete all unlocked tasks.</TooltipContent>
+                </Tooltip>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                    <AlertTriangle className="h-6 w-6" /> Are you absolutely sure?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete all{' '}
+                    <span className="font-bold text-foreground">{unlockedRetiredTaskIds.length}</span> unlocked tasks from your Aether Sink.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handlePurgeAllUnlocked} className="bg-destructive hover:bg-destructive/90">
+                    Yes, Purge All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      )}
       
       <RetiredTaskDetailSheet 
         task={selectedRetiredTask} 

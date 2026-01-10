@@ -723,6 +723,8 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingDatesWithTasks || isLoadingCompletedTasksForSelectedDay;
 
   // CRITICAL FIX: Memoize the calculated schedule object to prevent reference churn
+  // The schedule calculation itself should not depend on T_current for its structure,
+  // only for the 'active' status of items.
   const calculatedSchedule = useMemo(() => {
     if (!profile) {
       console.log("[SchedulerPage] Profile not available for schedule calculation.");
@@ -733,8 +735,10 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(selectedDayAsDate), 17);
     if (isBefore(end, start)) end = addDays(end, 1);
 
-    return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, T_current, profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments, isSelectedDayBlocked);
-  }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, mealAssignments, isSelectedDayBlocked, T_current]);
+    // Pass a stable `startOfDay(T_current)` for structural calculation,
+    // but `T_current` itself is still passed to `SchedulerDisplay` for live updates.
+    return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, startOfDay(T_current), profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments, isSelectedDayBlocked);
+  }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, mealAssignments, isSelectedDayBlocked]);
 
   const wrapperClass = "max-w-4xl mx-auto w-full space-y-6";
 
@@ -849,7 +853,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
           ) : (
             <SchedulerDisplay 
               schedule={calculatedSchedule} 
-              T_current={T_current} 
+              T_current={T_current} // T_current is still passed here for live updates of the "now" line
               onRemoveTask={(id) => removeScheduledTask(id)} 
               onRetireTask={(t) => retireTask(t)} 
               onCompleteTask={(t) => handleSchedulerAction('complete', t)} 

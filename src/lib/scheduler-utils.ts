@@ -649,7 +649,8 @@ export const getFreeTimeBlocks = (
 
   const sortedOccupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks);
 
-  for (const occupiedBlock of sortedOccupiedBlocks) {
+  for (let i = 0; i < sortedOccupiedBlocks.length; i++) {
+    const occupiedBlock = sortedOccupiedBlocks[i];
     if (currentFreeTimeCursor < occupiedBlock.start) {
       const duration = Math.floor((occupiedBlock.start.getTime() - currentFreeTimeCursor.getTime()) / (1000 * 60));
       if (duration > 0) {
@@ -755,7 +756,7 @@ export const getStaticConstraints = (
   for (let r = 0; r < (profile.reflection_count || 0); r++) {
       const rTime = profile.reflection_times?.[r];
       const rDur = profile.reflection_durations?.[r];
-      if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
+      if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur); // Removed 'break' argument
   }
   console.log("[getStaticConstraints] Final static constraints count:", constraints.length);
   return constraints;
@@ -999,21 +1000,10 @@ export const calculateSchedule = (
   isDayBlocked: boolean = false // NEW: Add isDayBlocked parameter
 ): FormattedSchedule => {
   console.log(`[calculateSchedule] Starting schedule calculation for day: ${selectedDay}. Blocked: ${isDayBlocked}`);
-  let allRawItems: ScheduledItem[] = [];
-  let totalActiveTimeMinutes = 0;
-  let totalBreakTimeMinutes = 0;
-  let criticalTasksRemaining = 0;
-  let unscheduledCount = 0;
-  let sessionEnd = workdayStart; 
-  let extendsPastMidnight = false;
-  let midnightRolloverMessage: string | null = null; // Corrected spelling here
-
-  const [year, month, day] = selectedDay.split('-').map(Number);
-  const selectedDayDate = new Date(year, month - 1, day); 
-
-  // If the day is blocked, return an empty schedule with a specific message
+  
+  // OPTIMIZATION: Early exit if the day is blocked
   if (isDayBlocked) {
-    console.log("[calculateSchedule] Day is blocked, returning empty schedule.");
+    console.log("[calculateSchedule] Day is blocked, returning empty schedule early.");
     return {
       items: [],
       summary: {
@@ -1025,11 +1015,23 @@ export const calculateSchedule = (
         midnightRolloverMessage: null,
         unscheduledCount: 0,
         criticalTasksRemaining: 0,
-        isBlocked: true, // Indicate that the day is blocked
+        isBlocked: true,
       },
       dbTasks: [],
     };
   }
+
+  let allRawItems: ScheduledItem[] = [];
+  let totalActiveTimeMinutes = 0;
+  let totalBreakTimeMinutes = 0;
+  let criticalTasksRemaining = 0;
+  let unscheduledCount = 0;
+  let sessionEnd = workdayStart; 
+  let extendsPastMidnight = false;
+  let midnightRolloverMessage: string | null = null; // Corrected spelling here
+
+  const [year, month, day] = selectedDay.split('-').map(Number);
+  const selectedDayDate = new Date(year, month - 1, day); 
 
   // 1. Add Scheduled Tasks from DB
   dbTasks.forEach((dbTask) => {

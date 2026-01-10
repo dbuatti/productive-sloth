@@ -555,7 +555,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       let globalScheduledIdsToDelete: string[] = [];
       let globalRetiredIdsToDelete: string[] = [];
       let globalTasksToInsert: NewDBScheduledTask[] = [];
-      let globalTasksToKeepInSink: NewRetiredTask[] = [];
+      let globalTasksToKeepInSink: NewRetiredTask[] = []; // This array will collect tasks that couldn't be placed
 
       if (taskSource === 'global-all-future') {
         console.log("[useSchedulerTasks] Fetching all future flexible scheduled tasks and all unlocked retired tasks for global auto-schedule.");
@@ -685,8 +685,24 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           }
         }
 
-        if (taskSource === 'global-all-future' && tasksRemainingForDay.length > 0) {
-          tasksRemainingForDay.forEach(t => globalTasksToKeepInSink.push({ user_id: user.id, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
+        // CRITICAL FIX: Add tasks that couldn't be placed back to globalTasksToKeepInSink
+        if (tasksRemainingForDay.length > 0) {
+          tasksRemainingForDay.forEach(t => globalTasksToKeepInSink.push({ 
+            user_id: user.id, 
+            name: t.name, 
+            duration: t.duration, 
+            break_duration: t.break_duration, 
+            original_scheduled_date: currentDateString, // Use the current day as original scheduled date
+            is_critical: t.is_critical, 
+            is_locked: false, 
+            energy_cost: t.energy_cost, 
+            is_completed: false, 
+            is_custom_energy_cost: t.is_custom_energy_cost, 
+            task_environment: t.task_environment, 
+            is_backburner: t.is_backburner, 
+            is_work: t.is_work, 
+            is_break: t.is_break 
+          }));
         }
       }
 

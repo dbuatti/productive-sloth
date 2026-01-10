@@ -5,20 +5,9 @@ import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown, ListOrdered } from 'lucide-react';
 import { useEnvironments } from '@/hooks/use-environments';
 import { showSuccess } from '@/utils/toast';
-import { Home, Laptop, Globe, Music } from 'lucide-react'; // Explicitly import icons here
+import { getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 
 const DEFAULT_ORDER: TaskEnvironment[] = ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-
-// Helper to get the actual Lucide icon component based on its string name
-const getLucideIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home; // Fallback
-  }
-};
 
 const EnvironmentOrderSettings: React.FC = () => {
   const { profile, updateProfile } = useSession();
@@ -66,7 +55,7 @@ const EnvironmentOrderSettings: React.FC = () => {
           const option = environments.find(opt => opt.value === envKey);
           if (!option) return null;
 
-          // Get the actual Lucide icon component
+          // Get the actual Lucide icon component using the shared utility
           const IconComponent = getLucideIconComponent(option.icon);
 
           return (

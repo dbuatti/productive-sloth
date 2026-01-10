@@ -4,7 +4,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { RetiredTask } from '@/types/scheduler';
-import { cn } from '@/lib/utils';
+import { cn, getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 import { 
   getEmojiHue, 
   assignEmoji, 
@@ -30,20 +30,8 @@ interface SortableCardProps {
 
 const getEnvironmentIcon = (environment: string) => {
   const iconClass = "h-3 w-3 opacity-70";
-  switch (environment) {
-    case 'home': return <Home className={iconClass} />;
-    case 'laptop': return <Laptop className={iconClass} />;
-    case 'away': return <Globe className={iconClass} />;
-    case 'piano': return <Music className={iconClass} />;
-    case 'laptop_piano':
-      return (
-        <div className="relative">
-          <Laptop className={iconClass} />
-          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
-        </div>
-      );
-    default: return null;
-  }
+  const IconComponent = getLucideIconComponent(environment); // Use the shared utility
+  return <IconComponent className={iconClass} />;
 };
 
 const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialog, isOverTarget }) => {

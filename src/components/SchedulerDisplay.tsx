@@ -2,7 +2,7 @@
 
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { ScheduledItem, FormattedSchedule, DisplayItem, FreeTimeItem, DBScheduledTask, TaskEnvironment } from '@/types/scheduler';
-import { cn } from '@/lib/utils';
+import { cn, getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 import { formatTime, getEmojiHue, formatDurationToHoursMinutes, assignEmoji } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
 import { Trash2, Archive, Lock, Unlock, Clock, Zap, CheckCircle2, Star, Home, Laptop, Globe, Music, Target, Briefcase, Coffee } from 'lucide-react';
@@ -36,13 +36,8 @@ const MIN_TASK_HEIGHT_PX = MIN_TASK_HEIGHT_MINUTES * MINUTE_HEIGHT;
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3 w-3 opacity-70";
-  switch (environment) {
-    case 'home': return <Home className={iconClass} />;
-    case 'laptop': return <Laptop className={iconClass} />;
-    case 'away': return <Globe className={iconClass} />;
-    case 'piano': return <Music className={iconClass} />;
-    default: return null;
-  }
+  const IconComponent = getLucideIconComponent(environment); // Use the shared utility
+  return <IconComponent className={iconClass} />;
 };
 
 const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
@@ -138,7 +133,7 @@ const SchedulerDisplay: React.FC<SchedulerDisplayProps> = React.memo(({
                           {taskItem.isCritical && <Badge variant="secondary" className="h-4 px-1.5 text-[8px] font-black bg-logo-yellow/20 text-logo-yellow border-logo-yellow/30">CRIT</Badge>}
                           {taskItem.isWork && <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black uppercase border-primary/20 text-primary/60">Work</Badge>}
                           {taskItem.isBreak && <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black uppercase border-logo-orange/20 text-logo-orange/60">Break</Badge>}
-                          {getEnvironmentIcon(taskItem.taskEnvironment)}
+                          {taskItem.taskEnvironment && getEnvironmentIcon(taskItem.taskEnvironment)}
                         </div>
                       </div>
                     </div>

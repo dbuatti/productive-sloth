@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
@@ -80,16 +80,6 @@ interface ScheduledTaskDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   selectedDayString: string;
 }
-
-const getEnvironmentIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home;
-  }
-};
 
 const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   task,
@@ -361,7 +351,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                       </FormControl>
                       <SelectContent>
                         {environments.map(env => {
-                          const IconComponent = getEnvironmentIconComponent(env.icon);
+                          const IconComponent = getLucideIconComponent(env.icon); // Use the shared utility
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">

@@ -31,6 +31,7 @@ import { format, isBefore, addDays, differenceInMinutes } from 'date-fns';
 import { useEnvironments } from '@/hooks/use-environments';
 import { NewDBScheduledTask, TaskEnvironment } from '@/types/scheduler';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
+import { getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 
 const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
@@ -75,16 +76,6 @@ interface CreateTaskDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const getEnvironmentIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home;
-  }
-};
 
 const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ 
   defaultPriority, 
@@ -217,6 +208,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         name: title.trim(),
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
+        break_duration: null, // Assuming break_duration is not set via this form for scheduled tasks
         scheduled_date: scheduledDateString,
         is_critical: isCritical,
         is_backburner: isBackburner,
@@ -394,7 +386,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                 </FormControl>
                 <SelectContent>
                   {environments.map(env => {
-                    const IconComponent = getEnvironmentIconComponent(env.icon);
+                    const IconComponent = getLucideIconComponent(env.icon); // Use the shared utility
                     return (
                       <SelectItem key={env.value} value={env.value}>
                         <div className="flex items-center gap-2">

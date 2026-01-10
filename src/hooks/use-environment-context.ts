@@ -5,15 +5,15 @@ import { Home, Laptop, Globe, Music, Check } from 'lucide-react';
 export interface EnvironmentOption {
   value: TaskEnvironment;
   label: string;
-  icon: React.ElementType;
+  icon: string; // Changed to string
 }
 
 export const environmentOptions: EnvironmentOption[] = [
-  { value: 'home', label: '🏠 At Home', icon: Home },
-  { value: 'laptop', label: '💻 Laptop/Desk', icon: Laptop },
-  { value: 'away', label: '🗺️ Away/Errands', icon: Globe },
-  { value: 'piano', label: '🎹 Piano Practice', icon: Music },
-  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: Laptop },
+  { value: 'home', label: '🏠 At Home', icon: 'Home' }, // Use string name
+  { value: 'laptop', label: '💻 Laptop/Desk', icon: 'Laptop' }, // Use string name
+  { value: 'away', label: '🗺️ Away/Errands', icon: 'Globe' }, // Use string name
+  { value: 'piano', label: '🎹 Piano Practice', icon: 'Music' }, // Use string name
+  { value: 'laptop_piano', label: '💻 + 🎹 Recording/Production', icon: 'Laptop' }, // Use string name
 ];
 
 export interface EnvironmentContextType {

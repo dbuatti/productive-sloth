@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Check, ChevronDown, X, Filter, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getLucideIconComponent } from "@/lib/utils"; // Import getLucideIconComponent
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -58,16 +58,19 @@ const EnvironmentMultiSelect: React.FC = () => {
 
     return (
       <div className="flex flex-wrap gap-1.5">
-        {selectedOptions.map(option => (
-          <Badge 
-            key={option.value} 
-            variant="outline" 
-            className="bg-background/50 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-tight flex items-center gap-1 py-0.5 px-2"
-          >
-            <option.icon className="h-2.5 w-2.5" />
-            {option.label}
-          </Badge>
-        ))}
+        {selectedOptions.map(option => {
+          const IconComponent = getLucideIconComponent(option.icon); // Use the shared utility, pass string directly
+          return (
+            <Badge 
+              key={option.value} 
+              variant="outline" 
+              className="bg-background/50 border-primary/20 text-primary font-bold text-[10px] uppercase tracking-tight flex items-center gap-1 py-0.5 px-2"
+            >
+              <IconComponent className="h-2.5 w-2.5" />
+              {option.label}
+            </Badge>
+          );
+        })}
       </div>
     );
   };
@@ -100,6 +103,7 @@ const EnvironmentMultiSelect: React.FC = () => {
               </div>
               {environmentOptions.map((option) => {
                 const isSelected = selectedEnvironments.includes(option.value);
+                const IconComponent = getLucideIconComponent(option.icon); // Use the shared utility, pass string directly
                 return (
                   <CommandItem
                     key={option.value}
@@ -116,7 +120,7 @@ const EnvironmentMultiSelect: React.FC = () => {
                     )}>
                       {isSelected && <Check className="h-3 w-3 text-background stroke-[4px]" />}
                     </div>
-                    <option.icon className={cn("h-4 w-4 transition-colors", isSelected ? "text-primary" : "text-muted-foreground/50")} />
+                    <IconComponent className={cn("h-4 w-4 transition-colors", isSelected ? "text-primary" : "text-muted-foreground/50")} />
                     <span className="text-sm tracking-tight">{option.label}</span>
                   </CommandItem>
                 );

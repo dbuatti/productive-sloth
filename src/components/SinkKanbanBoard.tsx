@@ -10,9 +10,10 @@ import KanbanColumn from './KanbanColumn';
 import SortableTaskCard from './SortableTaskCard';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
-import { parseSinkTaskInput } from '@/lib/scheduler-utils';
+import { parseSinkTaskInput } from '@/lib/scheduler-utils'; // Corrected import syntax
 import { useEnvironments } from '@/hooks/use-environments';
 import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
+import { getLucideIconComponent, cn } from '@/lib/utils'; // Import getLucideIconComponent and cn
 
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
@@ -43,16 +44,15 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     
     // Define all possible columns based on grouping type
     if (groupBy === 'environment') {
+      // Initialize groups with actual user environments
       environments.forEach(env => groups[env.value] = []);
-      // Ensure default 'laptop' is always present if environments are still loading/empty
-      if (environments.length === 0) groups['laptop'] = [];
     }
     else if (groupBy === 'priority') ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
     else ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
 
     retiredTasks.forEach(task => {
       let key = 'standard';
-      if (groupBy === 'environment') key = task.task_environment || 'laptop';
+      if (groupBy === 'environment') key = task.task_environment || 'laptop'; // Use task_environment value
       else if (groupBy === 'priority') key = task.is_critical ? 'critical' : (task.is_backburner ? 'backburner' : 'standard');
       else key = task.is_break ? 'breaks' : (task.is_work ? 'work' : 'not-work');
       
@@ -93,8 +93,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     
     // 1. Determine the update based on the target column ID
     if (groupBy === 'environment') {
-      // Check if the target ID is a valid environment value
-      if (environments.some(e => e.value === overContainerId) || overContainerId === 'laptop') {
+      // Check if the target ID is a valid environment value from the user's environments
+      if (environments.some(e => e.value === overContainerId)) {
         update = { task_environment: overContainerId as TaskEnvironment };
         console.log(`[Kanban] Updating environment to: ${overContainerId}`);
       }
@@ -149,11 +149,12 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       <div className="flex w-full gap-6 items-start pb-4 overflow-x-auto custom-scrollbar">
         {Object.entries(groupedTasks).map(([id, tasks]) => {
           let label = id;
-          let Icon = Info;
+          let Icon: React.ElementType = Info;
+
           if (groupBy === 'environment') {
             const env = environments.find(e => e.value === id);
             label = env?.label || id;
-            Icon = env?.icon === 'Home' ? Home : env?.icon === 'Laptop' ? Laptop : env?.icon === 'Globe' ? Globe : Music;
+            Icon = getLucideIconComponent(env?.icon || 'Info'); // Use the shared utility
           } else if (groupBy === 'priority') {
             label = id === 'critical' ? '🔥 Critical' : id === 'backburner' ? '🔵 Backburner' : '⚪ Standard';
             Icon = id === 'critical' ? Star : Info;

@@ -43,7 +43,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { cn, getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 import { Switch } from '@/components/ui/switch';
 
 const iconOptions = [
@@ -153,10 +153,8 @@ const EnvironmentManager: React.FC = () => {
     setDeleteTarget(null);
   };
 
-  const getIconComponent = (iconName: string) => {
-    const icon = iconOptions.find(opt => opt.value === iconName);
-    return icon ? icon.icon : Home;
-  };
+  // Use the shared utility function
+  const IconComponent = getLucideIconComponent;
 
   if (isLoading) {
     return <div>Loading environments...</div>;
@@ -248,14 +246,14 @@ const EnvironmentManager: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {environments.map((env) => {
-          const IconComponent = getIconComponent(env.icon);
+          const CurrentIconComponent = IconComponent(env.icon); // Use the shared utility
           const isEditing = editingId === env.id;
           
           return (
             <Card key={env.id} className="relative p-4">
               <CardHeader className="flex-row items-center justify-between space-y-0 p-0 mb-4">
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                  <IconComponent className="h-6 w-6" style={{ color: env.color }} />
+                  <CurrentIconComponent className="h-6 w-6" style={{ color: env.color }} />
                   <span>{env.label}</span>
                 </CardTitle>
               </CardHeader>

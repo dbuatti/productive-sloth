@@ -1,6 +1,6 @@
 import React, { useState } from 'react'; // Added useState
 import { DBScheduledTask } from '@/types/scheduler';
-import { cn } from '@/lib/utils';
+import { cn, getLucideIconComponent } from '@/lib/utils'; // Added getLucideIconComponent
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
 import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle, Info, Briefcase, Coffee } from 'lucide-react'; // Added Briefcase and Coffee icons
@@ -17,20 +17,8 @@ interface SimplifiedScheduledTaskItemProps {
 
 const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
   const iconClass = "h-3 w-3 opacity-70"; // Smaller icons
-  switch (environment) {
-    case 'home': return <Home className={iconClass} />;
-    case 'laptop': return <Laptop className={iconClass} />;
-    case 'away': return <Globe className={iconClass} />;
-    case 'piano': return <Music className={iconClass} />;
-    case 'laptop_piano':
-      return (
-        <div className="relative">
-          <Laptop className={iconClass} />
-          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
-        </div>
-      );
-    default: return null;
-  }
+  const IconComponent = getLucideIconComponent(environment); // Use the shared utility
+  return <IconComponent className={iconClass} />;
 };
 
 const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView, isCurrentlyActive, onCompleteTask }) => {

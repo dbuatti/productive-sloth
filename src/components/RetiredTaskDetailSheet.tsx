@@ -32,16 +32,7 @@ import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEnvironments } from '@/hooks/use-environments';
 import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
-
-const getEnvironmentIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home;
-  }
-};
+import { getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -280,7 +271,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       </FormControl>
                       <SelectContent>
                         {environments.map(env => {
-                          const IconComponent = getEnvironmentIconComponent(env.icon);
+                          const IconComponent = getLucideIconComponent(env.icon); // Use the shared utility
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">

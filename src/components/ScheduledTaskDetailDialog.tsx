@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form"; // Corrected import path
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
@@ -28,14 +28,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn, getLucideIconComponent } from '@/lib/utils';
+import { cn, getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { Switch } from '@/components/ui/switch';
 import { calculateEnergyCost, setTimeOnDate } from '@/lib/scheduler-utils';
 import { useEnvironments } from '@/hooks/use-environments';
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Import useEnvironmentContext
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -43,21 +42,23 @@ const formSchema = z.object({
   end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").or(z.literal('')).nullable(),
   break_duration: z.preprocess(
     (val) => (val === "" ? null : val),
-    z.coerce.number().min(0, "Break duration cannot be negative.").nullable()
+    z.number().min(0, "Break duration cannot be negative.").nullable()
   ),
   is_critical: z.boolean().default(false),
   is_backburner: z.boolean().default(false),
   is_flexible: z.boolean().default(true),
   is_locked: z.boolean().default(false),
-  energy_cost: z.coerce.number().default(0),
+  energy_cost: z.coerce.number().default(0), // Removed .min(0)
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.string().min(1, "Environment is required."), // Changed to z.string()
+  task_environment: z.string().default('laptop'),
   is_work: z.boolean().default(false),
   is_break: z.boolean().default(false),
 }).refine(data => {
+  // If it's a break task and not custom energy cost, allow negative or zero
   if (data.is_break && !data.is_custom_energy_cost) {
     return data.energy_cost <= 0;
   }
+  // Otherwise, energy cost must be non-negative
   return data.energy_cost >= 0;
 }, {
   message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
@@ -87,7 +88,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   selectedDayString,
 }) => {
   const { updateScheduledTaskDetails } = useSchedulerTasks(selectedDayString);
-  const { allUserEnvironments, isLoadingEnvironments } = useEnvironmentContext(); // Use dynamic environments
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<ScheduledTaskDetailFormValues>({
@@ -212,6 +213,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
     } else if (finalStartTimeStr === null && finalEndTimeStr === null) {
       // Both are null, which is fine.
     } else {
+      // This case should be caught by the refine, but as a fallback:
       showError("Both start and end times must be provided or both left empty.");
       return;
     }
@@ -348,8 +350,8 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {allUserEnvironments.map(env => {
-                          const IconComponent = getLucideIconComponent(env.icon);
+                        {environments.map(env => {
+                          const IconComponent = getLucideIconComponent(env.icon); // Use the shared utility
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">
@@ -565,7 +567,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                         <Input 
                           type="number" 
                           {...field} 
-                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"}
+                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}

@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority, NewTask } from '@/types';
 import { useTasks } from '@/hooks/use-tasks';
-import { Plus, Loader2, AlignLeft, Zap, Briefcase, Coffee } from 'lucide-react';
+import { Plus, Loader2, AlignLeft, Zap, Home, Laptop, Globe, Music, Briefcase, Coffee } from 'lucide-react';
 import DatePicker from './DatePicker';
-import { useForm } from 'react-hook-form'; // Corrected import path
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { 
@@ -31,9 +31,7 @@ import { format, isBefore, addDays, differenceInMinutes } from 'date-fns';
 import { useEnvironments } from '@/hooks/use-environments';
 import { NewDBScheduledTask, TaskEnvironment } from '@/types/scheduler';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import { getLucideIconComponent } from '@/lib/utils';
-import { useSession } from '@/hooks/use-session'; // Import useSession to get profile
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Import useEnvironmentContext
+import { getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 
 const TaskCreationSchema = z.object({
   title: z.string().min(1, { message: "Task title cannot be empty." }).max(255),
@@ -50,15 +48,17 @@ const TaskCreationSchema = z.object({
   ).optional(),
   isCritical: z.boolean().default(false),
   isBackburner: z.boolean().default(false),
-  energy_cost: z.coerce.number().default(0),
+  energy_cost: z.coerce.number().default(0), // Removed .min(0)
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.string().min(1, "Environment is required."), // Changed to z.string()
+  task_environment: z.enum(['home', 'laptop', 'away', 'piano', 'laptop_piano']).default('laptop'),
   is_work: z.boolean().default(false),
   is_break: z.boolean().default(false),
 }).refine(data => {
+  // If it's a break task and not custom energy cost, allow negative or zero
   if (data.is_break && !data.is_custom_energy_cost) {
     return data.energy_cost <= 0;
   }
+  // Otherwise, energy cost must be non-negative
   return data.energy_cost >= 0;
 }, {
   message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
@@ -68,7 +68,7 @@ const TaskCreationSchema = z.object({
 type TaskCreationFormValues = z.infer<typeof TaskCreationSchema>;
 
 interface CreateTaskDialogProps {
-  defaultPriority?: TaskPriority;
+  defaultPriority: TaskPriority;
   defaultDueDate: Date;
   defaultStartTime?: Date;
   defaultEndTime?: Date;
@@ -88,8 +88,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
 }) => {
   const { addTask } = useTasks();
   const { addScheduledTask } = useSchedulerTasks(format(defaultDueDate, 'yyyy-MM-dd'));
-  const { profile } = useSession(); // Get profile for custom_environment_order
-  const { allUserEnvironments, isLoadingEnvironments } = useEnvironmentContext(); // Use dynamic environments
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
   const isMobile = useIsMobile();
   
@@ -98,7 +97,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
     defaultValues: {
       title: '',
       description: '',
-      priority: defaultPriority || 'MEDIUM',
+      priority: defaultPriority,
       dueDate: defaultDueDate,
       startTime: defaultStartTime ? format(defaultStartTime, 'HH:mm') : undefined,
       endTime: defaultEndTime ? format(defaultEndTime, 'HH:mm') : undefined,
@@ -106,7 +105,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       isBackburner: false,
       energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false, false),
       is_custom_energy_cost: false,
-      task_environment: profile?.custom_environment_order?.[0] || allUserEnvironments[0]?.value || 'laptop', // Dynamic default
+      task_environment: 'laptop',
       is_work: false,
       is_break: false,
     },
@@ -118,7 +117,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       form.reset({
         title: '',
         description: '',
-        priority: defaultPriority || 'MEDIUM',
+        priority: defaultPriority,
         dueDate: defaultDueDate,
         startTime: defaultStartTime ? format(defaultStartTime, 'HH:mm') : undefined,
         endTime: defaultEndTime ? format(defaultEndTime, 'HH:mm') : undefined,
@@ -126,12 +125,12 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         isBackburner: false,
         energy_cost: calculateEnergyCost(DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION, false, false, false),
         is_custom_energy_cost: false,
-        task_environment: profile?.custom_environment_order?.[0] || allUserEnvironments[0]?.value || 'laptop', // Dynamic default
+        task_environment: 'laptop',
         is_work: false,
         is_break: false,
       });
     }
-  }, [isOpen, defaultPriority, defaultDueDate, defaultStartTime, defaultEndTime, form, profile, allUserEnvironments]);
+  }, [isOpen, defaultPriority, defaultDueDate, defaultStartTime, defaultEndTime, form]);
 
 
   useEffect(() => {
@@ -172,6 +171,25 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       }
     });
     return () => subscription.unsubscribe();
+  }, [form]);
+
+  useEffect(() => {
+    const initialIsCritical = form.getValues('isCritical');
+    const initialIsBackburner = form.getValues('isBackburner');
+    const initialIsBreak = form.getValues('is_break');
+    let initialDuration = DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION;
+
+    const formValues = form.getValues();
+    if (formValues.startTime && formValues.endTime && formValues.dueDate) {
+      let start = setTimeOnDate(formValues.dueDate, formValues.startTime);
+      let end = setTimeOnDate(formValues.dueDate, formValues.endTime);
+      if (isBefore(end, start)) end = addDays(end, 1);
+      initialDuration = differenceInMinutes(end, start);
+    }
+
+    const initialEnergyCost = calculateEnergyCost(initialDuration, initialIsCritical, initialIsBackburner, initialIsBreak);
+    setCalculatedEnergyCost(initialEnergyCost);
+    form.setValue('energy_cost', initialEnergyCost);
   }, [form]);
 
 
@@ -360,15 +378,15 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Task Environment</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingEnvironments}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingEnvironments} aria-label="Task Environment">
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select environment" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {allUserEnvironments.map(env => {
-                    const IconComponent = getLucideIconComponent(env.icon);
+                  {environments.map(env => {
+                    const IconComponent = getLucideIconComponent(env.icon); // Use the shared utility
                     return (
                       <SelectItem key={env.value} value={env.value}>
                         <div className="flex items-center gap-2">
@@ -541,7 +559,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                   <Input 
                     type="number" 
                     {...field} 
-                    min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"}
+                    min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
                     className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                     readOnly={!isCustomEnergyCostEnabled}
                     value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}

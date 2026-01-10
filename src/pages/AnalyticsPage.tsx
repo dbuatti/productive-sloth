@@ -12,7 +12,7 @@ import { XP_PER_LEVEL } from '@/lib/constants';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // NEW: Import useEnvironmentContext
+import { environmentOptions } from '@/hooks/use-environment-context'; // NEW: Import environmentOptions
 import { cn } from '@/lib/utils'; // NEW: Import cn
 
 const AnalyticsPage: React.FC = () => {
@@ -31,7 +31,6 @@ const AnalyticsPage: React.FC = () => {
   } = useCompletedTasksAnalytics(7); // NEW: Use new hook for completed tasks
 
   const navigate = useNavigate();
-  const { allUserEnvironments } = useEnvironmentContext(); // Use dynamic environments
 
   const isLoading = isSessionLoading || isTasksLoading || isLoadingRetiredTasks || isWeeklySchedulerTasksLoading || isLoadingCompletedTasksAnalytics;
 
@@ -90,10 +89,10 @@ const AnalyticsPage: React.FC = () => {
       envCounts.set(env, (envCounts.get(env) || 0) + 1);
     });
     return Array.from(envCounts.entries()).map(([environment, count]) => ({
-      name: allUserEnvironments.find(o => o.value === environment)?.label || environment,
+      name: environmentOptions.find(o => o.value === environment)?.label || environment,
       value: count,
     })).filter(item => item.value > 0);
-  }, [retiredTasks, allUserEnvironments]);
+  }, [retiredTasks]);
 
   const totalSinkTasks = retiredTasks.length;
   const totalSinkDuration = retiredTasks.reduce((sum, task) => sum + (task.duration || 0), 0);

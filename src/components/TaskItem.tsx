@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle, Briefcase, Coffee, Info } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle, Briefcase, Coffee } from "lucide-react"; // NEW: Import Coffee icon
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Task } from "@/types";
 import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { cn, getLucideIconComponent } from "@/lib/utils"; // Import getLucideIconComponent
+import { cn } from "@/lib/utils";
 import XPGainAnimation from "./XPGainAnimation";
 import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks";
 import { Badge } from "@/components/ui/badge";
@@ -19,12 +19,6 @@ import { CheckedState } from "@radix-ui/react-checkbox";
 interface TaskItemProps {
   task: Task;
 }
-
-const getEnvironmentIcon = (environment: Task['task_environment']) => {
-  if (!environment) return null;
-  const IconComponent = getLucideIconComponent(environment);
-  return <IconComponent className="h-4 w-4 text-muted-foreground shrink-0" />;
-};
 
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -63,9 +57,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           name: task.title, 
           isCritical: task.is_critical,
           duration: 30,
-          isWork: task.is_work,
-          isBreak: task.is_break,
-          taskEnvironment: task.task_environment, // Pass environment
+          isWork: task.is_work, // NEW: Pass isWork flag
+          isBreak: task.is_break, // NEW: Pass isBreak flag
         } 
       } 
     });
@@ -73,12 +66,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const handleToggleWork = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await updateTask({ id: task.id, is_work: !task.is_work });
+    await updateTask({ id: task.id, is_work: !task.is_work }); // NEW: Toggle is_work
   };
 
   const handleToggleBreak = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await updateTask({ id: task.id, is_break: !task.is_break });
+    await updateTask({ id: task.id, is_break: !task.is_break }); // NEW: Toggle is_break
   };
 
   const getPriorityBadgeClasses = (priority: Task['priority']) => {
@@ -210,6 +203,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 </Tooltip>
               )}
 
+              {/* NEW: Work Task Indicator */}
               {task.is_work && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -221,6 +215,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 </Tooltip>
               )}
 
+              {/* NEW: Break Task Indicator */}
               {task.is_break && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -228,17 +223,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Break Task</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-
-              {task.task_environment && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    {getEnvironmentIcon(task.task_environment)}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Environment: {task.task_environment}</p>
                   </TooltipContent>
                 </Tooltip>
               )}

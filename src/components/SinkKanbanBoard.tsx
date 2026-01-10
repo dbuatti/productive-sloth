@@ -10,11 +10,10 @@ import KanbanColumn from './KanbanColumn';
 import SortableTaskCard from './SortableTaskCard';
 import { useSession } from '@/hooks/use-session';
 import { showError } from '@/utils/toast';
-import { parseSinkTaskInput } from '@/lib/scheduler-utils';
+import { parseSinkTaskInput } from '@/lib/scheduler-utils'; // Corrected import syntax
 import { useEnvironments } from '@/hooks/use-environments';
-import { useRetiredTasks } from '@/hooks/use-retired-tasks';
-import { getLucideIconComponent, cn } from '@/lib/utils';
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Import useEnvironmentContext
+import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
+import { getLucideIconComponent, cn } from '@/lib/utils'; // Import getLucideIconComponent and cn
 
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
@@ -29,8 +28,8 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   retiredTasks, groupBy, updateRetiredTask, onOpenDetailDialog 
 }) => {
   const { user } = useSession();
-  const { allUserEnvironments, isLoadingEnvironments } = useEnvironmentContext(); // Use dynamic environments
-  const { addRetiredTask } = useRetiredTasks();
+  const { environments, isLoading } = useEnvironments();
+  const { addRetiredTask } = useRetiredTasks(); // NEW: Use addRetiredTask from useRetiredTasks
   
   const [activeTask, setActiveTask] = useState<RetiredTask | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -43,15 +42,17 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   const groupedTasks = useMemo(() => {
     const groups: Record<string, RetiredTask[]> = {};
     
+    // Define all possible columns based on grouping type
     if (groupBy === 'environment') {
-      allUserEnvironments.forEach(env => groups[env.value] = []); // Initialize with all user environments
+      // Initialize groups with actual user environments
+      environments.forEach(env => groups[env.value] = []);
     }
     else if (groupBy === 'priority') ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
     else ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
 
     retiredTasks.forEach(task => {
       let key = 'standard';
-      if (groupBy === 'environment') key = task.task_environment || 'laptop';
+      if (groupBy === 'environment') key = task.task_environment || 'laptop'; // Use task_environment value
       else if (groupBy === 'priority') key = task.is_critical ? 'critical' : (task.is_backburner ? 'backburner' : 'standard');
       else key = task.is_break ? 'breaks' : (task.is_work ? 'work' : 'not-work');
       
@@ -59,7 +60,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       groups[key].push(task);
     });
     return groups;
-  }, [retiredTasks, groupBy, allUserEnvironments]); // Depend on allUserEnvironments
+  }, [retiredTasks, groupBy, environments]);
 
   const handleDragStart = (event: DragStartEvent) => {
     console.log("[Kanban] Drag Start:", event.active.id, "from container:", event.active.data.current?.sortable?.containerId);
@@ -90,8 +91,10 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     
     let update: Partial<RetiredTask> = {};
     
+    // 1. Determine the update based on the target column ID
     if (groupBy === 'environment') {
-      if (allUserEnvironments.some(e => e.value === overContainerId)) { // Check against allUserEnvironments
+      // Check if the target ID is a valid environment value from the user's environments
+      if (environments.some(e => e.value === overContainerId)) {
         update = { task_environment: overContainerId as TaskEnvironment };
         console.log(`[Kanban] Updating environment to: ${overContainerId}`);
       }
@@ -107,6 +110,7 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       console.log(`[Kanban] Updating type to: ${overContainerId}`);
     }
     
+    // 2. Apply the update if changes were determined
     if (Object.keys(update).length > 0) {
       console.log("[Kanban] Applying update:", update);
       updateRetiredTask({ id: task.id, ...update });
@@ -117,26 +121,28 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
 
   const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
     if (!user) return showError("User missing.");
-    const parsed = parseSinkTaskInput(input, user.id, columnId);
+    const parsed = parseSinkTaskInput(input, user.id);
     if (!parsed) {
       return showError("Invalid format: 'Name [dur] [!] [-] [W] [B]...'");
     }
     
-    if (groupBy === 'priority') {
+    // Override parsed flags based on the target column
+    if (groupBy === 'environment') parsed.task_environment = columnId as TaskEnvironment;
+    else if (groupBy === 'priority') {
       parsed.is_critical = columnId === 'critical';
       parsed.is_backburner = columnId === 'backburner';
-      parsed.is_break = false;
+      parsed.is_break = false; // Priority columns are generally not breaks
     } else if (groupBy === 'type') {
       parsed.is_work = columnId === 'work';
       parsed.is_break = columnId === 'breaks';
-      parsed.is_critical = false;
+      parsed.is_critical = false; // Type columns override priority/criticality for simplicity
       parsed.is_backburner = false;
     }
     
     await addRetiredTask(parsed);
   }, [user, groupBy, addRetiredTask]);
 
-  if (isLoadingEnvironments) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
+  if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
@@ -146,9 +152,9 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
           let Icon: React.ElementType = Info;
 
           if (groupBy === 'environment') {
-            const env = allUserEnvironments.find(e => e.value === id); // Use allUserEnvironments
+            const env = environments.find(e => e.value === id);
             label = env?.label || id;
-            Icon = getLucideIconComponent(env?.icon || 'Info');
+            Icon = getLucideIconComponent(env?.icon || 'Info'); // Use the shared utility
           } else if (groupBy === 'priority') {
             label = id === 'critical' ? '🔥 Critical' : id === 'backburner' ? '🔵 Backburner' : '⚪ Standard';
             Icon = id === 'critical' ? Star : Info;

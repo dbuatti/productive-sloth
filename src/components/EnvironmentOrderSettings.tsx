@@ -5,20 +5,22 @@ import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown, ListOrdered } from 'lucide-react';
 import { useEnvironments } from '@/hooks/use-environments';
 import { showSuccess } from '@/utils/toast';
-import { getLucideIconComponent } from '@/lib/utils';
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Import useEnvironmentContext
+import { getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 
 const DEFAULT_ORDER: TaskEnvironment[] = ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
 
 const EnvironmentOrderSettings: React.FC = () => {
   const { profile, updateProfile } = useSession();
-  const { allUserEnvironments, isLoadingEnvironments } = useEnvironmentContext(); // Use dynamic environments
+  const { environments, isLoading } = useEnvironments();
   
+  // Use profile order if it exists, otherwise default, but ensure it includes all available environments
   const currentOrder = profile?.custom_environment_order || DEFAULT_ORDER;
   
-  const validEnvironmentValues = allUserEnvironments.map(e => e.value);
-  const filteredOrder = currentOrder.filter(env => validEnvironmentValues.includes(env));
-  const missingEnvironments = validEnvironmentValues.filter(env => !filteredOrder.includes(env));
+  // Filter out any environments from currentOrder that don't exist in the user's environments
+  // and append any missing environments from the user's list to the end
+  const validEnvironments = environments.map(e => e.value);
+  const filteredOrder = currentOrder.filter(env => validEnvironments.includes(env));
+  const missingEnvironments = validEnvironments.filter(env => !filteredOrder.includes(env));
   const finalOrder = [...filteredOrder, ...missingEnvironments];
 
   const moveItem = async (index: number, direction: 'up' | 'down') => {
@@ -37,7 +39,7 @@ const EnvironmentOrderSettings: React.FC = () => {
     }
   };
 
-  if (isLoadingEnvironments) return <div>Loading environments...</div>;
+  if (isLoading) return <div>Loading environments...</div>;
 
   return (
     <div className="space-y-4">
@@ -50,9 +52,10 @@ const EnvironmentOrderSettings: React.FC = () => {
 
       <div className="space-y-2">
         {finalOrder.map((envKey, index) => {
-          const option = allUserEnvironments.find(opt => opt.value === envKey);
+          const option = environments.find(opt => opt.value === envKey);
           if (!option) return null;
 
+          // Get the actual Lucide icon component using the shared utility
           const IconComponent = getLucideIconComponent(option.icon);
 
           return (

@@ -14,11 +14,7 @@ import {
   Trash2, 
   Save, 
   X,
-  Star,
-  Briefcase, // Added
-  Coffee,    // Added
-  Info,      // Added
-  Zap        // Added
+  Star
 } from 'lucide-react';
 import { useEnvironments } from '@/hooks/use-environments';
 import { showError } from '@/utils/toast';
@@ -47,20 +43,14 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { cn, getLucideIconComponent } from '@/lib/utils';
+import { cn, getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
 import { Switch } from '@/components/ui/switch';
-import { useEnvironmentContext } from '@/hooks/use-environment-context'; // Import useEnvironmentContext
 
 const iconOptions = [
   { value: 'Home', label: 'Home', icon: Home },
   { value: 'Laptop', label: 'Laptop', icon: Laptop },
   { value: 'Globe', label: 'Globe', icon: Globe },
   { value: 'Music', label: 'Music', icon: Music },
-  { value: 'Briefcase', label: 'Briefcase', icon: Briefcase }, // Added Briefcase
-  { value: 'Coffee', label: 'Coffee', icon: Coffee }, // Added Coffee
-  { value: 'Star', label: 'Star', icon: Star }, // Added Star
-  { value: 'Info', label: 'Info', icon: Info }, // Added Info
-  { value: 'Zap', label: 'Zap', icon: Zap }, // Added Zap
 ];
 
 const colorOptions = [
@@ -75,7 +65,6 @@ const colorOptions = [
 
 const EnvironmentManager: React.FC = () => {
   const { environments, isLoading, addEnvironment, updateEnvironment, deleteEnvironment } = useEnvironments();
-  const { allUserEnvironments, isLoadingEnvironments } = useEnvironmentContext(); // Use dynamic environments
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newEnvironment, setNewEnvironment] = useState({
@@ -164,6 +153,7 @@ const EnvironmentManager: React.FC = () => {
     setDeleteTarget(null);
   };
 
+  // Use the shared utility function
   const IconComponent = getLucideIconComponent;
 
   if (isLoading) {
@@ -256,7 +246,7 @@ const EnvironmentManager: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {environments.map((env) => {
-          const CurrentIconComponent = IconComponent(env.icon);
+          const CurrentIconComponent = IconComponent(env.icon); // Use the shared utility
           const isEditing = editingId === env.id;
           
           return (

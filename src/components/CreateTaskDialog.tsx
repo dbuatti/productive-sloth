@@ -76,15 +76,7 @@ interface CreateTaskDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const getEnvironmentIconComponent = (iconName: string) => {
-  switch (iconName) {
-    case 'Home': return Home;
-    case 'Laptop': return Laptop;
-    case 'Globe': return Globe;
-    case 'Music': return Music;
-    default: return Home;
-  }
-};
+// Removed getEnvironmentIconComponent as Environment.icon is now React.ElementType
 
 const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ 
   defaultPriority, 
@@ -217,6 +209,7 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
         name: title.trim(),
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
+        break_duration: null,
         scheduled_date: scheduledDateString,
         is_critical: isCritical,
         is_backburner: isBackburner,
@@ -394,11 +387,11 @@ const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
                 </FormControl>
                 <SelectContent>
                   {environments.map(env => {
-                    const IconComponent = getEnvironmentIconComponent(env.icon);
+                    const Icon = env.icon; // Directly use the React.ElementType
                     return (
                       <SelectItem key={env.value} value={env.value}>
                         <div className="flex items-center gap-2">
-                          <IconComponent className="h-4 w-4" />
+                          <Icon className="h-4 w-4" />
                           {env.label}
                         </div>
                       </SelectItem>

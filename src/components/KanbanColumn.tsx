@@ -53,7 +53,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     <div 
       ref={setNodeRef} 
       className={cn(
-        "flex-1 min-w-[320px] flex flex-col rounded-2xl transition-all duration-200 overflow-x-hidden flex-shrink-0",
+        "flex-1 min-w-[320px] flex flex-col rounded-2xl transition-all duration-200 overflow-x-hidden flex-shrink-0 glass-card p-4", /* Added glass-card and padding */
         receiverClasses
       )}
     >

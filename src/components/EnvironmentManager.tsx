@@ -72,7 +72,6 @@ const EnvironmentManager: React.FC = () => {
     icon: 'Home',
     color: '#FF6B6B',
     drain_multiplier: 1.0,
-    is_default: false,
   });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
 
@@ -92,7 +91,6 @@ const EnvironmentManager: React.FC = () => {
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
-      is_default: false,
     });
     setIsAddDialogOpen(false);
   };
@@ -113,7 +111,6 @@ const EnvironmentManager: React.FC = () => {
       icon: newEnvironment.icon,
       color: newEnvironment.color,
       drain_multiplier: newEnvironment.drain_multiplier,
-      is_default: newEnvironment.is_default,
     });
     
     setEditingId(null);
@@ -122,7 +119,6 @@ const EnvironmentManager: React.FC = () => {
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
-      is_default: false,
     });
   };
 
@@ -133,7 +129,6 @@ const EnvironmentManager: React.FC = () => {
       icon: env.icon,
       color: env.color,
       drain_multiplier: env.drain_multiplier,
-      is_default: env.is_default,
     });
   };
 
@@ -144,7 +139,6 @@ const EnvironmentManager: React.FC = () => {
       icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
-      is_default: false,
     });
   };
 
@@ -264,14 +258,6 @@ const EnvironmentManager: React.FC = () => {
                   <IconComponent className="h-6 w-6" style={{ color: env.color }} />
                   <span>{env.label}</span>
                 </CardTitle>
-                {env.is_default && !isEditing && (
-                  <Badge 
-                    variant="default"
-                    className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold uppercase tracking-tight flex items-center gap-1"
-                  >
-                    <Star className="h-3 w-3 fill-current" /> Default
-                  </Badge>
-                )}
               </CardHeader>
               <CardContent className="space-y-3 p-0">
                 {isEditing ? (
@@ -335,14 +321,6 @@ const EnvironmentManager: React.FC = () => {
                         aria-label={`Edit Drain Multiplier for ${env.label}`}
                       />
                     </div>
-                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background/50">
-                      <Label>Is Default?</Label>
-                      <Switch
-                        checked={newEnvironment.is_default}
-                        onCheckedChange={(checked) => setNewEnvironment({...newEnvironment, is_default: checked})}
-                        aria-label={`Toggle default status for ${env.label}`}
-                      />
-                    </div>
                     <div className="flex gap-2 mt-4">
                       <Button size="sm" onClick={() => handleUpdateEnvironment(env.id)} aria-label={`Save changes for ${env.label}`}>
                         <Save className="h-4 w-4 mr-1" />
@@ -389,7 +367,6 @@ const EnvironmentManager: React.FC = () => {
                         variant="destructive" 
                         size="sm" 
                         onClick={() => handleDeleteEnvironment(env.id, env.label)}
-                        disabled={env.is_default}
                         type="button"
                         className="flex items-center gap-1"
                         aria-label={`Delete ${env.label}`}

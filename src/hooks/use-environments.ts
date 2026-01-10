@@ -10,7 +10,6 @@ export interface Environment {
   value: string;
   icon: string;
   color: string;
-  is_default: boolean;
   drain_multiplier: number;
   created_at: string;
   updated_at: string;
@@ -21,7 +20,6 @@ export interface NewEnvironment {
   value: string;
   icon: string;
   color: string;
-  is_default?: boolean;
   drain_multiplier?: number;
 }
 
@@ -60,7 +58,6 @@ export const useEnvironments = () => {
       const environmentToInsert = {
         ...newEnvironment,
         user_id: userId,
-        is_default: newEnvironment.is_default ?? false,
         drain_multiplier: newEnvironment.drain_multiplier ?? 1.0,
       };
 
@@ -92,7 +89,6 @@ export const useEnvironments = () => {
       if (!userId) throw new Error("User not authenticated.");
       console.log("[useEnvironments] Updating environment:", environment.id, environment.label);
       
-      // Allow updating is_default status
       const { data, error } = await supabase
         .from('environments')
         .update({ ...environment, updated_at: new Date().toISOString() })
@@ -123,8 +119,6 @@ export const useEnvironments = () => {
       if (!userId) throw new Error("User not authenticated.");
       console.log("[useEnvironments] Deleting environment:", id);
       
-      // The check for `is_default` is now removed here, as the UI will control it.
-      // If `is_default` is set to false, it can be deleted.
       const { error } = await supabase
         .from('environments')
         .delete()

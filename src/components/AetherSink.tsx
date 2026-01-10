@@ -1,433 +1,476 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { format, isSameDay, startOfDay, endOfDay, parseISO, addDays, subDays, setHours, setMinutes } from 'date-fns'; // Added setHours, setMinutes
-import { Calendar as CalendarIcon, Plus, Settings, ListOrdered, LayoutDashboard, BarChart3, Archive, Sun, Moon, Laptop, ChevronLeft, ChevronRight, RefreshCcw, Zap, Home, Music, Globe, Briefcase, Coffee, Loader2, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee } from 'lucide-react'; 
+import { RetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/hooks/use-session';
-import { useTasks } from '@/hooks/use-tasks';
+import { format } from 'date-fns';
+import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import { useProfile } from '@/hooks/use-profile'; // Assuming this hook exists
-import { useEnergy } from '@/hooks/use-energy'; // Assuming this hook exists
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { useSession } from '@/hooks/use-session';
+import { showError } from '@/utils/toast';
+import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel, } from '@/components/ui/dropdown-menu';
+import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
+import SinkKanbanBoard from './SinkKanbanBoard';
+import { UserProfile } from '@/hooks/use-session';
+import { Button } from '@/components/ui/button';
 import { useEnvironments } from '@/hooks/use-environments';
-import { useTheme } from 'next-themes';
-import { TaskPriority, Task } from '@/types'; // Added Task import
-import { DBScheduledTask, NewDBScheduledTask, RetiredTask, TaskEnvironment } from '@/types/scheduler';
-import { calculateEnergyCost } from '@/lib/scheduler-utils'; // Removed setTimeOnDate
-import { DEFAULT_TASK_DURATION_FOR_ENERGY_CALCULATION } from '@/lib/constants';
-import { showSuccess, showError } from '@/utils/toast';
-import CreateTaskDialog from '@/components/CreateTaskDialog'; // Corrected import
-import ScheduledTaskDetailDialog from '@/components/ScheduledTaskDetailDialog'; // Corrected import
-import TaskDetailSheetForTasks from '@/components/TaskDetailSheetForTasks'; // Corrected import
-import RetiredTaskDetailDialog from '@/components/RetiredTaskDetailDialog'; // Corrected import
-import SchedulerDashboardPanel from '@/components/SchedulerDashboardPanel'; // Corrected import
-import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings'; // Corrected import
-import EnvironmentManager from '@/components/EnvironmentManager'; // Corrected import
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import SinkKanbanBoard from '@/components/SinkKanbanBoard'; // Corrected import
-import { supabase } from '@/lib/supabase'; // Assuming supabase client is imported from here
+import { Skeleton } from '@/components/ui/skeleton';
 
-type GroupingOption = 'environment' | 'priority' | 'status';
+const getEnvironmentIcon = (environment: TaskEnvironment) => {
+  const iconClass = "h-3.5 w-3.5 opacity-70";
+  switch (environment) {
+    case 'home': return <Home className={iconClass} />;
+    case 'laptop': return <Laptop className={iconClass} />;
+    case 'away': return <Globe className={iconClass} />;
+    case 'piano': return <Music className={iconClass} />;
+    case 'laptop_piano':
+      return (
+        <div className="relative">
+          <Laptop className={iconClass} />
+          <Music className="h-2 w-2 absolute -bottom-0.5 -right-0.5" />
+        </div>
+      );
+    default: return null;
+  }
+};
 
-const AetherSink: React.FC = () => {
-  const { user, isLoading: isLoadingSession } = useSession();
-  const { profile, updateProfile } = useProfile();
-  const { tasks: generalTasks, isLoading: isLoadingGeneralTasks, addTask, updateTask, deleteTask } = useTasks();
-  // Corrected destructuring from useSchedulerTasks to include all necessary functions
-  const { dbScheduledTasks, retiredTasks, isLoading: isLoadingScheduledTasks, addScheduledTask, updateScheduledTaskDetails, deleteScheduledTask, completeScheduledTask, rezoneScheduledTask, updateRetiredTask, deleteRetiredTask, rezoneRetiredTask, randomizeBreaks } = useSchedulerTasks(format(new Date(), 'yyyy-MM-dd'));
-  const { energy, isLoading: isLoadingEnergy, updateEnergy } = useEnergy();
+const SortItem = ({ type, label, icon: Icon, currentSort, onSelect }: { type: RetiredTaskSortBy, label: string, icon: any, currentSort: RetiredTaskSortBy, onSelect: (s: RetiredTaskSortBy) => void }) => (
+  <DropdownMenuItem 
+    onClick={() => onSelect(type)} 
+    className={cn("cursor-pointer font-bold text-xs uppercase tracking-widest", currentSort === type && 'bg-primary/10 text-primary')}
+    aria-label={`Sort by ${label}`}
+  >
+    <Icon className="mr-2 h-4 w-4" />
+    {label}
+  </DropdownMenuItem>
+);
+
+const ViewToggle = ({ viewMode, setViewMode }: { viewMode: SinkViewMode, setViewMode: (m: SinkViewMode) => void }) => (
+  <div className="flex bg-secondary/50 rounded-lg p-1 border border-white/5">
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button 
+          variant={viewMode === 'list' ? 'default' : 'ghost'} 
+          size="icon" 
+          className={cn("h-8 w-8 rounded-md", viewMode === 'list' && "shadow-sm")}
+          onClick={() => setViewMode('list')}
+          aria-label="Switch to List View"
+        >
+          <List className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>List View</TooltipContent>
+    </Tooltip>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button 
+          variant={viewMode === 'kanban' ? 'default' : 'ghost'} 
+          size="icon" 
+          className={cn("h-8 w-8 rounded-md", viewMode === 'kanban' && "shadow-sm")}
+          onClick={() => setViewMode('kanban')}
+          aria-label="Switch to Kanban View"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Kanban View</TooltipContent>
+    </Tooltip>
+  </div>
+);
+
+interface AetherSinkProps {
+  retiredTasks: RetiredTask[];
+  onRezoneTask: (task: RetiredTask) => void;
+  onRemoveRetiredTask: (taskId: string, taskName: string) => void;
+  onAutoScheduleSink: () => void;
+  isLoading: boolean;
+  isProcessingCommand: boolean;
+  profile: UserProfile | null;
+  retiredSortBy: RetiredTaskSortBy;
+  setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
+}
+
+const AetherSink: React.FC<AetherSinkProps> = React.memo(({ 
+  retiredTasks, 
+  onRezoneTask, 
+  onRemoveRetiredTask, 
+  onAutoScheduleSink, 
+  isLoading, 
+  isProcessingCommand, 
+  profile, 
+  retiredSortBy, 
+  setRetiredSortBy 
+}) => {
+  const { user } = useSession();
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
-  const { theme, setTheme } = useTheme();
-  const isMobile = useIsMobile();
+  const { toggleRetiredTaskLock, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, triggerAetherSinkBackup, updateRetiredTaskDetails } = useSchedulerTasks('');
+  
+  const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
 
-  const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
-  const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
-  const [selectedScheduledTaskForDetail, setSelectedScheduledTaskForDetail] = useState<DBScheduledTask | null>(null);
-  const [selectedGeneralTaskForDetail, setSelectedGeneralTaskForDetail] = useState<Task | null>(null); // Corrected type
-  const [selectedRetiredTaskForDetail, setSelectedRetiredTaskForDetail] = useState<RetiredTask | null>(null);
-  const [groupBy, setGroupBy] = useState<GroupingOption>('environment');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
+  const [localInput, setLocalInput] = useState('');
 
-  const currentDayScheduledTasks = useMemo(() => {
-    return dbScheduledTasks.filter(task => isSameDay(parseISO(task.scheduled_date), selectedDay));
-  }, [dbScheduledTasks, selectedDay]);
+  const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
 
-  const currentDayRetiredTasks = useMemo(() => {
-    return retiredTasks.filter(task => isSameDay(parseISO(task.original_scheduled_date), selectedDay));
-  }, [retiredTasks, selectedDay]);
+  const handleAction = useCallback((e: React.MouseEvent, action: () => void) => {
+    e.stopPropagation();
+    action();
+  }, []);
 
-  const availableEnergy = energy?.current_energy ?? 0;
-  const maxEnergy = profile?.max_energy ?? 100;
+  const handleOpenDetailDialog = useCallback((task: RetiredTask) => {
+    setSelectedRetiredTask(task);
+    setIsDialogOpen(true);
+  }, []);
 
-  const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setSelectedDay(startOfDay(date));
+  const handleToggleComplete = async (task: RetiredTask) => {
+    if (task.is_locked) return showError(`Unlock "${task.name}" first.`);
+    task.is_completed 
+      ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }) 
+      : await completeRetiredTask(task);
+  };
+
+  const handleManualAetherSinkBackup = async () => {
+    if (!profile?.enable_aethersink_backup) {
+      return showError("Aether Sink backup is disabled in settings.");
     }
+    await triggerAetherSinkBackup();
   };
 
-  const handlePreviousDay = () => {
-    setSelectedDay(prev => subDays(prev, 1));
-  };
-
-  const handleNextDay = () => {
-    setSelectedDay(prev => addDays(prev, 1));
-  };
-
-  const handleToday = () => {
-    setSelectedDay(startOfDay(new Date()));
-  };
-
-  const handleOpenCreateTaskDialog = (defaultPriority: TaskPriority, defaultDueDate: Date, defaultStartTime?: Date, defaultEndTime?: Date) => {
-    setIsCreateTaskDialogOpen(true);
-  };
-
-  const handleOpenScheduledTaskDetailDialog = (task: DBScheduledTask) => {
-    setSelectedScheduledTaskForDetail(task);
-  };
-
-  const handleOpenGeneralTaskDetailSheet = (task: Task) => { // Corrected type
-    setSelectedGeneralTaskForDetail(task);
-  };
-
-  const handleOpenRetiredTaskDetailDialog = (task: RetiredTask) => {
-    setSelectedRetiredTaskForDetail(task);
-  };
-
-  const handleCompleteScheduledTask = async (task: DBScheduledTask) => {
+  const handleUpdateRetiredTask = useCallback(async (updates: Partial<RetiredTask> & { id: string }) => {
     try {
-      await completeScheduledTask(task);
-      showSuccess(`Task "${task.name}" completed!`);
+      await updateRetiredTaskDetails(updates);
     } catch (error) {
-      showError(`Failed to complete task "${task.name}".`);
-      console.error("Error completing task:", error);
+      console.error(`[AetherSink] Update failed for task ${updates.id}:`, error);
+      showError("Failed to update task.");
     }
-  };
+  }, [updateRetiredTaskDetails]);
 
-  const handleRezoneScheduledTask = async (task: DBScheduledTask) => {
-    try {
-      await rezoneScheduledTask(task);
-      showSuccess(`Task "${task.name}" rezoned to general tasks.`);
-    } catch (error) {
-      showError(`Failed to rezone task "${task.name}".`);
-      console.error("Error rezoning task:", error);
+  const handleQuickAddToList = useCallback(async (input: string) => {
+    if (!user) return showError("User context missing.");
+    if (!input.trim()) return;
+
+    const parsedTask = parseSinkTaskInput(input, user.id);
+    if (!parsedTask) {
+      return showError("Invalid task format. Use 'Name [dur] [!] [-] [W] [B]'.");
     }
-  };
 
-  const handleRemoveScheduledTask = async (taskId: string, taskName: string) => {
-    try {
-      await deleteScheduledTask(taskId);
-      showSuccess(`Task "${taskName}" removed.`);
-    } catch (error) {
-      showError(`Failed to remove task "${taskName}".`);
-      console.error("Error removing task:", error);
-    }
-  };
-
-  const handleRemoveRetiredTask = async (taskId: string, taskName: string) => {
-    try {
-      await deleteRetiredTask(taskId);
-      showSuccess(`Retired task "${taskName}" permanently deleted.`);
-    } catch (error) {
-      showError(`Failed to delete retired task "${taskName}".`);
-      console.error("Error deleting retired task:", error);
-    }
-  };
-
-  const handleRezoneRetiredTask = async (task: RetiredTask) => {
-    try {
-      await rezoneRetiredTask(task);
-      showSuccess(`Retired task "${task.name}" rezoned to general tasks.`);
-    } catch (error) {
-      showError(`Failed to rezone retired task "${task.name}".`);
-      console.error("Error rezoning retired task:", error);
-    }
-  };
-
-  const handleRandomizeBreaks = async () => {
-    try {
-      // Construct Date objects for workday start/end times
-      const workdayStartTime = profile?.workday_start_time ? parseISO(profile.workday_start_time) : setHours(setMinutes(selectedDay, 0), 9);
-      const workdayEndTime = profile?.workday_end_time ? parseISO(profile.workday_end_time) : setHours(setMinutes(selectedDay, 0), 17);
-
-      await randomizeBreaks({
-        selectedDate: format(selectedDay, 'yyyy-MM-dd'),
-        workdayStartTime: workdayStartTime,
-        workdayEndTime: workdayEndTime,
-        currentDbTasks: currentDayScheduledTasks,
-      });
-      showSuccess("Breaks randomized for the day!");
-    } catch (error) {
-      showError("Failed to randomize breaks.");
-      console.error("Error randomizing breaks:", error);
-    }
-  };
-
-  const getEnvironmentIconComponent = (iconName: string) => {
-    switch (iconName) {
-      case 'Home': return Home;
-      case 'Laptop': return Laptop;
-      case 'Globe': return Globe;
-      case 'Music': return Music;
-      case 'Briefcase': return Briefcase;
-      case 'Coffee': return Coffee;
-      default: return Home;
-    }
-  };
-
-  if (isLoadingSession || isLoadingGeneralTasks || isLoadingScheduledTasks || isLoadingEnergy || isLoadingEnvironments) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-        <h1 className="text-3xl font-bold mb-4">Welcome to Aether Sink</h1>
-        <p className="text-lg text-muted-foreground mb-8">Please sign in to manage your tasks and energy.</p>
-        <Button onClick={() => window.location.href = '/signin'}>Sign In</Button>
-      </div>
-    );
-  }
-
-  const energyPercentage = maxEnergy > 0 ? (availableEnergy / maxEnergy) * 100 : 0;
+    await addRetiredTask(parsedTask);
+    setLocalInput('');
+  }, [user, addRetiredTask]);
 
   return (
-    <TooltipProvider>
-      <div className="flex h-screen bg-background text-foreground">
-        {/* Sidebar */}
-        <aside className="w-16 flex flex-col items-center py-4 border-r bg-card">
-          <div className="mb-8">
-            <img src="/logo.svg" alt="Aether Sink Logo" className="h-8 w-8" />
-          </div>
-          <nav className="flex flex-col space-y-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setActiveTab('dashboard')} className={cn(activeTab === 'dashboard' && 'bg-accent text-accent-foreground')}>
-                  <LayoutDashboard className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Dashboard</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setActiveTab('tasks')} className={cn(activeTab === 'tasks' && 'bg-accent text-accent-foreground')}>
-                  <ListOrdered className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Tasks</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setActiveTab('analytics')} className={cn(activeTab === 'analytics' && 'bg-accent text-accent-foreground')}>
-                  <BarChart3 className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Analytics</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setActiveTab('settings')} className={cn(activeTab === 'settings' && 'bg-accent text-accent-foreground')}>
-                  <Settings className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Settings</TooltipContent>
-            </Tooltip>
-          </nav>
-          <div className="mt-auto flex flex-col space-y-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-                  {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Toggle Theme</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => supabase.auth.signOut()}>
-                  <LogOut className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Sign Out</TooltipContent>
-            </Tooltip>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <header className="flex items-center justify-between p-4 border-b bg-card">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold">Aether Sink</h1>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="icon" onClick={handlePreviousDay} aria-label="Previous Day">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-[180px] justify-start text-left font-normal",
-                        !selectedDay && "text-muted-foreground"
-                      )}
-                      aria-label="Select Date"
+    <>
+      <Card className="p-4 rounded-xl shadow-sm w-full">
+        <CardHeader className={cn("pb-4 flex flex-row items-center justify-between p-0")}>
+          <CardTitle className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-secondary/50">
+              <Trash2 className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <span className="text-xl font-black uppercase tracking-tighter flex items-center gap-2">
+              <span>Aether Sink</span>
+              <span className="text-xs font-mono text-muted-foreground opacity-50">[{retiredTasks.length}]</span>
+            </span>
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+            
+            {viewMode === 'kanban' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-10 px-3 text-xs font-bold uppercase tracking-widest"
+                    aria-label="Group Kanban Board"
+                  >
+                    Group: {groupBy === 'environment' ? 'Env' : (groupBy === 'priority' ? 'Priority' : 'Type')}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass-card min-w-32 border-white/10 bg-background/95 backdrop-blur-xl">
+                  <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest opacity-50 px-3 py-2">Group By</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => setGroupBy('environment')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Environment">Environment</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupBy('priority')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Priority">Priority</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupBy('type')} className="font-bold text-xs uppercase py-2 px-3" aria-label="Group by Type">Type</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
+            {viewMode === 'list' && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="glass" 
+                      size="icon" 
+                      onClick={handleManualAetherSinkBackup}
+                      disabled={isProcessingCommand}
+                      className="h-10 w-10 text-primary"
+                      aria-label="Manual Aether Sink Backup"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDay ? format(selectedDay, "PPP") : <span>Pick a date</span>}
+                      {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDay}
-                      onSelect={handleDateSelect}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Button variant="outline" size="icon" onClick={handleNextDay} aria-label="Next Day">
-                  <ChevronRight className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Manual Backup</TooltipContent>
+                </Tooltip>
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="glass" 
+                          disabled={retiredTasks.length === 0}
+                          className="h-10 w-10"
+                          aria-label="Sort Aether Sink Tasks"
+                        >
+                          <ArrowDownWideNarrow className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Sort Terminal</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="glass-card min-w-48 border-white/10 bg-background/95 backdrop-blur-xl">
+                    <DropdownMenuLabel className="text-[10px] uppercase font-black tracking-[0.2em] opacity-50 mb-1">Sorting Logic</DropdownMenuLabel>
+                    <SortItem type="RETIRED_AT_NEWEST" label="Retired (Newest)" icon={CalendarDays} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <SortItem type="RETIRED_AT_OLDEST" label="Retired (Oldest)" icon={CalendarDays} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <DropdownMenuSeparator className="my-2 bg-white/5" />
+                    <SortItem type="DURATION_DESC" label="Duration (Long)" icon={Clock} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <SortItem type="DURATION_ASC" label="Duration (Short)" icon={Clock} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <DropdownMenuSeparator className="my-2 bg-white/5" />
+                    <SortItem type="ENERGY_DESC" label="Energy (High)" icon={Zap} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <SortItem type="ENERGY_ASC" label="Energy (Low)" icon={Zap} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <DropdownMenuSeparator className="my-2 bg-white/5" />
+                    <SortItem type="NAME_ASC" label="Name (A-Z)" icon={SortAsc} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                    <SortItem type="EMOJI" label="Vibe (Emoji)" icon={Smile} currentSort={retiredSortBy} onSelect={setRetiredSortBy} />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="aether" 
+                  size="sm" 
+                  onClick={onAutoScheduleSink}
+                  disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
+                  className="h-10 px-4 font-black uppercase tracking-widest text-[10px]"
+                  aria-label="Auto Sync all unlocked objectives"
+                >
+                  {isProcessingCommand ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Sparkles className="h-3 w-3 mr-2" />}
+                  Auto Sync
                 </Button>
-                <Button variant="outline" onClick={handleToday} aria-label="Today">Today</Button>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Zap className="h-5 w-5 text-logo-yellow" />
-                <span className="font-semibold">{availableEnergy} / {maxEnergy}</span>
-                <Progress value={energyPercentage} className="w-24 [&>*]:bg-logo-yellow" />
-              </div>
-              <Button onClick={() => handleOpenCreateTaskDialog('MEDIUM', selectedDay)} aria-label="Add New Task">
-                <Plus className="mr-2 h-4 w-4" /> Add Task
-              </Button>
-            </div>
-          </header>
-
-          {/* Content Area */}
-          <div className="flex-1 overflow-auto p-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                <TabsTrigger value="tasks">Tasks</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="dashboard" className="flex-1 overflow-y-auto">
-                <SchedulerDashboardPanel
-                  selectedDay={selectedDay}
-                  scheduledTasks={currentDayScheduledTasks}
-                  retiredTasks={currentDayRetiredTasks}
-                  generalTasks={generalTasks}
-                  availableEnergy={availableEnergy}
-                  maxEnergy={maxEnergy}
-                  onOpenScheduledTaskDetailDialog={handleOpenScheduledTaskDetailDialog}
-                  onOpenGeneralTaskDetailSheet={handleOpenGeneralTaskDetailSheet}
-                  onOpenRetiredTaskDetailDialog={handleOpenRetiredTaskDetailDialog}
-                  onCompleteScheduledTask={handleCompleteScheduledTask}
-                  onRemoveScheduledTask={handleRemoveScheduledTask}
-                  onRezoneScheduledTask={handleRezoneScheduledTask}
-                  onRandomizeBreaks={handleRandomizeBreaks}
-                />
-              </TabsContent>
-
-              <TabsContent value="tasks" className="flex-1 overflow-y-auto">
-                <SinkKanbanBoard 
-                  selectedDay={selectedDay}
-                />
-              </TabsContent>
-
-              <TabsContent value="settings" className="flex-1 overflow-y-auto">
-                <div className="space-y-8 max-w-3xl mx-auto py-8">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Environment Order</CardTitle>
-                      <CardDescription>
-                        Customize the priority of your task environments.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <EnvironmentOrderSettings />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Manage Environments</CardTitle>
-                      <CardDescription>
-                        Add, edit, or delete your custom task environments.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <EnvironmentManager />
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-            </Tabs>
+              </TooltipTrigger>
+              <TooltipContent>Re-zone all unlocked objectives</TooltipContent>
+            </Tooltip>
           </div>
-        </main>
-
-        {/* Modals/Dialogs */}
-        <CreateTaskDialog
-          isOpen={isCreateTaskDialogOpen}
-          onOpenChange={setIsCreateTaskDialogOpen}
-          defaultPriority="MEDIUM"
-          defaultDueDate={selectedDay}
-          onTaskCreated={() => {}}
-        />
-
-        {selectedScheduledTaskForDetail && (
-          <ScheduledTaskDetailDialog
-            task={selectedScheduledTaskForDetail}
-            open={!!selectedScheduledTaskForDetail}
-            onOpenChange={(open) => {
-              if (!open) setSelectedScheduledTaskForDetail(null);
-            }}
-            selectedDayString={format(selectedDay, 'yyyy-MM-dd')}
-          />
-        )}
-
-        {selectedGeneralTaskForDetail && (
-          <TaskDetailSheetForTasks
-            task={selectedGeneralTaskForDetail}
-            open={!!selectedGeneralTaskForDetail}
-            onOpenChange={(open) => {
-              if (!open) setSelectedGeneralTaskForDetail(null);
-            }}
-          />
-        )}
-
-        {selectedRetiredTaskForDetail && (
-          <RetiredTaskDetailDialog
-            task={selectedRetiredTaskForDetail}
-            open={!!selectedRetiredTaskForDetail}
-            onOpenChange={(open) => {
-              if (!open) setSelectedRetiredTaskForDetail(null);
-            }}
-          />
-        )}
-      </div>
-    </TooltipProvider>
+        </CardHeader>
+        
+        <CardContent className="px-2 pb-2 space-y-6">
+          {viewMode === 'list' && (
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleQuickAddToList(localInput);
+              }} 
+              className="flex gap-2"
+            >
+              <Input 
+                placeholder="Inject objective: Name [dur] [!] [-] [W] [B]..." 
+                value={localInput} 
+                onChange={(e) => setLocalInput(e.target.value)}
+                disabled={isProcessingCommand}
+                className="flex-grow h-12 bg-background/40 font-bold placeholder:font-medium placeholder:opacity-30"
+                aria-label="Quick add task to Aether Sink"
+              />
+              <Button 
+                type="submit" 
+                disabled={!localInput.trim() || isProcessingCommand}
+                className="h-12 w-12 rounded-xl"
+                aria-label="Add task to Aether Sink"
+              >
+                {isProcessingCommand ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+              </Button>
+            </form>
+          )}
+          
+          {isLoading || isLoadingEnvironments ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Sink...</p>
+              <div className="space-y-2 w-full px-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                ))}
+              </div>
+            </div>
+          ) : retiredTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10">
+              <Ghost className="h-12 w-12 text-muted-foreground/20" />
+              <div className="space-y-1">
+                <p className="text-sm font-black uppercase tracking-tighter text-muted-foreground/60">Aether Sink Vacant</p>
+                <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px]">Objectives will manifest here upon retirement.</p>
+              </div>
+            </div>
+          ) : (
+            viewMode === 'list' ? (
+              <div className="grid gap-2 pr-2 scrollbar-none max-h-[600px] overflow-y-auto custom-scrollbar">
+                {retiredTasks.map((task) => {
+                  const hue = getEmojiHue(task.name);
+                  const emoji = assignEmoji(task.name);
+                  const accentColor = `hsl(${hue} 70% 50%)`;
+                  const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted, is_work: isWork, is_break: isBreak } = task;
+                  
+                  return (
+                    <div 
+                      key={task.id}
+                      onClick={() => handleOpenDetailDialog(task)}
+                      className={cn(
+                        "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border-none transition-all duration-300 cursor-pointer animate-pop-in",
+                        "bg-card/40 hover:bg-secondary/40",
+                        isLocked ? "bg-primary/[0.03]" : "border-transparent",
+                        isBackburner && !isLocked && "opacity-70",
+                        isCompleted && "opacity-40 grayscale"
+                      )}
+                      style={{ borderLeft: isLocked ? '4px solid hsl(var(--primary))' : `4px solid ${accentColor}` }}
+                      aria-label={`Retired task: ${task.name}`}
+                    >
+                      <div className="flex items-center gap-4 flex-grow min-w-0">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => handleAction(e, () => handleToggleComplete(task))}
+                          disabled={isLocked || isProcessingCommand}
+                          className={cn(
+                            "h-9 w-9 shrink-0 rounded-full",
+                            isCompleted ? "text-logo-green bg-logo-green/10" : "bg-secondary/50 text-muted-foreground/30 hover:bg-logo-green/10 hover:text-logo-green"
+                          )}
+                          aria-label={isCompleted ? `Mark "${task.name}" as incomplete` : `Mark "${task.name}" as complete`}
+                        >
+                          <CheckCircle className={cn("h-5 w-5 transition-transform duration-500", !isCompleted && "group-hover:scale-110")} />
+                        </Button>
+                        <div className="min-w-0 flex-grow">
+                          <div className="flex items-center gap-2 mb-1">
+                            {task.is_critical && <Star className="h-3.5 w-3.5 fill-logo-yellow text-logo-yellow shrink-0" />}
+                            {isBackburner && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-muted-foreground/20 text-muted-foreground/60">
+                                Orbit
+                              </Badge>
+                            )}
+                            {isWork && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-primary/20 text-primary/60">
+                                Work
+                              </Badge>
+                            )}
+                            {isBreak && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-logo-orange/20 text-logo-orange/60">
+                                Break
+                              </Badge>
+                            )}
+                            <span className="text-xl shrink-0 group-hover:scale-125 transition-transform duration-500">{emoji}</span>
+                            <span className={cn("font-black uppercase tracking-tighter truncate text-sm sm:text-base", isCompleted && "line-through")}>
+                              {task.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
+                            <span className="flex items-center gap-1.5">
+                              {getEnvironmentIcon(task.task_environment)}
+                              <span className="opacity-40">{task.task_environment}</span>
+                            </span>
+                            {task.duration && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {task.duration}m</span>}
+                            {task.energy_cost > 0 && (
+                              <span className="flex items-center gap-1.5 text-primary/80">
+                                {task.energy_cost}<Zap className="h-3 w-3 fill-current" />
+                              </span>
+                            )}
+                            <span className="hidden xs:inline text-[8px] opacity-20">|</span>
+                            <span className="text-[9px] opacity-40">{format(new Date(task.retired_at), 'MMM dd')}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mt-4 sm:mt-0 ml-auto bg-background/50 sm:bg-transparent p-1.5 sm:p-0 rounded-xl">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => handleAction(e, () => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked }))}
+                              className={cn(
+                                "h-9 w-9 rounded-lg transition-all",
+                                isLocked ? "text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary),0.1)]" : "text-muted-foreground/30"
+                              )}
+                              aria-label={isLocked ? `Unlock "${task.name}"` : `Lock "${task.name}"`}
+                            >
+                              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4 opacity-50" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{isLocked ? "Secure" : "Accessible"}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => handleAction(e, () => onRezoneTask(task))}
+                              disabled={isLocked || isCompleted}
+                              className="h-9 w-9 text-primary/40 hover:text-primary hover:bg-primary/10 rounded-lg"
+                              aria-label={`Re-zone "${task.name}" to schedule`}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Re-zone Objective</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => handleAction(e, () => onRemoveRetiredTask(task.id, task.name))}
+                              disabled={isLocked}
+                              className="h-9 w-9 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                              aria-label={`Purge "${task.name}" from Aether Sink`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Purge from Aether</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <SinkKanbanBoard 
+                retiredTasks={retiredTasks} 
+                groupBy={groupBy} 
+                onRemoveRetiredTask={onRemoveRetiredTask} 
+                onRezoneTask={onRezoneTask}
+                updateRetiredTask={handleUpdateRetiredTask}
+                onOpenDetailDialog={handleOpenDetailDialog}
+              />
+            )
+          )}
+        </CardContent>
+      </Card>
+      
+      <RetiredTaskDetailSheet 
+        task={selectedRetiredTask} 
+        open={isDialogOpen && selectedRetiredTask !== null} 
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setSelectedRetiredTask(null);
+        }} 
+      />
+    </>
   );
-};
+});
+
+AetherSink.displayName = 'AetherSink';
 
 export default AetherSink;

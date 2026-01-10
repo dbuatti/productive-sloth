@@ -81,7 +81,15 @@ interface ScheduledTaskDetailDialogProps {
   selectedDayString: string;
 }
 
-// Removed getEnvironmentIconComponent as Environment.icon is now React.ElementType
+const getEnvironmentIconComponent = (iconName: string) => {
+  switch (iconName) {
+    case 'Home': return Home;
+    case 'Laptop': return Laptop;
+    case 'Globe': return Globe;
+    case 'Music': return Music;
+    default: return Home;
+  }
+};
 
 const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   task,
@@ -353,11 +361,11 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                       </FormControl>
                       <SelectContent>
                         {environments.map(env => {
-                          const Icon = env.icon; // Directly use the React.ElementType
+                          const IconComponent = getEnvironmentIconComponent(env.icon);
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">
-                                <Icon className="h-4 w-4" />
+                                <IconComponent className="h-4 w-4" />
                                 {env.label}
                               </div>
                             </SelectItem>

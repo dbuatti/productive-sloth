@@ -54,8 +54,8 @@ const EnvironmentOrderSettings: React.FC = () => {
           const option = environments.find(opt => opt.value === envKey);
           if (!option) return null;
 
-          // option.icon is now correctly typed as React.ElementType
-          const Icon = option.icon;
+          // Cast the icon component to allow passing className
+          const IconComponent = option.icon as React.ElementType<{ className: string }>;
 
           return (
             <div 
@@ -64,7 +64,7 @@ const EnvironmentOrderSettings: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold font-mono opacity-30">{index + 1}</span>
-                <Icon className="h-4 w-4 text-primary" />
+                <IconComponent className="h-4 w-4 text-primary" />
                 <span className="text-sm font-bold uppercase tracking-tight">{option.label}</span>
               </div>
               

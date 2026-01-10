@@ -2,14 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import React from 'react'; // Import React for React.ElementType
 
 export interface Environment {
   id: string;
   user_id: string;
   label: string;
   value: string;
-  icon: React.ElementType; // Changed from string to React.ElementType
+  icon: string;
   color: string;
   is_default: boolean;
   drain_multiplier: number;
@@ -20,7 +19,7 @@ export interface Environment {
 export interface NewEnvironment {
   label: string;
   value: string;
-  icon: React.ElementType; // Changed from string to React.ElementType
+  icon: string;
   color: string;
   is_default?: boolean;
   drain_multiplier?: number;

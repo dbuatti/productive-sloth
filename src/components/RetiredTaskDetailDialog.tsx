@@ -5,22 +5,22 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music } from "lucide-react";
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Form,
   FormControl,
   FormDescription,
   FormField,
   FormItem,
-  FormLabel, // Ensure FormLabel is imported
+  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -31,9 +31,17 @@ import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEnvironments } from '@/hooks/use-environments';
+import { useEnvironments } from '@/hooks/use-environments'; // Import useEnvironments
 
-// Removed getEnvironmentIconComponent as Environment.icon is now React.ElementType
+const getEnvironmentIconComponent = (iconName: string) => {
+  switch (iconName) {
+    case 'Home': return Home;
+    case 'Laptop': return Laptop;
+    case 'Globe': return Globe;
+    case 'Music': return Music;
+    default: return Home; // Fallback
+  }
+};
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -47,39 +55,28 @@ const formSchema = z.object({
   ),
   is_critical: z.boolean().default(false),
   is_backburner: z.boolean().default(false),
+  is_locked: z.boolean().default(false),
   is_completed: z.boolean().default(false),
-  energy_cost: z.coerce.number().default(0), // Removed .min(0)
+  energy_cost: z.coerce.number().min(0).default(0),
   is_custom_energy_cost: z.boolean().default(false),
-  task_environment: z.string().default('laptop'),
-  is_work: z.boolean().default(false),
-  is_break: z.boolean().default(false),
-}).refine(data => {
-  // If it's a break task and not custom energy cost, allow negative or zero
-  if (data.is_break && !data.is_custom_energy_cost) {
-    return data.energy_cost <= 0;
-  }
-  // Otherwise, energy cost must be non-negative
-  return data.energy_cost >= 0;
-}, {
-  message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
-  path: ["energy_cost"],
+  task_environment: z.string().default('laptop'), // Changed to z.string()
 });
 
 type RetiredTaskDetailFormValues = z.infer<typeof formSchema>;
 
-interface RetiredTaskDetailDialogProps {
+interface RetiredTaskDetailSheetProps {
   task: RetiredTask | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
+const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   task,
   open,
   onOpenChange,
 }) => {
   const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useSchedulerTasks('');
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
+  const { environments, isLoading: isLoadingEnvironments } = useEnvironments(); // Fetch environments
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
   const form = useForm<RetiredTaskDetailFormValues>({
@@ -90,12 +87,11 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
       break_duration: 0,
       is_critical: false,
       is_backburner: false,
+      is_locked: false,
       is_completed: false,
       energy_cost: 0,
       is_custom_energy_cost: false,
       task_environment: 'laptop',
-      is_work: false,
-      is_break: false,
     },
   });
 
@@ -107,16 +103,14 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
         break_duration: task.break_duration ?? 0,
         is_critical: task.is_critical,
         is_backburner: task.is_backburner,
+        is_locked: task.is_locked,
         is_completed: task.is_completed,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
         task_environment: task.task_environment,
-        is_work: task.is_work || false,
-        is_break: task.is_break || false,
       });
       if (!task.is_custom_energy_cost) {
-        const duration = task.duration ?? 30;
-        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical, task.is_backburner, task.is_break));
+        setCalculatedEnergyCost(calculateEnergyCost(task.duration || 30, task.is_critical, task.is_backburner));
       } else {
         setCalculatedEnergyCost(task.energy_cost);
       }
@@ -125,20 +119,18 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-      if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical' || name === 'is_backburner' || name === 'is_break')) {
+      if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical' || name === 'is_backburner')) {
         const duration = value.duration ?? 0;
         const isCritical = value.is_critical;
         const isBackburner = value.is_backburner;
-        const isBreak = value.is_break;
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
         const duration = form.getValues('duration') ?? 0;
         const isCritical = form.getValues('is_critical');
         const isBackburner = form.getValues('is_backburner');
-        const isBreak = form.getValues('is_break');
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
+        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }
@@ -165,11 +157,10 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
         break_duration: values.break_duration,
         is_critical: values.is_critical,
         is_backburner: values.is_backburner,
+        is_locked: values.is_locked,
         energy_cost: values.energy_cost,
         is_custom_energy_cost: values.is_custom_energy_cost,
         task_environment: values.task_environment,
-        is_work: values.is_work,
-        is_break: values.is_break,
       });
       showSuccess("Retired task updated successfully!");
       onOpenChange(false);
@@ -184,7 +175,6 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
   const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
   const isCritical = form.watch('is_critical');
   const isBackburner = form.watch('is_backburner');
-  const isBreak = form.watch('is_break');
 
   if (!task) return null;
 
@@ -192,16 +182,19 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
   const formattedOriginalDate = task.original_scheduled_date ? format(parseISO(task.original_scheduled_date), 'MMM d, yyyy') : 'N/A';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in">
-        <DialogHeader className="border-b pb-4 mb-6">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">Retired Task Details</DialogTitle>
-          </div>
-          <DialogDescription className="text-sm text-muted-foreground">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:w-80 flex flex-col p-6 space-y-6 animate-slide-in-right">
+        <SheetHeader className="border-b pb-4">
+          <SheetTitle className="text-2xl font-bold flex items-center justify-between">
+            Retired Task Details
+            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
+              <X className="h-5 w-5" />
+            </Button>
+          </SheetTitle>
+          <SheetDescription className="text-sm text-muted-foreground">
             Retired: {formattedRetiredAt} | Original Date: {formattedOriginalDate}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
@@ -245,13 +238,14 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                   name="break_duration"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Break Duration (min)</FormLabel> {/* Corrected closing tag */}
+                      <FormLabel>Break Duration (min)</FormLabel>
                       <FormControl>
                         <Input type="number" {...field} min="0" value={field.value ?? ''} />
                       </FormControl>
                       <FormDescription>
                         Break associated with this task.
                       </FormDescription>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -272,7 +266,7 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                       </FormControl>
                       <SelectContent>
                         {environments.map(env => {
-                          const IconComponent = env.icon; // Directly use the React.ElementType
+                          const IconComponent = getEnvironmentIconComponent(env.icon);
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">
@@ -309,11 +303,9 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_backburner', false);
-                            form.setValue('is_break', false);
-                          }
+                          if (checked) form.setValue('is_backburner', false);
                         }}
+                        disabled={task.is_locked}
                       />
                     </FormControl>
                   </FormItem>
@@ -337,43 +329,31 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_critical', false);
-                            form.setValue('is_break', false);
-                          }
+                          if (checked) form.setValue('is_critical', false);
                         }}
-                        disabled={isCritical}
+                        disabled={isCritical || task.is_locked}
                       />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
+              {/* Is Locked Switch */}
               <FormField
                 control={form.control}
-                name="is_break"
+                name="is_locked"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <Coffee className="h-4 w-4 text-logo-orange" />
-                        <FormLabel className="text-base font-semibold">Break Task</FormLabel>
-                      </div>
-                      <FormDescription className="text-xs">
-                        This task is a dedicated break or recovery activity.
+                      <FormLabel>Locked Task</FormLabel>
+                      <FormDescription>
+                        Prevent re-zoning or deletion from Aether Sink.
                       </FormDescription>
                     </div>
                     <FormControl>
                       <Switch
                         checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_critical', false);
-                            form.setValue('is_backburner', false);
-                          }
-                        }}
-                        disabled={isCritical || isBackburner}
+                        onCheckedChange={field.onChange}
                       />
                     </FormControl>
                   </FormItem>
@@ -396,30 +376,7 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="is_work"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-primary" />
-                        <FormLabel className="text-base font-semibold">Work Task</FormLabel>
-                      </div>
-                      <FormDescription className="text-xs">
-                        Tag this task as work for analytics.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
+                        disabled={task.is_locked}
                       />
                     </FormControl>
                   </FormItem>
@@ -466,7 +423,7 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
                         <Input 
                           type="number" 
                           {...field} 
-                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
+                          min="0" 
                           className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
@@ -500,9 +457,9 @@ const RetiredTaskDetailDialog: React.FC<RetiredTaskDetailDialogProps> = ({
             </div>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };
 
-export default RetiredTaskDetailDialog;
+export default RetiredTaskDetailSheet;

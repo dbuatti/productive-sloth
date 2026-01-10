@@ -69,7 +69,7 @@ const EnvironmentManager: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newEnvironment, setNewEnvironment] = useState({
     label: '',
-    icon: Home, // Default to Home component directly
+    icon: 'Home',
     color: '#FF6B6B',
     drain_multiplier: 1.0,
     is_default: false,
@@ -89,7 +89,7 @@ const EnvironmentManager: React.FC = () => {
     
     setNewEnvironment({
       label: '',
-      icon: Home, // Reset to Home component
+      icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
       is_default: false,
@@ -119,7 +119,7 @@ const EnvironmentManager: React.FC = () => {
     setEditingId(null);
     setNewEnvironment({
       label: '',
-      icon: Home, // Reset to Home component
+      icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
       is_default: false,
@@ -141,7 +141,7 @@ const EnvironmentManager: React.FC = () => {
     setEditingId(null);
     setNewEnvironment({
       label: '',
-      icon: Home, // Reset to Home component
+      icon: 'Home',
       color: '#FF6B6B',
       drain_multiplier: 1.0,
       is_default: false,
@@ -159,7 +159,10 @@ const EnvironmentManager: React.FC = () => {
     setDeleteTarget(null);
   };
 
-  // Removed getIconComponent as Environment.icon is now React.ElementType
+  const getIconComponent = (iconName: string) => {
+    const icon = iconOptions.find(opt => opt.value === iconName);
+    return icon ? icon.icon : Home;
+  };
 
   if (isLoading) {
     return <div>Loading environments...</div>;
@@ -194,8 +197,8 @@ const EnvironmentManager: React.FC = () => {
               <div>
                 <Label htmlFor="icon">Icon</Label>
                 <Select 
-                  value={iconOptions.find(opt => opt.icon === newEnvironment.icon)?.value || 'Home'} // Find value from component
-                  onValueChange={(value) => setNewEnvironment({...newEnvironment, icon: iconOptions.find(opt => opt.value === value)?.icon || Home})} // Set component
+                  value={newEnvironment.icon} 
+                  onValueChange={(value) => setNewEnvironment({...newEnvironment, icon: value})}
                   aria-label="Environment Icon"
                 >
                   <SelectTrigger>
@@ -203,11 +206,11 @@ const EnvironmentManager: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {iconOptions.map((icon) => {
-                      const Icon = icon.icon;
+                      const IconComponent = icon.icon;
                       return (
                         <SelectItem key={icon.value} value={icon.value}>
                           <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
+                            <IconComponent className="h-4 w-4" />
                             {icon.label}
                           </div>
                         </SelectItem>
@@ -251,14 +254,14 @@ const EnvironmentManager: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {environments.map((env) => {
-          const Icon = env.icon; // Directly use the React.ElementType
+          const IconComponent = getIconComponent(env.icon);
           const isEditing = editingId === env.id;
           
           return (
             <Card key={env.id} className="relative p-4">
               <CardHeader className="flex-row items-center justify-between space-y-0 p-0 mb-4">
                 <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                  <Icon className="h-6 w-6" style={{ color: env.color }} />
+                  <IconComponent className="h-6 w-6" style={{ color: env.color }} />
                   <span>{env.label}</span>
                 </CardTitle>
                 {env.is_default && !isEditing && (
@@ -284,8 +287,8 @@ const EnvironmentManager: React.FC = () => {
                     <div>
                       <Label>Icon</Label>
                       <Select 
-                        value={iconOptions.find(opt => opt.icon === newEnvironment.icon)?.value || 'Home'} // Find value from component
-                        onValueChange={(value) => setNewEnvironment({...newEnvironment, icon: iconOptions.find(opt => opt.value === value)?.icon || Home})} // Set component
+                        value={newEnvironment.icon} 
+                        onValueChange={(value) => setNewEnvironment({...newEnvironment, icon: value})}
                         aria-label={`Edit Icon for ${env.label}`}
                       >
                         <SelectTrigger>
@@ -293,11 +296,11 @@ const EnvironmentManager: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {iconOptions.map((icon) => {
-                            const Icon = icon.icon;
+                            const IconComponent = icon.icon;
                             return (
                               <SelectItem key={icon.value} value={icon.value}>
                                 <div className="flex items-center gap-2">
-                                  <Icon className="h-4 w-4" />
+                                  <IconComponent className="h-4 w-4" />
                                   {icon.label}
                                 </div>
                               </SelectItem>

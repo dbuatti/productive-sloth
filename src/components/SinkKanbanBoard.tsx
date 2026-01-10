@@ -1,248 +1,191 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
+import { 
+  DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, 
+  useSensor, useSensors, DragStartEvent, DragOverEvent, DragOverlay, defaultDropAnimationSideEffects
+} from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { RetiredTask, TaskEnvironment } from '@/types/scheduler';
+import { Home, Laptop, Globe, Music, Star, Info, Briefcase, Coffee, Loader2 } from 'lucide-react';
+import KanbanColumn from './KanbanColumn';
+import SortableTaskCard from './SortableTaskCard';
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
-import { useTasks } from '@/hooks/use-tasks';
 import { useSession } from '@/hooks/use-session';
+import { showError } from '@/utils/toast';
+import { parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { useEnvironments } from '@/hooks/use-environments';
-import TaskCard from './TaskCard'; // Corrected import (assuming default export)
-import { TaskPriority, Task } from '@/types'; // Added Task import
-import { DBScheduledTask, RetiredTask } from '@/types/scheduler';
-import { format, isSameDay, parseISO } from 'date-fns';
-import { Button } from './ui/button';
-import { Plus, Home, Laptop, Globe, Music, Zap, Briefcase, Coffee } from 'lucide-react';
-import { ScrollArea } from './ui/scroll-area';
-import { cn } from '@/lib/utils';
-import CreateTaskDialog from './CreateTaskDialog'; // Corrected import (assuming default export)
-import TaskDetailSheetForTasks from './TaskDetailSheetForTasks'; // Corrected import (assuming default export)
-import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Corrected import (assuming default export)
-import RetiredTaskDetailDialog from './RetiredTaskDetailDialog'; // Corrected import (assuming default export)
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from './ui/checkbox';
-import { Label } from './ui/label';
-
-type GroupByOption = 'environment' | 'priority' | 'status';
 
 interface SinkKanbanBoardProps {
-  selectedDay: Date;
+  retiredTasks: RetiredTask[];
+  groupBy: 'environment' | 'priority' | 'type';
+  onRemoveRetiredTask: (id: string, name: string) => void;
+  onRezoneTask: (task: RetiredTask) => void;
+  updateRetiredTask: (updates: Partial<RetiredTask> & { id: string }) => Promise<void>;
+  onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
-// Define a union type for all possible task types in the board
-type BoardTask = (Task & { type: 'general' }) | (DBScheduledTask & { type: 'scheduled' }) | (RetiredTask & { type: 'retired' });
+const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ 
+  retiredTasks, groupBy, updateRetiredTask, onOpenDetailDialog 
+}) => {
+  const { user } = useSession();
+  const { environments, isLoading } = useEnvironments();
+  const { addRetiredTask } = useSchedulerTasks('');
+  
+  const [activeTask, setActiveTask] = useState<RetiredTask | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
-// Define a type for the grouped tasks structure
-interface GroupedTask {
-  label: string;
-  icon?: React.ElementType;
-  color?: string;
-  tasks: BoardTask[];
-}
-
-const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ selectedDay }) => {
-  const { tasks: generalTasks, isLoading: isLoadingGeneralTasks } = useTasks();
-  // Corrected destructuring from useSchedulerTasks to match its actual return type
-  // Assuming useSchedulerTasks returns 'retiredTasks' directly, not 'dbRetiredTasks'
-  const { dbScheduledTasks, retiredTasks, isLoading: isLoadingScheduledTasks } = useSchedulerTasks(format(selectedDay, 'yyyy-MM-dd'));
-  const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
-  const { profile } = useSession();
-
-  const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
-  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<DBScheduledTask | null>(null);
-  const [selectedGeneralTaskForDetail, setSelectedGeneralTaskForDetail] = useState<Task | null>(null); // Corrected type
-  const [selectedRetiredTaskForDetail, setSelectedRetiredTaskForDetail] = useState<RetiredTask | null>(null);
-  const [groupBy, setGroupBy] = useState<GroupByOption>('environment');
-  const [showCompleted, setShowCompleted] = useState(false);
-
-  const allTasks = useMemo(() => {
-    const combined: BoardTask[] = [ // Explicitly type combined array
-      ...generalTasks.map(task => ({ ...task, type: 'general' })),
-      ...dbScheduledTasks.map(task => ({ ...task, type: 'scheduled' })),
-      ...retiredTasks.map(task => ({ ...task, type: 'retired' })),
-    ];
-
-    return combined.filter(task => {
-      if (task.type === 'scheduled') {
-        return isSameDay(parseISO(task.scheduled_date), selectedDay);
-      }
-      if (task.type === 'retired') {
-        return isSameDay(parseISO(task.original_scheduled_date), selectedDay);
-      }
-      return true; // General tasks are always shown
-    });
-  }, [generalTasks, dbScheduledTasks, retiredTasks, selectedDay]);
-
-  const filteredTasks = useMemo(() => {
-    return allTasks.filter(task => showCompleted || !task.is_completed);
-  }, [allTasks, showCompleted]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const groupedTasks = useMemo(() => {
-    const groups: Record<string, GroupedTask> = {};
+    const groups: Record<string, RetiredTask[]> = {};
+    
+    // Define all possible columns based on grouping type
+    if (groupBy === 'environment') {
+      environments.forEach(env => groups[env.value] = []);
+      // Ensure default 'laptop' is always present if environments are still loading/empty
+      if (environments.length === 0) groups['laptop'] = [];
+    }
+    else if (groupBy === 'priority') ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
+    else ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
 
-    filteredTasks.forEach(task => {
-      let groupKey: string;
-      let groupLabel: string;
-      let groupIcon: React.ElementType | undefined;
-      let groupColor: string | undefined;
-
-      if (groupBy === 'environment') {
-        groupKey = task.task_environment || 'unknown';
-        const env = environments.find(e => e.value === groupKey);
-        groupLabel = env?.label || 'Unknown Environment';
-        groupIcon = env?.icon;
-        groupColor = env?.color;
-      } else if (groupBy === 'priority') {
-        // All task types (Task, DBScheduledTask, RetiredTask) are expected to have a 'priority'
-        groupKey = task.priority || 'MEDIUM'; 
-        groupLabel = groupKey.charAt(0).toUpperCase() + groupKey.slice(1).toLowerCase();
-        groupIcon = Zap;
-        groupColor = groupKey === 'HIGH' ? '#FF6B6B' : groupKey === 'MEDIUM' ? '#FFB347' : '#4ECDC4';
-      } else if (groupBy === 'status') {
-        groupKey = task.is_completed ? 'completed' : 'pending';
-        groupLabel = task.is_completed ? 'Completed' : 'Pending';
-        groupIcon = task.is_completed ? Checkbox : Plus;
-        groupColor = task.is_completed ? '#4ECDC4' : '#FF6B6B';
-      } else {
-        groupKey = 'all';
-        groupLabel = 'All Tasks';
-        groupIcon = Plus;
-        groupColor = '#FFFFFF';
-      }
-
-      if (!groups[groupKey]) {
-        groups[groupKey] = {
-          label: groupLabel,
-          icon: groupIcon,
-          color: groupColor,
-          tasks: [],
-        };
-      }
-      groups[groupKey].tasks.push(task);
+    retiredTasks.forEach(task => {
+      let key = 'standard';
+      if (groupBy === 'environment') key = task.task_environment || 'laptop';
+      else if (groupBy === 'priority') key = task.is_critical ? 'critical' : (task.is_backburner ? 'backburner' : 'standard');
+      else key = task.is_break ? 'breaks' : (task.is_work ? 'work' : 'not-work');
+      
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(task);
     });
+    return groups;
+  }, [retiredTasks, groupBy, environments]);
 
-    const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
-      if (groupBy === 'priority') {
-        const priorityOrder: Record<string, number> = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
-        return (priorityOrder[b] || 0) - (priorityOrder[a] || 0);
-      }
-      return groups[a].label.localeCompare(groups[b].label);
-    });
-
-    return sortedGroupKeys.map(key => groups[key]);
-  }, [filteredTasks, groupBy, environments]);
-
-  const handleOpenCreateTaskDialog = (defaultPriority: TaskPriority, defaultDueDate: Date, defaultStartTime?: Date, defaultEndTime?: Date) => {
-    setIsCreateTaskDialogOpen(true);
+  const handleDragStart = (event: DragStartEvent) => {
+    console.log("[Kanban] Drag Start:", event.active.id, "from container:", event.active.data.current?.sortable?.containerId);
+    const task = retiredTasks.find(t => t.id === event.active.id);
+    setActiveTask(task || null);
   };
 
-  const handleTaskCardClick = useCallback((task: BoardTask) => { // Type task as BoardTask
-    if (task.type === 'scheduled') {
-      setSelectedTaskForDetail(task);
-    } else if (task.type === 'general') {
-      setSelectedGeneralTaskForDetail(task);
-    } else if (task.type === 'retired') {
-      setSelectedRetiredTaskForDetail(task);
-    }
-  }, []);
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverId(event.over?.id as string || null);
+    console.log("[Kanban] Drag Over:", event.active.id, "over:", event.over?.id, "in container:", event.over?.data.current?.sortable?.containerId || event.over?.id);
+  };
 
-  if (isLoadingGeneralTasks || isLoadingScheduledTasks || isLoadingEnvironments) {
-    return <div>Loading tasks...</div>;
-  }
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+    setOverId(null);
+    
+    console.log("[Kanban] Drag End. Active:", active.id, "Over:", over?.id);
+
+    if (!over) {
+      console.log("[Kanban] Drag ended outside of a droppable area.");
+      return;
+    }
+    
+    const overContainerId = over.data.current?.sortable?.containerId || over.id;
+    const task = retiredTasks.find(t => t.id === active.id);
+    if (!task) return;
+    
+    let update: Partial<RetiredTask> = {};
+    
+    // 1. Determine the update based on the target column ID
+    if (groupBy === 'environment') {
+      // Check if the target ID is a valid environment value
+      if (environments.some(e => e.value === overContainerId) || overContainerId === 'laptop') {
+        update = { task_environment: overContainerId as TaskEnvironment };
+        console.log(`[Kanban] Updating environment to: ${overContainerId}`);
+      }
+    } else if (groupBy === 'priority') {
+      if (overContainerId === 'critical') update = { is_critical: true, is_backburner: false, is_break: false };
+      else if (overContainerId === 'backburner') update = { is_critical: false, is_backburner: true, is_break: false };
+      else if (overContainerId === 'standard') update = { is_critical: false, is_backburner: false, is_break: false };
+      console.log(`[Kanban] Updating priority to: ${overContainerId}`);
+    } else if (groupBy === 'type') {
+      if (overContainerId === 'work') update = { is_work: true, is_break: false };
+      else if (overContainerId === 'not-work') update = { is_work: false, is_break: false };
+      else if (overContainerId === 'breaks') update = { is_break: true, is_work: false };
+      console.log(`[Kanban] Updating type to: ${overContainerId}`);
+    }
+    
+    // 2. Apply the update if changes were determined
+    if (Object.keys(update).length > 0) {
+      console.log("[Kanban] Applying update:", update);
+      updateRetiredTask({ id: task.id, ...update });
+    } else {
+      console.log("[Kanban] No relevant column change detected, skipping update.");
+    }
+  };
+
+  const handleQuickAdd = useCallback(async (input: string, columnId: string) => {
+    if (!user) return showError("User missing.");
+    const parsed = parseSinkTaskInput(input, user.id);
+    if (!parsed) return showError("Invalid format: 'Name [dur] [!] [-] [W] [B]...'");
+    
+    // Override parsed flags based on the target column
+    if (groupBy === 'environment') parsed.task_environment = columnId as TaskEnvironment;
+    else if (groupBy === 'priority') {
+      parsed.is_critical = columnId === 'critical';
+      parsed.is_backburner = columnId === 'backburner';
+      parsed.is_break = false; // Priority columns are generally not breaks
+    } else if (groupBy === 'type') {
+      parsed.is_work = columnId === 'work';
+      parsed.is_break = columnId === 'breaks';
+      parsed.is_critical = false; // Type columns override priority/criticality for simplicity
+      parsed.is_backburner = false;
+    }
+    
+    // Recalculate energy cost based on final flags and duration
+    // Note: parseSinkTaskInput already calculates energy, but we need to recalculate if flags were overridden
+    // We rely on the mutation to handle the final energy cost calculation if needed, but for consistency:
+    // const finalEnergyCost = calculateEnergyCost(parsed.duration || 30, parsed.is_critical || false, parsed.is_backburner || false, parsed.is_break || false);
+    // parsed.energy_cost = finalEnergyCost;
+
+    await addRetiredTask(parsed);
+  }, [user, groupBy, addRetiredTask]);
+
+  if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
 
   return (
-    <div className="flex flex-col h-full p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Tasks for {format(selectedDay, 'MMM d, yyyy')}</h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="show-completed"
-              checked={showCompleted}
-              onCheckedChange={(checked: boolean) => setShowCompleted(checked)}
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+      <div className="flex w-full gap-6 items-start pb-4 overflow-x-auto custom-scrollbar">
+        {Object.entries(groupedTasks).map(([id, tasks]) => {
+          let label = id;
+          let Icon = Info;
+          if (groupBy === 'environment') {
+            const env = environments.find(e => e.value === id);
+            label = env?.label || id;
+            Icon = env?.icon === 'Home' ? Home : env?.icon === 'Laptop' ? Laptop : env?.icon === 'Globe' ? Globe : Music;
+          } else if (groupBy === 'priority') {
+            label = id === 'critical' ? '🔥 Critical' : id === 'backburner' ? '🔵 Backburner' : '⚪ Standard';
+            Icon = id === 'critical' ? Star : Info;
+          } else {
+            label = id === 'work' ? '💻 Work' : id === 'breaks' ? '☕ Breaks' : '✨ Not Work';
+            Icon = id === 'work' ? Briefcase : (id === 'breaks' ? Coffee : Star);
+          }
+
+          return (
+            <KanbanColumn 
+              key={id} 
+              id={id} 
+              title={label} 
+              icon={<Icon className="h-4 w-4" />} 
+              tasks={tasks} 
+              totalEnergy={tasks.reduce((s, t) => s + (t.energy_cost || 0), 0)} 
+              onQuickAdd={handleQuickAdd} 
+              activeId={activeTask?.id || null} 
+              overId={overId} 
+              onOpenDetailDialog={onOpenDetailDialog} 
             />
-            <Label htmlFor="show-completed">Show Completed</Label>
-          </div>
-          <Select value={groupBy} onValueChange={(value: GroupByOption) => setGroupBy(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Group by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="environment">Environment</SelectItem>
-              <SelectItem value="priority">Priority</SelectItem>
-              <SelectItem value="status">Status</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={() => handleOpenCreateTaskDialog('MEDIUM', selectedDay)}>
-            <Plus className="mr-2 h-4 w-4" /> Add Task
-          </Button>
-        </div>
+          );
+        })}
       </div>
-
-      <ScrollArea className="flex-grow">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
-          {groupedTasks.map((group, index) => (
-            <div key={index} className="bg-card rounded-lg shadow-md p-4">
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2" style={{ color: group.color }}>
-                {group.icon && <group.icon className="h-5 w-5" />}
-                {group.label} ({group.tasks.length})
-              </h3>
-              <div className="space-y-3">
-                {group.tasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onClick={() => handleTaskCardClick(task)}
-                    environmentColor={environments.find(env => env.value === task.task_environment)?.color}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
-
-      <CreateTaskDialog
-        isOpen={isCreateTaskDialogOpen}
-        onOpenChange={setIsCreateTaskDialogOpen}
-        defaultPriority="MEDIUM"
-        defaultDueDate={selectedDay}
-        onTaskCreated={() => {}}
-      />
-
-      {selectedTaskForDetail && (
-        <ScheduledTaskDetailDialog
-          task={selectedTaskForDetail}
-          open={!!selectedTaskForDetail}
-          onOpenChange={(open) => {
-            if (!open) setSelectedTaskForDetail(null);
-          }}
-          selectedDayString={format(selectedDay, 'yyyy-MM-dd')}
-        />
-      )}
-
-      {selectedGeneralTaskForDetail && (
-        <TaskDetailSheetForTasks
-          task={selectedGeneralTaskForDetail}
-          open={!!selectedGeneralTaskForDetail}
-          onOpenChange={(open) => {
-            if (!open) setSelectedGeneralTaskForDetail(null);
-          }}
-        />
-      )}
-
-      {selectedRetiredTaskForDetail && (
-        <RetiredTaskDetailDialog
-          task={selectedRetiredTaskForDetail}
-          open={!!selectedRetiredTaskForDetail}
-          onOpenChange={(open) => {
-            if (!open) setSelectedRetiredTaskForDetail(null);
-          }}
-        />
-      )}
-    </div>
+      <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.5' } } }) }}>
+        {activeTask ? <SortableTaskCard task={activeTask} onOpenDetailDialog={onOpenDetailDialog} /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 };
 

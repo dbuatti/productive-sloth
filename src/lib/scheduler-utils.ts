@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
 import { UserProfile } from '@/hooks/use-session'; // Import UserProfile from the hook file
 
 // --- Constants ---
@@ -340,7 +340,7 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   // Check for Break Flag (Suffix: B)
   if (lowerInput.endsWith(' b')) {
     isBreak = true;
-    rawInput = rawInput.substring(0, rawInput.length - 2).trim();
+    rawInput = rawInput.substring(0, rawInput.length - 2).trim(); // Corrected: modify rawInput
     lowerInput = rawInput.toLowerCase();
   }
   
@@ -709,6 +709,80 @@ export const getStaticConstraints = (
   return constraints;
 };
 
+export const sortAndChunkTasks = (
+  tasks: UnifiedTask[],
+  profile: UserProfile,
+  sortPreference: SortBy
+): UnifiedTask[] => {
+  const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
+
+  // Base sort: Critical first, then breaks, then backburner, then by creation date
+  const baseSortedTasks = [...tasks].sort((a, b) => {
+    if (a.is_critical && !b.is_critical) return -1;
+    if (!a.is_critical && b.is_critical) return 1;
+    if (a.is_break && !b.is_break) return -1;
+    if (!a.is_break && b.is_break) return 1;
+    if (a.is_backburner && !b.is_backburner) return 1;
+    if (!a.is_backburner && b.is_backburner) return -1;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+
+  // If environment chunking is not enabled and sortPreference is not ENVIRONMENT_RATIO, return base sort
+  if (!enable_environment_chunking && sortPreference !== 'ENVIRONMENT_RATIO') {
+    return baseSortedTasks;
+  }
+
+  // Group tasks by environment
+  const tasksByEnvironment = new Map<TaskEnvironment, UnifiedTask[]>();
+  baseSortedTasks.forEach(task => {
+    const env = task.task_environment || 'laptop'; // Default to 'laptop' if not set
+    if (!tasksByEnvironment.has(env)) {
+      tasksByEnvironment.set(env, []);
+    }
+    tasksByEnvironment.get(env)!.push(task);
+  });
+
+  // Determine the order of environments
+  const environmentOrder = custom_environment_order && custom_environment_order.length > 0
+    ? custom_environment_order
+    : ['home', 'laptop', 'away', 'piano', 'laptop_piano']; // Default order
+
+  // Filter out environments that don't exist in the current tasks, and add any missing ones
+  const activeEnvironments = Array.from(tasksByEnvironment.keys());
+  const finalEnvironmentOrder = environmentOrder
+    .filter(env => activeEnvironments.includes(env))
+    .concat(activeEnvironments.filter(env => !environmentOrder.includes(env)));
+
+  const orderedEnvironmentGroups = finalEnvironmentOrder
+    .map(env => tasksByEnvironment.get(env) || [])
+    .filter(group => group.length > 0);
+
+  if (enable_macro_spread) {
+    // Macro-spread: Interleave tasks from different environments
+    const result: UnifiedTask[] = [];
+    const currentIndices = new Map<TaskEnvironment, number>();
+    finalEnvironmentOrder.forEach(env => currentIndices.set(env, 0));
+
+    let tasksRemaining = tasks.length;
+    while (tasksRemaining > 0) {
+      for (const env of finalEnvironmentOrder) {
+        const group = tasksByEnvironment.get(env);
+        const currentIndex = currentIndices.get(env)!;
+
+        if (group && currentIndex < group.length) {
+          result.push(group[currentIndex]);
+          currentIndices.set(env, currentIndex + 1);
+          tasksRemaining--;
+        }
+      }
+    }
+    return result;
+  } else {
+    // Standard chunking: Place all tasks from one environment, then the next
+    return orderedEnvironmentGroups.flat();
+  }
+};
+
 export const compactScheduleLogic = (
   currentDbTasks: DBScheduledTask[],
   selectedDayDate: Date,
@@ -717,21 +791,41 @@ export const compactScheduleLogic = (
   T_current: Date,
   profile: UserProfile | null // NEW: Accept profile to get static anchors
 ): DBScheduledTask[] => {
+  if (!profile) return currentDbTasks; // Safety check
+
   // 1. Separate tasks: Fixed/Locked/Completed stay put. Flexible/Incomplete move.
   const fixedTasks = currentDbTasks.filter(
     t => t.is_locked || !t.is_flexible || t.is_completed
   );
   
-  const flexibleTasks = currentDbTasks
-    .filter(t => t.is_flexible && !t.is_locked && !t.is_completed)
-    .sort((a, b) => {
-      // Prioritize by original chronological order
-      return new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime();
-    });
+  const flexibleTasksRaw = currentDbTasks
+    .filter(t => t.is_flexible && !t.is_locked && !t.is_completed);
+
+  // Convert to UnifiedTask for sorting
+  const flexibleUnifiedTasks: UnifiedTask[] = flexibleTasksRaw.map(t => ({
+    id: t.id,
+    name: t.name,
+    duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30,
+    break_duration: t.break_duration,
+    is_critical: t.is_critical,
+    is_flexible: t.is_flexible,
+    is_backburner: t.is_backburner,
+    energy_cost: t.energy_cost,
+    source: 'scheduled',
+    originalId: t.id,
+    is_custom_energy_cost: t.is_custom_energy_cost,
+    created_at: t.created_at,
+    task_environment: t.task_environment,
+    is_work: t.is_work || false,
+    is_break: t.is_break || false,
+  }));
+
+  // NEW: Sort and chunk flexible tasks using the new utility
+  const sortedFlexibleTasks = sortAndChunkTasks(flexibleUnifiedTasks, profile, profile.enable_environment_chunking ? 'ENVIRONMENT_RATIO' : 'PRIORITY_HIGH_TO_LOW'); // Default to priority if chunking is off
 
   // 2. Generate static constraints (meals, reflections)
   const staticConstraints: TimeBlock[] = getStaticConstraints(
-    profile!, // We assume profile is not null based on usage context
+    profile,
     selectedDayDate,
     workdayStartTime,
     workdayEndTime
@@ -749,49 +843,40 @@ export const compactScheduleLogic = (
   ]);
 
   // 4. Determine the starting point for compaction
-  // If viewing today, start from Now. If viewing future, start from Workday Start.
   const isToday = isSameDay(selectedDayDate, new Date());
   let insertionCursor = isToday ? max([workdayStartTime, T_current]) : workdayStartTime;
 
   const updatedTasks: DBScheduledTask[] = [...fixedTasks]; // Start with fixed tasks
 
   // 5. Re-place flexible tasks chronologically
-  flexibleTasks.forEach((task) => {
-    const duration = differenceInMinutes(
-      parseISO(task.end_time!),
-      parseISO(task.start_time!)
-    );
+  sortedFlexibleTasks.forEach((task) => { // Use the sorted flexible tasks
+    const duration = task.duration;
     const totalDuration = duration + (task.break_duration || 0);
 
     let placed = false;
-    let currentCursor = insertionCursor; // Use a local cursor for the loop
+    let currentCursor = insertionCursor;
 
     while (!placed && isBefore(currentCursor, workdayEndTime)) {
       const proposedEnd = addMinutes(currentCursor, totalDuration);
 
-      // Check for collisions with all fixed and static blocks
       const collidingBlock = allFixedAndStaticBlocks.find(block => {
-        // Collision occurs if the proposed slot overlaps with the fixed block
         return (
           (isAfter(proposedEnd, block.start) && isBefore(currentCursor, block.end))
         );
       });
 
       if (!collidingBlock) {
-        // No collision, place the task
         updatedTasks.push({
-          ...task,
+          ...currentDbTasks.find(t => t.id === task.id)!, // Find original DB task to retain all properties
           start_time: currentCursor.toISOString(),
           end_time: proposedEnd.toISOString(),
         });
-        insertionCursor = proposedEnd; // Move cursor to end of this task
+        insertionCursor = proposedEnd;
         placed = true;
       } else {
-        // Find the end of the colliding fixed block and move cursor there
         const collidingBlockEnd = collidingBlock.end;
         currentCursor = collidingBlockEnd;
         
-        // Ensure the main insertion cursor is also updated if the collision pushes it further
         if (isAfter(currentCursor, insertionCursor)) {
             insertionCursor = currentCursor;
         }

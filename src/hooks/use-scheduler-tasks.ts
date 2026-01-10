@@ -5,7 +5,7 @@ import { DBScheduledTask, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortB
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, parseISO, format, addMinutes, isBefore, addDays, differenceInMinutes, addHours, isSameDay, max, min } from 'date-fns';
-import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal, sortAndChunkTasks } from '@/lib/scheduler-utils';
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
@@ -516,8 +516,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId || !session?.access_token) throw new Error("Authentication required.");
       const { data, error } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
-      if (error) throw new Error(error.message);
-      if (data && data.error) throw new Error(data.error);
+      if (error) throw new Error(data.error || error.message);
       return data;
     },
     onSettled: (data, error, variables) => {
@@ -638,16 +637,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           });
         }
 
+        // NEW: Sort and chunk tasks using the new utility
+        const sortedPool = sortAndChunkTasks(tasksToConsiderForDay, profile, sortPreference);
+
         // Apply Environment Filtering
-        const filteredPool = tasksToConsiderForDay.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment)).sort((a, b) => {
-          if (a.is_critical && !b.is_critical) return -1;
-          if (!a.is_critical && b.is_critical) return 1;
-          if (a.is_backburner && !b.is_backburner) return 1;
-          if (!a.is_backburner && b.is_backburner) return -1;
-          if (a.is_break && !b.is_break) return -1;
-          if (!a.is_break && b.is_break) return 1;
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        });
+        const filteredPool = sortedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
 
         // --- LOGS ---
         console.log(`[AutoBalance] Tasks to place (after filtering): ${filteredPool.length}`);

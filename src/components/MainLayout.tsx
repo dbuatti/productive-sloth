@@ -31,8 +31,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const shouldShowFocusAnchor = activeItemToday;
   const energyInDeficit = profile && profile.energy < 0;
 
-  const isSimplifiedSchedulePage = location.pathname === '/simplified-schedule';
+  const isSchedulerPage = location.pathname === '/scheduler';
   const isSinkPage = location.pathname === '/sink';
+  const isSimplifiedSchedulePage = location.pathname === '/simplified-schedule';
 
   // State for mobile menu
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -53,14 +54,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     <main className={cn(
       "flex flex-1 flex-col gap-4 overflow-auto",
       isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4"),
-      // Conditional styling for simplified schedule and sink pages
-      !isSimplifiedSchedulePage && !isSinkPage && !isMobile && "max-w-4xl mx-auto"
+      // Conditional styling for scheduler, sink, and simplified schedule pages
+      (isSchedulerPage || isSinkPage || isSimplifiedSchedulePage) ? "max-w-full mx-0" : "max-w-4xl mx-auto"
     )}>
       <div className={cn(
         "w-full",
         "px-3 md:px-8",
         // Remove width constraints for specific views
-        (isSimplifiedSchedulePage || isSinkPage) && "max-w-full"
+        (isSchedulerPage || isSinkPage || isSimplifiedSchedulePage) && "max-w-full"
       )}>
         {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
         {children}

@@ -13,7 +13,6 @@ import {
   setTimeOnDate,
   compactScheduleLogic,
   mergeOverlappingTimeBlocks,
-  getFreeTimeBlocks,
   findFirstAvailableSlot,
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
@@ -146,6 +145,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
   }, [isRegenPodRunning]); // Only depend on the running state
 
+  // Memoize getStaticConstraints to prevent recreation on every render
   const getStaticConstraints = useCallback((): TimeBlock[] => {
     if (!profile) return [];
     const constraints: TimeBlock[] = [];
@@ -499,6 +499,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
   const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingCompletedTasksForSelectedDay;
 
+  // CRITICAL FIX: Memoize the calculated schedule object to prevent reference churn
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null;
     const start = profile.default_auto_schedule_start_time ? setTimeOnDate(startOfDay(selectedDayAsDate), profile.default_auto_schedule_start_time) : startOfDay(selectedDayAsDate);

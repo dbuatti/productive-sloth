@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ListTodo, Zap, Coffee, Flag, ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
 import { ScheduleSummary } from '@/types/scheduler';
@@ -20,17 +20,17 @@ interface SchedulerDashboardPanelProps {
   isLoading: boolean;
 }
 
-const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({ 
-  scheduleSummary, 
-  onAetherDump, 
-  isProcessingCommand, 
-  hasFlexibleTasks, 
-  onRefreshSchedule, 
-  isLoading 
+const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({
+  scheduleSummary,
+  onAetherDump,
+  isProcessingCommand,
+  hasFlexibleTasks,
+  onRefreshSchedule,
+  isLoading
 }) => {
   const { profile, updateProfile } = useSession();
   const isCollapsed = profile?.is_dashboard_collapsed ?? false;
-  
+
   // Debug logs for tracking rerenders
   const renderCount = useRef(0);
   useEffect(() => {
@@ -49,6 +49,24 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
       await updateProfile({ is_dashboard_collapsed: !isCollapsed });
     }
   };
+
+  // Memoize the derived stats to prevent recalculation on every render
+  const stats = useMemo(() => {
+    if (!scheduleSummary || scheduleSummary.totalTasks === 0) return null;
+    
+    const totalScheduledMinutes = scheduleSummary.activeTime.hours * 60 + scheduleSummary.activeTime.minutes + scheduleSummary.breakTime;
+    const activeTimeMinutes = scheduleSummary.activeTime.hours * 60 + scheduleSummary.activeTime.minutes;
+
+    const activeTimePercentage = totalScheduledMinutes > 0 ? (activeTimeMinutes / totalScheduledMinutes) * 100 : 0;
+    const breakTimePercentage = totalScheduledMinutes > 0 ? (scheduleSummary.breakTime / totalScheduledMinutes) * 100 : 0;
+
+    return {
+      totalScheduledMinutes,
+      activeTimeMinutes,
+      activeTimePercentage,
+      breakTimePercentage
+    };
+  }, [scheduleSummary]);
 
   if (isLoading || !scheduleSummary || scheduleSummary.totalTasks === 0) {
     return (
@@ -73,12 +91,6 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
       </Card>
     );
   }
-
-  const totalScheduledMinutes = scheduleSummary.activeTime.hours * 60 + scheduleSummary.activeTime.minutes + scheduleSummary.breakTime;
-  const activeTimeMinutes = scheduleSummary.activeTime.hours * 60 + scheduleSummary.activeTime.minutes;
-
-  const activeTimePercentage = totalScheduledMinutes > 0 ? (activeTimeMinutes / totalScheduledMinutes) * 100 : 0;
-  const breakTimePercentage = totalScheduledMinutes > 0 ? (scheduleSummary.breakTime / totalScheduledMinutes) * 100 : 0;
 
   return (
     <div className="w-full space-y-4">
@@ -129,18 +141,18 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
           </div>
         </CardHeader>
 
-        {!isCollapsed && (
+        {!isCollapsed && stats && (
           <CardContent className="py-4 space-y-4">
             {/* Session Pacing Bar */}
-            {totalScheduledMinutes > 0 && (
+            {stats.totalScheduledMinutes > 0 && (
               <div className="relative h-2 w-full rounded-full bg-secondary overflow-hidden shadow-inner">
                 <div 
                   className="absolute left-0 top-0 h-full bg-primary transition-all duration-500 ease-out" 
-                  style={{ width: `${activeTimePercentage}%` }}
+                  style={{ width: `${stats.activeTimePercentage}%` }}
                 ></div>
                 <div 
                   className="absolute top-0 h-full bg-logo-orange transition-all duration-500 ease-out" 
-                  style={{ left: `${activeTimePercentage}%`, width: `${breakTimePercentage}%` }}
+                  style={{ left: `${stats.activeTimePercentage}%`, width: `${stats.breakTimePercentage}%` }}
                 ></div>
               </div>
             )}

@@ -71,9 +71,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const currentProfileWithoutUpdatedAt = profileRef.current ? { ...profileRef.current } : null;
         if (currentProfileWithoutUpdatedAt) delete currentProfileWithoutUpdatedAt.updated_at;
 
+        // CRITICAL FIX: Use lodash isEqual for deep comparison to prevent unnecessary state updates
         if (!isEqual(currentProfileWithoutUpdatedAt, dataWithoutUpdatedAt)) {
           console.log("[SessionProvider] Profile data changed, updating state.");
           setProfile(profileDataWithDefaultTimezone as UserProfile);
+        } else {
+           console.log("[SessionProvider] Profile data unchanged, skipping update.");
         }
         
         if (profileDataWithDefaultTimezone.is_in_regen_pod && profileDataWithDefaultTimezone.regen_pod_start_time) {

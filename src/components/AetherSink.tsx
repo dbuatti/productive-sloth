@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee } from 'lucide-react'; 
-import { RetiredTask, RetiredTaskSortBy, TaskEnvironment, NewRetiredTask } from '@/types/scheduler'; // NEW: Import NewRetiredTask
+import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee, History, RefreshCcw } from 'lucide-react'; 
+import { RetiredTask, RetiredTaskSortBy, TaskEnvironment, NewRetiredTask } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
@@ -18,7 +18,19 @@ import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
 import { useEnvironments } from '@/hooks/use-environments';
 import { Skeleton } from '@/components/ui/skeleton';
-import { motion } from 'framer-motion'; // Import motion for animations
+import { motion } from 'framer-motion';
+import { useAetherSinkSnapshots } from '@/hooks/use-aether-sink-snapshots';
+import {
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from '@/components/ui/alert-dialog';
 
 const getEnvironmentIcon = (environment: TaskEnvironment) => {
   const iconClass = "h-3.5 w-3.5 opacity-70";
@@ -84,15 +96,15 @@ const ViewToggle = ({ viewMode, setViewMode }: { viewMode: SinkViewMode, setView
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
-  isLoading: boolean; // Changed from isLoadingRetiredTasks
+  isLoading: boolean;
   onRemoveRetiredTask: (taskId: string, taskName: string) => Promise<void>;
   onRezoneTask: (task: RetiredTask) => Promise<void>;
   onAutoScheduleSink: () => Promise<void>;
   isProcessingCommand: boolean;
+  setIsProcessingCommand: React.Dispatch<React.SetStateAction<boolean>>; // NEW: Add setter for processing command
   profile: UserProfile | null;
   retiredSortBy: RetiredTaskSortBy;
   setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
-  // Props passed directly from useRetiredTasks
   addRetiredTask: (newTask: NewRetiredTask) => Promise<RetiredTask>;
   toggleRetiredTaskLock: ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => Promise<void>;
   completeRetiredTask: (task: RetiredTask) => Promise<void>;
@@ -106,26 +118,30 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   onRezoneTask, 
   onRemoveRetiredTask, 
   onAutoScheduleSink, 
-  isLoading, // Changed from isLoadingRetiredTasks
+  isLoading,
   isProcessingCommand, 
+  setIsProcessingCommand, // NEW: Destructure setter
   profile, 
   retiredSortBy, 
   setRetiredSortBy,
-  addRetiredTask, // Directly from useRetiredTasks
-  toggleRetiredTaskLock, // Directly from useRetiredTasks
-  completeRetiredTask, // Directly from useRetiredTasks
-  updateRetiredTaskStatus, // Directly from useRetiredTasks
-  updateRetiredTaskDetails, // Directly from useRetiredTasks
-  triggerAetherSinkBackup, // Directly from useRetiredTasks
+  addRetiredTask,
+  toggleRetiredTaskLock,
+  completeRetiredTask,
+  updateRetiredTaskStatus,
+  updateRetiredTaskDetails,
+  triggerAetherSinkBackup,
 }) => {
   const { user } = useSession();
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
+  const { snapshots, isLoadingSnapshots, restoreSnapshot, deleteSnapshot } = useAetherSinkSnapshots();
   
   const { viewMode, groupBy, setViewMode, setGroupBy } = useSinkView();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
   const [localInput, setLocalInput] = useState('');
+  const [isRestoreAlertDialogOpen, setIsRestoreAlertDialogOpen] = useState(false);
+  const [snapshotToRestore, setSnapshotToRestore] = useState<number | null>(null);
 
   const hasUnlockedRetiredTasks = useMemo(() => retiredTasks.some(task => !task.is_locked), [retiredTasks]);
 
@@ -142,7 +158,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   const handleToggleComplete = async (task: RetiredTask) => {
     if (task.is_locked) return showError(`Unlock "${task.name}" first.`);
     task.is_completed 
-      ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }) 
+      ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false })
       : await completeRetiredTask(task);
   };
 
@@ -175,9 +191,26 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     setLocalInput('');
   }, [user, addRetiredTask]);
 
+  const handleRestoreClick = (snapshotId: number) => {
+    setSnapshotToRestore(snapshotId);
+    setIsRestoreAlertDialogOpen(true);
+  };
+
+  const confirmRestore = async () => {
+    if (snapshotToRestore === null) return;
+    setIsProcessingCommand(true);
+    try {
+      await restoreSnapshot(snapshotToRestore);
+    } finally {
+      setIsProcessingCommand(false);
+      setSnapshotToRestore(null);
+      setIsRestoreAlertDialogOpen(false);
+    }
+  };
+
   return (
     <motion.div 
-      className="w-full space-y-6 pb-8 px-4 md:px-8 lg:px-12" // Adjusted padding for better responsiveness
+      className="w-full space-y-6 pb-8 px-4 md:px-8 lg:px-12"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
@@ -273,7 +306,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 variant="aether" 
                 size="sm" 
                 onClick={onAutoScheduleSink}
-                disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand} // Changed isLoadingRetiredTasks to isLoading
+                disabled={!hasUnlockedRetiredTasks || isLoading || isProcessingCommand}
                 className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-lg"
                 aria-label="Auto Sync all unlocked objectives"
               >
@@ -314,7 +347,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
           </form>
         )}
         
-        {isLoading || isLoadingEnvironments ? ( // Changed isLoadingRetiredTasks to isLoading
+        {isLoading || isLoadingEnvironments || isLoadingSnapshots ? (
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Sink...</p>
@@ -324,8 +357,8 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               ))}
             </div>
           </div>
-        ) : retiredTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10 animate-pop-in"> {/* Added animate-pop-in */}
+        ) : retiredTasks.length === 0 && snapshots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center gap-4 border-2 border-dashed border-white/5 rounded-2xl bg-secondary/10 animate-pop-in">
             <Ghost className="h-12 w-12 text-muted-foreground/20" />
             <div className="space-y-1">
               <p className="text-sm font-black uppercase tracking-tighter text-muted-foreground/60">Aether Sink Vacant</p>
@@ -333,144 +366,200 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             </div>
           </div>
         ) : (
-          viewMode === 'list' ? (
-            <div className="grid gap-2 pr-2 scrollbar-none max-h-[600px] overflow-y-auto custom-scrollbar">
-              {retiredTasks.map((task) => {
-                const hue = getEmojiHue(task.name);
-                const emoji = assignEmoji(task.name);
-                const accentColor = `hsl(${hue} 70% 50%)`;
-                const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted, is_work: isWork, is_break: isBreak } = task;
-                
-                return (
-                  <div 
-                    key={task.id}
-                    onClick={() => handleOpenDetailDialog(task)}
-                    className={cn(
-                      "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border-none transition-all duration-300 cursor-pointer animate-pop-in",
-                      "bg-card/40 hover:bg-secondary/40",
-                      isLocked ? "bg-primary/[0.03]" : "border-transparent",
-                      isBackburner && !isLocked && "opacity-70",
-                      isCompleted && "opacity-40 grayscale"
-                    )}
-                    style={{ borderLeft: isLocked ? '4px solid hsl(var(--primary))' : `4px solid ${accentColor}` }}
-                    aria-label={`Retired task: ${task.name}`}
-                  >
-                    <div className="flex items-center gap-4 flex-grow min-w-0">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={(e) => handleAction(e, () => handleToggleComplete(task))}
-                        disabled={isLocked || isProcessingCommand}
-                        className={cn(
-                          "h-9 w-9 shrink-0 rounded-full",
-                          isCompleted ? "text-logo-green bg-logo-green/10" : "bg-secondary/50 text-muted-foreground/30 hover:bg-logo-green/10 hover:text-logo-green"
-                        )}
-                        aria-label={isCompleted ? `Mark "${task.name}" as incomplete` : `Mark "${task.name}" as complete`}
-                      >
-                        <CheckCircle className={cn("h-5 w-5 transition-transform duration-500", !isCompleted && "group-hover:scale-110")} />
-                      </Button>
-                      <div className="min-w-0 flex-grow">
-                        <div className="flex items-center gap-2 mb-1">
-                          {task.is_critical && <Star className="h-3.5 w-3.5 fill-logo-yellow text-logo-yellow shrink-0" />}
-                          {isBackburner && (
-                            <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-muted-foreground/20 text-muted-foreground/60">
-                              Orbit
-                            </Badge>
+          <>
+            {viewMode === 'list' ? (
+              <div className="grid gap-2 pr-2 scrollbar-none max-h-[600px] overflow-y-auto custom-scrollbar">
+                {retiredTasks.map((task) => {
+                  const hue = getEmojiHue(task.name);
+                  const emoji = assignEmoji(task.name);
+                  const accentColor = `hsl(${hue} 70% 50%)`;
+                  const { is_locked: isLocked, is_backburner: isBackburner, is_completed: isCompleted, is_work: isWork, is_break: isBreak } = task;
+                  
+                  return (
+                    <div 
+                      key={task.id}
+                      onClick={() => handleOpenDetailDialog(task)}
+                      className={cn(
+                        "group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl border-none transition-all duration-300 cursor-pointer animate-pop-in",
+                        "bg-card/40 hover:bg-secondary/40",
+                        isLocked ? "bg-primary/[0.03]" : "border-transparent",
+                        isBackburner && !isLocked && "opacity-70",
+                        isCompleted && "opacity-40 grayscale"
+                      )}
+                      style={{ borderLeft: isLocked ? '4px solid hsl(var(--primary))' : `4px solid ${accentColor}` }}
+                      aria-label={`Retired task: ${task.name}`}
+                    >
+                      <div className="flex items-center gap-4 flex-grow min-w-0">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => handleAction(e, () => handleToggleComplete(task))}
+                          disabled={isLocked || isProcessingCommand}
+                          className={cn(
+                            "h-9 w-9 shrink-0 rounded-full",
+                            isCompleted ? "text-logo-green bg-logo-green/10" : "bg-secondary/50 text-muted-foreground/30 hover:bg-logo-green/10 hover:text-logo-green"
                           )}
-                          {isWork && (
-                            <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-primary/20 text-primary/60">
-                              Work
-                            </Badge>
-                          )}
-                          {isBreak && (
-                            <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-logo-orange/20 text-logo-orange/60">
-                              Break
-                            </Badge>
-                          )}
-                          <span className="text-xl shrink-0 group-hover:scale-125 transition-transform duration-500">{emoji}</span>
-                          <span className={cn("font-black uppercase tracking-tighter truncate text-sm sm:text-base", isCompleted && "line-through")}>
-                            {task.name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
-                          <span className="flex items-center gap-1.5">
-                            {getEnvironmentIcon(task.task_environment)}
-                            <span className="opacity-40">{task.task_environment}</span>
-                          </span>
-                          {task.duration && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {task.duration}m</span>}
-                          {task.energy_cost > 0 && (
-                            <span className="flex items-center gap-1.5 text-primary/80">
-                              {task.energy_cost}<Zap className="h-3 w-3 fill-current" />
+                          aria-label={isCompleted ? `Mark "${task.name}" as incomplete` : `Mark "${task.name}" as complete`}
+                        >
+                          <CheckCircle className={cn("h-5 w-5 transition-transform duration-500", !isCompleted && "group-hover:scale-110")} />
+                        </Button>
+                        <div className="min-w-0 flex-grow">
+                          <div className="flex items-center gap-2 mb-1">
+                            {task.is_critical && <Star className="h-3.5 w-3.5 fill-logo-yellow text-logo-yellow shrink-0" />}
+                            {isBackburner && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-muted-foreground/20 text-muted-foreground/60">
+                                Orbit
+                              </Badge>
+                            )}
+                            {isWork && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-primary/20 text-primary/60">
+                                Work
+                              </Badge>
+                            )}
+                            {isBreak && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-black uppercase tracking-tighter border-logo-orange/20 text-logo-orange/60">
+                                Break
+                              </Badge>
+                            )}
+                            <span className="text-xl shrink-0 group-hover:scale-125 transition-transform duration-500">{emoji}</span>
+                            <span className={cn("font-black uppercase tracking-tighter truncate text-sm sm:text-base", isCompleted && "line-through")}>
+                              {task.name}
                             </span>
-                          )}
-                          <span className="hidden xs:inline text-[8px] opacity-20">|</span>
-                          <span className="text-[9px] opacity-40">{format(new Date(task.retired_at), 'MMM dd')}</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
+                            <span className="flex items-center gap-1.5">
+                              {getEnvironmentIcon(task.task_environment)}
+                              <span className="opacity-40">{task.task_environment}</span>
+                            </span>
+                            {task.duration && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {task.duration}m</span>}
+                            {task.energy_cost > 0 && (
+                              <span className="flex items-center gap-1.5 text-primary/80">
+                                {task.energy_cost}<Zap className="h-3 w-3 fill-current" />
+                              </span>
+                            )}
+                            <span className="hidden xs:inline text-[8px] opacity-20">|</span>
+                            <span className="text-[9px] opacity-40">{format(new Date(task.retired_at), 'MMM dd')}</span>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center gap-1 mt-4 sm:mt-0 ml-auto bg-background/50 sm:bg-transparent p-1.5 sm:p-0 rounded-xl">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => handleAction(e, () => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked }))}
+                              disabled={isProcessingCommand}
+                              className={cn(
+                                "h-9 w-9 rounded-lg transition-all",
+                                isLocked ? "text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary),0.1)]" : "text-muted-foreground/30"
+                              )}
+                              aria-label={isLocked ? `Unlock "${task.name}"` : `Lock "${task.name}"`}
+                            >
+                              {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4 opacity-50" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{isLocked ? "Secure" : "Accessible"}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => handleAction(e, () => onRezoneTask(task))}
+                              disabled={isLocked || isCompleted || isProcessingCommand}
+                              className="h-9 w-9 text-primary/40 hover:text-primary hover:bg-primary/10 rounded-lg"
+                              aria-label={`Re-zone "${task.name}" to schedule`}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Re-zone Objective</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => handleAction(e, () => onRemoveRetiredTask(task.id, task.name))}
+                              disabled={isLocked || isProcessingCommand}
+                              className="h-9 w-9 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                              aria-label={`Purge "${task.name}" from Aether Sink`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Purge from Aether</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 mt-4 sm:mt-0 ml-auto bg-background/50 sm:bg-transparent p-1.5 sm:p-0 rounded-xl">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={(e) => handleAction(e, () => toggleRetiredTaskLock({ taskId: task.id, isLocked: !isLocked }))}
-                            className={cn(
-                              "h-9 w-9 rounded-lg transition-all",
-                              isLocked ? "text-primary bg-primary/10 shadow-[inset_0_0_10px_rgba(var(--primary),0.1)]" : "text-muted-foreground/30"
-                            )}
-                            aria-label={isLocked ? `Unlock "${task.name}"` : `Lock "${task.name}"`}
-                          >
-                            {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4 opacity-50" />}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>{isLocked ? "Secure" : "Accessible"}</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={(e) => handleAction(e, () => onRezoneTask(task))}
-                            disabled={isLocked || isCompleted}
-                            className="h-9 w-9 text-primary/40 hover:text-primary hover:bg-primary/10 rounded-lg"
-                            aria-label={`Re-zone "${task.name}" to schedule`}
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Re-zone Objective</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={(e) => handleAction(e, () => onRemoveRetiredTask(task.id, task.name))}
-                            disabled={isLocked}
-                            className="h-9 w-9 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-lg"
-                            aria-label={`Purge "${task.name}" from Aether Sink`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Purge from Aether</TooltipContent>
-                      </Tooltip>
+                  );
+                })}
+              </div>
+            ) : (
+              <SinkKanbanBoard 
+                retiredTasks={retiredTasks} 
+                groupBy={groupBy} 
+                onRemoveRetiredTask={onRemoveRetiredTask} 
+                onRezoneTask={onRezoneTask}
+                updateRetiredTask={handleUpdateRetiredTask}
+                onOpenDetailDialog={handleOpenDetailDialog}
+              />
+            )}
+
+            {/* NEW: Aether Sink Snapshots Section */}
+            {snapshots.length > 0 && (
+              <Card className="p-4 rounded-xl shadow-sm mt-8">
+                <CardHeader className="px-0 pb-4">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" /> Aether Sink Snapshots
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0 space-y-3">
+                  {snapshots.map((snapshot) => (
+                    <div key={snapshot.snapshot_id} className="flex items-center justify-between p-3 rounded-lg border bg-secondary/30">
+                      <div className="flex flex-col">
+                        <span className="font-medium">Backup: {format(new Date(snapshot.backup_timestamp), 'MMM d, yyyy HH:mm')}</span>
+                        <span className="text-xs text-muted-foreground">{snapshot.sink_data.length} tasks</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleRestoreClick(snapshot.snapshot_id)}
+                              disabled={isProcessingCommand}
+                              className="flex items-center gap-1 text-primary hover:bg-primary/10"
+                              aria-label={`Restore snapshot from ${format(new Date(snapshot.backup_timestamp), 'MMM d, yyyy HH:mm')}`}
+                            >
+                              <RefreshCcw className="h-4 w-4" /> Restore
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Restore this snapshot (overwrites unlocked tasks)</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => deleteSnapshot(snapshot.snapshot_id)}
+                              disabled={isProcessingCommand}
+                              className="flex items-center gap-1"
+                              aria-label={`Delete snapshot from ${format(new Date(snapshot.backup_timestamp), 'MMM d, yyyy HH:mm')}`}
+                            >
+                              <Trash2 className="h-4 w-4" /> Delete
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete this snapshot</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <SinkKanbanBoard 
-              retiredTasks={retiredTasks} 
-              groupBy={groupBy} 
-              onRemoveRetiredTask={onRemoveRetiredTask} 
-              onRezoneTask={onRezoneTask}
-              updateRetiredTask={handleUpdateRetiredTask}
-              onOpenDetailDialog={handleOpenDetailDialog}
-            />
-          )
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
       
@@ -482,6 +571,25 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
           if (!open) setSelectedRetiredTask(null);
         }} 
       />
+
+      <AlertDialog open={isRestoreAlertDialogOpen} onOpenChange={setIsRestoreAlertDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Aether Sink Restore</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to restore this snapshot? This action will delete all currently UNLOCKED tasks in your Aether Sink and replace them with the tasks from the selected backup. Locked tasks will remain untouched.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessingCommand}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRestore} disabled={isProcessingCommand} className="bg-destructive hover:bg-destructive/90">
+              {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Restore Snapshot
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 });

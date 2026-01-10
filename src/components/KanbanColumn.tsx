@@ -49,17 +49,6 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const isOverColumn = isOver || (overId && tasks.some(t => t.id === overId));
   const receiverClasses = isOverColumn ? "bg-primary/10 ring-1 ring-primary/20" : "bg-transparent";
 
-  const items = tasks.map(t => t.id);
-  const activeIndex = activeId ? items.indexOf(activeId) : -1;
-  const overIndex = overId ? items.indexOf(overId) : -1;
-
-  let placeholderIndex = -1;
-  if (isOverColumn && activeId && activeIndex === -1) {
-    placeholderIndex = overIndex === -1 ? items.length : overIndex;
-  } else if (isOverColumn && activeId && activeIndex !== -1) {
-    placeholderIndex = overIndex;
-  }
-
   return (
     <div 
       ref={setNodeRef} 
@@ -83,44 +72,26 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
       <div className="flex flex-col gap-3 min-h-[100px] flex-1">
         <SortableContext items={tasks.map(t => t.id)} id={id} strategy={verticalListSortingStrategy}>
           <div className="space-y-3 flex-1">
-            {tasks.map((task, index) => {
-              const isPlaceholder = activeId === task.id;
-              
-              if (placeholderIndex === index && !isPlaceholder) {
-                return (
-                  <div 
-                    key="placeholder" 
-                    className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest mb-2"
-                    style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
-                  >
-                    Drop Here
-                  </div>
-                );
-              }
-              
-              return (
-                <SortableTaskCard 
-                  key={task.id} 
-                  task={task} 
-                  onOpenDetailDialog={onOpenDetailDialog} // Pass the handler
-                />
-              );
-            })}
+            {tasks.map((task) => (
+              <SortableTaskCard 
+                key={task.id} 
+                task={task} 
+                onOpenDetailDialog={onOpenDetailDialog} 
+                isOverTarget={overId === task.id} 
+              />
+            ))}
             
-            {/* Render placeholder at the end if the column is empty or the drop target is the end */}
-            {isOverColumn && tasks.length === 0 && (
+            {/* NEW: Add a visual indicator for dropping into an empty column or at the end */}
+            {isOver && tasks.length === 0 && (
               <div 
-                key="placeholder-empty" 
                 className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
                 style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
               >
                 Drop Here
               </div>
             )}
-            
-            {isOverColumn && tasks.length > 0 && placeholderIndex === tasks.length && (
+            {isOver && tasks.length > 0 && !overId && ( // If over the column but not over any specific task, means drop at end
               <div 
-                key="placeholder-end" 
                 className="w-full rounded-xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center text-primary/70 text-sm font-bold uppercase tracking-widest"
                 style={{ height: activeTaskHeight - 8, margin: '4px 0' }}
               >

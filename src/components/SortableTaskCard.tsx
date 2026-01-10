@@ -24,9 +24,10 @@ interface SortableCardProps {
   task: RetiredTask;
   // NEW: Prop to open the detail dialog
   onOpenDetailDialog: (task: RetiredTask) => void;
+  isOverTarget?: boolean; // NEW PROP
 }
 
-const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialog }) => {
+const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialog, isOverTarget }) => {
   const {
     attributes,
     listeners,
@@ -100,7 +101,8 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
         task.is_locked ? "bg-primary/[0.03]" : "border-transparent", // Removed border-primary/30
         task.is_completed && "opacity-50 grayscale",
         "mb-2",
-        isDragging && "z-50 scale-[1.05] rotate-2 shadow-2xl shadow-primary/30 ring-2 ring-primary/50"
+        isDragging && "z-50 scale-[1.05] rotate-2 shadow-2xl shadow-primary/30 ring-2 ring-primary/50",
+        isOverTarget && "border-2 border-dashed border-primary/50 bg-primary/5" // NEW: Visual indicator when hovered over
       )}
       style={{ 
         borderColor: `transparent`, 
@@ -108,8 +110,8 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
         ...style 
       }}
       {...attributes}
-      {...listeners} // Listeners handle the drag
-      onClick={handleCardClick} // Handle click for details
+      {...listeners}
+      onClick={handleCardClick}
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-2 min-w-0">
@@ -165,8 +167,8 @@ const SortableTaskCard: React.FC<SortableCardProps> = ({ task, onOpenDetailDialo
       <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground/70">
         {task.is_critical && <Star className="h-3 w-3 text-logo-yellow fill-current" />}
         {task.is_backburner && <Badge variant="outline" className="px-1 h-4 text-[9px] font-black uppercase">Orbit</Badge>}
-        {task.is_work && <Briefcase className="h-3 w-3 text-primary" />} {/* NEW: Work Task Indicator */}
-        {task.is_break && <Coffee className="h-3 w-3 text-logo-orange" />} {/* NEW: Break Task Indicator */}
+        {task.is_work && <Briefcase className="h-3 w-3 text-primary" />}
+        {task.is_break && <Coffee className="h-3 w-3 text-logo-orange" />}
         <span className="flex items-center gap-1">
           {task.energy_cost > 0 ? `${task.energy_cost}⚡` : '0⚡'}
         </span>

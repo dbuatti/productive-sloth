@@ -5,7 +5,7 @@ import { DBScheduledTask, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortB
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, parseISO, format, addMinutes, isBefore, addDays, differenceInMinutes, addHours, isSameDay, max, min } from 'date-fns';
-import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints } from '@/lib/scheduler-utils';
 
 export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObject<HTMLElement>) => {
   const queryClient = useQueryClient();
@@ -356,7 +356,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const retiredToInsert = flexibleTasks.map(t => ({
         user_id: userId, name: t.name, duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)),
         break_duration: t.break_duration, original_scheduled_date: t.scheduled_date, is_critical: t.is_critical,
-        energy_cost: t.energy_cost, task_environment: t.task_environment, is_work: t.is_work, is_break: t.is_break // ADDED is_break
+        energy_cost: t.energy_cost, task_environment: t.task_environment, is_work: t.is_work, is_break: t.is_break
       }));
 
       await supabase.from('aethersink').insert(retiredToInsert);
@@ -376,7 +376,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const retiredToInsert = flexibleTasks.map(t => ({
         user_id: userId, name: t.name, duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)),
         break_duration: t.break_duration, original_scheduled_date: t.scheduled_date, is_critical: t.is_critical,
-        energy_cost: t.energy_cost, task_environment: t.task_environment, is_work: t.is_work, is_break: t.is_break // ADDED is_break
+        energy_cost: t.energy_cost, task_environment: t.task_environment, is_work: t.is_work, is_break: t.is_break
       }));
 
       await supabase.from('aethersink').insert(retiredToInsert);
@@ -413,7 +413,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         task_environment: taskToRetire.task_environment, 
         is_backburner: taskToRetire.is_backburner, 
         is_work: taskToRetire.is_work || false, 
-        is_break: taskToRetire.is_break || false // ADDED is_break
+        is_break: taskToRetire.is_break || false
       };
       await supabase.from('aethersink').insert(newRetiredTask);
       await supabase.from('scheduled_tasks').delete().eq('id', taskToRetire.id).eq('user_id', userId);
@@ -440,6 +440,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const isTodaySelected = isSameDay(targetDateAsDate, T_current);
       const effectiveStart = (isTodaySelected && isBefore(targetWorkdayStart, T_current)) ? T_current : targetWorkdayStart;
 
+      // 1. Include static constraints (meals, reflections)
+      const staticConstraints = getStaticConstraints(profile, targetDateAsDate, targetWorkdayStart, targetWorkdayEnd);
+
+      // 2. Include existing fixed/locked scheduled tasks
       const scheduledFixedBlocks: TimeBlock[] = dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => {
         const start = setTimeOnDate(targetDateAsDate, format(parseISO(t.start_time!), 'HH:mm'));
         let end = setTimeOnDate(targetDateAsDate, format(parseISO(t.end_time!), 'HH:mm'));
@@ -447,13 +451,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         return { start, end, duration: differenceInMinutes(end, start) };
       });
 
+      const allOccupiedBlocks = mergeOverlappingTimeBlocks([...scheduledFixedBlocks, ...staticConstraints]);
+
       const taskTotalDuration = (task.duration || 30) + (task.break_duration || 0);
-      const slot = findFirstAvailableSlot(taskTotalDuration, mergeOverlappingTimeBlocks(scheduledFixedBlocks), effectiveStart, targetWorkdayEnd);
+      const slot = findFirstAvailableSlot(taskTotalDuration, allOccupiedBlocks, effectiveStart, targetWorkdayEnd);
 
       if (!slot) throw new Error("No free slot available in the schedule window.");
 
       const { error: insertError } = await supabase.from('scheduled_tasks').insert({
-        user_id: userId, name: task.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), break_duration: task.break_duration, scheduled_date: effectiveSelectedDate, is_critical: task.is_critical, is_flexible: true, is_locked: false, energy_cost: task.energy_cost, is_completed: task.is_completed, is_custom_energy_cost: task.is_custom_energy_cost, task_environment: task.task_environment, is_backburner: task.is_backburner, is_work: task.is_work || false, is_break: task.is_break || false // ADDED is_work and is_break
+        user_id: userId, name: task.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), break_duration: task.break_duration, scheduled_date: effectiveSelectedDate, is_critical: task.is_critical, is_flexible: true, is_locked: false, energy_cost: task.energy_cost, is_completed: task.is_completed, is_custom_energy_cost: task.is_custom_energy_cost, task_environment: task.task_environment, is_backburner: task.is_backburner, is_work: task.is_work || false, is_break: task.is_break || false
       });
       if (insertError) throw new Error(insertError.message);
       await supabase.from('aethersink').delete().eq('id', task.id).eq('user_id', userId);
@@ -580,7 +586,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           return { start, end, duration: differenceInMinutes(end, start) };
         });
 
-        let currentOccupied = mergeOverlappingTimeBlocks(fixedBlocks);
+        // NEW: Add static constraints (meals, reflections)
+        const staticConstraints = getStaticConstraints(profile, currentDayAsDate, workdayStart, workdayEnd);
+        
+        let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
         let tasksToConsiderForDay: UnifiedTask[] = [];
         
         if (taskSource === 'global-all-future') {
@@ -651,7 +660,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     } catch (e: any) {
       showError(`Engine Error: ${e.message}`);
     }
-  }, [user, profile, retiredTasks, autoBalanceScheduleMutation, dbScheduledTasks, todayString]);
+  }, [user, profile, retiredTasks, autoBalanceScheduleMutation, dbScheduledTasks, todayString, getStaticConstraints]);
 
   return {
     dbScheduledTasks, dbScheduledTasksWithMeals: dbScheduledTasks, isLoading, addScheduledTask: addScheduledTaskMutation.mutateAsync, addRetiredTask: addRetiredTaskMutation.mutateAsync,

@@ -14,6 +14,7 @@ import {
   compactScheduleLogic,
   mergeOverlappingTimeBlocks,
   findFirstAvailableSlot,
+  getStaticConstraints, // NEW: Imported getStaticConstraints
 } from '@/lib/scheduler-utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -146,42 +147,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
   }, [isRegenPodRunning]); // Only depend on the running state
 
   // Memoize getStaticConstraints to prevent recreation on every render
-  const getStaticConstraints = useCallback((): TimeBlock[] => {
+  const staticConstraints = useMemo((): TimeBlock[] => {
     if (!profile) return [];
-    const constraints: TimeBlock[] = [];
-    const addConstraint = (name: string, timeStr: string | null, duration: number | null) => {
-      const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
-
-      if (timeStr && effectiveDuration > 0) {
-        let anchorStart = setTimeOnDate(selectedDayAsDate, timeStr);
-        let anchorEnd = addMinutes(anchorStart, effectiveDuration);
-
-        if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
-        
-        const overlaps = (isBefore(anchorEnd, workdayEndTimeForSelectedDay) || anchorEnd.getTime() === workdayEndTimeForSelectedDay.getTime()) && 
-                         (isAfter(anchorStart, workdayStartTimeForSelectedDay) || anchorStart.getTime() === workdayStartTimeForSelectedDay.getTime());
-        
-        if (overlaps) {
-          const intersectionStart = max([anchorStart, workdayStartTimeForSelectedDay]);
-          const intersectionEnd = min([anchorEnd, workdayEndTimeForSelectedDay]);
-          const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
-          if (finalDuration > 0) {
-            constraints.push({ start: intersectionStart, end: intersectionEnd, duration: finalDuration });
-          }
-        }
-      }
-    };
-
-    addConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
-    addConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
-    addConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
-
-    for (let r = 0; r < (profile.reflection_count || 0); r++) {
-      const rTime = profile.reflection_times?.[r];
-      const rDur = profile.reflection_durations?.[r];
-      if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
-    }
-    return constraints;
+    return getStaticConstraints(profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay);
   }, [profile, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay]);
 
   const handleRebalanceToday = useCallback(async () => {
@@ -378,7 +346,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
           }));
           
-          const staticConstraints = getStaticConstraints();
+          // Use the memoized static constraints
           const allConstraints = mergeOverlappingTimeBlocks([...occupiedBlocks, ...staticConstraints]);
           const taskTotalDuration = task.duration + (task.breakDuration || 0);
           const searchStart = isBefore(workdayStartTimeForSelectedDay, T_current) && isSameDay(selectedDayAsDate, new Date()) ? T_current : workdayStartTimeForSelectedDay;
@@ -438,7 +406,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, getStaticConstraints, isSelectedDayBlocked, handleQuickBreak]);
+  }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, staticConstraints, isSelectedDayBlocked, handleQuickBreak]);
 
   const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'exitFocus', task: DBScheduledTask) => {
     setIsProcessingCommand(true);

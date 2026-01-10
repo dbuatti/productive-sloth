@@ -63,19 +63,27 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   }, [retiredTasks, groupBy, environments]);
 
   const handleDragStart = (event: DragStartEvent) => {
+    console.log("[Kanban] Drag Start:", event.active.id, "from container:", event.active.data.current?.sortable?.containerId);
     const task = retiredTasks.find(t => t.id === event.active.id);
     setActiveTask(task || null);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     setOverId(event.over?.id as string || null);
+    console.log("[Kanban] Drag Over:", event.active.id, "over:", event.over?.id, "in container:", event.over?.data.current?.sortable?.containerId || event.over?.id);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
     setOverId(null);
-    if (!over) return;
+    
+    console.log("[Kanban] Drag End. Active:", active.id, "Over:", over?.id);
+
+    if (!over) {
+      console.log("[Kanban] Drag ended outside of a droppable area.");
+      return;
+    }
     
     const overContainerId = over.data.current?.sortable?.containerId || over.id;
     const task = retiredTasks.find(t => t.id === active.id);
@@ -88,35 +96,26 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       // Check if the target ID is a valid environment value
       if (environments.some(e => e.value === overContainerId) || overContainerId === 'laptop') {
         update = { task_environment: overContainerId as TaskEnvironment };
+        console.log(`[Kanban] Updating environment to: ${overContainerId}`);
       }
     } else if (groupBy === 'priority') {
       if (overContainerId === 'critical') update = { is_critical: true, is_backburner: false, is_break: false };
       else if (overContainerId === 'backburner') update = { is_critical: false, is_backburner: true, is_break: false };
       else if (overContainerId === 'standard') update = { is_critical: false, is_backburner: false, is_break: false };
+      console.log(`[Kanban] Updating priority to: ${overContainerId}`);
     } else if (groupBy === 'type') {
       if (overContainerId === 'work') update = { is_work: true, is_break: false };
       else if (overContainerId === 'not-work') update = { is_work: false, is_break: false };
       else if (overContainerId === 'breaks') update = { is_break: true, is_work: false };
+      console.log(`[Kanban] Updating type to: ${overContainerId}`);
     }
     
     // 2. Apply the update if changes were determined
     if (Object.keys(update).length > 0) {
-      // Recalculate energy cost if any relevant flag changed and it's not custom
-      if (!task.is_custom_energy_cost && (update.is_critical !== undefined || update.is_backburner !== undefined || update.is_break !== undefined)) {
-        const newIsCritical = update.is_critical ?? task.is_critical;
-        const newIsBackburner = update.is_backburner ?? task.is_backburner;
-        const newIsBreak = update.is_break ?? task.is_break;
-        const newDuration = task.duration || 30;
-        
-        // Dynamically import calculateEnergyCost if needed, but since it's a utility, 
-        // we rely on the client-side import in useSchedulerTasks or pass it down.
-        // For simplicity and speed, we'll assume the utility is available or rely on the mutation to handle it if necessary.
-        // Since we are updating the DB directly via mutation, we rely on the mutation to handle the energy cost update if needed.
-        // However, since we are using updateRetiredTask (which is a mutation wrapper), we should pass the calculated cost if we want it to be immediate.
-        // For now, let's rely on the mutation to handle the update based on the flags.
-      }
-      
+      console.log("[Kanban] Applying update:", update);
       updateRetiredTask({ id: task.id, ...update });
+    } else {
+      console.log("[Kanban] No relevant column change detected, skipping update.");
     }
   };
 

@@ -106,71 +106,71 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200,
   'shop': 180, 'bank': 220, 'post': 240, 'errands': 210,
   'friends': 300, 'family': 300, 'social': 310,
-  'wake up': 60,
-  'coles': 180,
-  'woolworths': 180,
-  'lesson': 260,
-  'call': 250,
-  'phone': 255,
-  'text': 245,
-  'contact': 290,
-  'student': 265,
-  'rehearsal': 315,
-  'time off': 100,
-  'message': 245,
-  'journal': 320,
-  'washing': 200,
-  'money': 60, 'transactions': 60,
-  'mop': 120, 'floor': 120,
-  'quote': 230, 'send quote': 230, 'generate quote': 230,
-  'doctor': 300, 'medical': 300,
-  'channel': 160, 'anxious': 160,
-  'recycling': 140, 'bin': 140,
-  'milk': 40, 'cartons': 40,
-  'sync': 290, 'standup': 290,
-  'tutorial': 60,
-  'tv': 10,
-  'cobweb': 120,
-  'cables': 210,
-  'fold laundry': 130,
-  'load of laundry': 130,
-  'tidy': 140,
-  'room': 150,
-  'book': 220,
-  'waitress': 220,
-  'preparation': 220,
-  'lego': 100,
-  'organise': 200,
-  'shirts': 200,
-  'gigs': 200,
-  'charge': 210,
-  'vacuum': 210,
-  'put away': 150, 
-  'sheets': 150, 
-  'pants': 150, 
-  'medication': 300, 
-  'toothbrush': 120, 
-  'return message': 245, 
-  'voice deal': 200, 
-  'find location': 210, 
-  'broom': 120, 
-  'practise': 270, 
-  'track': 270, 
-  'catch up': 290, 
-  'trim': 310, 
-  'cuticle': 310, 
-  'payment': 60,
-  'link': 60,
-  'send': 270,
-  'voice notes': 320,
-  'job notes': 230,
-  'process': 230,
-  'usb': 210,
-  'cable': 210,
-  'coil': 210,
-  'write up': 320,
-  'notes': 320,
-  'reflection': 60,
+  'wake up': '⏰',
+  'coles': '🛒',
+  'woolworths': '🛒',
+  'lesson': '🧑‍🏫',
+  'call': '📞',
+  'phone': '📱',
+  'text': '💬',
+  'contact': '🤝',
+  'student': '🧑‍🎓',
+  'rehearsal': '🎭',
+  'time off': '🌴',
+  'message': '💬',
+  'journal': '✍️',
+  'washing': '👕',
+  'money': '💰', 'transactions': '💰',
+  'mop': '🪣', 'floor': '🪣',
+  'quote': '🧾', 'send quote': '🧾', 'generate quote': '🧾',
+  'doctor': '🩺', 'medical': '🩺',
+  'channel': '🧘', 'anxious': '🧘',
+  'recycling': '♻️', 'bin': '♻️',
+  'milk': '🥛', 'cartons': '🥛',
+  'sync': '🤝', 'standup': '🤝',
+  'tutorial': '💡',
+  'tv': '📺',
+  'cobweb': '🕸️',
+  'cables': '🔌',
+  'fold laundry': '🧺',
+  'load of laundry': '🧺',
+  'tidy': '🗄️',
+  'room': '🏠',
+  'book': '📅',
+  'waitress': '📅',
+  'preparation': '📝',
+  'lego': '🧩',
+  'organise': '🗄️',
+  'shirts': '👕',
+  'gigs': '🎤',
+  'charge': '🔌',
+  'vacuum': '🔌',
+  'put away': '📦',
+  'sheets': '📦',
+  'pants': '📦',
+  'medication': '💊',
+  'toothbrush': '🪥',
+  'return message': '💬',
+  'voice deal': '🎤',
+  'find location': '🗺️',
+  'broom': '🧹',
+  'practise': '🎹',
+  'track': '🎼',
+  'catch up': '🤝',
+  'trim': '💅', 
+  'cuticle': '💅', 
+  'payment': '💸',
+  'link': '🔗',
+  'send': '📧',
+  'voice notes': '🎙️',
+  'job notes': '📝',
+  'process': '⚙️',
+  'usb': '🔌',
+  'cable': '🔌',
+  'coil': '🔌',
+  'write up': '✍️',
+  'notes': '📝',
+  'reflection': '🧠',
 };
 
 // --- Utility Functions ---
@@ -664,17 +664,49 @@ export const findFirstAvailableSlot = (
   return null;
 };
 
-export const isSlotFree = (
-  proposedStart: Date,
-  proposedEnd: Date,
-  occupiedBlocks: TimeBlock[]
-): boolean => {
-  for (const block of occupiedBlocks) {
-    if (proposedStart < block.end && proposedEnd > block.start) {
-      return false; 
+export const getStaticConstraints = (
+  profile: UserProfile,
+  selectedDayDate: Date,
+  workdayStart: Date,
+  workdayEnd: Date
+): TimeBlock[] => {
+  const constraints: TimeBlock[] = [];
+  const addConstraint = (name: string, timeStr: string | null, duration: number | null) => {
+    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
+
+    if (timeStr && effectiveDuration > 0) {
+      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
+      let anchorEnd = addMinutes(anchorStart, effectiveDuration);
+
+      if (isBefore(anchorEnd, anchorStart)) {
+        anchorEnd = addDays(anchorEnd, 1);
+      }
+
+      // Check if the anchor overlaps with the workday window
+      const overlaps = (isBefore(anchorEnd, workdayEnd) || isEqual(anchorEnd, workdayEnd)) && 
+                       (isAfter(anchorStart, workdayStart) || isEqual(anchorStart, workdayStart));
+      
+      if (overlaps) {
+        const intersectionStart = max([anchorStart, workdayStart]);
+        const intersectionEnd = min([anchorEnd, workdayEnd]);
+        const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
+        if (finalDuration > 0) {
+          constraints.push({ start: intersectionStart, end: intersectionEnd, duration: finalDuration });
+        }
+      }
     }
+  };
+
+  addConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
+  addConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
+  addConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
+
+  for (let r = 0; r < (profile.reflection_count || 0); r++) {
+      const rTime = profile.reflection_times?.[r];
+      const rDur = profile.reflection_durations?.[r];
+      if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
   }
-  return true; 
+  return constraints;
 };
 
 export const compactScheduleLogic = (
@@ -698,49 +730,12 @@ export const compactScheduleLogic = (
     });
 
   // 2. Generate static constraints (meals, reflections)
-  const staticConstraints: TimeBlock[] = [];
-  const addStaticConstraint = (name: string, timeStr: string | null, duration: number | null) => {
-    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
-
-    if (profile && timeStr && effectiveDuration > 0) {
-      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
-      let anchorEnd = addMinutes(anchorStart, effectiveDuration);
-
-      if (isBefore(anchorEnd, anchorStart)) {
-        anchorEnd = addDays(anchorEnd, 1);
-      }
-
-      // Check if the anchor overlaps with the workday window
-      const overlaps = (isBefore(anchorEnd, workdayEndTime) || isEqual(anchorEnd, workdayEndTime)) && 
-                       (isAfter(anchorStart, workdayStartTime) || isEqual(anchorStart, workdayStartTime));
-      
-      if (overlaps) {
-        const intersectionStart = max([anchorStart, workdayStartTime]);
-        const intersectionEnd = min([anchorEnd, workdayEndTime]);
-        const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
-
-        if (finalDuration > 0) { 
-          staticConstraints.push({
-            start: intersectionStart,
-            end: intersectionEnd,
-            duration: finalDuration,
-          });
-        }
-      }
-    }
-  };
-
-  if (profile) {
-    addStaticConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
-    addStaticConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
-    addStaticConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
-
-    for (let r = 0; r < (profile.reflection_count || 0); r++) {
-        const rTime = profile.reflection_times?.[r];
-        const rDur = profile.reflection_durations?.[r];
-        if (rTime && rDur) addStaticConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
-    }
-  }
+  const staticConstraints: TimeBlock[] = getStaticConstraints(
+    profile!, // We assume profile is not null based on usage context
+    selectedDayDate,
+    workdayStartTime,
+    workdayEndTime
+  );
 
   // 3. Combine all fixed blocks (existing fixed tasks + static anchors)
   const allFixedAndStaticBlocks: TimeBlock[] = mergeOverlappingTimeBlocks([
@@ -973,7 +968,7 @@ export const calculateSchedule = (
           energyCost: type === 'meal' ? -10 : 0,  
           isCompleted: false,
           isCustomEnergyCost: false,
-          taskEnvironment: 'home', 
+          taskEnvironment: 'home',
           sourceCalendarId: null,
           isBackburner: false,
           isWork: false, // Static anchors are not work

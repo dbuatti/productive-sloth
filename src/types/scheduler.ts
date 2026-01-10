@@ -221,6 +221,8 @@ export interface CompletedTaskLogEntry {
   original_source: 'scheduled_tasks' | 'aethersink' | 'tasks';
   is_work: boolean; // NEW: Work task flag for analytics
   is_break: boolean; // NEW: Break task flag
+  completed_at: string; // ADDED: Missing property
+  xp_earned: number; // ADDED: Missing property
 }
 
 export interface ScheduleSummary {

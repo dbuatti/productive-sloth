@@ -73,15 +73,7 @@ const AetherSinkPage: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 pb-12">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <Button variant="outline" onClick={() => navigate('/scheduler')} className="flex items-center gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Scheduler
-        </Button>
-      </div>
-
+    <div className="w-full space-y-6 pb-12">
       {/* Sink Component */}
       <AetherSink 
         retiredTasks={retiredTasks} 

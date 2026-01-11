@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TimeBlock, AutoBalancePayload, UnifiedTask, CompletedTaskLogEntry, TaskEnvironment } from '@/types/scheduler';
 import { useSession, UserProfile } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { startOfDay, parseISO, format, addMinutes, isBefore, addDays, differenceInMinutes, addHours, isSameDay, max, min } from 'date-fns';
+import { startOfDay, parseISO, format, addMinutes, isBefore, isAfter, addDays, differenceInMinutes, addHours, isSameDay, max, min } from 'date-fns';
 import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal, sortAndChunkTasks, formatTime, calculateSpatialPhases, ZoneWeight, getFreeTimeBlocks } from '@/lib/scheduler-utils';
 
 // --- Constants for Engine Protection ---
@@ -463,7 +463,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
 
-      // 2. Linear Flow Placement Loop (Day by Day)
+      // --- SPATIAL CORE: LINEAR PLACEMENT LOOP (Day by Day) ---
       for (const currentDateString of daysToProcess) {
         const currentDayAsDate = parseISO(currentDateString);
         if (freshProfile.blocked_days?.includes(currentDateString)) continue;
@@ -473,55 +473,77 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
         
         const now = new Date();
-        const effectiveStart = isSameDay(currentDayAsDate, now) ? max([now, workdayStart]) : workdayStart;
-        
-        // --- Establish the "Stream" Cursor for this day ---
-        let currentFlowPointer = effectiveStart;
+        const effectiveSearchStart = isSameDay(currentDayAsDate, now) ? max([now, workdayStart]) : workdayStart;
 
-        const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', currentDateString);
+        const { data: currentDayTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', currentDateString);
         
-        // Fixed blocks for this day (already scheduled, timed, or locked)
-        const fixedBlocks = (dt || []).filter(t => !t.is_flexible || t.is_locked || isMeal(t.name) || t.name.toLowerCase().startsWith('reflection')).filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) }));
+        // 1. Identify Occupied Blocks (Fixed/Locked/Static)
+        const fixedBlocks = (currentDayTasks || []).filter(t => !t.is_flexible || t.is_locked || isMeal(t.name) || t.name.toLowerCase().startsWith('reflection')).filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) }));
         const staticConstraints = getStaticConstraints(freshProfile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
 
-        // Sorting the pool for this specific day attempt
-        const sortedPool = sortAndChunkTasks(pool, freshProfile, sortPreference);
+        // 2. Identify Free Gaps and Calculate Liquid Budget
+        const freeGaps = getFreeTimeBlocks(currentOccupied, effectiveSearchStart, workdayEnd);
+        const totalFreeMinutes = freeGaps.reduce((s, g) => s + g.duration, 0);
 
-        for (const t of sortedPool) {
-            const taskTotal = (t.duration || 30) + (t.break_duration || 0);
-            
-            // Logic: Find the FIRST available slot AFTER the currentFlowPointer
-            const slot = findFirstAvailableSlot(taskTotal, currentOccupied, currentFlowPointer, workdayEnd);
-            
-            if (slot) {
-              globalTasksToInsert.push({ 
-                id: t.source === 'retired' ? undefined : t.originalId, 
-                name: t.name || 'Untitled Task', 
-                start_time: slot.start.toISOString(), 
-                end_time: slot.end.toISOString(), 
-                break_duration: t.break_duration, 
-                scheduled_date: currentDateString, 
-                is_critical: t.is_critical, 
-                is_flexible: true, 
-                is_locked: false, 
-                energy_cost: t.energy_cost, 
-                is_completed: false, 
-                is_custom_energy_cost: t.is_custom_energy_cost, 
-                task_environment: t.task_environment, 
-                is_backburner: t.is_backburner, 
-                is_work: t.is_work, 
-                is_break: t.is_break 
-              });
+        const order = freshProfile.custom_environment_order?.length ? freshProfile.custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
 
-              // --- INCREMENT POINTER AND OCCUPIED STATE ---
-              currentFlowPointer = slot.end; // ADVANCE THE STREAM
-              currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
-              currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
-              
-              // Remove from pool so it's not placed again tomorrow
-              const idx = pool.findIndex(pt => pt.id === t.id);
-              if (idx !== -1) pool.splice(idx, 1);
+        // 3. Calculate Spatial Phases (Quota Gates)
+        const phases = calculateSpatialPhases(totalFreeMinutes, freeGaps, zoneWeights, order, freshProfile.enable_macro_spread || false);
+
+        // 4. Fill Each Phase with Available Pool Tasks
+        for (const phase of phases) {
+            let phaseCursor = phase.start;
+            
+            // Filter pool for tasks matching this environment
+            const envTasks = pool.filter(t => (t.task_environment || 'laptop') === phase.env);
+            // Sort them internally so high priority/critical go first within the zone
+            const sortedEnvTasks = envTasks.sort((a, b) => {
+               if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
+               if (a.is_backburner !== b.is_backburner) return a.is_backburner ? 1 : -1;
+               return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            });
+
+            for (const t of sortedEnvTasks) {
+                const taskTotal = (t.duration || 30) + (t.break_duration || 0);
+                
+                // --- THE HARD STOP QUOTA GUARD ---
+                // If this task pushes the cursor beyond the phase end, it means the quota is full
+                if (isAfter(addMinutes(phaseCursor, taskTotal), phase.end)) {
+                    break; // Move to next phase (environment)
+                }
+
+                // Double check for physical space (handling fragmented fixed blocks within phases)
+                const slot = findFirstAvailableSlot(taskTotal, currentOccupied, phaseCursor, phase.end);
+                
+                if (slot) {
+                    globalTasksToInsert.push({ 
+                        id: t.source === 'retired' ? undefined : t.originalId, 
+                        name: t.name || 'Untitled Task', 
+                        start_time: slot.start.toISOString(), 
+                        end_time: slot.end.toISOString(), 
+                        break_duration: t.break_duration, 
+                        scheduled_date: currentDateString, 
+                        is_critical: t.is_critical, 
+                        is_flexible: true, 
+                        is_locked: false, 
+                        energy_cost: t.energy_cost, 
+                        is_completed: false, 
+                        is_custom_energy_cost: t.is_custom_energy_cost, 
+                        task_environment: t.task_environment, 
+                        is_backburner: t.is_backburner, 
+                        is_work: t.is_work, 
+                        is_break: t.is_break 
+                    });
+
+                    phaseCursor = slot.end; // Advance internal stream
+                    currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
+                    currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+                    
+                    // Remove from pool
+                    const idx = pool.findIndex(p => p.id === t.id);
+                    if (idx !== -1) pool.splice(idx, 1);
+                }
             }
         }
       }

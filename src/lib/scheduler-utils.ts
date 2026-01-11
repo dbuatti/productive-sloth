@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, differenceInMinutes, min, max } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, differenceInMinutes, max, min } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, FreeTimeItem, TimeBlock, UnifiedTask, NewRetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
 import { UserProfile } from '@/hooks/use-session';
 
@@ -13,7 +13,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'study': '🧠', 
   'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫',
   'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️',
-  'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎', 'eat': '🍎', 
+  'cook': '🍳', 'meal prep': '🍲', 'groceries': '180', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎', 'eat': '🍎', 
   'brainstorm': '💡', 'strategy': '📈', 'review': '🔍', 'plan': '🗓️',
   'gaming': '🎮', 'hobbies': '🎲', 'leisure': '😌', 'movie': '🎬', 'relax': '🧘', 'chill': '🛋️',
   'meditation': '🧘', 'yoga': '🧘', 'self-care': '🛀', 'wellness': '🌸', 'mindfulness': '🧠', 'nap': '😴', 'rest': '🛌',
@@ -345,10 +345,11 @@ export interface ZoneWeight {
 /**
  * LIQUID BUDGET ENGINE:
  * Calculates spatial phases by treating fragmented availability as a single liquid budget.
+ * TRACKS SPENT QUOTAS PER ITERATION to fix macro-spread logic.
  */
 export const calculateSpatialPhases = (
-  availableMinutes: number, // Total minutes summed across all gaps
-  freeGaps: TimeBlock[], // Physical free blocks identifying physical availability
+  availableMinutes: number, 
+  freeGaps: TimeBlock[], 
   zoneWeights: ZoneWeight[],
   envSequence: string[],
   enableMacroSpread: boolean,
@@ -366,47 +367,44 @@ export const calculateSpatialPhases = (
 
   if (activeEnvs.length === 0) return [];
 
-  const iterations = enableMacroSpread ? [1, 2] : [1];
-  
-  const envQuotas = new Map<string, number>();
-  activeEnvs.forEach(env => {
-      const weight = weightLookup.get(env) || 0;
-      const totalQuota = Math.floor(availableMinutes * (weight / 100));
-      envQuotas.set(env, totalQuota);
-  });
-
+  const iterationsCount = enableMacroSpread ? 2 : 1;
   const phases: { env: string; start: Date; end: Date }[] = [];
-  const spentQuotas = new Map<string, number>();
-  activeEnvs.forEach(e => spentQuotas.set(e, 0));
+  const spentQuotasPerIteration = new Map<string, number>(); // Key: `${env}-${iteration}`
 
-  let currentEnvIdx = 0;
+  let currentEnvIdx = 0; // Global index across all iterations [0 to (envs*iters - 1)]
 
   for (const gap of freeGaps) {
     let gapCursor = gap.start;
     let timeRemainingInGap = gap.duration;
 
-    while (timeRemainingInGap > 0 && currentEnvIdx < (activeEnvs.length * iterations.length)) {
+    while (timeRemainingInGap > 0 && currentEnvIdx < (activeEnvs.length * iterationsCount)) {
+      const iteration = Math.floor(currentEnvIdx / activeEnvs.length);
       const actualEnvIdx = currentEnvIdx % activeEnvs.length;
       const env = activeEnvs[actualEnvIdx];
+      const key = `${env}-${iteration}`;
       
-      const totalQuota = (envQuotas.get(env) || 0) / iterations.length;
-      const remainingQuota = totalQuota - (spentQuotas.get(env) || 0);
+      const weight = weightLookup.get(env) || 0;
+      const totalEnvQuota = Math.floor(availableMinutes * (weight / 100));
+      const iterationQuota = totalEnvQuota / iterationsCount;
 
-      if (remainingQuota <= 0) {
+      const spent = spentQuotasPerIteration.get(key) || 0;
+      const remaining = iterationQuota - spent;
+
+      if (remaining <= 0) {
           currentEnvIdx++;
           continue;
       }
 
-      const sliceSize = Math.min(timeRemainingInGap, remainingQuota);
+      const sliceSize = Math.min(timeRemainingInGap, remaining);
       if (sliceSize > 0) {
           const phaseEnd = addMinutes(gapCursor, sliceSize);
           phases.push({ env, start: gapCursor, end: phaseEnd });
           
-          spentQuotas.set(env, (spentQuotas.get(env) || 0) + sliceSize);
+          spentQuotasPerIteration.set(key, spent + sliceSize);
           gapCursor = phaseEnd;
           timeRemainingInGap -= sliceSize;
 
-          if (spentQuotas.get(env)! >= totalQuota) {
+          if (spent + sliceSize >= iterationQuota) {
               currentEnvIdx++;
           }
       } else {

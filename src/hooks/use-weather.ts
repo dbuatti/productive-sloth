@@ -8,10 +8,10 @@ interface WeatherData {
   minTemperature: number;
   maxTemperature: number;
   description: string;
-  icon: string; // OpenWeatherMap icon code
+  icon: string;
   city: string;
   country: string;
-  rainVolumeLastHour?: number; // Rain volume for the last 1 hour (mm)
+  rainVolumeLastHour?: number;
 }
 
 interface UseWeatherOptions {
@@ -21,7 +21,6 @@ interface UseWeatherOptions {
   enabled?: boolean;
 }
 
-// Supabase Project ID and URL are needed to invoke the Edge Function
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
@@ -29,7 +28,12 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
   const [locationError, setLocationError] = useState<string | null>(null);
 
   const fetchWeatherData = async (): Promise<WeatherData> => {
-    console.log(`[useWeather] Fetching weather data for city: ${city}, lat: ${lat}, lon: ${lon}`);
+    // Hard check for valid parameters before fetching
+    if (!city && (!lat || !lon)) {
+      throw new Error("Insufficient location data provided for weather fetch.");
+    }
+
+    console.log(`[useWeather] Fetching weather data for: ${city || `${lat},${lon}`}`);
     const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/get-weather`;
 
     const payload = { city, lat, lon };
@@ -44,11 +48,9 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("[useWeather] Failed to fetch weather data via Edge Function:", errorData);
-      throw new Error(errorData.error || 'Failed to fetch weather data via Edge Function');
+      throw new Error(errorData.error || 'Failed to fetch weather data');
     }
     const data = await response.json();
-    console.log("[useWeather] Weather data fetched successfully:", data);
 
     return {
       temperature: data.main.temp,
@@ -63,50 +65,24 @@ export const useWeather = ({ lat, lon, city, enabled = true }: UseWeatherOptions
     };
   };
 
+  // Only enable the query if we have valid input data
+  const hasValidInput = !!city || (typeof lat === 'number' && typeof lon === 'number');
+
   const { data, isLoading, error } = useQuery<WeatherData, Error>({
     queryKey: ['weather', lat, lon, city],
     queryFn: fetchWeatherData,
-    enabled: enabled && (!!lat && !!lon || !!city), // Only enable if coordinates or city are provided
-    staleTime: 5 * 60 * 1000, // 5 minutes stale time
-    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection time
+    enabled: enabled && hasValidInput,
+    staleTime: 10 * 60 * 1000, // 10 minutes stale time to reduce API pressure
+    gcTime: 15 * 60 * 1000,
+    retry: 1, // Minimize retries on failure
   });
 
   useEffect(() => {
-    if (error) {
+    if (error && hasValidInput) {
       console.error("[useWeather] Weather fetch error:", error);
-      showError(`Weather fetch error: ${error.message}`);
+      showError(`Weather unavailable: ${error.message}`);
     }
-  }, [error]);
-
-  // Handle geolocation if no explicit lat/lon/city is provided
-  useEffect(() => {
-    if (enabled && !lat && !lon && !city) {
-      console.log("[useWeather] Attempting to get geolocation.");
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log("[useWeather] Geolocation obtained, but not automatically used by useWeather hook. Pass lat/lon or city explicitly.");
-            // For now, we'll rely on the user explicitly passing lat/lon or city
-            // or the default city in the WeatherWidget.
-            // If you want to use geolocation, you'd need to update state here
-            // that the useWeather hook depends on (e.g., by having lat/lon as state
-            // in SchedulerPage and passing it down).
-            // console.log("Geolocation obtained, but not automatically used by useWeather hook. Pass lat/lon or city explicitly.");
-          },
-          (geoError) => {
-            console.error("[useWeather] Geolocation error:", geoError);
-            setLocationError(`Geolocation error: ${geoError.message}. Defaulting to Melbourne.`);
-            showError(`Geolocation error: ${geoError.message}. Defaulting to Melbourne.`);
-          },
-          { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
-        );
-      } else {
-        console.warn("[useWeather] Geolocation is not supported by browser.");
-        setLocationError("Geolocation is not supported by your browser. Defaulting to Melbourne.");
-        showError("Geolocation is not supported by your browser. Defaulting to Melbourne.");
-      }
-    }
-  }, [enabled, lat, lon, city]);
+  }, [error, hasValidInput]);
 
   return {
     weather: data,

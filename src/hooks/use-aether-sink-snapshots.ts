@@ -7,7 +7,7 @@ export interface AetherSinkSnapshot {
   snapshot_id: number;
   user_id: string;
   backup_timestamp: string;
-  sink_data: any[]; // JSONB array of retired tasks
+  sink_data: any[];
 }
 
 const SUPABASE_PROJECT_ID = "yfgapigmiyclgryqdgne";
@@ -22,26 +22,22 @@ export const useAetherSinkSnapshots = () => {
     queryKey: ['aetherSinkSnapshots', userId],
     queryFn: async () => {
       if (!userId) return [];
-      console.log(`[useAetherSinkSnapshots] Fetching snapshots for user: ${userId}`);
       const { data, error } = await supabase
         .from('aethersink_snapshots')
         .select('*')
         .eq('user_id', userId)
-        .order('backup_timestamp', { ascending: false }); // Newest first
-      if (error) {
-        console.error("[useAetherSinkSnapshots] Error fetching snapshots:", error);
-        throw new Error(error.message);
-      }
-      console.log(`[useAetherSinkSnapshots] Fetched ${data.length} snapshots.`);
+        .order('backup_timestamp', { ascending: false });
+      if (error) throw new Error(error.message);
       return data as AetherSinkSnapshot[];
     },
     enabled: !!userId,
+    staleTime: 30000,
   });
 
   const restoreSnapshotMutation = useMutation({
     mutationFn: async (snapshotId: number) => {
       if (!userId || !session?.access_token) throw new Error("User not authenticated.");
-      console.log(`[useAetherSinkSnapshots] Restoring snapshot: ${snapshotId}`);
+      console.log(`[useAetherSinkSnapshots] Initiating Restoration: ${snapshotId}`);
 
       const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/restore-aethersink-snapshot`;
 
@@ -56,45 +52,31 @@ export const useAetherSinkSnapshots = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("[useAetherSinkSnapshots] Failed to restore Aether Sink snapshot via Edge Function:", errorData);
-        throw new Error(errorData.error || 'Failed to restore Aether Sink snapshot.');
+        throw new Error(errorData.error || 'Restore failed');
       }
-      console.log(`[useAetherSinkSnapshots] Snapshot ${snapshotId} restored successfully via Edge Function.`);
       return await response.json();
     },
     onSuccess: () => {
-      console.log("[useAetherSinkSnapshots] Invalidate queries after restoreSnapshot.");
-      queryClient.invalidateQueries({ queryKey: ['aetherSinkSnapshots'] });
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] }); // Invalidate retired tasks to show restored state
-      showSuccess("Aether Sink restored successfully!");
+      console.log("[useAetherSinkSnapshots] Selective Invalidation Triggered.");
+      // DO NOT invalidate all queries. Only the relevant sink data.
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkSnapshots', userId] });
+      showSuccess("Timeline Restored.");
     },
     onError: (e) => {
-      showError(`Failed to restore Aether Sink: ${e.message}`);
+      showError(`Restore failed: ${e.message}`);
     }
   });
 
   const deleteSnapshotMutation = useMutation({
     mutationFn: async (snapshotId: number) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`[useAetherSinkSnapshots] Deleting snapshot: ${snapshotId}`);
-      const { error } = await supabase
-        .from('aethersink_snapshots')
-        .delete()
-        .eq('snapshot_id', snapshotId)
-        .eq('user_id', userId);
-      if (error) {
-        console.error("[useAetherSinkSnapshots] Error deleting snapshot:", error);
-        throw new Error(error.message);
-      }
-      console.log(`[useAetherSinkSnapshots] Snapshot ${snapshotId} deleted successfully.`);
+      const { error } = await supabase.from('aethersink_snapshots').delete().eq('snapshot_id', snapshotId).eq('user_id', userId);
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => {
-      console.log("[useAetherSinkSnapshots] Invalidate queries after deleteSnapshot.");
-      queryClient.invalidateQueries({ queryKey: ['aetherSinkSnapshots'] });
-      showSuccess("Snapshot deleted.");
-    },
-    onError: (e) => {
-      showError(`Failed to delete snapshot: ${e.message}`);
+      queryClient.invalidateQueries({ queryKey: ['aetherSinkSnapshots', userId] });
+      showSuccess("Snapshot purged.");
     }
   });
 

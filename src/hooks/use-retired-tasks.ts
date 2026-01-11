@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
@@ -11,6 +11,7 @@ export const useRetiredTasks = () => {
   const queryClient = useQueryClient();
   const { user, profile } = useSession(); 
   const userId = user?.id;
+  const lastLoggedSort = useRef<RetiredTaskSortBy | null>(null);
 
   const [retiredSortBy, setRetiredSortBy] = useState<RetiredTaskSortBy>(() => {
     if (typeof window !== 'undefined') {
@@ -21,9 +22,13 @@ export const useRetiredTasks = () => {
   });
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('aetherSinkSortBy', retiredSortBy);
-      console.log(`[useRetiredTasks] Saved sort preference: ${retiredSortBy}`);
+    if (typeof window !== 'undefined' && retiredSortBy !== lastLoggedSort.current) {
+      const existing = localStorage.getItem('aetherSinkSortBy');
+      if (existing !== retiredSortBy) {
+        localStorage.setItem('aetherSinkSortBy', retiredSortBy);
+        console.log(`[useRetiredTasks] Preference updated: ${retiredSortBy}`);
+      }
+      lastLoggedSort.current = retiredSortBy;
     }
   }, [retiredSortBy]);
 
@@ -31,7 +36,7 @@ export const useRetiredTasks = () => {
     queryKey: ['retiredTasks', userId, retiredSortBy],
     queryFn: async () => {
       if (!userId) return [];
-      console.log(`[useRetiredTasks] Fetching retired tasks for user: ${userId}, sorted by: ${retiredSortBy}`);
+      console.log(`[useRetiredTasks] Fetching pool: ${retiredSortBy}`);
       let query = supabase.from('aethersink').select('*').eq('user_id', userId);
 
       switch (retiredSortBy) {
@@ -52,226 +57,117 @@ export const useRetiredTasks = () => {
       }
 
       const { data, error } = await query;
-      if (error) {
-        console.error("[useRetiredTasks] Error fetching retired tasks:", error);
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
       
       if (retiredSortBy === 'EMOJI') {
-        const sortedData = (data as RetiredTask[]).sort((a, b) => getEmojiHue(a.name) - getEmojiHue(b.name));
-        console.log("[useRetiredTasks] Tasks sorted by EMOJI.");
-        return sortedData;
+        return (data as RetiredTask[]).sort((a, b) => getEmojiHue(a.name) - getEmojiHue(b.name));
       }
-      console.log(`[useRetiredTasks] Fetched ${data.length} retired tasks.`);
       return data as RetiredTask[];
     },
     enabled: !!userId,
+    staleTime: 30000, 
   });
 
   const addRetiredTaskMutation = useMutation({
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("[useRetiredTasks] Adding new retired task:", newTask.name);
-      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString(), energy_cost: newTask.energy_cost ?? 0, is_completed: newTask.is_completed ?? false, is_custom_energy_cost: newTask.is_custom_energy_cost ?? false, task_environment: newTask.task_environment ?? 'laptop', is_backburner: newTask.is_backburner ?? false, is_work: newTask.is_work ?? false, is_break: newTask.is_break ?? false };
+      const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString() };
       const { data, error } = await supabase.from('aethersink').insert(taskToInsert).select().single();
-      if (error) {
-        console.error("[useRetiredTasks] Error adding retired task:", error);
-        throw new Error(error.message);
-      }
-      console.log("[useRetiredTasks] Retired task added successfully:", data.name);
+      if (error) throw new Error(error.message);
       return data as RetiredTask;
     },
     onSuccess: (data) => {
-      console.log("[useRetiredTasks] Invalidate queries after addRetiredTask.");
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-      showSuccess(`Task "${data?.name}" added to Aether Sink!`);
-    },
-    onError: (e) => {
-      showError(`Failed to add retired task: ${e.message}`);
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
+      showSuccess(`Objective "${data?.name}"Manifested in Sink.`);
     }
   });
 
   const removeRetiredTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("[useRetiredTasks] Removing retired task:", taskId);
       const { error } = await supabase.from('aethersink').delete().eq('id', taskId).eq('user_id', userId);
-      if (error) {
-        console.error("[useRetiredTasks] Error removing retired task:", error);
-        throw new Error(error.message);
-      }
-      console.log("[useRetiredTasks] Retired task removed successfully:", taskId);
-    },
-    onSuccess: () => {
-      console.log("[useRetiredTasks] Invalidate queries after removeRetiredTask.");
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-      showSuccess('Task removed from Aether Sink.');
-    },
-    onError: (e) => {
-      showError(`Failed to remove retired task: ${e.message}`);
-    }
-  });
-
-  const bulkRemoveRetiredTasksMutation = useMutation({
-    mutationFn: async (taskIds: string[]) => {
-      if (!userId) throw new Error("User not authenticated.");
-      console.log("[useRetiredTasks] Bulk removing retired tasks:", taskIds.length);
-      const { error } = await supabase.from('aethersink').delete().in('id', taskIds).eq('user_id', userId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-      showSuccess('Aether Sink cleared of unlocked tasks.');
-    },
-    onError: (e) => {
-      showError(`Failed to clear sink: ${e.message}`);
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] })
   });
 
   const updateRetiredTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<RetiredTask> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("[useRetiredTasks] Updating retired task details for:", task.id);
-      const { data, error } = await supabase
-        .from('aethersink')
-        .update({ ...task, updated_at: new Date().toISOString() })
-        .eq('id', task.id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-      if (error) {
-        console.error("[useRetiredTasks] Error updating retired task details:", error);
-        throw error;
-      }
-      console.log("[useRetiredTasks] Retired task details updated successfully:", data.name);
+      const { data, error } = await supabase.from('aethersink').update({ ...task, updated_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId).select().single();
+      if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      console.log("[useRetiredTasks] Invalidate queries after updateRetiredTaskDetails.");
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-      showSuccess('Retired task updated successfully!');
-    },
-    onError: (e) => {
-      showError(`Failed to update retired task: ${e.message}`);
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] })
   });
 
   const updateRetiredTaskStatusMutation = useMutation({
     mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`[useRetiredTasks] Updating completion status for retired task ${taskId} to ${isCompleted}.`);
       const { error } = await supabase.from('aethersink').update({ is_completed: isCompleted }).eq('id', taskId);
-      if (error) {
-        console.error("[useRetiredTasks] Error updating retired task status:", error);
-        throw error;
-      }
-      console.log(`[useRetiredTasks] Retired task ${taskId} completion status updated.`);
+      if (error) throw error;
     },
-    onSuccess: () => {
-      console.log("[useRetiredTasks] Invalidate queries after updateRetiredTaskStatus.");
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-    },
-    onError: (e) => {
-      showError(`Failed to update retired task status: ${e.message}`);
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] })
   });
 
   const completeRetiredTaskMutation = useMutation({
     mutationFn: async (task: RetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("[useRetiredTasks] Completing retired task:", task.name);
-      
       const { error: logError } = await supabase.from('completedtasks').insert({
-        user_id: userId,
-        task_name: task.name,
-        original_id: task.id,
-        duration_scheduled: task.duration,
-        duration_used: task.duration,
-        xp_earned: (task.energy_cost || 0) * 2,
-        energy_cost: task.energy_cost,
-        is_critical: task.is_critical,
-        original_source: 'aethersink',
-        original_scheduled_date: task.original_scheduled_date,
-        is_work: task.is_work,
-        is_break: task.is_break,
+        user_id: userId, task_name: task.name, original_id: task.id, duration_scheduled: task.duration, duration_used: task.duration,
+        xp_earned: (task.energy_cost || 0) * 2, energy_cost: task.energy_cost, is_critical: task.is_critical, original_source: 'aethersink',
+        original_scheduled_date: task.original_scheduled_date, is_work: task.is_work, is_break: task.is_break,
       });
-      if (logError) {
-        console.error("[useRetiredTasks] Error logging completed retired task:", logError);
-        throw logError;
-      }
-
+      if (logError) throw logError;
       const { error: deleteError } = await supabase.from('aethersink').delete().eq('id', task.id);
-      if (deleteError) {
-        console.error("[useRetiredTasks] Error deleting completed retired task from aethersink:", deleteError);
-        throw deleteError;
-      }
-      console.log("[useRetiredTasks] Retired task completed and removed from Sink successfully:", task.name);
+      if (deleteError) throw deleteError;
     },
     onSuccess: () => {
-      console.log("[useRetiredTasks] Invalidate queries after completeRetiredTask.");
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDay'] });
-      showSuccess('Retired task completed and removed from Sink!');
-    },
-    onError: (e) => {
-      showError(`Failed to complete retired task: ${e.message}`);
+      showSuccess('Retired task synchronized.');
     }
   });
 
   const toggleRetiredTaskLockMutation = useMutation({
     mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log(`[useRetiredTasks] Toggling lock for retired task ${taskId} to ${isLocked}.`);
       const { error } = await supabase.from('aethersink').update({ is_locked: isLocked }).eq('id', taskId);
-      if (error) {
-        console.error("[useRetiredTasks] Error toggling retired task lock:", error);
-        throw error;
-      }
-      console.log(`[useRetiredTasks] Retired task ${taskId} lock toggled successfully.`);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] })
+  });
+
+  const rezoneTaskMutation = useMutation({
+    mutationFn: async (task: RetiredTask) => {
+      if (!userId) throw new Error("User not authenticated.");
+      await supabase.from('aethersink').delete().eq('id', task.id);
+      return task;
     },
     onSuccess: () => {
-      console.log("[useRetiredTasks] Invalidate queries after toggleRetiredTaskLock.");
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-    },
-    onError: (e) => {
-      showError(`Failed to toggle task lock: ${e.message}`);
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
     }
   });
 
   const triggerAetherSinkBackupMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("[useRetiredTasks] Triggering Aether Sink backup via RPC.");
       const { error } = await supabase.rpc('backup_aethersink_for_user', { p_user_id: userId });
-      if (error) {
-        console.error("[useRetiredTasks] Error triggering Aether Sink backup:", error);
-        throw error;
-      }
-      console.log("[useRetiredTasks] Aether Sink backup RPC called successfully.");
+      if (error) throw error;
     },
     onSuccess: () => {
-      console.log("[useRetiredTasks] Invalidate queries after triggerAetherSinkBackup.");
-      queryClient.invalidateQueries({ queryKey: ['aetherSinkSnapshots'] });
-      showSuccess("Aether Sink backup completed!");
-    },
-    onError: (e) => {
-      showError(`Failed to trigger Aether Sink backup: ${e.message}`);
+        showSuccess("Sink snapshot archived.");
+        queryClient.invalidateQueries({ queryKey: ['aetherSinkSnapshots', userId] });
     }
   });
 
-  const rezoneTaskMutation = useMutation({
-    mutationFn: async (task: RetiredTask) => {
-      if (!userId || !profile) throw new Error("User context missing.");
-      console.log("[useRetiredTasks] Preparing task for re-zoning:", task.name);
-      return task;
+  const bulkRemoveRetiredTasksMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!userId) throw new Error("User not authenticated.");
+      const { error } = await supabase.from('aethersink').delete().in('id', ids).eq('user_id', userId);
+      if (error) throw error;
     },
-    onSuccess: () => {
-      console.log("[useRetiredTasks] Invalidate queries after rezoneTask.");
-      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-    },
-    onError: (e) => {
-      showError(`Failed to prepare task for re-zoning: ${e.message}`);
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] })
   });
 
   return {
@@ -279,13 +175,13 @@ export const useRetiredTasks = () => {
     isLoadingRetiredTasks,
     addRetiredTask: addRetiredTaskMutation.mutateAsync,
     removeRetiredTask: removeRetiredTaskMutation.mutateAsync,
-    bulkRemoveRetiredTasks: bulkRemoveRetiredTasksMutation.mutateAsync,
     updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutateAsync,
     updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutateAsync,
     completeRetiredTask: completeRetiredTaskMutation.mutateAsync,
     toggleRetiredTaskLock: toggleRetiredTaskLockMutation.mutateAsync,
-    triggerAetherSinkBackup: triggerAetherSinkBackupMutation.mutateAsync,
     rezoneTask: rezoneTaskMutation.mutateAsync,
+    triggerAetherSinkBackup: triggerAetherSinkBackupMutation.mutateAsync,
+    bulkRemoveRetiredTasks: bulkRemoveRetiredTasksMutation.mutateAsync,
     retiredSortBy,
     setRetiredSortBy,
   };

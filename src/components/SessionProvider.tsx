@@ -346,6 +346,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
   // DERIVED FOCUS ITEMS EFFECT: Heartbeat timer to update status without recursive rendering
+  // CRITICAL FIX: Only update state if data actually changed, and use a functional update.
   useEffect(() => {
     const updateDerivedItems = () => {
       if (!calculatedScheduleToday) {
@@ -358,15 +359,15 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const newActiveItem = calculatedScheduleToday.items.find(i => now >= i.startTime && now < i.endTime) || null;
       const newNextItem = calculatedScheduleToday.items.find(i => i.startTime > now) || null;
 
-      // Functional updates with logical comparison kill infinite loops
+      // Functional updates with logical comparison to prevent recursive rendering loops
       setActiveItemToday(prev => isEqual(prev, newActiveItem) ? prev : newActiveItem);
       setNextItemToday(prev => isEqual(prev, newNextItem) ? prev : newNextItem);
     };
 
     updateDerivedItems();
     
-    // Efficiently update "Now Focus" status every 30 seconds
-    const interval = setInterval(updateDerivedItems, 30000);
+    // Heartbeat: Check for focus changes every 15 seconds
+    const interval = setInterval(updateDerivedItems, 15000);
     return () => clearInterval(interval);
   }, [calculatedScheduleToday]); 
 

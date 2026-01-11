@@ -1,6 +1,6 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
-import { UserProfile } from '@/hooks/use-session'; // Import UserProfile from the hook file
+import { UserProfile } from '@/hooks/use-session';
 
 // --- Constants ---
 export const MEAL_KEYWORDS = ['cook', 'meal prep', 'groceries', 'food', '🍔', 'lunch', 'dinner', 'breakfast', 'snack', 'eat', 'coffee break', 'reflection'];
@@ -302,7 +302,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
 } | null => {
   console.log(`[parseTaskInput] Parsing input: "${input}" for date: ${format(selectedDayAsDate, 'yyyy-MM-dd')}`);
   let rawInput = input.trim();
-  let lowerInput = rawInput.toLowerCase();
   let isCritical = false;
   let isBackburner = false; 
   let shouldSink = false;
@@ -314,7 +313,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   if (rawInput.startsWith('!')) {
     isCritical = true;
     rawInput = rawInput.substring(1).trim();
-    lowerInput = rawInput.toLowerCase();
     console.log("[parseTaskInput] Critical flag detected.");
   }
 
@@ -322,39 +320,41 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   if (rawInput.startsWith('-')) {
     isBackburner = true;
     rawInput = rawInput.substring(1).trim();
-    lowerInput = rawInput.toLowerCase();
     console.log("[parseTaskInput] Backburner flag detected.");
   }
 
+  // Suffix checks need lower case
+  let lowerRawInput = rawInput.toLowerCase();
+
   // Check for Sink Flag (Suffix: sink)
-  if (lowerInput.endsWith(' sink')) {
+  if (lowerRawInput.endsWith(' sink')) {
     shouldSink = true;
     rawInput = rawInput.substring(0, rawInput.length - 5).trim();
-    lowerInput = rawInput.toLowerCase();
+    lowerRawInput = rawInput.toLowerCase();
     console.log("[parseTaskInput] Sink flag detected.");
   }
 
   // Check for Fixed Flag (Suffix: fixed)
-  if (lowerInput.endsWith(' fixed')) {
+  if (lowerRawInput.endsWith(' fixed')) {
     isFlexible = false;
     rawInput = rawInput.substring(0, rawInput.length - 6).trim();
-    lowerInput = rawInput.toLowerCase();
+    lowerRawInput = rawInput.toLowerCase();
     console.log("[parseTaskInput] Fixed flag detected.");
   }
 
   // Check for Work Flag (Suffix: W)
-  if (lowerInput.endsWith(' w')) {
+  if (lowerRawInput.endsWith(' w')) {
     isWork = true;
     rawInput = rawInput.substring(0, rawInput.length - 2).trim();
-    lowerInput = rawInput.toLowerCase();
+    lowerRawInput = rawInput.toLowerCase();
     console.log("[parseTaskInput] Work flag detected.");
   }
 
   // Check for Break Flag (Suffix: B)
-  if (lowerInput.endsWith(' b')) {
+  if (lowerRawInput.endsWith(' b')) {
     isBreak = true;
-    rawInput = rawInput.substring(0, rawInput.length - 2).trim(); // Corrected: modify rawInput
-    lowerInput = rawInput.toLowerCase();
+    rawInput = rawInput.substring(0, rawInput.length - 2).trim();
+    lowerRawInput = rawInput.toLowerCase();
     console.log("[parseTaskInput] Break flag detected.");
   }
   
@@ -381,8 +381,8 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
       isFlexible: false, 
       shouldSink: false,
       energyCost: 0,
-      isWork: false, // Time off is not work
-      isBreak: false, // Time off is not a break task
+      isWork: false, 
+      isBreak: false, 
     };
   }
 
@@ -432,8 +432,8 @@ export const parseInjectionCommand = (input: string): {
   isFlexible?: boolean;
   isBackburner?: boolean; 
   energyCost: number;
-  isWork: boolean; // NEW
-  isBreak: boolean; // NEW
+  isWork: boolean; 
+  isBreak: boolean; 
 } | null => {
   console.log(`[parseInjectionCommand] Parsing input: "${input}"`);
   const lowerInput = input.toLowerCase().trim();
@@ -447,8 +447,8 @@ export const parseInjectionCommand = (input: string): {
     const isCritical = !!injectMatch[9];
     const isBackburner = !!injectMatch[10]; 
     const isFlexible = !injectMatch[11]; 
-    const isWork = !!injectMatch[12]; // NEW
-    const isBreak = !!injectMatch[13]; // NEW
+    const isWork = !!injectMatch[12]; 
+    const isBreak = !!injectMatch[13]; 
 
     let calculatedEnergyCost = 0;
     const isMealTask = isMeal(taskName);
@@ -549,8 +549,8 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   let duration: number | null = null;
   let isCritical = false;
   let isBackburner = false; 
-  let isWork = false; // NEW
-  let isBreak = false; // NEW
+  let isWork = false; 
+  let isBreak = false; 
 
   if (name.endsWith(' !')) {
     isCritical = true;
@@ -565,14 +565,14 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   }
 
   // Check for Work Flag (Suffix: W)
-  if (name.endsWith(' w')) {
+  if (name.toLowerCase().endsWith(' w')) {
     isWork = true;
     name = name.slice(0, -2).trim();
     console.log("[parseSinkTaskInput] Work flag detected.");
   }
 
   // Check for Break Flag (Suffix: B)
-  if (name.endsWith(' b')) {
+  if (name.toLowerCase().endsWith(' b')) {
     isBreak = true;
     name = name.slice(0, -2).trim();
     console.log("[parseSinkTaskInput] Break flag detected.");
@@ -606,8 +606,8 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
     is_custom_energy_cost: false,
     task_environment: 'laptop', 
     is_backburner: isBackburner, 
-    is_work: isWork, // NEW
-    is_break: isBreak, // NEW
+    is_work: isWork, 
+    is_break: isBreak, 
   };
 };
 
@@ -756,7 +756,7 @@ export const getStaticConstraints = (
   for (let r = 0; r < (profile.reflection_count || 0); r++) {
       const rTime = profile.reflection_times?.[r];
       const rDur = profile.reflection_durations?.[r];
-      if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur); // Removed 'break' argument
+      if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur); 
   }
   console.log("[getStaticConstraints] Final static constraints count:", constraints.length);
   return constraints;
@@ -791,7 +791,7 @@ export const sortAndChunkTasks = (
   // Group tasks by environment
   const tasksByEnvironment = new Map<TaskEnvironment, UnifiedTask[]>();
   baseSortedTasks.forEach(task => {
-    const env = task.task_environment || 'laptop'; // Default to 'laptop' if not set
+    const env = task.task_environment || 'laptop'; 
     if (!tasksByEnvironment.has(env)) {
       tasksByEnvironment.set(env, []);
     }
@@ -802,7 +802,7 @@ export const sortAndChunkTasks = (
   // Determine the order of environments
   const environmentOrder = custom_environment_order && custom_environment_order.length > 0
     ? custom_environment_order
-    : ['home', 'laptop', 'away', 'piano', 'laptop_piano']; // Default order
+    : ['home', 'laptop', 'away', 'piano', 'laptop_piano']; 
   console.log("[sortAndChunkTasks] Custom environment order:", environmentOrder);
 
   // Filter out environments that don't exist in the current tasks, and add any missing ones
@@ -853,12 +853,12 @@ export const compactScheduleLogic = (
   workdayStartTime: Date,
   workdayEndTime: Date,
   T_current: Date,
-  profile: UserProfile | null // NEW: Accept profile to get static anchors
+  profile: UserProfile | null 
 ): DBScheduledTask[] => {
   console.log(`[compactScheduleLogic] Starting compaction for day: ${format(selectedDayDate, 'yyyy-MM-dd')}`);
   if (!profile) {
     console.warn("[compactScheduleLogic] Profile is null, returning current tasks.");
-    return currentDbTasks; // Safety check
+    return currentDbTasks; 
   }
 
   // 1. Separate tasks: Fixed/Locked/Completed stay put. Flexible/Incomplete move.
@@ -891,7 +891,7 @@ export const compactScheduleLogic = (
   }));
 
   // NEW: Sort and chunk flexible tasks using the new utility
-  const sortedFlexibleTasks = sortAndChunkTasks(flexibleUnifiedTasks, profile, profile.enable_environment_chunking ? 'ENVIRONMENT_RATIO' : 'PRIORITY_HIGH_TO_LOW'); // Default to priority if chunking is off
+  const sortedFlexibleTasks = sortAndChunkTasks(flexibleUnifiedTasks, profile, profile.enable_environment_chunking ? 'ENVIRONMENT_RATIO' : 'PRIORITY_HIGH_TO_LOW'); 
   console.log("[compactScheduleLogic] Sorted flexible tasks for placement:", sortedFlexibleTasks.map(t => t.name));
 
   // 2. Generate static constraints (meals, reflections)
@@ -920,10 +920,10 @@ export const compactScheduleLogic = (
   let insertionCursor = isToday ? max([workdayStartTime, T_current]) : workdayStartTime;
   console.log(`[compactScheduleLogic] Initial insertion cursor: ${format(insertionCursor, 'HH:mm')}`);
 
-  const updatedTasks: DBScheduledTask[] = [...fixedTasks]; // Start with fixed tasks
+  const updatedTasks: DBScheduledTask[] = [...fixedTasks]; 
 
   // 5. Re-place flexible tasks chronologically
-  for (const task of sortedFlexibleTasks) { // Use the sorted flexible tasks
+  for (const task of sortedFlexibleTasks) { 
     const duration = task.duration;
     const totalDuration = duration + (task.break_duration || 0);
 
@@ -946,7 +946,7 @@ export const compactScheduleLogic = (
         const originalDbTask = currentDbTasks.find(t => t.id === task.id);
         if (originalDbTask) {
           updatedTasks.push({
-            ...originalDbTask, // Find original DB task to retain all properties
+            ...originalDbTask, 
             start_time: currentCursor.toISOString(),
             end_time: proposedEnd.toISOString(),
           });
@@ -955,7 +955,7 @@ export const compactScheduleLogic = (
           placed = true;
         } else {
           console.warn(`[compactScheduleLogic] Original DB task not found for UnifiedTask ID: ${task.id}`);
-          placed = true; // Skip this task if original not found
+          placed = true; 
         }
       } else {
         // Collision, move cursor past the colliding block
@@ -997,11 +997,10 @@ export const calculateSchedule = (
   reflectionTimes: string[] = [],
   reflectionDurations: number[] = [],
   mealAssignments: any[] = [],
-  isDayBlocked: boolean = false // NEW: Add isDayBlocked parameter
+  isDayBlocked: boolean = false 
 ): FormattedSchedule => {
   console.log(`[calculateSchedule] Starting schedule calculation for day: ${selectedDay}. Blocked: ${isDayBlocked}`);
   
-  // OPTIMIZATION: Early exit if the day is blocked
   if (isDayBlocked) {
     console.log("[calculateSchedule] Day is blocked, returning empty schedule early.");
     return {
@@ -1028,7 +1027,7 @@ export const calculateSchedule = (
   let unscheduledCount = 0;
   let sessionEnd = workdayStart; 
   let extendsPastMidnight = false;
-  let midnightRolloverMessage: string | null = null; // Corrected spelling here
+  let midnightRolloverMessage: string | null = null; 
 
   const [year, month, day] = selectedDay.split('-').map(Number);
   const selectedDayDate = new Date(year, month - 1, day); 
@@ -1041,22 +1040,15 @@ export const calculateSchedule = (
       return;
     }
 
-    // Directly parse ISO strings to get Date objects representing the exact moment in time.
-    // JavaScript's Date object will handle the local timezone interpretation for comparisons and display.
     let startTime = parseISO(dbTask.start_time);
     let endTime = parseISO(dbTask.end_time);
 
-    // Ensure tasks are within the selected day's context, adjusting if they cross midnight
-    // This logic is primarily for display and summary, assuming dbTasks are already filtered by scheduled_date
     if (isBefore(endTime, startTime) && isSameDay(startTime, selectedDayDate)) {
       endTime = addDays(endTime, 1);
       extendsPastMidnight = true;
       midnightRolloverMessage = "Schedule extends past midnight.";
       console.log(`[calculateSchedule] Task "${dbTask.name}" extends past midnight.`);
     } else if (isBefore(endTime, startTime) && !isSameDay(startTime, selectedDayDate)) {
-      // If the task starts on a previous day but ends on selectedDay, adjust startTime to selectedDayDate's start
-      // This scenario should ideally be handled by the query filtering by scheduled_date,
-      // but as a safeguard, we adjust the start time to the beginning of the selected day
       startTime = setHours(setMinutes(selectedDayDate, startTime.getMinutes()), startTime.getHours());
       console.log(`[calculateSchedule] Task "${dbTask.name}" adjusted to start on selected day.`);
     }
@@ -1069,7 +1061,7 @@ export const calculateSchedule = (
     }
 
     const isTimeOff = dbTask.name.toLowerCase() === 'time off';
-    const isBreak = dbTask.name.toLowerCase() === 'break' || dbTask.is_break; // Check new is_break flag
+    const isBreak = dbTask.name.toLowerCase() === 'break' || dbTask.is_break; 
     const isMealTask = isMeal(dbTask.name);
     const isCalendarEvent = !!dbTask.source_calendar_id; 
 
@@ -1105,8 +1097,8 @@ export const calculateSchedule = (
       taskEnvironment: dbTask.task_environment,
       sourceCalendarId: dbTask.source_calendar_id, 
       isBackburner: dbTask.is_backburner, 
-      isWork: dbTask.is_work || false, // NEW: Add isWork flag
-      isBreak: dbTask.is_break || false, // NEW: Add isBreak flag
+      isWork: dbTask.is_work || false, 
+      isBreak: dbTask.is_break || false, 
     };
     allRawItems.push(item);
     console.log(`[calculateSchedule] Added DB task: "${item.name}" (${item.type}) from ${format(item.startTime, 'HH:mm')} to ${format(item.endTime, 'HH:mm')}`);
@@ -1141,7 +1133,7 @@ export const calculateSchedule = (
         }
 
         const item: ScheduledItem = {
-          id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}-${Math.random().toString(36).substr(2, 4)}`,
+          id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}`,
           type: type,
           name: finalName,
           duration: finalDuration,
@@ -1159,8 +1151,8 @@ export const calculateSchedule = (
           taskEnvironment: 'home',
           sourceCalendarId: null,
           isBackburner: false,
-          isWork: false, // Static anchors are not work
-          isBreak: type === 'break' || type === 'meal', // Mark as break if it's a break or meal type
+          isWork: false, 
+          isBreak: type === 'break' || type === 'meal', 
         };
         allRawItems.push(item);
         console.log(`[calculateSchedule] Added static anchor: "${item.name}" (${item.type}) from ${format(item.startTime, 'HH:mm')} to ${format(item.endTime, 'HH:mm')}`);
@@ -1206,8 +1198,8 @@ export const calculateSchedule = (
             taskEnvironment: 'away',
             sourceCalendarId: null,
             isBackburner: false,
-            isWork: false, // Regen Pod is not work
-            isBreak: true, // Regen Pod is a break
+            isWork: false, 
+            isBreak: true, 
         };
         allRawItems.push(podItem);
         console.log(`[calculateSchedule] Added Regen Pod: "${podItem.name}" from ${format(podItem.startTime, 'HH:mm')} to ${format(podItem.endTime, 'HH:mm')}`);
@@ -1216,11 +1208,9 @@ export const calculateSchedule = (
     }
   }
 
-  // 3. Sort all raw items by start time
   allRawItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   console.log("[calculateSchedule] All raw items sorted by start time.");
 
-  // 4. Merge overlapping items into a final non-overlapping list
   const finalItems: ScheduledItem[] = [];
   if (allRawItems.length > 0) {
     let currentMergedItem = { ...allRawItems[0] };
@@ -1228,16 +1218,12 @@ export const calculateSchedule = (
     for (let i = 1; i < allRawItems.length; i++) {
       const nextItem = allRawItems[i];
 
-      // Only merge if there's a strict overlap (current item starts before next item ends AND next item starts before current item ends)
-      // This prevents merging of contiguous tasks (where current.endTime === next.startTime)
       if (currentMergedItem.startTime < nextItem.endTime && nextItem.startTime < currentMergedItem.endTime) {
         console.log(`[calculateSchedule] Overlap detected between "${currentMergedItem.name}" and "${nextItem.name}". Merging.`);
-        // Overlap detected, merge them
         const newStartTime = min([currentMergedItem.startTime, nextItem.startTime]);
         const newEndTime = max([currentMergedItem.endTime, nextItem.endTime]);
         const newDuration = differenceInMinutes(newEndTime, newStartTime);
 
-        // Prioritize dbTask over static anchors if they overlap, or combine names
         let newName = currentMergedItem.name;
         let newEmoji = currentMergedItem.emoji;
         let newType = currentMergedItem.type;
@@ -1250,11 +1236,9 @@ export const calculateSchedule = (
         let newIsCustomEnergyCost = currentMergedItem.isCustomEnergyCost;
         let newTaskEnvironment = currentMergedItem.taskEnvironment;
         let newSourceCalendarId = currentMergedItem.sourceCalendarId;
-        let newIsWork = currentMergedItem.isWork; // NEW
-        let newIsBreak = currentMergedItem.isBreak; // NEW
+        let newIsWork = currentMergedItem.isWork; 
+        let newIsBreak = currentMergedItem.isBreak; 
 
-        // Simple prioritization: if nextItem is a 'task' and current is a 'meal'/'break', prioritize task
-        // Or if both are tasks, combine names.
         if (nextItem.type === 'task' && (currentMergedItem.type === 'meal' || currentMergedItem.type === 'break')) {
           newName = nextItem.name;
           newEmoji = nextItem.emoji;
@@ -1268,16 +1252,14 @@ export const calculateSchedule = (
           newIsCustomEnergyCost = nextItem.isCustomEnergyCost;
           newTaskEnvironment = nextItem.taskEnvironment;
           newSourceCalendarId = nextItem.sourceCalendarId;
-          newIsWork = nextItem.isWork; // NEW
-          newIsBreak = nextItem.isBreak; // NEW
+          newIsWork = nextItem.isWork; 
+          newIsBreak = nextItem.isBreak; 
         } else if (currentMergedItem.type === 'task' && (nextItem.type === 'meal' || nextItem.type === 'break')) {
-          // current is task, next is meal/break, keep current
+          // Keep current
         } else {
-          // Both are tasks, or static, or other combinations. Combine names.
           newName = `${currentMergedItem.name} / ${nextItem.name}`;
-          // For emoji, pick the first one or a generic one
           newEmoji = currentMergedItem.emoji; 
-          newType = 'task'; // Default to generic task if mixed
+          newType = 'task'; 
           newEnergyCost = currentMergedItem.energyCost + nextItem.energyCost;
           newIsCritical = currentMergedItem.isCritical || nextItem.isCritical;
           newIsBackburner = currentMergedItem.isBackburner || nextItem.isBackburner;
@@ -1285,14 +1267,13 @@ export const calculateSchedule = (
           newIsFlexible = currentMergedItem.isFlexible && nextItem.isFlexible;
           newIsCompleted = currentMergedItem.isCompleted && nextItem.isCompleted;
           newIsCustomEnergyCost = currentMergedItem.isCustomEnergyCost || nextItem.isCustomEnergyCost;
-          // Environment and source calendar ID are tricky to merge, keep first for now
-          newIsWork = currentMergedItem.isWork || nextItem.isWork; // NEW
-          newIsBreak = currentMergedItem.isBreak || nextItem.isBreak; // NEW
+          newIsWork = currentMergedItem.isWork || nextItem.isWork; 
+          newIsBreak = currentMergedItem.isBreak || nextItem.isBreak; 
         }
 
         currentMergedItem = {
           ...currentMergedItem,
-          id: currentMergedItem.id, // Keep original ID if it's a primary task, or generate new if truly merged
+          id: currentMergedItem.id, 
           name: newName,
           startTime: newStartTime,
           endTime: newEndTime,
@@ -1308,20 +1289,18 @@ export const calculateSchedule = (
           isCustomEnergyCost: newIsCustomEnergyCost,
           taskEnvironment: newTaskEnvironment,
           sourceCalendarId: newSourceCalendarId,
-          isWork: newIsWork, // NEW
-          isBreak: newIsBreak, // NEW
+          isWork: newIsWork, 
+          isBreak: newIsBreak, 
         };
       } else {
-        // No overlap, push the current merged item and start a new one
         finalItems.push(currentMergedItem);
         currentMergedItem = { ...nextItem };
       }
     }
-    finalItems.push(currentMergedItem); // Push the last merged item
+    finalItems.push(currentMergedItem); 
   }
   console.log("[calculateSchedule] Final merged items count:", finalItems.length);
 
-  // 5. Recalculate summary based on finalItems
   finalItems.forEach(item => {
     if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { 
       totalActiveTimeMinutes += item.duration;
@@ -1339,21 +1318,21 @@ export const calculateSchedule = (
   const totalActiveTimeMins = totalActiveTimeMinutes % 60;
 
   const summary: ScheduleSummary = {
-    totalTasks: finalItems.length, // Count of merged items
+    totalTasks: finalItems.length, 
     activeTime: { hours: totalActiveTimeHours, minutes: totalActiveTimeMins },
     breakTime: totalBreakTimeMinutes,
     sessionEnd: sessionEnd,
     extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage, // Corrected spelling here
+    midnightRolloverMessage: midnightRolloverMessage, 
     unscheduledCount: unscheduledCount,
     criticalTasksRemaining: criticalTasksRemaining,
-    isBlocked: isDayBlocked, // Default to false
+    isBlocked: isDayBlocked, 
   };
   console.log("[calculateSchedule] Schedule summary:", summary);
 
   return {
-    items: finalItems, // Use the merged items
+    items: finalItems, 
     summary: summary,
-    dbTasks: dbTasks, // Keep original dbTasks for other logic
+    dbTasks: dbTasks, 
   };
 };

@@ -49,13 +49,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearInterval(interval);
   }, []);
 
-  // Use a ref to prevent overlapping profile fetches
+  // Use a ref to prevent overlapping profile fetches without creating a dependency loop
   const fetchingProfileForId = useRef<string | null>(null);
 
-  // Fetch profile logic
+  // Fetch profile logic - Stabilized by removing isProfileLoading from dependencies
   const fetchProfile = useCallback(async (userId: string) => {
-    // Prevent redundant simultaneous fetches for the same user
-    if (fetchingProfileForId.current === userId && isProfileLoading) return;
+    if (fetchingProfileForId.current === userId) return;
     
     console.log("[SessionProvider] Starting fetchProfile for:", userId);
     fetchingProfileForId.current = userId;
@@ -77,7 +76,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           timezone: data.timezone || 'UTC' 
         } as UserProfile;
         
-        // Only update state if data actually changed
+        // Only update state if data actually changed to prevent render loops
         setProfile(prev => {
           if (isEqual(prev, profileDataWithDefaultTimezone)) return prev;
           console.log("[SessionProvider] Profile data updated.");
@@ -98,7 +97,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsProfileLoading(false);
       fetchingProfileForId.current = null;
     }
-  }, [isProfileLoading]);
+  }, []); // Empty dependencies ensure this function reference is stable
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) await fetchProfile(user.id);
@@ -211,13 +210,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // Auth Initialization and Listener
+  // Auth Initialization and Listener - Optimized to run only once
   useEffect(() => {
     console.log("[SessionProvider] Initializing auth state...");
     
-    // Check session once and then rely on onAuthStateChange for all subsequent updates
-    // This avoids the double-fetch seen when getSession and listener fire at once.
-    supabase.auth.onAuthStateChange((event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       console.log("[SessionProvider] Auth event:", event);
       
       setSession(currentSession);
@@ -233,6 +230,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       setIsAuthLoading(false);
     });
+
+    return () => subscription.unsubscribe();
   }, [fetchProfile, queryClient]);
 
   // Redirect logic
@@ -301,17 +300,21 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
-  // Focus tracking
+  // Focus tracking - Increased interval to reduce noise
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (!calculatedScheduleToday) return;
+    if (!calculatedScheduleToday) return;
+    
+    const updateFocusItems = () => {
       const now = new Date();
       const newActive = calculatedScheduleToday.items.find(i => now >= i.startTime && now < i.endTime) || null;
       const newNext = calculatedScheduleToday.items.find(i => i.startTime > now) || null;
       
       setActiveItemToday(prev => isEqual(prev, newActive) ? prev : newActive);
       setNextItemToday(prev => isEqual(prev, newNext) ? prev : newNext);
-    }, 10000);
+    };
+
+    updateFocusItems();
+    const timer = setInterval(updateFocusItems, 15000); // 15 seconds
     return () => clearInterval(timer);
   }, [calculatedScheduleToday]); 
 

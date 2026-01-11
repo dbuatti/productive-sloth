@@ -346,6 +346,8 @@ export const sortAndChunkTasks = (
 ): UnifiedTask[] => {
   const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
 
+  console.log(`[scheduler-utils] sortAndChunkTasks: Processing ${tasks.length} tasks. Mode: ${sortPreference}. Spread: ${enable_macro_spread}, Chunking: ${enable_environment_chunking}`);
+
   // Base internal sort (within a chunk): Priority -> Age
   const internalSort = (a: UnifiedTask, b: UnifiedTask) => {
     if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
@@ -367,9 +369,12 @@ export const sortAndChunkTasks = (
   const activeEnvs = Array.from(groups.keys());
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
+  console.log(`[scheduler-utils] Environment Order:`, finalOrder);
+
   // 3. LOGIC: MACRO SPREAD (High-Variety / Reset Model)
   // Splits workload into AM and PM batches to prevent burnout while keeping zones consecutive.
   if (enable_macro_spread || sortPreference === 'ENVIRONMENT_RATIO') {
+    console.log(`[scheduler-utils] Applying Macro-Spread Distribution.`);
     const amBatch: UnifiedTask[] = [];
     const pmBatch: UnifiedTask[] = [];
 
@@ -409,6 +414,8 @@ export const sortAndChunkTasks = (
             splitIdx = Math.max(1, groupTasks.length - 1);
         }
 
+        console.log(`[scheduler-utils] Splitting zone ${env}: AM(${splitIdx} tasks), PM(${groupTasks.length - splitIdx} tasks)`);
+
         amBatch.push(...groupTasks.slice(0, splitIdx));
         pmBatch.push(...groupTasks.slice(splitIdx));
       } else if (groupTasks.length === 1) {
@@ -422,6 +429,7 @@ export const sortAndChunkTasks = (
   // 4. LOGIC: STRICT CONSECUTIVE (Deep Flow Model)
   // Finishes one environment entirely before moving to the next.
   if (enable_environment_chunking) {
+    console.log(`[scheduler-utils] Applying Strict Consecutive Environment Chunking.`);
     return finalOrder.map(env => {
       const groupTasks = groups.get(env) || [];
       return groupTasks.sort(internalSort);
@@ -429,6 +437,7 @@ export const sortAndChunkTasks = (
   }
 
   // 5. Fallback: Standard Priority Sort (No Chunking)
+  console.log(`[scheduler-utils] Applying Standard Priority Sort (No Chunking).`);
   return [...tasks].sort(internalSort);
 };
 
@@ -442,8 +451,13 @@ export const compactScheduleLogic = (
   sortPreference: SortBy = 'ENVIRONMENT_RATIO'
 ): DBScheduledTask[] => {
   if (!profile) return currentDbTasks;
+
+  console.log(`[scheduler-utils] compactScheduleLogic: Compacting ${currentDbTasks.length} tasks for date ${format(selectedDayDate, 'yyyy-MM-dd')}`);
+
   const fixed = currentDbTasks.filter(t => t.is_locked || !t.is_flexible || t.is_completed);
   const flexible = currentDbTasks.filter(t => t.is_flexible && !t.is_locked && !t.is_completed);
+
+  console.log(`[scheduler-utils] Fixed tasks: ${fixed.length}, Flexible tasks: ${flexible.length}`);
 
   const unified: UnifiedTask[] = flexible.map(t => ({
     id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30,
@@ -472,6 +486,8 @@ export const compactScheduleLogic = (
         fixedBlocks.push({ start: slot.start, end: slot.end, duration: total });
         mergeOverlappingTimeBlocks(fixedBlocks);
       }
+    } else {
+        console.warn(`[scheduler-utils] Compaction failed to find slot for flexible task: ${task.name}`);
     }
   }
   return results;

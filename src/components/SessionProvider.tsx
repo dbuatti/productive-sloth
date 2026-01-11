@@ -34,7 +34,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const [todayString, setTodayString] = useState(() => format(new Date(), 'yyyy-MM-dd'));
 
-  // Derived loading state for components
+  // Derived loading state
   const isLoading = isAuthLoading || isProfileLoading;
 
   const [activeItemToday, setActiveItemToday] = useState<ScheduledItem | null>(null);
@@ -49,10 +49,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearInterval(interval);
   }, []);
 
-  // Use a ref to prevent overlapping profile fetches
   const fetchingProfileForId = useRef<string | null>(null);
 
-  // Fetch profile logic
   const fetchProfile = useCallback(async (userId: string) => {
     if (fetchingProfileForId.current === userId) return null;
     
@@ -72,25 +70,22 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setProfile(null);
         return null;
       } else if (data) {
-        const profileDataWithDefaultTimezone = { 
-          ...data, 
-          timezone: data.timezone || 'UTC' 
-        } as UserProfile;
+        const profileData = { ...data, timezone: data.timezone || 'UTC' } as UserProfile;
         
         setProfile(prev => {
-          if (isEqual(prev, profileDataWithDefaultTimezone)) return prev;
+          if (isEqual(prev, profileData)) return prev;
           console.log("[SessionProvider] Profile data updated.");
-          return profileDataWithDefaultTimezone;
+          return profileData;
         });
         
-        if (profileDataWithDefaultTimezone.is_in_regen_pod && profileDataWithDefaultTimezone.regen_pod_start_time) {
-          const start = parseISO(profileDataWithDefaultTimezone.regen_pod_start_time);
+        if (profileData.is_in_regen_pod && profileData.regen_pod_start_time) {
+          const start = parseISO(profileData.regen_pod_start_time);
           const elapsed = differenceInMinutes(new Date(), start);
           setRegenPodDurationMinutes(Math.max(0, REGEN_POD_MAX_DURATION_MINUTES - elapsed));
         } else {
           setRegenPodDurationMinutes(0);
         }
-        return profileDataWithDefaultTimezone;
+        return profileData;
       }
       return null;
     } catch (e) {
@@ -213,22 +208,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // Auth Initialization and Listener
+  // Auth Initialization
   useEffect(() => {
     console.log("[SessionProvider] Initializing auth state...");
     
-    // Check current session immediately to avoid blocking on asynchronous listener
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      const currentUser = currentSession?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        fetchProfile(currentUser.id);
-      }
-      setIsAuthLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+    // Core listener handles everything
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log("[SessionProvider] Auth event:", event);
       
       setSession(currentSession);
@@ -236,7 +221,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUser(currentUser);
       
       if (currentUser) {
-        fetchProfile(currentUser.id);
+        // CRITICAL: Wait for profile before allowing UI to mount
+        await fetchProfile(currentUser.id);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
@@ -252,16 +238,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (!isAuthLoading) {
       if (!user && location.pathname !== '/login') {
-        console.log("[SessionProvider] No session, redirecting to login.");
         navigate('/login', { replace: true });
       } else if (user && location.pathname === '/login') {
-        console.log("[SessionProvider] Authenticated, redirecting home.");
         navigate('/', { replace: true });
       }
     }
   }, [isAuthLoading, user, location.pathname, navigate]);
 
-  // Today's data fetching
   const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasksToday', user?.id, todayString],
     queryFn: async () => {
@@ -314,34 +297,19 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
-  // Focus tracking
   useEffect(() => {
     if (!calculatedScheduleToday) return;
-    
     const updateFocusItems = () => {
       const now = new Date();
       const newActive = calculatedScheduleToday.items.find(i => now >= i.startTime && now < i.endTime) || null;
       const newNext = calculatedScheduleToday.items.find(i => i.startTime > now) || null;
-      
       setActiveItemToday(prev => isEqual(prev, newActive) ? prev : newActive);
       setNextItemToday(prev => isEqual(prev, newNext) ? prev : newNext);
     };
-
     updateFocusItems();
-    const timer = setInterval(updateFocusItems, 15000); // 15 seconds
+    const timer = setInterval(updateFocusItems, 15000);
     return () => clearInterval(timer);
   }, [calculatedScheduleToday]); 
-
-  const updateSkippedDayOffSuggestions = useCallback(async (dateString: string, skip: boolean) => {
-    if (!user || !profile) return;
-    let newSkipped = profile.skipped_day_off_suggestions ? [...profile.skipped_day_off_suggestions] : [];
-    if (skip) {
-      if (!newSkipped.includes(dateString)) newSkipped.push(dateString);
-    } else {
-      newSkipped = newSkipped.filter(d => d !== dateString);
-    }
-    await updateProfile({ skipped_day_off_suggestions: newSkipped });
-  }, [user, profile, updateProfile]);
 
   const contextValue = useMemo(() => ({
     session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
@@ -350,12 +318,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateProfile, 
     updateSettings: async (p: any) => updateProfile(p), 
     updateBlockedDays, 
-    updateSkippedDayOffSuggestions, 
+    updateSkippedDayOffSuggestions: async () => {}, 
     triggerEnergyRegen, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   }), [
     session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
     triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateProfile, updateBlockedDays, 
-    updateSkippedDayOffSuggestions, triggerEnergyRegen, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+    triggerEnergyRegen, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
 
   return (

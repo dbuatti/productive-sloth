@@ -11,16 +11,12 @@ import CustomMenuIcon from './CustomMenuIcon';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AppUnifiedHeaderProps {
-  onToggleMobileMenu?: () => void; // New prop for toggling mobile menu
+  onToggleMobileMenu?: () => void;
 }
 
 const AppUnifiedHeader: React.FC<AppUnifiedHeaderProps> = ({ onToggleMobileMenu }) => {
   const { profile } = useSession();
   const isMobile = useIsMobile();
-
-  useEffect(() => {
-    console.log("[AppUnifiedHeader] Rendered. Profile ID:", profile?.id, "Is Mobile:", isMobile);
-  });
 
   if (!profile) return null;
 
@@ -61,7 +57,7 @@ const AppUnifiedHeader: React.FC<AppUnifiedHeaderProps> = ({ onToggleMobileMenu 
         )}
       </div>
 
-      {/* Right: ThemeToggle, ProfileDropdown (now includes stats) */}
+      {/* Right: ThemeToggle, ProfileDropdown */}
       <div className="flex items-center space-x-3">
         <ThemeToggle />
         <ProfileDropdown />

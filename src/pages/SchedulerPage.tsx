@@ -555,7 +555,9 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
   }, [selectedDay, isDayLockedDown, toggleAllScheduledTasksLock, isSelectedDayBlocked]);
 
-  const overallLoading = isSessionLoading || isSchedulerTasksLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingDatesWithTasks || isLoadingCompletedTasksForSelectedDay;
+  // ISOLATED LOADING STATES for specific dashboard elements
+  const isDashboardLoading = isSessionLoading || isSchedulerTasksLoading;
+  const isGlobalLoading = isDashboardLoading || isProcessingCommand || isLoadingRetiredTasks || isLoadingDatesWithTasks || isLoadingCompletedTasksForSelectedDay;
 
   const calculatedSchedule = useMemo(() => {
     if (!profile) return null;
@@ -574,13 +576,13 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       )}
       
       {(showRegenPodSetup || isRegenPodRunning) && (
-        <EnergyRegenPodModal isOpen={showRegenPodSetup || isRegenPodRunning} onExit={handleExitPodSession} onStart={handleStartPodSession} isProcessingCommand={overallLoading} totalDurationMinutes={isRegenPodRunning ? regenPodDurationMinutes : REGEN_POD_MAX_DURATION_MINUTES} />
+        <EnergyRegenPodModal isOpen={showRegenPodSetup || isRegenPodRunning} onExit={handleExitPodSession} onStart={handleStartPodSession} isProcessingCommand={isGlobalLoading} totalDurationMinutes={isRegenPodRunning ? regenPodDurationMinutes : REGEN_POD_MAX_DURATION_MINUTES} />
       )}
 
       <CreateTaskDialog defaultPriority={createTaskDefaultValues.defaultPriority} defaultDueDate={createTaskDefaultValues.defaultDueDate} defaultStartTime={createTaskDefaultValues.defaultStartTime} defaultEndTime={createTaskDefaultValues.defaultEndTime} onTaskCreated={() => { setIsCreateTaskDialogOpen(false); queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] }); queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] }); queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] }); }} isOpen={isCreateTaskDialogOpen} onOpenChange={setIsCreateTaskDialogOpen} />
 
       <div className="max-w-4xl mx-auto w-full space-y-6">
-        <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={overallLoading} />
+        <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={isDashboardLoading} />
       </div>
       
       <div className="max-w-4xl mx-auto w-full space-y-6">
@@ -598,14 +600,14 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
               <CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <SchedulerInput onCommand={handleCommand} isLoading={overallLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} onQuickBreak={handleQuickBreak} />
+              <SchedulerInput onCommand={handleCommand} isLoading={isGlobalLoading} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={handleDetailedInject} onQuickBreak={handleQuickBreak} />
             </CardContent>
           </Card>
           
           <SchedulerActionCenter 
-            isProcessingCommand={overallLoading} dbScheduledTasks={dbScheduledTasks} retiredTasksCount={retiredTasks.length} sortBy={sortBy} onRebalanceToday={handleRebalanceToday} onReshuffleEverything={handleReshuffleEverything} onCompactSchedule={handleCompact} onRandomizeBreaks={handleRandomize} onZoneFocus={handleZoneFocus} onRechargeEnergy={() => rechargeEnergy()} onQuickBreak={handleQuickBreak} onQuickScheduleBlock={handleQuickScheduleBlock} onSortFlexibleTasks={handleSortFlexibleTasks} onAetherDump={aetherDump} onAetherDumpMega={aetherDumpMega} onRefreshSchedule={() => queryClient.invalidateQueries()} onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} onStartRegenPod={() => setShowRegenPodSetup(true)} hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} navigate={navigate} onGlobalAutoSchedule={handleGlobalAutoSchedule} onClearToday={handleClearToday} onPullNext={handlePullNext}
+            isProcessingCommand={isGlobalLoading} dbScheduledTasks={dbScheduledTasks} retiredTasksCount={retiredTasks.length} sortBy={sortBy} onRebalanceToday={handleRebalanceToday} onReshuffleEverything={handleReshuffleEverything} onCompactSchedule={handleCompact} onRandomizeBreaks={handleRandomize} onZoneFocus={handleZoneFocus} onRechargeEnergy={() => rechargeEnergy()} onQuickBreak={handleQuickBreak} onQuickScheduleBlock={handleQuickScheduleBlock} onSortFlexibleTasks={handleSortFlexibleTasks} onAetherDump={aetherDump} onAetherDumpMega={aetherDumpMega} onRefreshSchedule={() => queryClient.invalidateQueries()} onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} onStartRegenPod={() => setShowRegenPodSetup(true)} hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} navigate={navigate} onGlobalAutoSchedule={handleGlobalAutoSchedule} onClearToday={handleClearToday} onPullNext={handlePullNext}
           />
-          <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
+          <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={isDashboardLoading} />
           {calculatedSchedule?.summary.isBlocked ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-destructive/50 bg-destructive/5">
               <CalendarDays className="h-10 w-10 mb-3 opacity-20 text-destructive" />
@@ -613,7 +615,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
             </div>
           ) : (
             <>
-              {(!calculatedSchedule || calculatedSchedule.items.length === 0) && !overallLoading ? (
+              {(!calculatedSchedule || calculatedSchedule.items.length === 0) && !isGlobalLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-white/5 bg-secondary/5 group transition-all duration-500 hover:border-primary/40">
                   <div className="p-4 rounded-full bg-primary/5 mb-4 group-hover:scale-110 transition-transform duration-500">
                     <Sparkles className="h-10 w-10 text-primary/30" />

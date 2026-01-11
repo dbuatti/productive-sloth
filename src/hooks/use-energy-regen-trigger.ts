@@ -4,23 +4,34 @@ import { parseISO, differenceInMinutes, format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
 const REGEN_COOLDOWN_MINUTES = 5;
+const TRIGGER_THROTTLE_MS = 30000; // Hard 30-second lock to prevent rapid-fire loops
 
 export const useEnergyRegenTrigger = () => {
   const { user, profile, refreshProfile } = useSession();
   const isTriggeringRef = useRef(false);
+  const lastTriggerTimeRef = useRef<number>(0);
   
-  // Use a ref for the profile to avoid re-running the trigger logic unnecessarily when the profile object changes
   const profileRef = useRef(profile);
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
 
   const triggerRegen = useCallback(async () => {
+    const now = Date.now();
+    
+    // Hard throttle: Don't even try if we triggered in the last 30 seconds
+    if (now - lastTriggerTimeRef.current < TRIGGER_THROTTLE_MS) {
+      return;
+    }
+
     const currentProfile = profileRef.current;
     if (!user || !currentProfile || isTriggeringRef.current) return;
 
     isTriggeringRef.current = true;
-    console.log("[useEnergyRegenTrigger] Triggering energy regeneration via Edge Function.");
+    lastTriggerTimeRef.current = now;
+    
+    console.log("[useEnergyRegenTrigger] Stability Guard Passed. Invoking Edge Function.");
+    
     try {
       const { error } = await supabase.functions.invoke('trigger-energy-regen', {
         method: 'POST',
@@ -29,21 +40,21 @@ export const useEnergyRegenTrigger = () => {
 
       if (error) throw new Error(error.message);
       
-      console.log("[useEnergyRegenTrigger] Energy regeneration Edge Function invoked successfully.");
+      console.log("[useEnergyRegenTrigger] Success. Profile refresh queued.");
       
-      // Delay refresh slightly to allow database update to propagate
-      await new Promise(resolve => setTimeout(resolve, 2000)); 
-      await refreshProfile();
+      // Delay refresh to allow DB propagation
+      setTimeout(async () => {
+        await refreshProfile();
+        isTriggeringRef.current = false;
+      }, 2000);
 
     } catch (e: any) {
-      console.error("[useEnergyRegenTrigger] Failed to trigger energy regeneration:", e.message);
-    } finally {
+      console.error("[useEnergyRegenTrigger] Failed:", e.message);
       isTriggeringRef.current = false;
     }
   }, [user, refreshProfile]);
 
   useEffect(() => {
-    // Don't even try if we don't have the required data
     if (!user || !profile) return;
 
     const lastRegenAt = profile.last_energy_regen_at ? parseISO(profile.last_energy_regen_at) : null;
@@ -63,6 +74,5 @@ export const useEnergyRegenTrigger = () => {
     if (shouldTrigger) {
       triggerRegen();
     }
-    // We only react to the last_energy_regen_at timestamp changing at the minute level to avoid excessive triggers
-  }, [user, profile?.last_energy_regen_at ? format(parseISO(profile.last_energy_regen_at), 'yyyy-MM-dd HH:mm') : null, triggerRegen]);
+  }, [user?.id, profile?.last_energy_regen_at, triggerRegen]); // Stabilized dependencies
 };

@@ -155,7 +155,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const compactScheduledTasksMutation = useMutation({
     mutationFn: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { error = null } = await supabase.from('scheduled_tasks').upsert(tasksToUpdate, { onConflict: 'id' });
+      const { error = null } = await supabase.from('scheduled_tasks').update(tasksToUpdate).eq('user_id', userId);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] })
@@ -413,7 +413,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
 
-      // --- LIQUID FLOW PLACEMENT LOOP: SEQUENTIAL POINTER LOCK ---
+      // --- LIQUID FLOW PLACEMENT LOOP: SEQUENTIAL POINTER LOCK + QUOTA GUARD ---
       for (const currentDateString of daysToProcess) {
         const currentDayAsDate = parseISO(currentDateString);
         if (freshProfile.blocked_days?.includes(currentDateString)) continue;
@@ -431,6 +431,19 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const staticConstraints = getStaticConstraints(freshProfile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
         
+        // Calculate Liquid Minutes for Budget Enforcement
+        const occupiedDuration = currentOccupied.reduce((sum, block) => sum + block.duration, 0);
+        const liquidMinutes = Math.max(0, workdayTotal - occupiedDuration);
+
+        // Map budgets for this specific day
+        const budgets = new Map<string, number>();
+        zoneWeights.forEach(zw => {
+            budgets.set(zw.value.toLowerCase(), (zw.target_weight / 100) * liquidMinutes);
+        });
+        
+        // Tracking used minutes per environment
+        const envUsedMinutes = new Map<string, number>();
+
         // STRICT GROUPING: sortAndChunkTasks ensures Env sequence is strictly ordered.
         const tasksToPlace = sortAndChunkTasks(pool, freshProfile, sortPreference, workdayTotal, zoneWeights);
         
@@ -438,6 +451,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         let placementCursor = effectiveSearchStart;
 
         for (const t of tasksToPlace) {
+            const env = (t.task_environment || 'laptop').toLowerCase();
+            const currentUsed = envUsedMinutes.get(env) || 0;
+            const budget = budgets.get(env) ?? 999; // Fallback for envs without explicit weight
+
+            // QUOTA GUARD: Stop placing if we've exceeded the allocated liquid budget for this zone.
+            if (currentUsed >= budget) continue;
+
             const taskTotal = (t.duration || 30) + (t.break_duration || 0);
             
             // Sequential Placement: Search for the first slot available AFTER the previous task.
@@ -452,6 +472,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                     is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
                     is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
                 });
+                
+                // Update tracking
+                envUsedMinutes.set(env, currentUsed + (t.duration || 30));
                 
                 // ADVANCE POINTER: Subsequent tasks (even from other environments) MUST start after this one.
                 placementCursor = slot.end;

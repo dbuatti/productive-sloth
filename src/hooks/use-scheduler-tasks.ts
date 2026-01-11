@@ -81,7 +81,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { data, error } = await supabase.from('scheduled_tasks').insert({ ...newTask, user_id: userId }).select().single();
+      const taskToInsert = { 
+        ...newTask, 
+        user_id: userId,
+        name: newTask.name || 'Untitled Task' // Fallback for name
+      };
+      const { data, error } = await supabase.from('scheduled_tasks').insert(taskToInsert).select().single();
       if (error) throw new Error(error.message);
       return data as DBScheduledTask;
     },
@@ -105,7 +110,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) throw new Error("User not authenticated.");
       const { error: logError } = await supabase.from('completedtasks').insert({
         user_id: userId,
-        task_name: task.name,
+        task_name: task.name || 'Untitled Task',
         original_id: task.id,
         duration_scheduled: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : 30,
         duration_used: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : 30,
@@ -166,9 +171,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
   const randomizeBreaksMutation = useMutation({
     mutationFn: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }: any) => {
-      const breaks = currentDbTasks.filter((t: any) => t.name.toLowerCase() === 'break' && !t.is_locked);
+      const breaks = currentDbTasks.filter((t: any) => t.name?.toLowerCase() === 'break' && !t.is_locked);
       if (breaks.length === 0) return;
-      const otherBlocks = currentDbTasks.filter((t: any) => t.name.toLowerCase() !== 'break' || t.is_locked).map((t: any) => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!) }));
+      const otherBlocks = currentDbTasks.filter((t: any) => t.name?.toLowerCase() !== 'break' || t.is_locked).map((t: any) => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!) }));
       const dayDate = parseISO(selectedDate);
       const staticConstraints = getStaticConstraints(profile!, dayDate, workdayStartTime, workdayEndTime);
       let occupied = mergeOverlappingTimeBlocks([...otherBlocks, ...staticConstraints]);
@@ -195,7 +200,23 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) return;
       const { data: toDump } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', formattedSelectedDate).eq('is_flexible', true).eq('is_locked', false);
       if (!toDump || toDump.length === 0) return;
-      const retired = toDump.map(t => ({ user_id: userId, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, original_scheduled_date: t.scheduled_date, retired_at: new Date().toISOString(), is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
+      const retired = toDump.map(t => ({ 
+        user_id: userId, 
+        name: t.name || 'Untitled Task', 
+        duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, 
+        break_duration: t.break_duration, 
+        original_scheduled_date: t.scheduled_date, 
+        retired_at: new Date().toISOString(), 
+        is_critical: t.is_critical, 
+        is_locked: false, 
+        energy_cost: t.energy_cost, 
+        is_completed: false, 
+        is_custom_energy_cost: t.is_custom_energy_cost, 
+        task_environment: t.task_environment, 
+        is_backburner: t.is_backburner, 
+        is_work: t.is_work, 
+        is_break: t.is_break 
+      }));
       await supabase.from('aethersink').insert(retired);
       await supabase.from('scheduled_tasks').delete().in('id', toDump.map(t => t.id));
     },
@@ -210,7 +231,23 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (!userId) return;
       const { data: toDump } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).gte('scheduled_date', todayString).eq('is_flexible', true).eq('is_locked', false);
       if (!toDump || toDump.length === 0) return;
-      const retired = toDump.map(t => ({ user_id: userId, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, original_scheduled_date: t.scheduled_date, retired_at: new Date().toISOString(), is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
+      const retired = toDump.map(t => ({ 
+        user_id: userId, 
+        name: t.name || 'Untitled Task', 
+        duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, 
+        break_duration: t.break_duration, 
+        original_scheduled_date: t.scheduled_date, 
+        retired_at: new Date().toISOString(), 
+        is_critical: t.is_critical, 
+        is_locked: false, 
+        energy_cost: t.energy_cost, 
+        is_completed: false, 
+        is_custom_energy_cost: t.is_custom_energy_cost, 
+        task_environment: t.task_environment, 
+        is_backburner: t.is_backburner, 
+        is_work: t.is_work, 
+        is_break: t.is_break 
+      }));
       await supabase.from('aethersink').insert(retired);
       await supabase.from('scheduled_tasks').delete().in('id', toDump.map(t => t.id));
     },
@@ -235,7 +272,21 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       
       if (!slot) return showError("No valid gap available.");
       
-      await supabase.from('scheduled_tasks').insert({ user_id: userId, name: sink.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), scheduled_date: selectedDateString, is_critical: sink.is_critical, is_flexible: true, is_locked: false, energy_cost: sink.energy_cost, task_environment: sink.task_environment, is_backburner: sink.is_backburner, is_work: sink.is_work, is_break: sink.is_break });
+      await supabase.from('scheduled_tasks').insert({ 
+        user_id: userId, 
+        name: sink.name || 'Untitled Task', 
+        start_time: slot.start.toISOString(), 
+        end_time: slot.end.toISOString(), 
+        scheduled_date: selectedDateString, 
+        is_critical: sink.is_critical, 
+        is_flexible: true, 
+        is_locked: false, 
+        energy_cost: sink.energy_cost, 
+        task_environment: sink.task_environment, 
+        is_backburner: sink.is_backburner, 
+        is_work: sink.is_work, 
+        is_break: sink.is_break 
+      });
       await supabase.from('aethersink').delete().eq('id', sink.id);
       showSuccess(`Objective "${sink.name}" Synchronized.`);
     },
@@ -248,7 +299,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const duplicateScheduledTaskMutation = useMutation({
     mutationFn: async (task: DBScheduledTask) => {
       const { id, created_at, updated_at, ...rest } = task;
-      const { data, error } = await supabase.from('scheduled_tasks').insert({ ...rest, name: `${task.name} (Copy)`, is_completed: false }).select().single();
+      const { data, error } = await supabase.from('scheduled_tasks').insert({ 
+        ...rest, 
+        name: `${task.name || 'Untitled Task'} (Copy)`, 
+        is_completed: false 
+      }).select().single();
       if (error) throw error;
       return data;
     },
@@ -272,7 +327,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const updateScheduledTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<DBScheduledTask> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { data, error = null } = await supabase.from('scheduled_tasks').update({ ...task, updated_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId).select().single();
+      const updates = { 
+        ...task, 
+        updated_at: new Date().toISOString() 
+      };
+      if (task.name !== undefined) {
+        updates.name = task.name || 'Untitled Task';
+      }
+      const { data, error = null } = await supabase.from('scheduled_tasks').update(updates).eq('id', task.id).eq('user_id', userId).select().single();
       if (error) throw error;
       return data;
     },
@@ -298,7 +360,23 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
   const retireTaskMutation = useMutation({
     mutationFn: async (task: DBScheduledTask) => {
-      const retired = { user_id: userId, name: task.name, duration: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : 30, break_duration: task.break_duration, original_scheduled_date: task.scheduled_date, retired_at: new Date().toISOString(), is_critical: task.is_critical, is_locked: false, energy_cost: task.energy_cost, is_completed: false, is_custom_energy_cost: task.is_custom_energy_cost, task_environment: task.task_environment, is_backburner: task.is_backburner, is_work: task.is_work, is_break: task.is_break };
+      const retired = { 
+        user_id: userId, 
+        name: task.name || 'Untitled Task', 
+        duration: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : 30, 
+        break_duration: task.break_duration, 
+        original_scheduled_date: task.scheduled_date, 
+        retired_at: new Date().toISOString(), 
+        is_critical: task.is_critical, 
+        is_locked: false, 
+        energy_cost: task.energy_cost, 
+        is_completed: false, 
+        is_custom_energy_cost: task.is_custom_energy_cost, 
+        task_environment: task.task_environment, 
+        is_backburner: task.is_backburner, 
+        is_work: task.is_work, 
+        is_break: task.is_break 
+      };
       await supabase.from('aethersink').insert(retired);
       await supabase.from('scheduled_tasks').delete().eq('id', task.id);
     },
@@ -343,14 +421,90 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (taskSource === 'global-all-future') {
         const { data: fs } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).gte('scheduled_date', todayString).eq('is_flexible', true).eq('is_locked', false);
         const { data: ar } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
-        (fs || []).forEach(t => { pool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false }); globalScheduledIdsToDelete.push(t.id); });
-        (ar || []).forEach(t => { pool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false }); globalRetiredIdsToDelete.push(t.id); });
+        (fs || []).forEach(t => { 
+          pool.push({ 
+            id: t.id, 
+            name: t.name || 'Untitled Task', 
+            duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, 
+            break_duration: t.break_duration, 
+            is_critical: t.is_critical, 
+            is_flexible: true, 
+            is_backburner: t.is_backburner, 
+            energy_cost: t.energy_cost, 
+            source: 'scheduled', 
+            originalId: t.id, 
+            is_custom_energy_cost: t.is_custom_energy_cost, 
+            created_at: t.created_at, 
+            task_environment: t.task_environment, 
+            is_work: t.is_work || false, 
+            is_break: t.is_break || false 
+          }); 
+          globalScheduledIdsToDelete.push(t.id); 
+        });
+        (ar || []).forEach(t => { 
+          pool.push({ 
+            id: t.id, 
+            name: t.name || 'Untitled Task', 
+            duration: t.duration || 30, 
+            break_duration: t.break_duration, 
+            is_critical: t.is_critical, 
+            is_flexible: true, 
+            is_backburner: t.is_backburner, 
+            energy_cost: t.energy_cost, 
+            source: 'retired', 
+            originalId: t.id, 
+            is_custom_energy_cost: t.is_custom_energy_cost, 
+            created_at: t.retired_at, 
+            task_environment: t.task_environment, 
+            is_work: t.is_work || false, 
+            is_break: t.is_break || false 
+          }); 
+          globalRetiredIdsToDelete.push(t.id); 
+        });
       } else if (taskSource === 'sink-only' || taskSource === 'sink-to-gaps') {
         const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
-        (ret || []).forEach(t => { pool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false }); globalRetiredIdsToDelete.push(t.id); });
+        (ret || []).forEach(t => { 
+          pool.push({ 
+            id: t.id, 
+            name: t.name || 'Untitled Task', 
+            duration: t.duration || 30, 
+            break_duration: t.break_duration, 
+            is_critical: t.is_critical, 
+            is_flexible: true, 
+            is_backburner: t.is_backburner, 
+            energy_cost: t.energy_cost, 
+            source: 'retired', 
+            originalId: t.id, 
+            is_custom_energy_cost: t.is_custom_energy_cost, 
+            created_at: t.retired_at, 
+            task_environment: t.task_environment, 
+            is_work: t.is_work || false, 
+            is_break: t.is_break || false 
+          }); 
+          globalRetiredIdsToDelete.push(t.id); 
+        });
       } else if (taskSource === 'all-flexible') {
         const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', targetDateString).eq('is_flexible', true).eq('is_locked', false);
-        (dt || []).forEach(t => { pool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false }); globalScheduledIdsToDelete.push(t.id); });
+        (dt || []).forEach(t => { 
+          pool.push({ 
+            id: t.id, 
+            name: t.name || 'Untitled Task', 
+            duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, 
+            break_duration: t.break_duration, 
+            is_critical: t.is_critical, 
+            is_flexible: true, 
+            is_backburner: t.is_backburner, 
+            energy_cost: t.energy_cost, 
+            source: 'scheduled', 
+            originalId: t.id, 
+            is_custom_energy_cost: t.is_custom_energy_cost, 
+            created_at: t.created_at, 
+            task_environment: t.task_environment, 
+            is_work: t.is_work || false, 
+            is_break: t.is_break || false 
+          }); 
+          globalScheduledIdsToDelete.push(t.id); 
+        });
       }
 
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
@@ -394,7 +548,24 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 if (isBefore(searchEnd, searchStart)) continue;
                 const slot = findFirstAvailableSlot(taskTotal, dayOccupied, searchStart, searchEnd);
                 if (slot) {
-                  globalTasksToInsert.push({ id: t.source === 'retired' ? undefined : t.originalId, name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), break_duration: t.break_duration, scheduled_date: currentDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break });
+                  globalTasksToInsert.push({ 
+                    id: t.source === 'retired' ? undefined : t.originalId, 
+                    name: t.name || 'Untitled Task', 
+                    start_time: slot.start.toISOString(), 
+                    end_time: slot.end.toISOString(), 
+                    break_duration: t.break_duration, 
+                    scheduled_date: currentDateString, 
+                    is_critical: t.is_critical, 
+                    is_flexible: true, 
+                    is_locked: false, 
+                    energy_cost: t.energy_cost, 
+                    is_completed: false, 
+                    is_custom_energy_cost: t.is_custom_energy_cost, 
+                    task_environment: t.task_environment, 
+                    is_backburner: t.is_backburner, 
+                    is_work: t.is_work, 
+                    is_break: t.is_break 
+                  });
                   dayOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
                   dayOccupied = mergeOverlappingTimeBlocks(dayOccupied);
                   const idx = pool.findIndex(pt => pt.id === t.id);
@@ -414,7 +585,24 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                     const taskTotal = (t.duration || 30) + (t.break_duration || 0);
                     const slot = findFirstAvailableSlot(taskTotal, dynamicOccupied, effectiveStart, workdayEnd);
                     if (slot) {
-                      globalTasksToInsert.push({ id: t.source === 'retired' ? undefined : t.originalId, name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), break_duration: t.break_duration, scheduled_date: currentDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break });
+                      globalTasksToInsert.push({ 
+                        id: t.source === 'retired' ? undefined : t.originalId, 
+                        name: t.name || 'Untitled Task', 
+                        start_time: slot.start.toISOString(), 
+                        end_time: slot.end.toISOString(), 
+                        break_duration: t.break_duration, 
+                        scheduled_date: currentDateString, 
+                        is_critical: t.is_critical, 
+                        is_flexible: true, 
+                        is_locked: false, 
+                        energy_cost: t.energy_cost, 
+                        is_completed: false, 
+                        is_custom_energy_cost: t.is_custom_energy_cost, 
+                        task_environment: t.task_environment, 
+                        is_backburner: t.is_backburner, 
+                        is_work: t.is_work, 
+                        is_break: t.is_break 
+                      });
                       pool.splice(i, 1);
                       i--;
                     }
@@ -423,7 +611,22 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }
       }
 
-      const globalTasksToKeepInSink: NewRetiredTask[] = pool.map(t => ({ user_id: userId, name: t.name, duration: t.duration, break_duration: t.break_duration, original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false, energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break }));
+      const globalTasksToKeepInSink: NewRetiredTask[] = pool.map(t => ({ 
+        user_id: userId, 
+        name: t.name || 'Untitled Task', 
+        duration: t.duration, 
+        break_duration: t.break_duration, 
+        original_scheduled_date: targetDateString, 
+        is_critical: t.is_critical, 
+        is_locked: false, 
+        energy_cost: t.energy_cost, 
+        is_completed: false, 
+        is_custom_energy_cost: t.is_custom_energy_cost, 
+        task_environment: t.task_environment, 
+        is_backburner: t.is_backburner, 
+        is_work: t.is_work, 
+        is_break: t.is_break 
+      }));
       await autoBalanceScheduleMutation.mutateAsync({ scheduledTaskIdsToDelete: Array.from(new Set(globalScheduledIdsToDelete)), retiredTaskIdsToDelete: Array.from(new Set(globalRetiredIdsToDelete)), tasksToInsert: globalTasksToInsert, tasksToKeepInSink: globalTasksToKeepInSink, selectedDate: targetDateString });
     } catch (e: any) { showError(`Engine Error: ${e.message}`); }
   }, [userId, isSessionLoading, autoBalanceScheduleMutation, todayString]);

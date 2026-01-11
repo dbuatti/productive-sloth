@@ -4,10 +4,10 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DBScheduledTask, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortBy, TimeBlock, AutoBalancePayload, UnifiedTask, CompletedTaskLogEntry, TaskEnvironment } from '@/types/scheduler';
-import { useSession } from './use-session';
+import { useSession, UserProfile } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, parseISO, format, addMinutes, isBefore, addDays, differenceInMinutes, addHours, isSameDay, max, min, isAfter } from 'date-fns';
-import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal, sortAndChunkTasks, formatTime, calculateSpatialPhases } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal, sortAndChunkTasks, formatTime, calculateSpatialPhases, ZoneWeight } from '@/lib/scheduler-utils';
 
 // --- Constants for Engine Protection ---
 const LOW_TIME_THRESHOLD = 180; // 3 hours
@@ -329,7 +329,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     targetDateString: string,
     futureDaysToSchedule: number = 30
   ) => {
-    if (isSessionLoading || !profile) {
+    if (isSessionLoading || !userId) {
       console.log("[useSchedulerTasks] Engine stalled: Waiting for profile synchronization.");
       return;
     }
@@ -337,21 +337,26 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     console.log(`[useSchedulerTasks] ENGINE TELEMETRY INITIATED. Mode: ${taskSource}, Sort: ${sortPreference}`);
 
     try {
-      console.log(`[useSchedulerTasks] Synchronizing fresh Spatial Matrix weights...`);
-      const { data: envs, error: envError } = await supabase.from('environments').select('value, target_weight').eq('user_id', user!.id);
-      if (envError) throw envError;
+      // ATOMIC FETCH: Get fresh environments AND fresh profile state simultaneously
+      const [envsResponse, profileResponse] = await Promise.all([
+        supabase.from('environments').select('value, target_weight').eq('user_id', userId),
+        supabase.from('profiles').select('*').eq('id', userId).single()
+      ]);
+
+      if (envsResponse.error) throw envsResponse.error;
+      if (profileResponse.error) throw profileResponse.error;
       
-      // VERIFICATION: Ensure weights are valid numbers and mapped correctly
-      const envWeightsMap = new Map<string, number>();
-      let totalWeightCheck = 0;
+      const freshEnvs = envsResponse.data;
+      const freshProfile = profileResponse.data as UserProfile;
       
-      envs.forEach(e => {
-        const w = Number(e.target_weight || 0);
-        envWeightsMap.set(e.value, w);
-        totalWeightCheck += w;
-      });
+      // VERIFICATION: Map weights explicitly to ZoneWeight format
+      const zoneWeights: ZoneWeight[] = freshEnvs.map(e => ({
+        value: e.value,
+        target_weight: Number(e.target_weight || 0)
+      }));
       
-      console.log(`[useSchedulerTasks] Spatial Matrix verified. Active Zones: ${envs.length}, Total Weight: ${totalWeightCheck}%`);
+      let totalWeightCheck = zoneWeights.reduce((s, zw) => s + zw.target_weight, 0);
+      console.log(`[useSchedulerTasks] Spatial Matrix verified. Active Zones: ${zoneWeights.length}, Total Weight: ${totalWeightCheck}%`);
 
       if (totalWeightCheck === 0) {
         console.warn("[useSchedulerTasks] ENGINE GUARD: Global weight is zero. Spatial balancing is impossible.");
@@ -369,8 +374,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       let globalTasksToInsert: NewDBScheduledTask[] = [];
 
       if (taskSource === 'global-all-future') {
-        const { data: fs } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user!.id).gte('scheduled_date', todayString).eq('is_flexible', true).eq('is_locked', false);
-        const { data: ar } = await supabase.from('aethersink').select('*').eq('user_id', user!.id).eq('is_locked', false);
+        const { data: fs } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).gte('scheduled_date', todayString).eq('is_flexible', true).eq('is_locked', false);
+        const { data: ar } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
         (fs || []).forEach(t => {
           pool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
           globalScheduledIdsToDelete.push(t.id);
@@ -380,13 +385,13 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           globalRetiredIdsToDelete.push(t.id);
         });
       } else if (taskSource === 'sink-only' || taskSource === 'sink-to-gaps') {
-        const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', user!.id).eq('is_locked', false);
+        const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
         (ret || []).forEach(t => {
           pool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
           globalRetiredIdsToDelete.push(t.id);
         });
       } else if (taskSource === 'all-flexible') {
-        const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user!.id).eq('scheduled_date', targetDateString).eq('is_flexible', true).eq('is_locked', false);
+        const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', targetDateString).eq('is_flexible', true).eq('is_locked', false);
         (dt || []).forEach(t => {
           pool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
           globalScheduledIdsToDelete.push(t.id);
@@ -399,17 +404,16 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       for (const currentDateString of daysToProcess) {
         const currentDayAsDate = parseISO(currentDateString);
-        if (profile.blocked_days?.includes(currentDateString)) {
+        if (freshProfile.blocked_days?.includes(currentDateString)) {
            console.log(`[useSchedulerTasks] Skipping ${currentDateString}: Day is blocked.`);
            continue;
         }
 
-        const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(currentDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(currentDayAsDate);
-        let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(currentDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(currentDayAsDate), 17);
+        const workdayStart = freshProfile.default_auto_schedule_start_time ? setTimeOnDate(currentDayAsDate, freshProfile.default_auto_schedule_start_time) : startOfDay(currentDayAsDate);
+        let workdayEnd = freshProfile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(currentDayAsDate), freshProfile.default_auto_schedule_end_time) : addHours(startOfDay(currentDayAsDate), 17);
         if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
         
         const now = new Date();
-        // Protection: Ensure effectiveStart for future days is always workdayStart
         const effectiveStart = isSameDay(currentDayAsDate, now) ? max([now, workdayStart]) : workdayStart;
         const availableMinutes = differenceInMinutes(workdayEnd, effectiveStart);
 
@@ -420,37 +424,33 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             continue;
         }
 
-        const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user!.id).eq('scheduled_date', currentDateString);
+        const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', currentDateString);
         const fixedBlocks = (dt || []).filter(t => !t.is_flexible || t.is_locked || isMeal(t.name) || t.name.toLowerCase().startsWith('reflection')).filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) }));
-        const staticConstraints = getStaticConstraints(profile, currentDayAsDate, workdayStart, workdayEnd);
+        const staticConstraints = getStaticConstraints(freshProfile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
 
-        // PROTECTIVE SEQUENCE: Ensure envSequence only contains currently existing environments
-        const validEnvValues = envs.map(e => e.value);
-        const envSequence = (profile.custom_environment_order?.length 
-          ? profile.custom_environment_order 
+        const validEnvValues = zoneWeights.map(e => e.value);
+        const envSequence = (freshProfile.custom_environment_order?.length 
+          ? freshProfile.custom_environment_order 
           : validEnvValues).filter(val => validEnvValues.includes(val));
         
         console.log(`[useSchedulerTasks] Validated Sequence: ${envSequence.join(' -> ')}`);
 
         // --- SPATIAL PHASE GENERATION ---
-        let effectiveWeights = new Map(envWeightsMap);
-        let activeEnvs = envSequence.filter(e => (effectiveWeights.get(e) || 0) > 0);
+        let iterativeWeights = [...zoneWeights];
 
-        if (availableMinutes < LOW_TIME_THRESHOLD && activeEnvs.length > 1) {
+        if (availableMinutes < LOW_TIME_THRESHOLD && iterativeWeights.length > 1) {
           console.log(`[useSchedulerTasks] TEMPORAL COMPRESSION: Consolidating zones (Remaining: ${availableMinutes}m).`);
-          const sortedEnvs = [...envWeightsMap.entries()].filter(([_, w]) => w > 0).sort((a, b) => b[1] - a[1]);
+          const sortedEnvs = [...iterativeWeights].filter(zw => zw.target_weight > 0).sort((a, b) => b.target_weight - a.target_weight);
           const limit = availableMinutes < 90 ? 1 : (availableMinutes < 120 ? 2 : 3);
           const topEnvs = sortedEnvs.slice(0, limit);
           if (topEnvs.length > 0) {
-            effectiveWeights = new Map();
-            const totalTopWeight = topEnvs.reduce((s, e) => s + e[1], 0);
-            topEnvs.forEach(([env, w]) => effectiveWeights.set(env, (w / totalTopWeight) * 100));
-            activeEnvs = topEnvs.map(e => e[0]);
+            const totalTopWeight = topEnvs.reduce((s, e) => s + e.target_weight, 0);
+            iterativeWeights = topEnvs.map(zw => ({ value: zw.value, target_weight: (zw.target_weight / totalTopWeight) * 100 }));
           }
         }
 
-        const phases = calculateSpatialPhases(availableMinutes, effectiveStart, workdayEnd, effectiveWeights, envSequence, profile.enable_macro_spread || false, MIN_PHASE_DURATION);
+        const phases = calculateSpatialPhases(availableMinutes, effectiveStart, workdayEnd, iterativeWeights, envSequence, freshProfile.enable_macro_spread || false, MIN_PHASE_DURATION);
 
         console.log(`[useSchedulerTasks] Generated ${phases.length} spatial phases for ${currentDateString}.`);
 
@@ -493,11 +493,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           }
         } 
         
-        // --- FALLBACK: PRIORITY-FILL (When Spatial Phases fail or tasks remain) ---
+        // --- FALLBACK: PRIORITY-FILL ---
         if (pool.length > 0 && isBefore(effectiveStart, workdayEnd)) {
-            console.log(`[useSchedulerTasks] ${phases.length === 0 ? "SPATIAL ENGINE STALLED" : "TASKS REMAIN"}: Running Priority-Fill Fallback.`);
+            console.log(`[useSchedulerTasks] Running Priority-Fill Fallback for ${pool.length} tasks.`);
             
-            // Re-sort pool by global priority
             pool.sort((a, b) => {
                 if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
                 if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
@@ -531,7 +530,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log(`[useSchedulerTasks] Engine Sync Complete. Placed: ${globalTasksToInsert.length}, Unplaced: ${pool.length}`);
 
       const globalTasksToKeepInSink: NewRetiredTask[] = pool.map(t => ({
-        user_id: user!.id,
+        user_id: userId,
         name: t.name,
         duration: t.duration,
         break_duration: t.break_duration,
@@ -557,7 +556,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.error(`[useSchedulerTasks] ENGINE CRITICAL FAILURE:`, e);
       showError(`Engine Error: ${e.message}`); 
     }
-  }, [user, profile, isSessionLoading, autoBalanceScheduleMutation, todayString, userId]);
+  }, [userId, isSessionLoading, autoBalanceScheduleMutation, todayString]);
 
   return {
     dbScheduledTasks,

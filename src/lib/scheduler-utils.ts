@@ -335,23 +335,41 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
   return constraints;
 };
 
+// --- SPATIAL CORE REFACTOR ---
+
+export interface ZoneWeight {
+  value: string;
+  target_weight: number;
+}
+
 export const calculateSpatialPhases = (
   availableMinutes: number,
   effectiveStart: Date,
   workdayEnd: Date,
-  weights: Map<string, number>,
+  zoneWeights: ZoneWeight[], // REFACTORED: Passing array of objects
   envSequence: string[],
   enableMacroSpread: boolean,
   minPhaseDuration: number = 30
 ): { env: string; start: Date; end: Date }[] => {
-  console.log(`[calculateSpatialPhases] TELEMETRY: start=${formatTime(effectiveStart)}, end=${formatTime(workdayEnd)}, window=${availableMinutes}m`);
+  console.log(`[calculateSpatialPhases] TELEMETRY START: window=${availableMinutes}m, zones=${zoneWeights.length}`);
   
+  // Explicitly map the weights to ensure we are using 'target_weight'
+  const weightLookup = new Map<string, number>();
+  zoneWeights.forEach(zw => {
+    weightLookup.set(zw.value, Number(zw.target_weight || 0));
+  });
+
   const phases: { env: string; start: Date; end: Date }[] = [];
   let phaseCursor = effectiveStart;
 
-  const activeEnvs = envSequence.filter(e => (weights.get(e) || 0) > 0);
+  // Verify active zones using the mapped lookup
+  const activeEnvs = envSequence.filter(e => (weightLookup.get(e) || 0) > 0);
+  
   if (activeEnvs.length === 0) {
-    console.warn("[calculateSpatialPhases] STALL: No environments with non-zero weight found.");
+    console.error("[calculateSpatialPhases] STALL: No zones with target_weight > 0 found in sequence.", { 
+      sequence: envSequence, 
+      weights: Array.from(weightLookup.entries()) 
+    });
     return [];
   }
 
@@ -359,11 +377,12 @@ export const calculateSpatialPhases = (
 
   for (const iter of iterations) {
     for (const env of activeEnvs) {
-      const weight = weights.get(env) || 0;
-      // Protection: Use ceil to ensure small weights don't zero out, capped by available
+      const weight = weightLookup.get(env) || 0;
+      
+      // Calculate phase duration based on global percentage of available window
       let slice = Math.ceil((availableMinutes * (weight / 100)) / iterations.length);
       
-      // Ensure at least minPhaseDuration if any weight exists
+      // Protection: Minimum phase size for visibility
       if (slice > 0 && slice < minPhaseDuration && activeEnvs.length > 1) {
         slice = minPhaseDuration;
       }
@@ -376,7 +395,7 @@ export const calculateSpatialPhases = (
         if (actualSlice > 0) {
           phases.push({ env, start: phaseStart, end: phaseEnd });
           phaseCursor = phaseEnd;
-          console.log(`[calculateSpatialPhases] PHASE: ${env} (${actualSlice}m) from ${formatTime(phaseStart)} to ${formatTime(phaseEnd)}`);
+          console.log(`[calculateSpatialPhases] GENERATED PHASE: ${env} (${actualSlice}m) @ ${formatTime(phaseStart)}`);
         }
       }
     }

@@ -336,8 +336,9 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
 };
 
 /**
- * STRATEGIC SCHEDULING LOGIC: ENVIRONMENT CHUNKING & MACRO SPREAD
- * Groups tasks by mental/physical location and distributes them strategically.
+ * STRATEGIC SCHEDULING LOGIC: MACRO SPREAD + ENVIRONMENT CHUNKING
+ * Enforces "Spatial Monotasking" by ensuring tasks in the same zone are consecutive.
+ * Macro Spread splits workload into Morning/Afternoon day-parts.
  */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
@@ -367,45 +368,51 @@ export const sortAndChunkTasks = (
   const activeEnvs = Array.from(groups.keys());
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
-  // 3. Logic: MACRO SPREAD DISTRIBUTION (The "Half-Split" Method)
-  // Instead of interleaving individual tasks (which fragments sessions), 
-  // we split each environment's workload into two sessions (Morning/Afternoon) 
-  // and sequence those session-blocks.
+  // 3. LOGIC: MACRO SPREAD + CONSECUTIVE CHUNKING
+  // Goal: Spatial Monotasking within day-parts. No interleaving individual tasks.
   if (enable_macro_spread || sortPreference === 'ENVIRONMENT_RATIO') {
-    const morningSessions: UnifiedTask[][] = [];
-    const afternoonSessions: UnifiedTask[][] = [];
+    const morningPool: UnifiedTask[] = [];
+    const afternoonPool: UnifiedTask[] = [];
 
     finalOrder.forEach(env => {
       const groupTasks = groups.get(env) || [];
-      // Sub-sort: keep tasks with the same name together to preserve multi-block sessions
+      
+      // Sort tasks within this environment group first
       groupTasks.sort((a, b) => {
+        // Session Preservation: Keep tasks with the same name together
         if (a.name === b.name) return internalSort(a, b);
         return a.name.localeCompare(b.name);
       });
 
       if (groupTasks.length > 1) {
-        // Find a natural split point that doesn't break a name-group
+        // Split workload in half
         const mid = Math.ceil(groupTasks.length / 2);
         let splitIdx = mid;
-        // Shift split point if it falls inside a name group
+        
+        // Session Preservation: Don't split a named session across macros
         while (splitIdx < groupTasks.length && groupTasks[splitIdx].name === groupTasks[splitIdx - 1].name) {
           splitIdx++;
         }
         
-        morningSessions.push(groupTasks.slice(0, splitIdx));
-        if (splitIdx < groupTasks.length) {
-          afternoonSessions.push(groupTasks.slice(splitIdx));
+        // If we exhausted the whole list trying to preserve a session, just keep it in morning
+        if (splitIdx >= groupTasks.length && groupTasks.length > mid) {
+          morningPool.push(...groupTasks);
+        } else {
+          morningPool.push(...groupTasks.slice(0, splitIdx));
+          afternoonPool.push(...groupTasks.slice(splitIdx));
         }
       } else if (groupTasks.length === 1) {
-        morningSessions.push(groupTasks);
+        morningPool.push(...groupTasks);
       }
     });
 
-    return [...morningSessions.flat(), ...afternoonSessions.flat()];
+    // Result is [All Morning Blocks] -> [All Afternoon Blocks]
+    // Within each block, they are already sorted by environment order
+    return [...morningPool, ...afternoonPool];
   } 
   
-  // 4. Logic: STRICT CONSECUTIVE CHUNKING (Environment Chunking)
-  // Exhausts one environment entirely before moving to next.
+  // 4. LOGIC: PURE CONSECUTIVE CHUNKING
+  // One continuous block per environment for the whole day.
   if (enable_environment_chunking) {
     return finalOrder.map(env => {
       const groupTasks = groups.get(env) || [];
@@ -413,7 +420,7 @@ export const sortAndChunkTasks = (
     }).flat();
   }
 
-  // 5. Fallback: Standard Priority Sort
+  // 5. Fallback: Standard Priority Sort (No Chunking)
   return [...tasks].sort(internalSort);
 };
 
@@ -424,7 +431,7 @@ export const compactScheduleLogic = (
   workdayEndTime: Date, 
   T_current: Date, 
   profile: UserProfile | null,
-  sortPreference: SortBy = 'ENVIRONMENT_RATIO' // NEW: Default parameter
+  sortPreference: SortBy = 'ENVIRONMENT_RATIO'
 ): DBScheduledTask[] => {
   if (!profile) return currentDbTasks;
   const fixed = currentDbTasks.filter(t => t.is_locked || !t.is_flexible || t.is_completed);
@@ -437,7 +444,7 @@ export const compactScheduleLogic = (
     created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false,
   }));
 
-  // MODIFIED: Respect the preferred balance logic during compaction
+  // USES THE STRATEGIC CHUNKING UTILITY
   const sorted = sortAndChunkTasks(unified, profile, sortPreference);
   const staticConstraints = getStaticConstraints(profile, selectedDayDate, workdayStartTime, workdayEndTime);
   const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);

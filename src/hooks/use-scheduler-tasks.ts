@@ -154,8 +154,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const compactScheduledTasksMutation = useMutation({
     mutationFn: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => {
       if (!userId) throw new Error("User not authenticated.");
-      const payload = tasksToUpdate.map(({ id, start_time, end_time }) => ({ id, start_time, end_time, user_id: userId }));
-      const { error = null } = await supabase.from('scheduled_tasks').upsert(payload, { onConflict: 'id' });
+      // FIX: Payload must include all NOT NULL fields for the upsert to succeed in Supabase
+      const { error = null } = await supabase.from('scheduled_tasks').upsert(tasksToUpdate, { onConflict: 'id' });
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] })
@@ -174,7 +174,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const dur = differenceInMinutes(parseISO(b.end_time!), parseISO(b.start_time!));
         const slot = findFirstAvailableSlot(dur, occupied, workdayStartTime, workdayEndTime);
         if (slot) {
-          updated.push({ id: b.id, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), user_id: userId });
+          // FIX: Include full original object 'b' to satisfy Supabase NOT NULL constraints
+          updated.push({ ...b, start_time: slot.start.toISOString(), end_time: slot.end.toISOString() });
           occupied.push({ start: slot.start, end: slot.end, duration: dur });
           occupied = mergeOverlappingTimeBlocks(occupied);
         }

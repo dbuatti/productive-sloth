@@ -344,19 +344,26 @@ export const calculateSpatialPhases = (
   enableMacroSpread: boolean,
   minPhaseDuration: number = 30
 ): { env: string; start: Date; end: Date }[] => {
+  console.log(`[calculateSpatialPhases] TELEMETRY: start=${formatTime(effectiveStart)}, end=${formatTime(workdayEnd)}, window=${availableMinutes}m`);
+  
   const phases: { env: string; start: Date; end: Date }[] = [];
   let phaseCursor = effectiveStart;
 
   const activeEnvs = envSequence.filter(e => (weights.get(e) || 0) > 0);
-  if (activeEnvs.length === 0) return [];
+  if (activeEnvs.length === 0) {
+    console.warn("[calculateSpatialPhases] STALL: No environments with non-zero weight found.");
+    return [];
+  }
 
   const iterations = enableMacroSpread ? [1, 2] : [1];
 
   for (const iter of iterations) {
     for (const env of activeEnvs) {
       const weight = weights.get(env) || 0;
-      let slice = Math.floor((availableMinutes * (weight / 100)) / iterations.length);
+      // Protection: Use ceil to ensure small weights don't zero out, capped by available
+      let slice = Math.ceil((availableMinutes * (weight / 100)) / iterations.length);
       
+      // Ensure at least minPhaseDuration if any weight exists
       if (slice > 0 && slice < minPhaseDuration && activeEnvs.length > 1) {
         slice = minPhaseDuration;
       }
@@ -369,6 +376,7 @@ export const calculateSpatialPhases = (
         if (actualSlice > 0) {
           phases.push({ env, start: phaseStart, end: phaseEnd });
           phaseCursor = phaseEnd;
+          console.log(`[calculateSpatialPhases] PHASE: ${env} (${actualSlice}m) from ${formatTime(phaseStart)} to ${formatTime(phaseEnd)}`);
         }
       }
     }

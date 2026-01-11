@@ -395,7 +395,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
         
         const now = new Date();
-        const effectiveStart = (isSameDay(currentDayAsDate, now) && isAfter(now, workdayStart)) ? now : workdayStart;
+        // Protection: Ensure effectiveStart for future days is always workdayStart
+        const effectiveStart = isSameDay(currentDayAsDate, now) ? max([now, workdayStart]) : workdayStart;
         const availableMinutes = differenceInMinutes(workdayEnd, effectiveStart);
 
         console.log(`[useSchedulerTasks] Processing ${currentDateString}. Window: ${formatTime(effectiveStart)} - ${formatTime(workdayEnd)} (${availableMinutes}m)`);
@@ -410,7 +411,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const staticConstraints = getStaticConstraints(profile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
 
-        const envSequence = profile.custom_environment_order?.length ? profile.custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+        const envSequence = profile.custom_environment_order?.length ? profile.custom_environment_order : envs.map(e => e.value);
         
         // --- SPATIAL PHASE GENERATION ---
         let effectiveWeights = new Map(envWeightsMap);
@@ -431,7 +432,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
         const phases = calculateSpatialPhases(availableMinutes, effectiveStart, workdayEnd, effectiveWeights, envSequence, profile.enable_macro_spread || false, MIN_PHASE_DURATION);
 
-        console.log(`[useSchedulerTasks] Generated ${phases.length} spatial phases.`);
+        console.log(`[useSchedulerTasks] Generated ${phases.length} spatial phases for ${currentDateString}.`);
 
         // --- PHASE-BASED PLACEMENT ---
         if (phases.length > 0) {

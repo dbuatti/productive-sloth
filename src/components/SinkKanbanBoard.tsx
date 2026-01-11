@@ -39,44 +39,47 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Improved normalization: strips emojis and non-alphanumeric characters
+  // Normalization that handles emojis and complex symbols
   const normalize = (s: string) => {
     if (!s) return '';
-    return s.toLowerCase().replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[^a-z0-9]/g, '');
+    return s.toLowerCase()
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Remove emojis
+      .replace(/[^a-z0-9]/g, '');            // Remove special characters
   };
 
   const groupedTasks = useMemo(() => {
     const groups: Record<string, RetiredTask[]> = {};
     
-    // 1. Initialize core groups for Priority and Type views (always show these)
+    // 1. Initialize core groups for Priority and Type views
     if (groupBy === 'priority') {
       ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
     } else if (groupBy === 'type') {
       ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
     }
 
-    // 2. Assign tasks to groups
+    // 2. Assign tasks to groups with smart environment matching
     retiredTasks.forEach(task => {
       let key = 'standard';
       
       if (groupBy === 'environment') {
-        const taskEnvRaw = task.task_environment || 'laptop';
-        const taskEnvNorm = normalize(taskEnvRaw);
+        const rawValue = task.task_environment || 'laptop';
+        const normValue = normalize(rawValue);
         
-        // Smarter matching: 
-        // 1. Exact match by value
-        // 2. Normalized match (e.g. "laptop" matches "💻_laptop/desk")
-        // 3. Inclusion match
-        const matchingEnv = environments.find(e => 
-          e.value === taskEnvRaw || 
-          normalize(e.value) === taskEnvNorm || 
-          normalize(e.label) === taskEnvNorm ||
-          normalize(e.value).includes(taskEnvNorm) ||
-          taskEnvNorm.includes(normalize(e.value))
-        );
+        // Logic to match legacy tags (like 'laptop_piano') to current environments
+        const matchingEnv = environments.find(e => {
+          const eValueNorm = normalize(e.value);
+          const eLabelNorm = normalize(e.label);
+          
+          return (
+            e.value === rawValue ||               // Exact match (e.g. "kinesiology")
+            eValueNorm === normValue ||           // Case/symbol insensitive match
+            eLabelNorm === normValue ||           // Match against label (e.g. "recordingproduction" matches "Recording/Production")
+            normValue.includes(eValueNorm) ||     // Partial match (e.g. "laptop_piano" includes "laptop")
+            eValueNorm.includes(normValue)
+          );
+        });
 
-        // If we found a match in settings, use that ID, otherwise it's a "stray"
-        key = matchingEnv ? matchingEnv.value : taskEnvRaw;
+        key = matchingEnv ? matchingEnv.value : rawValue;
 
       } else if (groupBy === 'priority') {
         key = task.is_critical ? 'critical' : (task.is_backburner ? 'backburner' : 'standard');
@@ -88,20 +91,15 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       groups[key].push(task);
     });
 
-    // 3. Clean up: For Environment view, we ONLY show columns that have tasks.
-    // This removes all the [0] columns from defined environments that aren't being used.
+    // 3. Clean up empty columns in environment view
     if (groupBy === 'environment') {
       Object.keys(groups).forEach(key => {
-        if (groups[key].length === 0) {
-          delete groups[key];
-        }
+        if (groups[key].length === 0) delete groups[key];
       });
       
-      // If the sink is totally empty, show a few helpful starters from defined environments
+      // Starter columns if totally empty
       if (retiredTasks.length === 0) {
-        environments.slice(0, 3).forEach(env => {
-          groups[env.value] = [];
-        });
+        environments.slice(0, 3).forEach(env => groups[env.value] = []);
       }
     }
 

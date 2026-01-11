@@ -1,12 +1,13 @@
-import React, { useState } from 'react'; // Added useState
+import React, { useState } from 'react';
 import { DBScheduledTask } from '@/types/scheduler';
-import { cn, getLucideIconComponent } from '@/lib/utils'; // Added getLucideIconComponent
+import { cn, getLucideIconComponent } from '@/lib/utils';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
-import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle, Info, Briefcase, Coffee } from 'lucide-react'; // Added Briefcase and Coffee icons
+import { Clock, Zap, Star, Home, Laptop, Globe, Music, CheckCircle, Info, Briefcase, Coffee } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog'; // Import the dialog
+import ScheduledTaskDetailDialog from './ScheduledTaskDetailDialog';
+import { useEnvironments } from '@/hooks/use-environments';
 
 interface SimplifiedScheduledTaskItemProps {
   task: DBScheduledTask;
@@ -15,31 +16,30 @@ interface SimplifiedScheduledTaskItemProps {
   onCompleteTask: (task: DBScheduledTask) => Promise<void>;
 }
 
-const getEnvironmentIcon = (environment: DBScheduledTask['task_environment']) => {
-  const iconClass = "h-3 w-3 opacity-70"; // Smaller icons
-  const IconComponent = getLucideIconComponent(environment); // Use the shared utility
-  return <IconComponent className={iconClass} />;
-};
-
 const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = ({ task, isDetailedView, isCurrentlyActive, onCompleteTask }) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // State for the dialog
-  const [selectedTask, setSelectedTask] = useState<DBScheduledTask | null>(null); // State for the selected task
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<DBScheduledTask | null>(null);
+  const { environments } = useEnvironments();
 
   const hue = getEmojiHue(task.name);
   const accentColor = `hsl(${hue} 70% 50%)`;
   const emoji = assignEmoji(task.name);
+
+  // Environment Aura Logic
+  const env = environments.find(e => e.value === task.task_environment);
+  const envColor = env?.color || accentColor;
 
   const startTime = task.start_time ? parseISO(task.start_time) : null;
   const endTime = task.end_time ? parseISO(task.end_time) : null;
   const duration = startTime && endTime ? differenceInMinutes(endTime, startTime) : 0;
 
   const handleComplete = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent parent click from firing
+    e.stopPropagation();
     await onCompleteTask(task);
   };
 
   const handleTaskClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent parent click from firing
+    e.stopPropagation();
     setSelectedTask(task);
     setIsDialogOpen(true);
   };
@@ -53,12 +53,20 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
           task.is_locked && "bg-primary/[0.03]",
           task.is_completed && "opacity-50 grayscale",
           isCurrentlyActive && "animate-active-task bg-live-progress/10 shadow-lg",
-          "text-xs" // Smaller base font size
+          "text-xs"
         )}
         style={{ borderLeft: task.is_locked ? '3px solid hsl(var(--primary))' : `3px solid ${accentColor}` }}
-        onClick={handleTaskClick} // Make the entire div clickable
+        onClick={handleTaskClick}
       >
-        <span className="text-base shrink-0">{emoji}</span> {/* Smaller emoji */}
+        {/* Visual Zone Indicator (Weekly view right side bar) */}
+        {!task.is_break && (
+           <div 
+             className="absolute right-0 top-0 bottom-0 w-0.5 opacity-30 group-hover:opacity-100 transition-opacity" 
+             style={{ backgroundColor: envColor }} 
+           />
+        )}
+
+        <span className="text-base shrink-0">{emoji}</span>
         
         <div className="flex flex-col min-w-0 flex-grow">
           <span className={cn("font-semibold truncate", task.is_completed && "line-through")}>
@@ -66,7 +74,7 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
           </span>
           
           {isDetailedView && (
-            <div className="flex items-center gap-1 text-muted-foreground/70 mt-0.5 text-[10px]"> {/* Even smaller font size for details */}
+            <div className="flex items-center gap-1 text-muted-foreground/70 mt-0.5 text-[10px]">
               {startTime && endTime && (
                 <span className="flex items-center gap-0.5">
                   <Clock className="h-2.5 w-2.5" /> {format(startTime, 'h:mm a')} ({duration}m)
@@ -90,40 +98,6 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
                   <TooltipContent>Energy Cost</TooltipContent>
                 </Tooltip>
               )}
-              {task.task_environment && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex items-center gap-0.5">
-                      {getEnvironmentIcon(task.task_environment)}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>{task.task_environment}</TooltipContent>
-                </Tooltip>
-              )}
-              {task.is_backburner && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-2.5 w-2.5 text-muted-foreground/50" />
-                  </TooltipTrigger>
-                  <TooltipContent>Backburner Task</TooltipContent>
-                </Tooltip>
-              )}
-              {task.is_work && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Briefcase className="h-2.5 w-2.5 text-primary" />
-                  </TooltipTrigger>
-                  <TooltipContent>Work Task</TooltipContent>
-                </Tooltip>
-              )}
-              {task.is_break && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Coffee className="h-2.5 w-2.5 text-logo-orange" />
-                  </TooltipTrigger>
-                  <TooltipContent>Break Task</TooltipContent>
-                </Tooltip>
-              )}
             </div>
           )}
         </div>
@@ -136,12 +110,12 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
                 size="icon"
                 onClick={handleComplete}
                 className={cn(
-                  "h-6 w-6 shrink-0 text-logo-green hover:bg-logo-green/10", // Smaller button
+                  "h-6 w-6 shrink-0 text-logo-green hover:bg-logo-green/10",
                   "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 )}
-                aria-label={`Mark task "${task.name}" as complete`} // Added aria-label
+                aria-label={`Mark task "${task.name}" as complete`}
               >
-                <CheckCircle className="h-3.5 w-3.5" /> {/* Smaller icon */}
+                <CheckCircle className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Mark as Complete</TooltipContent>
@@ -155,7 +129,7 @@ const SimplifiedScheduledTaskItem: React.FC<SimplifiedScheduledTaskItemProps> = 
           setIsDialogOpen(open);
           if (!open) setSelectedTask(null);
         }}
-        selectedDayString={task.scheduled_date} // Pass the scheduled date
+        selectedDayString={task.scheduled_date}
       />
     </>
   );

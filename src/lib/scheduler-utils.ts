@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, TimeBlock, UnifiedTask, NewRetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
+import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, FreeTimeItem, TimeBlock, UnifiedTask, NewRetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
 import { UserProfile } from '@/hooks/use-session';
 
 // --- Constants ---
@@ -335,6 +335,10 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
   return constraints;
 };
 
+/**
+ * STRATEGIC SCHEDULING LOGIC: ENVIRONMENT CHUNKING
+ * Groups tasks by mental/physical location to minimize context switching.
+ */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
   profile: UserProfile,
@@ -342,41 +346,42 @@ export const sortAndChunkTasks = (
 ): UnifiedTask[] => {
   const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
 
-  // Base sort: Critical -> Break -> Standard -> Backburner -> Age
-  const baseSortedTasks = [...tasks].sort((a, b) => {
+  // Base internal sort (within a chunk): Priority -> Age
+  const internalSort = (a: UnifiedTask, b: UnifiedTask) => {
     if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
     if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
     if (a.is_backburner !== b.is_backburner) return a.is_backburner ? 1 : -1;
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  });
+  };
 
   // If sorting is explicitly alphabetical or chronological, bypass chunking logic
   if (sortPreference === 'NAME_ASC' || sortPreference === 'TIME_EARLIEST_TO_LATEST') {
-      return baseSortedTasks;
-  }
-
-  // If environment chunking is totally disabled and we aren't using Environment Ratio sort
-  if (!enable_environment_chunking && sortPreference !== 'ENVIRONMENT_RATIO') {
-    return baseSortedTasks;
+      return [...tasks].sort((a, b) => {
+          if (sortPreference === 'NAME_ASC') return a.name.localeCompare(b.name);
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
   }
 
   // Group by environment
   const groups = new Map<TaskEnvironment, UnifiedTask[]>();
-  baseSortedTasks.forEach(task => {
+  tasks.forEach(task => {
     const env = task.task_environment || 'laptop';
     if (!groups.has(env)) groups.set(env, []);
     groups.get(env)!.push(task);
   });
 
-  // Determine sequence
+  // Sort tasks within each group
+  groups.forEach((groupTasks) => groupTasks.sort(internalSort));
+
+  // Determine environment sequence based on custom order
   const order = custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
   const activeEnvs = Array.from(groups.keys());
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
-  // DISTRIBUTION LOGIC: 
-  // If sortPreference is ENVIRONMENT_RATIO OR enable_macro_spread is ON, we INTERLEAVE.
+  // SPATIAL MONOTASKING / DISTRIBUTION LOGIC
   if (sortPreference === 'ENVIRONMENT_RATIO' || enable_macro_spread) {
-    console.log("[sortAndChunkTasks] Logic: INTERLEAVING (Distributed)");
+    // Logic: INTERLEAVING (Distributed / Macro Spread)
+    // Carves territories but allows for "switching gears" halfway through the day if macro spread is on.
     const result: UnifiedTask[] = [];
     const indices = new Map<TaskEnvironment, number>();
     finalOrder.forEach(env => indices.set(env, 0));
@@ -395,8 +400,9 @@ export const sortAndChunkTasks = (
     }
     return result;
   } else {
-    // Standard Chunking: Grouped
-    console.log("[sortAndChunkTasks] Logic: GROUPING (Standard Chunking)");
+    // Logic: STRICT CONSECUTIVE CHUNKING (Environment Chunking)
+    // Minimizes context switch by strictly exhausting one environment before moving to next.
+    console.log("[sortAndChunkTasks] Logic: STRICT CHUNKING (Spatial Monotasking)");
     return finalOrder.map(env => groups.get(env) || []).flat();
   }
 };

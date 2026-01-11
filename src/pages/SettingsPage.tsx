@@ -11,7 +11,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu, Ban, X } from 'lucide-react'; // NEW: Import Ban and X icon
+import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu, Ban, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -23,9 +23,9 @@ import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MealIdeasTab from '@/components/MealIdeasTab';
 import EnvironmentManager from '@/components/EnvironmentManager';
-import DatePicker from '@/components/DatePicker'; // NEW: Import DatePicker
-import { format, parseISO } from 'date-fns'; // NEW: Import format and parseISO
-import { Badge } from '@/components/ui/badge'; // NEW: Import Badge
+import DatePicker from '@/components/DatePicker';
+import { format, parseISO } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -74,8 +74,7 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const SettingsPage: React.FC = () => {
-  const { user, profile, isLoading: isSessionLoading, refreshProfile, updateNotificationPreferences, updateProfile, updateSettings, updateBlockedDays } = useSession();
-  const { setTheme } = useTheme();
+  const { user, profile, isLoading: isSessionLoading, refreshProfile, updateProfile, updateBlockedDays } = useSession();
   const navigate = useNavigate();
   
   const [dailyChallengeNotifications, setDailyChallengeNotifications] = useState(profile?.enable_daily_challenge_notifications ?? true);
@@ -86,7 +85,7 @@ const SettingsPage: React.FC = () => {
   const [isActionCenterCollapsed, setIsActionCenterCollapsed] = useState(profile?.is_action_center_collapsed ?? false);
   const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
-  const [selectedBlockedDate, setSelectedBlockedDate] = useState<Date | undefined>(undefined); // NEW: State for date picker
+  const [selectedBlockedDate, setSelectedBlockedDate] = useState<Date | undefined>(undefined);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -110,10 +109,10 @@ const SettingsPage: React.FC = () => {
     mode: 'onChange',
   });
 
-  const initializedProfileId = useRef<string | null>(null);
+  const initializedProfileRef = useRef<UserProfile | null>(null);
 
   useEffect(() => {
-    if (profile && profile.id && profile.id !== initializedProfileId.current) {
+    if (profile && (!initializedProfileRef.current || initializedProfileRef.current.updated_at !== profile.updated_at)) {
       form.reset({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
@@ -140,7 +139,7 @@ const SettingsPage: React.FC = () => {
       setReflectionTimes(profile.reflection_times || ['12:00']);
       setReflectionDurations(profile.reflection_durations || [15]);
 
-      initializedProfileId.current = profile.id;
+      initializedProfileRef.current = profile;
     }
   }, [profile, form]);
 
@@ -219,7 +218,6 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  // NEW: Handle adding/removing blocked days
   const handleToggleBlockedDay = async () => {
     if (!selectedBlockedDate) {
       showError("Please select a date to block/unblock.");
@@ -228,7 +226,7 @@ const SettingsPage: React.FC = () => {
     const dateString = format(selectedBlockedDate, 'yyyy-MM-dd');
     const isCurrentlyBlocked = profile?.blocked_days?.includes(dateString);
     await updateBlockedDays(dateString, !isCurrentlyBlocked);
-    setSelectedBlockedDate(undefined); // Clear date picker after action
+    setSelectedBlockedDate(undefined);
   };
 
   const isSubmitting = form.formState.isSubmitting;
@@ -365,7 +363,7 @@ const SettingsPage: React.FC = () => {
                             onValueChange={(val) => { 
                               field.onChange(val); 
                             }} 
-                            defaultValue={field.value.toString()}
+                            value={field.value.toString()}
                             aria-label="Reflection Count"
                           >
                             <SelectTrigger className="w-32">
@@ -389,7 +387,7 @@ const SettingsPage: React.FC = () => {
                           type="time" 
                           value={reflectionTimes[index] || ''} 
                           onChange={(e) => handleReflectionTimeChange(index, e.target.value)} 
-                          aria-label={`Reflection ${index + 1} Time`}
+                          aria-label={`Reflection {index + 1} Time`}
                         />
                       </FormItem>
                       <FormItem>
@@ -400,7 +398,7 @@ const SettingsPage: React.FC = () => {
                           onChange={(e) => handleReflectionDurationChange(index, parseInt(e.target.value, 10))} 
                           min="5" 
                           max="60" 
-                          aria-label={`Reflection ${index + 1} Duration in Minutes`}
+                          aria-label={`Reflection {index + 1} Duration in Minutes`}
                         />
                       </FormItem>
                     </Card>
@@ -440,7 +438,10 @@ const SettingsPage: React.FC = () => {
                       <FormControl>
                         <Switch 
                           checked={field.value} 
-                          onCheckedChange={(checked) => handleToggle('enable_environment_chunking', checked)} 
+                          onCheckedChange={(checked) => {
+                            field.onChange(checked);
+                            handleToggle('enable_environment_chunking', checked);
+                          }} 
                           aria-label="Toggle Environment Chunking"
                         />
                       </FormControl>
@@ -464,7 +465,10 @@ const SettingsPage: React.FC = () => {
                       <FormControl>
                         <Switch 
                           checked={field.value} 
-                          onCheckedChange={(checked) => handleToggle('enable_macro_spread', checked)} 
+                          onCheckedChange={(checked) => {
+                            field.onChange(checked);
+                            handleToggle('enable_macro_spread', checked);
+                          }} 
                           aria-label="Toggle Macro-Spread Distribution"
                         />
                       </FormControl>
@@ -571,7 +575,6 @@ const SettingsPage: React.FC = () => {
                 </FormControl>
               </FormItem>
 
-              {/* NEW: Blocked Days Section */}
               <Card className="p-4 rounded-xl shadow-sm bg-background/50 border-destructive/20">
                 <CardHeader className="px-0 pb-4 p-0">
                   <CardTitle className="flex items-center gap-2 text-lg text-destructive">

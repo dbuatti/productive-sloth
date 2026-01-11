@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -65,7 +65,7 @@ const colorOptions = [
 ];
 
 // --- Sub-component: Draggable Blueprint Block ---
-const SortableBlueprintBlock = ({ env, isPm = false }: { env: Environment, isPm?: boolean }) => {
+const SortableBlueprintBlock = ({ env, weight }: { env: Environment, weight: number }) => {
   const {
     attributes,
     listeners,
@@ -73,14 +73,15 @@ const SortableBlueprintBlock = ({ env, isPm = false }: { env: Environment, isPm?
     transform,
     transition,
     isDragging
-  } = useSortable({ id: isPm ? `${env.value}-pm` : env.value });
+  } = useSortable({ id: env.value });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 0,
-    backgroundColor: `${env.color}${isPm ? '20' : '40'}`, 
-    borderColor: `${env.color}${isPm ? '40' : '80'}` 
+    backgroundColor: `${env.color}40`, 
+    borderColor: `${env.color}80`,
+    width: `${weight}%`
   };
 
   return (
@@ -90,13 +91,12 @@ const SortableBlueprintBlock = ({ env, isPm = false }: { env: Environment, isPm?
       {...attributes} 
       {...listeners}
       className={cn(
-        "h-8 rounded-md flex-1 min-w-[50px] flex items-center justify-center transition-all cursor-grab active:cursor-grabbing",
-        isDragging && "opacity-50 scale-105 rotate-2",
-        !isPm ? "shadow-sm border" : "border border-dashed opacity-60"
+        "h-8 rounded-md flex items-center justify-center transition-all cursor-grab active:cursor-grabbing shadow-sm border overflow-hidden",
+        isDragging && "opacity-50 scale-105 rotate-2"
       )}
     >
-      <span className="text-[9px] font-black uppercase tracking-tighter text-foreground/70">
-        {env.label.substring(0, 4)}
+      <span className="text-[9px] font-black uppercase tracking-tighter text-foreground/70 truncate px-1">
+        {env.label}
       </span>
     </div>
   );
@@ -109,6 +109,28 @@ const EnvironmentManager: React.FC = () => {
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
+
+  // --- Logic: Optimistic UI State ---
+  const [localWeights, setLocalWeights] = useState<Record<string, number>>({});
+  const isUpdatingRef = useRef(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync server state to local state
+  useEffect(() => {
+    if (!isUpdatingRef.current) {
+      const weights: Record<string, number> = {};
+      environments.forEach(e => {
+        weights[e.id] = e.target_weight || 0;
+      });
+      setLocalWeights(weights);
+    }
+  }, [environments]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   // DND Sensors for Blueprint
   const sensors = useSensors(
@@ -140,8 +162,8 @@ const EnvironmentManager: React.FC = () => {
   }, [profile]);
 
   const totalAllocatedWeight = useMemo(() => {
-    return environments.reduce((sum, env) => sum + (env.target_weight || 0), 0);
-  }, [environments]);
+    return environments.reduce((sum, env) => sum + (localWeights[env.id] || 0), 0);
+  }, [environments, localWeights]);
 
   const [newEnvironment, setNewEnvironment] = useState({
     label: '',
@@ -151,54 +173,65 @@ const EnvironmentManager: React.FC = () => {
     target_weight: 0,
   });
 
-  // --- Logic 1: Proportional Auto-Shrink ---
-  const handleWeightUpdate = useCallback(async (id: string, newWeight: number) => {
-    const targetEnv = environments.find(e => e.id === id);
-    if (!targetEnv) return;
+  // --- Logic: Proportional Auto-Shrink Optimistic Update ---
+  const handleWeightUpdate = useCallback((id: string, newWeight: number) => {
+    isUpdatingRef.current = true;
+    
+    const currentWeights = { ...localWeights };
+    const oldWeight = currentWeights[id] || 0;
+    const delta = newWeight - oldWeight;
 
-    const delta = newWeight - (targetEnv.target_weight || 0);
-    if (delta <= 0) {
-      // Reducing is simple
-      await updateEnvironment({ id, target_weight: newWeight });
-      return;
-    }
+    if (delta === 0) return;
 
-    // Increasing: Need to shrink others
-    const otherActiveEnvs = environments.filter(e => e.id !== id && e.target_weight > 0);
-    const sumOthers = otherActiveEnvs.reduce((s, e) => s + e.target_weight, 0);
+    let updatedWeights = { ...currentWeights };
+    updatedWeights[id] = newWeight;
 
-    if (sumOthers === 0) {
-      // No one else to shrink, just cap at 100
-      await updateEnvironment({ id, target_weight: Math.min(100, newWeight) });
-      return;
-    }
+    if (delta > 0) {
+      // Find others to shrink
+      const otherActiveEnvs = environments.filter(e => e.id !== id && (currentWeights[e.id] || 0) > 0);
+      const sumOthers = otherActiveEnvs.reduce((s, e) => s + (currentWeights[e.id] || 0), 0);
 
-    const updates = [];
-    let remainingExcess = delta;
-
-    // Proportional reduction
-    for (let i = 0; i < otherActiveEnvs.length; i++) {
-      const env = otherActiveEnvs[i];
-      const ratio = env.target_weight / sumOthers;
-      // Step-size of 5 for sliders
-      const reduction = Math.min(env.target_weight, Math.floor((delta * ratio) / 5) * 5);
-      
-      if (reduction > 0) {
-        updates.push({ id: env.id, target_weight: env.target_weight - reduction });
-        remainingExcess -= reduction;
+      if (sumOthers > 0) {
+        let remainingExcess = delta;
+        for (const env of otherActiveEnvs) {
+          const ratio = (currentWeights[env.id] || 0) / sumOthers;
+          // Step-size of 5 for sliders
+          const reduction = Math.min(currentWeights[env.id], Math.floor((delta * ratio) / 5) * 5);
+          
+          if (reduction > 0) {
+            updatedWeights[env.id] -= reduction;
+            remainingExcess -= reduction;
+          }
+        }
+        // Adjust target weight to absorb the actual amount shrunken
+        updatedWeights[id] = newWeight - remainingExcess;
+      } else {
+        // No one else to shrink, cap at 100
+        updatedWeights[id] = Math.min(100, newWeight);
       }
     }
 
-    // Final update for the target
-    updates.push({ id, target_weight: newWeight - remainingExcess });
+    setLocalWeights(updatedWeights);
 
-    // Execute batch updates
-    for (const update of updates) {
-      await updateEnvironment(update);
-    }
-  }, [environments, updateEnvironment]);
+    // Debounced save to DB
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const entries = Object.entries(updatedWeights);
+        for (const [envId, weight] of entries) {
+          const original = environments.find(e => e.id === envId);
+          if (original && original.target_weight !== weight) {
+            await updateEnvironment({ id: envId, target_weight: weight });
+          }
+        }
+        isUpdatingRef.current = false;
+      } catch (e) {
+        console.error("[EnvironmentManager] Sync error:", e);
+        isUpdatingRef.current = false;
+      }
+    }, 1000);
+  }, [localWeights, environments, updateEnvironment]);
 
-  // --- Logic 5: Smart-Sync Modes ---
   const handleAutoBalance = async (mode: 'volume' | 'count') => {
     if (retiredTasks.length === 0) return showError("No tasks in Aether Sink to analyze.");
     
@@ -214,14 +247,19 @@ const EnvironmentManager: React.FC = () => {
 
     if (totalValue === 0) return;
 
-    // Distribute 100% (snapped to 5% increments)
+    const newWeights: Record<string, number> = { ...localWeights };
     for (const env of environments) {
       const sinkVal = envValues.get(env.value) || 0;
       const rawWeight = (sinkVal / totalValue) * 100;
       const snappedWeight = Math.round(rawWeight / 5) * 5;
-      await updateEnvironment({ id: env.id, target_weight: snappedWeight });
+      
+      if (snappedWeight !== (localWeights[env.id] || 0)) {
+        newWeights[env.id] = snappedWeight;
+        await updateEnvironment({ id: env.id, target_weight: snappedWeight });
+      }
     }
     
+    setLocalWeights(newWeights);
     showSuccess(`Spatial budget re-aligned by ${mode}.`);
   };
 
@@ -330,7 +368,7 @@ const EnvironmentManager: React.FC = () => {
             <div 
               key={env.id}
               className="h-full transition-all duration-700 ease-aether-out relative group"
-              style={{ width: `${env.target_weight}%`, backgroundColor: env.color }}
+              style={{ width: `${localWeights[env.id] ?? 0}%`, backgroundColor: env.color }}
             >
               <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
@@ -347,10 +385,11 @@ const EnvironmentManager: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {environments.map((env) => {
           const Icon = getLucideIconComponent(env.icon);
-          const predictedMinutes = Math.round(workdayDuration * (env.target_weight / 100));
+          const weight = localWeights[env.id] ?? 0;
+          const predictedMinutes = Math.round(workdayDuration * (weight / 100));
           const actualSinkDuration = sinkStats.get(env.value)?.duration || 0;
           const capacityRatio = predictedMinutes > 0 ? Math.min(100, (actualSinkDuration / predictedMinutes) * 100) : 0;
-          const isHibernating = env.target_weight === 0;
+          const isHibernating = weight === 0;
           
           return (
             <Card key={env.id} className={cn(
@@ -378,7 +417,7 @@ const EnvironmentManager: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-baseline gap-2">
-                       <span className="text-2xl font-black font-mono tracking-tighter" style={{ color: env.color }}>{env.target_weight}%</span>
+                       <span className="text-2xl font-black font-mono tracking-tighter" style={{ color: env.color }}>{weight}%</span>
                     </div>
                     
                     <Tooltip>
@@ -394,7 +433,7 @@ const EnvironmentManager: React.FC = () => {
 
                   {/* Slider with Density Indicator */}
                   <div className="relative pt-1">
-                    {/* Capacity Track (point 3) */}
+                    {/* Capacity Track */}
                     <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 bg-secondary/50 rounded-full overflow-hidden">
                       <div 
                         className={cn(
@@ -405,7 +444,7 @@ const EnvironmentManager: React.FC = () => {
                       />
                     </div>
                     <Slider 
-                      value={[env.target_weight]} 
+                      value={[weight]} 
                       onValueChange={([v]) => handleWeightUpdate(env.id, v)} 
                       max={100} 
                       step={5} 
@@ -423,8 +462,8 @@ const EnvironmentManager: React.FC = () => {
                         </span>
                       </div>
                    </div>
-                   <Badge variant="outline" className={cn("text-[8px] h-4 font-black uppercase px-1.5", env.target_weight > 0 ? "bg-logo-green/10 text-logo-green" : "opacity-30")}>
-                      {env.target_weight > 0 ? "Active" : "Idle"}
+                   <Badge variant="outline" className={cn("text-[8px] h-4 font-black uppercase px-1.5", weight > 0 ? "bg-logo-green/10 text-logo-green" : "opacity-30")}>
+                      {weight > 0 ? "Active" : "Idle"}
                    </Badge>
                 </div>
               </CardContent>
@@ -456,30 +495,14 @@ const EnvironmentManager: React.FC = () => {
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <div className="flex items-center gap-2 w-full h-12 px-2 rounded-xl bg-background/50 border border-white/5 overflow-hidden">
                 <SortableContext items={sortedEnvsByOrder.map(e => e.value)} strategy={horizontalListSortingStrategy}>
-                   {sortedEnvsByOrder.filter(e => e.target_weight > 0).map((env) => (
-                     <SortableBlueprintBlock key={env.id} env={env} />
+                   {sortedEnvsByOrder.filter(e => (localWeights[e.id] || 0) > 0).map((env) => (
+                     <SortableBlueprintBlock key={env.id} env={env} weight={localWeights[env.id] || 0} />
                    ))}
                 </SortableContext>
-                
-                {profile?.enable_macro_spread && (
-                  <>
-                    <div className="h-6 w-px bg-white/10 mx-1" />
-                    {sortedEnvsByOrder.filter(e => e.target_weight > 0).reverse().map((env) => (
-                      <div 
-                        key={`pm-${env.id}`} 
-                        className="h-8 rounded-md flex-1 min-w-[50px] flex items-center justify-center border border-dashed opacity-40 grayscale"
-                        style={{ backgroundColor: `${env.color}10`, borderColor: `${env.color}30` }}
-                      >
-                         <span className="text-[8px] font-black uppercase tracking-tighter opacity-50">{env.label.substring(0, 3)}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
               </div>
             </DndContext>
             <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest text-muted-foreground/30 px-1">
                <span>Start</span>
-               {profile?.enable_macro_spread && <span>AM/PM Reset</span>}
                <span>End</span>
             </div>
          </CardContent>
@@ -489,10 +512,12 @@ const EnvironmentManager: React.FC = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Dismantle Zone?</AlertDialogTitle>
-            <AlertDialogDescription>Are you sure you want to delete "{deleteTarget?.label}"? This will remove the spatial quota associated with this environment.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteTarget?.label}"? This will remove the spatial quota associated with this environment.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if(deleteTarget) deleteEnvironment(deleteTarget.id); setDeleteTarget(null); }} className="bg-destructive hover:bg-destructive/90">Dismantle</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

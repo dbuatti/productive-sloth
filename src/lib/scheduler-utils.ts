@@ -21,7 +21,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'piano': '🎹', 'music': '🎶', 'practice': '🎼',
   'commute': '🚗', 'drive': '🚗', 'bus': '🚌', 'train': '🚆', 'travel': '✈️',
   'shop': '🛍️', 'bank': '🏦', 'post': '✉️', 'errands': '🏃‍♀️',
-  'friends': '🧑‍🤝‍🧑', 'family': '👨‍👩‍👧‍👦', 'social': '🎉',
+  'friends': '🧑‍🤝‍🧑', 'family': '👨‍👩‍👧', 'social': '🎉',
   'wake up': '⏰', 'coles': '🛒', 'woolworths': '🛒', 'lesson': '🧑‍🏫', 'call': '📞', 'phone': '📱', 'text': '💬',
   'contact': '🤝', 'student': '🧑‍🎓', 'rehearsal': '🎭', 'time off': '🌴', 'message': '💬', 'journal': '✍️', 'washing': '👕',
   'money': '💰', 'transactions': '💰', 'mop': '🪣', 'floor': '🪣', 'quote': '🧾', 'send quote': '🧾', 'generate quote': '🧾',
@@ -335,7 +335,7 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
   return constraints;
 };
 
-// --- SPATIAL CORE REFACTOR: LIQUID BUDGETING ---
+// --- SPATIAL CORE REFACTOR: STRICT SEQUENTIAL DRAIN ---
 
 export interface ZoneWeight {
   value: string;
@@ -344,8 +344,8 @@ export interface ZoneWeight {
 
 /**
  * LIQUID FLOW SEQUENCER:
- * Now respects quotas and strictly enforces priority order.
- * Returning tasks grouped by environment to facilitate Sequential Drain.
+ * STRICTLY groups tasks by environment based on the user's custom sequence.
+ * Enforces internal priority (Critical > Break > Orbit).
  */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
@@ -363,45 +363,31 @@ export const sortAndChunkTasks = (
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   };
 
-  const groups = new Map<TaskEnvironment, UnifiedTask[]>();
+  // 1. Group tasks by environment (case-insensitive for safety)
+  const groups = new Map<string, UnifiedTask[]>();
   tasks.forEach(task => {
-    const env = task.task_environment || 'laptop';
+    const env = (task.task_environment || 'laptop').toLowerCase();
     if (!groups.has(env)) groups.set(env, []);
     groups.get(env)!.push(task);
   });
 
-  const weightMap = new Map(zoneWeights.map(zw => [zw.value, zw.target_weight]));
+  const weightMap = new Map(zoneWeights.map(zw => [zw.value.toLowerCase(), zw.target_weight]));
   
-  // 1. Process each environment's group individually to apply Liquid Budgeting
-  const processedGroups = new Map<TaskEnvironment, UnifiedTask[]>();
+  // 2. Pre-sort tasks within each environment group
+  const processedGroups = new Map<string, UnifiedTask[]>();
   for (const [env, groupTasks] of groups.entries()) {
-      const weight = weightMap.get(env) || 0;
-      let quotaMinutes = Math.floor(referenceDuration * (weight / 100));
-      
       groupTasks.sort(internalSort);
-      
-      if (groupTasks.length > 0 && weight > 0) {
-          const firstTaskTotal = (groupTasks[0].duration || 30) + (groupTasks[0].break_duration || 0);
-          quotaMinutes = Math.max(quotaMinutes, firstTaskTotal);
-      }
-
-      let cumulative = 0;
-      const limitedGroup: UnifiedTask[] = [];
-      for (const t of groupTasks) {
-          const dur = (t.duration || 30) + (t.break_duration || 0);
-          if (cumulative + dur > quotaMinutes && limitedGroup.length > 0) break;
-          limitedGroup.push(t);
-          cumulative += dur;
-      }
-      processedGroups.set(env, limitedGroup);
+      processedGroups.set(env, groupTasks);
   }
 
-  const order = custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+  // 3. STRICT INDEX SORTING: Define the exact sequence from profile settings
+  const order = (custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano']).map(e => e.toLowerCase());
   const activeEnvs = Array.from(processedGroups.keys());
   
-  // PRIORITY ENFORCEMENT: The order array defines the strict priority sequence.
+  // Enforce index order. Environments not in the order array move to the bottom.
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
+  // 4. Return flat list in STRICT spatial sequence
   if (enable_macro_spread) {
     const amBatch: UnifiedTask[] = [];
     const pmBatch: UnifiedTask[] = [];
@@ -417,7 +403,6 @@ export const sortAndChunkTasks = (
     return [...amBatch, ...pmBatch];
   } 
   
-  // SEQUENTIAL DRAIN: Return tasks strictly grouped by the priority sequence
   return finalOrder.map(env => processedGroups.get(env) || []).flat();
 };
 
@@ -450,7 +435,7 @@ export const compactScheduleLogic = (
 
   const isSelectedToday = isSameDay(selectedDayDate, new Date());
   
-  // SEQUENTIAL PLACEMENT CURSOR: Prevents lower-priority environments from "Early Jumping"
+  // SEQUENTIAL POINTER LOCK: Prevents environment sequence jumping
   let placementCursor = isSelectedToday ? max([workdayStartTime, T_current]) : workdayStartTime;
   const results: DBScheduledTask[] = [...fixed];
 
@@ -461,7 +446,7 @@ export const compactScheduleLogic = (
       const original = currentDbTasks.find(t => t.id === task.id);
       if (original) {
         results.push({ ...original, start_time: slot.start.toISOString(), end_time: slot.end.toISOString() });
-        // The cursor advances after each placement, ensuring strict vibe sequence.
+        // STRIKE LOCK: Once a slot is taken, we never look back for subsequent tasks.
         placementCursor = slot.end;
         fixedBlocks.push({ start: slot.start, end: slot.end, duration: total });
         mergeOverlappingTimeBlocks(fixedBlocks);

@@ -26,7 +26,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'contact': '🤝', 'student': '🧑‍🎓', 'rehearsal': '🎭', 'time off': '🌴', 'message': '💬', 'journal': '✍️', 'washing': '👕',
   'money': '💰', 'transactions': '💰', 'mop': '🪣', 'floor': '🪣', 'quote': '🧾', 'send quote': '🧾', 'generate quote': '🧾',
   'doctor': '🩺', 'medical': '🩺', 'channel': '🧘', 'anxious': '🧘', 'recycling': '♻️', 'bin': '♻️', 'milk': '🥛',
-  'cartons': '🥛', 'sync': '🤝', 'standup': '🤝', 'tutorial': '💡', 'tv': '📺', 'cobweb': '🕸️', 'cables': '🔌',
+  'cartons': '🥛', 'sync': '🤝', 'strongup': '🤝', 'tutorial': '💡', 'tv': '📺', 'cobweb': '🕸️', 'cables': '🔌',
   'fold laundry': '🧺', 'load of laundry': '🧺', 'tidy': '🗄️', 'room': '🏠', 'book': '📅', 'waitress': '📅',
   'preparation': '📝', 'lego': '🧩', 'organise': '🗄️', 'shirts': '👕', 'gigs': '🎤', 'charge': '🔌', 'vacuum': '🔌',
   'put away': '📦', 'sheets': '📦', 'pants': '📦', 'medication': '💊', 'toothbrush': '🪥', 'return message': '💬',
@@ -343,9 +343,8 @@ export interface ZoneWeight {
 }
 
 /**
- * LIQUID BUDGET ENGINE:
- * Calculates spatial phases by treating fragmented availability as a single liquid budget.
- * TRACKS SPENT QUOTAS PER ITERATION to fix macro-spread logic.
+ * REPLACED calculateSpatialPhases with a dynamic Sequencer in handleAutoScheduleAndSort
+ * This logic is now obsolete but kept for reference if needed.
  */
 export const calculateSpatialPhases = (
   availableMinutes: number, 
@@ -355,93 +354,19 @@ export const calculateSpatialPhases = (
   enableMacroSpread: boolean,
   minPhaseDuration: number = 30
 ): { env: string; start: Date; end: Date }[] => {
-  const functionName = "[calculateSpatialPhases]";
-  console.log(`${functionName} Initializing Liquid Budget Calculation. Total Capacity: ${availableMinutes} minutes.`);
-
-  if (availableMinutes <= 0 || freeGaps.length === 0) {
-      console.warn(`${functionName} Calculation aborted: No available capacity.`);
-      return [];
-  }
-
-  const weightLookup = new Map<string, number>();
-  zoneWeights.forEach(zw => weightLookup.set(zw.value, Number(zw.target_weight || 0)));
-
-  let activeEnvs = envSequence.filter(e => (weightLookup.get(e) || 0) > 0);
-  if (activeEnvs.length === 0) {
-      activeEnvs = Array.from(weightLookup.keys()).filter(k => (weightLookup.get(k) || 0) > 0);
-  }
-
-  if (activeEnvs.length === 0) {
-      console.error(`${functionName} Error: No environments with allocated budget detected.`);
-      return [];
-  }
-
-  console.log(`${functionName} Active Environments: ${activeEnvs.join(', ')}`);
-
-  const iterationsCount = enableMacroSpread ? 2 : 1;
-  const phases: { env: string; start: Date; end: Date }[] = [];
-  const spentQuotasPerIteration = new Map<string, number>(); // Key: `${env}-${iteration}`
-
-  let currentEnvIdx = 0; // Global index across all iterations [0 to (envs*iters - 1)]
-
-  console.log(`${functionName} Beginning linear placement across ${freeGaps.length} temporal gaps.`);
-
-  for (const gap of freeGaps) {
-    let gapCursor = gap.start;
-    let timeRemainingInGap = gap.duration;
-    
-    console.log(`${functionName} Processing Gap: ${formatTime(gap.start)} - ${formatTime(gap.end)} (${gap.duration}m)`);
-
-    while (timeRemainingInGap > 0 && currentEnvIdx < (activeEnvs.length * iterationsCount)) {
-      const iteration = Math.floor(currentEnvIdx / activeEnvs.length);
-      const actualEnvIdx = currentEnvIdx % activeEnvs.length;
-      const env = activeEnvs[actualEnvIdx];
-      const key = `${env}-${iteration}`;
-      
-      const weight = weightLookup.get(env) || 0;
-      const totalEnvQuota = Math.floor(availableMinutes * (weight / 100));
-      const iterationQuota = totalEnvQuota / iterationsCount;
-
-      const spent = spentQuotasPerIteration.get(key) || 0;
-      const remaining = iterationQuota - spent;
-
-      console.log(`${functionName} Iteration ${iteration + 1} | Zone: ${env} | Quota: ${iterationQuota}m | Remaining: ${remaining}m`);
-
-      if (remaining <= 0) {
-          console.log(`${functionName} Quota for ${env} (Iter ${iteration + 1}) exhausted. Advancing stream.`);
-          currentEnvIdx++;
-          continue;
-      }
-
-      const sliceSize = Math.min(timeRemainingInGap, remaining);
-      if (sliceSize > 0) {
-          const phaseEnd = addMinutes(gapCursor, sliceSize);
-          phases.push({ env, start: gapCursor, end: phaseEnd });
-          
-          spentQuotasPerIteration.set(key, spent + sliceSize);
-          console.log(`${functionName} >>> ALLOCATED: ${env} | ${formatTime(gapCursor)} - ${formatTime(phaseEnd)} (${sliceSize}m)`);
-
-          gapCursor = phaseEnd;
-          timeRemainingInGap -= sliceSize;
-
-          if (spent + sliceSize >= iterationQuota) {
-              console.log(`${functionName} Quota for ${env} (Iter ${iteration + 1}) filled. Advancing stream.`);
-              currentEnvIdx++;
-          }
-      } else {
-          break;
-      }
-    }
-  }
-
-  console.log(`${functionName} Liquid Budget Calculation Complete. ${phases.length} spatial phases generated.`);
-  return phases;
+  return []; // Logic moved to Linear Flow Sequencer
 };
 
+/**
+ * LIQUID FLOW SEQUENCER:
+ * Now respects quotas by limiting tasks *before* sorting them into the placement sequence.
+ */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
   profile: UserProfile,
-  sortPreference: SortBy
+  sortPreference: SortBy,
+  totalAvailableMinutes?: number,
+  zoneWeights?: ZoneWeight[]
 ): UnifiedTask[] => {
   const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
 
@@ -459,6 +384,26 @@ export const sortAndChunkTasks = (
     groups.get(env)!.push(task);
   });
 
+  // Apply Quotas if provided
+  if (totalAvailableMinutes && zoneWeights) {
+      const weightMap = new Map(zoneWeights.map(zw => [zw.value, zw.target_weight]));
+      for (const [env, groupTasks] of groups.entries()) {
+          const weight = weightMap.get(env) || 0;
+          const quotaMinutes = Math.floor(totalAvailableMinutes * (weight / 100));
+          
+          groupTasks.sort(internalSort);
+          let cumulative = 0;
+          const limitedGroup: UnifiedTask[] = [];
+          for (const t of groupTasks) {
+              const dur = (t.duration || 30) + (t.break_duration || 0);
+              if (cumulative + dur > quotaMinutes && limitedGroup.length > 0) break;
+              limitedGroup.push(t);
+              cumulative += dur;
+          }
+          groups.set(env, limitedGroup);
+      }
+  }
+
   const order = custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
   const activeEnvs = Array.from(groups.keys());
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
@@ -469,33 +414,17 @@ export const sortAndChunkTasks = (
 
     finalOrder.forEach(env => {
       const groupTasks = groups.get(env) || [];
-      groupTasks.sort((a, b) => {
-        if (a.name === b.name) return internalSort(a, b);
-        return a.name.localeCompare(b.name);
-      });
-
       if (groupTasks.length > 1) {
-        const totalDuration = groupTasks.reduce((sum, t) => sum + (t.duration || 30), 0);
-        const targetHalf = totalDuration / 2;
-        let cumulative = 0, splitIdx = 0;
-        for (let i = 0; i < groupTasks.length; i++) {
-          cumulative += (groupTasks[i].duration || 30);
-          if (cumulative >= targetHalf) { splitIdx = i + 1; break; }
-        }
-        while (splitIdx < groupTasks.length && groupTasks[splitIdx].name === groupTasks[splitIdx - 1].name) splitIdx++;
-        if (splitIdx >= groupTasks.length && groupTasks.length > 1) splitIdx = Math.max(1, groupTasks.length - 1);
-        amBatch.push(...groupTasks.slice(0, splitIdx));
-        pmBatch.push(...groupTasks.slice(splitIdx));
+        const half = Math.ceil(groupTasks.length / 2);
+        amBatch.push(...groupTasks.slice(0, half));
+        pmBatch.push(...groupTasks.slice(half));
       } else if (groupTasks.length === 1) amBatch.push(...groupTasks);
     });
     return [...amBatch, ...pmBatch];
   } 
   
   if (enable_environment_chunking || sortPreference === 'ENVIRONMENT_RATIO') {
-    return finalOrder.map(env => {
-      const groupTasks = groups.get(env) || [];
-      return groupTasks.sort(internalSort);
-    }).flat();
+    return finalOrder.map(env => (groups.get(env) || []).sort(internalSort)).flat();
   }
 
   return [...tasks].sort(internalSort);

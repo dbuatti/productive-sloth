@@ -115,8 +115,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_break: task.is_break,
       });
       if (logError) throw logError;
-      const { error: deleteError } = await supabase.from('scheduled_tasks').delete().eq('id', task.id);
-      if (deleteError) throw deleteError;
+      const { error: deleteError } = await supabase.from('aethersink').delete().eq('id', task.id); // Also clear from sink if relevant
+      const { error: deleteSchedError } = await supabase.from('scheduled_tasks').delete().eq('id', task.id);
+      if (deleteSchedError) throw deleteSchedError;
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
@@ -412,7 +413,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
 
-      // --- LIQUID FLOW PLACEMENT LOOP ---
+      // --- LIQUID FLOW PLACEMENT LOOP: SEQUENTIAL DRAIN ---
       for (const currentDateString of daysToProcess) {
         const currentDayAsDate = parseISO(currentDateString);
         if (freshProfile.blocked_days?.includes(currentDateString)) continue;
@@ -430,8 +431,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const staticConstraints = getStaticConstraints(freshProfile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
         
-        // Sequence construction with spatial budgeting and Task-Aware Sizing
+        // Use sortAndChunkTasks to get the grouped priority sequence
         const tasksToPlace = sortAndChunkTasks(pool, freshProfile, sortPreference, workdayTotal, zoneWeights);
+        
+        // SEQUENTIAL DRAIN CURSOR: Strictly prevents lower priority tasks from jumping earlier.
         let placementCursor = effectiveSearchStart;
 
         for (const t of tasksToPlace) {
@@ -447,7 +450,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                     is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
                     is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
                 });
+                
+                // ADVANCE THE VIBE: The cursor moves forward, enforcing sequential priority.
                 placementCursor = slot.end;
+                
                 currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
                 currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
                 

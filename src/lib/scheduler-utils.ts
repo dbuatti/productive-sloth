@@ -344,15 +344,14 @@ export interface ZoneWeight {
 
 /**
  * LIQUID FLOW SEQUENCER:
- * Now respects quotas by limiting tasks *before* sorting them into the placement sequence.
- * SYNC FIX: Uses referenceDuration (full workday) for quota calculation to match UI.
- * TASK-AWARE FIX: Ensures every zone gets at least enough room for its smallest task.
+ * Now respects quotas and strictly enforces priority order.
+ * Returning tasks grouped by environment to facilitate Sequential Drain.
  */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
   profile: UserProfile,
   sortPreference: SortBy,
-  referenceDuration: number, // Use total workday duration to sync with UI
+  referenceDuration: number, 
   zoneWeights: ZoneWeight[]
 ): UnifiedTask[] => {
   const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
@@ -371,18 +370,16 @@ export const sortAndChunkTasks = (
     groups.get(env)!.push(task);
   });
 
-  // Apply Quotas and Task-Aware Sizing
   const weightMap = new Map(zoneWeights.map(zw => [zw.value, zw.target_weight]));
+  
+  // 1. Process each environment's group individually to apply Liquid Budgeting
+  const processedGroups = new Map<TaskEnvironment, UnifiedTask[]>();
   for (const [env, groupTasks] of groups.entries()) {
       const weight = weightMap.get(env) || 0;
-      
-      // 1. Calculate the 'UI-Synchronized' quota based on full workday
       let quotaMinutes = Math.floor(referenceDuration * (weight / 100));
       
       groupTasks.sort(internalSort);
       
-      // 2. TASK-AWARE SIZING: If we have tasks but quota is too small for even one, 
-      // expand the floor to the smallest task duration (or first task in priority).
       if (groupTasks.length > 0 && weight > 0) {
           const firstTaskTotal = (groupTasks[0].duration || 30) + (groupTasks[0].break_duration || 0);
           quotaMinutes = Math.max(quotaMinutes, firstTaskTotal);
@@ -392,17 +389,17 @@ export const sortAndChunkTasks = (
       const limitedGroup: UnifiedTask[] = [];
       for (const t of groupTasks) {
           const dur = (t.duration || 30) + (t.break_duration || 0);
-          // If adding this task exceeds the quota, but we haven't added anything yet, 
-          // we force at least one task (Task-Aware Sizing floor).
           if (cumulative + dur > quotaMinutes && limitedGroup.length > 0) break;
           limitedGroup.push(t);
           cumulative += dur;
       }
-      groups.set(env, limitedGroup);
+      processedGroups.set(env, limitedGroup);
   }
 
   const order = custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
-  const activeEnvs = Array.from(groups.keys());
+  const activeEnvs = Array.from(processedGroups.keys());
+  
+  // PRIORITY ENFORCEMENT: The order array defines the strict priority sequence.
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
   if (enable_macro_spread) {
@@ -410,7 +407,7 @@ export const sortAndChunkTasks = (
     const pmBatch: UnifiedTask[] = [];
 
     finalOrder.forEach(env => {
-      const groupTasks = groups.get(env) || [];
+      const groupTasks = processedGroups.get(env) || [];
       if (groupTasks.length > 1) {
         const half = Math.ceil(groupTasks.length / 2);
         amBatch.push(...groupTasks.slice(0, half));
@@ -420,11 +417,8 @@ export const sortAndChunkTasks = (
     return [...amBatch, ...pmBatch];
   } 
   
-  if (enable_environment_chunking || sortPreference === 'ENVIRONMENT_RATIO') {
-    return finalOrder.map(env => (groups.get(env) || []).sort(internalSort)).flat();
-  }
-
-  return [...tasks].sort(internalSort);
+  // SEQUENTIAL DRAIN: Return tasks strictly grouped by the priority sequence
+  return finalOrder.map(env => processedGroups.get(env) || []).flat();
 };
 
 export const compactScheduleLogic = (
@@ -448,8 +442,6 @@ export const compactScheduleLogic = (
     created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false,
   }));
 
-  // For compaction, we don't strictly enforce spatial quotas against the workday, 
-  // but we still want the chunking behavior.
   const workdayTotal = differenceInMinutes(workdayEndTime, workdayStartTime);
   const sorted = sortAndChunkTasks(unified, profile, sortPreference, workdayTotal, []);
   
@@ -457,17 +449,20 @@ export const compactScheduleLogic = (
   const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
 
   const isSelectedToday = isSameDay(selectedDayDate, new Date());
-  let insertionCursor = isSelectedToday ? max([workdayStartTime, T_current]) : workdayStartTime;
+  
+  // SEQUENTIAL PLACEMENT CURSOR: Prevents lower-priority environments from "Early Jumping"
+  let placementCursor = isSelectedToday ? max([workdayStartTime, T_current]) : workdayStartTime;
   const results: DBScheduledTask[] = [...fixed];
 
   for (const task of sorted) {
     const total = task.duration + (task.break_duration || 0);
-    const slot = findFirstAvailableSlot(total, fixedBlocks, insertionCursor, workdayEndTime);
+    const slot = findFirstAvailableSlot(total, fixedBlocks, placementCursor, workdayEndTime);
     if (slot) {
       const original = currentDbTasks.find(t => t.id === task.id);
       if (original) {
         results.push({ ...original, start_time: slot.start.toISOString(), end_time: slot.end.toISOString() });
-        insertionCursor = slot.end;
+        // The cursor advances after each placement, ensuring strict vibe sequence.
+        placementCursor = slot.end;
         fixedBlocks.push({ start: slot.start, end: slot.end, duration: total });
         mergeOverlappingTimeBlocks(fixedBlocks);
       }

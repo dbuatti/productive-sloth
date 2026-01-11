@@ -11,14 +11,14 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import ThemeToggle from '@/components/ThemeToggle';
-import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu, Ban, X } from 'lucide-react';
+import { LogOut, User, Gamepad2, Settings, Trash2, Zap, Clock, ExternalLink, Loader2, Keyboard, Database, TrendingUp, BookOpen, ArrowLeft, Utensils, ListOrdered, Sparkles, Anchor, Layers, Split, ListTodo, CalendarDays, LayoutDashboard, Cpu, Ban, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MAX_ENERGY } from '@/lib/constants';
 import { useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { adjustArrayLength } from '@/lib/utils';
+import { adjustArrayLength, cn } from '@/lib/utils';
 import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MealIdeasTab from '@/components/MealIdeasTab';
@@ -26,6 +26,7 @@ import EnvironmentManager from '@/components/EnvironmentManager';
 import DatePicker from '@/components/DatePicker';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -86,6 +87,20 @@ const SettingsPage: React.FC = () => {
   const [reflectionTimes, setReflectionTimes] = useState<string[]>([]);
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
   const [selectedBlockedDate, setSelectedBlockedDate] = useState<Date | undefined>(undefined);
+
+  // Section Collapsibility State
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    profile: true,
+    anchors: true,
+    logic: true,
+    environments: true,
+    preferences: true,
+    danger: false
+  });
+
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -237,7 +252,7 @@ const SettingsPage: React.FC = () => {
   if (!user || !profile) return null;
 
   return (
-    <div className="space-y-8 animate-slide-in-up">
+    <div className="space-y-8 animate-slide-in-up pb-20">
       <div className="flex items-center justify-between border-b pb-4">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Settings className="h-7 w-7 text-primary" />
@@ -251,422 +266,440 @@ const SettingsPage: React.FC = () => {
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Card className="p-4 rounded-xl shadow-sm">
-            <CardHeader className="px-0 pb-4 p-0">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <User className="h-5 w-5 text-primary" />
-                Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ''} aria-label="First Name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ''} aria-label="Last Name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="flex justify-end pt-4">
-                <Button type="submit" disabled={isSubmitting || !isValid} aria-label="Save Profile Changes">Save Changes</Button>
-              </div>
-            </CardContent>
-          </Card>
           
-          <Card className="p-4 rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
-            <CardHeader className="px-0 pb-4 p-0">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Anchor className="h-5 w-5 text-primary" />
-                Temporal Anchors
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Tabs defaultValue="meals">
-                <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-secondary rounded-lg mb-6">
-                  <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest" aria-label="Meal Times Tab">Times</TabsTrigger>
-                  <TabsTrigger value="ideas" className="text-xs font-black uppercase tracking-widest" aria-label="Meal Ideas Tab">Ideas</TabsTrigger>
-                  <TabsTrigger value="reflections" className="text-xs font-black uppercase tracking-widest" aria-label="Reflection Times Tab">Reflections</TabsTrigger>
-                </TabsList>
-                <TabsContent value="meals" className="space-y-6">
-                  <div className="grid gap-4">
-                    {[
-                      { label: 'Breakfast', timeKey: 'breakfast_time' as const, durKey: 'breakfast_duration_minutes' as const },
-                      { label: 'Lunch', timeKey: 'lunch_time' as const, durKey: 'lunch_duration_minutes' as const },
-                      { label: 'Dinner', timeKey: 'dinner_time' as const, durKey: 'dinner_duration_minutes' as const }
-                    ].map(({ label, timeKey, durKey }) => (
-                      <Card key={label} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-background/50">
-                        <FormField
-                          control={form.control}
-                          name={timeKey}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">{label} Window Start</FormLabel>
-                              <FormControl>
-                                <Input type="time" {...field} value={field.value || ''} aria-label={`${label} Start Time`} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={durKey}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Sync Duration (Min)</FormLabel>
-                              <FormControl>
-                                <Input type="number" {...field} value={field.value ?? ''} aria-label={`${label} Duration in Minutes`} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </Card>
-                    ))}
+          <Collapsible open={openSections.profile} onOpenChange={() => toggleSection('profile')}>
+            <Card className="rounded-xl shadow-sm border-white/5">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-secondary/20 transition-colors p-4">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <div className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-primary" />
+                      Profile
+                    </div>
+                    {openSections.profile ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="p-4 pt-0 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="first_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="last_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value || ''} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="flex justify-end pt-4">
+                    <Button type="submit" disabled={isSubmitting || !isValid}>Save Changes</Button>
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+          
+          <Collapsible open={openSections.anchors} onOpenChange={() => toggleSection('anchors')}>
+            <Card className="rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-primary/[0.03] transition-colors p-4">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <div className="flex items-center gap-2">
+                      <Anchor className="h-5 w-5 text-primary" />
+                      Temporal Anchors
+                    </div>
+                    {openSections.anchors ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="p-4 pt-0">
+                  <Tabs defaultValue="meals">
+                    <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-secondary rounded-lg mb-6">
+                      <TabsTrigger value="meals" className="text-xs font-black uppercase tracking-widest">Times</TabsTrigger>
+                      <TabsTrigger value="ideas" className="text-xs font-black uppercase tracking-widest">Ideas</TabsTrigger>
+                      <TabsTrigger value="reflections" className="text-xs font-black uppercase tracking-widest">Reflections</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="meals" className="space-y-6">
+                      <div className="grid gap-4">
+                        {[
+                          { label: 'Breakfast', timeKey: 'breakfast_time' as const, durKey: 'breakfast_duration_minutes' as const },
+                          { label: 'Lunch', timeKey: 'lunch_time' as const, durKey: 'lunch_duration_minutes' as const },
+                          { label: 'Dinner', timeKey: 'dinner_time' as const, durKey: 'dinner_duration_minutes' as const }
+                        ].map(({ label, timeKey, durKey }) => (
+                          <Card key={label} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-background/50 border-white/5">
+                            <FormField
+                              control={form.control}
+                              name={timeKey}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">{label} Window Start</FormLabel>
+                                  <FormControl>
+                                    <Input type="time" {...field} value={field.value || ''} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={durKey}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Sync Duration (Min)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" {...field} value={field.value ?? ''} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </Card>
+                        ))}
+                      </div>
+                      <div className="flex justify-end">
+                        <Button type="submit">Update Times</Button>
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="ideas" className="animate-pop-in">
+                      <MealIdeasTab />
+                    </TabsContent>
+                    <TabsContent value="reflections" className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="reflection_count"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center justify-between p-4 rounded-lg border bg-background/50 border-white/5">
+                            <FormLabel>Frequency</FormLabel>
+                            <FormControl>
+                              <Select 
+                                onValueChange={(val) => { field.onChange(val); }} 
+                                value={field.value.toString()}
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[1,2,3,4,5].map(n => (
+                                    <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {Array.from({ length: reflectionCount }).map((_, index) => (
+                        <Card key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-background/50 border-white/5">
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Reflection {index + 1} Time</FormLabel>
+                            <Input 
+                              type="time" 
+                              value={reflectionTimes[index] || ''} 
+                              onChange={(e) => handleReflectionTimeChange(index, e.target.value)} 
+                            />
+                          </FormItem>
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Duration (Min)</FormLabel>
+                            <Input 
+                              type="number" 
+                              value={reflectionDurations[index] || ''} 
+                              onChange={(e) => handleReflectionDurationChange(index, parseInt(e.target.value, 10))} 
+                              min="5" 
+                              max="60" 
+                            />
+                          </FormItem>
+                        </Card>
+                      ))}
+                      <div className="flex justify-end">
+                        <Button type="submit">Update Reflections</Button>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+          
+          <Collapsible open={openSections.logic} onOpenChange={() => toggleSection('logic')}>
+            <Card className="rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-primary/[0.03] transition-colors p-4">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <div className="flex items-center gap-2">
+                      <ListOrdered className="h-5 w-5 text-primary" />
+                      Auto-Balance Logic
+                    </div>
+                    {openSections.logic ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="p-4 pt-0 space-y-6">
+                  <EnvironmentOrderSettings />
+                  <div className="pt-4 border-t border-white/5 space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="enable_environment_chunking"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50 border-white/5">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <Layers className="h-4 w-4 text-primary" />
+                              <FormLabel className="text-base font-semibold">Environment Chunking</FormLabel>
+                            </div>
+                            <FormDescription className="text-xs">
+                              Group tasks from the same zone together (AA, BB).
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch 
+                              checked={field.value} 
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked);
+                                handleToggle('enable_environment_chunking', checked);
+                              }} 
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="enable_macro_spread"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50 border-white/5">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <Split className="h-4 w-4 text-primary" />
+                              <FormLabel className="text-base font-semibold">Macro-Spread Distribution</FormLabel>
+                            </div>
+                            <FormDescription className="text-xs">
+                              Split chunks into morning and afternoon sessions.
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch 
+                              checked={field.value} 
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked);
+                                handleToggle('enable_macro_spread', checked);
+                              }} 
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </div>
                   <div className="flex justify-end">
-                    <Button type="submit" aria-label="Update Meal Times">Update Times</Button>
+                    <Button type="submit" disabled={isSubmitting || !isValid}>Save Changes</Button>
                   </div>
-                </TabsContent>
-                <TabsContent value="ideas" className="animate-pop-in">
-                  <MealIdeasTab />
-                </TabsContent>
-                <TabsContent value="reflections" className="space-y-6">
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+          
+          <Collapsible open={openSections.environments} onOpenChange={() => toggleSection('environments')}>
+            <Card className="rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-primary/[0.03] transition-colors p-4">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <div className="flex items-center gap-2">
+                      <ListTodo className="h-5 w-5 text-primary" />
+                      Spatial Budgeting Dashboard
+                    </div>
+                    {openSections.environments ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="p-0">
+                  <EnvironmentManager />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+          
+          <Collapsible open={openSections.preferences} onOpenChange={() => toggleSection('preferences')}>
+            <Card className="rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-primary/[0.03] transition-colors p-4">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-5 w-5 text-primary" />
+                      Calendar & View Preferences
+                    </div>
+                    {openSections.preferences ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="p-4 pt-0 space-y-4">
                   <FormField
                     control={form.control}
-                    name="reflection_count"
+                    name="week_starts_on"
                     render={({ field }) => (
-                      <FormItem className="flex items-center justify-between p-4 rounded-lg border bg-background/50">
-                        <FormLabel>Frequency</FormLabel>
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50 border-white/5">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base font-semibold">Week Starts On</FormLabel>
+                          <FormDescription className="text-xs">
+                            Choose which day your weekly schedule view begins.
+                          </FormDescription>
+                        </div>
                         <FormControl>
                           <Select 
-                            onValueChange={(val) => { 
-                              field.onChange(val); 
-                            }} 
+                            onValueChange={(value) => field.onChange(parseInt(value, 10))} 
                             value={field.value.toString()}
-                            aria-label="Reflection Count"
                           >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue placeholder="Select day" />
                             </SelectTrigger>
                             <SelectContent>
-                              {[1,2,3,4,5].map(n => (
-                                <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
-                              ))}
+                              <SelectItem value="0">Sunday</SelectItem>
+                              <SelectItem value="1">Monday</SelectItem>
+                              <SelectItem value="2">Tuesday</SelectItem>
+                              <SelectItem value="3">Wednesday</SelectItem>
+                              <SelectItem value="4">Thursday</SelectItem>
+                              <SelectItem value="5">Friday</SelectItem>
+                              <SelectItem value="6">Saturday</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormControl>
                       </FormItem>
                     )}
                   />
-                  {Array.from({ length: reflectionCount }).map((_, index) => (
-                    <Card key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-background/50">
-                      <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Reflection {index + 1} Time</FormLabel>
-                        <Input 
-                          type="time" 
-                          value={reflectionTimes[index] || ''} 
-                          onChange={(e) => handleReflectionTimeChange(index, e.target.value)} 
-                          aria-label={`Reflection {index + 1} Time`}
-                        />
-                      </FormItem>
-                      <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase tracking-widest opacity-50">Duration (Min)</FormLabel>
-                        <Input 
-                          type="number" 
-                          value={reflectionDurations[index] || ''} 
-                          onChange={(e) => handleReflectionDurationChange(index, parseInt(e.target.value, 10))} 
-                          min="5" 
-                          max="60" 
-                          aria-label={`Reflection {index + 1} Duration in Minutes`}
-                        />
-                      </FormItem>
-                    </Card>
-                  ))}
-                  <div className="flex justify-end">
-                    <Button type="submit" aria-label="Update Reflection Settings">Update Reflections</Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-          
-          <Card className="p-4 rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
-            <CardHeader className="px-0 pb-4 p-0">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ListOrdered className="h-5 w-5 text-primary" />
-                Auto-Balance Logic
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 space-y-6">
-              <EnvironmentOrderSettings />
-              <div className="pt-4 border-t border-white/5 space-y-4">
-                <FormField
-                  control={form.control}
-                  name="enable_environment_chunking"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-primary" />
-                          <FormLabel className="text-base font-semibold">Environment Chunking</FormLabel>
-                        </div>
-                        <FormDescription className="text-xs">
-                          Group tasks from the same zone together (AA, BB).
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch 
-                          checked={field.value} 
-                          onCheckedChange={(checked) => {
-                            field.onChange(checked);
-                            handleToggle('enable_environment_chunking', checked);
-                          }} 
-                          aria-label="Toggle Environment Chunking"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="enable_macro_spread"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <Split className="h-4 w-4 text-primary" />
-                          <FormLabel className="text-base font-semibold">Macro-Spread Distribution</FormLabel>
-                        </div>
-                        <FormDescription className="text-xs">
-                          Split chunks into morning and afternoon sessions.
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch 
-                          checked={field.value} 
-                          onCheckedChange={(checked) => {
-                            field.onChange(checked);
-                            handleToggle('enable_macro_spread', checked);
-                          }} 
-                          aria-label="Toggle Macro-Spread Distribution"
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isSubmitting || !isValid} aria-label="Save Auto-Balance Logic">Save Changes</Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="p-4 rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
-            <CardHeader className="px-0 pb-4 p-0">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ListTodo className="h-5 w-5 text-primary" />
-                Environment Manager
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <EnvironmentManager />
-            </CardContent>
-          </Card>
-          
-          <Card className="p-4 rounded-xl shadow-sm border-primary/20 bg-primary/[0.01]">
-            <CardHeader className="px-0 pb-4 p-0">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CalendarDays className="h-5 w-5 text-primary" />
-                Calendar & View Preferences
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 space-y-4">
-              <FormField
-                control={form.control}
-                name="week_starts_on"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+                  
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50 border-white/5">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base font-semibold">Week Starts On</FormLabel>
-                      <FormDescription className="text-xs">
-                        Choose which day your weekly schedule view begins.
-                      </FormDescription>
+                      <div className="flex items-center gap-2">
+                        <LayoutDashboard className="h-4 w-4 text-primary" />
+                        <FormLabel className="text-base font-semibold">Dashboard Collapsed</FormLabel>
+                      </div>
                     </div>
                     <FormControl>
-                      <Select 
-                        onValueChange={(value) => field.onChange(parseInt(value, 10))} 
-                        value={field.value.toString()}
-                        aria-label="Week Starts On"
-                      >
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue placeholder="Select day" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">Sunday</SelectItem>
-                          <SelectItem value="1">Monday</SelectItem>
-                          <SelectItem value="2">Tuesday</SelectItem>
-                          <SelectItem value="3">Wednesday</SelectItem>
-                          <SelectItem value="4">Thursday</SelectItem>
-                          <SelectItem value="5">Friday</SelectItem>
-                          <SelectItem value="6">Saturday</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Switch 
+                        checked={isDashboardCollapsed} 
+                        onCheckedChange={(checked) => handleToggle('is_dashboard_collapsed', checked)} 
+                      />
                     </FormControl>
                   </FormItem>
-                )}
-              />
-              
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <LayoutDashboard className="h-4 w-4 text-primary" />
-                    <FormLabel className="text-base font-semibold">Dashboard Collapsed by Default</FormLabel>
-                  </div>
-                  <FormDescription className="text-xs">
-                    Start with the main dashboard panel collapsed.
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch 
-                    checked={isDashboardCollapsed} 
-                    onCheckedChange={(checked) => handleToggle('is_dashboard_collapsed', checked)} 
-                    aria-label="Toggle Dashboard Collapsed State"
-                  />
-                </FormControl>
-              </FormItem>
-              
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="h-4 w-4 text-primary" />
-                    <FormLabel className="text-base font-semibold">Action Center Collapsed by Default</FormLabel>
-                  </div>
-                  <FormDescription className="text-xs">
-                    Start with the scheduler action center collapsed.
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch 
-                    checked={isActionCenterCollapsed} 
-                    onCheckedChange={(checked) => handleToggle('is_action_center_collapsed', checked)} 
-                    aria-label="Toggle Action Center Collapsed State"
-                  />
-                </FormControl>
-              </FormItem>
-
-              <Card className="p-4 rounded-xl shadow-sm bg-background/50 border-destructive/20">
-                <CardHeader className="px-0 pb-4 p-0">
-                  <CardTitle className="flex items-center gap-2 text-lg text-destructive">
-                    <Ban className="h-5 w-5" />
-                    Blocked Days
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0 space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Select dates to prevent any tasks from being scheduled on them.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <DatePicker 
-                      date={selectedBlockedDate} 
-                      setDate={setSelectedBlockedDate} 
-                      placeholder="Select a date"
-                    />
-                    <Button 
-                      onClick={handleToggleBlockedDay} 
-                      disabled={!selectedBlockedDate}
-                      className="flex-shrink-0"
-                      aria-label={selectedBlockedDate && profile?.blocked_days?.includes(format(selectedBlockedDate, 'yyyy-MM-dd')) ? "Unblock Day" : "Block Day"}
-                    >
-                      {selectedBlockedDate && profile?.blocked_days?.includes(format(selectedBlockedDate, 'yyyy-MM-dd')) ? 'Unblock' : 'Block'}
-                    </Button>
-                  </div>
-                  {profile?.blocked_days && profile.blocked_days.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest opacity-50">Currently Blocked</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.blocked_days.sort().map(day => (
-                          <Badge 
-                            key={day} 
-                            variant="destructive" 
-                            className="flex items-center gap-1 px-2 py-1 text-xs font-semibold"
-                          >
-                            {format(parseISO(day), 'MMM d, yyyy')}
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-4 w-4 p-0 text-destructive-foreground/70 hover:text-destructive-foreground"
-                              onClick={() => updateBlockedDays(day, false)}
-                              aria-label={`Unblock ${format(parseISO(day), 'MMM d, yyyy')}`}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        ))}
+                  
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50 border-white/5">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="h-4 w-4 text-primary" />
+                        <FormLabel className="text-base font-semibold">Action Center Collapsed</FormLabel>
                       </div>
                     </div>
-                  )}
+                    <FormControl>
+                      <Switch 
+                        checked={isActionCenterCollapsed} 
+                        onCheckedChange={(checked) => handleToggle('is_action_center_collapsed', checked)} 
+                      />
+                    </FormControl>
+                  </FormItem>
+
+                  <Card className="p-4 rounded-xl shadow-sm bg-background/50 border-destructive/20">
+                    <CardHeader className="px-0 pb-4 p-0">
+                      <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+                        <Ban className="h-5 w-5" />
+                        Blocked Days
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <DatePicker 
+                          date={selectedBlockedDate} 
+                          setDate={setSelectedBlockedDate} 
+                          placeholder="Select a date"
+                        />
+                        <Button 
+                          onClick={handleToggleBlockedDay} 
+                          disabled={!selectedBlockedDate}
+                        >
+                          {selectedBlockedDate && profile?.blocked_days?.includes(format(selectedBlockedDate, 'yyyy-MM-dd')) ? 'Unblock' : 'Block'}
+                        </Button>
+                      </div>
+                      {profile?.blocked_days && profile.blocked_days.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {profile.blocked_days.sort().map(day => (
+                            <Badge key={day} variant="destructive" className="gap-1">
+                              {format(parseISO(day), 'MMM d, yyyy')}
+                              <X className="h-3 w-3 cursor-pointer" onClick={() => updateBlockedDays(day, false)} />
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={isSubmitting || !isValid}>Save Preferences</Button>
+                  </div>
                 </CardContent>
-              </Card>
-              
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isSubmitting || !isValid} aria-label="Save Calendar and View Settings">Save Calendar Settings</Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
           
-          <Card className="p-4 rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]">
-            <CardHeader className="px-0 pb-4 p-0">
-              <CardTitle className="flex items-center gap-2 text-lg text-destructive">
-                <Trash2 className="h-5 w-5" />
-                Danger Zone
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="w-full font-black uppercase" aria-label="Wipe History">
-                    Wipe History
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete your game progress,
-                      including XP, levels, energy, and all tasks.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
-                      Continue
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardContent>
-          </Card>
+          <Collapsible open={openSections.danger} onOpenChange={() => toggleSection('danger')}>
+            <Card className="rounded-xl shadow-sm border-destructive/50 bg-destructive/[0.01]">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-destructive/[0.03] transition-colors p-4">
+                  <CardTitle className="flex items-center justify-between text-lg text-destructive">
+                    <div className="flex items-center gap-2">
+                      <Trash2 className="h-5 w-5" />
+                      Danger Zone
+                    </div>
+                    {openSections.danger ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="p-4 pt-0">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="w-full font-black uppercase">
+                        Wipe History
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete your progress (XP, level, energy) and all tasks.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleResetGameProgress} className="bg-destructive hover:bg-destructive/90">
+                          Continue
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         </form>
       </Form>
     </div>

@@ -6,8 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SessionContext, UserProfile } from '@/hooks/use-session';
 import { showSuccess, showError } from '@/utils/toast';
-import { isToday, parseISO, addMinutes, startOfDay, isBefore, addDays, addHours, differenceInMinutes, format } from 'date-fns';
-import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, DAILY_CHALLENGE_TASKS_REQUIRED, REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants';
+import { parseISO, differenceInMinutes, format, isBefore, addDays, addHours, isSameDay, max, min } from 'date-fns';
+import { MAX_ENERGY, RECHARGE_BUTTON_AMOUNT, REGEN_POD_MAX_DURATION_MINUTES } from '@/lib/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DBScheduledTask, ScheduledItem } from '@/types/scheduler';
 import { calculateSchedule, setTimeOnDate } from '@/lib/scheduler-utils';
@@ -27,25 +27,20 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpLevel, setLevelUpLevel] = useState(0);
   const [regenPodDurationMinutes, setRegenPodDurationMinutes] = useState(0);
-  const [redirectPath, setRedirectPath] = useState<string | null>(null);
   
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const initialSessionLoadedRef = useRef(false);
   
   const [todayString, setTodayString] = useState(() => format(new Date(), 'yyyy-MM-dd'));
 
+  // Derived loading state for components
   const isLoading = isAuthLoading || isProfileLoading;
-
-  const profileRef = useRef(profile);
-  useEffect(() => {
-    profileRef.current = profile;
-  }, [profile]);
 
   const [activeItemToday, setActiveItemToday] = useState<ScheduledItem | null>(null);
   const [nextItemToday, setNextItemToday] = useState<ScheduledItem | null>(null);
 
+  // Update todayString periodically
   useEffect(() => {
     const interval = setInterval(() => {
       const current = format(new Date(), 'yyyy-MM-dd');
@@ -54,6 +49,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch profile logic
   const fetchProfile = useCallback(async (userId: string) => {
     console.log("[SessionProvider] Starting fetchProfile for:", userId);
     setIsProfileLoading(true);
@@ -202,72 +198,56 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // Auth State Listener
+  // Auth Initialization and Listener
   useEffect(() => {
-    console.log("[SessionProvider] Mounting auth listener...");
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log("[SessionProvider] Auth state change event:", event);
+    console.log("[SessionProvider] Initializing auth state...");
+    
+    // 1. Check for current session immediately
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      console.log("[SessionProvider] Initial session check done. User present:", !!initialSession?.user);
+      if (initialSession) {
+        setSession(initialSession);
+        setUser(initialSession.user);
+        fetchProfile(initialSession.user.id); // Load profile in background
+      }
+      setIsAuthLoading(false); // Unblock UI regardless of profile status
+    });
+
+    // 2. Listen for auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      console.log("[SessionProvider] Auth event:", event);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       
       if (currentSession?.user) {
-        await fetchProfile(currentSession.user.id);
+        fetchProfile(currentSession.user.id);
       } else if (event === 'SIGNED_OUT') {
-        console.log("[SessionProvider] Handling sign out.");
         setProfile(null);
         queryClient.clear();
-        setRedirectPath('/login');
       }
       
-      console.log("[SessionProvider] Setting isAuthLoading to false from listener.");
       setIsAuthLoading(false);
     });
     
     return () => {
-      console.log("[SessionProvider] Unmounting auth listener.");
       authListener.subscription.unsubscribe();
     };
   }, [fetchProfile, queryClient]);
 
-  // Initial Session Load (Safety check)
+  // Redirect logic
   useEffect(() => {
-    const loadInitialSession = async () => {
-      if (initialSessionLoadedRef.current) return;
-      initialSessionLoadedRef.current = true;
-      
-      console.log("[SessionProvider] Performing manual getSession check...");
-      try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        console.log("[SessionProvider] Initial session check complete. User present:", !!initialSession?.user);
-        
-        if (initialSession) {
-          setSession(initialSession);
-          setUser(initialSession.user);
-          await fetchProfile(initialSession.user.id);
-        } else if (location.pathname !== '/login') {
-          console.log("[SessionProvider] No session, scheduling redirect to login.");
-          setRedirectPath('/login');
-        }
-      } catch (e) {
-        console.error("[SessionProvider] Error during initial session load:", e);
-      } finally {
-        console.log("[SessionProvider] Setting isAuthLoading to false from manual check.");
-        setIsAuthLoading(false);
+    if (!isAuthLoading) {
+      if (!user && location.pathname !== '/login') {
+        console.log("[SessionProvider] No session, redirecting to login.");
+        navigate('/login', { replace: true });
+      } else if (user && location.pathname === '/login') {
+        console.log("[SessionProvider] Authenticated, redirecting home.");
+        navigate('/', { replace: true });
       }
-    };
-    loadInitialSession();
-  }, [fetchProfile, location.pathname]);
-
-  // Handle Redirects
-  useEffect(() => {
-    if (!isAuthLoading && redirectPath && location.pathname !== redirectPath) {
-      console.log("[SessionProvider] Navigating to redirect path:", redirectPath);
-      navigate(redirectPath, { replace: true });
-      setRedirectPath(null);
     }
-  }, [redirectPath, navigate, location.pathname, isAuthLoading]);
+  }, [isAuthLoading, user, location.pathname, navigate]);
 
-  // Data fetching for today's tasks and meals
+  // Today's data fetching
   const { data: dbScheduledTasksToday = [] } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasksToday', user?.id, todayString],
     queryFn: async () => {
@@ -320,6 +300,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
+  // Focus tracking
   useEffect(() => {
     const timer = setInterval(() => {
       if (!calculatedScheduleToday) return;
@@ -347,8 +328,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateProfile, updateBlockedDays, 
     triggerEnergyRegen, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
-
-  console.log("[SessionProvider] Rendering. isAuthLoading:", isAuthLoading);
 
   return (
     <SessionContext.Provider value={contextValue}>

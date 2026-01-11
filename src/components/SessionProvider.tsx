@@ -34,8 +34,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const [todayString, setTodayString] = useState(() => format(new Date(), 'yyyy-MM-dd'));
 
-  // Derived loading state
-  const isLoading = isAuthLoading || isProfileLoading;
+  // Global loading state for the screen gate
+  const isLoading = isAuthLoading;
 
   const [activeItemToday, setActiveItemToday] = useState<ScheduledItem | null>(null);
   const [nextItemToday, setNextItemToday] = useState<ScheduledItem | null>(null);
@@ -99,6 +99,15 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) await fetchProfile(user.id);
+  }, [user?.id, fetchProfile]);
+
+  // Handle Profile Fetching when User changes
+  useEffect(() => {
+    if (user?.id) {
+      fetchProfile(user.id);
+    } else {
+      setProfile(null);
+    }
   }, [user?.id, fetchProfile]);
 
   const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
@@ -213,26 +222,20 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     console.log("[SessionProvider] Initializing auth state...");
     
     // Core listener handles everything
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       console.log("[SessionProvider] Auth event:", event);
-      
       setSession(currentSession);
-      const currentUser = currentSession?.user ?? null;
-      setUser(currentUser);
+      setUser(currentSession?.user ?? null);
+      setIsAuthLoading(false); // Unblock the UI as soon as auth status is known
       
-      if (currentUser) {
-        // CRITICAL: Wait for profile before allowing UI to mount
-        await fetchProfile(currentUser.id);
-      } else if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
       }
-      
-      setIsAuthLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile, queryClient]);
+  }, [queryClient]);
 
   // Redirect logic
   useEffect(() => {

@@ -34,13 +34,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const [todayString, setTodayString] = useState(() => format(new Date(), 'yyyy-MM-dd'));
 
-  // Global loading state for the screen gate
   const isLoading = isAuthLoading;
 
   const [activeItemToday, setActiveItemToday] = useState<ScheduledItem | null>(null);
   const [nextItemToday, setNextItemToday] = useState<ScheduledItem | null>(null);
 
-  // Update todayString periodically
   useEffect(() => {
     const interval = setInterval(() => {
       const current = format(new Date(), 'yyyy-MM-dd');
@@ -54,7 +52,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProfile = useCallback(async (userId: string) => {
     if (fetchingProfileForId.current === userId) return null;
     
-    console.log("[SessionProvider] Starting fetchProfile for:", userId);
+    console.log("[SessionProvider] TELEMETRY: Initiating profile synchronization for", userId);
     fetchingProfileForId.current = userId;
     setIsProfileLoading(true);
     
@@ -66,7 +64,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .single();
 
       if (error) {
-        console.warn("[SessionProvider] Profile fetch error:", error.message);
+        console.warn("[SessionProvider] Sync Warning:", error.message);
         setProfile(null);
         return null;
       } else if (data) {
@@ -74,7 +72,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         setProfile(prev => {
           if (isEqual(prev, profileData)) return prev;
-          console.log("[SessionProvider] Profile data updated.");
+          console.log("[SessionProvider] TELEMETRY: Profile data state updated.");
           return profileData;
         });
         
@@ -89,7 +87,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       return null;
     } catch (e) {
-      console.error("[SessionProvider] Unexpected error in fetchProfile:", e);
+      console.error("[SessionProvider] Sync Failure:", e);
       return null;
     } finally {
       setIsProfileLoading(false);
@@ -101,7 +99,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (user?.id) await fetchProfile(user.id);
   }, [user?.id, fetchProfile]);
 
-  // Handle Profile Fetching when User changes
   useEffect(() => {
     if (user?.id) {
       fetchProfile(user.id);
@@ -217,16 +214,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // Auth Initialization
   useEffect(() => {
-    console.log("[SessionProvider] Initializing auth state...");
-    
-    // Core listener handles everything
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      console.log("[SessionProvider] Auth event:", event);
+      console.log("[SessionProvider] Auth Status Update:", event);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
-      setIsAuthLoading(false); // Unblock the UI as soon as auth status is known
+      setIsAuthLoading(false);
       
       if (event === 'SIGNED_OUT') {
         setProfile(null);
@@ -237,7 +230,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => subscription.unsubscribe();
   }, [queryClient]);
 
-  // Redirect logic
   useEffect(() => {
     if (!isAuthLoading) {
       if (!user && location.pathname !== '/login') {

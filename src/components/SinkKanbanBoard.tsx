@@ -39,8 +39,11 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Helper to normalize environment strings for matching
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Improved normalization: strips emojis and non-alphanumeric characters
+  const normalize = (s: string) => {
+    if (!s) return '';
+    return s.toLowerCase().replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[^a-z0-9]/g, '');
+  };
 
   const groupedTasks = useMemo(() => {
     const groups: Record<string, RetiredTask[]> = {};
@@ -51,7 +54,6 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     } else if (groupBy === 'type') {
       ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
     }
-    // Note: We don't pre-initialize environment groups anymore to avoid showing empty columns
 
     // 2. Assign tasks to groups
     retiredTasks.forEach(task => {
@@ -61,14 +63,19 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
         const taskEnvRaw = task.task_environment || 'laptop';
         const taskEnvNorm = normalize(taskEnvRaw);
         
-        // Try to find a matching environment in the DB by value or normalized match
+        // Smarter matching: 
+        // 1. Exact match by value
+        // 2. Normalized match (e.g. "laptop" matches "💻_laptop/desk")
+        // 3. Inclusion match
         const matchingEnv = environments.find(e => 
           e.value === taskEnvRaw || 
           normalize(e.value) === taskEnvNorm || 
-          normalize(e.label) === taskEnvNorm
+          normalize(e.label) === taskEnvNorm ||
+          normalize(e.value).includes(taskEnvNorm) ||
+          taskEnvNorm.includes(normalize(e.value))
         );
 
-        // If we found a match in the DB, use its actual value key
+        // If we found a match in settings, use that ID, otherwise it's a "stray"
         key = matchingEnv ? matchingEnv.value : taskEnvRaw;
 
       } else if (groupBy === 'priority') {
@@ -81,13 +88,19 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       groups[key].push(task);
     });
 
-    // 3. For the environment view, ensure we show defined environments even if empty ONLY IF the user has few environments.
-    // Otherwise, we stick to populated columns only to reduce noise.
+    // 3. Clean up: For Environment view, we ONLY show columns that have tasks.
+    // This removes all the [0] columns from defined environments that aren't being used.
     if (groupBy === 'environment') {
-      // If we have no tasks at all, show the defined environments as empty starters
+      Object.keys(groups).forEach(key => {
+        if (groups[key].length === 0) {
+          delete groups[key];
+        }
+      });
+      
+      // If the sink is totally empty, show a few helpful starters from defined environments
       if (retiredTasks.length === 0) {
-        environments.forEach(env => {
-          if (!groups[env.value]) groups[env.value] = [];
+        environments.slice(0, 3).forEach(env => {
+          groups[env.value] = [];
         });
       }
     }

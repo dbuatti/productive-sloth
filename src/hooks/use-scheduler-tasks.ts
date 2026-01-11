@@ -392,7 +392,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     targetDateString: string,
     futureDaysToSchedule: number = 30
   ) => {
+    const functionName = "[handleAutoScheduleAndSort]";
     if (isSessionLoading || !userId) return;
+
+    console.log(`${functionName} Initiating Balance Sync. Mode: ${taskSource} | Target: ${targetDateString}`);
 
     try {
       const [envsResponse, profileResponse] = await Promise.all([
@@ -408,7 +411,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const zoneWeights: ZoneWeight[] = freshEnvs.map(e => ({ value: e.value, target_weight: Number(e.target_weight || 0) }));
       
       const initialTargetDayAsDate = parseISO(targetDateString);
-      if (isBefore(initialTargetDayAsDate, startOfDay(new Date())) && taskSource !== 'global-all-future') return showError("Historical timelines are read-only.");
+      if (isBefore(initialTargetDayAsDate, startOfDay(new Date())) && taskSource !== 'global-all-future') {
+          console.warn(`${functionName} Aborted: Cannot rebalance historical data.`);
+          return showError("Historical timelines are read-only.");
+      }
 
       let pool: UnifiedTask[] = [];
       let globalScheduledIdsToDelete: string[] = [];
@@ -416,6 +422,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       let globalTasksToInsert: NewDBScheduledTask[] = [];
 
       // 1. Gather the pool of tasks to be balanced
+      console.log(`${functionName} Gathering task pool...`);
       if (taskSource === 'global-all-future') {
         const { data: fs } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).gte('scheduled_date', todayString).eq('is_flexible', true).eq('is_locked', false);
         const { data: ar } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
@@ -461,12 +468,18 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
       }
 
+      console.log(`${functionName} Pool gathered. Size: ${pool.length} tasks.`);
+
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
 
       // --- SPATIAL CORE: LINEAR PLACEMENT LOOP (Day by Day) ---
       for (const currentDateString of daysToProcess) {
+        console.log(`${functionName} Processing Day: ${currentDateString}`);
         const currentDayAsDate = parseISO(currentDateString);
-        if (freshProfile.blocked_days?.includes(currentDateString)) continue;
+        if (freshProfile.blocked_days?.includes(currentDateString)) {
+            console.log(`${functionName} Day ${currentDateString} is blocked. Skipping.`);
+            continue;
+        }
 
         const workdayStart = freshProfile.default_auto_schedule_start_time ? setTimeOnDate(currentDayAsDate, freshProfile.default_auto_schedule_start_time) : startOfDay(currentDayAsDate);
         let workdayEnd = freshProfile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(currentDayAsDate), freshProfile.default_auto_schedule_end_time) : addHours(startOfDay(currentDayAsDate), 17);
@@ -486,6 +499,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const freeGaps = getFreeTimeBlocks(currentOccupied, effectiveSearchStart, workdayEnd);
         const totalFreeMinutes = freeGaps.reduce((s, g) => s + g.duration, 0);
 
+        console.log(`${functionName} Total Working Capacity for today: ${totalFreeMinutes}m across ${freeGaps.length} gaps.`);
+
         const order = freshProfile.custom_environment_order?.length ? freshProfile.custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
 
         // 3. Calculate Spatial Phases (Quota Gates)
@@ -494,12 +509,16 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         // 4. Fill Each Phase with Available Pool Tasks
         for (const phase of phases) {
             let phaseCursor = phase.start;
+            const phaseDur = differenceInMinutes(phase.end, phase.start);
+            
+            console.log(`${functionName} [PHASE START] Zone: ${phase.env} | Window: ${formatTime(phase.start)} - ${formatTime(phase.end)} (${phaseDur}m)`);
             
             // Filter pool for tasks matching this environment
             const envTasks = pool.filter(t => (t.task_environment || 'laptop') === phase.env);
             // Sort them internally so high priority/critical go first within the zone
             const sortedEnvTasks = envTasks.sort((a, b) => {
                if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
+               if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
                if (a.is_backburner !== b.is_backburner) return a.is_backburner ? 1 : -1;
                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
             });
@@ -508,8 +527,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                 const taskTotal = (t.duration || 30) + (t.break_duration || 0);
                 
                 // --- THE HARD STOP QUOTA GUARD ---
-                // If this task pushes the cursor beyond the phase end, it means the quota is full
                 if (isAfter(addMinutes(phaseCursor, taskTotal), phase.end)) {
+                    console.log(`${functionName} Phase quota limit reached for ${phase.env}. Remaining in window: ${differenceInMinutes(phase.end, phaseCursor)}m. Objective "${t.name}" (${taskTotal}m) deferred.`);
                     break; // Move to next phase (environment)
                 }
 
@@ -548,6 +567,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }
       }
 
+      console.log(`${functionName} Linear placement complete. Placed: ${globalTasksToInsert.length} | Unplaced: ${pool.length}`);
+
       const globalTasksToKeepInSink: NewRetiredTask[] = pool.map(t => ({ 
         user_id: userId, 
         name: t.name || 'Untitled Task', 
@@ -572,8 +593,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         tasksToKeepInSink: globalTasksToKeepInSink, 
         selectedDate: targetDateString 
       });
+      console.log(`${functionName} Transactional update triggered.`);
       showSuccess("Timeline Stream Synchronized.");
     } catch (e: any) { 
+      console.error(`${functionName} Engine Failure:`, e);
       showError(`Engine Error: ${e.message}`); 
     }
   }, [userId, isSessionLoading, autoBalanceScheduleMutation, todayString]);

@@ -355,7 +355,13 @@ export const calculateSpatialPhases = (
   enableMacroSpread: boolean,
   minPhaseDuration: number = 30
 ): { env: string; start: Date; end: Date }[] => {
-  if (availableMinutes <= 0 || freeGaps.length === 0) return [];
+  const functionName = "[calculateSpatialPhases]";
+  console.log(`${functionName} Initializing Liquid Budget Calculation. Total Capacity: ${availableMinutes} minutes.`);
+
+  if (availableMinutes <= 0 || freeGaps.length === 0) {
+      console.warn(`${functionName} Calculation aborted: No available capacity.`);
+      return [];
+  }
 
   const weightLookup = new Map<string, number>();
   zoneWeights.forEach(zw => weightLookup.set(zw.value, Number(zw.target_weight || 0)));
@@ -365,7 +371,12 @@ export const calculateSpatialPhases = (
       activeEnvs = Array.from(weightLookup.keys()).filter(k => (weightLookup.get(k) || 0) > 0);
   }
 
-  if (activeEnvs.length === 0) return [];
+  if (activeEnvs.length === 0) {
+      console.error(`${functionName} Error: No environments with allocated budget detected.`);
+      return [];
+  }
+
+  console.log(`${functionName} Active Environments: ${activeEnvs.join(', ')}`);
 
   const iterationsCount = enableMacroSpread ? 2 : 1;
   const phases: { env: string; start: Date; end: Date }[] = [];
@@ -373,9 +384,13 @@ export const calculateSpatialPhases = (
 
   let currentEnvIdx = 0; // Global index across all iterations [0 to (envs*iters - 1)]
 
+  console.log(`${functionName} Beginning linear placement across ${freeGaps.length} temporal gaps.`);
+
   for (const gap of freeGaps) {
     let gapCursor = gap.start;
     let timeRemainingInGap = gap.duration;
+    
+    console.log(`${functionName} Processing Gap: ${formatTime(gap.start)} - ${formatTime(gap.end)} (${gap.duration}m)`);
 
     while (timeRemainingInGap > 0 && currentEnvIdx < (activeEnvs.length * iterationsCount)) {
       const iteration = Math.floor(currentEnvIdx / activeEnvs.length);
@@ -390,7 +405,10 @@ export const calculateSpatialPhases = (
       const spent = spentQuotasPerIteration.get(key) || 0;
       const remaining = iterationQuota - spent;
 
+      console.log(`${functionName} Iteration ${iteration + 1} | Zone: ${env} | Quota: ${iterationQuota}m | Remaining: ${remaining}m`);
+
       if (remaining <= 0) {
+          console.log(`${functionName} Quota for ${env} (Iter ${iteration + 1}) exhausted. Advancing stream.`);
           currentEnvIdx++;
           continue;
       }
@@ -401,10 +419,13 @@ export const calculateSpatialPhases = (
           phases.push({ env, start: gapCursor, end: phaseEnd });
           
           spentQuotasPerIteration.set(key, spent + sliceSize);
+          console.log(`${functionName} >>> ALLOCATED: ${env} | ${formatTime(gapCursor)} - ${formatTime(phaseEnd)} (${sliceSize}m)`);
+
           gapCursor = phaseEnd;
           timeRemainingInGap -= sliceSize;
 
           if (spent + sliceSize >= iterationQuota) {
+              console.log(`${functionName} Quota for ${env} (Iter ${iteration + 1}) filled. Advancing stream.`);
               currentEnvIdx++;
           }
       } else {
@@ -413,6 +434,7 @@ export const calculateSpatialPhases = (
     }
   }
 
+  console.log(`${functionName} Liquid Budget Calculation Complete. ${phases.length} spatial phases generated.`);
   return phases;
 };
 

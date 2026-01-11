@@ -343,30 +343,17 @@ export interface ZoneWeight {
 }
 
 /**
- * REPLACED calculateSpatialPhases with a dynamic Sequencer in handleAutoScheduleAndSort
- * This logic is now obsolete but kept for reference if needed.
- */
-export const calculateSpatialPhases = (
-  availableMinutes: number, 
-  freeGaps: TimeBlock[], 
-  zoneWeights: ZoneWeight[],
-  envSequence: string[],
-  enableMacroSpread: boolean,
-  minPhaseDuration: number = 30
-): { env: string; start: Date; end: Date }[] => {
-  return []; // Logic moved to Linear Flow Sequencer
-};
-
-/**
  * LIQUID FLOW SEQUENCER:
  * Now respects quotas by limiting tasks *before* sorting them into the placement sequence.
+ * SYNC FIX: Uses referenceDuration (full workday) for quota calculation to match UI.
+ * TASK-AWARE FIX: Ensures every zone gets at least enough room for its smallest task.
  */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
   profile: UserProfile,
   sortPreference: SortBy,
-  totalAvailableMinutes?: number,
-  zoneWeights?: ZoneWeight[]
+  referenceDuration: number, // Use total workday duration to sync with UI
+  zoneWeights: ZoneWeight[]
 ): UnifiedTask[] => {
   const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
 
@@ -384,24 +371,34 @@ export const sortAndChunkTasks = (
     groups.get(env)!.push(task);
   });
 
-  // Apply Quotas if provided
-  if (totalAvailableMinutes && zoneWeights) {
-      const weightMap = new Map(zoneWeights.map(zw => [zw.value, zw.target_weight]));
-      for (const [env, groupTasks] of groups.entries()) {
-          const weight = weightMap.get(env) || 0;
-          const quotaMinutes = Math.floor(totalAvailableMinutes * (weight / 100));
-          
-          groupTasks.sort(internalSort);
-          let cumulative = 0;
-          const limitedGroup: UnifiedTask[] = [];
-          for (const t of groupTasks) {
-              const dur = (t.duration || 30) + (t.break_duration || 0);
-              if (cumulative + dur > quotaMinutes && limitedGroup.length > 0) break;
-              limitedGroup.push(t);
-              cumulative += dur;
-          }
-          groups.set(env, limitedGroup);
+  // Apply Quotas and Task-Aware Sizing
+  const weightMap = new Map(zoneWeights.map(zw => [zw.value, zw.target_weight]));
+  for (const [env, groupTasks] of groups.entries()) {
+      const weight = weightMap.get(env) || 0;
+      
+      // 1. Calculate the 'UI-Synchronized' quota based on full workday
+      let quotaMinutes = Math.floor(referenceDuration * (weight / 100));
+      
+      groupTasks.sort(internalSort);
+      
+      // 2. TASK-AWARE SIZING: If we have tasks but quota is too small for even one, 
+      // expand the floor to the smallest task duration (or first task in priority).
+      if (groupTasks.length > 0 && weight > 0) {
+          const firstTaskTotal = (groupTasks[0].duration || 30) + (groupTasks[0].break_duration || 0);
+          quotaMinutes = Math.max(quotaMinutes, firstTaskTotal);
       }
+
+      let cumulative = 0;
+      const limitedGroup: UnifiedTask[] = [];
+      for (const t of groupTasks) {
+          const dur = (t.duration || 30) + (t.break_duration || 0);
+          // If adding this task exceeds the quota, but we haven't added anything yet, 
+          // we force at least one task (Task-Aware Sizing floor).
+          if (cumulative + dur > quotaMinutes && limitedGroup.length > 0) break;
+          limitedGroup.push(t);
+          cumulative += dur;
+      }
+      groups.set(env, limitedGroup);
   }
 
   const order = custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
@@ -451,7 +448,11 @@ export const compactScheduleLogic = (
     created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false,
   }));
 
-  const sorted = sortAndChunkTasks(unified, profile, sortPreference);
+  // For compaction, we don't strictly enforce spatial quotas against the workday, 
+  // but we still want the chunking behavior.
+  const workdayTotal = differenceInMinutes(workdayEndTime, workdayStartTime);
+  const sorted = sortAndChunkTasks(unified, profile, sortPreference, workdayTotal, []);
+  
   const staticConstraints = getStaticConstraints(profile, selectedDayDate, workdayStartTime, workdayEndTime);
   const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
 

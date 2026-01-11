@@ -154,7 +154,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const compactScheduledTasksMutation = useMutation({
     mutationFn: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => {
       if (!userId) throw new Error("User not authenticated.");
-      // FIX: Payload must include all NOT NULL fields for the upsert to succeed in Supabase
       const { error = null } = await supabase.from('scheduled_tasks').upsert(tasksToUpdate, { onConflict: 'id' });
       if (error) throw error;
     },
@@ -174,7 +173,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const dur = differenceInMinutes(parseISO(b.end_time!), parseISO(b.start_time!));
         const slot = findFirstAvailableSlot(dur, occupied, workdayStartTime, workdayEndTime);
         if (slot) {
-          // FIX: Include full original object 'b' to satisfy Supabase NOT NULL constraints
           updated.push({ ...b, start_time: slot.start.toISOString(), end_time: slot.end.toISOString() });
           occupied.push({ start: slot.start, end: slot.end, duration: dur });
           occupied = mergeOverlappingTimeBlocks(occupied);
@@ -423,6 +421,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         let workdayEnd = freshProfile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(currentDayAsDate), freshProfile.default_auto_schedule_end_time) : addHours(startOfDay(currentDayAsDate), 17);
         if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
         
+        const workdayTotal = differenceInMinutes(workdayEnd, workdayStart);
         const now = new Date();
         const effectiveSearchStart = isSameDay(currentDayAsDate, now) ? max([now, workdayStart]) : workdayStart;
 
@@ -431,12 +430,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const staticConstraints = getStaticConstraints(freshProfile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
         
-        // RE-CALC AVAILABLE CAPACITY PER DAY
-        const freeGaps = getFreeTimeBlocks(currentOccupied, effectiveSearchStart, workdayEnd);
-        const totalFreeMinutes = freeGaps.reduce((s, g) => s + g.duration, 0);
-
-        // Sequence construction with spatial budgeting
-        const tasksToPlace = sortAndChunkTasks(pool, freshProfile, sortPreference, totalFreeMinutes, zoneWeights);
+        // Sequence construction with spatial budgeting and Task-Aware Sizing
+        const tasksToPlace = sortAndChunkTasks(pool, freshProfile, sortPreference, workdayTotal, zoneWeights);
         let placementCursor = effectiveSearchStart;
 
         for (const t of tasksToPlace) {

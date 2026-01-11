@@ -232,14 +232,15 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
     setIsProcessingCommand(true);
     try {
-      const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile);
+      // MODIFIED: Pass current sortBy to compactScheduleLogic
+      const tasksToUpdate = compactScheduleLogic(dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, profile, sortBy);
       await compactScheduledTasks({ tasksToUpdate });
     } catch (e: any) {
       showError(`Compaction failed: ${e.message}`);
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile, isSelectedDayBlocked]);
+  }, [dbScheduledTasks, selectedDayAsDate, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, compactScheduledTasks, profile, isSelectedDayBlocked, sortBy]);
 
   const handleRandomize = useCallback(async () => {
     if (isSelectedDayBlocked) {

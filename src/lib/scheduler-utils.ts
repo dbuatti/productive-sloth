@@ -22,71 +22,17 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'commute': '🚗', 'drive': '🚗', 'bus': '🚌', 'train': '🚆', 'travel': '✈️',
   'shop': '🛍️', 'bank': '🏦', 'post': '✉️', 'errands': '🏃‍♀️',
   'friends': '🧑‍🤝‍🧑', 'family': '👨‍👩‍👧‍👦', 'social': '🎉',
-  'wake up': '⏰',
-  'coles': '🛒',
-  'woolworths': '🛒',
-  'lesson': '🧑‍🏫',
-  'call': '📞',
-  'phone': '📱',
-  'text': '💬',
-  'contact': '🤝',
-  'student': '🧑‍🎓',
-  'rehearsal': '🎭',
-  'time off': '🌴',
-  'message': '💬',
-  'journal': '✍️',
-  'washing': '👕',
-  'money': '💰', 'transactions': '💰',
-  'mop': '🪣', 'floor': '🪣',
-  'quote': '🧾', 'send quote': '🧾', 'generate quote': '🧾',
-  'doctor': '🩺', 'medical': '🩺',
-  'channel': '🧘', 'anxious': '🧘',
-  'recycling': '♻️', 'bin': '♻️',
-  'milk': '🥛', 'cartons': '🥛',
-  'sync': '🤝', 'standup': '🤝',
-  'tutorial': '💡',
-  'tv': '📺',
-  'cobweb': '🕸️',
-  'cables': '🔌',
-  'fold laundry': '🧺',
-  'load of laundry': '🧺',
-  'tidy': '🗄️',
-  'room': '🏠',
-  'book': '📅',
-  'waitress': '📅',
-  'preparation': '📝',
-  'lego': '🧩',
-  'organise': '🗄️',
-  'shirts': '👕',
-  'gigs': '🎤',
-  'charge': '🔌',
-  'vacuum': '🔌',
-  'put away': '📦',
-  'sheets': '📦',
-  'pants': '📦',
-  'medication': '💊',
-  'toothbrush': '🪥',
-  'return message': '💬',
-  'voice deal': '🎤',
-  'find location': '🗺️',
-  'broom': '🧹',
-  'practise': '🎹',
-  'track': '🎼',
-  'catch up': '🤝',
-  'trim': '💅', 
-  'cuticle': '💅', 
-  'payment': '💸',
-  'link': '🔗',
-  'send': '📧',
-  'voice notes': '🎙️',
-  'job notes': '📝',
-  'process': '⚙️',
-  'usb': '🔌',
-  'cable': '🔌',
-  'coil': '🔌',
-  'write up': '✍️',
-  'notes': '📝',
-  'reflection': '🧠',
+  'wake up': '⏰', 'coles': '🛒', 'woolworths': '🛒', 'lesson': '🧑‍🏫', 'call': '📞', 'phone': '📱', 'text': '💬',
+  'contact': '🤝', 'student': '🧑‍🎓', 'rehearsal': '🎭', 'time off': '🌴', 'message': '💬', 'journal': '✍️', 'washing': '👕',
+  'money': '💰', 'transactions': '💰', 'mop': '🪣', 'floor': '🪣', 'quote': '🧾', 'send quote': '🧾', 'generate quote': '🧾',
+  'doctor': '🩺', 'medical': '🩺', 'channel': '🧘', 'anxious': '🧘', 'recycling': '♻️', 'bin': '♻️', 'milk': '🥛',
+  'cartons': '🥛', 'sync': '🤝', 'standup': '🤝', 'tutorial': '💡', 'tv': '📺', 'cobweb': '🕸️', 'cables': '🔌',
+  'fold laundry': '🧺', 'load of laundry': '🧺', 'tidy': '🗄️', 'room': '🏠', 'book': '📅', 'waitress': '📅',
+  'preparation': '📝', 'lego': '🧩', 'organise': '🗄️', 'shirts': '👕', 'gigs': '🎤', 'charge': '🔌', 'vacuum': '🔌',
+  'put away': '📦', 'sheets': '📦', 'pants': '📦', 'medication': '💊', 'toothbrush': '🪥', 'return message': '💬',
+  'voice deal': '🎤', 'find location': '🗺️', 'broom': '🧹', 'practise': '🎹', 'track': '🎼', 'catch up': '🤝',
+  'trim': '💅', 'cuticle': '💅', 'payment': '💸', 'link': '🔗', 'send': '📧', 'voice notes': '🎙️', 'job notes': '📝',
+  'process': '⚙️', 'usb': '🔌', 'cable': '🔌', 'coil': '🔌', 'write up': '✍️', 'notes': '📝', 'reflection': '🧠',
 };
 
 export const EMOJI_HUE_MAP: { [key: string]: number } = {
@@ -94,8 +40,7 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'email': 240, 'messages': 245, 'calls': 250, 'communication': 240, 'admin': 270, 'paperwork': 230,
   'meeting': 280, 'work': 210, 'report': 230, 'professional': 280, 'project': 290, 'coding': 210, 'develop': 210, 'code': 210, 'bug': 90, 'fix': 40,
   'design': 320, 'writing': 320, 'art': 330, 'creative': 340, 'draw': 320,
-  'study': 150, 
-  'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260,
+  'study': 150, 'reading': 260, 'course': 260, 'learn': 270, 'class': 260, 'lecture': 260,
   'clean': 120, 'laundry': 130, 'organize': 140, 'household': 120, 'setup': 40,
   'cook': 30, 'meal prep': 35, 'groceries': 180, 'food': 25, 'lunch': 45, 'dinner': 10, 'breakfast': 50, 'snack': 350, 'eat': 35,
   'brainstorm': 60, 'strategy': 70, 'review': 80, 'plan': 220,
@@ -106,71 +51,6 @@ export const EMOJI_HUE_MAP: { [key: string]: number } = {
   'commute': 10, 'drive': 10, 'bus': 10, 'train': 10, 'travel': 200,
   'shop': 180, 'bank': 220, 'post': 240, 'errands': 210,
   'friends': 300, 'family': 300, 'social': 310,
-  'wake up': 0,
-  'coles': 0,
-  'woolworths': 0,
-  'lesson': 0,
-  'call': 0,
-  'phone': 0,
-  'text': 0,
-  'contact': 0,
-  'student': 0,
-  'rehearsal': 0,
-  'time off': 0,
-  'message': 0,
-  'journal': 0,
-  'washing': 0,
-  'money': 0, 'transactions': 0,
-  'mop': 0, 'floor': 0,
-  'quote': 0, 'send quote': 0, 'generate quote': 0,
-  'doctor': 0, 'medical': 0,
-  'channel': 0, 'anxious': 0,
-  'recycling': 0, 'bin': 0,
-  'milk': 0, 'cartons': 0,
-  'sync': 0, 'standup': 0,
-  'tutorial': 0,
-  'tv': 0,
-  'cobweb': 0,
-  'cables': 0,
-  'fold laundry': 0,
-  'load of laundry': 0,
-  'tidy': 0,
-  'room': 0,
-  'book': 0,
-  'waitress': 0,
-  'preparation': 0,
-  'lego': 0,
-  'organise': 0,
-  'shirts': 0,
-  'gigs': 0,
-  'charge': 0,
-  'vacuum': 0,
-  'put away': 0,
-  'sheets': 0,
-  'pants': 0,
-  'medication': 0,
-  'toothbrush': 0,
-  'return message': 0,
-  'voice deal': 0,
-  'find location': 0,
-  'broom': 0,
-  'practise': 0,
-  'track': 0,
-  'catch up': 0,
-  'trim': 0, 
-  'cuticle': 0, 
-  'payment': 0,
-  'link': 0,
-  'send': 0,
-  'voice notes': 0,
-  'job notes': 0,
-  'process': 0,
-  'usb': 0,
-  'cable': 0,
-  'coil': 0,
-  'write up': 0,
-  'notes': 0,
-  'reflection': 0,
 };
 
 // --- Utility Functions ---
@@ -179,21 +59,13 @@ export const formatTime = (date: Date): string => format(date, 'h:mm a');
 export const formatDayMonth = (date: Date): string => format(date, 'MMM d');
 export const formatDateTime = (date: Date): string => format(date, 'MMM d, h:mm a');
 
-/**
- * Formats a duration in minutes into a human-readable string like '1h 30m' or '45m'.
- */
 export const formatDurationToHoursMinutes = (totalMinutes: number): string => {
   if (totalMinutes <= 0) return '0m';
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  
-  if (hours > 0 && minutes > 0) {
-    return `${hours}h ${minutes}m`;
-  } else if (hours > 0) {
-    return `${hours}h`;
-  } else {
-    return `${minutes}m`;
-  }
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  else if (hours > 0) return `${hours}h`;
+  else return `${minutes}m`;
 };
 
 export const setTimeOnDate = (date: Date, timeString: string): Date => {
@@ -204,9 +76,7 @@ export const setTimeOnDate = (date: Date, timeString: string): Date => {
 export const assignEmoji = (taskName: string): string => {
   const lowerCaseTaskName = taskName.toLowerCase();
   for (const keyword in EMOJI_MAP) {
-    if (lowerCaseTaskName.includes(keyword)) {
-      return EMOJI_MAP[keyword];
-    }
+    if (lowerCaseTaskName.includes(keyword)) return EMOJI_MAP[keyword];
   }
   return '📋'; 
 };
@@ -214,9 +84,7 @@ export const assignEmoji = (taskName: string): string => {
 export const getEmojiHue = (taskName: string): number => {
   const lowerCaseTaskName = taskName.toLowerCase();
   for (const keyword in EMOJI_HUE_MAP) {
-    if (lowerCaseTaskName.includes(keyword)) {
-      return EMOJI_HUE_MAP[keyword];
-    }
+    if (lowerCaseTaskName.includes(keyword)) return EMOJI_HUE_MAP[keyword];
   }
   return 220; 
 };
@@ -234,49 +102,29 @@ export const isMeal = (taskName: string): boolean => {
 };
 
 export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false, isBreak: boolean = false): number => {
-  if (isBreak) { 
-    return -10; // Fixed energy gain for explicit breaks
-  }
-  if (isMeal('meal')) { // Check if the task name itself contains 'meal'
-    return -10; // Fixed energy gain for meals
-  }
-
+  if (isBreak) return -10;
   let baseCost = Math.ceil(duration / 15) * 5; 
-  
-  if (isCritical) {
-    baseCost = Math.ceil(baseCost * 1.5); 
-  } else if (isBackburner) {
-    baseCost = Math.ceil(baseCost * 0.75);
-  }
-  
-  const finalCost = Math.max(5, baseCost); 
-  return finalCost;
+  if (isCritical) baseCost = Math.ceil(baseCost * 1.5); 
+  else if (isBackburner) baseCost = Math.ceil(baseCost * 0.75);
+  return Math.max(5, baseCost); 
 };
 
 export const parseFlexibleTime = (timeString: string, baseDate: Date): Date => {
   const lowerCaseTimeString = timeString.toLowerCase();
   let parsedDate: Date;
-
   parsedDate = parse(lowerCaseTimeString, 'h:mma', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
-
   parsedDate = parse(lowerCaseTimeString, 'h:mm a', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
-
   parsedDate = parse(lowerCaseTimeString, 'ha', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
-
   parsedDate = parse(lowerCaseTimeString, 'HH:mm', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
-
   const hourMatch = lowerCaseTimeString.match(/^(\d{1,2})$/);
   if (hourMatch) {
     const hour = parseInt(hourMatch[1], 10);
-    if (hour >= 0 && hour <= 23) {
-      return setHours(setMinutes(baseDate, 0), hour);
-    }
+    if (hour >= 0 && hour <= 23) return setHours(setMinutes(baseDate, 0), hour);
   }
-
   return baseDate; 
 };
 
@@ -291,54 +139,42 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   isBackburner: boolean; 
   shouldSink: boolean;
   energyCost: number;
-  isWork: boolean; // NEW
-  isBreak: boolean; // NEW
+  isWork: boolean; 
+  isBreak: boolean; 
 } | null => {
   let rawInput = input.trim();
   let isCritical = false;
   let isBackburner = false; 
   let shouldSink = false;
   let isFlexible = true; 
-  let isWork = false; // NEW
-  let isBreak = false; // NEW
+  let isWork = false;
+  let isBreak = false;
 
-  // Check for Critical Flag (Prefix: !)
   if (rawInput.startsWith('!')) {
     isCritical = true;
     rawInput = rawInput.substring(1).trim();
   }
-
-  // Check for Backburner Flag (Prefix: -)
   if (rawInput.startsWith('-')) {
     isBackburner = true;
     rawInput = rawInput.substring(1).trim();
   }
 
-  // Suffix checks need lower case
   let lowerRawInput = rawInput.toLowerCase();
-
-  // Check for Sink Flag (Suffix: sink)
   if (lowerRawInput.endsWith(' sink')) {
     shouldSink = true;
     rawInput = rawInput.substring(0, rawInput.length - 5).trim();
     lowerRawInput = rawInput.toLowerCase();
   }
-
-  // Check for Fixed Flag (Suffix: fixed)
   if (lowerRawInput.endsWith(' fixed')) {
     isFlexible = false;
     rawInput = rawInput.substring(0, rawInput.length - 6).trim();
     lowerRawInput = rawInput.toLowerCase();
   }
-
-  // Check for Work Flag (Suffix: W)
   if (lowerRawInput.endsWith(' w')) {
     isWork = true;
     rawInput = rawInput.substring(0, rawInput.length - 2).trim();
     lowerRawInput = rawInput.toLowerCase();
   }
-
-  // Check for Break Flag (Suffix: B)
   if (lowerRawInput.endsWith(' b')) {
     isBreak = true;
     rawInput = rawInput.substring(0, rawInput.length - 2).trim();
@@ -347,45 +183,21 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   
   const timeOffMatch = rawInput.match(/^(time off)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeOffMatch) {
-    const name = timeOffMatch[1];
-    const startTimeString = timeOffMatch[2];
-    const endTimeString = timeOffMatch[5];
-
-    const startTime = parseFlexibleTime(startTimeString, selectedDayAsDate);
-    const endTime = parseFlexibleTime(endTimeString, selectedDayAsDate);
-
-    if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-      return null;
+    const startTime = parseFlexibleTime(timeOffMatch[2], selectedDayAsDate);
+    const endTime = parseFlexibleTime(timeOffMatch[5], selectedDayAsDate);
+    if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+      return { name: timeOffMatch[1], startTime, endTime, isCritical: false, isBackburner: false, isFlexible: false, shouldSink: false, energyCost: 0, isWork: false, isBreak: false };
     }
-    return {
-      name: name,
-      startTime: startTime,
-      endTime: endTime,
-      isCritical: false,
-      isBackburner: false,
-      isFlexible: false, 
-      shouldSink: false,
-      energyCost: 0,
-      isWork: false, 
-      isBreak: false, 
-    };
   }
 
   const timeRangeMatch = rawInput.match(/^(.*?)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeRangeMatch) {
     const name = timeRangeMatch[1].trim();
-    const startTimeString = timeRangeMatch[2];
-    const endTimeString = timeRangeMatch[5];
-
-    const startTime = parseFlexibleTime(startTimeString, selectedDayAsDate);
-    const endTime = parseFlexibleTime(endTimeString, selectedDayAsDate);
-
+    const startTime = parseFlexibleTime(timeRangeMatch[2], selectedDayAsDate);
+    const endTime = parseFlexibleTime(timeRangeMatch[5], selectedDayAsDate);
     if (name && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
-      const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-      
-      const isMealTask = isMeal(name);
-      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
-      return { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost, isWork, isBreak }; 
+      const duration = differenceInMinutes(endTime, startTime);
+      return { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost: isMeal(name) ? -10 : calculateEnergyCost(duration, isCritical, isBackburner, isBreak), isWork, isBreak }; 
     }
   }
 
@@ -394,117 +206,32 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     const name = durationMatch[1].trim();
     const duration = parseInt(durationMatch[2], 10);
     const breakDuration = durationMatch[3] ? parseInt(durationMatch[3], 10) : undefined;
-
     if (name && duration > 0) {
-      const isMealTask = isMeal(name);
-      const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
-      return { name, duration, breakDuration, isCritical, isBackburner, isFlexible, shouldSink, energyCost, isWork, isBreak };
+      return { name, duration, breakDuration, isCritical, isBackburner, isFlexible, shouldSink, energyCost: isMeal(name) ? -10 : calculateEnergyCost(duration, isCritical, isBackburner, isBreak), isWork, isBreak };
     }
-  }
-  return null;
-};
-
-export const parseInjectionCommand = (input: string): {
-  taskName: string;
-  duration?: number;
-  breakDuration?: number;
-  startTime?: string;
-  endTime?: string;
-  isCritical?: boolean;
-  isFlexible?: boolean;
-  isBackburner?: boolean; 
-  energyCost: number;
-  isWork: boolean; 
-  isBreak: boolean; 
-} | null => {
-  const lowerInput = input.toLowerCase().trim();
-  const injectMatch = lowerInput.match(/^inject\s+"([^"]+)"(?:\s+(\d+))?(?:\s+(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s+(!))?(?:\s+(-))?(?:\s+(fixed))?(?:\s+(w))?(?:\s+(b))?$/);
-
-  if (injectMatch) {
-    const taskName = injectMatch[1];
-    const duration = injectMatch[2] ? parseInt(injectMatch[2], 10) : undefined;
-    const startTime = injectMatch[3] || undefined;
-    const endTime = injectMatch[6] || undefined;
-    const isCritical = !!injectMatch[9];
-    const isBackburner = !!injectMatch[10]; 
-    const isFlexible = !injectMatch[11]; 
-    const isWork = !!injectMatch[12]; 
-    const isBreak = !!injectMatch[13]; 
-
-    let calculatedEnergyCost = 0;
-    const isMealTask = isMeal(taskName);
-
-    if (isBreak) {
-      calculatedEnergyCost = -10;
-    } else if (isMealTask) {
-      calculatedEnergyCost = -10;
-    } else if (duration) {
-      calculatedEnergyCost = calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
-    } else {
-      calculatedEnergyCost = calculateEnergyCost(30, isCritical, isBackburner, isBreak); 
-    }
-    return {
-      taskName,
-      duration,
-      startTime,
-      endTime,
-      isCritical,
-      isBackburner,
-      isFlexible,
-      energyCost: calculatedEnergyCost,
-      isWork,
-      isBreak,
-    };
   }
   return null;
 };
 
 export const parseCommand = (input: string): { type: string; target?: string; index?: number; duration?: number } | null => {
   const lowerInput = input.toLowerCase().trim();
-
-  if (lowerInput === 'clear') {
-    return { type: 'clear' };
-  }
+  if (lowerInput === 'clear') return { type: 'clear' };
   if (lowerInput.startsWith('remove')) {
     const parts = lowerInput.split(' ');
     if (parts.length > 1) {
       if (parts[1] === 'index' && parts.length > 2) {
         const index = parseInt(parts[2], 10);
-        if (!isNaN(index)) {
-          return { type: 'remove', index: index - 1 }; 
-        }
-      } else {
-        return { type: 'remove', target: parts.slice(1).join(' ') };
-      }
+        if (!isNaN(index)) return { type: 'remove', index: index - 1 }; 
+      } else return { type: 'remove', target: parts.slice(1).join(' ') };
     }
   }
-  if (lowerInput === 'show') {
-    return { type: 'show' };
-  }
-  if (lowerInput === 'reorder') {
-    return { type: 'reorder' };
-  }
-  if (lowerInput === 'time off') {
-    return { type: 'timeoff' };
-  }
-  if (lowerInput === 'compact') {
-    return { type: 'compact' };
-  }
-  if (lowerInput === 'aether dump' || lowerInput === 'reset schedule') {
-    return { type: 'aether dump' };
-  }
-  if (lowerInput === 'aether dump mega') {
-    return { type: 'aether dump mega' };
-  }
+  if (lowerInput === 'compact') return { type: 'compact' };
+  if (lowerInput === 'aether dump') return { type: 'aether dump' };
+  if (lowerInput === 'aether dump mega') return { type: 'aether dump mega' };
   if (lowerInput.startsWith('break')) {
     const parts = lowerInput.split(' ');
-    if (parts.length > 1) {
-      const duration = parseInt(parts[1], 10);
-      if (!isNaN(duration) && duration > 0) {
-        return { type: 'break', duration: duration };
-      }
-    }
-    return { type: 'break', duration: 15 }; 
+    const duration = parts.length > 1 ? parseInt(parts[1], 10) : 15;
+    if (!isNaN(duration) && duration > 0) return { type: 'break', duration };
   }
   return null;
 };
@@ -517,193 +244,93 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   let isWork = false; 
   let isBreak = false; 
 
-  if (name.endsWith(' !')) {
-    isCritical = true;
-    name = name.slice(0, -2).trim();
-  }
-
-  if (name.startsWith('-')) {
-    isBackburner = true;
-    name = name.slice(1).trim();
-  }
-
-  // Check for Work Flag (Suffix: W)
-  if (name.toLowerCase().endsWith(' w')) {
-    isWork = true;
-    name = name.slice(0, -2).trim();
-  }
-
-  // Check for Break Flag (Suffix: B)
-  if (name.toLowerCase().endsWith(' b')) {
-    isBreak = true;
-    name = name.slice(0, -2).trim();
-  }
+  if (name.endsWith(' !')) { isCritical = true; name = name.slice(0, -2).trim(); }
+  if (name.startsWith('-')) { isBackburner = true; name = name.slice(1).trim(); }
+  if (name.toLowerCase().endsWith(' w')) { isWork = true; name = name.slice(0, -2).trim(); }
+  if (name.toLowerCase().endsWith(' b')) { isBreak = true; name = name.slice(0, -2).trim(); }
 
   const durationMatch = name.match(/^(.*?)\s+(\d+)$/);
-  if (durationMatch) {
-    name = durationMatch[1].trim();
-    duration = parseInt(durationMatch[2], 10);
-  }
+  if (durationMatch) { name = durationMatch[1].trim(); duration = parseInt(durationMatch[2], 10); }
 
-  if (!name) {
-    return null;
-  }
-
-  const isMealTask = isMeal(name);
-  const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner, isBreak); 
+  if (!name) return null;
   return {
-    user_id: userId,
-    name: name,
-    duration: duration,
-    break_duration: null, 
-    original_scheduled_date: format(new Date(), 'yyyy-MM-dd'), 
-    is_critical: isCritical,
-    is_locked: false,
-    energy_cost: energyCost,
-    is_completed: false,
-    is_custom_energy_cost: false,
-    task_environment: 'laptop', 
-    is_backburner: isBackburner, 
-    is_work: isWork, 
-    is_break: isBreak, 
+    user_id: userId, name: name, duration: duration, break_duration: null, original_scheduled_date: format(new Date(), 'yyyy-MM-dd'), is_critical: isCritical,
+    is_locked: false, energy_cost: isMeal(name) ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner, isBreak), is_completed: false, is_custom_energy_cost: false,
+    task_environment: 'laptop', is_backburner: isBackburner, is_work: isWork, is_break: isBreak,
   };
 };
 
 export const mergeOverlappingTimeBlocks = (blocks: TimeBlock[]): TimeBlock[] => {
   if (blocks.length === 0) return [];
-  blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
-
+  const sorted = [...blocks].sort((a, b) => a.start.getTime() - b.start.getTime());
   const merged: TimeBlock[] = [];
-  let currentMergedBlock = { ...blocks[0] };
-
-  for (let i = 1; i < blocks.length; i++) {
-    const nextBlock = blocks[i];
-
-    if (currentMergedBlock.end >= nextBlock.start) {
-      currentMergedBlock.end = new Date(Math.max(currentMergedBlock.end.getTime(), nextBlock.end.getTime()));
-      currentMergedBlock.duration = Math.floor((currentMergedBlock.end.getTime() - currentMergedBlock.start.getTime()) / (1000 * 60));
+  let current = { ...sorted[0] };
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i];
+    if (current.end >= next.start) {
+      current.end = max([current.end, next.end]);
+      current.duration = differenceInMinutes(current.end, current.start);
     } else {
-      merged.push(currentMergedBlock);
-      currentMergedBlock = { ...nextBlock };
+      merged.push(current);
+      current = { ...next };
     }
   }
-
-  merged.push(currentMergedBlock);
+  merged.push(current);
   return merged;
 };
 
-export const getFreeTimeBlocks = (
-  occupiedBlocks: TimeBlock[],
-  workdayStart: Date,
-  workdayEnd: Date
-): TimeBlock[] => {
+export const getFreeTimeBlocks = (occupiedBlocks: TimeBlock[], workdayStart: Date, workdayEnd: Date): TimeBlock[] => {
   const freeBlocks: TimeBlock[] = [];
-  let currentFreeTimeCursor = workdayStart;
-
-  const sortedOccupiedBlocks = mergeOverlappingTimeBlocks(occupiedBlocks);
-
-  for (let i = 0; i < sortedOccupiedBlocks.length; i++) {
-    const occupiedBlock = sortedOccupiedBlocks[i];
-    if (currentFreeTimeCursor < occupiedBlock.start) {
-      const duration = Math.floor((occupiedBlock.start.getTime() - currentFreeTimeCursor.getTime()) / (1000 * 60));
-      if (duration > 0) {
-        freeBlocks.push({
-          start: currentFreeTimeCursor,
-          end: occupiedBlock.start,
-          duration: duration,
-        });
-      }
+  let cursor = workdayStart;
+  const sortedOccupied = mergeOverlappingTimeBlocks(occupiedBlocks);
+  for (const block of sortedOccupied) {
+    if (cursor < block.start) {
+      const duration = differenceInMinutes(block.start, cursor);
+      if (duration > 0) freeBlocks.push({ start: cursor, end: block.start, duration });
     }
-    currentFreeTimeCursor = new Date(Math.max(currentFreeTimeCursor.getTime(), occupiedBlock.end.getTime()));
+    cursor = max([cursor, block.end]);
   }
-
-  if (currentFreeTimeCursor < workdayEnd) {
-    const duration = Math.floor((workdayEnd.getTime() - currentFreeTimeCursor.getTime()) / (1000 * 60));
-    if (duration > 0) {
-      freeBlocks.push({
-        start: currentFreeTimeCursor,
-        end: workdayEnd,
-        duration: duration,
-      });
-    }
+  if (cursor < workdayEnd) {
+    const duration = differenceInMinutes(workdayEnd, cursor);
+    if (duration > 0) freeBlocks.push({ start: cursor, end: workdayEnd, duration });
   }
   return freeBlocks;
 };
 
-export const findFirstAvailableSlot = (
-  durationMinutes: number,
-  occupiedBlocks: TimeBlock[],
-  searchStart: Date,
-  workdayEnd: Date
-): { start: Date; end: Date } | null => {
+export const findFirstAvailableSlot = (durationMinutes: number, occupiedBlocks: TimeBlock[], searchStart: Date, workdayEnd: Date): { start: Date; end: Date } | null => {
   const freeBlocks = getFreeTimeBlocks(occupiedBlocks, searchStart, workdayEnd);
-  
   for (const slot of freeBlocks) {
-    if (slot.duration >= durationMinutes) {
-      const proposedStart = max([slot.start, searchStart]); // Ensure proposed start is not before searchStart
-      const proposedEnd = addMinutes(proposedStart, durationMinutes);
-      
-      // Check if the proposed slot is entirely within the free block and within the workday
-      if (proposedEnd <= slot.end && proposedEnd <= workdayEnd) {
-        // Double check against original occupied blocks to ensure no overlap
-        const isSafe = occupiedBlocks.every(block => {
-          return proposedEnd <= block.start || proposedStart >= block.end;
-        });
-
-        if (isSafe) {
-          return {
-            start: proposedStart,
-            end: proposedEnd
-          };
-        }
-      }
-    }
+    const effectiveStart = max([slot.start, searchStart]);
+    const proposedEnd = addMinutes(effectiveStart, durationMinutes);
+    if (proposedEnd <= slot.end && proposedEnd <= workdayEnd) return { start: effectiveStart, end: proposedEnd };
   }
   return null;
 };
 
-export const getStaticConstraints = (
-  profile: UserProfile,
-  selectedDayDate: Date,
-  workdayStart: Date,
-  workdayEnd: Date
-): TimeBlock[] => {
+export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date, workdayStart: Date, workdayEnd: Date): TimeBlock[] => {
   const constraints: TimeBlock[] = [];
   const addConstraint = (name: string, timeStr: string | null, duration: number | null) => {
-    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
-
+    const effectiveDuration = duration ?? 15;
     if (timeStr && effectiveDuration > 0) {
-      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
+      const anchorStart = setTimeOnDate(selectedDayDate, timeStr);
       let anchorEnd = addMinutes(anchorStart, effectiveDuration);
-
-      if (isBefore(anchorEnd, anchorStart)) {
-        anchorEnd = addDays(anchorEnd, 1);
-      }
-
-      // Check if the anchor overlaps with the workday window
-      const overlaps = (isBefore(anchorEnd, workdayEnd) || isEqual(anchorEnd, workdayEnd)) && 
-                       (isAfter(anchorStart, workdayStart) || isEqual(anchorStart, workdayStart));
-      
-      if (overlaps) {
+      if (isBefore(anchorEnd, anchorStart)) anchorEnd = addDays(anchorEnd, 1);
+      if (isBefore(anchorStart, workdayEnd) && isAfter(anchorEnd, workdayStart)) {
         const intersectionStart = max([anchorStart, workdayStart]);
         const intersectionEnd = min([anchorEnd, workdayEnd]);
-        const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
-        if (finalDuration > 0) {
-          const newBlock = { start: intersectionStart, end: intersectionEnd, duration: finalDuration };
-          constraints.push(newBlock);
+        if (differenceInMinutes(intersectionEnd, intersectionStart) > 0) {
+          constraints.push({ start: intersectionStart, end: intersectionEnd, duration: differenceInMinutes(intersectionEnd, intersectionStart) });
         }
       }
     }
   };
-
   addConstraint('Breakfast', profile.breakfast_time, profile.breakfast_duration_minutes);
   addConstraint('Lunch', profile.lunch_time, profile.lunch_duration_minutes);
   addConstraint('Dinner', profile.dinner_time, profile.dinner_duration_minutes);
-
   for (let r = 0; r < (profile.reflection_count || 0); r++) {
-      const rTime = profile.reflection_times?.[r];
-      const rDur = profile.reflection_durations?.[r];
-      if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur); 
+    const rTime = profile.reflection_times?.[r];
+    const rDur = profile.reflection_durations?.[r];
+    if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur);
   }
   return constraints;
 };
@@ -713,539 +340,147 @@ export const sortAndChunkTasks = (
   profile: UserProfile,
   sortPreference: SortBy
 ): UnifiedTask[] => {
-  console.log(`[sortAndChunkTasks] Input tasks count: ${tasks.length}. SortPreference: ${sortPreference}`);
   const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
 
-  // Base sort: Critical first, then breaks, then backburner, then by age (creation date)
+  // Base sort: Critical -> Break -> Standard -> Backburner -> Age
   const baseSortedTasks = [...tasks].sort((a, b) => {
-    if (a.is_critical && !b.is_critical) return -1;
-    if (!a.is_critical && b.is_critical) return 1;
-    if (a.is_break && !b.is_break) return -1;
-    if (!a.is_break && b.is_break) return 1;
-    if (a.is_backburner && !b.is_backburner) return 1;
-    if (!a.is_backburner && b.is_backburner) return -1;
+    if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
+    if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
+    if (a.is_backburner !== b.is_backburner) return a.is_backburner ? 1 : -1;
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
-  
-  console.log("[sortAndChunkTasks] 1. Base Priority Sort Complete:", baseSortedTasks.map(t => `[${t.task_environment}] ${t.name}`));
 
-  // If environment chunking is not enabled and sortPreference is not ENVIRONMENT_RATIO, return base priority sort
+  // If sorting is explicitly alphabetical or chronological, bypass chunking logic
+  if (sortPreference === 'NAME_ASC' || sortPreference === 'TIME_EARLIEST_TO_LATEST') {
+      return baseSortedTasks;
+  }
+
+  // If environment chunking is totally disabled and we aren't using Environment Ratio sort
   if (!enable_environment_chunking && sortPreference !== 'ENVIRONMENT_RATIO') {
-    console.log("[sortAndChunkTasks] Chunking disabled. Returning priority-only sequence.");
     return baseSortedTasks;
   }
 
-  // Group tasks by environment
-  const tasksByEnvironment = new Map<TaskEnvironment, UnifiedTask[]>();
+  // Group by environment
+  const groups = new Map<TaskEnvironment, UnifiedTask[]>();
   baseSortedTasks.forEach(task => {
-    const env = task.task_environment || 'laptop'; 
-    if (!tasksByEnvironment.has(env)) {
-      tasksByEnvironment.set(env, []);
-    }
-    tasksByEnvironment.get(env)!.push(task);
+    const env = task.task_environment || 'laptop';
+    if (!groups.has(env)) groups.set(env, []);
+    groups.get(env)!.push(task);
   });
-  
-  console.log("[sortAndChunkTasks] 2. Environment Groups Created:");
-  for (const [env, group] of tasksByEnvironment.entries()) {
-      console.log(`   - [${env}]: ${group.length} tasks`);
-  }
 
-  // Determine the sequence of environments based on user settings
-  const environmentOrder = custom_environment_order && custom_environment_order.length > 0
-    ? custom_environment_order
-    : ['home', 'laptop', 'away', 'piano', 'laptop_piano']; 
+  // Determine sequence
+  const order = custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+  const activeEnvs = Array.from(groups.keys());
+  const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
-  const activeEnvironments = Array.from(tasksByEnvironment.keys());
-  const finalEnvironmentOrder = environmentOrder
-    .filter(env => activeEnvironments.includes(env))
-    .concat(activeEnvironments.filter(env => !environmentOrder.includes(env)));
-  
-  console.log("[sortAndChunkTasks] 3. Target Environment Sequence:", finalEnvironmentOrder);
-
-  if (enable_macro_spread) {
-    console.log("[sortAndChunkTasks] 4. Applying MACRO-SPREAD distribution (Interleaving)...");
+  // DISTRIBUTION LOGIC: 
+  // If sortPreference is ENVIRONMENT_RATIO OR enable_macro_spread is ON, we INTERLEAVE.
+  if (sortPreference === 'ENVIRONMENT_RATIO' || enable_macro_spread) {
+    console.log("[sortAndChunkTasks] Logic: INTERLEAVING (Distributed)");
     const result: UnifiedTask[] = [];
-    const currentIndices = new Map<TaskEnvironment, number>();
-    finalEnvironmentOrder.forEach(env => currentIndices.set(env, 0));
+    const indices = new Map<TaskEnvironment, number>();
+    finalOrder.forEach(env => indices.set(env, 0));
 
-    let tasksRemaining = tasks.length;
-    while (tasksRemaining > 0) {
-      for (const env of finalEnvironmentOrder) {
-        const group = tasksByEnvironment.get(env);
-        const currentIndex = currentIndices.get(env)!;
-
-        if (group && currentIndex < group.length) {
-          result.push(group[currentIndex]);
-          currentIndices.set(env, currentIndex + 1);
-          tasksRemaining--;
+    let remaining = tasks.length;
+    while (remaining > 0) {
+      for (const env of finalOrder) {
+        const group = groups.get(env);
+        const idx = indices.get(env)!;
+        if (group && idx < group.length) {
+          result.push(group[idx]);
+          indices.set(env, idx + 1);
+          remaining--;
         }
       }
     }
-    console.log("[sortAndChunkTasks] 5. Interleaving Complete. Result:", result.map(t => `[${t.task_environment}] ${t.name}`));
     return result;
   } else {
-    console.log("[sortAndChunkTasks] 4. Applying STANDARD CHUNKING (Grouping)...");
-    const orderedEnvironmentGroups = finalEnvironmentOrder
-      .map(env => tasksByEnvironment.get(env) || [])
-      .filter(group => group.length > 0);
-    const result = orderedEnvironmentGroups.flat();
-    console.log("[sortAndChunkTasks] 5. Grouping Complete. Result:", result.map(t => `[${t.task_environment}] ${t.name}`));
-    return result;
+    // Standard Chunking: Grouped
+    console.log("[sortAndChunkTasks] Logic: GROUPING (Standard Chunking)");
+    return finalOrder.map(env => groups.get(env) || []).flat();
   }
 };
 
-export const compactScheduleLogic = (
-  currentDbTasks: DBScheduledTask[],
-  selectedDayDate: Date,
-  workdayStartTime: Date,
-  workdayEndTime: Date,
-  T_current: Date,
-  profile: UserProfile | null 
-): DBScheduledTask[] => {
-  if (!profile) {
-    return currentDbTasks; 
-  }
+export const compactScheduleLogic = (currentDbTasks: DBScheduledTask[], selectedDayDate: Date, workdayStartTime: Date, workdayEndTime: Date, T_current: Date, profile: UserProfile | null): DBScheduledTask[] => {
+  if (!profile) return currentDbTasks;
+  const fixed = currentDbTasks.filter(t => t.is_locked || !t.is_flexible || t.is_completed);
+  const flexible = currentDbTasks.filter(t => t.is_flexible && !t.is_locked && !t.is_completed);
 
-  // 1. Separate tasks: Fixed/Locked/Completed stay put. Flexible/Incomplete move.
-  const fixedTasks = currentDbTasks.filter(
-    t => t.is_locked || !t.is_flexible || t.is_completed
-  );
-  
-  const flexibleTasksRaw = currentDbTasks
-    .filter(t => t.is_flexible && !t.is_locked && !t.is_completed);
-
-  // Convert to UnifiedTask for sorting
-  const flexibleUnifiedTasks: UnifiedTask[] = flexibleTasksRaw.map(t => ({
-    id: t.id,
-    name: t.name,
-    duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30,
-    break_duration: t.break_duration,
-    is_critical: t.is_critical,
-    is_flexible: t.is_flexible,
-    is_backburner: t.is_backburner,
-    energy_cost: t.energy_cost,
-    source: 'scheduled',
-    originalId: t.id,
-    is_custom_energy_cost: t.is_custom_energy_cost,
-    created_at: t.created_at,
-    task_environment: t.task_environment,
-    is_work: t.is_work || false,
-    is_break: t.is_break || false,
+  const unified: UnifiedTask[] = flexible.map(t => ({
+    id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30,
+    break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: t.is_flexible, is_backburner: t.is_backburner,
+    energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
+    created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false,
   }));
 
-  const sortedFlexibleTasks = sortAndChunkTasks(flexibleUnifiedTasks, profile, profile.enable_environment_chunking ? 'ENVIRONMENT_RATIO' : 'PRIORITY_HIGH_TO_LOW'); 
+  const sorted = sortAndChunkTasks(unified, profile, 'ENVIRONMENT_RATIO');
+  const staticConstraints = getStaticConstraints(profile, selectedDayDate, workdayStartTime, workdayEndTime);
+  const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
 
-  // 2. Generate static constraints (meals, reflections)
-  const staticConstraints: TimeBlock[] = getStaticConstraints(
-    profile,
-    selectedDayDate,
-    workdayStartTime,
-    workdayEndTime
-  );
+  const isSelectedToday = isSameDay(selectedDayDate, new Date());
+  let insertionCursor = isSelectedToday ? max([workdayStartTime, T_current]) : workdayStartTime;
+  const results: DBScheduledTask[] = [...fixed];
 
-  // 3. Combine all fixed blocks (existing fixed tasks + static anchors)
-  const allFixedAndStaticBlocks: TimeBlock[] = mergeOverlappingTimeBlocks([
-    ...fixedTasks.filter(t => t.start_time && t.end_time).map(t => {
-      const start = parseISO(t.start_time!);
-      let end = parseISO(t.end_time!);
-      if (isBefore(end, start)) end = addDays(end, 1);
-      return { start, end, duration: differenceInMinutes(end, start) };
-    }),
-    ...staticConstraints
-  ]);
-
-  // 4. Determine the starting point for compaction
-  const isToday = isSameDay(selectedDayDate, new Date());
-  let insertionCursor = isToday ? max([workdayStartTime, T_current]) : workdayStartTime;
-
-  const updatedTasks: DBScheduledTask[] = [...fixedTasks]; 
-
-  // 5. Re-place flexible tasks chronologically
-  for (const task of sortedFlexibleTasks) { 
-    const duration = task.duration;
-    const totalDuration = duration + (task.break_duration || 0);
-
-    let placed = false;
-    let currentCursor = insertionCursor;
-
-    while (!placed && isBefore(currentCursor, workdayEndTime)) {
-      const proposedEnd = addMinutes(currentCursor, totalDuration);
-
-      // Check for collision with any fixed/static block
-      const collidingBlock = allFixedAndStaticBlocks.find(block => {
-        // Check if the proposed task overlaps with the block
-        return (
-          (isAfter(proposedEnd, block.start) && isBefore(currentCursor, block.end))
-        );
-      });
-
-      if (!collidingBlock) {
-        // No collision, place the task
-        const originalDbTask = currentDbTasks.find(t => t.id === task.id);
-        if (originalDbTask) {
-          updatedTasks.push({
-            ...originalDbTask, 
-            start_time: currentCursor.toISOString(),
-            end_time: proposedEnd.toISOString(),
-          });
-          insertionCursor = proposedEnd;
-          placed = true;
-        } else {
-          placed = true; 
-        }
-      } else {
-        // Collision, move cursor past the colliding block
-        const collidingBlockEnd = collidingBlock.end;
-        currentCursor = collidingBlockEnd;
-        
-        // Ensure insertionCursor also moves forward if it's behind the currentCursor
-        if (isAfter(currentCursor, insertionCursor)) {
-            insertionCursor = currentCursor;
-        }
+  for (const task of sorted) {
+    const total = task.duration + (task.break_duration || 0);
+    const slot = findFirstAvailableSlot(total, fixedBlocks, insertionCursor, workdayEndTime);
+    if (slot) {
+      const original = currentDbTasks.find(t => t.id === task.id);
+      if (original) {
+        results.push({ ...original, start_time: slot.start.toISOString(), end_time: slot.end.toISOString() });
+        insertionCursor = slot.end;
+        fixedBlocks.push({ start: slot.start, end: slot.end, duration: total });
+        mergeOverlappingTimeBlocks(fixedBlocks);
       }
     }
   }
-  return updatedTasks;
+  return results;
 };
 
-
-export const calculateSchedule = (
-  dbTasks: DBScheduledTask[],
-  selectedDay: string, 
-  workdayStart: Date, 
-  workdayEnd: Date,   
-  isRegenPodActive: boolean, 
-  regenPodStartTime: Date | null, 
-  regenPodDurationMinutes: number, 
-  T_current: Date, 
-  breakfastTimeStr: string | null, 
-  lunchTimeStr: string | null,     
-  dinnerTimeStr: string | null,    
-  breakfastDuration: number | null, 
-  lunchDuration: number | null,     
-  dinnerDuration: number | null,
-  reflectionCount: number = 0,
-  reflectionTimes: string[] = [],
-  reflectionDurations: number[] = [],
-  mealAssignments: any[] = [],
-  isDayBlocked: boolean = false 
-): FormattedSchedule => {
-  if (isDayBlocked) {
-    return {
-      items: [],
-      summary: {
-        totalTasks: 0,
-        activeTime: { hours: 0, minutes: 0 },
-        breakTime: 0,
-        sessionEnd: workdayStart,
-        extendsPastMidnight: false,
-        midnightRolloverMessage: null,
-        unscheduledCount: 0,
-        criticalTasksRemaining: 0,
-        isBlocked: true,
-      },
-      dbTasks: [],
-    };
-  }
-
-  let allRawItems: ScheduledItem[] = [];
-  let totalActiveTimeMinutes = 0;
-  let totalBreakTimeMinutes = 0;
-  let criticalTasksRemaining = 0;
-  let unscheduledCount = 0;
-  let sessionEnd = workdayStart; 
-  let extendsPastMidnight = false;
-  let midnightRolloverMessage: string | null = null; 
-
-  const [year, month, day] = selectedDay.split('-').map(Number);
-  const selectedDayDate = new Date(year, month - 1, day); 
-
-  // 1. Add Scheduled Tasks from DB
-  dbTasks.forEach((dbTask) => {
-    if (!dbTask.start_time || !dbTask.end_time) {
-      unscheduledCount++;
-      return;
-    }
-
-    let startTime = parseISO(dbTask.start_time);
-    let endTime = parseISO(dbTask.end_time);
-
-    if (isBefore(endTime, startTime) && isSameDay(startTime, selectedDayDate)) {
-      endTime = addDays(endTime, 1);
-      extendsPastMidnight = true;
-      midnightRolloverMessage = "Schedule extends past midnight.";
-    } else if (isBefore(endTime, startTime) && !isSameDay(startTime, selectedDayDate)) {
-      startTime = setHours(setMinutes(selectedDayDate, startTime.getMinutes()), startTime.getHours());
-    }
-
-
-    const duration = differenceInMinutes(endTime, startTime);
-    if (duration <= 0) {
-      return;
-    }
-
-    const isTimeOff = dbTask.name.toLowerCase() === 'time off';
-    const isBreak = dbTask.name.toLowerCase() === 'break' || dbTask.is_break; 
-    const isMealTask = isMeal(dbTask.name);
-    const isCalendarEvent = !!dbTask.source_calendar_id; 
-
-    let itemType: ScheduledItemType;
-    if (isCalendarEvent) { 
-      itemType = 'calendar-event';
-    } else if (isTimeOff) {
-      itemType = 'time-off';
-    } else if (isBreak) {
-      itemType = 'break';
-    } else if (isMealTask) {
-      itemType = 'meal';
-    } else {
-      itemType = 'task';
-    }
-
-    const item: ScheduledItem = {
-      id: dbTask.id,
-      type: itemType,
-      name: dbTask.name,
-      duration: duration,
-      startTime: startTime,
-      endTime: endTime,
-      emoji: isCalendarEvent ? '📅' : assignEmoji(dbTask.name), 
-      description: isBreak ? getBreakDescription(duration) : undefined,
-      isTimedEvent: true,
-      isCritical: dbTask.is_critical,
-      isFlexible: dbTask.is_flexible,
-      isLocked: dbTask.is_locked,
-      energyCost: dbTask.energy_cost,
-      isCompleted: dbTask.is_completed,
-      isCustomEnergyCost: dbTask.is_custom_energy_cost,
-      taskEnvironment: dbTask.task_environment,
-      sourceCalendarId: dbTask.source_calendar_id, 
-      isBackburner: dbTask.is_backburner, 
-      isWork: dbTask.is_work || false, 
-      isBreak: dbTask.is_break || false, 
-    };
-    allRawItems.push(item);
+export const calculateSchedule = (dbTasks: DBScheduledTask[], selectedDay: string, workdayStart: Date, workdayEnd: Date, isRegenPodActive: boolean, regenPodStartTime: Date | null, regenPodDurationMinutes: number, T_current: Date, breakfastTimeStr: string | null, lunchTimeStr: string | null, dinnerTimeStr: string | null, breakfastDuration: number | null, lunchDuration: number | null, dinnerDuration: number | null, reflectionCount: number = 0, reflectionTimes: string[] = [], reflectionDurations: number[] = [], mealAssignments: any[] = [], isDayBlocked: boolean = false): FormattedSchedule => {
+  if (isDayBlocked) return { items: [], summary: { totalTasks: 0, activeTime: { hours: 0, minutes: 0 }, breakTime: 0, sessionEnd: workdayStart, extendsPastMidnight: false, midnightRolloverMessage: null, unscheduledCount: 0, criticalTasksRemaining: 0, isBlocked: true }, dbTasks: [] };
+  
+  const selectedDayDate = parseISO(selectedDay);
+  const rawItems: ScheduledItem[] = [];
+  
+  dbTasks.forEach(t => {
+    if (!t.start_time || !t.end_time) return;
+    const start = parseISO(t.start_time);
+    let end = parseISO(t.end_time);
+    if (isBefore(end, start)) end = addDays(end, 1);
+    rawItems.push({ id: t.id, type: t.is_break ? 'break' : 'task', name: t.name, duration: differenceInMinutes(end, start), startTime: start, endTime: end, emoji: assignEmoji(t.name), isTimedEvent: true, isCritical: t.is_critical, isFlexible: t.is_flexible, isLocked: t.is_locked, energyCost: t.energy_cost, isCompleted: t.is_completed, isCustomEnergyCost: t.is_custom_energy_cost, taskEnvironment: t.task_environment, sourceCalendarId: t.source_calendar_id, isBackburner: t.is_backburner, isWork: t.is_work || false, isBreak: t.is_break || false });
   });
 
-  // 2. Add Static Anchors (Meals, Reflections, Regen Pod)
-  const addStaticAnchorItem = (name: string, timeStr: string | null, emoji: string, duration: number | null, type: ScheduledItemType = 'meal') => {
-    const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
-
-    if (timeStr && effectiveDuration > 0) {
-      let anchorStart = setTimeOnDate(selectedDayDate, timeStr);
-      let anchorEnd = addMinutes(anchorStart, effectiveDuration);
-
-      if (isBefore(anchorEnd, anchorStart)) {
-        anchorEnd = addDays(anchorEnd, 1);
-      }
-
-      const intersectionStart = max([anchorStart, workdayStart]);
-      const intersectionEnd = min([anchorEnd, workdayEnd]);
-      const finalDuration = differenceInMinutes(intersectionEnd, intersectionStart);
-
-      if (finalDuration > 0) { 
-        const mealTypeKey = name.toLowerCase();
-        const assignment = mealAssignments.find(a => a.assigned_date === selectedDay && a.meal_type === mealTypeKey);
-        const assignedMealName = assignment?.meal_idea?.name;
-        
-        let finalName: string = name;
-        if (assignedMealName) {
-          finalName = `${name}: ${assignedMealName}`;
-        }
-
-        const item: ScheduledItem = {
-          id: `${type}-${name.toLowerCase().replace(/\s/g, '-')}-${format(intersectionStart, 'HHmm')}`,
-          type: type,
-          name: finalName,
-          duration: finalDuration,
-          startTime: intersectionStart,
-          endTime: intersectionEnd,
-          emoji: emoji,
-          description: `${name} window`,
-          isTimedEvent: true,
-          isCritical: false,
-          isFlexible: false, 
-          isLocked: true,   
-          energyCost: type === 'meal' ? -10 : 0,  
-          isCompleted: false,
-          isCustomEnergyCost: false,
-          taskEnvironment: 'home',
-          sourceCalendarId: null,
-          isBackburner: false,
-          isWork: false, 
-          isBreak: type === 'break' || type === 'meal', 
-        };
-        allRawItems.push(item);
+  const addStatic = (name: string, timeStr: string | null, emoji: string, dur: number | null, type: ScheduledItemType = 'meal') => {
+    const effectiveDur = dur ?? 15;
+    if (timeStr && effectiveDur > 0) {
+      const start = setTimeOnDate(selectedDayDate, timeStr);
+      let end = addMinutes(start, effectiveDur);
+      if (isBefore(end, start)) end = addDays(end, 1);
+      const iStart = max([start, workdayStart]);
+      const iEnd = min([end, workdayEnd]);
+      if (differenceInMinutes(iEnd, iStart) > 0) {
+        const assignment = mealAssignments.find(a => a.assigned_date === selectedDay && a.meal_type === name.toLowerCase());
+        rawItems.push({ id: `${type}-${name.toLowerCase()}-${format(iStart, 'HHmm')}`, type, name: assignment?.meal_idea?.name ? `${name}: ${assignment.meal_idea.name}` : name, duration: differenceInMinutes(iEnd, iStart), startTime: iStart, endTime: iEnd, emoji, isTimedEvent: true, energyCost: type === 'meal' ? -10 : 0, isCompleted: false, isCustomEnergyCost: false, taskEnvironment: 'home', sourceCalendarId: null, isBackburner: false, isWork: false, isBreak: true });
       }
     }
   };
 
-  addStaticAnchorItem('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
-  addStaticAnchorItem('Lunch', lunchTimeStr, '🥗', lunchDuration);
-  addStaticAnchorItem('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
-
-  if (reflectionCount > 0 && reflectionTimes.length > 0) {
-    for (let i = 0; i < reflectionCount; i++) {
-      const time = reflectionTimes[i];
-      const duration = reflectionDurations[i];
-      if (time) {
-        addStaticAnchorItem(`Reflection Point ${i + 1}`, time, '✨', duration, 'break');
-      }
-    }
+  addStatic('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
+  addStatic('Lunch', lunchTimeStr, '🥗', lunchDuration);
+  addStatic('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
+  for (let i = 0; i < reflectionCount; i++) {
+    if (reflectionTimes[i]) addStatic(`Reflection Point ${i + 1}`, reflectionTimes[i], '✨', reflectionDurations[i], 'break');
   }
 
-  if (isRegenPodActive && regenPodStartTime && isSameDay(regenPodStartTime, selectedDayDate)) {
-    const podStart = regenPodStartTime;
-    const podEnd = addMinutes(podStart, regenPodDurationMinutes);
-    
-    if (!isBefore(podEnd, T_current)) {
-        const podItem: ScheduledItem = {
-            id: 'regen-pod-active',
-            type: 'break', 
-            name: 'Energy Regen Pod',
-            duration: differenceInMinutes(podEnd, podStart),
-            startTime: podStart,
-            endTime: podEnd, 
-            emoji: '🔋',
-            description: getBreakDescription(regenPodDurationMinutes),
-            isTimedEvent: true,
-            isCritical: false,
-            isFlexible: false,
-            isLocked: true,
-            energyCost: 0,
-            isCompleted: false,
-            isCustomEnergyCost: false,
-            taskEnvironment: 'away',
-            sourceCalendarId: null,
-            isBackburner: false,
-            isWork: false, 
-            isBreak: true, 
-        };
-        allRawItems.push(podItem);
-    }
-  }
-
-  allRawItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
-  const finalItems: ScheduledItem[] = [];
-  if (allRawItems.length > 0) {
-    let currentMergedItem = { ...allRawItems[0] };
-
-    for (let i = 1; i < allRawItems.length; i++) {
-      const nextItem = allRawItems[i];
-
-      if (currentMergedItem.startTime < nextItem.endTime && nextItem.startTime < currentMergedItem.endTime) {
-        const newStartTime = min([currentMergedItem.startTime, nextItem.startTime]);
-        const newEndTime = max([currentMergedItem.endTime, nextItem.endTime]);
-        const newDuration = differenceInMinutes(newEndTime, newStartTime);
-
-        let newName = currentMergedItem.name;
-        let newEmoji = currentMergedItem.emoji;
-        let newType = currentMergedItem.type;
-        let newEnergyCost = currentMergedItem.energyCost;
-        let newIsCritical = currentMergedItem.isCritical;
-        let newIsBackburner = currentMergedItem.isBackburner;
-        let newIsLocked = currentMergedItem.isLocked;
-        let newIsFlexible = currentMergedItem.isFlexible;
-        let newIsCompleted = currentMergedItem.isCompleted;
-        let newIsCustomEnergyCost = currentMergedItem.isCustomEnergyCost;
-        let newTaskEnvironment = currentMergedItem.taskEnvironment;
-        let newSourceCalendarId = currentMergedItem.sourceCalendarId;
-        let newIsWork = currentMergedItem.isWork; 
-        let newIsBreak = currentMergedItem.isBreak; 
-
-        if (nextItem.type === 'task' && (currentMergedItem.type === 'meal' || currentMergedItem.type === 'break')) {
-          newName = nextItem.name;
-          newEmoji = nextItem.emoji;
-          newType = nextItem.type;
-          newEnergyCost = nextItem.energyCost;
-          newIsCritical = nextItem.isCritical;
-          newIsBackburner = nextItem.isBackburner;
-          newIsLocked = nextItem.isLocked;
-          newIsFlexible = nextItem.isFlexible;
-          newIsCompleted = nextItem.isCompleted;
-          newIsCustomEnergyCost = nextItem.isCustomEnergyCost;
-          newTaskEnvironment = nextItem.taskEnvironment;
-          newSourceCalendarId = nextItem.sourceCalendarId;
-          newIsWork = nextItem.isWork; 
-          newIsBreak = nextItem.isBreak; 
-        } else if (currentMergedItem.type === 'task' && (nextItem.type === 'meal' || nextItem.type === 'break')) {
-          // Keep current
-        } else {
-          newName = `${currentMergedItem.name} / ${nextItem.name}`;
-          newEmoji = currentMergedItem.emoji; 
-          newType = 'task'; 
-          newEnergyCost = currentMergedItem.energyCost + nextItem.energyCost;
-          newIsCritical = currentMergedItem.isCritical || nextItem.isCritical;
-          newIsBackburner = currentMergedItem.isBackburner || nextItem.isBackburner;
-          newIsLocked = currentMergedItem.isLocked || nextItem.isLocked;
-          newIsFlexible = currentMergedItem.isFlexible && nextItem.isFlexible;
-          newIsCompleted = currentMergedItem.isCompleted && nextItem.isCompleted;
-          newIsCustomEnergyCost = currentMergedItem.isCustomEnergyCost || nextItem.isCustomEnergyCost;
-          newIsWork = currentMergedItem.isWork || nextItem.isWork; 
-          newIsBreak = currentMergedItem.isBreak || nextItem.isBreak; 
-        }
-
-        currentMergedItem = {
-          ...currentMergedItem,
-          id: currentMergedItem.id, 
-          name: newName,
-          startTime: newStartTime,
-          endTime: newEndTime,
-          duration: newDuration,
-          emoji: newEmoji,
-          type: newType,
-          isCritical: newIsCritical,
-          isBackburner: newIsBackburner,
-          isLocked: newIsLocked,
-          isFlexible: newIsFlexible,
-          energyCost: newEnergyCost,
-          isCompleted: newIsCompleted,
-          isCustomEnergyCost: newIsCustomEnergyCost,
-          taskEnvironment: newTaskEnvironment,
-          sourceCalendarId: newSourceCalendarId,
-          isWork: newIsWork, 
-          isBreak: newIsBreak, 
-        };
-      } else {
-        finalItems.push(currentMergedItem);
-        currentMergedItem = { ...nextItem };
-      }
-    }
-    finalItems.push(currentMergedItem); 
-  }
-
-  finalItems.forEach(item => {
-    if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { 
-      totalActiveTimeMinutes += item.duration;
-    } else if (item.type === 'break' || item.type === 'meal') {
-      totalBreakTimeMinutes += item.duration;
-    }
-
-    if (item.isCritical && !item.isCompleted) {
-      criticalTasksRemaining++;
-    }
-    sessionEnd = isAfter(item.endTime, sessionEnd) ? item.endTime : sessionEnd;
+  const items = [...rawItems].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  let totalWork = 0, totalBreak = 0, critRemaining = 0, sessionEnd = workdayStart;
+  items.forEach(i => {
+    if (i.type === 'task' || i.type === 'calendar-event') totalWork += i.duration;
+    else totalBreak += i.duration;
+    if (i.isCritical && !i.isCompleted) critRemaining++;
+    sessionEnd = max([sessionEnd, i.endTime]);
   });
 
-  const totalActiveTimeHours = Math.floor(totalActiveTimeMinutes / 60);
-  const totalActiveTimeMins = totalActiveTimeMinutes % 60;
-
-  const summary: ScheduleSummary = {
-    totalTasks: finalItems.length, 
-    activeTime: { hours: totalActiveTimeHours, minutes: totalActiveTimeMins },
-    breakTime: totalBreakTimeMinutes,
-    sessionEnd: sessionEnd,
-    extendsPastMidnight: extendsPastMidnight,
-    midnightRolloverMessage: midnightRolloverMessage, 
-    unscheduledCount: unscheduledCount,
-    criticalTasksRemaining: criticalTasksRemaining,
-    isBlocked: isDayBlocked, 
-  };
-
-  return {
-    items: finalItems, 
-    summary: summary,
-    dbTasks: dbTasks, 
-  };
+  return { items, dbTasks, summary: { totalTasks: items.length, activeTime: { hours: Math.floor(totalWork / 60), minutes: totalWork % 60 }, breakTime: totalBreak, sessionEnd, extendsPastMidnight: isAfter(sessionEnd, addDays(startOfDay(selectedDayDate), 1)), midnightRolloverMessage: null, unscheduledCount: dbTasks.filter(t => !t.start_time).length, criticalTasksRemaining: critRemaining, isBlocked: false } };
 };

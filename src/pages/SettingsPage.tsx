@@ -88,15 +88,34 @@ const SettingsPage: React.FC = () => {
   const [reflectionDurations, setReflectionDurations] = useState<number[]>([]);
   const [selectedBlockedDate, setSelectedBlockedDate] = useState<Date | undefined>(undefined);
 
-  // Section Collapsibility State
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    profile: true,
-    anchors: true,
-    logic: true,
-    environments: true,
-    preferences: true,
-    danger: false
+  // Section Collapsibility State with Local Storage Persistence
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('aetherflow_settings_collapsed');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Failed to parse settings collapse state", e);
+        }
+      }
+    }
+    return {
+      profile: true,
+      anchors: true,
+      logic: true,
+      environments: true,
+      preferences: true,
+      danger: false
+    };
   });
+
+  // Save collapse state whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aetherflow_settings_collapsed', JSON.stringify(openSections));
+    }
+  }, [openSections]);
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));

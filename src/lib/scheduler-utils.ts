@@ -362,6 +362,13 @@ export const sortAndChunkTasks = (
       });
   }
 
+  // AUDIT: If neither chunking nor macro-spread is enabled, and it's not a special sort preference,
+  // return a priority-sorted list without environment grouping.
+  if (!enable_environment_chunking && !enable_macro_spread && sortPreference !== 'ENVIRONMENT_RATIO') {
+    console.log("[sortAndChunkTasks] Logic: Standard Priority Sort (Chunking Disabled)");
+    return [...tasks].sort(internalSort);
+  }
+
   // Group by environment
   const groups = new Map<TaskEnvironment, UnifiedTask[]>();
   tasks.forEach(task => {
@@ -419,6 +426,7 @@ export const compactScheduleLogic = (currentDbTasks: DBScheduledTask[], selected
     created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false,
   }));
 
+  // Respect the profile's preferred balance logic during compaction
   const sorted = sortAndChunkTasks(unified, profile, 'ENVIRONMENT_RATIO');
   const staticConstraints = getStaticConstraints(profile, selectedDayDate, workdayStartTime, workdayEndTime);
   const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
@@ -488,5 +496,5 @@ export const calculateSchedule = (dbTasks: DBScheduledTask[], selectedDay: strin
     sessionEnd = max([sessionEnd, i.endTime]);
   });
 
-  return { items, dbTasks, summary: { totalTasks: items.length, activeTime: { hours: Math.floor(totalWork / 60), minutes: totalWork % 60 }, breakTime: totalBreak, sessionEnd, extendsPastMidnight: isAfter(sessionEnd, addDays(startOfDay(selectedDayDate), 1)), midnightRolloverMessage: null, unscheduledCount: dbTasks.filter(t => !t.start_time).length, criticalTasksRemaining: critRemaining, isBlocked: false } };
+  return { items, dbTasks, summary: { totalTasks: items.length, activeTime: { hours: Math.floor(totalWork / 60), minutes: totalWork % 60 }, breakTime: totalBreak, sessionEnd, extendsPastMidnight: isAfter(sessionEnd, addDays(startOfDay(selectedDayDate), 1)), midnightRolloverMessage: null, unscheduledCount: dbTasks.filter(t => !t.start_time).length, criticalTasksRemaining: critRemaining, isBlocked: true === isDayBlocked } };
 };

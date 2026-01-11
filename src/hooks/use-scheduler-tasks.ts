@@ -270,7 +270,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const updateScheduledTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<DBScheduledTask> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { data, error } = await supabase.from('scheduled_tasks').update({ ...task, updated_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId).select().single();
+      const { data, error = null } = await supabase.from('scheduled_tasks').update({ ...task, updated_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId).select().single();
       if (error) throw error;
       return data;
     },
@@ -283,7 +283,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const autoBalanceScheduleMutation = useMutation<{ tasksPlaced: number; tasksKeptInSink: number }, Error, AutoBalancePayload>({
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId || !session?.access_token) throw new Error("Authentication required.");
-      const { data, error } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
+      const { data, error = null } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
       if (error) throw new Error(data.error || error.message);
       return data;
     },
@@ -316,7 +316,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     if (!user || !profile) return showError("Profile context missing.");
 
     console.log(`[useSchedulerTasks] Engine Telemetry Initiated.`);
-    console.log(`[useSchedulerTasks] Mode: ${taskSource}, Pref: ${sortPreference}, Date: ${targetDateString}`);
 
     try {
       const { data: envs, error: envError } = await supabase.from('environments').select('value, target_weight').eq('user_id', user.id);
@@ -359,81 +358,66 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
       }
 
-      console.log(`[useSchedulerTasks] Unified Pool ready with ${pool.length} objectives.`);
-
       // 2. Schedule Execution
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
 
       for (const currentDateString of daysToProcess) {
         const currentDayAsDate = parseISO(currentDateString);
-        if (profile.blocked_days?.includes(currentDateString)) {
-          console.log(`[useSchedulerTasks] Day ${currentDateString} is blocked. Skipping.`);
-          continue;
-        }
+        if (profile.blocked_days?.includes(currentDateString)) continue;
 
         const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(currentDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(currentDayAsDate);
         let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(currentDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(currentDayAsDate), 17);
         if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
         
         const effectiveStart = (isSameDay(currentDayAsDate, new Date()) && isBefore(workdayStart, new Date())) ? new Date() : workdayStart;
-        const totalWorkdayMinutes = differenceInMinutes(workdayEnd, workdayStart);
-
-        console.log(`[useSchedulerTasks] Processing day: ${currentDateString}. Workday window: ${formatTime(workdayStart)} - ${formatTime(workdayEnd)}. Effective Start: ${formatTime(effectiveStart)}`);
+        
+        // FIX: Calculate quotas based on available time from effectiveStart to workdayEnd
+        const availableMinutes = differenceInMinutes(workdayEnd, effectiveStart);
+        if (availableMinutes <= 0) continue;
 
         const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', currentDateString);
         const fixedBlocks = (dt || []).filter(t => !t.is_flexible || t.is_locked || isMeal(t.name) || t.name.toLowerCase().startsWith('reflection')).filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) }));
         const staticConstraints = getStaticConstraints(profile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
 
-        console.log(`[useSchedulerTasks] Fixed/Static constraints for ${currentDateString}: ${currentOccupied.length} blocks found.`);
-
         const envSequence = profile.custom_environment_order?.length ? profile.custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
         
-        const phases: { env: string; startOffset: number; endOffset: number }[] = [];
-        let cumulativeOffset = 0;
+        const phases: { env: string; start: Date; end: Date }[] = [];
+        let placementCursor = effectiveStart;
 
+        // Generate phase boundaries based on remaining time
         if (profile.enable_macro_spread) {
            envSequence.forEach(env => {
               const weight = envWeightsMap.get(env) || 0;
-              const slice = (totalWorkdayMinutes * (weight / 100)) / 2;
-              phases.push({ env, startOffset: cumulativeOffset, endOffset: cumulativeOffset + slice });
-              cumulativeOffset += slice;
+              const slice = (availableMinutes * (weight / 100)) / 2;
+              const phaseStart = placementCursor;
+              const phaseEnd = addMinutes(phaseStart, slice);
+              phases.push({ env, start: phaseStart, end: phaseEnd });
+              placementCursor = phaseEnd;
            });
            envSequence.forEach(env => {
               const weight = envWeightsMap.get(env) || 0;
-              const slice = (totalWorkdayMinutes * (weight / 100)) / 2;
-              phases.push({ env, startOffset: cumulativeOffset, endOffset: cumulativeOffset + slice });
-              cumulativeOffset += slice;
+              const slice = (availableMinutes * (weight / 100)) / 2;
+              const phaseStart = placementCursor;
+              const phaseEnd = addMinutes(phaseStart, slice);
+              phases.push({ env, start: phaseStart, end: phaseEnd });
+              placementCursor = phaseEnd;
            });
         } else {
            envSequence.forEach(env => {
               const weight = envWeightsMap.get(env) || 0;
-              const slice = totalWorkdayMinutes * (weight / 100);
-              phases.push({ env, startOffset: cumulativeOffset, endOffset: cumulativeOffset + slice });
-              cumulativeOffset += slice;
+              const slice = availableMinutes * (weight / 100);
+              const phaseStart = placementCursor;
+              const phaseEnd = addMinutes(phaseStart, slice);
+              phases.push({ env, start: phaseStart, end: phaseEnd });
+              placementCursor = phaseEnd;
            });
         }
 
-        console.log(`[useSchedulerTasks] Generated ${phases.length} scheduling phases (Macro Spread: ${profile.enable_macro_spread}).`);
-
-        let placementCursor = effectiveStart;
+        // Reset cursor for actual task placement logic
+        placementCursor = effectiveStart;
 
         for (const phase of phases) {
-           if (envWeightsMap.get(phase.env) === 0) {
-             console.log(`[useSchedulerTasks] Zone ${phase.env} has 0 weight. Skipping phase.`);
-             continue;
-           }
-           
-           const phaseStartTime = addMinutes(workdayStart, phase.startOffset);
-           const phaseEndTime = addMinutes(workdayStart, phase.endOffset);
-           
-           console.log(`[useSchedulerTasks] Phase Zone: ${phase.env}. Window: ${formatTime(phaseStartTime)} - ${formatTime(phaseEndTime)}`);
-
-           if (isBefore(phaseEndTime, effectiveStart)) {
-             console.log(`[useSchedulerTasks] Phase window is in the past. Skipping.`);
-             continue;
-           }
-
            const phaseTasks = pool.filter(t => t.task_environment === phase.env);
            phaseTasks.sort((a, b) => {
               if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
@@ -441,21 +425,15 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
               return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
            });
 
-           console.log(`[useSchedulerTasks] Attempting to place ${phaseTasks.length} objectives into zone ${phase.env}.`);
-
            for (const t of phaseTasks) {
               const taskTotal = (t.duration || 30) + (t.break_duration || 0);
-              const searchStart = max([placementCursor, phaseStartTime]);
-              const searchEnd = min([workdayEnd, phaseEndTime]);
+              const searchStart = max([placementCursor, phase.start]);
+              const searchEnd = min([workdayEnd, phase.end]);
               
-              if (isBefore(searchEnd, searchStart)) {
-                console.log(`[useSchedulerTasks] Objective "${t.name}" placement failed: Phase end reached before search start.`);
-                continue;
-              }
+              if (isBefore(searchEnd, searchStart)) continue;
 
               const slot = findFirstAvailableSlot(taskTotal, currentOccupied, searchStart, searchEnd);
               if (slot) {
-                 console.log(`[useSchedulerTasks] Objective "${t.name}" PLACED at ${formatTime(slot.start)} - ${formatTime(slot.end)}`);
                  globalTasksToInsert.push({ 
                     id: t.source === 'retired' ? undefined : t.originalId, name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), 
                     break_duration: t.break_duration, scheduled_date: currentDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, 
@@ -468,16 +446,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
                  
                  const idx = pool.findIndex(pt => pt.id === t.id);
                  if (idx !== -1) pool.splice(idx, 1);
-              } else {
-                console.log(`[useSchedulerTasks] Objective "${t.name}" (${taskTotal}m) placement FAILED: No gap found within phase window.`);
               }
            }
         }
       }
 
       // 3. Post-Process: Anything left in the pool MUST go back to the sink
-      console.log(`[useSchedulerTasks] Engine finished. ${globalTasksToInsert.length} objectives placed. ${pool.length} objectives remaining in pool.`);
-
       const globalTasksToKeepInSink: NewRetiredTask[] = pool.map(t => ({
         user_id: user.id,
         name: t.name,

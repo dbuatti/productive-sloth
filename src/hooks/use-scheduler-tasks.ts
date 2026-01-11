@@ -315,14 +315,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   ) => {
     if (!user || !profile) return showError("Profile context missing.");
 
-    console.log(`[useSchedulerTasks] handleAutoScheduleAndSort: Triggered. Mode: ${taskSource}. Pref: ${sortPreference}. Target: ${targetDateString}`);
+    console.log(`[useSchedulerTasks] Engine Triggered. Mode: ${taskSource}. Pref: ${sortPreference}`);
 
     try {
       const { data: envs, error: envError } = await supabase.from('environments').select('value, target_weight').eq('user_id', user.id);
       if (envError) throw envError;
       const envWeightsMap = new Map(envs.map(e => [e.value, e.target_weight || 0]));
-
-      console.log(`[useSchedulerTasks] Environment Weights Loaded:`, Object.fromEntries(envWeightsMap));
 
       const initialTargetDayAsDate = parseISO(targetDateString);
       if (isBefore(initialTargetDayAsDate, startOfDay(new Date())) && taskSource !== 'global-all-future') {
@@ -336,7 +334,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       let globalTasksToKeepInSink: NewRetiredTask[] = []; 
 
       if (taskSource === 'global-all-future') {
-        console.log(`[useSchedulerTasks] Pre-fetching global task pool...`);
         const { data: fs } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).gte('scheduled_date', todayString).eq('is_flexible', true).eq('is_locked', false);
         const { data: ar } = await supabase.from('aethersink').select('*').eq('user_id', user.id).eq('is_locked', false);
         (fs || []).forEach(t => {
@@ -347,97 +344,122 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           globalTasksToPlace.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
           globalRetiredIdsToDelete.push(t.id);
         });
-        console.log(`[useSchedulerTasks] Global pool size: ${globalTasksToPlace.length}`);
       }
 
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
 
       for (const currentDateString of daysToProcess) {
         const currentDayAsDate = parseISO(currentDateString);
-        if (profile.blocked_days?.includes(currentDateString)) {
-            console.log(`[useSchedulerTasks] Skipping blocked day: ${currentDateString}`);
-            continue;
-        }
+        if (profile.blocked_days?.includes(currentDateString)) continue;
 
         const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(currentDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(currentDayAsDate);
         let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(currentDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(currentDayAsDate), 17);
         if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
         
         const effectiveStart = (isSameDay(currentDayAsDate, new Date()) && isBefore(workdayStart, new Date())) ? new Date() : workdayStart;
-        const totalAvailMinutes = Math.max(0, differenceInMinutes(workdayEnd, effectiveStart));
-
-        console.log(`[useSchedulerTasks] Processing ${currentDateString}: Avail Minutes = ${totalAvailMinutes}`);
+        const totalWorkdayMinutes = differenceInMinutes(workdayEnd, workdayStart);
 
         const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', user.id).eq('scheduled_date', currentDateString);
         const fixedBlocks = (dt || []).filter(t => !t.is_flexible || t.is_locked || isMeal(t.name) || t.name.toLowerCase().startsWith('reflection')).filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) }));
         const staticConstraints = getStaticConstraints(profile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
 
-        let tasksToConsiderForDay: UnifiedTask[] = [];
-        if (taskSource === 'global-all-future') tasksToConsiderForDay = [...globalTasksToPlace];
+        let pool: UnifiedTask[] = [];
+        if (taskSource === 'global-all-future') pool = [...globalTasksToPlace];
         else if (taskSource === 'sink-only' || taskSource === 'sink-to-gaps') {
-          const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', user.id).eq('is_locked', false);
+          const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
           (ret || []).forEach(t => {
-            tasksToConsiderForDay.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
+            pool.push({ id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
             globalRetiredIdsToDelete.push(t.id);
           });
         } else if (taskSource === 'all-flexible') {
           const flex = (dt || []).filter(t => t.is_flexible && !t.is_locked && !isMeal(t.name) && !t.name.toLowerCase().startsWith('reflection'));
           flex.forEach(t => {
-            tasksToConsiderForDay.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
+            pool.push({ id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false });
             globalScheduledIdsToDelete.push(t.id);
           });
         }
 
-        const sortedPool = sortAndChunkTasks(tasksToConsiderForDay, profile, sortPreference);
-        const filteredPool = sortedPool.filter(t => environmentsToFilterBy.length === 0 || environmentsToFilterBy.includes(t.task_environment));
+        const envSequence = profile.custom_environment_order?.length ? profile.custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
+        
+        // Construct Temporal Phases (Territories)
+        const phases: { env: string; startOffset: number; endOffset: number }[] = [];
+        let cumulativeOffset = 0;
 
-        const envTimeUsedForDay = new Map<string, number>();
-        const envQuotasForDay = new Map<string, number>();
-        envWeightsMap.forEach((weight, env) => {
-          envQuotasForDay.set(env, totalAvailMinutes * (weight / 100));
-        });
-
-        console.log(`[useSchedulerTasks] Day Quotas:`, Object.fromEntries(envQuotasForDay));
+        if (profile.enable_macro_spread) {
+           // Cycle 1 (AM)
+           envSequence.forEach(env => {
+              const weight = envWeightsMap.get(env) || 0;
+              const slice = (totalWorkdayMinutes * (weight / 100)) / 2;
+              phases.push({ env, startOffset: cumulativeOffset, endOffset: cumulativeOffset + slice });
+              cumulativeOffset += slice;
+           });
+           // Cycle 2 (PM)
+           envSequence.forEach(env => {
+              const weight = envWeightsMap.get(env) || 0;
+              const slice = (totalWorkdayMinutes * (weight / 100)) / 2;
+              phases.push({ env, startOffset: cumulativeOffset, endOffset: cumulativeOffset + slice });
+              cumulativeOffset += slice;
+           });
+        } else {
+           envSequence.forEach(env => {
+              const weight = envWeightsMap.get(env) || 0;
+              const slice = totalWorkdayMinutes * (weight / 100);
+              phases.push({ env, startOffset: cumulativeOffset, endOffset: cumulativeOffset + slice });
+              cumulativeOffset += slice;
+           });
+        }
 
         let placementCursor = effectiveStart;
-        for (const t of filteredPool) {
-          const env = t.task_environment || 'laptop';
-          const weight = envWeightsMap.get(env) || 0;
-          const currentEnvTime = envTimeUsedForDay.get(env) || 0;
-          const quota = envQuotasForDay.get(env) || 0;
 
-          if (weight === 0) {
-              console.log(`[useSchedulerTasks] Skipping ${t.name}: Zone ${env} has 0 weight.`);
-              continue;
-          }
-          if (currentEnvTime + (t.duration || 30) > quota) {
-              console.log(`[useSchedulerTasks] Skipping ${t.name}: Zone ${env} quota exceeded.`);
-              continue;
-          }
+        for (const phase of phases) {
+           if (envWeightsMap.get(phase.env) === 0) continue;
+           
+           const phaseStartTime = addMinutes(workdayStart, phase.startOffset);
+           const phaseEndTime = addMinutes(workdayStart, phase.endOffset);
+           
+           // Skip if entire phase is in the past
+           if (isBefore(phaseEndTime, effectiveStart)) continue;
 
-          const taskTotal = (t.duration || 30) + (t.break_duration || 0);
-          const slot = findFirstAvailableSlot(taskTotal, currentOccupied, placementCursor, workdayEnd);
+           const phaseTasks = pool.filter(t => t.task_environment === phase.env);
+           // Sort within phase by internal priority logic
+           phaseTasks.sort((a, b) => {
+              if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
+              if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
+              return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+           });
 
-          if (slot) {
-            console.log(`[useSchedulerTasks] Placed: ${t.name} in zone ${env} @ ${format(slot.start, 'HH:mm')}`);
-            globalTasksToInsert.push({ 
-              id: t.source === 'retired' ? undefined : t.originalId, name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), 
-              break_duration: t.break_duration, scheduled_date: currentDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, 
-              energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
-              is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
-            });
-            envTimeUsedForDay.set(env, currentEnvTime + (t.duration || 30));
-            currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
-            currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
-            placementCursor = slot.end;
-          } else {
-              console.log(`[useSchedulerTasks] No slot for: ${t.name}`);
-          }
+           for (const t of phaseTasks) {
+              const taskTotal = (t.duration || 30) + (t.break_duration || 0);
+              const searchStart = max([placementCursor, phaseStartTime]);
+              const searchEnd = min([workdayEnd, phaseEndTime]);
+              
+              if (isBefore(searchEnd, searchStart)) continue;
+
+              const slot = findFirstAvailableSlot(taskTotal, currentOccupied, searchStart, searchEnd);
+              if (slot) {
+                 globalTasksToInsert.push({ 
+                    id: t.source === 'retired' ? undefined : t.originalId, name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), 
+                    break_duration: t.break_duration, scheduled_date: currentDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, 
+                    energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
+                    is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
+                 });
+                 currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
+                 currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+                 placementCursor = slot.end;
+                 
+                 // Remove from pool so it's not placed in a later phase of the same environment
+                 const idx = pool.findIndex(pt => pt.id === t.id);
+                 if (idx !== -1) pool.splice(idx, 1);
+              }
+           }
+        }
+        
+        // If we are in global mode, update the pool for subsequent days
+        if (taskSource === 'global-all-future') {
+            globalTasksToPlace = [...pool];
         }
       }
-
-      console.log(`[useSchedulerTasks] Finalizing: Deleting ${globalScheduledIdsToDelete.length} scheduled, ${globalRetiredIdsToDelete.length} retired. Inserting ${globalTasksToInsert.length} new.`);
 
       await autoBalanceScheduleMutation.mutateAsync({ 
         scheduledTaskIdsToDelete: Array.from(new Set(globalScheduledIdsToDelete)), 
@@ -445,10 +467,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         tasksToInsert: globalTasksToInsert, tasksToKeepInSink: globalTasksToKeepInSink, selectedDate: targetDateString 
       });
 
-    } catch (e: any) { 
-        console.error(`[useSchedulerTasks] handleAutoScheduleAndSort Critical Error:`, e);
-        showError(`Engine Error: ${e.message}`); 
-    }
+    } catch (e: any) { showError(`Engine Error: ${e.message}`); }
   }, [user, profile, autoBalanceScheduleMutation, todayString]);
 
   return {

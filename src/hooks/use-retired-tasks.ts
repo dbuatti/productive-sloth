@@ -72,13 +72,20 @@ export const useRetiredTasks = () => {
     mutationFn: async (newTask: NewRetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
       const taskToInsert = { ...newTask, user_id: userId, retired_at: new Date().toISOString() };
-      const { data, error } = await supabase.from('aethersink').insert(taskToInsert).select().single();
+      
+      // Use upsert instead of insert to avoid 409 Conflict errors
+      const { data, error } = await supabase
+        .from('aethersink')
+        .upsert(taskToInsert, { onConflict: 'user_id, name, original_scheduled_date' })
+        .select()
+        .single();
+        
       if (error) throw new Error(error.message);
       return data as RetiredTask;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks', userId] });
-      showSuccess(`Objective "${data?.name}"Manifested in Sink.`);
+      showSuccess(`Objective "${data?.name}" manifested in Sink.`);
     }
   });
 
@@ -94,7 +101,9 @@ export const useRetiredTasks = () => {
   const updateRetiredTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<RetiredTask> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { data, error } = await supabase.from('aethersink').update({ ...task, updated_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', userId).select().single();
+      const updates = { ...task, updated_at: new Date().toISOString() };
+      if (task.name !== undefined) updates.name = task.name || 'Untitled Task';
+      const { data, error } = await supabase.from('aethersink').update(updates).eq('id', task.id).eq('user_id', userId).select().single();
       if (error) throw error;
       return data;
     },

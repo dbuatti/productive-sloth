@@ -199,7 +199,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
         is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
       }));
-      await supabase.from('aethersink').insert(retired);
+      // Use upsert to prevent 409 Conflict errors
+      await supabase.from('aethersink').upsert(retired, { onConflict: 'user_id, name, original_scheduled_date' });
       await supabase.from('scheduled_tasks').delete().in('id', toDump.map(t => t.id));
     },
     onSettled: () => {
@@ -220,7 +221,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
         is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
       }));
-      await supabase.from('aethersink').insert(retired);
+      // Use upsert to prevent 409 Conflict errors
+      await supabase.from('aethersink').upsert(retired, { onConflict: 'user_id, name, original_scheduled_date' });
       await supabase.from('scheduled_tasks').delete().in('id', toDump.map(t => t.id));
     },
     onSettled: () => {
@@ -321,7 +323,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         is_custom_energy_cost: task.is_custom_energy_cost, task_environment: task.task_environment, 
         is_backburner: task.is_backburner, is_work: task.is_work, is_break: task.is_break 
       };
-      await supabase.from('aethersink').insert(retired);
+      // Use upsert to prevent unique constraint conflicts
+      await supabase.from('aethersink').upsert(retired, { onConflict: 'user_id, name, original_scheduled_date' });
       await supabase.from('scheduled_tasks').delete().eq('id', task.id);
     },
     onSettled: () => {

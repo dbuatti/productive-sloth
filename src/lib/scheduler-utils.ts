@@ -336,9 +336,8 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
 };
 
 /**
- * STRATEGIC SCHEDULING LOGIC: MACRO SPREAD + ENVIRONMENT CHUNKING
- * Enforces "Spatial Monotasking" by ensuring tasks in the same zone are consecutive.
- * Macro Spread splits workload into Morning/Afternoon day-parts.
+ * STRATEGIC SCHEDULING LOGIC: ENVIRONMENT CHUNKING & MACRO SPREAD
+ * Enforces "Spatial Monotasking" with optional "Macro Reset" distribution.
  */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
@@ -368,51 +367,60 @@ export const sortAndChunkTasks = (
   const activeEnvs = Array.from(groups.keys());
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
-  // 3. LOGIC: MACRO SPREAD + CONSECUTIVE CHUNKING
-  // Goal: Spatial Monotasking within day-parts. No interleaving individual tasks.
+  // 3. LOGIC: MACRO SPREAD (High-Variety / Reset Model)
+  // Splits workload into AM and PM batches to prevent burnout while keeping zones consecutive.
   if (enable_macro_spread || sortPreference === 'ENVIRONMENT_RATIO') {
-    const morningPool: UnifiedTask[] = [];
-    const afternoonPool: UnifiedTask[] = [];
+    const amBatch: UnifiedTask[] = [];
+    const pmBatch: UnifiedTask[] = [];
 
     finalOrder.forEach(env => {
       const groupTasks = groups.get(env) || [];
       
-      // Sort tasks within this environment group first
+      // Ensure named sessions are kept together before splitting
       groupTasks.sort((a, b) => {
-        // Session Preservation: Keep tasks with the same name together
         if (a.name === b.name) return internalSort(a, b);
         return a.name.localeCompare(b.name);
       });
 
       if (groupTasks.length > 1) {
-        // Split workload in half
-        const mid = Math.ceil(groupTasks.length / 2);
-        let splitIdx = mid;
+        // Calculate the "Duration Midpoint" for this environment
+        const totalDuration = groupTasks.reduce((sum, t) => sum + (t.duration || 30), 0);
+        const targetHalf = totalDuration / 2;
         
-        // Session Preservation: Don't split a named session across macros
+        let cumulative = 0;
+        let splitIdx = 0;
+        
+        // Find the index closest to the time midpoint
+        for (let i = 0; i < groupTasks.length; i++) {
+          cumulative += (groupTasks[i].duration || 30);
+          if (cumulative >= targetHalf) {
+            splitIdx = i + 1;
+            break;
+          }
+        }
+
+        // Session Preservation: Don't split a named session across AM/PM
         while (splitIdx < groupTasks.length && groupTasks[splitIdx].name === groupTasks[splitIdx - 1].name) {
           splitIdx++;
         }
         
-        // If we exhausted the whole list trying to preserve a session, just keep it in morning
-        if (splitIdx >= groupTasks.length && groupTasks.length > mid) {
-          morningPool.push(...groupTasks);
-        } else {
-          morningPool.push(...groupTasks.slice(0, splitIdx));
-          afternoonPool.push(...groupTasks.slice(splitIdx));
+        // Safety: ensure we don't dump everything into AM if we have many tasks
+        if (splitIdx >= groupTasks.length && groupTasks.length > 1) {
+            splitIdx = Math.max(1, groupTasks.length - 1);
         }
+
+        amBatch.push(...groupTasks.slice(0, splitIdx));
+        pmBatch.push(...groupTasks.slice(splitIdx));
       } else if (groupTasks.length === 1) {
-        morningPool.push(...groupTasks);
+        amBatch.push(...groupTasks);
       }
     });
 
-    // Result is [All Morning Blocks] -> [All Afternoon Blocks]
-    // Within each block, they are already sorted by environment order
-    return [...morningPool, ...afternoonPool];
+    return [...amBatch, ...pmBatch];
   } 
   
-  // 4. LOGIC: PURE CONSECUTIVE CHUNKING
-  // One continuous block per environment for the whole day.
+  // 4. LOGIC: STRICT CONSECUTIVE (Deep Flow Model)
+  // Finishes one environment entirely before moving to the next.
   if (enable_environment_chunking) {
     return finalOrder.map(env => {
       const groupTasks = groups.get(env) || [];

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useSession } from '@/hooks/use-session';
 import { cn } from '@/lib/utils';
 import ThemeToggle from './ThemeToggle';
@@ -66,4 +66,4 @@ const AppUnifiedHeader: React.FC<AppUnifiedHeaderProps> = ({ onToggleMobileMenu 
   );
 };
 
-export default AppUnifiedHeader;
+export default React.memo(AppUnifiedHeader);

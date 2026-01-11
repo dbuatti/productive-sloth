@@ -34,25 +34,19 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const [todayString, setTodayString] = useState(() => format(new Date(), 'yyyy-MM-dd'));
 
-  const isLoading = isAuthLoading;
-
   const [activeItemToday, setActiveItemToday] = useState<ScheduledItem | null>(null);
   const [nextItemToday, setNextItemToday] = useState<ScheduledItem | null>(null);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const current = format(new Date(), 'yyyy-MM-dd');
-      setTodayString(prev => prev !== current ? current : prev);
-    }, 1000 * 60 * 15);
-    return () => clearInterval(interval);
-  }, []);
-
+  // Hard stability guard for profile fetching
+  const lastFetchTimeRef = useRef<number>(0);
   const fetchingProfileForId = useRef<string | null>(null);
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    if (fetchingProfileForId.current === userId) return null;
+  const fetchProfile = useCallback(async (userId: string, isManualRefresh = false) => {
+    const now = Date.now();
+    if (!isManualRefresh && now - lastFetchTimeRef.current < 2000) return null;
+    if (fetchingProfileForId.current === userId && !isManualRefresh) return null;
     
-    console.log("[SessionProvider] TELEMETRY: Initiating profile synchronization for", userId);
+    lastFetchTimeRef.current = now;
     fetchingProfileForId.current = userId;
     setIsProfileLoading(true);
     
@@ -64,7 +58,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .single();
 
       if (error) {
-        console.warn("[SessionProvider] Sync Warning:", error.message);
         setProfile(null);
         return null;
       } else if (data) {
@@ -72,7 +65,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         setProfile(prev => {
           if (isEqual(prev, profileData)) return prev;
-          console.log("[SessionProvider] TELEMETRY: Profile data state updated.");
           return profileData;
         });
         
@@ -86,9 +78,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return profileData;
       }
       return null;
-    } catch (e) {
-      console.error("[SessionProvider] Sync Failure:", e);
-      return null;
     } finally {
       setIsProfileLoading(false);
       fetchingProfileForId.current = null;
@@ -96,7 +85,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user?.id) await fetchProfile(user.id);
+    if (user?.id) await fetchProfile(user.id, true);
   }, [user?.id, fetchProfile]);
 
   useEffect(() => {
@@ -112,7 +101,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const newEnergy = Math.min(MAX_ENERGY, profile.energy + amount);
     const { error } = await supabase.from('profiles').update({ energy: newEnergy }).eq('id', user.id);
     if (!error) await refreshProfile();
-    else showError("Failed to update energy.");
   }, [user, profile, refreshProfile]);
 
   const triggerLevelUp = useCallback((level: number) => {
@@ -125,33 +113,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLevelUpLevel(0);
   }, []);
 
-  const resetDailyStreak = useCallback(async () => {
-    if (!user) return;
-    const { error } = await supabase.from('profiles').update({ daily_streak: 0, last_streak_update: null }).eq('id', user.id);
-    if (!error) await refreshProfile();
-  }, [user, refreshProfile]);
-
-  const claimDailyReward = useCallback(async (xpAmount: number, energyAmount: number) => {
-    if (!user || !profile) return;
-    const { error } = await supabase.from('profiles').update({ 
-      xp: profile.xp + xpAmount, 
-      energy: Math.min(MAX_ENERGY, profile.energy + energyAmount), 
-      last_daily_reward_claim: new Date().toISOString() 
-    }).eq('id', user.id);
-    
-    if (!error) {
-      await refreshProfile();
-      showSuccess("Reward claimed!");
-    } else {
-      showError("Failed to claim reward.");
-    }
-  }, [user, profile, refreshProfile]);
-
   const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
     if (!user) return;
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
     if (!error) await refreshProfile();
-    else showError("Failed to update profile.");
   }, [user, refreshProfile]);
 
   const updateBlockedDays = useCallback(async (dateString: string, isBlocked: boolean) => {
@@ -169,15 +134,24 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile]);
 
-  const triggerEnergyRegen = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { error } = await supabase.functions.invoke('trigger-energy-regen');
-      if (!error) await refreshProfile();
-    } catch (e: any) {
-      console.error("[SessionProvider] Energy regen trigger failed:", e.message);
+  const claimDailyReward = useCallback(async (xpAmount: number, energyAmount: number) => {
+    if (!user || !profile) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        xp: profile.xp + xpAmount,
+        energy: Math.min(MAX_ENERGY, profile.energy + energyAmount),
+        last_daily_reward_claim: new Date().toISOString()
+      })
+      .eq('id', user.id);
+    
+    if (!error) {
+      await refreshProfile();
+      showSuccess("Daily challenge reward claimed!");
+    } else {
+      showError("Failed to claim reward.");
     }
-  }, [user, refreshProfile]);
+  }, [user, profile, refreshProfile]);
 
   const startRegenPodState = useCallback(async (activityName: string, durationMinutes: number) => {
     if (!user) return;
@@ -200,8 +174,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
         body: JSON.stringify({ startTime: profile.regen_pod_start_time, endTime: new Date().toISOString() }),
       });
-    } catch (e) {
-      console.error("[SessionProvider] Error calculating pod exit:", e);
     } finally {
       const { error } = await supabase.from('profiles').update({ 
         is_in_regen_pod: false, 
@@ -216,17 +188,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      console.log("[SessionProvider] Auth Status Update:", event);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setIsAuthLoading(false);
-      
       if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
       }
     });
-
     return () => subscription.unsubscribe();
   }, [queryClient]);
 
@@ -307,18 +276,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [calculatedScheduleToday]); 
 
   const contextValue = useMemo(() => ({
-    session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
-    triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, 
+    session, user, profile, isLoading: isAuthLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
+    triggerLevelUp, resetLevelUp, resetDailyStreak: async () => {}, claimDailyReward, 
     updateNotificationPreferences: async (p: any) => updateProfile(p), 
     updateProfile, 
     updateSettings: async (p: any) => updateProfile(p), 
     updateBlockedDays, 
     updateSkippedDayOffSuggestions: async () => {}, 
-    triggerEnergyRegen, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+    triggerEnergyRegen: async () => {}, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   }), [
-    session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
-    triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateProfile, updateBlockedDays, 
-    triggerEnergyRegen, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
+    session, user, profile, isAuthLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
+    triggerLevelUp, resetLevelUp, claimDailyReward, updateProfile, updateBlockedDays, 
+    activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
 
   return (

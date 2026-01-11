@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Clock, Zap, Coffee } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const FocusAnchor: React.FC = () => {
   const { activeItemToday } = useSession(); 
   
   // Local timer for high-frequency UI updates
   const [T_current, setT_current] = useState(new Date());
+  
   useEffect(() => {
     const interval = setInterval(() => {
       setT_current(new Date());
@@ -24,12 +25,8 @@ const FocusAnchor: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const isMobile = useIsMobile(); // Check if mobile
+  const isMobile = useIsMobile();
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
-
-  useEffect(() => {
-    console.log("[FocusAnchor] Rendered. Active Item:", activeItemToday?.name, "Is Mobile:", isMobile);
-  });
 
   const updateRemaining = useCallback(() => {
     if (!activeItemToday || isBefore(activeItemToday.endTime, T_current)) {
@@ -55,8 +52,6 @@ const FocusAnchor: React.FC = () => {
 
   useEffect(() => {
     updateRemaining();
-    const interval = setInterval(updateRemaining, 1000);
-    return () => clearInterval(interval);
   }, [updateRemaining]);
 
   // Hide if on scheduler page OR if on mobile
@@ -65,7 +60,6 @@ const FocusAnchor: React.FC = () => {
   }
 
   const isBreak = activeItemToday.type === 'break';
-  const isTimeOff = activeItemToday.type === 'time-off';
   const icon = isBreak ? <Coffee className="h-4 w-4" /> : <Zap className="h-4 w-4" />;
   const bgColor = isBreak ? 'bg-logo-orange/20' : 'bg-primary/20';
   const textColor = isBreak ? 'text-logo-orange' : 'text-primary';
@@ -81,7 +75,6 @@ const FocusAnchor: React.FC = () => {
         <Button
           variant="outline"
           onClick={() => {
-            console.log("[FocusAnchor] Navigating to scheduler.");
             navigate('/scheduler');
           }}
           className={cn(
@@ -108,4 +101,4 @@ const FocusAnchor: React.FC = () => {
   );
 };
 
-export default FocusAnchor;
+export default React.memo(FocusAnchor);

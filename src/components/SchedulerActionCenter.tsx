@@ -12,7 +12,7 @@ import {
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, ListTodo, BatteryCharging, Target, Cpu, Coffee, 
   Archive, Repeat, Layers, CalendarDays, ChevronUp, ChevronDown,
-  CalendarCheck, HeartPulse, Trash, ArrowDownToLine
+  CalendarCheck, HeartPulse, Trash, ArrowDownToLine, Wrench
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +27,7 @@ interface SchedulerActionCenterProps {
   retiredTasksCount: number;
   sortBy: SortBy;
   onRebalanceToday: () => Promise<void>;
+  onRebalanceDay: () => Promise<void>;
   onReshuffleEverything: () => Promise<void>;
   onCompactSchedule: () => Promise<void>;
   onRandomizeBreaks: () => Promise<void>;
@@ -53,6 +54,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   dbScheduledTasks,
   retiredTasksCount,
   onRebalanceToday,
+  onRebalanceDay,
   onReshuffleEverything,
   onCompactSchedule,
   onRandomizeBreaks,
@@ -165,15 +167,26 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
                   {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownToLine className="h-4 w-4" />}
                   Pull Next
                 </Button>
-                <Button
-                  onClick={onRebalanceToday}
-                  disabled={isProcessingCommand || retiredTasksCount === 0}
-                  variant="outline"
-                  className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-primary border-primary/20 hover:bg-primary/10 shadow-sm"
-                >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
-                  Smart Fill
-                </Button>
+                <div className="flex w-full gap-2">
+                  <Button
+                    onClick={onRebalanceToday}
+                    disabled={isProcessingCommand || retiredTasksCount === 0}
+                    variant="outline"
+                    className="flex-1 h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-primary border-primary/20 hover:bg-primary/10 shadow-sm"
+                  >
+                    {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
+                    Smart Fill
+                  </Button>
+                  <Button
+                    onClick={onRebalanceDay}
+                    disabled={isProcessingCommand}
+                    variant="outline"
+                    className="flex-1 h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-accent border-accent/20 hover:bg-accent/10 shadow-sm"
+                  >
+                    {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                    Rebalance Day
+                  </Button>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {DURATION_BUCKETS.map(duration => (

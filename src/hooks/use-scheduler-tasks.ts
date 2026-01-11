@@ -335,7 +335,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
   const handleAutoScheduleAndSort = useCallback(async (
     sortPreference: SortBy,
-    taskSource: 'all-flexible' | 'sink-only' | 'sink-to-gaps' | 'global-all-future',
+    taskSource: 'all-flexible' | 'sink-only' | 'sink-to-gaps' | 'global-all-future' | 'rebalance-day',
     environmentsToFilterBy: TaskEnvironment[] = [],
     targetDateString: string,
     futureDaysToSchedule: number = 30
@@ -412,6 +412,29 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
           }); 
           globalScheduledIdsToDelete.push(t.id); 
         });
+      } else if (taskSource === 'rebalance-day') {
+        // UNIFIED REBALANCE: Wipe local and pull from sink
+        const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', targetDateString).eq('is_flexible', true).eq('is_locked', false);
+        const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
+        
+        (dt || []).forEach(t => { 
+          pool.push({ 
+            id: t.id, name: t.name || 'Untitled Task', duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30, 
+            break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, 
+            energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, 
+            created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false 
+          }); 
+          globalScheduledIdsToDelete.push(t.id); 
+        });
+        (ret || []).forEach(t => { 
+          pool.push({ 
+            id: t.id, name: t.name || 'Untitled Task', duration: t.duration || 30, 
+            break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner, 
+            energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost, 
+            created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false 
+          }); 
+          globalRetiredIdsToDelete.push(t.id); 
+        });
       }
 
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
@@ -430,7 +453,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const effectiveSearchStart = isSameDay(currentDayAsDate, now) ? max([now, workdayStart]) : workdayStart;
 
         const { data: currentDayTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', currentDateString);
-        const fixedBlocks = (currentDayTasks || []).filter(t => !t.is_flexible || t.is_locked || isMeal(t.name) || t.name.toLowerCase().startsWith('reflection')).filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) }));
+        
+        // Filter fixed blocks: including locked tasks that weren't part of the delete list
+        const fixedBlocks = (currentDayTasks || [])
+          .filter(t => !globalScheduledIdsToDelete.includes(t.id))
+          .filter(t => !t.is_flexible || t.is_locked || isMeal(t.name) || t.name.toLowerCase().startsWith('reflection'))
+          .filter(t => t.start_time && t.end_time)
+          .map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) }));
+        
         const staticConstraints = getStaticConstraints(freshProfile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
         

@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 
 export const useRetiredTasks = () => {
   const queryClient = useQueryClient();
-  const { user, profile } = useSession(); // Added profile here
+  const { user, profile } = useSession(); 
   const userId = user?.id;
 
   const [retiredSortBy, setRetiredSortBy] = useState<RetiredTaskSortBy>(() => {
@@ -109,6 +109,22 @@ export const useRetiredTasks = () => {
     },
     onError: (e) => {
       showError(`Failed to remove retired task: ${e.message}`);
+    }
+  });
+
+  const bulkRemoveRetiredTasksMutation = useMutation({
+    mutationFn: async (taskIds: string[]) => {
+      if (!userId) throw new Error("User not authenticated.");
+      console.log("[useRetiredTasks] Bulk removing retired tasks:", taskIds.length);
+      const { error } = await supabase.from('aethersink').delete().in('id', taskIds).eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      showSuccess('Aether Sink cleared of unlocked tasks.');
+    },
+    onError: (e) => {
+      showError(`Failed to clear sink: ${e.message}`);
     }
   });
 
@@ -247,13 +263,11 @@ export const useRetiredTasks = () => {
     mutationFn: async (task: RetiredTask) => {
       if (!userId || !profile) throw new Error("User context missing.");
       console.log("[useRetiredTasks] Preparing task for re-zoning:", task.name);
-      // Return the task data to the caller, so it can be scheduled by useSchedulerTasks
       return task;
     },
     onSuccess: () => {
       console.log("[useRetiredTasks] Invalidate queries after rezoneTask.");
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
-      showSuccess("Objective prepared for re-zoning!");
     },
     onError: (e) => {
       showError(`Failed to prepare task for re-zoning: ${e.message}`);
@@ -265,6 +279,7 @@ export const useRetiredTasks = () => {
     isLoadingRetiredTasks,
     addRetiredTask: addRetiredTaskMutation.mutateAsync,
     removeRetiredTask: removeRetiredTaskMutation.mutateAsync,
+    bulkRemoveRetiredTasks: bulkRemoveRetiredTasksMutation.mutateAsync,
     updateRetiredTaskDetails: updateRetiredTaskDetailsMutation.mutateAsync,
     updateRetiredTaskStatus: updateRetiredTaskStatusMutation.mutateAsync,
     completeRetiredTask: completeRetiredTaskMutation.mutateAsync,

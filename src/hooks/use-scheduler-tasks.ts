@@ -141,6 +141,63 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     }
   });
 
+  const pullNextFromSinkMutation = useMutation({
+    mutationFn: async ({ selectedDateString, workdayStart, workdayEnd, T_current, staticConstraints }: { selectedDateString: string, workdayStart: Date, workdayEnd: Date, T_current: Date, staticConstraints: TimeBlock[] }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      
+      const { data: nextTask, error: fetchError } = await supabase
+        .from('aethersink')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_locked', false)
+        .order('retired_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (fetchError || !nextTask) throw new Error(fetchError?.message || "No unlocked tasks in Aether Sink.");
+
+      const { data: currentTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', selectedDateString);
+      const occupiedBlocks = (currentTasks || []).filter(t => t.start_time && t.end_time).map(t => ({
+        start: parseISO(t.start_time!),
+        end: parseISO(t.end_time!),
+        duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
+      }));
+
+      const allConstraints = mergeOverlappingTimeBlocks([...occupiedBlocks, ...staticConstraints]);
+      const duration = (nextTask.duration || 30) + (nextTask.break_duration || 0);
+      const searchStart = isSameDay(parseISO(selectedDateString), new Date()) ? max([workdayStart, T_current]) : workdayStart;
+      
+      const slot = findFirstAvailableSlot(duration, allConstraints, searchStart, workdayEnd);
+      if (!slot) throw new Error("No available slot found for this task today.");
+
+      const { error: insertError } = await supabase.from('scheduled_tasks').insert({
+        user_id: userId,
+        name: nextTask.name,
+        start_time: slot.start.toISOString(),
+        end_time: slot.end.toISOString(),
+        scheduled_date: selectedDateString,
+        is_flexible: true,
+        energy_cost: nextTask.energy_cost,
+        task_environment: nextTask.task_environment,
+        is_critical: nextTask.is_critical,
+        is_backburner: nextTask.is_backburner,
+        is_work: nextTask.is_work,
+        is_break: nextTask.is_break
+      });
+
+      if (insertError) throw insertError;
+      await supabase.from('aethersink').delete().eq('id', nextTask.id);
+      
+      return nextTask.name;
+    },
+    onSuccess: (name) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      showSuccess(`"${name}" pulled from Aether Sink!`);
+    },
+    onError: (e) => showError(e.message)
+  });
+
   const updateScheduledTaskDetailsMutation = useMutation({
     mutationFn: async (task: Partial<DBScheduledTask> & { id: string }) => {
       if (!userId) throw new Error("User not authenticated.");
@@ -348,7 +405,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
       const { error: insertError } = await supabase.from('aethersink').insert(retiredToInsert);
       if (insertError) throw insertError;
-      const { error: deleteError } = await supabase.from('scheduled_tasks').delete().in('id', flexibleTasks.map(t => t.id));
+      const { error: deleteError = null } = await supabase.from('scheduled_tasks').delete().in('id', flexibleTasks.map(t => t.id));
       if (deleteError) throw deleteError;
     },
     onSuccess: () => {
@@ -621,5 +678,6 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     clearScheduledTasks: clearScheduledTasksMutation.mutateAsync,
     duplicateScheduledTask: duplicateScheduledTask.mutate,
     moveTaskToTomorrow: moveTaskToTomorrow.mutate,
+    pullNextFromSink: pullNextFromSinkMutation.mutateAsync,
   };
 };

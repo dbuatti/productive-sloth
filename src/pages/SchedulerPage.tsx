@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { format, isBefore, addMinutes, parseISO, isSameDay, startOfDay, addHours, addDays, differenceInMinutes, max, min, isAfter } from 'date-fns';
-import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database, CalendarDays, Lock, Unlock, Sparkles, Plus } from 'lucide-react';
+import { ListTodo, Loader2, Cpu, Zap, Clock, Trash2, Archive, Target, Database, CalendarDays, Lock, Unlock, Sparkles, Plus, ArrowDownToLine } from 'lucide-react';
 import SchedulerInput from '@/components/SchedulerInput';
 import SchedulerDisplay from '@/components/SchedulerDisplay';
 import { DBScheduledTask, RetiredTask, SortBy, TaskEnvironment, TimeBlock, NewDBScheduledTask } from '@/types/scheduler';
@@ -39,6 +39,7 @@ import { useNavigate } from 'react-router-dom';
 import CreateTaskDialog from '@/components/CreateTaskDialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view }) => {
   const { user, profile, isLoading: isSessionLoading, rechargeEnergy, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes } = useSession();
@@ -75,6 +76,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     handleAutoScheduleAndSort,
     toggleAllScheduledTasksLock,
     isLoadingCompletedTasksForSelectedDay,
+    pullNextFromSink,
   } = useSchedulerTasks(selectedDay, scheduleContainerRef);
 
   const {
@@ -152,13 +154,28 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     setIsProcessingCommand(true);
     try {
       await handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay);
-      showSuccess("Schedule rebalanced!");
     } catch (e: any) {
       showError(`Rebalance failed: ${e.message}`);
     } finally {
       setIsProcessingCommand(false);
     }
   }, [handleAutoScheduleAndSort, selectedDay, sortBy, isSelectedDayBlocked]);
+
+  const handlePullNext = useCallback(async () => {
+    if (isSelectedDayBlocked) return showError("Day is blocked.");
+    setIsProcessingCommand(true);
+    try {
+      await pullNextFromSink({
+        selectedDateString: selectedDay,
+        workdayStart: workdayStartTimeForSelectedDay,
+        workdayEnd: workdayEndTimeForSelectedDay,
+        T_current,
+        staticConstraints
+      });
+    } finally {
+      setIsProcessingCommand(false);
+    }
+  }, [pullNextFromSink, selectedDay, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, T_current, staticConstraints, isSelectedDayBlocked]);
 
   const handleReshuffleEverything = useCallback(async () => {
     if (isSelectedDayBlocked) {
@@ -483,6 +500,12 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     }
   }, [user, profile, selectedDay, selectedDayAsDate, clearScheduledTasks, handleCompact, aetherDump, aetherDumpMega, T_current, addScheduledTask, addRetiredTask, environmentForPlacement, dbScheduledTasks, workdayStartTimeForSelectedDay, workdayEndTimeForSelectedDay, staticConstraints, isSelectedDayBlocked, handleQuickBreak]);
 
+  useKeyboardShortcuts({
+    onCompact: handleCompact,
+    onRebalance: handleRebalanceToday,
+    onClear: handleClearToday
+  });
+
   const handleSchedulerAction = useCallback(async (action: 'complete' | 'skip' | 'exitFocus', task: DBScheduledTask) => {
     setIsProcessingCommand(true);
     try {
@@ -542,17 +565,7 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
     return calculateSchedule(dbScheduledTasks, selectedDay, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, startOfDay(T_current), profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count, profile.reflection_times, profile.reflection_durations, mealAssignments, isSelectedDayBlocked);
   }, [dbScheduledTasks, selectedDay, selectedDayAsDate, profile, regenPodDurationMinutes, mealAssignments, isSelectedDayBlocked]);
 
-  const wrapperClass = "max-w-4xl mx-auto w-full space-y-6";
-
-  if (isSessionLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (view !== 'schedule') return null;
+  if (isSessionLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <div className="w-full pb-4 space-y-6">
@@ -566,18 +579,18 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
 
       <CreateTaskDialog defaultPriority={createTaskDefaultValues.defaultPriority} defaultDueDate={createTaskDefaultValues.defaultDueDate} defaultStartTime={createTaskDefaultValues.defaultStartTime} defaultEndTime={createTaskDefaultValues.defaultEndTime} onTaskCreated={() => { setIsCreateTaskDialogOpen(false); queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] }); queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] }); queryClient.invalidateQueries({ queryKey: ['scheduledTasksToday'] }); }} isOpen={isCreateTaskDialogOpen} onOpenChange={setIsCreateTaskDialogOpen} />
 
-      <div className={wrapperClass}>
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         <SchedulerDashboardPanel scheduleSummary={calculatedSchedule?.summary || null} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={overallLoading} />
       </div>
       
-      <div className={wrapperClass}>
+      <div className="max-w-4xl mx-auto w-full space-y-6">
         <div className="space-y-6">
           <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} blockedDays={profile?.blocked_days || []} />
         </div>
       </div>
 
       <div className="space-y-6">
-        <div className={wrapperClass}>
+        <div className="max-w-4xl mx-auto w-full space-y-6">
           <SchedulerContextBar />
           
           <Card className="p-4 rounded-xl shadow-sm">
@@ -590,14 +603,13 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
           </Card>
           
           <SchedulerActionCenter 
-            isProcessingCommand={overallLoading} dbScheduledTasks={dbScheduledTasks} retiredTasksCount={retiredTasks.length} sortBy={sortBy} onRebalanceToday={handleRebalanceToday} onReshuffleEverything={handleReshuffleEverything} onCompactSchedule={handleCompact} onRandomizeBreaks={handleRandomize} onZoneFocus={handleZoneFocus} onRechargeEnergy={() => rechargeEnergy()} onQuickBreak={handleQuickBreak} onQuickScheduleBlock={handleQuickScheduleBlock} onSortFlexibleTasks={handleSortFlexibleTasks} onAetherDump={aetherDump} onAetherDumpMega={aetherDumpMega} onRefreshSchedule={() => queryClient.invalidateQueries()} onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} onStartRegenPod={() => setShowRegenPodSetup(true)} hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} navigate={navigate} onGlobalAutoSchedule={handleGlobalAutoSchedule} onClearToday={handleClearToday}
+            isProcessingCommand={overallLoading} dbScheduledTasks={dbScheduledTasks} retiredTasksCount={retiredTasks.length} sortBy={sortBy} onRebalanceToday={handleRebalanceToday} onReshuffleEverything={handleReshuffleEverything} onCompactSchedule={handleCompact} onRandomizeBreaks={handleRandomize} onZoneFocus={handleZoneFocus} onRechargeEnergy={() => rechargeEnergy()} onQuickBreak={handleQuickBreak} onQuickScheduleBlock={handleQuickScheduleBlock} onSortFlexibleTasks={handleSortFlexibleTasks} onAetherDump={aetherDump} onAetherDumpMega={aetherDumpMega} onRefreshSchedule={() => queryClient.invalidateQueries()} onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} onStartRegenPod={() => setShowRegenPodSetup(true)} hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} navigate={navigate} onGlobalAutoSchedule={handleGlobalAutoSchedule} onClearToday={handleClearToday} onPullNext={handlePullNext}
           />
           <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={overallLoading} />
           {calculatedSchedule?.summary.isBlocked ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-2xl border-destructive/50 bg-destructive/5">
               <CalendarDays className="h-10 w-10 mb-3 opacity-20 text-destructive" />
               <p className="font-bold uppercase tracking-widest text-xs text-destructive/60">Day Blocked</p>
-              <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[200px] text-center">No tasks can be scheduled on this day.</p>
             </div>
           ) : (
             <>
@@ -607,7 +619,6 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
                     <Sparkles className="h-10 w-10 text-primary/30" />
                   </div>
                   <CardTitle className="text-lg font-black uppercase tracking-tighter text-muted-foreground/60 mb-2">Timeline Empty</CardTitle>
-                  <p className="text-xs text-muted-foreground/40 uppercase tracking-widest max-w-[300px] text-center mb-6">Manifest your day by adding objectives or auto-scheduling from the Sink.</p>
                   <div className="flex flex-wrap justify-center gap-3">
                     <Button variant="outline" size="sm" onClick={handleDetailedInject} className="rounded-full font-bold uppercase text-[10px] tracking-widest">
                       <Plus className="h-3 w-3 mr-2" /> Manual Sequence

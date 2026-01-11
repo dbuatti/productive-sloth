@@ -28,6 +28,7 @@ const AetherSinkPage: React.FC = () => {
     rezoneTask: rezoneRetiredTaskMutation,
     setRetiredSortBy,
     retiredSortBy,
+    bulkRemoveRetiredTasks,
   } = useRetiredTasks();
 
   const {
@@ -78,7 +79,7 @@ const AetherSinkPage: React.FC = () => {
     } finally {
       setIsProcessingCommand(false);
     }
-  }, [rezoneRetiredTaskMutation, addScheduledTask, todayString]);
+  }, [rezoneRetiredTaskMutation, addScheduledTask]);
 
   const handleRemove = useCallback(async (id: string, name: string) => {
     setIsProcessingCommand(true);
@@ -107,7 +108,7 @@ const AetherSinkPage: React.FC = () => {
         onAutoScheduleSink={handleAutoScheduleSink} 
         isLoading={isLoadingRetiredTasks} 
         isProcessingCommand={isProcessingCommand} 
-        setIsProcessingCommand={setIsProcessingCommand} // NEW: Pass setter
+        setIsProcessingCommand={setIsProcessingCommand}
         profile={profile}
         retiredSortBy={retiredSortBy} 
         setRetiredSortBy={setRetiredSortBy} 
@@ -117,6 +118,7 @@ const AetherSinkPage: React.FC = () => {
         updateRetiredTaskStatus={updateRetiredTaskStatus}
         updateRetiredTaskDetails={updateRetiredTaskDetails}
         triggerAetherSinkBackup={triggerAetherSinkBackup}
+        bulkRemoveRetiredTasks={bulkRemoveRetiredTasks}
       />
     </div>
   );

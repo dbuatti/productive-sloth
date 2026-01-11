@@ -12,7 +12,7 @@ import {
   ArrowDownWideNarrow, ArrowUpWideNarrow, Clock, Star, 
   Database, ListTodo, BatteryCharging, Target, Cpu, Coffee, 
   Archive, Repeat, Layers, CalendarDays, ChevronUp, ChevronDown,
-  CalendarCheck, HeartPulse, Trash
+  CalendarCheck, HeartPulse, Trash, ArrowDownToLine
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +43,7 @@ interface SchedulerActionCenterProps {
   navigate: (path: string) => void;
   onGlobalAutoSchedule: () => Promise<void>;
   onClearToday: () => Promise<void>;
+  onPullNext: () => Promise<void>;
 }
 
 const DURATION_BUCKETS = [30, 60, 90];
@@ -68,6 +69,7 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
   navigate,
   onGlobalAutoSchedule,
   onClearToday,
+  onPullNext,
 }) => {
   const { profile, updateProfile } = useSession();
   const isCollapsed = profile?.is_action_center_collapsed ?? false;
@@ -155,22 +157,22 @@ const SchedulerActionCenter: React.FC<SchedulerActionCenterProps> = ({
               <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/50 ml-1 block">Engine</span>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button
-                  onClick={onRebalanceToday}
+                  onClick={onPullNext}
                   disabled={isProcessingCommand || retiredTasksCount === 0}
                   variant="aether"
                   className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full shadow-md"
                 >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
-                  Smart Fill
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownToLine className="h-4 w-4" />}
+                  Pull Next
                 </Button>
                 <Button
-                  onClick={onReshuffleEverything}
-                  disabled={isProcessingCommand}
+                  onClick={onRebalanceToday}
+                  disabled={isProcessingCommand || retiredTasksCount === 0}
                   variant="outline"
-                  className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-logo-yellow border-logo-yellow/20 hover:bg-logo-yellow/10 shadow-sm"
+                  className="w-full h-12 text-xs font-bold uppercase tracking-wide gap-2 rounded-full text-primary border-primary/20 hover:bg-primary/10 shadow-sm"
                 >
-                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
-                  Reshuffle
+                  {isProcessingCommand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
+                  Smart Fill
                 </Button>
               </div>
               <div className="grid grid-cols-3 gap-2">

@@ -335,6 +335,48 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
   return constraints;
 };
 
+export const calculateSpatialPhases = (
+  availableMinutes: number,
+  effectiveStart: Date,
+  workdayEnd: Date,
+  weights: Map<string, number>,
+  envSequence: string[],
+  enableMacroSpread: boolean,
+  minPhaseDuration: number = 30
+): { env: string; start: Date; end: Date }[] => {
+  const phases: { env: string; start: Date; end: Date }[] = [];
+  let phaseCursor = effectiveStart;
+
+  const activeEnvs = envSequence.filter(e => (weights.get(e) || 0) > 0);
+  if (activeEnvs.length === 0) return [];
+
+  const iterations = enableMacroSpread ? [1, 2] : [1];
+
+  for (const iter of iterations) {
+    for (const env of activeEnvs) {
+      const weight = weights.get(env) || 0;
+      let slice = Math.floor((availableMinutes * (weight / 100)) / iterations.length);
+      
+      if (slice > 0 && slice < minPhaseDuration && activeEnvs.length > 1) {
+        slice = minPhaseDuration;
+      }
+
+      if (slice > 0 && isBefore(phaseCursor, workdayEnd)) {
+        const phaseStart = phaseCursor;
+        const phaseEnd = min([addMinutes(phaseStart, slice), workdayEnd]);
+        const actualSlice = differenceInMinutes(phaseEnd, phaseStart);
+        
+        if (actualSlice > 0) {
+          phases.push({ env, start: phaseStart, end: phaseEnd });
+          phaseCursor = phaseEnd;
+        }
+      }
+    }
+  }
+
+  return phases;
+};
+
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
   profile: UserProfile,
@@ -362,7 +404,6 @@ export const sortAndChunkTasks = (
   const activeEnvs = Array.from(groups.keys());
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
-  // FIX: STRICTOR GUARD - DO NOT TRIGGER SPLIT UNLESS ENABLE_MACRO_SPREAD IS EXPLICITLY TRUE
   if (enable_macro_spread) {
     console.log(`[scheduler-utils] Applying Macro-Spread Distribution (AM/PM Split).`);
     const amBatch: UnifiedTask[] = [];

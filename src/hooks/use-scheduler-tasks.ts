@@ -7,7 +7,7 @@ import { DBScheduledTask, NewDBScheduledTask, RetiredTask, NewRetiredTask, SortB
 import { useSession } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, parseISO, format, addMinutes, isBefore, addDays, differenceInMinutes, addHours, isSameDay, max, min, isAfter } from 'date-fns';
-import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal, sortAndChunkTasks, formatTime } from '@/lib/scheduler-utils';
+import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal, sortAndChunkTasks, formatTime, calculateSpatialPhases } from '@/lib/scheduler-utils';
 
 // --- Constants for Engine Protection ---
 const LOW_TIME_THRESHOLD = 180; // 3 hours
@@ -412,14 +412,11 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
         const envSequence = profile.custom_environment_order?.length ? profile.custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
         
-        let phases: { env: string; start: Date; end: Date }[] = [];
-        let phaseCursor = effectiveStart;
-
-        // --- ENGINE OVERLOAD PROTECTION: Temporal Compression ---
+        // --- SPATIAL PHASE GENERATION ---
         let effectiveWeights = new Map(envWeightsMap);
         let activeEnvs = envSequence.filter(e => (effectiveWeights.get(e) || 0) > 0);
 
-        if (availableMinutes < LOW_TIME_THRESHOLD) {
+        if (availableMinutes < LOW_TIME_THRESHOLD && activeEnvs.length > 1) {
           console.log(`[useSchedulerTasks] TEMPORAL COMPRESSION: Consolidating zones (Remaining: ${availableMinutes}m).`);
           const sortedEnvs = [...envWeightsMap.entries()].filter(([_, w]) => w > 0).sort((a, b) => b[1] - a[1]);
           const limit = availableMinutes < 90 ? 1 : (availableMinutes < 120 ? 2 : 3);
@@ -429,85 +426,84 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
             const totalTopWeight = topEnvs.reduce((s, e) => s + e[1], 0);
             topEnvs.forEach(([env, w]) => effectiveWeights.set(env, (w / totalTopWeight) * 100));
             activeEnvs = topEnvs.map(e => e[0]);
-            console.log(`[useSchedulerTasks] Focus Shifted to: ${activeEnvs.join(', ')}`);
           }
         }
 
-        // Generate phases with minimum duration guard
-        if (profile.enable_macro_spread && availableMinutes >= LOW_TIME_THRESHOLD) {
-           [1, 2].forEach(iteration => {
-             activeEnvs.forEach(env => {
-                const weight = effectiveWeights.get(env) || 0;
-                let slice = (availableMinutes * (weight / 100)) / 2;
-                if (slice > 0) {
-                  const phaseStart = phaseCursor;
-                  const phaseEnd = addMinutes(phaseStart, slice);
-                  phases.push({ env, start: phaseStart, end: phaseEnd });
-                  phaseCursor = phaseEnd;
-                }
-             });
-           });
-        } else {
-           activeEnvs.forEach(env => {
-              const weight = effectiveWeights.get(env) || 0;
-              let slice = Math.floor(availableMinutes * (weight / 100));
-              
-              if (slice > 0 && slice < MIN_PHASE_DURATION) {
-                console.log(`[useSchedulerTasks] Phase for ${env} (${slice}m) below minimum. Expanding to ${MIN_PHASE_DURATION}m.`);
-                slice = MIN_PHASE_DURATION;
-              }
-
-              if (slice > 0 && isBefore(phaseCursor, workdayEnd)) {
-                const phaseStart = phaseCursor;
-                const phaseEnd = min([addMinutes(phaseStart, slice), workdayEnd]);
-                const actualSlice = differenceInMinutes(phaseEnd, phaseStart);
-                if (actualSlice >= MIN_PHASE_DURATION || activeEnvs.length === 1) {
-                  phases.push({ env, start: phaseStart, end: phaseEnd });
-                  phaseCursor = phaseEnd;
-                } else {
-                  console.log(`[useSchedulerTasks] Skipping phase for ${env}: Insufficient space (${actualSlice}m).`);
-                }
-              }
-           });
-        }
+        const phases = calculateSpatialPhases(availableMinutes, effectiveStart, workdayEnd, effectiveWeights, envSequence, profile.enable_macro_spread || false, MIN_PHASE_DURATION);
 
         console.log(`[useSchedulerTasks] Generated ${phases.length} spatial phases.`);
 
-        let placementCursor = effectiveStart;
+        // --- PHASE-BASED PLACEMENT ---
+        if (phases.length > 0) {
+          let placementCursor = effectiveStart;
+          for (const phase of phases) {
+            const phaseTasks = pool.filter(t => t.task_environment === phase.env);
+            if (phaseTasks.length === 0) continue;
 
-        for (const phase of phases) {
-           const phaseTasks = pool.filter(t => t.task_environment === phase.env);
-           if (phaseTasks.length === 0) continue;
+            phaseTasks.sort((a, b) => {
+                if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
+                if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            });
 
-           phaseTasks.sort((a, b) => {
-              if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
-              if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
-              return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-           });
+            for (const t of phaseTasks) {
+                const taskTotal = (t.duration || 30) + (t.break_duration || 0);
+                const searchStart = max([placementCursor, phase.start]);
+                const searchEnd = min([workdayEnd, phase.end]);
+                
+                if (isBefore(searchEnd, searchStart)) continue;
 
-           for (const t of phaseTasks) {
-              const taskTotal = (t.duration || 30) + (t.break_duration || 0);
-              const searchStart = max([placementCursor, phase.start]);
-              const searchEnd = min([workdayEnd, phase.end]);
-              
-              if (isBefore(searchEnd, searchStart)) continue;
+                const slot = findFirstAvailableSlot(taskTotal, currentOccupied, searchStart, searchEnd);
+                if (slot) {
+                  globalTasksToInsert.push({ 
+                      id: t.source === 'retired' ? undefined : t.originalId, name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), 
+                      break_duration: t.break_duration, scheduled_date: currentDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, 
+                      energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
+                      is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
+                  });
+                  currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
+                  currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+                  placementCursor = slot.end;
+                  
+                  const idx = pool.findIndex(pt => pt.id === t.id);
+                  if (idx !== -1) pool.splice(idx, 1);
+                }
+            }
+          }
+        } 
+        
+        // --- FALLBACK: PRIORITY-FILL (When Spatial Phases fail or tasks remain) ---
+        if (pool.length > 0 && isBefore(effectiveStart, workdayEnd)) {
+            console.log(`[useSchedulerTasks] ${phases.length === 0 ? "SPATIAL ENGINE STALLED" : "TASKS REMAIN"}: Running Priority-Fill Fallback.`);
+            
+            // Re-sort pool by global priority
+            pool.sort((a, b) => {
+                if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
+                if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
+                return 0;
+            });
 
-              const slot = findFirstAvailableSlot(taskTotal, currentOccupied, searchStart, searchEnd);
-              if (slot) {
-                 globalTasksToInsert.push({ 
-                    id: t.source === 'retired' ? undefined : t.originalId, name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), 
-                    break_duration: t.break_duration, scheduled_date: currentDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, 
-                    energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
-                    is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
-                 });
-                 currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
-                 currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
-                 placementCursor = slot.end;
-                 
-                 const idx = pool.findIndex(pt => pt.id === t.id);
-                 if (idx !== -1) pool.splice(idx, 1);
-              }
-           }
+            let fallbackCursor = effectiveStart;
+            for (let i = 0; i < pool.length; i++) {
+                const t = pool[i];
+                const taskTotal = (t.duration || 30) + (t.break_duration || 0);
+                const slot = findFirstAvailableSlot(taskTotal, currentOccupied, fallbackCursor, workdayEnd);
+                
+                if (slot) {
+                  globalTasksToInsert.push({ 
+                      id: t.source === 'retired' ? undefined : t.originalId, name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(), 
+                      break_duration: t.break_duration, scheduled_date: currentDateString, is_critical: t.is_critical, is_flexible: true, is_locked: false, 
+                      energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment, 
+                      is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break 
+                  });
+                  currentOccupied.push({ start: slot.start, end: slot.end, duration: taskTotal });
+                  currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+                  fallbackCursor = slot.end;
+                  
+                  pool.splice(i, 1);
+                  i--;
+                }
+            }
         }
       }
 

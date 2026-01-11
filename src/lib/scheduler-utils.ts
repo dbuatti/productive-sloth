@@ -110,17 +110,17 @@ export const calculateEnergyCost = (duration: number, isCritical: boolean, isBac
 };
 
 export const parseFlexibleTime = (timeString: string, baseDate: Date): Date => {
-  const lowerCaseTimeString = timeString.toLowerCase();
+  const lowerCaseTime = timeString.toLowerCase();
   let parsedDate: Date;
-  parsedDate = parse(lowerCaseTimeString, 'h:mma', baseDate);
+  parsedDate = parse(lowerCaseTime, 'h:mma', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
-  parsedDate = parse(lowerCaseTimeString, 'h:mm a', baseDate);
+  parsedDate = parse(lowerCaseTime, 'h:mm a', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
-  parsedDate = parse(lowerCaseTimeString, 'ha', baseDate);
+  parsedDate = parse(lowerCaseTime, 'ha', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
-  parsedDate = parse(lowerCaseTimeString, 'HH:mm', baseDate);
+  parsedDate = parse(lowerCaseTime, 'HH:mm', baseDate);
   if (!isNaN(parsedDate.getTime())) return parsedDate;
-  const hourMatch = lowerCaseTimeString.match(/^(\d{1,2})$/);
+  const hourMatch = lowerCaseTime.match(/^(\d{1,2})$/);
   if (hourMatch) {
     const hour = parseInt(hourMatch[1], 10);
     if (hour >= 0 && hour <= 23) return setHours(setMinutes(baseDate, 0), hour);
@@ -335,10 +335,6 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
   return constraints;
 };
 
-/**
- * STRATEGIC SCHEDULING LOGIC: ENVIRONMENT CHUNKING & MACRO SPREAD
- * Enforces "Spatial Monotasking" with optional "Macro Reset" distribution.
- */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
   profile: UserProfile,
@@ -348,7 +344,6 @@ export const sortAndChunkTasks = (
 
   console.log(`[scheduler-utils] sortAndChunkTasks: Processing ${tasks.length} tasks. Mode: ${sortPreference}. Spread: ${enable_macro_spread}, Chunking: ${enable_environment_chunking}`);
 
-  // Base internal sort (within a chunk): Priority -> Age
   const internalSort = (a: UnifiedTask, b: UnifiedTask) => {
     if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
     if (a.is_break !== b.is_break) return a.is_break ? -1 : 1;
@@ -356,7 +351,6 @@ export const sortAndChunkTasks = (
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   };
 
-  // 1. Group by environment
   const groups = new Map<TaskEnvironment, UnifiedTask[]>();
   tasks.forEach(task => {
     const env = task.task_environment || 'laptop';
@@ -364,79 +358,48 @@ export const sortAndChunkTasks = (
     groups.get(env)!.push(task);
   });
 
-  // 2. Determine environment sequence based on custom order
   const order = custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano'];
   const activeEnvs = Array.from(groups.keys());
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
-  console.log(`[scheduler-utils] Environment Order:`, finalOrder);
-
-  // 3. LOGIC: MACRO SPREAD (High-Variety / Reset Model)
-  // Splits workload into AM and PM batches to prevent burnout while keeping zones consecutive.
-  if (enable_macro_spread || sortPreference === 'ENVIRONMENT_RATIO') {
-    console.log(`[scheduler-utils] Applying Macro-Spread Distribution.`);
+  // FIX: STRICTOR GUARD - DO NOT TRIGGER SPLIT UNLESS ENABLE_MACRO_SPREAD IS EXPLICITLY TRUE
+  if (enable_macro_spread) {
+    console.log(`[scheduler-utils] Applying Macro-Spread Distribution (AM/PM Split).`);
     const amBatch: UnifiedTask[] = [];
     const pmBatch: UnifiedTask[] = [];
 
     finalOrder.forEach(env => {
       const groupTasks = groups.get(env) || [];
-      
-      // Ensure named sessions are kept together before splitting
       groupTasks.sort((a, b) => {
         if (a.name === b.name) return internalSort(a, b);
         return a.name.localeCompare(b.name);
       });
 
       if (groupTasks.length > 1) {
-        // Calculate the "Duration Midpoint" for this environment
         const totalDuration = groupTasks.reduce((sum, t) => sum + (t.duration || 30), 0);
         const targetHalf = totalDuration / 2;
-        
-        let cumulative = 0;
-        let splitIdx = 0;
-        
-        // Find the index closest to the time midpoint
+        let cumulative = 0, splitIdx = 0;
         for (let i = 0; i < groupTasks.length; i++) {
           cumulative += (groupTasks[i].duration || 30);
-          if (cumulative >= targetHalf) {
-            splitIdx = i + 1;
-            break;
-          }
+          if (cumulative >= targetHalf) { splitIdx = i + 1; break; }
         }
-
-        // Session Preservation: Don't split a named session across AM/PM
-        while (splitIdx < groupTasks.length && groupTasks[splitIdx].name === groupTasks[splitIdx - 1].name) {
-          splitIdx++;
-        }
-        
-        // Safety: ensure we don't dump everything into AM if we have many tasks
-        if (splitIdx >= groupTasks.length && groupTasks.length > 1) {
-            splitIdx = Math.max(1, groupTasks.length - 1);
-        }
-
-        console.log(`[scheduler-utils] Splitting zone ${env}: AM(${splitIdx} tasks), PM(${groupTasks.length - splitIdx} tasks)`);
-
+        while (splitIdx < groupTasks.length && groupTasks[splitIdx].name === groupTasks[splitIdx - 1].name) splitIdx++;
+        if (splitIdx >= groupTasks.length && groupTasks.length > 1) splitIdx = Math.max(1, groupTasks.length - 1);
         amBatch.push(...groupTasks.slice(0, splitIdx));
         pmBatch.push(...groupTasks.slice(splitIdx));
-      } else if (groupTasks.length === 1) {
-        amBatch.push(...groupTasks);
-      }
+      } else if (groupTasks.length === 1) amBatch.push(...groupTasks);
     });
-
     return [...amBatch, ...pmBatch];
   } 
   
-  // 4. LOGIC: STRICT CONSECUTIVE (Deep Flow Model)
-  // Finishes one environment entirely before moving to the next.
-  if (enable_environment_chunking) {
-    console.log(`[scheduler-utils] Applying Strict Consecutive Environment Chunking.`);
+  if (enable_environment_chunking || sortPreference === 'ENVIRONMENT_RATIO') {
+    console.log(`[scheduler-utils] Applying Sequential Environment Chunking.`);
     return finalOrder.map(env => {
       const groupTasks = groups.get(env) || [];
       return groupTasks.sort(internalSort);
     }).flat();
   }
 
-  // 5. Fallback: Standard Priority Sort (No Chunking)
   console.log(`[scheduler-utils] Applying Standard Priority Sort (No Chunking).`);
   return [...tasks].sort(internalSort);
 };
@@ -452,12 +415,8 @@ export const compactScheduleLogic = (
 ): DBScheduledTask[] => {
   if (!profile) return currentDbTasks;
 
-  console.log(`[scheduler-utils] compactScheduleLogic: Compacting ${currentDbTasks.length} tasks for date ${format(selectedDayDate, 'yyyy-MM-dd')}`);
-
   const fixed = currentDbTasks.filter(t => t.is_locked || !t.is_flexible || t.is_completed);
   const flexible = currentDbTasks.filter(t => t.is_flexible && !t.is_locked && !t.is_completed);
-
-  console.log(`[scheduler-utils] Fixed tasks: ${fixed.length}, Flexible tasks: ${flexible.length}`);
 
   const unified: UnifiedTask[] = flexible.map(t => ({
     id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30,
@@ -466,7 +425,6 @@ export const compactScheduleLogic = (
     created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false,
   }));
 
-  // USES THE STRATEGIC CHUNKING UTILITY
   const sorted = sortAndChunkTasks(unified, profile, sortPreference);
   const staticConstraints = getStaticConstraints(profile, selectedDayDate, workdayStartTime, workdayEndTime);
   const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
@@ -486,8 +444,6 @@ export const compactScheduleLogic = (
         fixedBlocks.push({ start: slot.start, end: slot.end, duration: total });
         mergeOverlappingTimeBlocks(fixedBlocks);
       }
-    } else {
-        console.warn(`[scheduler-utils] Compaction failed to find slot for flexible task: ${task.name}`);
     }
   }
   return results;

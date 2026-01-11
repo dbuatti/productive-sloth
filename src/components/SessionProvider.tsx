@@ -52,9 +52,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Use a ref to prevent overlapping profile fetches without creating a dependency loop
   const fetchingProfileForId = useRef<string | null>(null);
 
-  // Fetch profile logic - Stabilized by removing isProfileLoading from dependencies
+  // Fetch profile logic
   const fetchProfile = useCallback(async (userId: string) => {
-    if (fetchingProfileForId.current === userId) return;
+    if (fetchingProfileForId.current === userId) return null;
     
     console.log("[SessionProvider] Starting fetchProfile for:", userId);
     fetchingProfileForId.current = userId;
@@ -70,13 +70,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) {
         console.warn("[SessionProvider] Profile fetch error:", error.message);
         setProfile(null);
+        return null;
       } else if (data) {
         const profileDataWithDefaultTimezone = { 
           ...data, 
           timezone: data.timezone || 'UTC' 
         } as UserProfile;
         
-        // Only update state if data actually changed to prevent render loops
         setProfile(prev => {
           if (isEqual(prev, profileDataWithDefaultTimezone)) return prev;
           console.log("[SessionProvider] Profile data updated.");
@@ -90,14 +90,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         } else {
           setRegenPodDurationMinutes(0);
         }
+        return profileDataWithDefaultTimezone;
       }
+      return null;
     } catch (e) {
       console.error("[SessionProvider] Unexpected error in fetchProfile:", e);
+      return null;
     } finally {
       setIsProfileLoading(false);
       fetchingProfileForId.current = null;
     }
-  }, []); // Empty dependencies ensure this function reference is stable
+  }, []);
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) await fetchProfile(user.id);
@@ -210,11 +213,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, profile, refreshProfile, session?.access_token]);
 
-  // Auth Initialization and Listener - Optimized to run only once
+  // Auth Initialization and Listener
   useEffect(() => {
     console.log("[SessionProvider] Initializing auth state...");
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log("[SessionProvider] Auth event:", event);
       
       setSession(currentSession);
@@ -222,7 +225,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUser(currentUser);
       
       if (currentUser) {
-        fetchProfile(currentUser.id);
+        // Await the profile fetch during initialization to avoid "undefined" profile renders
+        await fetchProfile(currentUser.id);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
@@ -300,7 +304,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
-  // Focus tracking - Increased interval to reduce noise
+  // Focus tracking
   useEffect(() => {
     if (!calculatedScheduleToday) return;
     

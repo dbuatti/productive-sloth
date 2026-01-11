@@ -38,7 +38,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const isLoading = isAuthLoading || isProfileLoading;
 
-  // Use a ref for the profile to avoid dependency loops in callbacks
   const profileRef = useRef(profile);
   useEffect(() => {
     profileRef.current = profile;
@@ -47,7 +46,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activeItemToday, setActiveItemToday] = useState<ScheduledItem | null>(null);
   const [nextItemToday, setNextItemToday] = useState<ScheduledItem | null>(null);
 
-  // Update today's date string periodically
   useEffect(() => {
     const interval = setInterval(() => {
       const current = format(new Date(), 'yyyy-MM-dd');
@@ -57,6 +55,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const fetchProfile = useCallback(async (userId: string) => {
+    console.log("[SessionProvider] Starting fetchProfile for:", userId);
     setIsProfileLoading(true);
     try {
       const { data, error } = await supabase
@@ -66,9 +65,10 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .single();
 
       if (error) {
-        console.warn("[SessionProvider] Profile not found or error:", error.message);
+        console.warn("[SessionProvider] Profile fetch error:", error.message);
         setProfile(null);
       } else if (data) {
+        console.log("[SessionProvider] Profile data received.");
         const profileDataWithDefaultTimezone = { 
           ...data, 
           timezone: data.timezone || 'UTC' 
@@ -85,7 +85,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
     } catch (e) {
-      console.error("[SessionProvider] Unexpected error fetching profile:", e);
+      console.error("[SessionProvider] Unexpected error in fetchProfile:", e);
     } finally {
       setIsProfileLoading(false);
     }
@@ -204,43 +204,54 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Auth State Listener
   useEffect(() => {
+    console.log("[SessionProvider] Mounting auth listener...");
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log("[SessionProvider] Auth state change:", event);
+      console.log("[SessionProvider] Auth state change event:", event);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       
       if (currentSession?.user) {
         await fetchProfile(currentSession.user.id);
       } else if (event === 'SIGNED_OUT') {
+        console.log("[SessionProvider] Handling sign out.");
         setProfile(null);
         queryClient.clear();
         setRedirectPath('/login');
       }
+      
+      console.log("[SessionProvider] Setting isAuthLoading to false from listener.");
       setIsAuthLoading(false);
     });
     
-    return () => authListener.subscription.unsubscribe();
+    return () => {
+      console.log("[SessionProvider] Unmounting auth listener.");
+      authListener.subscription.unsubscribe();
+    };
   }, [fetchProfile, queryClient]);
 
-  // Initial Session Load
+  // Initial Session Load (Safety check)
   useEffect(() => {
     const loadInitialSession = async () => {
       if (initialSessionLoadedRef.current) return;
       initialSessionLoadedRef.current = true;
       
+      console.log("[SessionProvider] Performing manual getSession check...");
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
+        console.log("[SessionProvider] Initial session check complete. User present:", !!initialSession?.user);
         
-        if (initialSession?.user) {
+        if (initialSession) {
+          setSession(initialSession);
+          setUser(initialSession.user);
           await fetchProfile(initialSession.user.id);
         } else if (location.pathname !== '/login') {
+          console.log("[SessionProvider] No session, scheduling redirect to login.");
           setRedirectPath('/login');
         }
       } catch (e) {
         console.error("[SessionProvider] Error during initial session load:", e);
       } finally {
+        console.log("[SessionProvider] Setting isAuthLoading to false from manual check.");
         setIsAuthLoading(false);
       }
     };
@@ -250,6 +261,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Handle Redirects
   useEffect(() => {
     if (!isAuthLoading && redirectPath && location.pathname !== redirectPath) {
+      console.log("[SessionProvider] Navigating to redirect path:", redirectPath);
       navigate(redirectPath, { replace: true });
       setRedirectPath(null);
     }
@@ -278,7 +290,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     enabled: !!user?.id && !isAuthLoading,
   });
 
-  // Calculate today's schedule for focused item tracking
   const calculatedScheduleToday = useMemo(() => {
     if (!profile) return null;
     const dayStart = parseISO(todayString);
@@ -309,7 +320,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
-  // Update active and next items periodically
   useEffect(() => {
     const timer = setInterval(() => {
       if (!calculatedScheduleToday) return;
@@ -324,34 +334,21 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [calculatedScheduleToday]); 
 
   const contextValue = useMemo(() => ({
-    session, 
-    user, 
-    profile, 
-    isLoading, 
-    refreshProfile, 
-    rechargeEnergy, 
-    showLevelUp, 
-    levelUpLevel, 
-    triggerLevelUp, 
-    resetLevelUp, 
-    resetDailyStreak, 
-    claimDailyReward, 
+    session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
+    triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, 
     updateNotificationPreferences: async (p: any) => updateProfile(p), 
     updateProfile, 
     updateSettings: async (p: any) => updateProfile(p), 
     updateBlockedDays, 
     updateSkippedDayOffSuggestions: async () => {}, 
-    triggerEnergyRegen, 
-    activeItemToday, 
-    nextItemToday, 
-    startRegenPodState, 
-    exitRegenPodState, 
-    regenPodDurationMinutes
+    triggerEnergyRegen, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   }), [
     session, user, profile, isLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
     triggerLevelUp, resetLevelUp, resetDailyStreak, claimDailyReward, updateProfile, updateBlockedDays, 
     triggerEnergyRegen, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
   ]);
+
+  console.log("[SessionProvider] Rendering. isAuthLoading:", isAuthLoading);
 
   return (
     <SessionContext.Provider value={contextValue}>

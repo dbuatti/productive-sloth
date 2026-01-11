@@ -10,7 +10,7 @@ import {
   Tooltip, TooltipContent, TooltipTrigger 
 } from '@/components/ui/tooltip';
 import { 
-  Home, Laptop, Globe, Music, Plus, Edit, Trash2, Save, X, Star, Target, Loader2, Sparkles, RefreshCw, Layers, Clock, Zap
+  Home, Laptop, Globe, Music, Plus, Trash2, Target, Loader2, RefreshCw, Layers, Clock, Zap, Star, GripVertical, Info
 } from 'lucide-react';
 import { useEnvironments, Environment } from '@/hooks/use-environments';
 import { useRetiredTasks } from '@/hooks/use-retired-tasks';
@@ -21,35 +21,115 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn, getLucideIconComponent } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
-import { parseISO, differenceInMinutes } from 'date-fns';
+import { differenceInMinutes } from 'date-fns';
 import { setTimeOnDate } from '@/lib/scheduler-utils';
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent 
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
+// --- Constants for Add Dialog ---
 const iconOptions = [
-  { value: 'Home', label: 'Home', icon: Home },
-  { value: 'Laptop', label: 'Laptop', icon: Laptop },
-  { value: 'Globe', label: 'Globe', icon: Globe },
-  { value: 'Music', label: 'Music', icon: Music },
+  { value: 'Home', label: 'Home' },
+  { value: 'Laptop', label: 'Laptop' },
+  { value: 'Globe', label: 'Globe' },
+  { value: 'Music', label: 'Music' },
+  { value: 'Briefcase', label: 'Work' },
+  { value: 'Coffee', label: 'Cafe' },
+  { value: 'Star', label: 'Focus' },
+  { value: 'Target', label: 'Objective' },
 ];
 
 const colorOptions = [
   { value: '#FF6B6B', label: 'Red' },
   { value: '#4ECDC4', label: 'Teal' },
-  { value: '#45B7D1', label: 'Blue' },
-  { value: '#96CEB4', label: 'Green' },
-  { value: '#FFEAA7', label: 'Yellow' },
-  { value: '#DDA0DD', label: 'Purple' },
-  { value: '#FFB347', label: 'Orange' },
+  { value: '#FFE66D', label: 'Yellow' },
+  { value: '#1A535C', label: 'Dark Green' },
+  { value: '#FF9F1C', label: 'Orange' },
+  { value: '#2EC4B6', label: 'Turquoise' },
+  { value: '#E71D36', label: 'Crimson' },
 ];
 
+// --- Sub-component: Draggable Blueprint Block ---
+const SortableBlueprintBlock = ({ env, isPm = false }: { env: Environment, isPm?: boolean }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: isPm ? `${env.value}-pm` : env.value });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 0,
+    backgroundColor: `${env.color}${isPm ? '20' : '40'}`, 
+    borderColor: `${env.color}${isPm ? '40' : '80'}` 
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      className={cn(
+        "h-8 rounded-md flex-1 min-w-[50px] flex items-center justify-center transition-all cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-50 scale-105 rotate-2",
+        !isPm ? "shadow-sm border" : "border border-dashed opacity-60"
+      )}
+    >
+      <span className="text-[9px] font-black uppercase tracking-tighter text-foreground/70">
+        {env.label.substring(0, 4)}
+      </span>
+    </div>
+  );
+};
+
 const EnvironmentManager: React.FC = () => {
-  const { profile } = useSession();
+  const { profile, updateProfile } = useSession();
   const { environments, isLoading, addEnvironment, updateEnvironment, deleteEnvironment } = useEnvironments();
   const { retiredTasks } = useRetiredTasks();
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
+
+  // DND Sensors for Blueprint
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
   
-  // Calculate Workday Duration for conversion
+  // Calculate Sink Stats for Capacity Indicators
+  const sinkStats = useMemo(() => {
+    const stats = new Map<string, { duration: number, count: number }>();
+    retiredTasks.forEach(task => {
+      const env = task.task_environment || 'laptop';
+      const current = stats.get(env) || { duration: 0, count: 0 };
+      stats.set(env, {
+        duration: current.duration + (task.duration || 30),
+        count: current.count + 1
+      });
+    });
+    return stats;
+  }, [retiredTasks]);
+
   const workdayDuration = useMemo(() => {
     if (!profile?.default_auto_schedule_start_time || !profile?.default_auto_schedule_end_time) return 480;
     const now = new Date();
@@ -71,52 +151,117 @@ const EnvironmentManager: React.FC = () => {
     target_weight: 0,
   });
 
+  // --- Logic 1: Proportional Auto-Shrink ---
+  const handleWeightUpdate = useCallback(async (id: string, newWeight: number) => {
+    const targetEnv = environments.find(e => e.id === id);
+    if (!targetEnv) return;
+
+    const delta = newWeight - (targetEnv.target_weight || 0);
+    if (delta <= 0) {
+      // Reducing is simple
+      await updateEnvironment({ id, target_weight: newWeight });
+      return;
+    }
+
+    // Increasing: Need to shrink others
+    const otherActiveEnvs = environments.filter(e => e.id !== id && e.target_weight > 0);
+    const sumOthers = otherActiveEnvs.reduce((s, e) => s + e.target_weight, 0);
+
+    if (sumOthers === 0) {
+      // No one else to shrink, just cap at 100
+      await updateEnvironment({ id, target_weight: Math.min(100, newWeight) });
+      return;
+    }
+
+    const updates = [];
+    let remainingExcess = delta;
+
+    // Proportional reduction
+    for (let i = 0; i < otherActiveEnvs.length; i++) {
+      const env = otherActiveEnvs[i];
+      const ratio = env.target_weight / sumOthers;
+      // Step-size of 5 for sliders
+      const reduction = Math.min(env.target_weight, Math.floor((delta * ratio) / 5) * 5);
+      
+      if (reduction > 0) {
+        updates.push({ id: env.id, target_weight: env.target_weight - reduction });
+        remainingExcess -= reduction;
+      }
+    }
+
+    // Final update for the target
+    updates.push({ id, target_weight: newWeight - remainingExcess });
+
+    // Execute batch updates
+    for (const update of updates) {
+      await updateEnvironment(update);
+    }
+  }, [environments, updateEnvironment]);
+
+  // --- Logic 5: Smart-Sync Modes ---
+  const handleAutoBalance = async (mode: 'volume' | 'count') => {
+    if (retiredTasks.length === 0) return showError("No tasks in Aether Sink to analyze.");
+    
+    let totalValue = 0;
+    const envValues = new Map<string, number>();
+
+    retiredTasks.forEach(task => {
+      const env = task.task_environment || 'laptop';
+      const val = mode === 'volume' ? (task.duration || 30) : 1;
+      envValues.set(env, (envValues.get(env) || 0) + val);
+      totalValue += val;
+    });
+
+    if (totalValue === 0) return;
+
+    // Distribute 100% (snapped to 5% increments)
+    for (const env of environments) {
+      const sinkVal = envValues.get(env.value) || 0;
+      const rawWeight = (sinkVal / totalValue) * 100;
+      const snappedWeight = Math.round(rawWeight / 5) * 5;
+      await updateEnvironment({ id: env.id, target_weight: snappedWeight });
+    }
+    
+    showSuccess(`Spatial budget re-aligned by ${mode}.`);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const currentOrder = profile?.custom_environment_order || environments.map(e => e.value);
+    const oldIndex = currentOrder.indexOf(active.id as string);
+    const newIndex = currentOrder.indexOf(over.id as string);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
+      updateProfile({ custom_environment_order: newOrder });
+    }
+  };
+
   const handleAddEnvironment = () => {
     if (!newEnvironment.label.trim()) return showError('Environment label is required');
-    if (totalAllocatedWeight + newEnvironment.target_weight > 100) return showError('Total spatial budget cannot exceed 100%');
-    
     addEnvironment({
       ...newEnvironment,
       value: newEnvironment.label.toLowerCase().replace(/\s+/g, '_'),
     });
-    
     setNewEnvironment({ label: '', icon: 'Home', color: '#FF6B6B', drain_multiplier: 1.0, target_weight: 0 });
     setIsAddDialogOpen(false);
   };
 
-  const handleWeightUpdate = useCallback((id: string, weight: number) => {
-    const env = environments.find(e => e.id === id);
-    if (!env) return;
-    updateEnvironment({ id, target_weight: weight });
-  }, [environments, updateEnvironment]);
-
-  // Logic for Auto-Balance by Sink Volume
-  const handleAutoBalanceBySink = async () => {
-    if (retiredTasks.length === 0) return showError("No tasks in Aether Sink to analyze.");
-    
-    const durationByEnv = new Map<string, number>();
-    let totalDuration = 0;
-
-    retiredTasks.forEach(task => {
-      const env = task.task_environment || 'laptop';
-      const dur = task.duration || 30;
-      durationByEnv.set(env, (durationByEnv.get(env) || 0) + dur);
-      totalDuration += dur;
+  const sortedEnvsByOrder = useMemo(() => {
+    const order = profile?.custom_environment_order || [];
+    return [...environments].sort((a, b) => {
+      const idxA = order.indexOf(a.value);
+      const idxB = order.indexOf(b.value);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
     });
+  }, [environments, profile?.custom_environment_order]);
 
-    if (totalDuration === 0) return;
-
-    // Distribute 100% based on proportion
-    for (const env of environments) {
-      const sinkDuration = durationByEnv.get(env.value) || 0;
-      const calculatedWeight = Math.round((sinkDuration / totalDuration) * 100);
-      await updateEnvironment({ id: env.id, target_weight: calculatedWeight });
-    }
-    
-    showSuccess("Spatial budget re-aligned with Sink volume.");
-  };
-
-  if (isLoading) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading Spatial Dashboard...</div>;
+  if (isLoading) return <div className="flex items-center justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-8">
@@ -125,20 +270,27 @@ const EnvironmentManager: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
            <div className="space-y-1">
              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-               <Target className="h-4 w-4" /> Global Time Quota
+               <Target className="h-4 w-4" /> Spatial Budgeting
              </h3>
-             <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-60">Distribution of Workday: {workdayDuration}m</p>
+             <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest opacity-60">Global Time Pool: {workdayDuration}m</p>
            </div>
            
            <div className="flex gap-2">
-             <Tooltip>
-               <TooltipTrigger asChild>
-                 <Button variant="outline" size="sm" onClick={handleAutoBalanceBySink} className="h-8 text-[10px] font-black uppercase tracking-widest gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20">
-                   <RefreshCw className="h-3 w-3" /> Auto-Sync Budget
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button variant="outline" size="sm" className="h-8 text-[10px] font-black uppercase tracking-widest gap-2 bg-primary/5 border-primary/20">
+                   <RefreshCw className="h-3 w-3" /> Auto-Sync
                  </Button>
-               </TooltipTrigger>
-               <TooltipContent>Match percentages to your Sink's actual task volume</TooltipContent>
-             </Tooltip>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end" className="glass-card">
+                 <DropdownMenuItem onClick={() => handleAutoBalance('volume')} className="text-[10px] font-bold uppercase gap-2">
+                   <Clock className="h-3 w-3" /> By Task Duration
+                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => handleAutoBalance('count')} className="text-[10px] font-bold uppercase gap-2">
+                   <Layers className="h-3 w-3" /> By Task Count
+                 </DropdownMenuItem>
+               </DropdownMenuContent>
+             </DropdownMenu>
 
              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
@@ -173,50 +325,38 @@ const EnvironmentManager: React.FC = () => {
            </div>
         </div>
 
-        {/* Master Multi-Segment Bar */}
         <div className="relative h-6 w-full rounded-full bg-secondary/50 flex overflow-hidden shadow-inner border border-white/5 mb-2">
-          {environments.map((env, i) => (
-            <Tooltip key={env.id}>
-              <TooltipTrigger asChild>
-                <div 
-                  className="h-full transition-all duration-700 ease-aether-out relative group"
-                  style={{ width: `${env.target_weight}%`, backgroundColor: env.color }}
-                >
-                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="font-bold">{env.label}: {env.target_weight}%</TooltipContent>
-            </Tooltip>
+          {environments.map((env) => (
+            <div 
+              key={env.id}
+              className="h-full transition-all duration-700 ease-aether-out relative group"
+              style={{ width: `${env.target_weight}%`, backgroundColor: env.color }}
+            >
+              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
           ))}
           {totalAllocatedWeight < 100 && (
-            <div 
-              className="h-full bg-muted-foreground/10 flex items-center justify-center"
-              style={{ width: `${100 - totalAllocatedWeight}%` }}
-            >
-              <span className="text-[8px] font-black opacity-20 uppercase">Spare: {100 - totalAllocatedWeight}%</span>
+            <div className="h-full bg-muted-foreground/10 flex items-center justify-center" style={{ width: `${100 - totalAllocatedWeight}%` }}>
+              <span className="text-[8px] font-black opacity-20 uppercase">Empty: {100 - totalAllocatedWeight}%</span>
             </div>
           )}
         </div>
-        
-        <div className="flex justify-between items-center px-1">
-           <span className={cn("text-[9px] font-black uppercase tracking-widest", totalAllocatedWeight > 100 ? "text-destructive" : "text-muted-foreground/40")}>
-             {totalAllocatedWeight}% Allocated
-           </span>
-           {totalAllocatedWeight !== 100 && (
-             <span className="text-[9px] font-bold text-logo-yellow animate-pulse">Attention: Target 100% for full efficiency</span>
-           )}
-        </div>
       </Card>
 
-      {/* --- 2. QUICK-SLIDE CARDS --- */}
+      {/* --- 2. DYNAMIC CARDS WITH HIBERNATION & DENSITY --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {environments.map((env) => {
           const Icon = getLucideIconComponent(env.icon);
           const predictedMinutes = Math.round(workdayDuration * (env.target_weight / 100));
+          const actualSinkDuration = sinkStats.get(env.value)?.duration || 0;
+          const capacityRatio = predictedMinutes > 0 ? Math.min(100, (actualSinkDuration / predictedMinutes) * 100) : 0;
+          const isHibernating = env.target_weight === 0;
           
           return (
-            <Card key={env.id} className="relative group overflow-hidden border-white/5 bg-card/40 transition-all hover:shadow-lg">
-              {/* Sidebar color accent */}
+            <Card key={env.id} className={cn(
+              "relative group overflow-hidden border-white/5 bg-card/40 transition-all duration-500",
+              isHibernating && "opacity-40 grayscale blur-[0.5px] scale-[0.98] hover:opacity-100 hover:grayscale-0 hover:blur-0"
+            )}>
               <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: env.color }} />
               
               <CardHeader className="pb-3 pt-4 px-6 flex flex-row items-center justify-between space-y-0">
@@ -224,13 +364,13 @@ const EnvironmentManager: React.FC = () => {
                   <div className="p-2 rounded-lg bg-background/50 shadow-inner" style={{ color: env.color }}>
                     <Icon className="h-4 w-4" />
                   </div>
-                  <span className="text-sm font-black uppercase tracking-tight">{env.label}</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-black uppercase tracking-tight">{env.label}</span>
+                    {isHibernating && <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Hibernating</span>}
+                  </div>
                 </div>
-                
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/40 hover:text-destructive" onClick={() => setDeleteTarget({ id: env.id, label: env.label })}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/40 hover:text-destructive" onClick={() => setDeleteTarget({ id: env.id, label: env.label })}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
               </CardHeader>
               
@@ -238,41 +378,54 @@ const EnvironmentManager: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-baseline gap-2">
-                       <span className="text-2xl font-black font-mono tracking-tighter" style={{ color: env.color }}>
-                         {env.target_weight}%
-                       </span>
-                       <span className="text-[10px] font-bold uppercase text-muted-foreground/60 tracking-widest">Budget</span>
+                       <span className="text-2xl font-black font-mono tracking-tighter" style={{ color: env.color }}>{env.target_weight}%</span>
                     </div>
                     
-                    <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-primary/5 border border-primary/10">
-                      <Clock className="h-3 w-3 text-primary" />
-                      <span className="text-xs font-mono font-bold text-foreground">~{predictedMinutes}m</span>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-primary/5 border border-primary/10">
+                          <Clock className="h-3 w-3 text-primary" />
+                          <span className="text-xs font-mono font-bold text-foreground">~{predictedMinutes}m</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px] font-bold">Sink Inventory: {actualSinkDuration}m available</TooltipContent>
+                    </Tooltip>
                   </div>
 
-                  <Slider 
-                    value={[env.target_weight]} 
-                    onValueChange={([v]) => handleWeightUpdate(env.id, v)} 
-                    max={100} 
-                    step={5} 
-                    className="py-1 cursor-pointer"
-                  />
+                  {/* Slider with Density Indicator */}
+                  <div className="relative pt-1">
+                    {/* Capacity Track (point 3) */}
+                    <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 bg-secondary/50 rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all duration-1000",
+                          capacityRatio >= 100 ? "bg-logo-green/30" : "bg-primary/20"
+                        )}
+                        style={{ width: `${capacityRatio}%` }}
+                      />
+                    </div>
+                    <Slider 
+                      value={[env.target_weight]} 
+                      onValueChange={([v]) => handleWeightUpdate(env.id, v)} 
+                      max={100} 
+                      step={5} 
+                      className="relative z-10 cursor-pointer"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-white/5">
                    <div className="flex items-center gap-4">
                       <div className="flex flex-col">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">Drain Index</span>
-                        <span className="text-xs font-mono font-bold text-logo-yellow">{env.drain_multiplier}x</span>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/40">Density</span>
+                        <span className={cn("text-xs font-mono font-bold", actualSinkDuration >= predictedMinutes ? "text-logo-green" : "text-logo-yellow")}>
+                          {actualSinkDuration}m / {predictedMinutes}m
+                        </span>
                       </div>
                    </div>
-                   
-                   <div className="flex items-center gap-2">
-                     <span className="text-[9px] font-bold uppercase tracking-widest opacity-30">Status:</span>
-                     <Badge variant="outline" className={cn("text-[8px] h-4 font-black uppercase px-1.5", env.target_weight > 0 ? "bg-logo-green/10 text-logo-green border-logo-green/20" : "opacity-30")}>
-                        {env.target_weight > 0 ? "Active" : "Idle"}
-                     </Badge>
-                   </div>
+                   <Badge variant="outline" className={cn("text-[8px] h-4 font-black uppercase px-1.5", env.target_weight > 0 ? "bg-logo-green/10 text-logo-green" : "opacity-30")}>
+                      {env.target_weight > 0 ? "Active" : "Idle"}
+                   </Badge>
                 </div>
               </CardContent>
             </Card>
@@ -280,41 +433,54 @@ const EnvironmentManager: React.FC = () => {
         })}
       </div>
 
-      {/* --- 4. INTERACTIVE VIBE PREVIEW --- */}
+      {/* --- 4. INTERACTIVE SEQUENCE BLUEPRINT --- */}
       <Card className="p-5 bg-gradient-to-br from-primary/[0.03] to-secondary/[0.03] border-primary/10 rounded-2xl">
          <CardHeader className="p-0 pb-4">
-           <CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-foreground/60 flex items-center gap-2">
-             <Layers className="h-4 w-4 text-primary" /> Sequence Blueprint
-           </CardTitle>
-           <p className="text-[10px] text-muted-foreground italic font-medium">Estimated sequence of environment blocks for your next Auto-Balance.</p>
+           <div className="flex items-center justify-between">
+             <div className="space-y-1">
+               <CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-foreground/60 flex items-center gap-2">
+                 <Layers className="h-4 w-4 text-primary" /> Sequence Blueprint
+               </CardTitle>
+               <p className="text-[10px] text-muted-foreground italic font-medium">Drag blocks to reorder your Spatial Sequence.</p>
+             </div>
+             <Tooltip>
+               <TooltipTrigger asChild>
+                 <Info className="h-3 w-3 text-muted-foreground/30" />
+               </TooltipTrigger>
+               <TooltipContent className="max-w-[200px] text-[10px]">Auto-Balance processes environments in this specific order. Move your most important zone to the front.</TooltipContent>
+             </Tooltip>
+           </div>
          </CardHeader>
          
          <CardContent className="p-0 space-y-4">
-            <div className="flex items-center gap-2 w-full h-10 px-2 rounded-xl bg-background/50 border border-white/5 overflow-hidden">
-               {/* PREVIEW BLOCKS: Simple simulation of AM/PM spread if enabled */}
-               {environments.filter(e => e.target_weight > 0).map((env, i) => (
-                 <div 
-                   key={`am-${env.id}`} 
-                   className="h-6 rounded-md flex-1 min-w-[30px] flex items-center justify-center transition-all duration-500 hover:scale-105"
-                   style={{ backgroundColor: `${env.color}40`, border: `1px solid ${env.color}80` }}
-                 >
-                   <span className="text-[8px] font-black uppercase tracking-tighter opacity-50">{env.label.substring(0, 3)}</span>
-                 </div>
-               ))}
-               {profile?.enable_macro_spread && environments.filter(e => e.target_weight > 0).reverse().map((env, i) => (
-                 <div 
-                   key={`pm-${env.id}`} 
-                   className="h-6 rounded-md flex-1 min-w-[30px] flex items-center justify-center transition-all duration-500 hover:scale-105"
-                   style={{ backgroundColor: `${env.color}20`, border: `1px dashed ${env.color}40` }}
-                 >
-                   <span className="text-[8px] font-black uppercase tracking-tighter opacity-30">{env.label.substring(0, 3)}</span>
-                 </div>
-               ))}
-            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <div className="flex items-center gap-2 w-full h-12 px-2 rounded-xl bg-background/50 border border-white/5 overflow-hidden">
+                <SortableContext items={sortedEnvsByOrder.map(e => e.value)} strategy={horizontalListSortingStrategy}>
+                   {sortedEnvsByOrder.filter(e => e.target_weight > 0).map((env) => (
+                     <SortableBlueprintBlock key={env.id} env={env} />
+                   ))}
+                </SortableContext>
+                
+                {profile?.enable_macro_spread && (
+                  <>
+                    <div className="h-6 w-px bg-white/10 mx-1" />
+                    {sortedEnvsByOrder.filter(e => e.target_weight > 0).reverse().map((env) => (
+                      <div 
+                        key={`pm-${env.id}`} 
+                        className="h-8 rounded-md flex-1 min-w-[50px] flex items-center justify-center border border-dashed opacity-40 grayscale"
+                        style={{ backgroundColor: `${env.color}10`, borderColor: `${env.color}30` }}
+                      >
+                         <span className="text-[8px] font-black uppercase tracking-tighter opacity-50">{env.label.substring(0, 3)}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </DndContext>
             <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest text-muted-foreground/30 px-1">
-               <span>Workday Start</span>
+               <span>Start</span>
                {profile?.enable_macro_spread && <span>AM/PM Reset</span>}
-               <span>Workday End</span>
+               <span>End</span>
             </div>
          </CardContent>
       </Card>

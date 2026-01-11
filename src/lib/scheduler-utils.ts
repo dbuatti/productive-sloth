@@ -1,4 +1,4 @@
-import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, isPast as isPastDate, differenceInMinutes, min, max, isEqual } from 'date-fns';
+import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, differenceInMinutes, min, max } from 'date-fns';
 import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, FreeTimeItem, TimeBlock, UnifiedTask, NewRetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
 import { UserProfile } from '@/hooks/use-session';
 
@@ -10,7 +10,7 @@ export const EMOJI_MAP: { [key: string]: string } = {
   'email': '📧', 'messages': '💬', 'calls': '📞', 'communication': '🗣️', 'admin': '⚙️', 'paperwork': '📄',
   'meeting': '💼', 'work': '💻', 'report': '📝', 'professional': '👔', 'project': '📊', 'coding': '💻', 'develop': '💻', 'code': '💻', 'bug': '🐛', 'fix': '🛠️',
   'design': '🎨', 'writing': '✍️', 'art': '🖼️', 'creative': '✨', 'draw': '✏️',
-  'study': '📦', 
+  'study': '🧠', 
   'reading': '📖', 'course': '🎓', 'learn': '🧠', 'class': '🏫', 'lecture': '🧑‍🏫',
   'clean': '🧹', 'laundry': '🧺', 'organize': '🗄️', 'household': '🏠', 'setup': '🛠️',
   'cook': '🍳', 'meal prep': '🍲', 'groceries': '🛒', 'food': '🍔', 'lunch': '🥗', 'dinner': '🍽️', 'breakfast': '🥞', 'snack': '🍎', 'eat': '🍎', 
@@ -335,74 +335,82 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
   return constraints;
 };
 
-// --- SPATIAL CORE REFACTOR ---
+// --- SPATIAL CORE REFACTOR: LIQUID BUDGETING ---
 
 export interface ZoneWeight {
   value: string;
   target_weight: number;
 }
 
+/**
+ * LIQUID BUDGET ENGINE:
+ * Calculates spatial phases by treating fragmented availability as a single liquid budget.
+ */
 export const calculateSpatialPhases = (
-  availableMinutes: number,
-  effectiveStart: Date,
-  workdayEnd: Date,
-  zoneWeights: ZoneWeight[], // REFACTORED: Passing array of objects
+  availableMinutes: number, // Total minutes summed across all gaps
+  freeGaps: TimeBlock[], // Physical free blocks identifying physical availability
+  zoneWeights: ZoneWeight[],
   envSequence: string[],
   enableMacroSpread: boolean,
   minPhaseDuration: number = 30
 ): { env: string; start: Date; end: Date }[] => {
-  console.log(`[calculateSpatialPhases] TELEMETRY START: window=${availableMinutes}m, zones=${zoneWeights.length}`);
-  
-  // Explicitly map the weights to ensure we are using 'target_weight'
+  if (availableMinutes <= 0 || freeGaps.length === 0) return [];
+
   const weightLookup = new Map<string, number>();
-  zoneWeights.forEach(zw => {
-    weightLookup.set(zw.value, Number(zw.target_weight || 0));
-  });
+  zoneWeights.forEach(zw => weightLookup.set(zw.value, Number(zw.target_weight || 0)));
 
-  const phases: { env: string; start: Date; end: Date }[] = [];
-  let phaseCursor = effectiveStart;
-
-  // Verify active zones using the mapped lookup
   let activeEnvs = envSequence.filter(e => (weightLookup.get(e) || 0) > 0);
-  
-  // FALLBACK: If sequence is empty or disconnected, use weights directly to prevent STALL
-  if (activeEnvs.length === 0 && weightLookup.size > 0) {
-      console.warn("[calculateSpatialPhases] SEQUENCE FAILBACK: Deriving sequence from weights.");
+  if (activeEnvs.length === 0) {
       activeEnvs = Array.from(weightLookup.keys()).filter(k => (weightLookup.get(k) || 0) > 0);
   }
 
-  if (activeEnvs.length === 0) {
-    console.error("[calculateSpatialPhases] STALL: No zones with target_weight > 0 found in sequence.", { 
-      sequence: envSequence, 
-      weights: Array.from(weightLookup.entries()) 
-    });
-    return [];
-  }
+  if (activeEnvs.length === 0) return [];
 
   const iterations = enableMacroSpread ? [1, 2] : [1];
-
-  for (const iter of iterations) {
-    for (const env of activeEnvs) {
+  
+  const envQuotas = new Map<string, number>();
+  activeEnvs.forEach(env => {
       const weight = weightLookup.get(env) || 0;
+      const totalQuota = Math.floor(availableMinutes * (weight / 100));
+      envQuotas.set(env, totalQuota);
+  });
+
+  const phases: { env: string; start: Date; end: Date }[] = [];
+  const spentQuotas = new Map<string, number>();
+  activeEnvs.forEach(e => spentQuotas.set(e, 0));
+
+  let currentEnvIdx = 0;
+
+  for (const gap of freeGaps) {
+    let gapCursor = gap.start;
+    let timeRemainingInGap = gap.duration;
+
+    while (timeRemainingInGap > 0 && currentEnvIdx < (activeEnvs.length * iterations.length)) {
+      const actualEnvIdx = currentEnvIdx % activeEnvs.length;
+      const env = activeEnvs[actualEnvIdx];
       
-      // Calculate phase duration based on global percentage of available window
-      let slice = Math.ceil((availableMinutes * (weight / 100)) / iterations.length);
-      
-      // Protection: Minimum phase size for visibility
-      if (slice > 0 && slice < minPhaseDuration && activeEnvs.length > 1) {
-        slice = minPhaseDuration;
+      const totalQuota = (envQuotas.get(env) || 0) / iterations.length;
+      const remainingQuota = totalQuota - (spentQuotas.get(env) || 0);
+
+      if (remainingQuota <= 0) {
+          currentEnvIdx++;
+          continue;
       }
 
-      if (slice > 0 && isBefore(phaseCursor, workdayEnd)) {
-        const phaseStart = phaseCursor;
-        const phaseEnd = min([addMinutes(phaseStart, slice), workdayEnd]);
-        const actualSlice = differenceInMinutes(phaseEnd, phaseStart);
-        
-        if (actualSlice > 0) {
-          phases.push({ env, start: phaseStart, end: phaseEnd });
-          phaseCursor = phaseEnd;
-          console.log(`[calculateSpatialPhases] GENERATED PHASE: ${env} (${actualSlice}m) @ ${formatTime(phaseStart)}`);
-        }
+      const sliceSize = Math.min(timeRemainingInGap, remainingQuota);
+      if (sliceSize > 0) {
+          const phaseEnd = addMinutes(gapCursor, sliceSize);
+          phases.push({ env, start: gapCursor, end: phaseEnd });
+          
+          spentQuotas.set(env, (spentQuotas.get(env) || 0) + sliceSize);
+          gapCursor = phaseEnd;
+          timeRemainingInGap -= sliceSize;
+
+          if (spentQuotas.get(env)! >= totalQuota) {
+              currentEnvIdx++;
+          }
+      } else {
+          break;
       }
     }
   }
@@ -416,8 +424,6 @@ export const sortAndChunkTasks = (
   sortPreference: SortBy
 ): UnifiedTask[] => {
   const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
-
-  console.log(`[scheduler-utils] sortAndChunkTasks: Processing ${tasks.length} tasks. Mode: ${sortPreference}. Spread: ${enable_macro_spread}, Chunking: ${enable_environment_chunking}`);
 
   const internalSort = (a: UnifiedTask, b: UnifiedTask) => {
     if (a.is_critical !== b.is_critical) return a.is_critical ? -1 : 1;
@@ -438,7 +444,6 @@ export const sortAndChunkTasks = (
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
   if (enable_macro_spread) {
-    console.log(`[scheduler-utils] Applying Macro-Spread Distribution (AM/PM Split).`);
     const amBatch: UnifiedTask[] = [];
     const pmBatch: UnifiedTask[] = [];
 
@@ -467,14 +472,12 @@ export const sortAndChunkTasks = (
   } 
   
   if (enable_environment_chunking || sortPreference === 'ENVIRONMENT_RATIO') {
-    console.log(`[scheduler-utils] Applying Sequential Environment Chunking.`);
     return finalOrder.map(env => {
       const groupTasks = groups.get(env) || [];
       return groupTasks.sort(internalSort);
     }).flat();
   }
 
-  console.log(`[scheduler-utils] Applying Standard Priority Sort (No Chunking).`);
   return [...tasks].sort(internalSort);
 };
 
@@ -501,7 +504,7 @@ export const compactScheduleLogic = (
 
   const sorted = sortAndChunkTasks(unified, profile, sortPreference);
   const staticConstraints = getStaticConstraints(profile, selectedDayDate, workdayStartTime, workdayEndTime);
-  const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.start_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
+  const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
 
   const isSelectedToday = isSameDay(selectedDayDate, new Date());
   let insertionCursor = isSelectedToday ? max([workdayStartTime, T_current]) : workdayStartTime;
@@ -546,7 +549,7 @@ export const calculateSchedule = (dbTasks: DBScheduledTask[], selectedDay: strin
       const iStart = max([start, workdayStart]);
       const iEnd = min([end, workdayEnd]);
       if (differenceInMinutes(iEnd, iStart) > 0) {
-        const assignment = mealAssignments.find(a => a.assigned_date === selectedDay && a.meal_type === name.toLowerCase());
+        const assignment = mealAssignments.find((a: any) => a.assigned_date === selectedDay && a.meal_type === name.toLowerCase());
         rawItems.push({ id: `${type}-${name.toLowerCase()}-${format(iStart, 'HHmm')}`, type, name: assignment?.meal_idea?.name ? `${name}: ${assignment.meal_idea.name}` : name, duration: differenceInMinutes(iEnd, iStart), startTime: iStart, endTime: iEnd, emoji, isTimedEvent: true, energyCost: type === 'meal' ? -10 : 0, isCompleted: false, isCustomEnergyCost: false, taskEnvironment: 'home', sourceCalendarId: null, isBackburner: false, isWork: false, isBreak: true });
       }
     }
@@ -568,5 +571,5 @@ export const calculateSchedule = (dbTasks: DBScheduledTask[], selectedDay: strin
     sessionEnd = max([sessionEnd, i.endTime]);
   });
 
-  return { items, dbTasks, summary: { totalTasks: items.length, activeTime: { hours: Math.floor(totalWork / 60), minutes: totalWork % 60 }, breakTime: totalBreak, sessionEnd, extendsPastMidnight: isAfter(sessionEnd, addDays(startOfDay(selectedDayDate), 1)), midnightRolloverMessage: null, unscheduledCount: dbTasks.filter(t => !t.start_time).length, criticalTasksRemaining: critRemaining, isBlocked: true === isDayBlocked } };
+  return { items, dbTasks, summary: { totalTasks: items.length, activeTime: { hours: Math.floor(totalWork / 60), minutes: totalWork % 60 }, breakTime: totalBreak, sessionEnd, extendsPastMidnight: isAfter(sessionEnd, addDays(startOfDay(selectedDayDate), 1)), midnightRolloverMessage: null, unscheduledCount: dbTasks.filter(t => !t.start_time).length, criticalTasksRemaining: critRemaining, isBlocked: isDayBlocked } };
 };

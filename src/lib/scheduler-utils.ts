@@ -234,13 +234,10 @@ export const isMeal = (taskName: string): boolean => {
 };
 
 export const calculateEnergyCost = (duration: number, isCritical: boolean, isBackburner: boolean = false, isBreak: boolean = false): number => {
-  console.log(`[calculateEnergyCost] Calculating for duration: ${duration}, critical: ${isCritical}, backburner: ${isBackburner}, break: ${isBreak}`);
   if (isBreak) { 
-    console.log("[calculateEnergyCost] Is a break task, returning -10 energy.");
     return -10; // Fixed energy gain for explicit breaks
   }
   if (isMeal('meal')) { // Check if the task name itself contains 'meal'
-    console.log("[calculateEnergyCost] Is a meal task, returning -10 energy.");
     return -10; // Fixed energy gain for meals
   }
 
@@ -248,14 +245,11 @@ export const calculateEnergyCost = (duration: number, isCritical: boolean, isBac
   
   if (isCritical) {
     baseCost = Math.ceil(baseCost * 1.5); 
-    console.log("[calculateEnergyCost] Is critical, adjusted base cost:", baseCost);
   } else if (isBackburner) {
     baseCost = Math.ceil(baseCost * 0.75);
-    console.log("[calculateEnergyCost] Is backburner, adjusted base cost:", baseCost);
   }
   
   const finalCost = Math.max(5, baseCost); 
-  console.log("[calculateEnergyCost] Final calculated energy cost:", finalCost);
   return finalCost;
 };
 
@@ -300,7 +294,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   isWork: boolean; // NEW
   isBreak: boolean; // NEW
 } | null => {
-  console.log(`[parseTaskInput] Parsing input: "${input}" for date: ${format(selectedDayAsDate, 'yyyy-MM-dd')}`);
   let rawInput = input.trim();
   let isCritical = false;
   let isBackburner = false; 
@@ -313,14 +306,12 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
   if (rawInput.startsWith('!')) {
     isCritical = true;
     rawInput = rawInput.substring(1).trim();
-    console.log("[parseTaskInput] Critical flag detected.");
   }
 
   // Check for Backburner Flag (Prefix: -)
   if (rawInput.startsWith('-')) {
     isBackburner = true;
     rawInput = rawInput.substring(1).trim();
-    console.log("[parseTaskInput] Backburner flag detected.");
   }
 
   // Suffix checks need lower case
@@ -331,7 +322,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     shouldSink = true;
     rawInput = rawInput.substring(0, rawInput.length - 5).trim();
     lowerRawInput = rawInput.toLowerCase();
-    console.log("[parseTaskInput] Sink flag detected.");
   }
 
   // Check for Fixed Flag (Suffix: fixed)
@@ -339,7 +329,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     isFlexible = false;
     rawInput = rawInput.substring(0, rawInput.length - 6).trim();
     lowerRawInput = rawInput.toLowerCase();
-    console.log("[parseTaskInput] Fixed flag detected.");
   }
 
   // Check for Work Flag (Suffix: W)
@@ -347,7 +336,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     isWork = true;
     rawInput = rawInput.substring(0, rawInput.length - 2).trim();
     lowerRawInput = rawInput.toLowerCase();
-    console.log("[parseTaskInput] Work flag detected.");
   }
 
   // Check for Break Flag (Suffix: B)
@@ -355,7 +343,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     isBreak = true;
     rawInput = rawInput.substring(0, rawInput.length - 2).trim();
     lowerRawInput = rawInput.toLowerCase();
-    console.log("[parseTaskInput] Break flag detected.");
   }
   
   const timeOffMatch = rawInput.match(/^(time off)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
@@ -368,10 +355,8 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     const endTime = parseFlexibleTime(endTimeString, selectedDayAsDate);
 
     if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-      console.log("[parseTaskInput] Failed to parse time for 'Time Off'.");
       return null;
     }
-    console.log("[parseTaskInput] Parsed 'Time Off' task:", { name, startTime, endTime });
     return {
       name: name,
       startTime: startTime,
@@ -400,7 +385,6 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
       
       const isMealTask = isMeal(name);
       const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
-      console.log("[parseTaskInput] Parsed time-range task:", { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost, isWork, isBreak });
       return { name, startTime, endTime, isCritical, isBackburner, isFlexible: false, shouldSink, energyCost, isWork, isBreak }; 
     }
   }
@@ -414,11 +398,9 @@ export const parseTaskInput = (input: string, selectedDayAsDate: Date): {
     if (name && duration > 0) {
       const isMealTask = isMeal(name);
       const energyCost = isMealTask ? -10 : calculateEnergyCost(duration, isCritical, isBackburner, isBreak);
-      console.log("[parseTaskInput] Parsed duration-based task:", { name, duration, breakDuration, isCritical, isBackburner, isFlexible, shouldSink, energyCost, isWork, isBreak });
       return { name, duration, breakDuration, isCritical, isBackburner, isFlexible, shouldSink, energyCost, isWork, isBreak };
     }
   }
-  console.log("[parseTaskInput] No matching pattern found for input.");
   return null;
 };
 
@@ -435,7 +417,6 @@ export const parseInjectionCommand = (input: string): {
   isWork: boolean; 
   isBreak: boolean; 
 } | null => {
-  console.log(`[parseInjectionCommand] Parsing input: "${input}"`);
   const lowerInput = input.toLowerCase().trim();
   const injectMatch = lowerInput.match(/^inject\s+"([^"]+)"(?:\s+(\d+))?(?:\s+(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?))?(?:\s+(!))?(?:\s+(-))?(?:\s+(fixed))?(?:\s+(w))?(?:\s+(b))?$/);
 
@@ -462,7 +443,6 @@ export const parseInjectionCommand = (input: string): {
     } else {
       calculatedEnergyCost = calculateEnergyCost(30, isCritical, isBackburner, isBreak); 
     }
-    console.log("[parseInjectionCommand] Parsed injection command:", { taskName, duration, startTime, endTime, isCritical, isBackburner, isFlexible, energyCost: calculatedEnergyCost, isWork, isBreak });
     return {
       taskName,
       duration,
@@ -476,16 +456,13 @@ export const parseInjectionCommand = (input: string): {
       isBreak,
     };
   }
-  console.log("[parseInjectionCommand] No matching injection command pattern found.");
   return null;
 };
 
 export const parseCommand = (input: string): { type: string; target?: string; index?: number; duration?: number } | null => {
-  console.log(`[parseCommand] Parsing command: "${input}"`);
   const lowerInput = input.toLowerCase().trim();
 
   if (lowerInput === 'clear') {
-    console.log("[parseCommand] Detected 'clear' command.");
     return { type: 'clear' };
   }
   if (lowerInput.startsWith('remove')) {
@@ -494,37 +471,29 @@ export const parseCommand = (input: string): { type: string; target?: string; in
       if (parts[1] === 'index' && parts.length > 2) {
         const index = parseInt(parts[2], 10);
         if (!isNaN(index)) {
-          console.log(`[parseCommand] Detected 'remove index' command for index: ${index - 1}`);
           return { type: 'remove', index: index - 1 }; 
         }
       } else {
-        console.log(`[parseCommand] Detected 'remove' command for target: ${parts.slice(1).join(' ')}`);
         return { type: 'remove', target: parts.slice(1).join(' ') };
       }
     }
   }
   if (lowerInput === 'show') {
-    console.log("[parseCommand] Detected 'show' command.");
     return { type: 'show' };
   }
   if (lowerInput === 'reorder') {
-    console.log("[parseCommand] Detected 'reorder' command.");
     return { type: 'reorder' };
   }
   if (lowerInput === 'time off') {
-    console.log("[parseCommand] Detected 'time off' command.");
     return { type: 'timeoff' };
   }
   if (lowerInput === 'compact') {
-    console.log("[parseCommand] Detected 'compact' command.");
     return { type: 'compact' };
   }
   if (lowerInput === 'aether dump' || lowerInput === 'reset schedule') {
-    console.log("[parseCommand] Detected 'aether dump' command.");
     return { type: 'aether dump' };
   }
   if (lowerInput === 'aether dump mega') {
-    console.log("[parseCommand] Detected 'aether dump mega' command.");
     return { type: 'aether dump mega' };
   }
   if (lowerInput.startsWith('break')) {
@@ -532,19 +501,15 @@ export const parseCommand = (input: string): { type: string; target?: string; in
     if (parts.length > 1) {
       const duration = parseInt(parts[1], 10);
       if (!isNaN(duration) && duration > 0) {
-        console.log(`[parseCommand] Detected 'break' command with duration: ${duration}`);
         return { type: 'break', duration: duration };
       }
     }
-    console.log("[parseCommand] Detected 'break' command (default 15 min).");
     return { type: 'break', duration: 15 }; 
   }
-  console.log("[parseCommand] No matching command pattern found.");
   return null;
 };
 
 export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTask | null => {
-  console.log(`[parseSinkTaskInput] Parsing sink input: "${input}" for user: ${userId}`);
   let name = input.trim();
   let duration: number | null = null;
   let isCritical = false;
@@ -555,44 +520,37 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   if (name.endsWith(' !')) {
     isCritical = true;
     name = name.slice(0, -2).trim();
-    console.log("[parseSinkTaskInput] Critical flag detected.");
   }
 
   if (name.startsWith('-')) {
     isBackburner = true;
     name = name.slice(1).trim();
-    console.log("[parseSinkTaskInput] Backburner flag detected.");
   }
 
   // Check for Work Flag (Suffix: W)
   if (name.toLowerCase().endsWith(' w')) {
     isWork = true;
     name = name.slice(0, -2).trim();
-    console.log("[parseSinkTaskInput] Work flag detected.");
   }
 
   // Check for Break Flag (Suffix: B)
   if (name.toLowerCase().endsWith(' b')) {
     isBreak = true;
     name = name.slice(0, -2).trim();
-    console.log("[parseSinkTaskInput] Break flag detected.");
   }
 
   const durationMatch = name.match(/^(.*?)\s+(\d+)$/);
   if (durationMatch) {
     name = durationMatch[1].trim();
     duration = parseInt(durationMatch[2], 10);
-    console.log(`[parseSinkTaskInput] Duration detected: ${duration}`);
   }
 
   if (!name) {
-    console.log("[parseSinkTaskInput] Task name is empty after parsing.");
     return null;
   }
 
   const isMealTask = isMeal(name);
   const energyCost = isMealTask ? -10 : calculateEnergyCost(duration || 30, isCritical, isBackburner, isBreak); 
-  console.log("[parseSinkTaskInput] Final parsed sink task:", { name, duration, isCritical, isBackburner, energyCost, isWork, isBreak });
   return {
     user_id: userId,
     name: name,
@@ -613,8 +571,6 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
 
 export const mergeOverlappingTimeBlocks = (blocks: TimeBlock[]): TimeBlock[] => {
   if (blocks.length === 0) return [];
-  console.log("[mergeOverlappingTimeBlocks] Initial blocks:", blocks.map(b => `${format(b.start, 'HH:mm')}-${format(b.end, 'HH:mm')}`));
-
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
   const merged: TimeBlock[] = [];
@@ -633,7 +589,6 @@ export const mergeOverlappingTimeBlocks = (blocks: TimeBlock[]): TimeBlock[] => 
   }
 
   merged.push(currentMergedBlock);
-  console.log("[mergeOverlappingTimeBlocks] Merged blocks:", merged.map(b => `${format(b.start, 'HH:mm')}-${format(b.end, 'HH:mm')}`));
   return merged;
 };
 
@@ -642,8 +597,6 @@ export const getFreeTimeBlocks = (
   workdayStart: Date,
   workdayEnd: Date
 ): TimeBlock[] => {
-  console.log(`[getFreeTimeBlocks] Workday: ${format(workdayStart, 'HH:mm')}-${format(workdayEnd, 'HH:mm')}`);
-  console.log("[getFreeTimeBlocks] Occupied blocks:", occupiedBlocks.map(b => `${format(b.start, 'HH:mm')}-${format(b.end, 'HH:mm')}`));
   const freeBlocks: TimeBlock[] = [];
   let currentFreeTimeCursor = workdayStart;
 
@@ -674,7 +627,6 @@ export const getFreeTimeBlocks = (
       });
     }
   }
-  console.log("[getFreeTimeBlocks] Free time blocks:", freeBlocks.map(b => `${format(b.start, 'HH:mm')}-${format(b.end, 'HH:mm')} (${b.duration}m)`));
   return freeBlocks;
 };
 
@@ -684,7 +636,6 @@ export const findFirstAvailableSlot = (
   searchStart: Date,
   workdayEnd: Date
 ): { start: Date; end: Date } | null => {
-  console.log(`[findFirstAvailableSlot] Searching for ${durationMinutes}m slot. Search start: ${format(searchStart, 'HH:mm')}, Workday end: ${format(workdayEnd, 'HH:mm')}`);
   const freeBlocks = getFreeTimeBlocks(occupiedBlocks, searchStart, workdayEnd);
   
   for (const slot of freeBlocks) {
@@ -700,7 +651,6 @@ export const findFirstAvailableSlot = (
         });
 
         if (isSafe) {
-          console.log(`[findFirstAvailableSlot] Found slot: ${format(proposedStart, 'HH:mm')}-${format(proposedEnd, 'HH:mm')}`);
           return {
             start: proposedStart,
             end: proposedEnd
@@ -709,7 +659,6 @@ export const findFirstAvailableSlot = (
       }
     }
   }
-  console.log("[findFirstAvailableSlot] No suitable slot found.");
   return null;
 };
 
@@ -719,7 +668,6 @@ export const getStaticConstraints = (
   workdayStart: Date,
   workdayEnd: Date
 ): TimeBlock[] => {
-  console.log(`[getStaticConstraints] Generating for day: ${format(selectedDayDate, 'yyyy-MM-dd')}, Workday: ${format(workdayStart, 'HH:mm')}-${format(workdayEnd, 'HH:mm')}`);
   const constraints: TimeBlock[] = [];
   const addConstraint = (name: string, timeStr: string | null, duration: number | null) => {
     const effectiveDuration = (duration !== null && duration !== undefined && !isNaN(duration)) ? duration : 15;
@@ -743,7 +691,6 @@ export const getStaticConstraints = (
         if (finalDuration > 0) {
           const newBlock = { start: intersectionStart, end: intersectionEnd, duration: finalDuration };
           constraints.push(newBlock);
-          console.log(`[getStaticConstraints] Added constraint "${name}": ${format(newBlock.start, 'HH:mm')}-${format(newBlock.end, 'HH:mm')} (${newBlock.duration}m)`);
         }
       }
     }
@@ -758,7 +705,6 @@ export const getStaticConstraints = (
       const rDur = profile.reflection_durations?.[r];
       if (rTime && rDur) addConstraint(`Reflection Point ${r + 1}`, rTime, rDur); 
   }
-  console.log("[getStaticConstraints] Final static constraints count:", constraints.length);
   return constraints;
 };
 
@@ -767,10 +713,10 @@ export const sortAndChunkTasks = (
   profile: UserProfile,
   sortPreference: SortBy
 ): UnifiedTask[] => {
-  console.log(`[sortAndChunkTasks] Sorting tasks with preference: ${sortPreference}, chunking enabled: ${profile.enable_environment_chunking}, macro-spread: ${profile.enable_macro_spread}`);
+  console.log(`[sortAndChunkTasks] Input tasks count: ${tasks.length}. SortPreference: ${sortPreference}`);
   const { enable_environment_chunking, enable_macro_spread, custom_environment_order } = profile;
 
-  // Base sort: Critical first, then breaks, then backburner, then by creation date
+  // Base sort: Critical first, then breaks, then backburner, then by age (creation date)
   const baseSortedTasks = [...tasks].sort((a, b) => {
     if (a.is_critical && !b.is_critical) return -1;
     if (!a.is_critical && b.is_critical) return 1;
@@ -780,11 +726,12 @@ export const sortAndChunkTasks = (
     if (!a.is_backburner && b.is_backburner) return -1;
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
-  console.log("[sortAndChunkTasks] Base sorted tasks (critical, break, backburner, created_at):", baseSortedTasks.map(t => t.name));
+  
+  console.log("[sortAndChunkTasks] 1. Base Priority Sort Complete:", baseSortedTasks.map(t => `[${t.task_environment}] ${t.name}`));
 
-  // If environment chunking is not enabled and sortPreference is not ENVIRONMENT_RATIO, return base sort
+  // If environment chunking is not enabled and sortPreference is not ENVIRONMENT_RATIO, return base priority sort
   if (!enable_environment_chunking && sortPreference !== 'ENVIRONMENT_RATIO') {
-    console.log("[sortAndChunkTasks] Environment chunking not enabled, returning base sorted tasks.");
+    console.log("[sortAndChunkTasks] Chunking disabled. Returning priority-only sequence.");
     return baseSortedTasks;
   }
 
@@ -797,28 +744,26 @@ export const sortAndChunkTasks = (
     }
     tasksByEnvironment.get(env)!.push(task);
   });
-  console.log("[sortAndChunkTasks] Tasks grouped by environment:", Object.fromEntries(tasksByEnvironment));
+  
+  console.log("[sortAndChunkTasks] 2. Environment Groups Created:");
+  for (const [env, group] of tasksByEnvironment.entries()) {
+      console.log(`   - [${env}]: ${group.length} tasks`);
+  }
 
-  // Determine the order of environments
+  // Determine the sequence of environments based on user settings
   const environmentOrder = custom_environment_order && custom_environment_order.length > 0
     ? custom_environment_order
     : ['home', 'laptop', 'away', 'piano', 'laptop_piano']; 
-  console.log("[sortAndChunkTasks] Custom environment order:", environmentOrder);
 
-  // Filter out environments that don't exist in the current tasks, and add any missing ones
   const activeEnvironments = Array.from(tasksByEnvironment.keys());
   const finalEnvironmentOrder = environmentOrder
     .filter(env => activeEnvironments.includes(env))
     .concat(activeEnvironments.filter(env => !environmentOrder.includes(env)));
-  console.log("[sortAndChunkTasks] Final environment order for chunking:", finalEnvironmentOrder);
-
-  const orderedEnvironmentGroups = finalEnvironmentOrder
-    .map(env => tasksByEnvironment.get(env) || [])
-    .filter(group => group.length > 0);
+  
+  console.log("[sortAndChunkTasks] 3. Target Environment Sequence:", finalEnvironmentOrder);
 
   if (enable_macro_spread) {
-    console.log("[sortAndChunkTasks] Macro-spread enabled, interleaving tasks.");
-    // Macro-spread: Interleave tasks from different environments
+    console.log("[sortAndChunkTasks] 4. Applying MACRO-SPREAD distribution (Interleaving)...");
     const result: UnifiedTask[] = [];
     const currentIndices = new Map<TaskEnvironment, number>();
     finalEnvironmentOrder.forEach(env => currentIndices.set(env, 0));
@@ -836,13 +781,15 @@ export const sortAndChunkTasks = (
         }
       }
     }
-    console.log("[sortAndChunkTasks] Macro-spread result:", result.map(t => t.name));
+    console.log("[sortAndChunkTasks] 5. Interleaving Complete. Result:", result.map(t => `[${t.task_environment}] ${t.name}`));
     return result;
   } else {
-    console.log("[sortAndChunkTasks] Standard chunking, flattening groups.");
-    // Standard chunking: Place all tasks from one environment, then the next
+    console.log("[sortAndChunkTasks] 4. Applying STANDARD CHUNKING (Grouping)...");
+    const orderedEnvironmentGroups = finalEnvironmentOrder
+      .map(env => tasksByEnvironment.get(env) || [])
+      .filter(group => group.length > 0);
     const result = orderedEnvironmentGroups.flat();
-    console.log("[sortAndChunkTasks] Standard chunking result:", result.map(t => t.name));
+    console.log("[sortAndChunkTasks] 5. Grouping Complete. Result:", result.map(t => `[${t.task_environment}] ${t.name}`));
     return result;
   }
 };
@@ -855,9 +802,7 @@ export const compactScheduleLogic = (
   T_current: Date,
   profile: UserProfile | null 
 ): DBScheduledTask[] => {
-  console.log(`[compactScheduleLogic] Starting compaction for day: ${format(selectedDayDate, 'yyyy-MM-dd')}`);
   if (!profile) {
-    console.warn("[compactScheduleLogic] Profile is null, returning current tasks.");
     return currentDbTasks; 
   }
 
@@ -865,11 +810,9 @@ export const compactScheduleLogic = (
   const fixedTasks = currentDbTasks.filter(
     t => t.is_locked || !t.is_flexible || t.is_completed
   );
-  console.log("[compactScheduleLogic] Fixed tasks (locked, non-flexible, or completed):", fixedTasks.map(t => t.name));
   
   const flexibleTasksRaw = currentDbTasks
     .filter(t => t.is_flexible && !t.is_locked && !t.is_completed);
-  console.log("[compactScheduleLogic] Flexible tasks (unlocked, incomplete, flexible):", flexibleTasksRaw.map(t => t.name));
 
   // Convert to UnifiedTask for sorting
   const flexibleUnifiedTasks: UnifiedTask[] = flexibleTasksRaw.map(t => ({
@@ -890,9 +833,7 @@ export const compactScheduleLogic = (
     is_break: t.is_break || false,
   }));
 
-  // NEW: Sort and chunk flexible tasks using the new utility
   const sortedFlexibleTasks = sortAndChunkTasks(flexibleUnifiedTasks, profile, profile.enable_environment_chunking ? 'ENVIRONMENT_RATIO' : 'PRIORITY_HIGH_TO_LOW'); 
-  console.log("[compactScheduleLogic] Sorted flexible tasks for placement:", sortedFlexibleTasks.map(t => t.name));
 
   // 2. Generate static constraints (meals, reflections)
   const staticConstraints: TimeBlock[] = getStaticConstraints(
@@ -901,7 +842,6 @@ export const compactScheduleLogic = (
     workdayStartTime,
     workdayEndTime
   );
-  console.log("[compactScheduleLogic] Static constraints (meals, reflections):", staticConstraints.map(b => `${format(b.start, 'HH:mm')}-${format(b.end, 'HH:mm')}`));
 
   // 3. Combine all fixed blocks (existing fixed tasks + static anchors)
   const allFixedAndStaticBlocks: TimeBlock[] = mergeOverlappingTimeBlocks([
@@ -913,12 +853,10 @@ export const compactScheduleLogic = (
     }),
     ...staticConstraints
   ]);
-  console.log("[compactScheduleLogic] All combined fixed/static blocks:", allFixedAndStaticBlocks.map(b => `${format(b.start, 'HH:mm')}-${format(b.end, 'HH:mm')}`));
 
   // 4. Determine the starting point for compaction
   const isToday = isSameDay(selectedDayDate, new Date());
   let insertionCursor = isToday ? max([workdayStartTime, T_current]) : workdayStartTime;
-  console.log(`[compactScheduleLogic] Initial insertion cursor: ${format(insertionCursor, 'HH:mm')}`);
 
   const updatedTasks: DBScheduledTask[] = [...fixedTasks]; 
 
@@ -950,11 +888,9 @@ export const compactScheduleLogic = (
             start_time: currentCursor.toISOString(),
             end_time: proposedEnd.toISOString(),
           });
-          console.log(`[compactScheduleLogic] Placed task "${task.name}" at ${format(currentCursor, 'HH:mm')}-${format(proposedEnd, 'HH:mm')}`);
           insertionCursor = proposedEnd;
           placed = true;
         } else {
-          console.warn(`[compactScheduleLogic] Original DB task not found for UnifiedTask ID: ${task.id}`);
           placed = true; 
         }
       } else {
@@ -966,14 +902,9 @@ export const compactScheduleLogic = (
         if (isAfter(currentCursor, insertionCursor)) {
             insertionCursor = currentCursor;
         }
-        console.log(`[compactScheduleLogic] Collision for "${task.name}", advancing cursor to: ${format(currentCursor, 'HH:mm')}`);
       }
     }
-    if (!placed) {
-      console.warn(`[compactScheduleLogic] Task "${task.name}" could not be placed within workday window.`);
-    }
   }
-  console.log("[compactScheduleLogic] Final updated tasks count:", updatedTasks.length);
   return updatedTasks;
 };
 
@@ -999,10 +930,7 @@ export const calculateSchedule = (
   mealAssignments: any[] = [],
   isDayBlocked: boolean = false 
 ): FormattedSchedule => {
-  console.log(`[calculateSchedule] Starting schedule calculation for day: ${selectedDay}. Blocked: ${isDayBlocked}`);
-  
   if (isDayBlocked) {
-    console.log("[calculateSchedule] Day is blocked, returning empty schedule early.");
     return {
       items: [],
       summary: {
@@ -1036,7 +964,6 @@ export const calculateSchedule = (
   dbTasks.forEach((dbTask) => {
     if (!dbTask.start_time || !dbTask.end_time) {
       unscheduledCount++;
-      console.log(`[calculateSchedule] Unscheduled task: ${dbTask.name}`);
       return;
     }
 
@@ -1047,16 +974,13 @@ export const calculateSchedule = (
       endTime = addDays(endTime, 1);
       extendsPastMidnight = true;
       midnightRolloverMessage = "Schedule extends past midnight.";
-      console.log(`[calculateSchedule] Task "${dbTask.name}" extends past midnight.`);
     } else if (isBefore(endTime, startTime) && !isSameDay(startTime, selectedDayDate)) {
       startTime = setHours(setMinutes(selectedDayDate, startTime.getMinutes()), startTime.getHours());
-      console.log(`[calculateSchedule] Task "${dbTask.name}" adjusted to start on selected day.`);
     }
 
 
     const duration = differenceInMinutes(endTime, startTime);
     if (duration <= 0) {
-      console.log(`[calculateSchedule] Task "${dbTask.name}" has zero or negative duration, skipping.`);
       return;
     }
 
@@ -1101,7 +1025,6 @@ export const calculateSchedule = (
       isBreak: dbTask.is_break || false, 
     };
     allRawItems.push(item);
-    console.log(`[calculateSchedule] Added DB task: "${item.name}" (${item.type}) from ${format(item.startTime, 'HH:mm')} to ${format(item.endTime, 'HH:mm')}`);
   });
 
   // 2. Add Static Anchors (Meals, Reflections, Regen Pod)
@@ -1114,7 +1037,6 @@ export const calculateSchedule = (
 
       if (isBefore(anchorEnd, anchorStart)) {
         anchorEnd = addDays(anchorEnd, 1);
-        console.log(`[calculateSchedule] Static anchor "${name}" extends past midnight.`);
       }
 
       const intersectionStart = max([anchorStart, workdayStart]);
@@ -1123,7 +1045,6 @@ export const calculateSchedule = (
 
       if (finalDuration > 0) { 
         const mealTypeKey = name.toLowerCase();
-        const isStandardMeal = ['breakfast', 'lunch', 'dinner'].includes(mealTypeKey);
         const assignment = mealAssignments.find(a => a.assigned_date === selectedDay && a.meal_type === mealTypeKey);
         const assignedMealName = assignment?.meal_idea?.name;
         
@@ -1155,7 +1076,6 @@ export const calculateSchedule = (
           isBreak: type === 'break' || type === 'meal', 
         };
         allRawItems.push(item);
-        console.log(`[calculateSchedule] Added static anchor: "${item.name}" (${item.type}) from ${format(item.startTime, 'HH:mm')} to ${format(item.endTime, 'HH:mm')}`);
       }
     }
   };
@@ -1202,14 +1122,10 @@ export const calculateSchedule = (
             isBreak: true, 
         };
         allRawItems.push(podItem);
-        console.log(`[calculateSchedule] Added Regen Pod: "${podItem.name}" from ${format(podItem.startTime, 'HH:mm')} to ${format(podItem.endTime, 'HH:mm')}`);
-    } else {
-      console.log("[calculateSchedule] Regen Pod is active but already ended, not adding to schedule.");
     }
   }
 
   allRawItems.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-  console.log("[calculateSchedule] All raw items sorted by start time.");
 
   const finalItems: ScheduledItem[] = [];
   if (allRawItems.length > 0) {
@@ -1219,7 +1135,6 @@ export const calculateSchedule = (
       const nextItem = allRawItems[i];
 
       if (currentMergedItem.startTime < nextItem.endTime && nextItem.startTime < currentMergedItem.endTime) {
-        console.log(`[calculateSchedule] Overlap detected between "${currentMergedItem.name}" and "${nextItem.name}". Merging.`);
         const newStartTime = min([currentMergedItem.startTime, nextItem.startTime]);
         const newEndTime = max([currentMergedItem.endTime, nextItem.endTime]);
         const newDuration = differenceInMinutes(newEndTime, newStartTime);
@@ -1299,7 +1214,6 @@ export const calculateSchedule = (
     }
     finalItems.push(currentMergedItem); 
   }
-  console.log("[calculateSchedule] Final merged items count:", finalItems.length);
 
   finalItems.forEach(item => {
     if (item.type === 'task' || item.type === 'time-off' || item.type === 'calendar-event') { 
@@ -1328,7 +1242,6 @@ export const calculateSchedule = (
     criticalTasksRemaining: criticalTasksRemaining,
     isBlocked: isDayBlocked, 
   };
-  console.log("[calculateSchedule] Schedule summary:", summary);
 
   return {
     items: finalItems, 

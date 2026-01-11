@@ -430,9 +430,16 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
 
         const validEnvValues = zoneWeights.map(e => e.value);
-        const envSequence = (freshProfile.custom_environment_order?.length 
-          ? freshProfile.custom_environment_order 
-          : validEnvValues).filter(val => validEnvValues.includes(val));
+        
+        // FIX: Robust Sequence Derivation
+        let envSequence = freshProfile.custom_environment_order?.length 
+          ? freshProfile.custom_environment_order.filter(val => validEnvValues.includes(val))
+          : validEnvValues;
+        
+        if (envSequence.length === 0 && validEnvValues.length > 0) {
+            console.warn("[useSchedulerTasks] Sequence was empty after strict validation. Falling back to valid matrix values.");
+            envSequence = validEnvValues;
+        }
         
         console.log(`[useSchedulerTasks] Validated Sequence: ${envSequence.join(' -> ')}`);
 

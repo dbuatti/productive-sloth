@@ -363,8 +363,14 @@ export const calculateSpatialPhases = (
   let phaseCursor = effectiveStart;
 
   // Verify active zones using the mapped lookup
-  const activeEnvs = envSequence.filter(e => (weightLookup.get(e) || 0) > 0);
+  let activeEnvs = envSequence.filter(e => (weightLookup.get(e) || 0) > 0);
   
+  // FALLBACK: If sequence is empty or disconnected, use weights directly to prevent STALL
+  if (activeEnvs.length === 0 && weightLookup.size > 0) {
+      console.warn("[calculateSpatialPhases] SEQUENCE FAILBACK: Deriving sequence from weights.");
+      activeEnvs = Array.from(weightLookup.keys()).filter(k => (weightLookup.get(k) || 0) > 0);
+  }
+
   if (activeEnvs.length === 0) {
     console.error("[calculateSpatialPhases] STALL: No zones with target_weight > 0 found in sequence.", { 
       sequence: envSequence, 
@@ -495,7 +501,7 @@ export const compactScheduleLogic = (
 
   const sorted = sortAndChunkTasks(unified, profile, sortPreference);
   const staticConstraints = getStaticConstraints(profile, selectedDayDate, workdayStartTime, workdayEndTime);
-  const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
+  const fixedBlocks = mergeOverlappingTimeBlocks([...fixed.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.start_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
 
   const isSelectedToday = isSameDay(selectedDayDate, new Date());
   let insertionCursor = isSelectedToday ? max([workdayStartTime, T_current]) : workdayStartTime;

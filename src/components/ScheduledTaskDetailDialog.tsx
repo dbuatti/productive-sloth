@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, setHours, setMinutes, isBefore, addDays } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee, Copy, ArrowRight } from "lucide-react";
 
 import {
   Dialog,
@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn, getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
+import { cn, getLucideIconComponent } from '@/lib/utils'; 
 import { DBScheduledTask, TaskEnvironment } from "@/types/scheduler";
 import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 import { showSuccess, showError } from "@/utils/toast";
@@ -48,17 +48,15 @@ const formSchema = z.object({
   is_backburner: z.boolean().default(false),
   is_flexible: z.boolean().default(true),
   is_locked: z.boolean().default(false),
-  energy_cost: z.coerce.number().default(0), // Removed .min(0)
+  energy_cost: z.coerce.number().default(0),
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.string().default('laptop'),
   is_work: z.boolean().default(false),
   is_break: z.boolean().default(false),
 }).refine(data => {
-  // If it's a break task and not custom energy cost, allow negative or zero
   if (data.is_break && !data.is_custom_energy_cost) {
     return data.energy_cost <= 0;
   }
-  // Otherwise, energy cost must be non-negative
   return data.energy_cost >= 0;
 }, {
   message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
@@ -87,7 +85,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
   onOpenChange,
   selectedDayString,
 }) => {
-  const { updateScheduledTaskDetails } = useSchedulerTasks(selectedDayString);
+  const { updateScheduledTaskDetails, duplicateScheduledTask, moveTaskToTomorrow } = useSchedulerTasks(selectedDayString);
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
@@ -147,40 +145,13 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
       if (!value.is_custom_energy_cost && (name === 'start_time' || name === 'end_time' || name === 'is_critical' || name === 'is_backburner' || name === 'is_break')) {
         const startTimeStr = value.start_time;
         const endTimeStr = value.end_time;
-        const isCritical = value.is_critical;
-        const isBackburner = value.is_backburner;
-        const isBreak = value.is_break;
-
         if (startTimeStr && endTimeStr) {
           const selectedDayDate = parseISO(selectedDayString);
           let startTime = setTimeOnDate(selectedDayDate, startTimeStr);
           let endTime = setTimeOnDate(selectedDayDate, endTimeStr);
-
-          if (isBefore(endTime, startTime)) {
-            endTime = addDays(endTime, 1);
-          }
+          if (isBefore(endTime, startTime)) endTime = addDays(endTime, 1);
           const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
-          setCalculatedEnergyCost(newEnergyCost);
-          form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
-        }
-      } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
-        const startTimeStr = form.getValues('start_time');
-        const endTimeStr = form.getValues('end_time');
-        const isCritical = form.getValues('is_critical');
-        const isBackburner = form.getValues('is_backburner');
-        const isBreak = form.getValues('is_break');
-
-        if (startTimeStr && endTimeStr) {
-          const selectedDayDate = parseISO(selectedDayString);
-          let startTime = setTimeOnDate(selectedDayDate, startTimeStr);
-          let endTime = setTimeOnDate(selectedDayDate, endTimeStr);
-
-          if (isBefore(endTime, startTime)) {
-            endTime = addDays(endTime, 1);
-          }
-          const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60));
-          const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
+          const newEnergyCost = calculateEnergyCost(duration, value.is_critical ?? false, value.is_backburner ?? false, value.is_break ?? false);
           setCalculatedEnergyCost(newEnergyCost);
           form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
         }
@@ -192,32 +163,18 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
 
   const handleSubmit = async (values: ScheduledTaskDetailFormValues) => {
     if (!task) return;
-
     const selectedDayDate = parseISO(selectedDayString);
-    
     const finalStartTimeStr = values.start_time === "" ? null : values.start_time;
     const finalEndTimeStr = values.end_time === "" ? null : values.end_time;
-
     let finalStartTime: string | null = null;
     let finalEndTime: string | null = null;
-
     if (finalStartTimeStr && finalEndTimeStr) {
       let startTime = setTimeOnDate(selectedDayDate, finalStartTimeStr);
       let endTime = setTimeOnDate(selectedDayDate, finalEndTimeStr);
-
-      if (isBefore(endTime, startTime)) {
-        endTime = addDays(endTime, 1);
-      }
+      if (isBefore(endTime, startTime)) endTime = addDays(endTime, 1);
       finalStartTime = startTime.toISOString();
       finalEndTime = endTime.toISOString();
-    } else if (finalStartTimeStr === null && finalEndTimeStr === null) {
-      // Both are null, which is fine.
-    } else {
-      // This case should be caught by the refine, but as a fallback:
-      showError("Both start and end times must be provided or both left empty.");
-      return;
     }
-
     try {
       await updateScheduledTaskDetails({
         id: task.id,
@@ -235,11 +192,23 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
         is_work: values.is_work,
         is_break: values.is_break,
       });
-      showSuccess("Scheduled task updated successfully!");
       onOpenChange(false);
     } catch (error) {
-      showError("Failed to save scheduled task.");
       console.error("Failed to save scheduled task:", error);
+    }
+  };
+
+  const handleDuplicate = () => {
+    if (task) {
+      duplicateScheduledTask(task);
+      onOpenChange(false);
+    }
+  };
+
+  const handleMoveToTomorrow = () => {
+    if (task) {
+      moveTaskToTomorrow(task);
+      onOpenChange(false);
     }
   };
 
@@ -252,10 +221,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
 
   if (!task) return null;
 
-  const lastUpdatedDate = task.updated_at ? parseISO(task.updated_at) : null;
-  const formattedLastUpdated = lastUpdatedDate && !isNaN(lastUpdatedDate.getTime()) 
-    ? format(lastUpdatedDate, 'MMM d, yyyy HH:mm') 
-    : 'N/A';
+  const formattedLastUpdated = task.updated_at ? format(parseISO(task.updated_at), 'MMM d, yyyy HH:mm') : 'N/A';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -273,7 +239,6 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
             
             <div className="flex-grow overflow-y-auto space-y-6 pb-8">
-              {/* Name */}
               <FormField
                 control={form.control}
                 name="name"
@@ -288,7 +253,6 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                 )}
               />
 
-              {/* Start Time & End Time */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -318,7 +282,6 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                 />
               </div>
 
-              {/* Break Duration */}
               <FormField
                 control={form.control}
                 name="break_duration"
@@ -336,7 +299,6 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                 )}
               />
 
-              {/* Task Environment */}
               <FormField
                 control={form.control}
                 name="task_environment"
@@ -351,7 +313,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                       </FormControl>
                       <SelectContent>
                         {environments.map(env => {
-                          const IconComponent = getLucideIconComponent(env.icon); // Use the shared utility
+                          const IconComponent = getLucideIconComponent(env.icon);
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">
@@ -363,223 +325,123 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                         })}
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      Where this task is typically performed.
-                    </FormDescription>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Is Critical Switch */}
-              <FormField
-                control={form.control}
-                name="is_critical"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
+              <div className="grid gap-4">
+                <FormField
+                  control={form.control}
+                  name="is_critical"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <FormLabel>Critical Task</FormLabel>
-                      <FormDescription>
-                        Mark this task as critical (higher priority).
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_backburner', false);
-                            form.setValue('is_break', false);
-                          }
-                        }}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              
-              {/* Is Backburner Switch (NEW) */}
-              <FormField
-                control={form.control}
-                name="is_backburner"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Backburner Task (P: Low)</FormLabel>
-                      <FormDescription>
-                        Only scheduled if free time remains.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_critical', false);
-                            form.setValue('is_break', false);
-                          }
-                        }}
-                        disabled={isCritical}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={(c) => { field.onChange(c); if(c){ form.setValue('is_backburner', false); form.setValue('is_break', false); } }} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="is_backburner"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <FormLabel>Backburner Task</FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={(c) => { field.onChange(c); if(c){ form.setValue('is_critical', false); form.setValue('is_break', false); } }} disabled={isCritical} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="is_break"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
+                <FormField
+                  control={form.control}
+                  name="is_break"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <div className="flex items-center gap-2">
                         <Coffee className="h-4 w-4 text-logo-orange" />
-                        <FormLabel className="text-base font-semibold">Break Task</FormLabel>
+                        <FormLabel>Break Task</FormLabel>
                       </div>
-                      <FormDescription className="text-xs">
-                        This task is a dedicated break or recovery activity.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_critical', false);
-                            form.setValue('is_backburner', false);
-                          }
-                        }}
-                        disabled={isCritical || isBackburner}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={(c) => { field.onChange(c); if(c){ form.setValue('is_critical', false); form.setValue('is_backburner', false); } }} disabled={isCritical || isBackburner} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-              {/* Is Flexible Switch */}
-              <FormField
-                control={form.control}
-                name="is_flexible"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
+                <FormField
+                  control={form.control}
+                  name="is_flexible"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <FormLabel>Flexible Task</FormLabel>
-                      <FormDescription>
-                        Can the scheduler automatically move this task?
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-              {/* Is Locked Switch */}
-              <FormField
-                control={form.control}
-                name="is_locked"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
+                <FormField
+                  control={form.control}
+                  name="is_locked"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <FormLabel>Locked Task</FormLabel>
-                      <FormDescription>
-                        Prevent the scheduler from moving or removing this task.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-              <FormField
-                control={form.control}
-                name="is_work"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-primary" />
-                        <FormLabel className="text-base font-semibold">Work Task</FormLabel>
-                      </div>
-                      <FormDescription className="text-xs">
-                        Tag this task as work for analytics.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              <div className="pt-4 border-t space-y-4">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/50">Actions</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button type="button" variant="outline" onClick={handleDuplicate} className="flex items-center gap-2">
+                    <Copy className="h-4 w-4" /> Duplicate
+                  </Button>
+                  <Button type="button" variant="outline" onClick={handleMoveToTomorrow} className="flex items-center gap-2">
+                    <ArrowRight className="h-4 w-4" /> Punt Tomorrow
+                  </Button>
+                </div>
+              </div>
 
-              {/* Custom Energy Cost Switch */}
               <FormField
                 control={form.control}
                 name="is_custom_energy_cost"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Custom Energy Cost</FormLabel>
-                      <FormDescription>
-                        Manually set the energy cost instead of automatic calculation.
-                      </FormDescription>
-                    </div>
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
+                    <FormLabel>Custom Energy Cost</FormLabel>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              {/* Energy Cost (Editable if custom, read-only if auto-calculated) */}
               <FormField
                 control={form.control}
                 name="energy_cost"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Energy Cost</FormLabel>
-                      <FormDescription>
-                        Energy consumed upon completion.
-                      </FormDescription>
-                    </div>
+                    <FormLabel>Energy Cost</FormLabel>
                     <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
                       <Zap className="h-5 w-5" />
                       <FormControl>
                         <Input 
                           type="number" 
                           {...field} 
-                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
-                          className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                          className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
-                          onChange={(e) => {
-                            if (isCustomEnergyCostEnabled) {
-                              field.onChange(e);
-                            }
-                          }}
                         />
                       </FormControl>
                     </div>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -591,11 +453,7 @@ const ScheduledTaskDetailDialog: React.FC<ScheduledTaskDetailDialogProps> = ({
                 disabled={isSubmitting || !isValid} 
                 className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
               >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save Changes
               </Button>
             </div>

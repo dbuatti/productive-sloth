@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
-import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee } from "lucide-react";
+import { X, Save, Loader2, Zap, Lock, Unlock, Home, Laptop, Globe, Music, Briefcase, Coffee, Copy } from "lucide-react";
 
 import {
   Dialog,
@@ -31,8 +31,8 @@ import { showSuccess, showError } from "@/utils/toast";
 import { calculateEnergyCost } from '@/lib/scheduler-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEnvironments } from '@/hooks/use-environments';
-import { useRetiredTasks } from '@/hooks/use-retired-tasks'; // NEW: Import useRetiredTasks
-import { getLucideIconComponent } from '@/lib/utils'; // Import getLucideIconComponent
+import { useRetiredTasks } from '@/hooks/use-retired-tasks'; 
+import { getLucideIconComponent } from '@/lib/utils'; 
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }).max(255),
@@ -47,17 +47,15 @@ const formSchema = z.object({
   is_critical: z.boolean().default(false),
   is_backburner: z.boolean().default(false),
   is_completed: z.boolean().default(false),
-  energy_cost: z.coerce.number().default(0), // Removed .min(0)
+  energy_cost: z.coerce.number().default(0), 
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.string().default('laptop'),
   is_work: z.boolean().default(false),
   is_break: z.boolean().default(false),
 }).refine(data => {
-  // If it's a break task and not custom energy cost, allow negative or zero
   if (data.is_break && !data.is_custom_energy_cost) {
     return data.energy_cost <= 0;
   }
-  // Otherwise, energy cost must be non-negative
   return data.energy_cost >= 0;
 }, {
   message: "Energy cost must be 0 or negative for break tasks, and non-negative for others.",
@@ -77,7 +75,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus } = useRetiredTasks(); // NEW: Use useRetiredTasks
+  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus, addRetiredTask } = useRetiredTasks(); 
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
@@ -114,8 +112,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         is_break: task.is_break || false,
       });
       if (!task.is_custom_energy_cost) {
-        const duration = task.duration ?? 30;
-        setCalculatedEnergyCost(calculateEnergyCost(duration, task.is_critical, task.is_backburner, task.is_break));
+        setCalculatedEnergyCost(calculateEnergyCost(task.duration ?? 30, task.is_critical, task.is_backburner, task.is_break));
       } else {
         setCalculatedEnergyCost(task.energy_cost);
       }
@@ -125,19 +122,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (!value.is_custom_energy_cost && (name === 'duration' || name === 'is_critical' || name === 'is_backburner' || name === 'is_break')) {
-        const duration = value.duration ?? 0;
-        const isCritical = value.is_critical;
-        const isBackburner = value.is_backburner;
-        const isBreak = value.is_break;
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
-        setCalculatedEnergyCost(newEnergyCost);
-        form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
-      } else if (name === 'is_custom_energy_cost' && !value.is_custom_energy_cost) {
-        const duration = form.getValues('duration') ?? 0;
-        const isCritical = form.getValues('is_critical');
-        const isBackburner = form.getValues('is_backburner');
-        const isBreak = form.getValues('is_break');
-        const newEnergyCost = calculateEnergyCost(duration, isCritical ?? false, isBackburner ?? false, isBreak ?? false);
+        const newEnergyCost = calculateEnergyCost(value.duration ?? 0, value.is_critical ?? false, value.is_backburner ?? false, value.is_break ?? false);
         setCalculatedEnergyCost(newEnergyCost);
         form.setValue('energy_cost', newEnergyCost, { shouldValidate: true });
       }
@@ -147,16 +132,11 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
 
   const handleSubmit = async (values: RetiredTaskDetailFormValues) => {
     if (!task) return;
-
     try {
       if (values.is_completed !== task.is_completed) {
-        if (values.is_completed) {
-          await completeRetiredTask(task);
-        } else {
-          await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
-        }
+        if (values.is_completed) await completeRetiredTask(task);
+        else await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
       }
-
       await updateRetiredTaskDetails({
         id: task.id,
         name: values.name,
@@ -170,43 +150,46 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         is_work: values.is_work,
         is_break: values.is_break,
       });
-      showSuccess("Retired task updated successfully!");
       onOpenChange(false);
     } catch (error) {
-      showError("Failed to save retired task.");
       console.error("Failed to save retired task:", error);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (task) {
+      const { id, retired_at, ...rest } = task;
+      await addRetiredTask({
+        ...rest,
+        name: `${task.name} (Copy)`,
+        is_completed: false,
+        is_locked: false,
+      });
+      onOpenChange(false);
     }
   };
 
   const isSubmitting = form.formState.isSubmitting;
   const isValid = form.formState.isValid;
   const isCustomEnergyCostEnabled = form.watch('is_custom_energy_cost');
-  const isCritical = form.watch('is_critical');
-  const isBackburner = form.watch('is_backburner');
-  const isBreak = form.watch('is_break');
 
   if (!task) return null;
 
   const formattedRetiredAt = task.retired_at ? format(parseISO(task.retired_at), 'MMM d, yyyy HH:mm') : 'N/A';
-  const formattedOriginalDate = task.original_scheduled_date ? format(parseISO(task.original_scheduled_date), 'MMM d, yyyy') : 'N/A';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-6 animate-pop-in">
         <DialogHeader className="border-b pb-4 mb-6">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">Retired Task Details</DialogTitle>
-          </div>
+          <DialogTitle className="text-2xl font-bold">Retired Task Details</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Retired: {formattedRetiredAt} | Original Date: {formattedOriginalDate}
+            Retired: {formattedRetiredAt}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col h-full space-y-6">
-            
             <div className="flex-grow overflow-y-auto space-y-6 pb-8">
-              {/* Name */}
               <FormField
                 control={form.control}
                 name="name"
@@ -221,7 +204,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 )}
               />
 
-              {/* Duration & Break Duration */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -232,9 +214,6 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       <FormControl>
                         <Input type="number" {...field} min="1" value={field.value ?? ''} />
                       </FormControl>
-                      <FormDescription>
-                        Estimated time to complete.
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -248,15 +227,11 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       <FormControl>
                         <Input type="number" {...field} min="0" value={field.value ?? ''} />
                       </FormControl>
-                      <FormDescription>
-                        Break associated with this task.
-                      </FormDescription>
                     </FormItem>
                   )}
                 />
               </div>
 
-              {/* Task Environment */}
               <FormField
                 control={form.control}
                 name="task_environment"
@@ -271,7 +246,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                       </FormControl>
                       <SelectContent>
                         {environments.map(env => {
-                          const IconComponent = getLucideIconComponent(env.icon); // Use the shared utility
+                          const IconComponent = getLucideIconComponent(env.icon);
                           return (
                             <SelectItem key={env.value} value={env.value}>
                               <div className="flex items-center gap-2">
@@ -283,201 +258,121 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                         })}
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      Where this task is typically performed.
-                    </FormDescription>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Is Critical Switch */}
-              <FormField
-                control={form.control}
-                name="is_critical"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Critical Task (P: High)</FormLabel>
-                      <FormDescription>
-                        Must be scheduled first.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_backburner', false);
-                            form.setValue('is_break', false);
-                          }
-                        }}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              <div className="grid gap-4">
+                <FormField
+                  control={form.control}
+                  name="is_critical"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <FormLabel>Critical Task</FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={(c) => { field.onChange(c); if(c){ form.setValue('is_backburner', false); form.setValue('is_break', false); } }} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="is_backburner"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <FormLabel>Backburner Task</FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={(c) => { field.onChange(c); if(c){ form.setValue('is_critical', false); form.setValue('is_break', false); } }} disabled={form.watch('is_critical')} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-              {/* Is Backburner Switch */}
-              <FormField
-                control={form.control}
-                name="is_backburner"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Backburner Task (P: Low)</FormLabel>
-                      <FormDescription>
-                        Only scheduled if free time remains.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_critical', false);
-                            form.setValue('is_break', false);
-                          }
-                        }}
-                        disabled={isCritical}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="is_break"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
+                <FormField
+                  control={form.control}
+                  name="is_break"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <div className="flex items-center gap-2">
                         <Coffee className="h-4 w-4 text-logo-orange" />
-                        <FormLabel className="text-base font-semibold">Break Task</FormLabel>
+                        <FormLabel>Break Task</FormLabel>
                       </div>
-                      <FormDescription className="text-xs">
-                        This task is a dedicated break or recovery activity.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) {
-                            form.setValue('is_critical', false);
-                            form.setValue('is_backburner', false);
-                          }
-                        }}
-                        disabled={isCritical || isBackburner}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={(c) => { field.onChange(c); if(c){ form.setValue('is_critical', false); form.setValue('is_backburner', false); } }} disabled={form.watch('is_critical') || form.watch('is_backburner')} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-              {/* Is Completed Switch */}
-              <FormField
-                control={form.control}
-                name="is_completed"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
+                <FormField
+                  control={form.control}
+                  name="is_completed"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <FormLabel>Completed</FormLabel>
-                      <FormDescription>
-                        Mark this task as completed.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="is_work"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
+                <FormField
+                  control={form.control}
+                  name="is_work"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <div className="flex items-center gap-2">
                         <Briefcase className="h-4 w-4 text-primary" />
-                        <FormLabel className="text-base font-semibold">Work Task</FormLabel>
+                        <FormLabel>Work Task</FormLabel>
                       </div>
-                      <FormDescription className="text-xs">
-                        Tag this task as work for analytics.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-              {/* Custom Energy Cost Switch */}
+              <div className="pt-4 border-t space-y-4">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/50">Actions</p>
+                <Button type="button" variant="outline" onClick={handleDuplicate} className="w-full flex items-center justify-center gap-2">
+                  <Copy className="h-4 w-4" /> Duplicate Task
+                </Button>
+              </div>
+
               <FormField
                 control={form.control}
                 name="is_custom_energy_cost"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Custom Energy Cost</FormLabel>
-                      <FormDescription>
-                        Manually set the energy cost instead of automatic calculation.
-                      </FormDescription>
-                    </div>
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
+                    <FormLabel>Custom Energy Cost</FormLabel>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                   </FormItem>
                 )}
               />
 
-              {/* Energy Cost (Editable if custom, read-only if auto-calculated) */}
               <FormField
                 control={form.control}
                 name="energy_cost"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Energy Cost</FormLabel>
-                      <FormDescription>
-                        Energy consumed upon completion.
-                      </FormDescription>
-                    </div>
+                    <FormLabel>Energy Cost</FormLabel>
                     <div className="flex items-center gap-1 text-lg font-bold text-logo-yellow">
                       <Zap className="h-5 w-5" />
                       <FormControl>
                         <Input 
                           type="number" 
                           {...field} 
-                          min={isBreak || isCustomEnergyCostEnabled ? undefined : "0"} // Allow negative if break or custom
-                          className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                          className="w-20 text-right font-mono text-lg font-bold border-none focus-visible:ring-0"
                           readOnly={!isCustomEnergyCostEnabled}
                           value={isCustomEnergyCostEnabled ? field.value : calculatedEnergyCost}
-                          onChange={(e) => {
-                            if (isCustomEnergyCostEnabled) {
-                              field.onChange(e);
-                            }
-                          }}
                         />
                       </FormControl>
                     </div>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -489,11 +384,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                 disabled={isSubmitting || !isValid} 
                 className="w-full flex items-center gap-2 bg-primary hover:bg-primary/90"
               >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save Changes
               </Button>
             </div>

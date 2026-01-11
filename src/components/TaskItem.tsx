@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle, Briefcase, Coffee } from "lucide-react"; // NEW: Import Coffee icon
+import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle, Briefcase, Coffee, Copy, ArrowRight } from "lucide-react"; 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Task } from "@/types";
 import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import XPGainAnimation from "./XPGainAnimation";
 import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks";
@@ -23,7 +23,7 @@ interface TaskItemProps {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const { deleteTask, updateTask } = useTasks();
+  const { deleteTask, updateTask, duplicateTask } = useTasks();
   const navigate = useNavigate();
 
   const handleToggleComplete = async (checked: CheckedState) => {
@@ -41,12 +41,23 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     if (window.confirm(`Are you sure you want to delete "${task.title}"?`)) {
       try {
         await deleteTask(task.id);
-        toast.success(`Task "${task.title}" deleted.`);
       } catch ( error ) {
-        toast.error("Failed to delete task.");
         console.error("Failed to delete task:", error);
       }
     }
+  };
+
+  const handleDuplicate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    duplicateTask(task);
+  };
+
+  const handleMoveToTomorrow = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    await updateTask({ id: task.id, due_date: tomorrow.toISOString() });
+    toast.success("Task moved to tomorrow!");
   };
 
   const handleScheduleNow = (e: React.MouseEvent) => {
@@ -57,8 +68,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           name: task.title, 
           isCritical: task.is_critical,
           duration: 30,
-          isWork: task.is_work, // NEW: Pass isWork flag
-          isBreak: task.is_break, // NEW: Pass isBreak flag
+          isWork: task.is_work, 
+          isBreak: task.is_break, 
         } 
       } 
     });
@@ -66,39 +77,33 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const handleToggleWork = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await updateTask({ id: task.id, is_work: !task.is_work }); // NEW: Toggle is_work
+    await updateTask({ id: task.id, is_work: !task.is_work });
   };
 
   const handleToggleBreak = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await updateTask({ id: task.id, is_break: !task.is_break }); // NEW: Toggle is_break
+    await updateTask({ id: task.id, is_break: !task.is_break });
   };
 
   const getPriorityBadgeClasses = (priority: Task['priority']) => {
     switch (priority) {
-      case 'HIGH':
-        return 'bg-destructive text-destructive-foreground border-destructive';
-      case 'MEDIUM':
-        return 'bg-logo-orange/20 text-logo-orange border-logo-orange';
-      case 'LOW':
-        return 'bg-logo-green/20 text-logo-green border-logo-green';
-      default:
-        return 'bg-muted text-muted-foreground border-border';
+      case 'HIGH': return 'bg-destructive text-destructive-foreground border-destructive';
+      case 'MEDIUM': return 'bg-logo-orange/20 text-logo-orange border-logo-orange';
+      case 'LOW': return 'bg-logo-green/20 text-logo-green border-logo-green';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
   const getPriorityLeftBorderClass = (priority: Task['priority']) => {
     switch (priority) {
-      case 'HIGH':
-        return 'border-l-destructive hover:border-destructive';
-      case 'MEDIUM':
-        return 'border-l-logo-orange hover:border-logo-orange';
-      case 'LOW':
-        return 'border-l-logo-green hover:border-logo-green';
-      default:
-        return 'border-l-border hover:border-border';
+      case 'HIGH': return 'border-l-destructive hover:border-destructive';
+      case 'MEDIUM': return 'border-l-logo-orange hover:border-logo-orange';
+      case 'LOW': return 'border-l-logo-green hover:border-logo-green';
+      default: return 'border-l-border hover:border-border';
     }
   };
+
+  const formattedDueDate = task.due_date ? format(new Date(task.due_date), "MMM d") : 'N/A';
 
   return (
     <>
@@ -112,7 +117,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
           "border-b border-dashed border-border/50 last:border-b-0"
         )}
         onClick={handleEditClick}
-        aria-label={`Task: ${task.title}, Priority: ${task.priority}, Due: ${task.due_date ? format(new Date(task.due_date), "MMM d") : 'N/A'}`}
+        aria-label={`Task: ${task.title}, Priority: ${task.priority}, Due: ${formattedDueDate}`}
       >
         <div className="flex items-center space-x-4 flex-grow min-w-0">
           <Checkbox 
@@ -203,7 +208,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 </Tooltip>
               )}
 
-              {/* NEW: Work Task Indicator */}
               {task.is_work && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -215,7 +219,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 </Tooltip>
               )}
 
-              {/* NEW: Break Task Indicator */}
               {task.is_break && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -229,12 +232,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
             </div>
             
             <div className="flex items-center space-x-4 text-xs mt-2 text-muted-foreground">
-              {task.due_date && (
-                <span className="flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  <span>{format(new Date(task.due_date), "MMM d")}</span>
-                </span>
-              )}
+              <span className="flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" />
+                <span>{formattedDueDate}</span>
+              </span>
             </div>
           </label>
         </div>
@@ -252,24 +253,34 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleScheduleNow} className="cursor-pointer" aria-label="Schedule Task Now">
-              <Clock className="mr-2 h-4.5 w-4.5" />
+            <DropdownMenuItem onClick={handleScheduleNow} className="cursor-pointer">
+              <Clock className="mr-2 h-4 w-4" />
               Schedule Now
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleToggleWork} className="cursor-pointer" aria-label="Toggle Work Task">
-              <Briefcase className="mr-2 h-4.5 w-4.5" />
+            <DropdownMenuItem onClick={handleDuplicate} className="cursor-pointer">
+              <Copy className="mr-2 h-4 w-4" />
+              Duplicate
+            </DropdownMenuItem>
+            {!task.is_completed && (
+              <DropdownMenuItem onClick={handleMoveToTomorrow} className="cursor-pointer">
+                <ArrowRight className="mr-2 h-4 w-4" />
+                Punt to Tomorrow
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={handleToggleWork} className="cursor-pointer">
+              <Briefcase className="mr-2 h-4 w-4" />
               {task.is_work ? 'Remove Work Tag' : 'Mark as Work'}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleToggleBreak} className="cursor-pointer" aria-label="Toggle Break Task">
-              <Coffee className="mr-2 h-4.5 w-4.5" />
+            <DropdownMenuItem onClick={handleToggleBreak} className="cursor-pointer">
+              <Coffee className="mr-2 h-4 w-4" />
               {task.is_break ? 'Remove Break Tag' : 'Mark as Break'}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleEditClick} className="cursor-pointer" aria-label="Edit Task Details">
-              <Pencil className="mr-2 h-4.5 w-4.5" />
+            <DropdownMenuItem onClick={handleEditClick} className="cursor-pointer">
+              <Pencil className="mr-2 h-4 w-4" />
               Edit Details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDeleteClick} className="text-destructive cursor-pointer" aria-label="Delete Task">
-              <Trash className="mr-2 h-4.5 w-4.5" />
+            <DropdownMenuItem onClick={handleDeleteClick} className="text-destructive cursor-pointer">
+              <Trash className="mr-2 h-4 w-4" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>

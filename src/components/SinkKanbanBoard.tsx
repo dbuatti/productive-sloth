@@ -14,7 +14,6 @@ import { parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { useEnvironments } from '@/hooks/use-environments';
 import { useRetiredTasks } from '@/hooks/use-retired-tasks';
 import { getLucideIconComponent, cn } from '@/lib/utils';
-import { useEnvironmentContext } from '@/hooks/use-environment-context';
 
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
@@ -46,16 +45,13 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   const groupedTasks = useMemo(() => {
     const groups: Record<string, RetiredTask[]> = {};
     
-    // 1. Initialize empty groups for all valid database environments
-    if (groupBy === 'environment') {
-      environments.forEach(env => {
-        groups[env.value] = [];
-      });
-    } else if (groupBy === 'priority') {
+    // 1. Initialize core groups for Priority and Type views (always show these)
+    if (groupBy === 'priority') {
       ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
-    } else {
+    } else if (groupBy === 'type') {
       ['work', 'not-work', 'breaks'].forEach(k => groups[k] = []);
     }
+    // Note: We don't pre-initialize environment groups anymore to avoid showing empty columns
 
     // 2. Assign tasks to groups
     retiredTasks.forEach(task => {
@@ -73,7 +69,6 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
         );
 
         // If we found a match in the DB, use its actual value key
-        // Otherwise, use the raw value (this handles the "laptop" vs "laptop_desk" situation)
         key = matchingEnv ? matchingEnv.value : taskEnvRaw;
 
       } else if (groupBy === 'priority') {
@@ -85,6 +80,18 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       if (!groups[key]) groups[key] = [];
       groups[key].push(task);
     });
+
+    // 3. For the environment view, ensure we show defined environments even if empty ONLY IF the user has few environments.
+    // Otherwise, we stick to populated columns only to reduce noise.
+    if (groupBy === 'environment') {
+      // If we have no tasks at all, show the defined environments as empty starters
+      if (retiredTasks.length === 0) {
+        environments.forEach(env => {
+          if (!groups[env.value]) groups[env.value] = [];
+        });
+      }
+    }
+
     return groups;
   }, [retiredTasks, groupBy, environments]);
 
@@ -111,7 +118,6 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
     let update: Partial<RetiredTask> = {};
     
     if (groupBy === 'environment') {
-      // Use the actual DB value for the drop target
       update = { task_environment: overContainerId as TaskEnvironment };
     } else if (groupBy === 'priority') {
       if (overContainerId === 'critical') update = { is_critical: true, is_backburner: false, is_break: false };

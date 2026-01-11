@@ -341,8 +341,22 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       const { data: envs, error: envError } = await supabase.from('environments').select('value, target_weight').eq('user_id', user!.id);
       if (envError) throw envError;
       
-      const envWeightsMap = new Map(envs.map(e => [e.value, e.target_weight || 0]));
-      console.log(`[useSchedulerTasks] Spatial Matrix verified. Active Zones: ${envs.length}`);
+      // VERIFICATION: Ensure weights are valid numbers and mapped correctly
+      const envWeightsMap = new Map<string, number>();
+      let totalWeightCheck = 0;
+      
+      envs.forEach(e => {
+        const w = Number(e.target_weight || 0);
+        envWeightsMap.set(e.value, w);
+        totalWeightCheck += w;
+      });
+      
+      console.log(`[useSchedulerTasks] Spatial Matrix verified. Active Zones: ${envs.length}, Total Weight: ${totalWeightCheck}%`);
+
+      if (totalWeightCheck === 0) {
+        console.warn("[useSchedulerTasks] ENGINE GUARD: Global weight is zero. Spatial balancing is impossible.");
+        return showError("All zone weights are 0%. Update Spatial Budgeting in Settings.");
+      }
 
       const initialTargetDayAsDate = parseISO(targetDateString);
       if (isBefore(initialTargetDayAsDate, startOfDay(new Date())) && taskSource !== 'global-all-future') {
@@ -411,8 +425,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         const staticConstraints = getStaticConstraints(profile, currentDayAsDate, workdayStart, workdayEnd);
         let currentOccupied = mergeOverlappingTimeBlocks([...fixedBlocks, ...staticConstraints]);
 
-        const envSequence = profile.custom_environment_order?.length ? profile.custom_environment_order : envs.map(e => e.value);
+        // PROTECTIVE SEQUENCE: Ensure envSequence only contains currently existing environments
+        const validEnvValues = envs.map(e => e.value);
+        const envSequence = (profile.custom_environment_order?.length 
+          ? profile.custom_environment_order 
+          : validEnvValues).filter(val => validEnvValues.includes(val));
         
+        console.log(`[useSchedulerTasks] Validated Sequence: ${envSequence.join(' -> ')}`);
+
         // --- SPATIAL PHASE GENERATION ---
         let effectiveWeights = new Map(envWeightsMap);
         let activeEnvs = envSequence.filter(e => (effectiveWeights.get(e) || 0) > 0);

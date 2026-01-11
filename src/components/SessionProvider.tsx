@@ -49,10 +49,18 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => clearInterval(interval);
   }, []);
 
+  // Use a ref to prevent overlapping profile fetches
+  const fetchingProfileForId = useRef<string | null>(null);
+
   // Fetch profile logic
   const fetchProfile = useCallback(async (userId: string) => {
+    // Prevent redundant simultaneous fetches for the same user
+    if (fetchingProfileForId.current === userId && isProfileLoading) return;
+    
     console.log("[SessionProvider] Starting fetchProfile for:", userId);
+    fetchingProfileForId.current = userId;
     setIsProfileLoading(true);
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -64,13 +72,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.warn("[SessionProvider] Profile fetch error:", error.message);
         setProfile(null);
       } else if (data) {
-        console.log("[SessionProvider] Profile data received.");
         const profileDataWithDefaultTimezone = { 
           ...data, 
           timezone: data.timezone || 'UTC' 
         } as UserProfile;
         
-        setProfile(prev => isEqual(prev, profileDataWithDefaultTimezone) ? prev : profileDataWithDefaultTimezone);
+        // Only update state if data actually changed
+        setProfile(prev => {
+          if (isEqual(prev, profileDataWithDefaultTimezone)) return prev;
+          console.log("[SessionProvider] Profile data updated.");
+          return profileDataWithDefaultTimezone;
+        });
         
         if (profileDataWithDefaultTimezone.is_in_regen_pod && profileDataWithDefaultTimezone.regen_pod_start_time) {
           const start = parseISO(profileDataWithDefaultTimezone.regen_pod_start_time);
@@ -84,8 +96,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error("[SessionProvider] Unexpected error in fetchProfile:", e);
     } finally {
       setIsProfileLoading(false);
+      fetchingProfileForId.current = null;
     }
-  }, []);
+  }, [isProfileLoading]);
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) await fetchProfile(user.id);
@@ -202,25 +215,17 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     console.log("[SessionProvider] Initializing auth state...");
     
-    // 1. Check for current session immediately
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      console.log("[SessionProvider] Initial session check done. User present:", !!initialSession?.user);
-      if (initialSession) {
-        setSession(initialSession);
-        setUser(initialSession.user);
-        fetchProfile(initialSession.user.id); // Load profile in background
-      }
-      setIsAuthLoading(false); // Unblock UI regardless of profile status
-    });
-
-    // 2. Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
+    // Check session once and then rely on onAuthStateChange for all subsequent updates
+    // This avoids the double-fetch seen when getSession and listener fire at once.
+    supabase.auth.onAuthStateChange((event, currentSession) => {
       console.log("[SessionProvider] Auth event:", event);
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
       
-      if (currentSession?.user) {
-        fetchProfile(currentSession.user.id);
+      setSession(currentSession);
+      const currentUser = currentSession?.user ?? null;
+      setUser(currentUser);
+      
+      if (currentUser) {
+        fetchProfile(currentUser.id);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         queryClient.clear();
@@ -228,10 +233,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       setIsAuthLoading(false);
     });
-    
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
   }, [fetchProfile, queryClient]);
 
   // Redirect logic

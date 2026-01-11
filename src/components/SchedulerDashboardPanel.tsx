@@ -2,14 +2,14 @@
 
 import React, { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListTodo, Zap, Coffee, Flag, ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
-import { ScheduleSummary } from '@/types/scheduler';
+import { ListTodo, Zap, Coffee, Flag, ChevronUp, ChevronDown, AlertTriangle, Target, Layers } from 'lucide-react';
+import { ScheduleSummary, ScheduledItem } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSession } from '@/hooks/use-session';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useEnvironments } from '@/hooks/use-environments';
 
 interface SchedulerDashboardPanelProps {
   scheduleSummary: ScheduleSummary | null;
@@ -18,28 +18,18 @@ interface SchedulerDashboardPanelProps {
   hasFlexibleTasks: boolean;
   onRefreshSchedule: () => void;
   isLoading: boolean;
+  items?: ScheduledItem[]; // Added items prop for balance calc
 }
 
-// Aggressive memoization for the component itself
 const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({
   scheduleSummary,
-  onAetherDump,
-  isProcessingCommand,
-  hasFlexibleTasks,
   onRefreshSchedule,
-  isLoading
+  isLoading,
+  items = []
 }) => {
   const { profile, updateProfile } = useSession();
+  const { environments } = useEnvironments();
   const isCollapsed = profile?.is_dashboard_collapsed ?? false;
-
-  // Stability logging: Only log if there's an actual state change we care about
-  const prevIsLoading = useRef(isLoading);
-  useEffect(() => {
-    if (prevIsLoading.current !== isLoading) {
-      console.log(`[SchedulerDashboardPanel] Loading state changed: ${isLoading}`);
-      prevIsLoading.current = isLoading;
-    }
-  });
 
   const handleToggleCollapse = async () => {
     if (profile) {
@@ -47,22 +37,30 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
     }
   };
 
-  const stats = useMemo(() => {
-    if (!scheduleSummary || scheduleSummary.totalTasks === 0) return null;
+  const balanceStats = useMemo(() => {
+    if (items.length === 0) return [];
     
-    const activeMinutes = scheduleSummary.activeTime.hours * 60 + scheduleSummary.activeTime.minutes;
-    const totalScheduled = activeMinutes + scheduleSummary.breakTime;
+    const taskItems = items.filter(i => i.type === 'task' && !i.isBreak);
+    const totalTaskMinutes = taskItems.reduce((s, i) => s + i.duration, 0);
+    
+    if (totalTaskMinutes === 0) return [];
 
-    return {
-      activeTimePercentage: totalScheduled > 0 ? (activeMinutes / totalScheduled) * 100 : 0,
-      breakTimePercentage: totalScheduled > 0 ? (scheduleSummary.breakTime / totalScheduled) * 100 : 0,
-    };
-  }, [
-    scheduleSummary?.totalTasks, 
-    scheduleSummary?.activeTime.hours, 
-    scheduleSummary?.activeTime.minutes, 
-    scheduleSummary?.breakTime
-  ]);
+    const usageByEnv = new Map<string, number>();
+    taskItems.forEach(i => {
+      const env = i.taskEnvironment || 'laptop';
+      usageByEnv.set(env, (usageByEnv.get(env) || 0) + i.duration);
+    });
+
+    return Array.from(usageByEnv.entries()).map(([envKey, minutes]) => {
+      const env = environments.find(e => e.value === envKey);
+      return {
+        label: env?.label || envKey,
+        color: env?.color || 'hsl(var(--primary))',
+        percentage: (minutes / totalTaskMinutes) * 100,
+        target: env?.target_weight || 0
+      };
+    }).sort((a, b) => b.percentage - a.percentage);
+  }, [items, environments]);
 
   if (isLoading || !scheduleSummary || scheduleSummary.totalTasks === 0) {
     return (
@@ -71,16 +69,6 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-8 w-8 rounded-full" />
         </CardHeader>
-        {!isCollapsed && (
-          <CardContent className="py-4 space-y-4">
-            <Skeleton className="h-2 w-full" />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-20 bg-secondary/20 rounded-xl animate-pulse" />
-              ))}
-            </div>
-          </CardContent>
-        )}
       </Card>
     );
   }
@@ -95,14 +83,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                     Timeline Drift: {scheduleSummary.unscheduledCount} objectives lack slots.
                 </p>
             </div>
-            <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-7 text-[10px] font-black uppercase tracking-widest border-destructive/20"
-                onClick={onRefreshSchedule}
-            >
-                Recalibrate
-            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-[10px] font-black uppercase tracking-widest border-destructive/20" onClick={onRefreshSchedule}>Recalibrate</Button>
         </Card>
       )}
 
@@ -111,23 +92,13 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
           <CardTitle className="text-lg font-black uppercase tracking-tighter text-foreground/70 flex items-center gap-2">
             <ListTodo className="h-5 w-5 text-primary" /> Session HUD
           </CardTitle>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleToggleCollapse} 
-            className="h-8 w-8 text-muted-foreground"
-          >
+          <Button variant="ghost" size="icon" onClick={handleToggleCollapse} className="h-8 w-8 text-muted-foreground">
             {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </Button>
         </CardHeader>
 
-        {!isCollapsed && stats && (
-          <CardContent className="py-4 space-y-4">
-            <div className="relative h-1.5 w-full rounded-full bg-secondary overflow-hidden">
-              <div className="absolute left-0 top-0 h-full bg-primary transition-all duration-700" style={{ width: `${stats.activeTimePercentage}%` }} />
-              <div className="absolute top-0 h-full bg-logo-orange transition-all duration-700" style={{ left: `${stats.activeTimePercentage}%`, width: `${stats.breakTimePercentage}%` }} />
-            </div>
-
+        {!isCollapsed && (
+          <CardContent className="py-4 space-y-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { icon: ListTodo, label: "Tasks", val: scheduleSummary.totalTasks, color: "text-primary" },
@@ -143,6 +114,31 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                 </div>
               ))}
             </div>
+
+            {/* SPATIAL BALANCE HUD */}
+            {balanceStats.length > 0 && (
+              <div className="space-y-3 pt-2 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
+                    <Layers className="h-3 w-3 text-primary" /> Spatial Distribution
+                  </span>
+                </div>
+                <div className="relative h-2 w-full rounded-full bg-secondary overflow-hidden flex shadow-inner">
+                  {balanceStats.map((s, i) => (
+                    <div key={i} className="h-full transition-all duration-1000" style={{ width: `${s.percentage}%`, backgroundColor: s.color }} />
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  {balanceStats.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                      <span className="text-[9px] font-bold uppercase tracking-tight text-foreground/70">{s.label}</span>
+                      <span className="text-[9px] font-mono text-muted-foreground">{Math.round(s.percentage)}% <span className="opacity-30">/ {s.target}%</span></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         )}
       </Card>

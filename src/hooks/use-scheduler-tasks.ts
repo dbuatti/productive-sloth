@@ -55,8 +55,8 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const { data: completedTasksForSelectedDayList = [] } = useQuery<CompletedTaskLogEntry[]>({
     queryKey: ['completedTasksForSelectedDay', userId, formattedSelectedDate],
     queryFn: async () => {
-      if (!userId || !formattedSelectedDate) return [];
-      const { data, error } = await supabase.from('completedtasks').select('*').eq('user_id', userId).eq('original_scheduled_date', formattedSelectedDate);
+      if (!user?.id || !formattedSelectedDate) return [];
+      const { data, error } = await supabase.from('completedtasks').select('*').eq('user_id', user.id).eq('original_scheduled_date', formattedSelectedDate);
       if (error) throw error;
       return (data || []).map(task => ({ ...task, effective_duration_minutes: task.duration_used || task.duration_scheduled || 30, name: task.task_name, original_source: task.original_source || 'scheduled_tasks' })) as CompletedTaskLogEntry[];
     },
@@ -349,8 +349,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId || !session?.access_token) throw new Error("Authentication required.");
       console.log("[autoBalanceScheduleMutation] Sending payload to Edge Function:", JSON.stringify(payload, null, 2)); // Log payload
-      const { data, error = null } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
-      if (error) throw new Error(data.error || error.message);
+      const { data, error } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
+      if (error) {
+        // Correctly extract and throw the error message from the Edge Function response
+        const errorData = await error.context.json();
+        throw new Error(errorData.error || error.message);
+      }
       return data;
     },
     onSettled: () => {

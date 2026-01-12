@@ -144,8 +144,40 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const toggleAllScheduledTasksLockMutation = useMutation({
     mutationFn: async ({ selectedDate, lockState }: { selectedDate: string; lockState: boolean }) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { error = null } = await supabase.from('scheduled_tasks').update({ is_locked: lockState }).eq('user_id', userId).eq('scheduled_date', selectedDate);
-      if (error) throw error;
+      
+      // Fetch the IDs of tasks that are currently flexible and unlocked for the selected day
+      const { data: existingTasks, error: fetchError } = await supabase
+        .from('scheduled_tasks')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('scheduled_date', selectedDate)
+        .eq('is_flexible', true)
+        .eq('is_locked', !lockState); // Only target tasks that are currently in the opposite lock state
+
+      if (fetchError) {
+        console.error("[toggleAllScheduledTasksLockMutation] Error fetching tasks for bulk lock toggle:", fetchError.message);
+        throw fetchError;
+      }
+
+      const taskIdsToUpdate = existingTasks.map(t => t.id);
+
+      if (taskIdsToUpdate.length === 0) {
+        showSuccess(`No unlocked flexible tasks to ${lockState ? 'lock' : 'unlock'}.`);
+        return; // No tasks to update
+      }
+
+      console.log(`[toggleAllScheduledTasksLockMutation] Attempting to update lock state for ${taskIdsToUpdate.length} tasks.`);
+      const { error: updateError } = await supabase
+        .from('scheduled_tasks')
+        .update({ is_locked: lockState })
+        .in('id', taskIdsToUpdate) // Update only the fetched IDs
+        .eq('user_id', userId); // Keep user_id filter for safety
+
+      if (updateError) {
+        console.error("[toggleAllScheduledTasksLockMutation] Error updating lock state:", updateError.message);
+        throw updateError;
+      }
+      showSuccess(`${taskIdsToUpdate.length} tasks ${lockState ? 'locked' : 'unlocked'}.`);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] })
   });
@@ -162,8 +194,14 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const compactScheduledTasksMutation = useMutation({
     mutationFn: async ({ tasksToUpdate }: { tasksToUpdate: DBScheduledTask[] }) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { error = null } = await supabase.from('scheduled_tasks').update(tasksToUpdate).eq('user_id', userId);
+      // Only send tasks that actually need updating (i.e., their times changed)
+      if (tasksToUpdate.length === 0) {
+        showSuccess("Schedule already optimized.");
+        return;
+      }
+      const { error = null } = await supabase.from('scheduled_tasks').upsert(tasksToUpdate, { onConflict: 'id' }); // Use upsert by ID
       if (error) throw error;
+      showSuccess("Schedule compacted.");
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] })
   });

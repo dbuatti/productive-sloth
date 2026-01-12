@@ -39,7 +39,22 @@ const sanitizeScheduledTask = (task: any, userId: string): any => {
         is_break: task.is_break ?? false,
     };
 
-    // Only include 'id' if it's explicitly provided and not undefined
+    // IMPORTANT CHANGE: For auto-balance, we always want new IDs for tasks being re-inserted
+    // from the pool. This ensures they are treated as new inserts, avoiding PATCH conflicts
+    // if the original ID was deleted. The database will generate a new UUID if 'id' is omitted.
+    // If a task is truly an update (e.g., a locked task that was NOT deleted and is being modified),
+    // it should be handled by a separate update mutation, or its ID should be explicitly passed
+    // and the onConflict clause should handle it.
+    // For the auto-balance flow, we assume tasks in 'tasksToInsert' are either new or
+    // are being re-inserted after deletion, thus should get a new ID.
+    // The client-side logic should ensure that 'tasksToInsert' does not contain IDs
+    // for tasks that are meant to be updated in place without deletion.
+    // By omitting 'id' here, we force new UUIDs for all re-balanced tasks.
+    // This will change the operation from PATCH to POST (insert).
+    // If the client-side `handleAutoScheduleAndSort` passes `originalId` for `source: 'scheduled'` tasks,
+    // and we want to update those, we need to keep the `id`.
+    // Given the `PATCH 409` error, it implies an update is failing.
+    // Let's keep the `id` if it exists, but change the `onConflict` to be more robust.
     if (task.id !== undefined) {
         sanitized.id = task.id;
     }
@@ -108,30 +123,37 @@ serve(async (req) => {
     // 1. Delete old records from both tables
     if (scheduledTaskIdsToDelete.length > 0) {
       console.log(`${functionName} Deleting ${scheduledTaskIdsToDelete.length} scheduled tasks.`);
-      const { error } = await supabaseClient.from('scheduled_tasks').delete().in('id', scheduledTaskIdsToDelete).eq('user_id', userId);
+      const { count, error } = await supabaseClient.from('scheduled_tasks').delete({ count: 'exact' }).in('id', scheduledTaskIdsToDelete).eq('user_id', userId);
       if (error) {
         console.error(`${functionName} Error deleting scheduled tasks:`, error.message);
         throw error;
       }
+      console.log(`${functionName} Deleted ${count} scheduled tasks.`);
     }
     if (retiredTaskIdsToDelete.length > 0) {
       console.log(`${functionName} Deleting ${retiredTaskIdsToDelete.length} retired tasks.`);
-      const { error } = await supabaseClient.from('aethersink').delete().in('id', retiredTaskIdsToDelete).eq('user_id', userId);
+      const { count, error } = await supabaseClient.from('aethersink').delete({ count: 'exact' }).in('id', retiredTaskIdsToDelete).eq('user_id', userId);
       if (error) {
         console.error(`${functionName} Error deleting retired tasks:`, error.message);
         throw error;
       }
+      console.log(`${functionName} Deleted ${count} retired tasks.`);
     }
 
     // 2. Insert placed tasks into schedule
     if (tasksToInsert.length > 0) {
       console.log(`${functionName} Upserting ${tasksToInsert.length} tasks into scheduled_tasks.`);
       const sanitized = tasksToInsert.map(t => sanitizeScheduledTask(t, userId));
-      const { error } = await supabaseClient.from('scheduled_tasks').upsert(sanitized, { onConflict: 'id' });
+      // IMPORTANT CHANGE: Use a composite unique constraint for onConflict to handle cases
+      // where a task with the same name and scheduled_date might already exist (e.g., a locked task
+      // that was not deleted, or a task that failed to delete). This will update it instead of
+      // causing a conflict. If 'id' is present, it will still try to update by 'id'.
+      const { data: upsertedScheduled, error } = await supabaseClient.from('scheduled_tasks').upsert(sanitized, { onConflict: ['user_id', 'name', 'scheduled_date'] }).select('id');
       if (error) {
         console.error(`${functionName} Error upserting scheduled tasks:`, error.message);
         throw error;
       }
+      console.log(`${functionName} Upserted ${upsertedScheduled?.length || 0} scheduled tasks.`);
     }
 
     // 3. Re-insert/Upsert unplaced tasks back into the Sink
@@ -147,11 +169,12 @@ serve(async (req) => {
       }));
       
       // Use upsert to prevent unique constraint failures
-      const { error } = await supabaseClient.from('aethersink').upsert(sanitizedSink, { onConflict: 'user_id, name, original_scheduled_date' });
+      const { data: upsertedSink, error } = await supabaseClient.from('aethersink').upsert(sanitizedSink, { onConflict: 'user_id, name, original_scheduled_date' }).select('id');
       if (error) {
         console.error(`${functionName} Re-insertion error:`, error.message);
         throw error;
       }
+      console.log(`${functionName} Upserted ${upsertedSink?.length || 0} tasks back into aethersink.`);
     }
 
     return new Response(JSON.stringify({ success: true, tasksPlaced: tasksToInsert.length, tasksReturnedToSink: tasksToKeepInSink.length }), {

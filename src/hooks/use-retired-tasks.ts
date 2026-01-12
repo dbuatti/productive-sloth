@@ -122,10 +122,17 @@ export const useRetiredTasks = () => {
   const completeRetiredTaskMutation = useMutation({
     mutationFn: async (task: RetiredTask) => {
       if (!userId) throw new Error("User not authenticated.");
+      
+      // Determine priority based on is_critical and is_backburner
+      let priority = 'MEDIUM';
+      if (task.is_critical) priority = 'HIGH';
+      else if (task.is_backburner) priority = 'LOW';
+
       const { error: logError } = await supabase.from('completedtasks').insert({
         user_id: userId, task_name: task.name, original_id: task.id, duration_scheduled: task.duration, duration_used: task.duration,
         xp_earned: (task.energy_cost || 0) * 2, energy_cost: task.energy_cost, is_critical: task.is_critical, original_source: 'aethersink',
         original_scheduled_date: task.original_scheduled_date, is_work: task.is_work, is_break: task.is_break,
+        priority: priority, // Include priority
       });
       if (logError) throw logError;
       const { error: deleteError } = await supabase.from('aethersink').delete().eq('id', task.id);

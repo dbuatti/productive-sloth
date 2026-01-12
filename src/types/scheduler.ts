@@ -223,6 +223,7 @@ export interface CompletedTaskLogEntry {
   is_break: boolean; // NEW: Break task flag
   completed_at: string; // ADDED: Missing property
   xp_earned: number; // ADDED: Missing property
+  priority: TaskPriority; // ADDED: Missing property
 }
 
 export interface ScheduleSummary {

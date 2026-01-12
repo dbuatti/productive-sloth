@@ -100,6 +100,12 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const completeScheduledTaskMutation = useMutation({
     mutationFn: async (task: DBScheduledTask) => {
       if (!userId) throw new Error("User not authenticated.");
+      
+      // Determine priority based on is_critical and is_backburner
+      let priority = 'MEDIUM';
+      if (task.is_critical) priority = 'HIGH';
+      else if (task.is_backburner) priority = 'LOW';
+
       const { error: logError } = await supabase.from('completedtasks').insert({
         user_id: userId,
         task_name: task.name || 'Untitled Task',
@@ -113,6 +119,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         original_scheduled_date: task.scheduled_date,
         is_work: task.is_work,
         is_break: task.is_break,
+        priority: priority, // Include priority
       });
       if (logError) throw logError;
       const { error: deleteError } = await supabase.from('aethersink').delete().eq('id', task.id); 
@@ -317,12 +324,18 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
 
   const retireTaskMutation = useMutation({
     mutationFn: async (task: DBScheduledTask) => {
+      // Determine priority based on is_critical and is_backburner
+      let priority = 'MEDIUM';
+      if (task.is_critical) priority = 'HIGH';
+      else if (task.is_backburner) priority = 'LOW';
+
       const retired = { 
         user_id: userId, name: task.name || 'Untitled Task', duration: task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : 30, 
         break_duration: task.break_duration, original_scheduled_date: task.scheduled_date, retired_at: new Date().toISOString(), 
         is_critical: task.is_critical, is_locked: false, energy_cost: task.energy_cost, is_completed: false, 
         is_custom_energy_cost: task.is_custom_energy_cost, task_environment: task.task_environment, 
-        is_backburner: task.is_backburner, is_work: task.is_work, is_break: task.is_break 
+        is_backburner: task.is_backburner, is_work: task.is_work, is_break: task.is_break,
+        priority: priority, // Include priority
       };
       // Use upsert to prevent unique constraint conflicts
       await supabase.from('aethersink').upsert(retired, { onConflict: 'user_id, name, original_scheduled_date' });

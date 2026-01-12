@@ -66,8 +66,8 @@ export const useCompletedTasksAnalytics = (daysToLookBack: number = 7): Complete
         effective_duration_minutes: task.duration_used || task.duration_scheduled || 30,
         name: task.task_name,
         original_source: task.original_source || 'scheduled_tasks',
-        // Ensure priority is set for analytics, defaulting to MEDIUM if not explicitly available
-        priority: (task as any).priority || 'MEDIUM', 
+        // Priority is now directly from the DB
+        priority: task.priority as TaskPriority, 
       })) as CompletedTaskLogEntry[];
       console.log(`[useCompletedTasksAnalytics] Fetched ${mappedTasks.length} completed tasks.`);
       return mappedTasks;
@@ -113,9 +113,8 @@ export const useCompletedTasksAnalytics = (daysToLookBack: number = 7): Complete
         totalEnergyGained += Math.abs(task.energy_cost);
       }
       
-      // Assuming priority is available on the completed task log entry or can be derived
-      // For now, using a fallback to MEDIUM if not explicitly present
-      const taskPriority: TaskPriority = (task as any).priority || 'MEDIUM'; 
+      // Use priority directly from the task
+      const taskPriority: TaskPriority = task.priority; 
       priorityCounts[taskPriority]++;
     });
 

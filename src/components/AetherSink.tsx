@@ -1,22 +1,31 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { 
+  DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, 
+  useSensor, useSensors, DragStartEvent, DragOverEvent, DragOverlay, defaultDropAnimationSideEffects
+} from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { RetiredTask, NewRetiredTask, RetiredTaskSortBy, TaskEnvironment } from '@/types/scheduler'; // Added RetiredTaskSortBy, NewRetiredTask
+import { Home, Laptop, Globe, Music, Star, Info, Briefcase, Coffee, Loader2, List, LayoutDashboard } from 'lucide-react'; // Added List, LayoutDashboard
+import KanbanColumn from './KanbanColumn';
+import SortableTaskCard from './SortableTaskCard';
+import { useSession } from '@/hooks/use-session';
+import { showError, showSuccess } from '@/utils/toast';
+import { parseSinkTaskInput, getEmojiHue, assignEmoji } from '@/lib/scheduler-utils'; // Added getEmojiHue, assignEmoji
+import { useEnvironments } from '@/hooks/use-environments';
+import { useRetiredTasks } from '@/hooks/use-retired-tasks';
+import { getLucideIconComponent, cn } from '@/lib/utils';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, RotateCcw, Ghost, Sparkles, Loader2, Lock, Unlock, Zap, Star, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, Database, Home, Laptop, Globe, Music, LayoutDashboard, List, Briefcase, Coffee, History, RefreshCcw, Eye, EyeOff } from 'lucide-react'; 
-import { RetiredTask, RetiredTaskSortBy, TaskEnvironment, NewRetiredTask } from '@/types/scheduler';
-import { cn } from '@/lib/utils';
+import { Trash2, RotateCcw, Ghost, Sparkles, Database, Lock, Unlock, Zap, Plus, CheckCircle, ArrowDownWideNarrow, SortAsc, SortDesc, Clock, CalendarDays, Smile, History, RefreshCcw, Eye, EyeOff } from 'lucide-react'; 
 import { format } from 'date-fns';
-import { getEmojiHue, assignEmoji, parseSinkTaskInput } from '@/lib/scheduler-utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useSession } from '@/hooks/use-session';
-import { showError, showSuccess } from '@/utils/toast';
 import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel, } from '@/components/ui/dropdown-menu';
 import { useSinkView, SinkViewMode, GroupingOption } from '@/hooks/use-sink-view';
-import SinkKanbanBoard from './SinkKanbanBoard';
 import { UserProfile } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
-import { useEnvironments } from '@/hooks/use-environments';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
 import { useAetherSinkSnapshots } from '@/hooks/use-aether-sink-snapshots';
@@ -31,6 +40,7 @@ import {
   AlertDialogTitle, 
   AlertDialogTrigger 
 } from '@/components/ui/alert-dialog';
+import SinkKanbanBoard from './SinkKanbanBoard'; // Added SinkKanbanBoard
 
 const ViewToggle = ({ viewMode, setViewMode }: { viewMode: SinkViewMode, setViewMode: (m: SinkViewMode) => void }) => (
   <div className="flex bg-secondary/50 rounded-lg p-1 border border-white/5">
@@ -270,6 +280,17 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
               </Button>
             </TooltipTrigger>
             <TooltipContent>Re-zone all unlocked objectives</TooltipContent>
+          </Tooltip>
+
+          {/* NEW: Manual Backup Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={triggerAetherSinkBackup} disabled={isProcessingCommand} className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-lg">
+                {isProcessingCommand ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Database className="h-3 w-3 mr-2" />}
+                Backup
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Create an immediate snapshot backup of the Aether Sink.</TooltipContent>
           </Tooltip>
         </div>
       </div>

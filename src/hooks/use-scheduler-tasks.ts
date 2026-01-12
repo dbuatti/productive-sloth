@@ -351,9 +351,17 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       console.log("[autoBalanceScheduleMutation] Sending payload to Edge Function:", JSON.stringify(payload, null, 2)); // Log payload
       const { data, error } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
       if (error) {
-        // Correctly extract and throw the error message from the Edge Function response
-        const errorData = await error.context.json();
-        throw new Error(errorData.error || error.message);
+        let errorMessage = error.message;
+        if (error.context) {
+          try {
+            const errorData = await error.context.json();
+            errorMessage = errorData.error || error.message;
+          } catch (jsonError) {
+            console.warn("[autoBalanceScheduleMutation] Failed to parse error context JSON:", jsonError);
+            // Fallback to original error message if JSON parsing fails
+          }
+        }
+        throw new Error(errorMessage);
       }
       return data;
     },

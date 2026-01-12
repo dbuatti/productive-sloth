@@ -60,7 +60,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       if (error) throw error;
       return (data || []).map(task => ({ ...task, effective_duration_minutes: task.duration_used || task.duration_scheduled || 30, name: task.task_name, original_source: task.original_source || 'scheduled_tasks' })) as CompletedTaskLogEntry[];
     },
-    enabled: !!userId && !!formattedSelectedDate,
+    enabled: !!user?.id && !!formattedSelectedDate,
   });
 
   const { data: datesWithTasks = [], isLoading: isLoadingDatesWithTasks } = useQuery<string[]>({
@@ -239,10 +239,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       
       const { data: current } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', selectedDateString);
       const blocks = (current || []).filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) }));
-      const occupied = mergeOverlappingTimeBlocks([...blocks, ...staticConstraints]);
+      const allConstraints = mergeOverlappingTimeBlocks([...blocks, ...staticConstraints]); // Use allConstraints here
       const searchStart = isSameDay(parseISO(selectedDateString), new Date()) ? max([workdayStart, T_current]) : workdayStart;
       const dur = sink.duration || 30;
-      const slot = findFirstAvailableSlot(dur, occupied, searchStart, workdayEnd);
+      const slot = findFirstAvailableSlot(dur, allConstraints, searchStart, workdayEnd); // Use allConstraints here
       
       if (!slot) return showError("No valid gap available.");
       
@@ -303,6 +303,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
   const autoBalanceScheduleMutation = useMutation<{ tasksPlaced: number; tasksKeptInSink: number }, Error, AutoBalancePayload>({
     mutationFn: async (payload: AutoBalancePayload) => {
       if (!userId || !session?.access_token) throw new Error("Authentication required.");
+      console.log("[autoBalanceScheduleMutation] Sending payload to Edge Function:", JSON.stringify(payload, null, 2)); // Log payload
       const { data, error = null } = await supabase.functions.invoke('auto-balance-schedule', { body: payload, headers: { 'Authorization': `Bearer ${session.access_token}` } });
       if (error) throw new Error(data.error || error.message);
       return data;
@@ -437,6 +438,10 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         });
       }
 
+      console.log(`${functionName} Initial Pool Size: ${pool.length}`);
+      console.log(`${functionName} Scheduled IDs to Delete:`, globalScheduledIdsToDelete);
+      console.log(`${functionName} Retired IDs to Delete:`, globalRetiredIdsToDelete);
+
       const daysToProcess = taskSource === 'global-all-future' ? Array.from({ length: futureDaysToSchedule }).map((_, i) => format(addDays(startOfDay(new Date()), i), 'yyyy-MM-dd')) : [targetDateString];
 
       // --- LIQUID FLOW PLACEMENT LOOP: SEQUENTIAL POINTER LOCK + QUOTA GUARD ---
@@ -521,6 +526,9 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
         }
       }
 
+      console.log(`${functionName} Final Pool (Unplaced Tasks):`, pool.map(t => t.name));
+      console.log(`${functionName} Final Tasks to Insert:`, globalTasksToInsert.map(t => t.name));
+
       await autoBalanceScheduleMutation.mutateAsync({ 
         scheduledTaskIdsToDelete: Array.from(new Set(globalScheduledIdsToDelete)), 
         retiredTaskIdsToDelete: Array.from(new Set(globalRetiredIdsToDelete)), 
@@ -536,6 +544,7 @@ export const useSchedulerTasks = (selectedDate: string, scrollRef?: React.RefObj
       showSuccess("Timeline Stream Synchronized.");
     } catch (e: any) { 
       showError(`Engine Error: ${e.message}`); 
+      console.error(`${functionName} Engine Error:`, e); // Log full error
     }
   }, [userId, isSessionLoading, autoBalanceScheduleMutation, todayString]);
 

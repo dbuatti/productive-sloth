@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { RetiredTask, NewRetiredTask, RetiredTaskSortBy, NewDBScheduledTask } from '@/types/scheduler';
 import { Trash2, RotateCcw, Ghost, Sparkles, Database, Lock, Unlock, Zap, Plus, CheckCircle, List, LayoutDashboard, History, RefreshCcw, Eye, EyeOff, Loader2, Star, Briefcase, Coffee, Trash, ArrowUpToLine } from 'lucide-react'; 
-import { format, addMinutes, parseISO, isSameDay, max, differenceInMinutes } from 'date-fns';
+import { format, addMinutes, parseISO, isSameDay, max, differenceInMinutes, startOfDay, isBefore, addDays, addHours } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';

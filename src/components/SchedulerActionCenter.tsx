@@ -36,6 +36,7 @@ interface SchedulerActionCenterProps {
   onQuickBreak: () => Promise<void>;
   onQuickScheduleBlock: (duration: number, sortPreference: 'longestFirst' | 'shortestFirst') => Promise<void>;
   onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
+  onSortFlexibleTasks: (sortBy: SortBy) => Promise<void>;
   onAetherDump: () => Promise<void>;
   onAetherDumpMega: () => Promise<void>;
   onRefreshSchedule: () => void;

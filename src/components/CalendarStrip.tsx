@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { format, addDays, isToday, parseISO, subDays } from 'date-fns';
+import { format, addDays, isToday, parseISO, subDays, startOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
@@ -19,17 +19,18 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
   datesWithTasks, 
   isLoadingDatesWithTasks,
 }) => {
-  const daysToDisplay = 14;
-  const [displayedWindowStart, setDisplayedWindowStart] = useState<Date>(() => {
-    const today = new Date();
-    return subDays(today, 2); // Show 2 days in the past by default
+  // Increase range to 180 days (90 past, 90 future) for an "endless" feel
+  const daysToDisplay = 180;
+  const [displayedWindowStart] = useState<Date>(() => {
+    return subDays(startOfDay(new Date()), 90);
   });
 
-  const daysContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Center the selected day on mount and when selectedDay changes
   useEffect(() => {
-    if (daysContainerRef.current) {
-      const selectedDayElement = daysContainerRef.current.querySelector(
+    if (scrollContainerRef.current) {
+      const selectedDayElement = scrollContainerRef.current.querySelector(
         `[data-date="${selectedDay}"]`
       ) as HTMLElement;
 
@@ -56,46 +57,77 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
           key={formattedDay}
           onClick={() => setSelectedDay(formattedDay)}
           className={cn(
-            "flex flex-col items-center justify-center min-w-[44px] h-14 rounded-xl transition-all duration-200 relative",
-            isSelected ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-secondary text-muted-foreground",
-            !isSelected && isCurrentDay && "text-primary font-bold"
+            "flex flex-col items-center justify-center min-w-[48px] h-16 rounded-2xl transition-all duration-300 relative shrink-0",
+            isSelected 
+              ? "bg-primary text-primary-foreground shadow-lg scale-105 z-10" 
+              : "hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
+            !isSelected && isCurrentDay && "text-primary font-black ring-2 ring-primary/20"
           )}
           data-date={formattedDay}
         >
-          <span className="text-[10px] uppercase tracking-tighter opacity-60 mb-0.5">
+          <span className={cn(
+            "text-[10px] uppercase font-black tracking-tighter mb-0.5 opacity-60",
+            isSelected && "opacity-100"
+          )}>
             {format(day, 'EEE')}
           </span>
-          <span className="text-sm font-bold">
+          <span className="text-base font-bold">
             {format(day, 'd')}
           </span>
           
           {hasTasks && !isSelected && (
-            <div className="absolute bottom-2 h-1 w-1 rounded-full bg-primary/40" />
+            <div className="absolute bottom-2 h-1.5 w-1.5 rounded-full bg-primary/40 animate-pulse" />
           )}
         </button>
       );
     });
   }, [displayedWindowStart, selectedDay, datesWithTasks]);
 
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -300 : 300;
+      scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="flex items-center gap-2 w-full">
-      <Button variant="ghost" size="icon" onClick={() => setDisplayedWindowStart(prev => subDays(prev, 7))} className="h-8 w-8 shrink-0">
+    <div className="relative flex items-center w-full group">
+      {/* Left Navigation Button */}
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        onClick={() => scroll('left')} 
+        className="absolute left-0 z-20 h-12 w-8 bg-background/80 backdrop-blur-sm border-r border-border/50 rounded-r-xl opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
+      >
         <ChevronLeft className="h-4 w-4" />
       </Button>
 
-      <div className="flex-1 flex overflow-x-auto scrollbar-none gap-1 py-1">
+      {/* Scrollable Container */}
+      <div 
+        ref={scrollContainerRef}
+        className={cn(
+          "flex-1 flex overflow-x-auto scrollbar-none gap-2 py-2 px-4 select-none",
+          "snap-x snap-mandatory scroll-smooth"
+        )}
+      >
         {isLoadingDatesWithTasks ? (
-          <div className="flex items-center justify-center w-full h-14">
-            <Loader2 className="h-4 w-4 animate-spin opacity-20" />
+          <div className="flex items-center justify-center w-full h-16">
+            <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
           </div>
         ) : (
-          <div ref={daysContainerRef} className="flex gap-1">
+          <div className="flex gap-2 flex-nowrap">
             {days}
           </div>
         )}
       </div>
 
-      <Button variant="ghost" size="icon" onClick={() => setDisplayedWindowStart(prev => addDays(prev, 7))} className="h-8 w-8 shrink-0">
+      {/* Right Navigation Button */}
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        onClick={() => scroll('right')} 
+        className="absolute right-0 z-20 h-12 w-8 bg-background/80 backdrop-blur-sm border-l border-border/50 rounded-l-xl opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
+      >
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>

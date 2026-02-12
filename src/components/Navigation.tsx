@@ -10,7 +10,9 @@ import {
   Code, 
   Sparkles,
   CalendarDays,
-  HeartPulse // NEW ICON
+  HeartPulse,
+  LayoutDashboard,
+  Archive
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -31,30 +33,20 @@ const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isColl
       onClick={onClick}
       className={({ isActive }) =>
         cn(
-          "group relative flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-bold tracking-tight transition-all duration-300 ease-aether-out",
-          "text-muted-foreground/70 hover:text-primary hover:bg-primary/5 hover:pl-5",
-          isActive && [
-            "text-primary bg-primary/10 border-r-2 border-primary shadow-[inset_0_0_20px_rgba(var(--primary),0.05)]",
-            "after:absolute after:left-0 after:top-1/4 after:h-1/2 after:w-1 after:bg-primary after:rounded-full after:shadow-[0_0_10px_hsl(var(--primary))]"
-          ],
-          isCollapsed && "justify-center px-0 hover:pl-0"
+          "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+          "text-muted-foreground hover:text-foreground hover:bg-accent",
+          isActive && "text-primary bg-primary/5 font-semibold",
+          isCollapsed && "justify-center px-0"
         )
       }
     >
-      <div className="relative">
-        <Icon className={cn(
-          "h-5 w-5 transition-all duration-300 group-hover:scale-110",
-          "group-hover:drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]"
-        )} />
-      </div>
+      <Icon className={cn(
+        "h-4 w-4 transition-colors",
+        "group-hover:text-foreground"
+      )} />
       
       {!isCollapsed && (
-        <span className="truncate transition-opacity duration-300">{label}</span>
-      )}
-
-      {/* Subtle indicator dot for "Active" or "Live" status */}
-      {!isCollapsed && to === "/scheduler" && (
-        <div className="ml-auto h-1.5 w-1.5 rounded-full bg-live-progress animate-pulse shadow-[0_0_5px_hsl(var(--live-progress))]" />
+        <span className="truncate">{label}</span>
       )}
     </NavLink>
   );
@@ -63,7 +55,7 @@ const NavLinkItem: React.FC<NavLinkItemProps> = ({ to, icon: Icon, label, isColl
     return (
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>{content}</TooltipTrigger>
-        <TooltipContent side="right" className="glass-card ml-2 font-bold">
+        <TooltipContent side="right" className="font-medium">
           {label}
         </TooltipContent>
       </Tooltip>
@@ -80,44 +72,40 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => {
   const primaryNavItems = [
-    { to: "/scheduler", icon: Clock, label: "Vibe Schedule" },
-    { to: "/sink", icon: Trash2, label: "Aether Sink" },
-    { to: "/recap", icon: CheckCircle, label: "Daily Recap" }, // UPDATED: Link to new RecapPage
+    { to: "/scheduler", icon: Clock, label: "Schedule" },
+    { to: "/sink", icon: Archive, label: "Archive" },
+    { to: "/recap", icon: CheckCircle, label: "Daily Summary" },
   ];
   
   const secondaryNavItems = [
-    { to: "/wellness", icon: HeartPulse, label: "Wellness & Balance" },
+    { to: "/wellness", icon: HeartPulse, label: "Wellness" },
     { to: "/analytics", icon: TrendingUp, label: "Analytics" },
-    { to: "/documentation", icon: BookOpen, label: "Documentation" },
-    { to: "/model", icon: Code, label: "App Model" },
+    { to: "/documentation", icon: BookOpen, label: "Guide" },
     { to: "/settings", icon: Settings, label: "Settings" },
   ];
 
   const viewNavItems = [
-    { to: "/simplified-schedule", icon: CalendarDays, label: "Weekly Vibe" },
+    { to: "/simplified-schedule", icon: CalendarDays, label: "Weekly View" },
   ];
 
-  const SectionLabel = ({ children, icon: Icon }: { children: string, icon?: any }) => (
+  const SectionLabel = ({ children }: { children: string }) => (
     <div className={cn(
-      "flex items-center gap-2 px-4 mb-2 mt-6 transition-all duration-300",
-      isCollapsed && "justify-center px-0"
+      "px-3 mb-2 mt-6 transition-all duration-200",
+      isCollapsed && "text-center px-0"
     )}>
       {!isCollapsed ? (
-        <>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">
-            {children}
-          </span>
-          <div className="h-[1px] flex-1 bg-gradient-to-r from-border/50 to-transparent" />
-        </>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+          {children}
+        </span>
       ) : (
-        <div className="h-[1px] w-4 bg-border" />
+        <div className="h-px w-4 bg-border mx-auto" />
       )}
     </div>
   );
 
   return (
-    <nav className="grid items-start px-3 space-y-1 select-none">
-      <SectionLabel>Core Views</SectionLabel>
+    <nav className="grid items-start px-2 space-y-0.5 select-none">
+      <SectionLabel>Main</SectionLabel>
       {primaryNavItems.map((item) => (
         <NavLinkItem
           key={item.to}
@@ -129,7 +117,7 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
         />
       ))}
       
-      <SectionLabel>System Tools</SectionLabel>
+      <SectionLabel>Tools</SectionLabel>
       {secondaryNavItems.map((item) => (
         <NavLinkItem
           key={item.to}
@@ -152,20 +140,6 @@ const Navigation: React.FC<NavigationProps> = ({ isCollapsed, onLinkClick }) => 
           onClick={onLinkClick}
         />
       ))}
-
-      {!isCollapsed && (
-        <div className="mt-10 px-4">
-          <div className="glass-card p-4 rounded-2xl border-primary/10 bg-primary/[0.02]">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-4 w-4 text-logo-yellow" />
-              <span className="text-[10px] font-bold uppercase text-primary">Aether Cloud</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground leading-relaxed">
-              System synchronized. All vibe data is encrypted.
-            </p>
-          </div>
-        </div>
-      )}
     </nav>
   );
 };

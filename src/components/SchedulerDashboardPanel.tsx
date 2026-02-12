@@ -62,8 +62,8 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
     return (
       <Card className="w-full p-4 rounded-xl shadow-sm animate-pop-in">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-6 w-6 rounded-full" />
         </CardHeader>
       </Card>
     );
@@ -72,21 +72,21 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
   return (
     <div className="w-full space-y-4">
       {scheduleSummary.unscheduledCount > 0 && (
-        <Card className="p-3 flex items-center justify-between rounded-xl border border-destructive/50 bg-destructive/5 animate-pulse">
-            <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-                <p className="text-sm font-bold text-destructive">Timeline Drift: {scheduleSummary.unscheduledCount} objectives lack slots.</p>
+        <Card className="p-3 flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/5">
+            <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <p className="text-sm font-medium text-destructive">{scheduleSummary.unscheduledCount} tasks could not be scheduled.</p>
             </div>
-            <Button variant="outline" size="sm" className="h-7 text-[10px] font-black uppercase tracking-widest border-destructive/20" onClick={onRefreshSchedule}>Recalibrate</Button>
+            <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase border-destructive/20" onClick={onRefreshSchedule}>Refresh</Button>
         </Card>
       )}
 
-      <Card className="p-4 rounded-xl shadow-sm border-white/5 bg-card/60 backdrop-blur-md">
+      <Card className="p-4 rounded-xl shadow-sm border-border bg-card">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
-          <CardTitle className="text-lg font-black uppercase tracking-tighter text-foreground/70 flex items-center gap-2">
-            <ListTodo className="h-5 w-5 text-primary" /> Session HUD
+          <CardTitle className="text-base font-bold text-foreground/80 flex items-center gap-2">
+            <ListTodo className="h-4 w-4 text-primary" /> Daily Overview
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={handleToggleCollapse} className="h-8 w-8 text-muted-foreground">
+          <Button variant="ghost" size="icon" onClick={handleToggleCollapse} className="h-7 w-7 text-muted-foreground">
             {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </Button>
         </CardHeader>
@@ -98,35 +98,35 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
                 { icon: ListTodo, label: "Tasks", val: scheduleSummary.totalTasks, color: "text-primary" },
                 { icon: Zap, label: "Active", val: `${scheduleSummary.activeTime.hours}h ${scheduleSummary.activeTime.minutes}m`, color: "text-primary" },
                 { icon: Coffee, label: "Rest", val: `${scheduleSummary.breakTime}m`, color: "text-logo-orange" },
-                { icon: Flag, label: "Sync End", val: formatTime(scheduleSummary.sessionEnd), color: "text-foreground" }
+                { icon: Flag, label: "End Time", val: formatTime(scheduleSummary.sessionEnd), color: "text-foreground" }
               ].map((stat, i) => (
-                <div key={i} className="flex flex-col items-center justify-center p-3 bg-secondary/20 rounded-xl border border-white/5">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-1 flex items-center gap-1">
-                    <stat.icon className={cn("h-2.5 w-2.5", stat.color)} /> {stat.label}
+                <div key={i} className="flex flex-col items-center justify-center p-3 bg-muted/30 rounded-lg border border-border/50">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1 flex items-center gap-1">
+                    <stat.icon className={cn("h-3 w-3", stat.color)} /> {stat.label}
                   </span>
-                  <p className="text-lg font-black font-mono tracking-tighter">{stat.val}</p>
+                  <p className="text-lg font-bold font-mono">{stat.val}</p>
                 </div>
               ))}
             </div>
 
             {balanceStats.length > 0 && (
-              <div className="space-y-3 pt-2 border-t border-white/5">
+              <div className="space-y-3 pt-4 border-t">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <Layers className="h-3 w-3 text-primary" /> Spatial Distribution
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-2">
+                    <Layers className="h-3 w-3 text-primary" /> Workspace Balance
                   </span>
                 </div>
-                <div className="relative h-2 w-full rounded-full bg-secondary overflow-hidden flex shadow-inner">
+                <div className="relative h-1.5 w-full rounded-full bg-muted overflow-hidden flex">
                   {balanceStats.map((s, i) => (
-                    <div key={i} className="h-full transition-all duration-1000" style={{ width: `${s.percentage}%`, backgroundColor: s.color }} />
+                    <div key={i} className="h-full transition-all duration-500" style={{ width: `${s.percentage}%`, backgroundColor: s.color }} />
                   ))}
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {balanceStats.map((s, i) => (
-                    <div key={i} className="flex items-center gap-2">
+                    <div key={i} className="flex items-center gap-1.5">
                       <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color }} />
-                      <span className="text-[9px] font-bold uppercase tracking-tight text-foreground/70">{s.label}</span>
-                      <span className="text-[9px] font-mono text-muted-foreground">{Math.round(s.percentage)}% <span className="opacity-30">/ {s.target}%</span></span>
+                      <span className="text-[10px] font-medium text-foreground/70">{s.label}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground">{Math.round(s.percentage)}%</span>
                     </div>
                   ))}
                 </div>

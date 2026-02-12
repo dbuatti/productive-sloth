@@ -106,8 +106,34 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRezoneTask(task); }} className="h-8 w-8"><RotateCcw className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRemoveRetiredTask(task.id, task.name); }} className="h-8 w-8 text-destructive/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              handleToggleComplete(task); 
+                            }} 
+                            className="h-8 w-8 text-logo-green hover:bg-logo-green/10"
+                          >
+                            <CheckCircle className={cn("h-4 w-4", task.is_completed ? "fill-current" : "")} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Complete Task</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRezoneTask(task); }} className="h-8 w-8"><RotateCcw className="h-4 w-4" /></Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Re-zone to Schedule</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRemoveRetiredTask(task.id, task.name); }} className="h-8 w-8 text-destructive/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete Task</TooltipContent>
+                      </Tooltip>
                     </div>
                   </motion.div>
                 ))}

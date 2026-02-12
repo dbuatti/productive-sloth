@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { DBScheduledTask, NewDBScheduledTask, RetiredTask, SortBy, AutoBalancePayload, UnifiedTask, CompletedTaskLogEntry, TaskEnvironment } from '@/types/scheduler';
+import { DBScheduledTask, NewDBScheduledTask, RetiredTask, SortBy, AutoBalancePayload, UnifiedTask, CompletedTaskLogEntry, TaskEnvironment, TimeBlock } from '@/types/scheduler';
 import { useSession, UserProfile } from './use-session';
 import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, parseISO, format, differenceInMinutes, isSameDay, max, min, isBefore, addHours, addDays } from 'date-fns';
@@ -77,6 +77,18 @@ export const useSchedulerTasks = (selectedDate: string) => {
     }
   });
 
+  const removeScheduledTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      if (!userId) throw new Error("Unauthorized");
+      const { error } = await supabase.from('scheduled_tasks').delete().eq('id', taskId).eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+    }
+  });
+
   const completeScheduledTaskMutation = useMutation({
     mutationFn: async (task: DBScheduledTask) => {
       if (!userId) throw new Error("Unauthorized");
@@ -94,6 +106,28 @@ export const useSchedulerTasks = (selectedDate: string) => {
       queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
       queryClient.invalidateQueries({ queryKey: ['completedTasksForSelectedDay'] });
       showSuccess("Objective Synchronized.");
+    }
+  });
+
+  const toggleScheduledTaskLockMutation = useMutation({
+    mutationFn: async ({ taskId, isLocked }: { taskId: string; isLocked: boolean }) => {
+      if (!userId) throw new Error("Unauthorized");
+      const { error } = await supabase.from('scheduled_tasks').update({ is_locked: isLocked }).eq('id', taskId).eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+    }
+  });
+
+  const toggleAllScheduledTasksLockMutation = useMutation({
+    mutationFn: async ({ selectedDate, lockState }: { selectedDate: string; lockState: boolean }) => {
+      if (!userId) throw new Error("Unauthorized");
+      const { error } = await supabase.from('scheduled_tasks').update({ is_locked: lockState }).eq('user_id', userId).eq('scheduled_date', selectedDate);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
     }
   });
 
@@ -126,8 +160,8 @@ export const useSchedulerTasks = (selectedDate: string) => {
       const zoneWeights: ZoneWeight[] = (freshEnvs || []).map(e => ({ value: e.value, target_weight: Number(e.target_weight || 0) }));
       
       let pool: UnifiedTask[] = [];
-      let scheduledIdsToDelete: string[] = [];
-      let retiredIdsToDelete: string[] = [];
+      let scheduledTaskIdsToDelete: string[] = [];
+      let retiredTaskIdsToDelete: string[] = [];
       let tasksToInsert: NewDBScheduledTask[] = [];
 
       // 1. Collect Pool Data
@@ -140,7 +174,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
             energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
             created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false
           });
-          scheduledIdsToDelete.push(t.id);
+          scheduledTaskIdsToDelete.push(t.id);
         });
       }
 
@@ -153,7 +187,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
             energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
             created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false
           });
-          retiredIdsToDelete.push(t.id);
+          retiredTaskIdsToDelete.push(t.id);
         });
       }
 
@@ -222,7 +256,44 @@ export const useSchedulerTasks = (selectedDate: string) => {
         showSuccess("Schedule Compacted.");
       }
     },
-    randomizeBreaks: async () => { /* Logic implemented in SchedulerPage */ },
+    randomizeBreaks: async ({ selectedDate, workdayStartTime, workdayEndTime, currentDbTasks }: { selectedDate: string; workdayStartTime: Date; workdayEndTime: Date; currentDbTasks: DBScheduledTask[] }) => {
+      if (!userId || !profile) return;
+      
+      const breaks = currentDbTasks.filter(t => t.is_break && !t.is_locked && !t.is_completed);
+      if (breaks.length === 0) return;
+
+      const fixedTasks = currentDbTasks.filter(t => t.is_locked || !t.is_flexible || t.is_completed || !t.is_break);
+      const staticConstraints = getStaticConstraints(profile, parseISO(selectedDate), workdayStartTime, workdayEndTime);
+      
+      let occupied = mergeOverlappingTimeBlocks([
+        ...fixedTasks.filter(t => t.start_time && t.end_time).map(t => ({
+          start: parseISO(t.start_time!),
+          end: parseISO(t.end_time!),
+          duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
+        })),
+        ...staticConstraints
+      ]);
+
+      const shuffledBreaks = [...breaks].sort(() => Math.random() - 0.5);
+      const updates: DBScheduledTask[] = [];
+      let cursor = isSameDay(parseISO(selectedDate), new Date()) ? max([new Date(), workdayStartTime]) : workdayStartTime;
+
+      for (const b of shuffledBreaks) {
+        const dur = b.start_time && b.end_time ? differenceInMinutes(parseISO(b.end_time), parseISO(b.start_time)) : 15;
+        const slot = findFirstAvailableSlot(dur, occupied, cursor, workdayEndTime);
+        if (slot) {
+          updates.push({ ...b, start_time: slot.start.toISOString(), end_time: slot.end.toISOString() });
+          occupied.push({ start: slot.start, end: slot.end, duration: dur });
+          occupied = mergeOverlappingTimeBlocks(occupied);
+        }
+      }
+
+      if (updates.length > 0) {
+        await supabase.from('scheduled_tasks').upsert(updates);
+        queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+        showSuccess("Breaks Randomized.");
+      }
+    },
     aetherDump: async () => { /* Logic implemented in SchedulerPage */ },
     aetherDumpMega: async () => { /* Logic implemented in SchedulerPage */ },
     retireTask: async (task: DBScheduledTask) => {
@@ -239,7 +310,45 @@ export const useSchedulerTasks = (selectedDate: string) => {
       queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
     },
     handleAutoScheduleAndSort,
-    pullNextFromSink: async () => { /* Logic implemented in SchedulerPage */ },
+    pullNextFromSink: async ({ selectedDateString, workdayStart, workdayEnd, T_current, staticConstraints }: { selectedDateString: string; workdayStart: Date; workdayEnd: Date; T_current: Date; staticConstraints: TimeBlock[] }) => {
+      if (!userId) return;
+      
+      const { data: sinkTasks } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false).order('retired_at', { ascending: false }).limit(1);
+      if (!sinkTasks || sinkTasks.length === 0) return showError("Sink is empty.");
+      
+      const task = sinkTasks[0];
+      const duration = task.duration || 30;
+      const totalDur = duration + (task.break_duration || 0);
+
+      const { data: currentTasks } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', selectedDateString);
+      const occupied = mergeOverlappingTimeBlocks([
+        ...(currentTasks || []).filter(t => t.start_time && t.end_time).map(t => ({
+          start: parseISO(t.start_time!),
+          end: parseISO(t.end_time!),
+          duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
+        })),
+        ...staticConstraints
+      ]);
+
+      const searchStart = isSameDay(parseISO(selectedDateString), new Date()) ? max([T_current, workdayStart]) : workdayStart;
+      const slot = findFirstAvailableSlot(totalDur, occupied, searchStart, workdayEnd);
+
+      if (!slot) return showError("No available slot found.");
+
+      const { error: insertError } = await supabase.from('scheduled_tasks').insert({
+        user_id: userId, name: task.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(),
+        break_duration: task.break_duration, scheduled_date: selectedDateString, is_critical: task.is_critical,
+        is_flexible: true, is_locked: false, energy_cost: task.energy_cost, is_custom_energy_cost: task.is_custom_energy_cost,
+        task_environment: task.task_environment, is_backburner: task.is_backburner, is_work: task.is_work, is_break: task.is_break
+      });
+
+      if (insertError) throw insertError;
+      await supabase.from('aethersink').delete().eq('id', task.id);
+      
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['retiredTasks'] });
+      showSuccess(`Pulled "${task.name}" into timeline.`);
+    },
     duplicateScheduledTask: async (task: DBScheduledTask) => {
       const { id, created_at, updated_at, ...rest } = task;
       await supabase.from('scheduled_tasks').insert({ ...rest, name: `${task.name} (Copy)`, is_completed: false });

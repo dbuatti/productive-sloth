@@ -1,5 +1,5 @@
 import { format, addMinutes, isPast, isToday, startOfDay, addHours, addDays, parse, parseISO, setHours, setMinutes, isSameDay, isBefore, isAfter, differenceInMinutes, max, min } from 'date-fns';
-import { RawTaskInput, ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, FreeTimeItem, TimeBlock, UnifiedTask, NewRetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
+import { ScheduledItem, ScheduledItemType, FormattedSchedule, ScheduleSummary, DBScheduledTask, TimeMarker, DisplayItem, FreeTimeItem, TimeBlock, UnifiedTask, NewRetiredTask, SortBy, TaskEnvironment } from '@/types/scheduler';
 import { UserProfile } from '@/hooks/use-session';
 
 // --- Constants ---

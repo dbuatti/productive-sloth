@@ -144,7 +144,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 })}
               </div>
             ) : (
-              <SinkKanbanBoard retiredTasks={retiredTasks} groupBy={groupBy} showEmptyColumns={showEmptyColumns} onRemoveRetiredTask={onRemoveRetiredTask} onRezoneTask={onRezoneTask} updateRetiredTask={updateRetiredTaskDetails} onOpenDetailDialog={(t) => { setSelectedRetiredTask(t); setIsDialogOpen(true); }} />
+              <SinkKanbanBoard retiredTasks={retiredTasks} groupBy={groupBy} showEmptyColumns={showEmptyColumns} onRemoveRetiredTask={onRemoveRetiredTask} onRezoneTask={onRezoneTask} updateRetiredTask={async (updates) => { await updateRetiredTaskDetails(updates); }} onOpenDetailDialog={(t) => { setSelectedRetiredTask(t); setIsDialogOpen(true); }} />
             )}
           </AnimatePresence>
         )}

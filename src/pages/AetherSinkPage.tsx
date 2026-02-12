@@ -116,7 +116,6 @@ const AetherSinkPage: React.FC = () => {
         completeRetiredTask={completeRetiredTask}
         updateRetiredTaskStatus={updateRetiredTaskStatus}
         updateRetiredTaskDetails={updateRetiredTaskDetails}
-        triggerAetherSinkBackup={triggerAetherSinkBackup}
         bulkRemoveRetiredTasks={bulkRemoveRetiredTasks}
       />
     </div>

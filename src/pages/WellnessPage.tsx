@@ -20,11 +20,11 @@ import { Switch } from '@/components/ui/switch';
 import { useEnvironmentContext } from '@/hooks/use-environment-context';
 import { TaskPriority } from '@/types';
 import { isMeal } from '@/lib/scheduler-utils';
+import { showSuccess } from '@/utils/toast';
 
 const MAX_DAILY_MINUTES = 8 * 60;
 const WARNING_THRESHOLD = 6 * 60;
 const RECOMMENDED_BREAK_RATIO = 0.2;
-const AVERAGE_WORK_MINUTES_PER_DAY = 6 * 60;
 
 interface DailyWorkload {
   date: string;
@@ -271,6 +271,12 @@ const WellnessPage: React.FC = () => {
     return null;
   }, [profile, skipWeekends]);
 
+  const handleSkipDayOffSuggestion = useCallback(async () => {
+    if (!suggestedDayOff) return;
+    await updateSkippedDayOffSuggestions(suggestedDayOff, true);
+    showSuccess("Suggestion skipped. We'll find another day.");
+  }, [suggestedDayOff, updateSkippedDayOffSuggestions]);
+
   if (!user) return <div className="p-8 text-center"><Button onClick={() => navigate('/login')}>Login</Button></div>;
   if (isLoading) return <div className="p-8 space-y-8"><Skeleton className="h-10 w-full" /><div className="grid grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div></div>;
 
@@ -278,9 +284,6 @@ const WellnessPage: React.FC = () => {
     Work: 'hsl(var(--primary))', 
     Break: 'hsl(var(--logo-orange))', 
     Personal: 'hsl(var(--logo-green))',
-    'High Priority': 'hsl(var(--destructive))',
-    'Medium Priority': 'hsl(var(--logo-orange))',
-    'Low Priority': 'hsl(var(--logo-green))',
   };
 
   return (

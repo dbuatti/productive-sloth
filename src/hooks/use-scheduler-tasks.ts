@@ -9,10 +9,6 @@ import { showSuccess, showError } from '@/utils/toast';
 import { startOfDay, parseISO, format, differenceInMinutes, isSameDay, max, min, isBefore, addHours, addDays } from 'date-fns';
 import { mergeOverlappingTimeBlocks, findFirstAvailableSlot, getEmojiHue, setTimeOnDate, getStaticConstraints, isMeal, sortAndChunkTasks, ZoneWeight } from '@/lib/scheduler-utils';
 
-/**
- * CORE SCHEDULER HOOK
- * Manages the lifecycle of scheduled tasks, including the auto-balance engine.
- */
 export const useSchedulerTasks = (selectedDate: string) => {
   const queryClient = useQueryClient();
   const { user, profile, session, isLoading: isSessionLoading } = useSession();
@@ -30,7 +26,6 @@ export const useSchedulerTasks = (selectedDate: string) => {
     if (typeof window !== 'undefined') localStorage.setItem('aetherflow-scheduler-sort', sortBy);
   }, [sortBy]);
 
-  // --- Queries ---
   const { data: dbScheduledTasks = [], isLoading } = useQuery<DBScheduledTask[]>({
     queryKey: ['scheduledTasks', userId, selectedDate, sortBy],
     queryFn: async () => {
@@ -61,11 +56,24 @@ export const useSchedulerTasks = (selectedDate: string) => {
     enabled: !!userId,
   });
 
-  // --- Mutations ---
   const addScheduledTaskMutation = useMutation({
     mutationFn: async (newTask: NewDBScheduledTask) => {
       if (!userId) throw new Error("Unauthorized");
       const { data, error } = await supabase.from('scheduled_tasks').insert({ ...newTask, user_id: userId }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scheduledTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['datesWithTasks'] });
+    }
+  });
+
+  const bulkAddScheduledTasksMutation = useMutation({
+    mutationFn: async (newTasks: NewDBScheduledTask[]) => {
+      if (!userId) throw new Error("Unauthorized");
+      const tasksToInsert = newTasks.map(t => ({ ...t, user_id: userId }));
+      const { data, error } = await supabase.from('scheduled_tasks').insert(tasksToInsert).select();
       if (error) throw error;
       return data;
     },
@@ -143,7 +151,6 @@ export const useSchedulerTasks = (selectedDate: string) => {
     }
   });
 
-  // --- Engine Logic ---
   const handleAutoScheduleAndSort = useCallback(async (
     sortPreference: SortBy,
     taskSource: 'all-flexible' | 'sink-only' | 'sink-to-gaps' | 'global-all-future' | 'rebalance-day',
@@ -159,11 +166,9 @@ export const useSchedulerTasks = (selectedDate: string) => {
       
       const processDay = async (dateStr: string, currentPool: UnifiedTask[]) => {
         let scheduledTaskIdsToDelete: string[] = [];
-        let retiredTaskIdsToDelete: string[] = [];
         let tasksToInsert: NewDBScheduledTask[] = [];
         let remainingPool = [...currentPool];
 
-        // If re-balancing existing day, pull flexible tasks into pool
         if (taskSource === 'rebalance-day' || taskSource === 'all-flexible' || taskSource === 'global-all-future') {
           const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', dateStr).eq('is_flexible', true).eq('is_locked', false);
           (dt || []).forEach(t => {
@@ -214,7 +219,6 @@ export const useSchedulerTasks = (selectedDate: string) => {
       };
 
       if (taskSource === 'global-all-future') {
-        // Global logic: Iterate through next N days
         let currentPool: UnifiedTask[] = [];
         const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
         const retiredTaskIdsToDelete = (ret || []).map(t => {
@@ -252,7 +256,6 @@ export const useSchedulerTasks = (selectedDate: string) => {
           selectedDate: targetDateString
         });
       } else {
-        // Single day logic
         let initialPool: UnifiedTask[] = [];
         let retiredTaskIdsToDelete: string[] = [];
         if (taskSource === 'sink-only' || taskSource === 'sink-to-gaps' || taskSource === 'rebalance-day') {
@@ -290,6 +293,7 @@ export const useSchedulerTasks = (selectedDate: string) => {
   return {
     dbScheduledTasks, isLoading, datesWithTasks, isLoadingDatesWithTasks, sortBy, setSortBy,
     addScheduledTask: addScheduledTaskMutation.mutateAsync,
+    bulkAddScheduledTasks: bulkAddScheduledTasksMutation.mutateAsync,
     removeScheduledTask: removeScheduledTaskMutation.mutateAsync,
     completeScheduledTask: completeScheduledTaskMutation.mutateAsync,
     toggleScheduledTaskLock: toggleScheduledTaskLockMutation.mutateAsync,

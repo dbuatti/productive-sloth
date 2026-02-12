@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
-import { Trash2, RotateCcw, Ghost, Sparkles, Database, Lock, Unlock, Zap, Plus, CheckCircle, List, LayoutDashboard, History, RefreshCcw, Eye, EyeOff, Loader2, Star, Briefcase, Coffee, Trash } from 'lucide-react'; 
-import { format } from 'date-fns';
+import { RetiredTask, NewRetiredTask, RetiredTaskSortBy, NewDBScheduledTask } from '@/types/scheduler';
+import { Trash2, RotateCcw, Ghost, Sparkles, Database, Lock, Unlock, Zap, Plus, CheckCircle, List, LayoutDashboard, History, RefreshCcw, Eye, EyeOff, Loader2, Star, Briefcase, Coffee, Trash, ArrowUpToLine } from 'lucide-react'; 
+import { format, addMinutes, parseISO, isSameDay, max, differenceInMinutes } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -14,11 +14,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAetherSinkSnapshots } from '@/hooks/use-aether-sink-snapshots';
 import { useEnvironments } from '@/hooks/use-environments';
-import { parseSinkTaskInput, getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
+import { parseSinkTaskInput, getEmojiHue, assignEmoji, getStaticConstraints, mergeOverlappingTimeBlocks, findFirstAvailableSlot, setTimeOnDate } from '@/lib/scheduler-utils';
 import { showError, showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import SinkKanbanBoard from './SinkKanbanBoard';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -50,6 +51,9 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
   const [localInput, setLocalInput] = useState('');
 
+  const todayString = format(new Date(), 'yyyy-MM-dd');
+  const { bulkAddScheduledTasks, dbScheduledTasks } = useSchedulerTasks(todayString);
+
   const handleToggleComplete = async (task: RetiredTask) => {
     if (task.is_locked) return showError(`Unlock "${task.name}" first.`);
     task.is_completed ? await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false }) : await completeRetiredTask(task);
@@ -71,6 +75,57 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     showSuccess(`Purged ${unlockedIds.length} objectives.`);
   };
 
+  const handleRestoreAllUnlocked = async () => {
+    const unlocked = retiredTasks.filter(t => !t.is_locked);
+    if (unlocked.length === 0) return showSuccess("No unlocked objectives to restore.");
+    if (!profile) return;
+
+    const targetDayAsDate = parseISO(todayString);
+    const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDayAsDate);
+    let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDayAsDate), 17);
+    if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
+
+    const staticConstraints = getStaticConstraints(profile, targetDayAsDate, workdayStart, workdayEnd);
+    let occupied = mergeOverlappingTimeBlocks([
+      ...dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
+        start: parseISO(t.start_time!),
+        end: parseISO(t.end_time!),
+        duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
+      })),
+      ...staticConstraints
+    ]);
+
+    let cursor = isSameDay(targetDayAsDate, new Date()) ? max([new Date(), workdayStart]) : workdayStart;
+    const tasksToInsert: NewDBScheduledTask[] = [];
+    const restoredIds: string[] = [];
+
+    for (const t of unlocked) {
+      const dur = (t.duration || 30) + (t.break_duration || 0);
+      const slot = findFirstAvailableSlot(dur, occupied, cursor, workdayEnd);
+      if (slot) {
+        tasksToInsert.push({
+          name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(),
+          break_duration: t.break_duration || undefined, scheduled_date: todayString,
+          is_critical: t.is_critical, is_flexible: true, is_locked: false, energy_cost: t.energy_cost,
+          is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment,
+          is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break
+        });
+        restoredIds.push(t.id);
+        cursor = slot.end;
+        occupied.push({ start: slot.start, end: slot.end, duration: dur });
+        occupied = mergeOverlappingTimeBlocks(occupied);
+      }
+    }
+
+    if (tasksToInsert.length > 0) {
+      await bulkAddScheduledTasks(tasksToInsert);
+      await bulkRemoveRetiredTasks(restoredIds);
+      showSuccess(`Restored ${tasksToInsert.length} objectives to timeline.`);
+    } else {
+      showError("No available slots in today's timeline.");
+    }
+  };
+
   return (
     <div className="w-full space-y-8 animate-pop-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -90,6 +145,15 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('kanban')} className="h-8 rounded-lg gap-2 text-[10px] font-black uppercase tracking-widest"><LayoutDashboard className="h-3.5 w-3.5" /> Board</Button>
           </div>
           
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={handleRestoreAllUnlocked} disabled={isProcessingCommand || retiredTasks.length === 0} className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-xl text-primary border-primary/20 hover:bg-primary/5">
+                <ArrowUpToLine className="h-4 w-4 mr-2" /> Restore All
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Move all unlocked objectives back to timeline</TooltipContent>
+          </Tooltip>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm" disabled={isProcessingCommand || retiredTasks.length === 0} className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-xl text-destructive border-destructive/20 hover:bg-destructive/5">

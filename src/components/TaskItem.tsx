@@ -7,13 +7,14 @@ import { Task } from "@/types";
 import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, getLucideIconComponent } from "@/lib/utils";
 import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card } from '@/components/ui/card';
 import { CheckedState } from "@radix-ui/react-checkbox";
+import { useEnvironments } from "@/hooks/use-environments";
 
 interface TaskItemProps {
   task: Task;
@@ -37,6 +38,7 @@ const PRIORITY_STYLES = {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const { deleteTask, updateTask, duplicateTask } = useTasks();
+  const { environments } = useEnvironments();
   const navigate = useNavigate();
 
   const handleToggleComplete = async (checked: CheckedState) => {
@@ -85,6 +87,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const styles = PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.MEDIUM;
   const formattedDueDate = task.due_date ? format(new Date(task.due_date), "MMM d") : 'N/A';
+  
+  const env = environments.find(e => e.value === task.task_environment);
+  const EnvIcon = env ? getLucideIconComponent(env.icon) : null;
 
   return (
     <>
@@ -129,7 +134,14 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 {task.priority}
               </Badge>
               
-              {task.is_work && <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-black uppercase border-primary/20 text-primary/60">Work</Badge>}
+              {env && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-black uppercase border-primary/10 text-muted-foreground/60 flex items-center gap-1" style={{ color: env.color }}>
+                  {EnvIcon && <EnvIcon className="h-2.5 w-2.5" />}
+                  {env.label}
+                </Badge>
+              )}
+
+              {task.is_work && !env && <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-black uppercase border-primary/20 text-primary/60">Work</Badge>}
               {task.is_break && <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-black uppercase border-logo-orange/20 text-logo-orange/60">Break</Badge>}
               
               <div className="flex items-center gap-3 ml-auto text-[10px] font-mono text-muted-foreground/60">

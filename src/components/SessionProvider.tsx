@@ -37,7 +37,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activeItemToday, setActiveItemToday] = useState<ScheduledItem | null>(null);
   const [nextItemToday, setNextItemToday] = useState<ScheduledItem | null>(null);
 
-  // Hard stability guard for profile fetching
   const lastFetchTimeRef = useRef<number>(0);
   const fetchingProfileForId = useRef<string | null>(null);
 
@@ -51,50 +50,25 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsProfileLoading(true);
     
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`*`)
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        setProfile(null);
-        return null;
-      } else if (data) {
+      const { data, error } = await supabase.from('profiles').select(`*`).eq('id', userId).single();
+      if (error) { setProfile(null); return null; }
+      else if (data) {
         const profileData = { ...data, timezone: data.timezone || 'UTC' } as UserProfile;
-        
-        setProfile(prev => {
-          if (isEqual(prev, profileData)) return prev;
-          return profileData;
-        });
-        
+        setProfile(prev => isEqual(prev, profileData) ? prev : profileData);
         if (profileData.is_in_regen_pod && profileData.regen_pod_start_time) {
           const start = parseISO(profileData.regen_pod_start_time);
           const elapsed = differenceInMinutes(new Date(), start);
           setRegenPodDurationMinutes(Math.max(0, REGEN_POD_MAX_DURATION_MINUTES - elapsed));
-        } else {
-          setRegenPodDurationMinutes(0);
-        }
+        } else setRegenPodDurationMinutes(0);
         return profileData;
       }
       return null;
-    } finally {
-      setIsProfileLoading(false);
-      fetchingProfileForId.current = null;
-    }
+    } finally { setIsProfileLoading(false); fetchingProfileForId.current = null; }
   }, []);
 
-  const refreshProfile = useCallback(async () => {
-    if (user?.id) await fetchProfile(user.id, true);
-  }, [user?.id, fetchProfile]);
+  const refreshProfile = useCallback(async () => { if (user?.id) await fetchProfile(user.id, true); }, [user?.id, fetchProfile]);
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchProfile(user.id);
-    } else {
-      setProfile(null);
-    }
-  }, [user?.id, fetchProfile]);
+  useEffect(() => { if (user?.id) fetchProfile(user.id); else setProfile(null); }, [user?.id, fetchProfile]);
 
   const rechargeEnergy = useCallback(async (amount: number = RECHARGE_BUTTON_AMOUNT) => {
     if (!user || !profile) return;
@@ -103,109 +77,46 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!error) await refreshProfile();
   }, [user, profile, refreshProfile]);
 
-  const triggerLevelUp = useCallback((level: number) => {
-    setShowLevelUp(true);
-    setLevelUpLevel(level);
-  }, []);
-
-  const resetLevelUp = useCallback(() => {
-    setShowLevelUp(false);
-    setLevelUpLevel(0);
-  }, []);
-
-  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
-    if (!user) return;
-    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-    if (!error) await refreshProfile();
-  }, [user, refreshProfile]);
+  const triggerLevelUp = useCallback((level: number) => { setShowLevelUp(true); setLevelUpLevel(level); }, []);
+  const resetLevelUp = useCallback(() => { setShowLevelUp(false); setLevelUpLevel(0); }, []);
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => { if (!user) return; const { error } = await supabase.from('profiles').update(updates).eq('id', user.id); if (!error) await refreshProfile(); }, [user, refreshProfile]);
 
   const updateBlockedDays = useCallback(async (dateString: string, isBlocked: boolean) => {
     if (!user || !profile) return;
     let newBlockedDays = profile.blocked_days ? [...profile.blocked_days] : [];
-    if (isBlocked) { 
-      if (!newBlockedDays.includes(dateString)) newBlockedDays.push(dateString); 
-    } else { 
-      newBlockedDays = newBlockedDays.filter(day => day !== dateString); 
-    }
+    if (isBlocked) { if (!newBlockedDays.includes(dateString)) newBlockedDays.push(dateString); }
+    else newBlockedDays = newBlockedDays.filter(day => day !== dateString);
     const { error } = await supabase.from('profiles').update({ blocked_days: newBlockedDays }).eq('id', user.id);
-    if (!error) { 
-      await refreshProfile(); 
-      showSuccess(isBlocked ? `Day ${dateString} blocked.` : `Day ${dateString} unblocked.`); 
-    }
+    if (!error) { await refreshProfile(); showSuccess(isBlocked ? `Day ${dateString} blocked.` : `Day ${dateString} unblocked.`); }
   }, [user, profile, refreshProfile]);
 
   const claimDailyReward = useCallback(async (xpAmount: number, energyAmount: number) => {
     if (!user || !profile) return;
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        xp: profile.xp + xpAmount,
-        energy: Math.min(MAX_ENERGY, profile.energy + energyAmount),
-        last_daily_reward_claim: new Date().toISOString()
-      })
-      .eq('id', user.id);
-    
-    if (!error) {
-      await refreshProfile();
-      showSuccess("Daily challenge reward claimed!");
-    } else {
-      showError("Failed to claim reward.");
-    }
+    const { error } = await supabase.from('profiles').update({ xp: profile.xp + xpAmount, energy: Math.min(MAX_ENERGY, profile.energy + energyAmount), last_daily_reward_claim: new Date().toISOString() }).eq('id', user.id);
+    if (!error) { await refreshProfile(); showSuccess("Daily challenge reward claimed!"); }
+    else showError("Failed to claim reward.");
   }, [user, profile, refreshProfile]);
 
-  const startRegenPodState = useCallback(async (activityName: string, durationMinutes: number) => {
-    if (!user) return;
-    setRegenPodDurationMinutes(durationMinutes);
-    const { error } = await supabase.from('profiles').update({ 
-      is_in_regen_pod: true, 
-      regen_pod_start_time: new Date().toISOString() 
-    }).eq('id', user.id);
-    if (!error) await refreshProfile();
-  }, [user, refreshProfile]);
+  const startRegenPodState = useCallback(async (activityName: string, durationMinutes: number) => { if (!user) return; setRegenPodDurationMinutes(durationMinutes); const { error } = await supabase.from('profiles').update({ is_in_regen_pod: true, regen_pod_start_time: new Date().toISOString() }).eq('id', user.id); if (!error) await refreshProfile(); }, [user, refreshProfile]);
 
   const exitRegenPodState = useCallback(async () => {
     if (!user || !profile?.is_in_regen_pod) return;
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/calculate-pod-exit`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${session?.access_token}`, 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ startTime: profile.regen_pod_start_time, endTime: new Date().toISOString() }),
-      });
-    } finally {
-      const { error } = await supabase.from('profiles').update({ 
-        is_in_regen_pod: false, 
-        regen_pod_start_time: null 
-      }).eq('id', user.id);
-      if (!error) { 
-        await refreshProfile(); 
-        setRegenPodDurationMinutes(0); 
-      }
-    }
+    try { await fetch(`${SUPABASE_URL}/functions/v1/calculate-pod-exit`, { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ startTime: profile.regen_pod_start_time, endTime: new Date().toISOString() }) }); }
+    finally { const { error } = await supabase.from('profiles').update({ is_in_regen_pod: false, regen_pod_start_time: null }).eq('id', user.id); if (!error) { await refreshProfile(); setRegenPodDurationMinutes(0); } }
   }, [user, profile, refreshProfile, session?.access_token]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setIsAuthLoading(false);
-      if (event === 'SIGNED_OUT') {
-        setProfile(null);
-        queryClient.clear();
-      }
+      setSession(currentSession); setUser(currentSession?.user ?? null); setIsAuthLoading(false);
+      if (event === 'SIGNED_OUT') { setProfile(null); queryClient.clear(); }
     });
     return () => subscription.unsubscribe();
   }, [queryClient]);
 
   useEffect(() => {
     if (!isAuthLoading) {
-      if (!user && location.pathname !== '/login') {
-        navigate('/login', { replace: true });
-      } else if (user && location.pathname === '/login') {
-        navigate('/', { replace: true });
-      }
+      if (!user && location.pathname !== '/login') navigate('/login', { replace: true });
+      else if (user && location.pathname === '/login') navigate('/', { replace: true });
     }
   }, [isAuthLoading, user, location.pathname, navigate]);
 
@@ -237,28 +148,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const start = profile.default_auto_schedule_start_time ? setTimeOnDate(dayStart, profile.default_auto_schedule_start_time) : dayStart;
     let end = profile.default_auto_schedule_end_time ? setTimeOnDate(dayStart, profile.default_auto_schedule_end_time) : addHours(dayStart, 17);
     if (isBefore(end, start)) end = addDays(end, 1);
-    
-    return calculateSchedule(
-      dbScheduledTasksToday, 
-      todayString, 
-      start, 
-      end, 
-      profile.is_in_regen_pod, 
-      profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, 
-      regenPodDurationMinutes, 
-      new Date(), 
-      profile.breakfast_time, 
-      profile.lunch_time, 
-      profile.dinner_time, 
-      profile.breakfast_duration_minutes, 
-      profile.lunch_duration_minutes, 
-      profile.dinner_duration_minutes, 
-      profile.reflection_count || 0, 
-      profile.reflection_times || [], 
-      profile.reflection_durations || [], 
-      mealAssignmentsToday, 
-      profile.blocked_days?.includes(todayString) ?? false
-    );
+    return calculateSchedule(dbScheduledTasksToday, todayString, start, end, profile.is_in_regen_pod, profile.regen_pod_start_time ? parseISO(profile.regen_pod_start_time) : null, regenPodDurationMinutes, new Date(), profile.breakfast_time, profile.lunch_time, profile.dinner_time, profile.breakfast_duration_minutes, profile.lunch_duration_minutes, profile.dinner_duration_minutes, profile.reflection_count || 0, profile.reflection_times || [], profile.reflection_durations || [], mealAssignmentsToday, profile.blocked_days?.includes(todayString) ?? false);
   }, [dbScheduledTasksToday, profile, regenPodDurationMinutes, mealAssignmentsToday, todayString]);
 
   useEffect(() => {
@@ -284,11 +174,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updateBlockedDays, 
     updateSkippedDayOffSuggestions: async () => {}, 
     triggerEnergyRegen: async () => {}, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
-  }), [
-    session, user, profile, isAuthLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, 
-    triggerLevelUp, resetLevelUp, claimDailyReward, updateProfile, updateBlockedDays, 
-    activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes
-  ]);
+  }), [session, user, profile, isAuthLoading, refreshProfile, rechargeEnergy, showLevelUp, levelUpLevel, triggerLevelUp, resetLevelUp, claimDailyReward, updateProfile, updateBlockedDays, activeItemToday, nextItemToday, startRegenPodState, exitRegenPodState, regenPodDurationMinutes]);
 
   return (
     <SessionContext.Provider value={contextValue}>

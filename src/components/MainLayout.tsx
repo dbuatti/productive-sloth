@@ -11,12 +11,7 @@ import Navigation from './Navigation';
 import BottomNavigationBar from './BottomNavigationBar';
 import MobileStatusIndicator from './MobileStatusIndicator';
 import { cn } from '@/lib/utils';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -35,54 +30,23 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const isSinkPage = location.pathname === '/sink';
   const isSimplifiedSchedulePage = location.pathname === '/simplified-schedule';
 
-  // State for mobile menu
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const toggleMobileMenu = useCallback(() => {
-    setMobileMenuOpen(prev => !prev);
-  }, []);
+  const toggleMobileMenu = useCallback(() => setMobileMenuOpen(prev => !prev), []);
 
-  // State for desktop sidebar collapse
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const toggleSidebarCollapse = useCallback(() => {
-    setIsSidebarCollapsed(prev => !prev);
-  }, []);
+  const toggleSidebarCollapse = useCallback(() => setIsSidebarCollapsed(prev => !prev), []);
 
   const sidebarWidth = isSidebarCollapsed ? "w-[72px]" : "w-[250px]";
   const contentPaddingLeft = isMobile || isSimplifiedSchedulePage ? "lg:pl-0" : (isSidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[250px]");
 
-  const mainContent = (
-    <main className={cn(
-      "flex flex-1 flex-col gap-4 overflow-auto",
-      isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4"),
-      // Conditional styling for scheduler, sink, and simplified schedule pages
-      (isSchedulerPage || isSinkPage || isSimplifiedSchedulePage) ? "max-w-full mx-0" : "max-w-4xl mx-auto"
-    )}>
-      <div className={cn(
-        "w-full",
-        "px-3 md:px-8",
-        // Remove width constraints for specific views
-        (isSchedulerPage || isSinkPage || isSimplifiedSchedulePage) && "max-w-full"
-      )}>
-        {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
-        {children}
-      </div>
-    </main>
-  );
-
   return (
     <div className="flex min-h-screen w-full bg-background">
-      
-      {/* Mobile Navigation Drawer */}
       {isMobile && (
         <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetContent side="left" className="w-[250px] p-0 flex flex-col bg-sidebar border-r border-border/50">
             <SheetHeader className="px-4 pt-4 pb-2 border-b border-border/50">
               <SheetTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
-                <img 
-                  src="/aetherflow-logo.png" 
-                  alt="AetherFlow Logo" 
-                  className="h-8 w-auto drop-shadow-[0_0_8px_rgba(var(--primary),0.3)]"
-                />
+                <img src="/aetherflow-logo.png" alt="AetherFlow Logo" className="h-8 w-auto drop-shadow-[0_0_8px_rgba(var(--primary),0.3)]" />
                 AetherFlow
               </SheetTitle>
             </SheetHeader>
@@ -93,55 +57,34 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </Sheet>
       )}
 
-      {/* Desktop Sidebar */}
       {!isMobile && !isSimplifiedSchedulePage && (
-        <div 
-          className={cn(
-            "fixed top-0 left-0 z-30 h-screen border-r border-border/50 bg-sidebar transition-all duration-300 ease-in-out pt-[64px]",
-            sidebarWidth
-          )}
-        >
+        <div className={cn("fixed top-0 left-0 z-30 h-screen border-r border-border/50 bg-sidebar transition-all duration-300 ease-in-out pt-[64px]", sidebarWidth)}>
           <div className="flex h-full flex-col overflow-y-auto">
-            <div className="flex-1 py-4">
-              <Navigation isCollapsed={isSidebarCollapsed} />
-            </div>
+            <div className="flex-1 py-4"><Navigation isCollapsed={isSidebarCollapsed} /></div>
             <div className="sticky bottom-0 bg-sidebar border-t border-border/50 p-2 flex justify-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleSidebarCollapse}
-                className="h-8 w-8 text-muted-foreground hover:bg-secondary/50"
-              >
+              <Button variant="ghost" size="icon" onClick={toggleSidebarCollapse} className="h-8 w-8 text-muted-foreground hover:bg-secondary/50">
                 {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                <span className="sr-only">{isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}</span>
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Consolidated Fixed Header */}
-      <div className={cn(
-        "fixed top-0 left-0 right-0 z-50",
-        contentPaddingLeft
-      )}>
+      <div className={cn("fixed top-0 left-0 right-0 z-50", contentPaddingLeft)}>
         <AppUnifiedHeader onToggleMobileMenu={toggleMobileMenu} />
       </div>
       
-      {/* Main Content Area */}
-      <div className={cn(
-        "flex flex-col flex-1 min-w-0 w-full", 
-        contentPaddingLeft,
-        "pt-[64px]"
-      )}>
-        {mainContent}
+      <div className={cn("flex flex-col flex-1 min-w-0 w-full", contentPaddingLeft, "pt-[64px]")}>
+        <main className={cn("flex flex-1 flex-col gap-4 overflow-auto", isMobile && activeItemToday ? "pb-28" : (isMobile ? "pb-20" : "pb-4"), (isSchedulerPage || isSinkPage || isSimplifiedSchedulePage) ? "max-w-full mx-0" : "max-w-4xl mx-auto")}>
+          <div className={cn("w-full px-3 md:px-8", (isSchedulerPage || isSinkPage || isSimplifiedSchedulePage) && "max-w-full")}>
+            {energyInDeficit && <EnergyDeficitWarning currentEnergy={profile.energy} />}
+            {children}
+          </div>
+        </main>
         {shouldShowFocusAnchor && <FocusAnchor />}
       </div>
       
-      {/* Mobile Status Indicator (Above Bottom Nav) */}
       {isMobile && activeItemToday && <MobileStatusIndicator />}
-      
-      {/* Bottom Navigation Bar for Mobile */}
       {isMobile && <BottomNavigationBar />}
     </div>
   );

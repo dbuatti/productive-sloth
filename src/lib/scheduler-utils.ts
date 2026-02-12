@@ -175,7 +175,6 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   };
 };
 
-// NEW: parseTaskInput for scheduler quick add
 export const parseTaskInput = (input: string, selectedDayDate: Date): {
   name: string;
   duration: number | null;
@@ -201,52 +200,20 @@ export const parseTaskInput = (input: string, selectedDayDate: Date): {
   let startTime: Date | null = null;
   let endTime: Date | null = null;
 
-  // 1. Check for Critical Flag (Prefix: !)
-  if (remainingText.startsWith('!')) {
-    isCritical = true;
-    remainingText = remainingText.substring(1).trim();
-  }
+  if (remainingText.startsWith('!')) { isCritical = true; remainingText = remainingText.substring(1).trim(); }
+  if (remainingText.startsWith('-')) { isBackburner = true; remainingText = remainingText.substring(1).trim(); }
+  if (remainingText.toLowerCase().endsWith(' sink')) { shouldSink = true; remainingText = remainingText.substring(0, remainingText.length - 5).trim(); }
+  if (remainingText.toLowerCase().endsWith(' w')) { isWork = true; remainingText = remainingText.substring(0, remainingText.length - 2).trim(); }
+  if (remainingText.toLowerCase().endsWith(' b')) { isBreak = true; remainingText = remainingText.substring(0, remainingText.length - 2).trim(); }
 
-  // 2. Check for Backburner Flag (Prefix: -)
-  if (remainingText.startsWith('-')) {
-    isBackburner = true;
-    remainingText = remainingText.substring(1).trim();
-  }
-
-  // 3. Check for Sink Flag (Suffix: sink)
-  if (remainingText.toLowerCase().endsWith(' sink')) {
-    shouldSink = true;
-    remainingText = remainingText.substring(0, remainingText.length - 5).trim();
-  }
-
-  // 4. Check for Work Flag (Suffix: W)
-  if (remainingText.toLowerCase().endsWith(' w')) {
-    isWork = true;
-    remainingText = remainingText.substring(0, remainingText.length - 2).trim();
-  }
-
-  // 5. Check for Break Flag (Suffix: B)
-  if (remainingText.toLowerCase().endsWith(' b')) {
-    isBreak = true;
-    remainingText = remainingText.substring(0, remainingText.length - 2).trim();
-  }
-
-  // 6. Check for Fixed Time (HH:MM AM/PM - HH:MM AM/PM)
   const timeRangeMatch = remainingText.match(/(.*?)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeRangeMatch) {
     name = timeRangeMatch[1].trim();
-    const startStr = timeRangeMatch[2].trim();
-    const endStr = timeRangeMatch[5].trim();
-    
-    startTime = parseFlexibleTime(startStr, selectedDayDate);
-    endTime = parseFlexibleTime(endStr, selectedDayDate);
-
-    if (startTime && endTime && isBefore(endTime, startTime)) {
-      endTime = addDays(endTime, 1); // Handle overnight tasks
-    }
+    startTime = parseFlexibleTime(timeRangeMatch[2].trim(), selectedDayDate);
+    endTime = parseFlexibleTime(timeRangeMatch[5].trim(), selectedDayDate);
+    if (startTime && endTime && isBefore(endTime, startTime)) endTime = addDays(endTime, 1);
     duration = startTime && endTime ? differenceInMinutes(endTime, startTime) : null;
   } else {
-    // 7. Check for Duration (Suffix: number) and optional Break Duration (Suffix: number number)
     const durationAndBreakMatch = remainingText.match(/^(.*?)\s+(\d+)\s+(\d+)$/);
     if (durationAndBreakMatch) {
       name = durationAndBreakMatch[1].trim();
@@ -254,33 +221,14 @@ export const parseTaskInput = (input: string, selectedDayDate: Date): {
       breakDuration = parseInt(durationAndBreakMatch[3], 10);
     } else {
       const durationMatch = remainingText.match(/^(.*?)\s+(\d+)$/);
-      if (durationMatch) {
-        name = durationMatch[1].trim();
-        duration = parseInt(durationMatch[2], 10);
-      } else {
-        name = remainingText;
-      }
+      if (durationMatch) { name = durationMatch[1].trim(); duration = parseInt(durationMatch[2], 10); }
+      else name = remainingText;
     }
   }
 
   if (!name) return null;
-
-  const effectiveDuration = duration || 30; // Default to 30 min for energy calculation if not specified
-  const energyCost = calculateEnergyCost(effectiveDuration, isCritical, isBackburner, isBreak);
-
-  return {
-    name,
-    duration,
-    breakDuration,
-    isCritical,
-    isBackburner,
-    isWork,
-    isBreak,
-    shouldSink,
-    energyCost,
-    startTime,
-    endTime,
-  };
+  const energyCost = calculateEnergyCost(duration || 30, isCritical, isBackburner, isBreak);
+  return { name, duration, breakDuration, isCritical, isBackburner, isWork, isBreak, shouldSink, energyCost, startTime, endTime };
 };
 
 export const mergeOverlappingTimeBlocks = (blocks: TimeBlock[]): TimeBlock[] => {
@@ -358,18 +306,11 @@ export const getStaticConstraints = (profile: UserProfile, selectedDayDate: Date
   return constraints;
 };
 
-// --- SPATIAL CORE REFACTOR: STRICT SEQUENTIAL DRAIN ---
-
 export interface ZoneWeight {
   value: string;
   target_weight: number;
 }
 
-/**
- * LIQUID FLOW SEQUENCER:
- * STRICTLY groups tasks by environment based on the user's custom sequence.
- * Enforces internal priority (Critical > Break > Orbit).
- */
 export const sortAndChunkTasks = (
   tasks: UnifiedTask[],
   profile: UserProfile,
@@ -386,7 +327,6 @@ export const sortAndChunkTasks = (
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   };
 
-  // 1. Group tasks by environment (case-insensitive for safety)
   const groups = new Map<string, UnifiedTask[]>();
   tasks.forEach(task => {
     const env = (task.task_environment || 'laptop').toLowerCase();
@@ -394,27 +334,19 @@ export const sortAndChunkTasks = (
     groups.get(env)!.push(task);
   });
 
-  const weightMap = new Map(zoneWeights.map(zw => [zw.value.toLowerCase(), zw.target_weight]));
-  
-  // 2. Pre-sort tasks within each environment group
   const processedGroups = new Map<string, UnifiedTask[]>();
   for (const [env, groupTasks] of groups.entries()) {
       groupTasks.sort(internalSort);
       processedGroups.set(env, groupTasks);
   }
 
-  // 3. STRICT INDEX SORTING: Define the exact sequence from profile settings
   const order = (custom_environment_order?.length ? custom_environment_order : ['home', 'laptop', 'away', 'piano', 'laptop_piano']).map(e => e.toLowerCase());
   const activeEnvs = Array.from(processedGroups.keys());
-  
-  // Enforce index order. Environments not in the order array move to the bottom.
   const finalOrder = order.filter(e => activeEnvs.includes(e)).concat(activeEnvs.filter(e => !order.includes(e)));
 
-  // 4. Return flat list in STRICT spatial sequence
   if (enable_macro_spread) {
     const amBatch: UnifiedTask[] = [];
     const pmBatch: UnifiedTask[] = [];
-
     finalOrder.forEach(env => {
       const groupTasks = processedGroups.get(env) || [];
       if (groupTasks.length > 1) {
@@ -425,7 +357,6 @@ export const sortAndChunkTasks = (
     });
     return [...amBatch, ...pmBatch];
   } 
-  
   return finalOrder.map(env => processedGroups.get(env) || []).flat();
 };
 
@@ -438,72 +369,45 @@ export const compactScheduleLogic = (
   profile: UserProfile | null,
   sortPreference: SortBy = 'ENVIRONMENT_RATIO'
 ): DBScheduledTask[] => {
-  if (!profile) return []; // Return empty if no profile
-
+  if (!profile) return [];
   const fixedTasks = currentDbTasks.filter(t => t.is_locked || !t.is_flexible || t.is_completed);
   const flexibleTasks = currentDbTasks.filter(t => t.is_flexible && !t.is_locked && !t.is_completed);
-
   const unifiedFlexibleTasks: UnifiedTask[] = flexibleTasks.map(t => ({
     id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30,
     break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: t.is_flexible, is_backburner: t.is_backburner,
     energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
     created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false,
   }));
-
   const workdayTotal = differenceInMinutes(workdayEndTime, workdayStartTime);
   const sortedFlexibleTasks = sortAndChunkTasks(unifiedFlexibleTasks, profile, sortPreference, workdayTotal, []);
-  
   const staticConstraints = getStaticConstraints(profile, selectedDayDate, workdayStartTime, workdayEndTime);
-  
-  // Combine fixed tasks and static constraints to form initial occupied blocks
-  const initialOccupiedBlocks = mergeOverlappingTimeBlocks([
-    ...fixedTasks.filter(t => t.start_time && t.end_time).map(t => ({ 
-      start: parseISO(t.start_time!), 
-      end: parseISO(t.end_time!), 
-      duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) 
-    })), 
-    ...staticConstraints
-  ]);
-
+  const initialOccupiedBlocks = mergeOverlappingTimeBlocks([...fixedTasks.filter(t => t.start_time && t.end_time).map(t => ({ start: parseISO(t.start_time!), end: parseISO(t.end_time!), duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!)) })), ...staticConstraints]);
   const isSelectedToday = isSameDay(selectedDayDate, new Date());
   let placementCursor = isSelectedToday ? max([workdayStartTime, T_current]) : workdayStartTime;
-  
   const updatedFlexibleTasks: DBScheduledTask[] = [];
-  let currentOccupiedBlocks = [...initialOccupiedBlocks]; // Copy to modify
-
+  let currentOccupiedBlocks = [...initialOccupiedBlocks];
   for (const task of sortedFlexibleTasks) {
     const totalDuration = (task.duration || 30) + (task.break_duration || 0);
     const slot = findFirstAvailableSlot(totalDuration, currentOccupiedBlocks, placementCursor, workdayEndTime);
-    
     if (slot) {
       const originalDbTask = flexibleTasks.find(t => t.id === task.id);
       if (originalDbTask) {
-        // Only add to updatedFlexibleTasks if its time actually changed
         const newStartTime = slot.start.toISOString();
         const newEndTime = slot.end.toISOString();
-        if (originalDbTask.start_time !== newStartTime || originalDbTask.end_time !== newEndTime) {
-          updatedFlexibleTasks.push({ 
-            ...originalDbTask, 
-            start_time: newStartTime, 
-            end_time: newEndTime 
-          });
-        }
-        // Update placement cursor and occupied blocks for subsequent tasks
+        if (originalDbTask.start_time !== newStartTime || originalDbTask.end_time !== newEndTime) updatedFlexibleTasks.push({ ...originalDbTask, start_time: newStartTime, end_time: newEndTime });
         placementCursor = slot.end;
         currentOccupiedBlocks.push({ start: slot.start, end: slot.end, duration: totalDuration });
         currentOccupiedBlocks = mergeOverlappingTimeBlocks(currentOccupiedBlocks);
       }
     }
   }
-  return updatedFlexibleTasks; // Return only the flexible tasks that were re-positioned
+  return updatedFlexibleTasks;
 };
 
 export const calculateSchedule = (dbTasks: DBScheduledTask[], selectedDay: string, workdayStart: Date, workdayEnd: Date, isRegenPodActive: boolean, regenPodStartTime: Date | null, regenPodDurationMinutes: number, T_current: Date, breakfastTimeStr: string | null, lunchTimeStr: string | null, dinnerTimeStr: string | null, breakfastDuration: number | null, lunchDuration: number | null, dinnerDuration: number | null, reflectionCount: number = 0, reflectionTimes: string[] = [], reflectionDurations: number[] = [], mealAssignments: any[] = [], isDayBlocked: boolean = false): FormattedSchedule => {
   if (isDayBlocked) return { items: [], summary: { totalTasks: 0, activeTime: { hours: 0, minutes: 0 }, breakTime: 0, sessionEnd: workdayStart, extendsPastMidnight: false, midnightRolloverMessage: null, unscheduledCount: 0, criticalTasksRemaining: 0, isBlocked: true }, dbTasks: [] };
-  
   const selectedDayDate = parseISO(selectedDay);
   const rawItems: ScheduledItem[] = [];
-  
   dbTasks.forEach(t => {
     if (!t.start_time || !t.end_time) return;
     const start = parseISO(t.start_time);
@@ -511,7 +415,6 @@ export const calculateSchedule = (dbTasks: DBScheduledTask[], selectedDay: strin
     if (isBefore(end, start)) end = addDays(end, 1);
     rawItems.push({ id: t.id, type: t.is_break ? 'break' : 'task', name: t.name, duration: differenceInMinutes(end, start), startTime: start, endTime: end, emoji: assignEmoji(t.name), isTimedEvent: true, isCritical: t.is_critical, isFlexible: t.is_flexible, isLocked: t.is_locked, energyCost: t.energy_cost, isCompleted: t.is_completed, isCustomEnergyCost: t.is_custom_energy_cost, taskEnvironment: t.task_environment, sourceCalendarId: t.source_calendar_id, isBackburner: t.is_backburner, isWork: t.is_work || false, isBreak: t.is_break || false });
   });
-
   const addStatic = (name: string, timeStr: string | null, emoji: string, dur: number | null, type: ScheduledItemType = 'meal') => {
     const effectiveDur = dur ?? 15;
     if (timeStr && effectiveDur > 0) {
@@ -526,14 +429,10 @@ export const calculateSchedule = (dbTasks: DBScheduledTask[], selectedDay: strin
       }
     }
   };
-
   addStatic('Breakfast', breakfastTimeStr, '🥞', breakfastDuration);
   addStatic('Lunch', lunchTimeStr, '🥗', lunchDuration);
   addStatic('Dinner', dinnerTimeStr, '🍽️', dinnerDuration);
-  for (let i = 0; i < reflectionCount; i++) {
-    if (reflectionTimes[i]) addStatic(`Reflection Point ${i + 1}`, reflectionTimes[i], '✨', reflectionDurations[i], 'break');
-  }
-
+  for (let i = 0; i < reflectionCount; i++) if (reflectionTimes[i]) addStatic(`Reflection Point ${i + 1}`, reflectionTimes[i], '✨', reflectionDurations[i], 'break');
   const items = [...rawItems].sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   let totalWork = 0, totalBreak = 0, critRemaining = 0, sessionEnd = workdayStart;
   items.forEach(i => {
@@ -542,6 +441,5 @@ export const calculateSchedule = (dbTasks: DBScheduledTask[], selectedDay: strin
     if (i.isCritical && !i.isCompleted) critRemaining++;
     sessionEnd = max([sessionEnd, i.endTime]);
   });
-
   return { items, dbTasks, summary: { totalTasks: items.length, activeTime: { hours: Math.floor(totalWork / 60), minutes: totalWork % 60 }, breakTime: totalBreak, sessionEnd, extendsPastMidnight: isAfter(sessionEnd, addDays(startOfDay(selectedDayDate), 1)), midnightRolloverMessage: null, unscheduledCount: dbTasks.filter(t => !t.start_time).length, criticalTasksRemaining: critRemaining, isBlocked: isDayBlocked } };
 };

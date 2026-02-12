@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListTodo, Zap, Coffee, Flag, ChevronUp, ChevronDown, AlertTriangle, Target, Layers } from 'lucide-react';
+import { ListTodo, Zap, Coffee, Flag, ChevronUp, ChevronDown, AlertTriangle, Layers } from 'lucide-react';
 import { ScheduleSummary, ScheduledItem } from '@/types/scheduler';
 import { cn } from '@/lib/utils';
 import { formatTime } from '@/lib/scheduler-utils';
@@ -18,7 +18,7 @@ interface SchedulerDashboardPanelProps {
   hasFlexibleTasks: boolean;
   onRefreshSchedule: () => void;
   isLoading: boolean;
-  items?: ScheduledItem[]; // Added items prop for balance calc
+  items?: ScheduledItem[]; 
 }
 
 const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.memo(({
@@ -39,18 +39,14 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
 
   const balanceStats = useMemo(() => {
     if (items.length === 0) return [];
-    
     const taskItems = items.filter(i => i.type === 'task' && !i.isBreak);
     const totalTaskMinutes = taskItems.reduce((s, i) => s + i.duration, 0);
-    
     if (totalTaskMinutes === 0) return [];
-
     const usageByEnv = new Map<string, number>();
     taskItems.forEach(i => {
       const env = i.taskEnvironment || 'laptop';
       usageByEnv.set(env, (usageByEnv.get(env) || 0) + i.duration);
     });
-
     return Array.from(usageByEnv.entries()).map(([envKey, minutes]) => {
       const env = environments.find(e => e.value === envKey);
       return {
@@ -79,16 +75,14 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
         <Card className="p-3 flex items-center justify-between rounded-xl border border-destructive/50 bg-destructive/5 animate-pulse">
             <div className="flex items-center gap-3">
                 <AlertTriangle className="h-5 w-5 text-destructive" />
-                <p className="text-sm font-bold text-destructive">
-                    Timeline Drift: {scheduleSummary.unscheduledCount} objectives lack slots.
-                </p>
+                <p className="text-sm font-bold text-destructive">Timeline Drift: {scheduleSummary.unscheduledCount} objectives lack slots.</p>
             </div>
             <Button variant="outline" size="sm" className="h-7 text-[10px] font-black uppercase tracking-widest border-destructive/20" onClick={onRefreshSchedule}>Recalibrate</Button>
         </Card>
       )}
 
       <Card className="p-4 rounded-xl shadow-sm border-white/5 bg-card/60 backdrop-blur-md">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
           <CardTitle className="text-lg font-black uppercase tracking-tighter text-foreground/70 flex items-center gap-2">
             <ListTodo className="h-5 w-5 text-primary" /> Session HUD
           </CardTitle>
@@ -98,7 +92,7 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
         </CardHeader>
 
         {!isCollapsed && (
-          <CardContent className="py-4 space-y-6">
+          <CardContent className="py-4 space-y-6 p-0">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { icon: ListTodo, label: "Tasks", val: scheduleSummary.totalTasks, color: "text-primary" },
@@ -115,7 +109,6 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
               ))}
             </div>
 
-            {/* SPATIAL BALANCE HUD */}
             {balanceStats.length > 0 && (
               <div className="space-y-3 pt-2 border-t border-white/5">
                 <div className="flex items-center justify-between">
@@ -147,5 +140,4 @@ const SchedulerDashboardPanel: React.FC<SchedulerDashboardPanelProps> = React.me
 });
 
 SchedulerDashboardPanel.displayName = 'SchedulerDashboardPanel';
-
 export default SchedulerDashboardPanel;

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
-import { Trash2, RotateCcw, Ghost, Sparkles, Database, Lock, Unlock, Zap, Plus, CheckCircle, List, LayoutDashboard, History, RefreshCcw, Eye, EyeOff, Loader2, Star, Briefcase, Coffee } from 'lucide-react'; 
+import { Trash2, RotateCcw, Ghost, Sparkles, Database, Lock, Unlock, Zap, Plus, CheckCircle, List, LayoutDashboard, History, RefreshCcw, Eye, EyeOff, Loader2, Star, Briefcase, Coffee, Trash } from 'lucide-react'; 
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { parseSinkTaskInput, getEmojiHue, assignEmoji } from '@/lib/scheduler-ut
 import { showError, showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import SinkKanbanBoard from './SinkKanbanBoard';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -63,6 +64,13 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     setLocalInput('');
   };
 
+  const handlePurgeAllUnlocked = async () => {
+    const unlockedIds = retiredTasks.filter(t => !t.is_locked).map(t => t.id);
+    if (unlockedIds.length === 0) return showSuccess("No unlocked objectives to purge.");
+    await bulkRemoveRetiredTasks(unlockedIds);
+    showSuccess(`Purged ${unlockedIds.length} objectives.`);
+  };
+
   return (
     <div className="w-full space-y-8 animate-pop-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -81,6 +89,25 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-8 rounded-lg gap-2 text-[10px] font-black uppercase tracking-widest"><List className="h-3.5 w-3.5" /> List</Button>
             <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('kanban')} className="h-8 rounded-lg gap-2 text-[10px] font-black uppercase tracking-widest"><LayoutDashboard className="h-3.5 w-3.5" /> Board</Button>
           </div>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" disabled={isProcessingCommand || retiredTasks.length === 0} className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-xl text-destructive border-destructive/20 hover:bg-destructive/5">
+                <Trash className="h-4 w-4 mr-2" /> Purge Unlocked
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Purge Unlocked Objectives?</AlertDialogTitle>
+                <AlertDialogDescription>This will permanently delete all objectives in the Sink that are not locked. This action cannot be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handlePurgeAllUnlocked} className="bg-destructive hover:bg-destructive/90">Confirm Purge</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <Button variant="aether" size="sm" onClick={onAutoScheduleSink} disabled={isProcessingCommand || retiredTasks.length === 0} className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg shadow-primary/20"><Sparkles className="h-4 w-4 mr-2" /> Auto Sync</Button>
         </div>
       </div>

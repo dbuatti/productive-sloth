@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, ReferenceLine, LabelList 
 } from 'recharts';
-import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays, Flame, Clock, Home, Laptop, Globe, Music, Target, SkipForward } from 'lucide-react';
+import { AlertTriangle, Coffee, CalendarOff, TrendingUp, Activity, Zap, Moon, Sun, AlertCircle, ListTodo, Briefcase, CalendarDays, Flame, Clock, Home, Laptop, Globe, Music, Target, SkipForward, ShieldAlert } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -215,39 +215,14 @@ const WellnessPage: React.FC = () => {
     return [{ name: 'Work', value: totalWork }, { name: 'Personal', value: totalPersonal }];
   }, [last7DaysData]);
 
-  const environmentUsage = useMemo(() => {
-    if (!weeklyTasks) return null;
-    const usageMap = new Map<string, number>();
-    Object.values(weeklyTasks).flat().forEach(task => {
-      if (!task.start_time || !task.end_time || !task.task_environment) return;
-      const parsedStartTime = parseISO(task.start_time);
-      const parsedEndTime = parseISO(task.end_time);
-      if (isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) return;
-      const duration = differenceInMinutes(parsedEndTime, parsedStartTime);
-      if (duration <= 0) return;
-      usageMap.set(task.task_environment, (usageMap.get(task.task_environment) || 0) + duration);
-    });
-    return Array.from(usageMap.entries()).map(([envVal, minutes]) => ({
-      environment: environmentOptions.find(o => o.value === envVal)?.label || envVal, minutes
-    })).sort((a, b) => b.minutes - a.minutes);
-  }, [weeklyTasks, environmentOptions]);
-
-  const dailyEnergyBalanceData = useMemo(() => {
-    if (!last7DaysData) return null;
-    return last7DaysData.map(day => ({ dayName: day.dayName, netEnergy: day.energyGained - day.energyConsumed }));
-  }, [last7DaysData]);
-
-  const workloadByPriorityData = useMemo(() => {
-    if (!last7DaysData) return null;
-    const totalHigh = last7DaysData.reduce((sum, day) => sum + day.workTasksByPriority.HIGH, 0);
-    const totalMedium = last7DaysData.reduce((sum, day) => sum + day.workTasksByPriority.MEDIUM, 0);
-    const totalLow = last7DaysData.reduce((sum, day) => sum + day.workTasksByPriority.LOW, 0);
-    return [
-      { name: 'High Priority', value: totalHigh },
-      { name: 'Medium Priority', value: totalMedium },
-      { name: 'Low Priority', value: totalLow },
-    ].filter(item => item.value > 0);
-  }, [last7DaysData]);
+  const burnoutRisk = useMemo(() => {
+    if (!last7DaysData || !future7DaysData) return 'Low';
+    let riskScore = 0;
+    if (last7DaysData.filter(d => d.isOverwork).length > 0) riskScore += 3;
+    if (last7DaysData.filter(d => d.isWarning).length > 2) riskScore += 2;
+    if (future7DaysData.slice(1, 4).reduce((sum, d) => d.totalWorkMinutes > MAX_DAILY_MINUTES ? sum + 2 : (d.totalWorkMinutes > WARNING_THRESHOLD ? sum + 1 : sum), 0) >= 2) riskScore += 2;
+    return riskScore >= 5 ? 'High' : riskScore >= 2 ? 'Medium' : 'Low';
+  }, [last7DaysData, future7DaysData]);
 
   const peakProductivityTime = useMemo(() => {
     if (!last7DaysData) return null;
@@ -272,46 +247,17 @@ const WellnessPage: React.FC = () => {
     return { environment: environmentOptions.find(o => o.value === bestEnv)?.label || bestEnv, tasksCompleted: maxCount };
   }, [last7DaysData, environmentOptions]);
 
-  const mostEffectiveBreakEnvironment = useMemo(() => {
-    if (!last7DaysData) return null;
-    const envCounts = new Map<string, number>();
-    last7DaysData.forEach(day => day.completedBreakEnvironments.forEach(env => envCounts.set(env.environment, (envCounts.get(env.environment) || 0) + env.count)));
-    let bestEnv = '';
-    let maxCount = 0;
-    envCounts.forEach((count, env) => { if (count > maxCount) { maxCount = count; bestEnv = env; } });
-    if (!bestEnv) return null;
-    return { environment: environmentOptions.find(o => o.value === bestEnv)?.label || bestEnv, breaksCompleted: maxCount };
-  }, [last7DaysData, environmentOptions]);
-
-  const burnoutRisk = useMemo(() => {
-    if (!last7DaysData || !future7DaysData) return 'Low';
-    let riskScore = 0;
-    if (last7DaysData.filter(d => d.isOverwork).length > 0) riskScore += 3;
-    if (last7DaysData.filter(d => d.isWarning).length > 2) riskScore += 2;
-    if (future7DaysData.slice(1, 4).reduce((sum, d) => d.totalWorkMinutes > MAX_DAILY_MINUTES ? sum + 2 : (d.totalWorkMinutes > WARNING_THRESHOLD ? sum + 1 : sum), 0) >= 2) riskScore += 2;
-    return riskScore >= 5 ? 'High' : riskScore >= 2 ? 'Medium' : 'Low';
-  }, [last7DaysData, future7DaysData]);
-
   const recommendations = useMemo(() => {
     if (!last7DaysData || !future7DaysData) return [];
     const recs: string[] = [];
     if (last7DaysData.filter(d => d.isOverwork).length > 0) recs.push("You overworked recently. Consider a recovery day.");
     if (peakProductivityTime) recs.push(`You're most productive at ${peakProductivityTime.hour}:00. Schedule deep work then.`);
     if (mostEffectiveWorkEnvironment) recs.push(`Your most effective work environment is ${mostEffectiveWorkEnvironment.environment}. Try to utilize it more.`);
-    if (mostEffectiveBreakEnvironment) recs.push(`Your most effective break environment is ${mostEffectiveBreakEnvironment.environment}.`);
     if (burnoutRisk === 'High') recs.push("High burnout risk detected! Prioritize rest and reduce workload.");
     if (burnoutRisk === 'Medium') recs.push("Moderate burnout risk. Ensure you're taking enough breaks.");
     if (recs.length === 0) recs.push("Your balance looks great! Keep up the good work.");
     return recs;
-  }, [last7DaysData, future7DaysData, peakProductivityTime, mostEffectiveWorkEnvironment, mostEffectiveBreakEnvironment, burnoutRisk]);
-
-  const totalFlexibleTaskMinutes = useMemo(() => {
-    const scheduledFlexibleMinutes = dbScheduledTasks.filter(task => task.is_flexible && !task.is_locked && !task.is_completed).reduce((sum, task) => sum + (task.start_time && task.end_time ? differenceInMinutes(parseISO(task.end_time), parseISO(task.start_time)) : 30), 0);
-    const retiredTaskMinutes = retiredTasks.filter(task => !task.is_locked && !task.is_completed).reduce((sum, task) => sum + (task.duration || 30), 0);
-    return scheduledFlexibleMinutes + retiredTaskMinutes;
-  }, [dbScheduledTasks, retiredTasks]);
-
-  const daysWorthOfTasks = Math.round(totalFlexibleTaskMinutes / AVERAGE_WORK_MINUTES_PER_DAY);
+  }, [last7DaysData, future7DaysData, peakProductivityTime, mostEffectiveWorkEnvironment, burnoutRisk]);
 
   const suggestedDayOff = useMemo(() => {
     if (!profile) return null;
@@ -325,50 +271,9 @@ const WellnessPage: React.FC = () => {
     return null;
   }, [profile, skipWeekends]);
 
-  const handleSkipDayOffSuggestion = useCallback(async () => {
-    if (suggestedDayOff) {
-      await updateSkippedDayOffSuggestions(suggestedDayOff, true);
-    }
-  }, [suggestedDayOff, updateSkippedDayOffSuggestions]);
-
   if (!user) return <div className="p-8 text-center"><Button onClick={() => navigate('/login')}>Login</Button></div>;
-  if (isLoading) return (
-    <div className="space-y-8 p-8 animate-slide-in-up">
-      <Skeleton className="h-10 w-full mb-4" />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="p-4 space-y-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-8 w-24" />
-            <Skeleton className="h-3 w-40" />
-          </Card>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 p-4 h-80"><Skeleton className="h-full w-full" /></Card>
-        <Card className="p-4 h-80"><Skeleton className="h-full w-full" /></Card>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="p-4 h-64"><Skeleton className="h-full w-full" /></Card>
-        <Card className="p-4 h-64"><Skeleton className="h-full w-full" /></Card>
-      </div>
-    </div>
-  );
+  if (isLoading) return <div className="p-8 space-y-8"><Skeleton className="h-10 w-full" /><div className="grid grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div></div>;
 
-  if (!last7DaysData || last7DaysData.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
-        <CalendarOff className="h-12 w-12 text-muted-foreground opacity-50" />
-        <h2 className="text-xl font-bold">No Data Yet</h2>
-        <p className="text-muted-foreground max-w-md">
-          Start scheduling tasks in your Vibe Schedule to unlock your wellness analytics. We'll help you spot patterns and prevent burnout.
-        </p>
-        <Button onClick={() => navigate('/scheduler')}>Go to Scheduler</Button>
-      </div>
-    );
-  }
-
-  const COLORS = ['hsl(var(--primary))', 'hsl(var(--logo-orange))', 'hsl(var(--logo-green))', 'hsl(var(--accent))', 'hsl(var(--destructive))'];
   const PIE_COLORS = { 
     Work: 'hsl(var(--primary))', 
     Break: 'hsl(var(--logo-orange))', 
@@ -376,135 +281,109 @@ const WellnessPage: React.FC = () => {
     'High Priority': 'hsl(var(--destructive))',
     'Medium Priority': 'hsl(var(--logo-orange))',
     'Low Priority': 'hsl(var(--logo-green))',
-    'Net Positive': 'hsl(var(--logo-green))',
-    'Net Negative': 'hsl(var(--destructive))',
   };
 
   return (
     <div className="space-y-8 animate-slide-in-up pb-12">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+          <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
             <Activity className="h-8 w-8 text-primary" /> Wellness & Balance
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Insights to help you manage time blindness and prevent overwork.
-          </p>
+          <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">Temporal Health Matrix • Burnout Prevention</p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/scheduler')}>
-          Back to Scheduler
-        </Button>
+        <Button variant="outline" onClick={() => navigate('/scheduler')} className="rounded-xl font-black uppercase tracking-widest text-[10px]">Back to Scheduler</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
+        <Card className={cn(
+          "p-4 rounded-2xl border-none shadow-lg transition-all duration-500",
+          burnoutRisk === 'High' ? "bg-destructive/10 ring-1 ring-destructive/30" : (burnoutRisk === 'Medium' ? "bg-logo-orange/10 ring-1 ring-logo-orange/30" : "bg-card/40")
+        )}>
           <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Daily Work</CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Burnout Risk</CardTitle>
+            <ShieldAlert className={cn("h-4 w-4", burnoutRisk === 'High' ? 'text-destructive animate-pulse' : burnoutRisk === 'Medium' ? 'text-logo-orange' : 'text-logo-green')} />
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className={cn("text-3xl font-black uppercase tracking-tighter", burnoutRisk === 'High' ? "text-destructive" : burnoutRisk === 'Medium' ? "text-logo-orange" : "text-logo-green")}>
+              {burnoutRisk}
+            </div>
+            <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-1">Based on 14-day projection</p>
+          </CardContent>
+        </Card>
+
+        <Card className="p-4 bg-card/40 rounded-2xl border-none shadow-lg">
+          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Avg. Daily Work</CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-3xl font-black font-mono tracking-tighter">
               {Math.round(last7DaysData?.reduce((sum, d) => sum + d.totalWorkMinutes, 0) / 7 / 60)}h
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Target: {Math.round(MAX_DAILY_MINUTES / 60)}h
-            </div>
+            <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-1">Target: {Math.round(MAX_DAILY_MINUTES / 60)}h</p>
           </CardContent>
         </Card>
 
-        <Card className="p-4">
+        <Card className="p-4 bg-card/40 rounded-2xl border-none shadow-lg">
           <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Overwork Days</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className={cn("text-2xl font-bold", last7DaysData?.filter(d => d.isOverwork).length > 0 ? "text-destructive" : "text-foreground")}>
-              {last7DaysData?.filter(d => d.isOverwork).length}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">Last 7 Days</div>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Break Ratio</CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Break Ratio</CardTitle>
             <Coffee className="h-4 w-4 text-logo-orange" />
           </CardHeader>
           <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-3xl font-black font-mono tracking-tighter">
               {Math.round((workloadDistribution?.[1]?.value || 0) / (workloadDistribution?.reduce((a, b) => a + b.value, 0) || 1) * 100)}%
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Target: {RECOMMENDED_BREAK_RATIO * 100}%
-            </div>
+            <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-1">Target: {RECOMMENDED_BREAK_RATIO * 100}%</p>
           </CardContent>
         </Card>
 
-        <Card className="p-4">
+        <Card className="p-4 bg-card/40 rounded-2xl border-none shadow-lg">
           <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Burnout Risk</CardTitle>
-            <Flame className={cn("h-4 w-4", burnoutRisk === 'High' ? 'text-destructive' : burnoutRisk === 'Medium' ? 'text-logo-orange' : 'text-logo-green')} />
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Peak Focus</CardTitle>
+            <Clock className="h-4 w-4 text-logo-yellow" />
           </CardHeader>
           <CardContent className="p-0">
-            <div className={cn("text-2xl font-bold", burnoutRisk === 'High' ? 'text-destructive' : burnoutRisk === 'Medium' ? 'text-logo-orange' : 'text-logo-green')}>
-              {burnoutRisk}
+            <div className="text-3xl font-black uppercase tracking-tighter">
+              {peakProductivityTime ? `${peakProductivityTime.hour}:00` : 'N/A'}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Based on recent workload</div>
+            <p className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-1">{peakProductivityTime?.period || 'No data'}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 p-4">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold">Daily Workload (Last 7 Days)</CardTitle>
+        <Card className="lg:col-span-2 p-6 bg-card/40 rounded-3xl border-none shadow-xl">
+          <CardHeader className="p-0 pb-6">
+            <CardTitle className="text-lg font-black uppercase tracking-tighter text-foreground/70">Workload Projection (Last 7 Days)</CardTitle>
           </CardHeader>
           <CardContent className="p-0 h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={last7DaysData || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                  formatter={(value: number, name: string) => [`${value} min`, name === 'totalWorkMinutes' ? 'Work' : 'Break']}
-                />
-                <Legend />
-                <ReferenceLine y={MAX_DAILY_MINUTES} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label={{ value: 'Limit', position: 'top', fill: 'hsl(var(--destructive))' }} />
-                <ReferenceLine y={WARNING_THRESHOLD} stroke="hsl(var(--logo-orange))" strokeDasharray="3 3" label={{ value: 'Warning', position: 'top', fill: 'hsl(var(--logo-orange))' }} />
-                <Bar dataKey="totalWorkMinutes" stackId="a" fill="hsl(var(--primary))" name="Work" />
-                <Bar dataKey="totalBreakMinutes" stackId="a" fill="hsl(var(--logo-orange))" name="Break" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: 'none', borderRadius: '1rem', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                <Bar dataKey="totalWorkMinutes" stackId="a" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Work" />
+                <Bar dataKey="totalBreakMinutes" stackId="a" fill="hsl(var(--logo-orange))" radius={[4, 4, 0, 0]} name="Break" />
+                <ReferenceLine y={MAX_DAILY_MINUTES} stroke="hsl(var(--destructive))" strokeDasharray="5 5" label={{ value: 'Limit', position: 'top', fill: 'hsl(var(--destructive))', fontSize: 10, fontWeight: 'bold' }} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold">Work vs. Personal Time</CardTitle>
+        <Card className="p-6 bg-card/40 rounded-3xl border-none shadow-xl">
+          <CardHeader className="p-0 pb-6">
+            <CardTitle className="text-lg font-black uppercase tracking-tighter text-foreground/70">Time Allocation</CardTitle>
           </CardHeader>
           <CardContent className="p-0 h-[300px] flex items-center justify-center">
             {workPersonalDistribution && (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={workPersonalDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {workPersonalDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || COLORS[index % COLORS.length]} />
-                    ))}
+                  <Pie data={workPersonalDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value" stroke="none">
+                    {workPersonalDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS]} />)}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                    formatter={(value: number, name: string) => [`${value} min`, name]}
-                  />
+                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none' }} />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -513,198 +392,44 @@ const WellnessPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold">Daily Energy Balance (Last 7 Days)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyEnergyBalanceData || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorEnergy" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--logo-green))" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0.8}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="dayName" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" label={{ value: 'Net Energy', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                  formatter={(value: number) => [`${value}⚡`, 'Net Energy']}
-                />
-                <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
-                <Area 
-                  type="monotone" 
-                  dataKey="netEnergy"
-                  stroke="hsl(var(--primary))" 
-                  fillOpacity={1} 
-                  fill="url(#colorEnergy)" 
-                  name="Net Energy"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold">Workload by Priority</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 h-[300px] flex items-center justify-center">
-            {workloadByPriorityData && (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={workloadByPriorityData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {workloadByPriorityData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name as keyof typeof PIE_COLORS] || COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
-                    formatter={(value: number, name: string) => [`${value} tasks`, name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Flexible Tasks in Queue</CardTitle>
-            <ListTodo className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
-              {totalFlexibleTaskMinutes} min
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              ~{daysWorthOfTasks} days of work
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Peak Productivity</CardTitle>
-            <Clock className="h-4 w-4 text-logo-yellow" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
-              {peakProductivityTime ? `${peakProductivityTime.hour}:00 (${peakProductivityTime.period})` : 'N/A'}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {peakProductivityTime ? `${peakProductivityTime.tasksCompleted} tasks completed` : 'No data'}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Most Effective Work Zone</CardTitle>
-            <Briefcase className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
-              {mostEffectiveWorkEnvironment?.environment || 'N/A'}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {mostEffectiveWorkEnvironment ? `${mostEffectiveWorkEnvironment.tasksCompleted} tasks completed` : 'No data'}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Most Effective Break Zone</CardTitle>
-            <Coffee className="h-4 w-4 text-logo-orange" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="text-2xl font-bold text-foreground">
-              {mostEffectiveBreakEnvironment?.environment || 'N/A'}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {mostEffectiveBreakEnvironment ? `${mostEffectiveBreakEnvironment.breaksCompleted} breaks taken` : 'No data'}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="p-4">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-primary" /> AI Suggestions
+        <Card className="p-6 bg-card/40 rounded-3xl border-none shadow-xl">
+          <CardHeader className="p-0 pb-6">
+            <CardTitle className="text-lg font-black uppercase tracking-tighter text-foreground/70 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-primary" /> AI Wellness Insights
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <ul className="space-y-3">
               {recommendations.map((rec, index) => (
-                <li key={index} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/30 border border-white/5">
-                  <span className="text-primary mt-1">•</span>
-                  <span className="text-sm text-foreground">{rec}</span>
+                <li key={index} className="flex items-start gap-4 p-4 rounded-2xl bg-secondary/20 border border-white/5 transition-all hover:bg-secondary/30">
+                  <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                  <span className="text-sm font-bold text-foreground/80 leading-relaxed">{rec}</span>
                 </li>
               ))}
             </ul>
           </CardContent>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
-          <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-primary">
-              <Moon className="h-5 w-5" /> Recommended Day Off
+        <Card className="p-6 bg-gradient-to-br from-primary/10 to-accent/10 rounded-3xl border-none shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10"><Moon className="h-24 w-24" /></div>
+          <CardHeader className="p-0 pb-6">
+            <CardTitle className="text-lg font-black uppercase tracking-tighter text-primary flex items-center gap-2">
+              <Moon className="h-5 w-5" /> Recommended Recovery Day
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={skipWeekends}
-                  onCheckedChange={setSkipWeekends}
-                  id="skip-weekends"
-                />
-                <label htmlFor="skip-weekends" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Skip Weekends
-                </label>
-              </div>
-              {suggestedDayOff && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleSkipDayOffSuggestion}
-                  className="text-muted-foreground hover:text-primary"
-                >
-                  <SkipForward className="h-4 w-4 mr-1" /> Skip Suggestion
-                </Button>
-              )}
-            </div>
+          <CardContent className="p-0 space-y-6 relative z-10">
             {suggestedDayOff ? (
               <>
-                <p className="text-sm text-foreground">
-                  Based on your upcoming workload, we recommend scheduling a day off on <span className="font-bold text-primary">{format(parseISO(suggestedDayOff), 'EEEE, MMMM do')}</span>.
+                <p className="text-sm font-bold text-foreground/70 leading-relaxed">
+                  Based on your upcoming workload density, we recommend scheduling a full recovery day on <span className="text-primary font-black">{format(parseISO(suggestedDayOff), 'EEEE, MMMM do')}</span>.
                 </p>
-                <Button onClick={() => {
-                  navigate('/settings');
-                }}>
-                  Block This Day
-                </Button>
+                <div className="flex items-center gap-4">
+                  <Button onClick={() => navigate('/settings')} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-10 px-6">Block This Day</Button>
+                  <Button variant="ghost" size="sm" onClick={handleSkipDayOffSuggestion} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 hover:text-primary">Skip Suggestion</Button>
+                </div>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Keep scheduling tasks to get a personalized day-off recommendation.
-              </p>
+              <p className="text-sm font-bold text-muted-foreground/40 uppercase tracking-widest">Timeline optimized. No recovery days required.</p>
             )}
           </CardContent>
         </Card>

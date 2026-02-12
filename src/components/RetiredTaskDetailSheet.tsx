@@ -47,6 +47,7 @@ const formSchema = z.object({
   is_critical: z.boolean().default(false),
   is_backburner: z.boolean().default(false),
   is_completed: z.boolean().default(false),
+  is_locked: z.boolean().default(false),
   energy_cost: z.coerce.number().default(0), 
   is_custom_energy_cost: z.boolean().default(false),
   task_environment: z.string().default('laptop'),
@@ -75,7 +76,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus, addRetiredTask } = useRetiredTasks(); 
+  const { updateRetiredTaskDetails, completeRetiredTask, updateRetiredTaskStatus, addRetiredTask, toggleRetiredTaskLock } = useRetiredTasks(); 
   const { environments, isLoading: isLoadingEnvironments } = useEnvironments();
   const [calculatedEnergyCost, setCalculatedEnergyCost] = useState(0);
 
@@ -88,6 +89,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
       is_critical: false,
       is_backburner: false,
       is_completed: false,
+      is_locked: false,
       energy_cost: 0,
       is_custom_energy_cost: false,
       task_environment: 'laptop',
@@ -105,6 +107,7 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         is_critical: task.is_critical,
         is_backburner: task.is_backburner,
         is_completed: task.is_completed,
+        is_locked: task.is_locked,
         energy_cost: task.energy_cost,
         is_custom_energy_cost: task.is_custom_energy_cost,
         task_environment: task.task_environment,
@@ -137,6 +140,11 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
         if (values.is_completed) await completeRetiredTask(task);
         else await updateRetiredTaskStatus({ taskId: task.id, isCompleted: false });
       }
+      
+      if (values.is_locked !== task.is_locked) {
+        await toggleRetiredTaskLock({ taskId: task.id, isLocked: values.is_locked });
+      }
+
       await updateRetiredTaskDetails({
         id: task.id,
         name: values.name,
@@ -311,6 +319,22 @@ const RetiredTaskDetailSheet: React.FC<RetiredTaskDetailSheetProps> = ({
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <FormLabel>Completed</FormLabel>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="is_locked"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4 text-primary" />
+                        <FormLabel>Locked Task</FormLabel>
+                      </div>
                       <FormControl>
                         <Switch checked={field.value} onCheckedChange={field.onChange} />
                       </FormControl>

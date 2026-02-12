@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
-import { Trash2, RotateCcw, Ghost, Plus, CheckCircle, List, LayoutDashboard, Loader2, Star, Briefcase, Coffee, Trash, ArrowUpToLine } from 'lucide-react'; 
+import { Trash2, RotateCcw, Ghost, Plus, CheckCircle, List, LayoutDashboard, Loader2, Star, Briefcase, Coffee, Trash, ArrowUpToLine, Lock, Unlock } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,7 @@ interface AetherSinkProps {
 }
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ 
-  retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, profile, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, updateRetiredTaskDetails, bulkRemoveRetiredTasks,
+  retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, profile, addRetiredTask, toggleRetiredTaskLock, completeRetiredTask, updateRetiredTaskStatus, updateRetiredTaskDetails, bulkRemoveRetiredTasks,
 }) => {
   const { user } = useSession();
   const { viewMode, groupBy, showEmptyColumns, setViewMode } = useSinkView();
@@ -121,6 +121,22 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Complete Task</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              toggleRetiredTaskLock({ taskId: task.id, isLocked: !task.is_locked }); 
+                            }} 
+                            className={cn("h-8 w-8", task.is_locked ? "text-primary" : "text-muted-foreground/30")}
+                          >
+                            {task.is_locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{task.is_locked ? "Unlock Task" : "Lock Task"}</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>

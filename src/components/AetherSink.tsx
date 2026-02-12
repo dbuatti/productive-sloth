@@ -1,25 +1,19 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { RetiredTask, NewRetiredTask, RetiredTaskSortBy, NewDBScheduledTask } from '@/types/scheduler';
-import { Trash2, RotateCcw, Ghost, Sparkles, Database, Lock, Unlock, Zap, Plus, CheckCircle, List, LayoutDashboard, History, RefreshCcw, Eye, EyeOff, Loader2, Star, Briefcase, Coffee, Trash, ArrowUpToLine } from 'lucide-react'; 
-import { format, addMinutes, parseISO, isSameDay, max, differenceInMinutes, startOfDay, isBefore, addDays, addHours } from 'date-fns';
+import React, { useState, useCallback } from 'react';
+import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
+import { Trash2, RotateCcw, Ghost, Plus, CheckCircle, List, LayoutDashboard, Loader2, Star, Briefcase, Coffee, Trash, ArrowUpToLine } from 'lucide-react'; 
+import { format, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import RetiredTaskDetailSheet from './RetiredTaskDetailSheet'; 
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel, } from '@/components/ui/dropdown-menu';
-import { useSinkView, SinkViewMode } from '@/hooks/use-sink-view';
+import { useSinkView } from '@/hooks/use-sink-view';
 import { UserProfile, useSession } from '@/hooks/use-session';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAetherSinkSnapshots } from '@/hooks/use-aether-sink-snapshots';
-import { useEnvironments } from '@/hooks/use-environments';
-import { parseSinkTaskInput, getEmojiHue, assignEmoji, getStaticConstraints, mergeOverlappingTimeBlocks, findFirstAvailableSlot, setTimeOnDate } from '@/lib/scheduler-utils';
+import { parseSinkTaskInput, getEmojiHue, assignEmoji } from '@/lib/scheduler-utils';
 import { showError, showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import SinkKanbanBoard from './SinkKanbanBoard';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useSchedulerTasks } from '@/hooks/use-scheduler-tasks';
 
 interface AetherSinkProps {
   retiredTasks: RetiredTask[];
@@ -28,7 +22,6 @@ interface AetherSinkProps {
   onRezoneTask: (task: RetiredTask) => Promise<void>;
   onAutoScheduleSink: () => Promise<void>;
   isProcessingCommand: boolean;
-  setIsProcessingCommand: React.Dispatch<React.SetStateAction<boolean>>;
   profile: UserProfile | null;
   retiredSortBy: RetiredTaskSortBy;
   setRetiredSortBy: (sortBy: RetiredTaskSortBy) => void;
@@ -37,22 +30,17 @@ interface AetherSinkProps {
   completeRetiredTask: (task: RetiredTask) => Promise<void>;
   updateRetiredTaskStatus: ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => Promise<void>;
   updateRetiredTaskDetails: (task: Partial<RetiredTask> & { id: string }) => Promise<RetiredTask | undefined>;
-  triggerAetherSinkBackup: () => Promise<void>;
   bulkRemoveRetiredTasks: (ids: string[]) => Promise<void>;
 }
 
 const AetherSink: React.FC<AetherSinkProps> = React.memo(({ 
-  retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, profile, retiredSortBy, setRetiredSortBy, addRetiredTask, toggleRetiredTaskLock, completeRetiredTask, updateRetiredTaskStatus, updateRetiredTaskDetails, triggerAetherSinkBackup, bulkRemoveRetiredTasks,
+  retiredTasks, onRezoneTask, onRemoveRetiredTask, onAutoScheduleSink, isLoading, isProcessingCommand, profile, addRetiredTask, completeRetiredTask, updateRetiredTaskStatus, updateRetiredTaskDetails, bulkRemoveRetiredTasks,
 }) => {
   const { user } = useSession();
-  const { snapshots, restoreSnapshot, deleteSnapshot } = useAetherSinkSnapshots();
-  const { viewMode, groupBy, showEmptyColumns, setViewMode, setGroupBy, setShowEmptyColumns } = useSinkView();
+  const { viewMode, groupBy, showEmptyColumns, setViewMode } = useSinkView();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
   const [localInput, setLocalInput] = useState('');
-
-  const todayString = format(new Date(), 'yyyy-MM-dd');
-  const { bulkAddScheduledTasks, dbScheduledTasks } = useSchedulerTasks(todayString);
 
   const handleToggleComplete = async (task: RetiredTask) => {
     if (task.is_locked) return showError(`Unlock "${task.name}" first.`);
@@ -68,171 +56,61 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     setLocalInput('');
   };
 
-  const handlePurgeAllUnlocked = async () => {
-    const unlockedIds = retiredTasks.filter(t => !t.is_locked).map(t => t.id);
-    if (unlockedIds.length === 0) return showSuccess("No unlocked objectives to purge.");
-    await bulkRemoveRetiredTasks(unlockedIds);
-    showSuccess(`Purged ${unlockedIds.length} objectives.`);
-  };
-
-  const handleRestoreAllUnlocked = async () => {
-    const unlocked = retiredTasks.filter(t => !t.is_locked);
-    if (unlocked.length === 0) return showSuccess("No unlocked objectives to restore.");
-    if (!profile) return;
-
-    const targetDayAsDate = parseISO(todayString);
-    const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDayAsDate);
-    let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDayAsDate), 17);
-    if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
-
-    const staticConstraints = getStaticConstraints(profile, targetDayAsDate, workdayStart, workdayEnd);
-    let occupied = mergeOverlappingTimeBlocks([
-      ...dbScheduledTasks.filter(t => t.start_time && t.end_time).map(t => ({
-        start: parseISO(t.start_time!),
-        end: parseISO(t.end_time!),
-        duration: differenceInMinutes(parseISO(t.end_time!), parseISO(t.start_time!))
-      })),
-      ...staticConstraints
-    ]);
-
-    let cursor = isSameDay(targetDayAsDate, new Date()) ? max([new Date(), workdayStart]) : workdayStart;
-    const tasksToInsert: NewDBScheduledTask[] = [];
-    const restoredIds: string[] = [];
-
-    for (const t of unlocked) {
-      const dur = (t.duration || 30) + (t.break_duration || 0);
-      const slot = findFirstAvailableSlot(dur, occupied, cursor, workdayEnd);
-      if (slot) {
-        tasksToInsert.push({
-          name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(),
-          break_duration: t.break_duration || undefined, scheduled_date: todayString,
-          is_critical: t.is_critical, is_flexible: true, is_locked: false, energy_cost: t.energy_cost,
-          is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment,
-          is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break
-        });
-        restoredIds.push(t.id);
-        cursor = slot.end;
-        occupied.push({ start: slot.start, end: slot.end, duration: dur });
-        occupied = mergeOverlappingTimeBlocks(occupied);
-      }
-    }
-
-    if (tasksToInsert.length > 0) {
-      await bulkAddScheduledTasks(tasksToInsert);
-      await bulkRemoveRetiredTasks(restoredIds);
-      showSuccess(`Restored ${tasksToInsert.length} objectives to timeline.`);
-    } else {
-      showError("No available slots in today's timeline.");
-    }
-  };
-
   return (
     <div className="w-full space-y-8 animate-pop-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 shadow-inner">
-            <Trash2 className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter">Aether Sink</h1>
-            <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Temporal Holding Area • {retiredTasks.length} Objectives</p>
-          </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Archive</h1>
+          <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">{retiredTasks.length}</span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex bg-secondary/40 p-1 rounded-xl border border-white/5">
-            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-8 rounded-lg gap-2 text-[10px] font-black uppercase tracking-widest"><List className="h-3.5 w-3.5" /> List</Button>
-            <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('kanban')} className="h-8 rounded-lg gap-2 text-[10px] font-black uppercase tracking-widest"><LayoutDashboard className="h-3.5 w-3.5" /> Board</Button>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-secondary p-1 rounded-lg">
+            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-7 px-3 text-[11px] font-bold uppercase tracking-tight">List</Button>
+            <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('kanban')} className="h-7 px-3 text-[11px] font-bold uppercase tracking-tight">Board</Button>
           </div>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={handleRestoreAllUnlocked} disabled={isProcessingCommand || retiredTasks.length === 0} className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-xl text-primary border-primary/20 hover:bg-primary/5">
-                <ArrowUpToLine className="h-4 w-4 mr-2" /> Restore All
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Move all unlocked objectives back to timeline</TooltipContent>
-          </Tooltip>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" disabled={isProcessingCommand || retiredTasks.length === 0} className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-xl text-destructive border-destructive/20 hover:bg-destructive/5">
-                <Trash className="h-4 w-4 mr-2" /> Purge Unlocked
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Purge Unlocked Objectives?</AlertDialogTitle>
-                <AlertDialogDescription>This will permanently delete all objectives in the Sink that are not locked. This action cannot be undone.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handlePurgeAllUnlocked} className="bg-destructive hover:bg-destructive/90">Confirm Purge</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          <Button variant="aether" size="sm" onClick={onAutoScheduleSink} disabled={isProcessingCommand || retiredTasks.length === 0} className="h-10 px-4 font-black uppercase tracking-widest text-[10px] rounded-xl shadow-lg shadow-primary/20"><Sparkles className="h-4 w-4 mr-2" /> Auto Sync</Button>
+          <Button variant="outline" size="sm" onClick={onAutoScheduleSink} disabled={isProcessingCommand || retiredTasks.length === 0} className="h-9 px-4 text-[11px] font-bold uppercase tracking-tight">Auto Schedule</Button>
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {viewMode === 'list' && (
-          <form onSubmit={handleQuickAdd} className="flex gap-2 glass-card p-2 rounded-2xl shadow-lg">
-            <Input placeholder="Inject objective: Name [dur] [!] [-] [W] [B]..." value={localInput} onChange={(e) => setLocalInput(e.target.value)} className="flex-grow h-12 bg-transparent font-bold placeholder:font-medium placeholder:opacity-30 border-none focus-visible:ring-0" />
-            <Button type="submit" disabled={!localInput.trim() || isProcessingCommand} className="h-12 w-12 rounded-xl shadow-md"><Plus className="h-5 w-5" /></Button>
+          <form onSubmit={handleQuickAdd} className="flex gap-2">
+            <Input placeholder="Add to archive..." value={localInput} onChange={(e) => setLocalInput(e.target.value)} className="flex-grow h-10 bg-muted/50 border-none focus-visible:ring-1" />
+            <Button type="submit" disabled={!localInput.trim() || isProcessingCommand} size="icon" className="h-10 w-10 rounded-lg"><Plus className="h-5 w-5" /></Button>
           </form>
         )}
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-40" /><p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50">Synchronizing Sink...</p></div>
+          <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin opacity-20" /></div>
         ) : retiredTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center gap-6 border-2 border-dashed border-white/5 rounded-3xl bg-secondary/5 animate-pop-in">
-            <div className="p-6 rounded-full bg-secondary/20"><Ghost className="h-12 w-12 text-muted-foreground/20" /></div>
-            <div className="space-y-2">
-              <p className="text-lg font-black uppercase tracking-tighter text-muted-foreground/60">Aether Sink Vacant</p>
-              <p className="text-xs font-bold text-muted-foreground/30 uppercase tracking-widest max-w-[250px] mx-auto">Objectives will manifest here upon retirement from the timeline.</p>
-            </div>
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border border-dashed rounded-xl bg-muted/20">
+            <Ghost className="h-8 w-8 mb-3 opacity-20" />
+            <p className="text-sm font-medium">Archive is empty</p>
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
             {viewMode === 'list' ? (
-              <div className="grid gap-3">
-                {retiredTasks.map((task) => {
-                  const hue = getEmojiHue(task.name);
-                  const accentColor = `hsl(${hue} 70% 50%)`;
-                  return (
-                    <motion.div 
-                      key={task.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-                      onClick={() => { setSelectedRetiredTask(task); setIsDialogOpen(true); }}
-                      className={cn("group relative flex items-center justify-between p-4 rounded-2xl border-none transition-all duration-300 cursor-pointer bg-card/40 hover:bg-secondary/40 shadow-sm", task.is_locked && "bg-primary/[0.03]", task.is_completed && "opacity-40 grayscale")}
-                      style={{ borderLeft: `4px solid ${task.is_locked ? 'hsl(var(--primary))' : accentColor}` }}
-                    >
-                      <div className="flex items-center gap-4 flex-grow min-w-0">
-                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleToggleComplete(task); }} className={cn("h-10 w-10 shrink-0 rounded-full", task.is_completed ? "text-logo-green bg-logo-green/10" : "bg-secondary/50 text-muted-foreground/30 hover:text-logo-green")}>
-                          <CheckCircle className="h-6 w-6" />
-                        </Button>
-                        <div className="min-w-0 flex-grow">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-2xl shrink-0 group-hover:scale-125 transition-transform duration-500">{assignEmoji(task.name)}</span>
-                            <span className={cn("font-black uppercase tracking-tighter truncate text-base", task.is_completed && "line-through")}>{task.name}</span>
-                          </div>
-                          <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground/60">
-                            {task.is_critical && <Star className="h-3 w-3 fill-logo-yellow text-logo-yellow" />}
-                            {task.is_work && <Briefcase className="h-3 w-3 text-primary" />}
-                            {task.is_break && <Coffee className="h-3 w-3 text-logo-orange" />}
-                            <span>{task.duration}m</span>
-                            <span>{task.energy_cost}⚡</span>
-                          </div>
-                        </div>
+              <div className="space-y-1">
+                {retiredTasks.map((task) => (
+                  <motion.div 
+                    key={task.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    onClick={() => { setSelectedRetiredTask(task); setIsDialogOpen(true); }}
+                    className={cn("group flex items-center justify-between p-3 rounded-xl hover:bg-secondary/50 transition-colors cursor-pointer", task.is_completed && "opacity-40")}
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <span className="text-2xl shrink-0">{assignEmoji(task.name)}</span>
+                      <div className="min-w-0">
+                        <p className={cn("font-semibold text-sm truncate", task.is_completed && "line-through")}>{task.name}</p>
+                        <p className="text-[10px] font-medium text-muted-foreground">{task.duration}m • {task.energy_cost}⚡</p>
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRezoneTask(task); }} className="h-9 w-9 text-primary/60 hover:text-primary"><RotateCcw className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRemoveRetiredTask(task.id, task.name); }} className="h-9 w-9 text-destructive/40 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRezoneTask(task); }} className="h-8 w-8"><RotateCcw className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRemoveRetiredTask(task.id, task.name); }} className="h-8 w-8 text-destructive/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             ) : (
               <SinkKanbanBoard retiredTasks={retiredTasks} groupBy={groupBy} showEmptyColumns={showEmptyColumns} onRemoveRetiredTask={onRemoveRetiredTask} onRezoneTask={onRezoneTask} updateRetiredTask={async (updates) => { await updateRetiredTaskDetails(updates); }} onOpenDetailDialog={(t) => { setSelectedRetiredTask(t); setIsDialogOpen(true); }} />

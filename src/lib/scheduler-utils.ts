@@ -159,7 +159,8 @@ export const parseSinkTaskInput = (input: string, userId: string): NewRetiredTas
   let isWork = false; 
   let isBreak = false; 
 
-  if (name.endsWith(' !')) { isCritical = true; name = name.slice(0, -2).trim(); }
+  // Improved flag detection (case insensitive and more flexible)
+  if (name.toLowerCase().endsWith(' !')) { isCritical = true; name = name.slice(0, -2).trim(); }
   if (name.startsWith('-')) { isBackburner = true; name = name.slice(1).trim(); }
   if (name.toLowerCase().endsWith(' w')) { isWork = true; name = name.slice(0, -2).trim(); }
   if (name.toLowerCase().endsWith(' b')) { isBreak = true; name = name.slice(0, -2).trim(); }
@@ -200,11 +201,15 @@ export const parseTaskInput = (input: string, selectedDayDate: Date): {
   let startTime: Date | null = null;
   let endTime: Date | null = null;
 
+  // Improved flag detection
   if (remainingText.startsWith('!')) { isCritical = true; remainingText = remainingText.substring(1).trim(); }
   if (remainingText.startsWith('-')) { isBackburner = true; remainingText = remainingText.substring(1).trim(); }
-  if (remainingText.toLowerCase().endsWith(' sink')) { shouldSink = true; remainingText = remainingText.substring(0, remainingText.length - 5).trim(); }
-  if (remainingText.toLowerCase().endsWith(' w')) { isWork = true; remainingText = remainingText.substring(0, remainingText.length - 2).trim(); }
-  if (remainingText.toLowerCase().endsWith(' b')) { isBreak = true; remainingText = remainingText.substring(0, remainingText.length - 2).trim(); }
+  
+  // Suffix flags
+  const lowerText = remainingText.toLowerCase();
+  if (lowerText.endsWith(' sink')) { shouldSink = true; remainingText = remainingText.substring(0, remainingText.length - 5).trim(); }
+  else if (lowerText.endsWith(' w')) { isWork = true; remainingText = remainingText.substring(0, remainingText.length - 2).trim(); }
+  else if (lowerText.endsWith(' b')) { isBreak = true; remainingText = remainingText.substring(0, remainingText.length - 2).trim(); }
 
   const timeRangeMatch = remainingText.match(/(.*?)\s+(\d{1,2}(:\d{2})?\s*(am|pm)?)\s*-\s*(\d{1,2}(:\d{2})?\s*(am|pm)?)$/i);
   if (timeRangeMatch) {

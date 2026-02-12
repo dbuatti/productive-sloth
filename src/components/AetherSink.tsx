@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { RetiredTask, NewRetiredTask, RetiredTaskSortBy } from '@/types/scheduler';
-import { Trash2, RotateCcw, Ghost, Plus, CheckCircle, List, LayoutDashboard, Loader2, Star, Briefcase, Coffee, Trash, ArrowUpToLine, Lock, Unlock } from 'lucide-react'; 
+import { Trash2, RotateCcw, Ghost, Plus, CheckCircle, List, LayoutDashboard, Loader2, Star, Briefcase, Coffee, Trash, ArrowUpToLine, Lock, Unlock, Search, X } from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,17 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRetiredTask, setSelectedRetiredTask] = useState<RetiredTask | null>(null);
   const [localInput, setLocalInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isPurgeDialogOpen, setIsPurgeDialogOpen] = useState(false);
+
+  const filteredTasks = useMemo(() => {
+    if (!searchQuery.trim()) return retiredTasks;
+    const query = searchQuery.toLowerCase();
+    return retiredTasks.filter(task => 
+      task.name.toLowerCase().includes(query) || 
+      (task.task_environment && task.task_environment.toLowerCase().includes(query))
+    );
+  }, [retiredTasks, searchQuery]);
 
   const handleToggleComplete = async (task: RetiredTask) => {
     if (task.is_locked) return showError(`Unlock "${task.name}" first.`);
@@ -56,12 +67,27 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
     setLocalInput('');
   };
 
+  const handlePurgeUnlocked = async () => {
+    const unlockedIds = retiredTasks.filter(t => !t.is_locked).map(t => t.id);
+    if (unlockedIds.length === 0) return showSuccess("No unlocked tasks to purge.");
+    
+    try {
+      await bulkRemoveRetiredTasks(unlockedIds);
+      showSuccess(`Purged ${unlockedIds.length} unlocked objectives.`);
+      setIsPurgeDialogOpen(false);
+    } catch (e: any) {
+      showError(`Purge failed: ${e.message}`);
+    }
+  };
+
   return (
     <div className="w-full space-y-8 animate-pop-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Archive</h1>
-          <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">{retiredTasks.length}</span>
+          <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+            {filteredTasks.length} {searchQuery && `of ${retiredTasks.length}`}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -69,30 +95,73 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
             <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-7 px-3 text-[11px] font-bold uppercase tracking-tight">List</Button>
             <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('kanban')} className="h-7 px-3 text-[11px] font-bold uppercase tracking-tight">Board</Button>
           </div>
+          
+          <AlertDialog open={isPurgeDialogOpen} onOpenChange={setIsPurgeDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 px-3 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20">
+                <Trash className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Purge Unlocked Objectives?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete all objectives in the archive that are NOT locked. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handlePurgeUnlocked} className="bg-destructive hover:bg-destructive/90">Purge Archive</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <Button variant="outline" size="sm" onClick={onAutoScheduleSink} disabled={isProcessingCommand || retiredTasks.length === 0} className="h-9 px-4 text-[11px] font-bold uppercase tracking-tight">Auto Schedule</Button>
         </div>
       </div>
 
       <div className="space-y-4">
-        {viewMode === 'list' && (
-          <form onSubmit={handleQuickAdd} className="flex gap-2">
-            <Input placeholder="Add to archive..." value={localInput} onChange={(e) => setLocalInput(e.target.value)} className="flex-grow h-10 bg-muted/50 border-none focus-visible:ring-1" />
-            <Button type="submit" disabled={!localInput.trim() || isProcessingCommand} size="icon" className="h-10 w-10 rounded-lg"><Plus className="h-5 w-5" /></Button>
-          </form>
-        )}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
+            <Input 
+              placeholder="Search archive..." 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              className="pl-9 h-10 bg-muted/30 border-none focus-visible:ring-1"
+            />
+            {searchQuery && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground/40 hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          
+          {viewMode === 'list' && (
+            <form onSubmit={handleQuickAdd} className="flex gap-2 sm:w-1/3">
+              <Input placeholder="Quick add..." value={localInput} onChange={(e) => setLocalInput(e.target.value)} className="flex-grow h-10 bg-muted/50 border-none focus-visible:ring-1" />
+              <Button type="submit" disabled={!localInput.trim() || isProcessingCommand} size="icon" className="h-10 w-10 rounded-lg shrink-0"><Plus className="h-5 w-5" /></Button>
+            </form>
+          )}
+        </div>
 
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin opacity-20" /></div>
-        ) : retiredTasks.length === 0 ? (
+        ) : filteredTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border border-dashed rounded-xl bg-muted/20">
             <Ghost className="h-8 w-8 mb-3 opacity-20" />
-            <p className="text-sm font-medium">Archive is empty</p>
+            <p className="text-sm font-medium">{searchQuery ? "No matches found" : "Archive is empty"}</p>
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
             {viewMode === 'list' ? (
               <div className="space-y-1">
-                {retiredTasks.map((task) => (
+                {filteredTasks.map((task) => (
                   <motion.div 
                     key={task.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={() => { setSelectedRetiredTask(task); setIsDialogOpen(true); }}
@@ -155,7 +224,7 @@ const AetherSink: React.FC<AetherSinkProps> = React.memo(({
                 ))}
               </div>
             ) : (
-              <SinkKanbanBoard retiredTasks={retiredTasks} groupBy={groupBy} showEmptyColumns={showEmptyColumns} onRemoveRetiredTask={onRemoveRetiredTask} onRezoneTask={onRezoneTask} updateRetiredTask={async (updates) => { await updateRetiredTaskDetails(updates); }} onOpenDetailDialog={(t) => { setSelectedRetiredTask(t); setIsDialogOpen(true); }} />
+              <SinkKanbanBoard retiredTasks={filteredTasks} groupBy={groupBy} showEmptyColumns={showEmptyColumns} onRemoveRetiredTask={onRemoveRetiredTask} onRezoneTask={onRezoneTask} updateRetiredTask={async (updates) => { await updateRetiredTaskDetails(updates); }} onOpenDetailDialog={(t) => { setSelectedRetiredTask(t); setIsDialogOpen(true); }} />
             )}
           </AnimatePresence>
         )}

@@ -4,7 +4,8 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { format, addDays, isToday, parseISO, subDays, startOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, CalendarDays } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CalendarStripProps {
   selectedDay: string; 
@@ -27,8 +28,7 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Center the selected day on mount and when selectedDay changes
-  useEffect(() => {
+  const centerSelectedDay = (behavior: ScrollBehavior = 'smooth') => {
     if (scrollContainerRef.current) {
       const selectedDayElement = scrollContainerRef.current.querySelector(
         `[data-date="${selectedDay}"]`
@@ -36,12 +36,17 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
 
       if (selectedDayElement) {
         selectedDayElement.scrollIntoView({
-          behavior: 'smooth',
+          behavior,
           inline: 'center',
           block: 'nearest'
         });
       }
     }
+  };
+
+  // Center the selected day on mount and when selectedDay changes
+  useEffect(() => {
+    centerSelectedDay(selectedDay === format(new Date(), 'yyyy-MM-dd') ? 'smooth' : 'auto');
   }, [selectedDay]);
 
   const days = useMemo(() => {
@@ -90,46 +95,71 @@ const CalendarStrip: React.FC<CalendarStripProps> = React.memo(({
     }
   };
 
+  const handleGoToToday = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    setSelectedDay(today);
+  };
+
   return (
-    <div className="relative flex items-center w-full group">
-      {/* Left Navigation Button */}
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={() => scroll('left')} 
-        className="absolute left-0 z-20 h-12 w-8 bg-background/80 backdrop-blur-sm border-r border-border/50 rounded-r-xl opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
+    <div className="relative flex items-center w-full group gap-2">
+      {/* Today Button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={handleGoToToday}
+            className={cn(
+              "h-12 w-12 shrink-0 rounded-2xl border-white/5 bg-background/50 transition-all",
+              isToday(parseISO(selectedDay)) ? "text-primary border-primary/30" : "text-muted-foreground opacity-60 hover:opacity-100"
+            )}
+          >
+            <CalendarDays className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Jump to Today</TooltipContent>
+      </Tooltip>
 
-      {/* Scrollable Container */}
-      <div 
-        ref={scrollContainerRef}
-        className={cn(
-          "flex-1 flex overflow-x-auto scrollbar-none gap-2 py-2 px-4 select-none",
-          "snap-x snap-mandatory scroll-smooth"
-        )}
-      >
-        {isLoadingDatesWithTasks ? (
-          <div className="flex items-center justify-center w-full h-16">
-            <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
-          </div>
-        ) : (
-          <div className="flex gap-2 flex-nowrap">
-            {days}
-          </div>
-        )}
+      <div className="relative flex-1 flex items-center overflow-hidden rounded-2xl bg-secondary/20 border border-white/5">
+        {/* Left Navigation Button */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => scroll('left')} 
+          className="absolute left-0 z-20 h-full w-8 bg-background/40 backdrop-blur-sm border-r border-white/5 rounded-none opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+
+        {/* Scrollable Container */}
+        <div 
+          ref={scrollContainerRef}
+          className={cn(
+            "flex-1 flex overflow-x-auto scrollbar-none gap-2 py-2 px-4 select-none",
+            "snap-x snap-mandatory scroll-smooth"
+          )}
+        >
+          {isLoadingDatesWithTasks ? (
+            <div className="flex items-center justify-center w-full h-12">
+              <Loader2 className="h-5 w-5 animate-spin text-primary/30" />
+            </div>
+          ) : (
+            <div className="flex gap-2 flex-nowrap">
+              {days}
+            </div>
+          )}
+        </div>
+
+        {/* Right Navigation Button */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => scroll('right')} 
+          className="absolute right-0 z-20 h-full w-8 bg-background/40 backdrop-blur-sm border-l border-white/5 rounded-none opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
-
-      {/* Right Navigation Button */}
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={() => scroll('right')} 
-        className="absolute right-0 z-20 h-12 w-8 bg-background/80 backdrop-blur-sm border-l border-border/50 rounded-l-xl opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
     </div>
   );
 });

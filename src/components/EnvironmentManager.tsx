@@ -325,7 +325,7 @@ const EnvironmentManager: React.FC = () => {
       {/* --- 1. STICKY DYNAMIC BUDGET HEADER --- */}
       <div className="sticky top-0 z-30 pt-4 pb-6 bg-background/80 backdrop-blur-xl -mx-4 px-4 border-b border-white/5">
         <Card className="p-4 bg-background/40 border-white/10 shadow-xl overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5" />
+          {/* Removed Gradient Overlay */}
           <div className="relative flex items-center justify-between mb-4">
              <div className="space-y-1">
                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
@@ -358,7 +358,7 @@ const EnvironmentManager: React.FC = () => {
 
                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm" variant="aether" className="h-8 px-4 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(var(--primary),0.3)]">
+                    <Button size="sm" variant="aether" className="h-8 px-4 text-[10px] font-black uppercase tracking-widest shadow-md">
                       <Plus className="h-3.5 w-3.5 mr-1" /> Add Zone
                     </Button>
                   </DialogTrigger>
@@ -515,7 +515,7 @@ const EnvironmentManager: React.FC = () => {
       </div>
 
       {/* --- 4. BLUEPRINT INTERACTION --- */}
-      <Card className="p-5 bg-gradient-to-br from-primary/[0.03] to-secondary/[0.03] border-primary/10 rounded-2xl">
+      <Card className="p-5 bg-secondary/5 border-primary/10 rounded-2xl">
          <CardHeader className="p-0 pb-4">
            <div className="flex items-center justify-between">
              <div className="space-y-1">

@@ -50,8 +50,8 @@ const EarlyCompletionModal: React.FC<EarlyCompletionModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl glass-card border-primary/20 p-0 overflow-hidden shadow-2xl animate-pop-in">
-        {/* Luminous Header Accent */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-logo-green via-primary to-accent opacity-60" />
+        {/* Solid Header Accent instead of Gradient */}
+        <div className="absolute top-0 left-0 w-full h-1 bg-primary opacity-60" />
 
         <div className="p-8">
           <DialogHeader className="mb-8">

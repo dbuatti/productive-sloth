@@ -107,7 +107,7 @@ const AnalyticsPage: React.FC = () => {
     return (
       <div className="space-y-8 animate-slide-in-up p-8">
         <Skeleton className="h-8 w-64 mb-4" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i} className="p-4 space-y-2">
               <Skeleton className="h-4 w-32" />
@@ -210,12 +210,6 @@ const AnalyticsPage: React.FC = () => {
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dailySummary} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorTasks" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--logo-yellow))" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="hsl(var(--logo-yellow))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
                 <YAxis stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
@@ -231,8 +225,8 @@ const AnalyticsPage: React.FC = () => {
                   type="monotone" 
                   dataKey="tasksCompleted"
                   stroke="hsl(var(--logo-yellow))" 
-                  fillOpacity={1} 
-                  fill="url(#colorTasks)" 
+                  fillOpacity={0.3} 
+                  fill="hsl(var(--logo-yellow))" 
                   name="Tasks Completed"
                 />
               </AreaChart>

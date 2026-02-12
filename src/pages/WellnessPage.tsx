@@ -413,7 +413,7 @@ const WellnessPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-primary/10 to-accent/10 rounded-3xl border-none shadow-xl relative overflow-hidden">
+        <Card className="p-6 bg-secondary/10 rounded-3xl border-none shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-10"><Moon className="h-24 w-24" /></div>
           <CardHeader className="p-0 pb-6">
             <CardTitle className="text-lg font-black uppercase tracking-tighter text-primary flex items-center gap-2">

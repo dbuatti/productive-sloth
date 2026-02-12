@@ -26,7 +26,7 @@ import { Loader2, Sparkles, BookOpen, CheckCircle } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { useReflections, NewReflection, Reflection } from '@/hooks/use-reflections';
 import { format, isSameDay, parseISO } from 'date-fns';
-import { XP_PER_LEVEL } from '@/lib/constants'; // Assuming XP_PER_LEVEL is defined
+import { XP_PER_LEVEL } from '@/lib/constants';
 
 const reflectionSchema = z.object({
   notes: z.string().min(10, "Reflection must be at least 10 characters.").max(1000, "Reflection cannot exceed 1000 characters."),
@@ -76,7 +76,7 @@ const DailyReflectionDialog: React.FC<DailyReflectionDialogProps> = ({ open, onO
   const onSubmit = async (values: ReflectionFormValues) => {
     if (!user || !profile) return;
 
-    const reflectionXpBonus = 20; // Example XP bonus for completing a reflection
+    const reflectionXpBonus = 20;
 
     try {
       if (currentReflection) {
@@ -87,23 +87,19 @@ const DailyReflectionDialog: React.FC<DailyReflectionDialogProps> = ({ open, onO
       } else {
         await addReflection({
           reflection_date: reflectionDate,
-          prompt: "What did you learn today?", // Default prompt, can be dynamic
+          prompt: "What did you learn today?",
           notes: values.notes,
-          xp_bonus_awarded: false, // Will be updated after XP is awarded
+          xp_bonus_awarded: false,
         });
       }
 
-      // Award XP if not already awarded for today's reflection
       if (!xpAwarded) {
-        const newXp = profile.xp + reflectionXpBonus;
-        await refreshProfile(); // Refresh profile to get latest XP
-        await rechargeEnergy(reflectionXpBonus); // Use rechargeEnergy to update XP and energy
+        await refreshProfile();
+        await rechargeEnergy(reflectionXpBonus);
         setXpAwarded(true);
-        // Update the reflection in DB to mark XP as awarded
         if (currentReflection) {
           await updateReflection({ id: currentReflection.id, xp_bonus_awarded: true });
         } else {
-          // If it was a new reflection, find it and update
           const newRef = reflections.find(r => isSameDay(parseISO(r.reflection_date), parseISO(reflectionDate)));
           if (newRef) await updateReflection({ id: newRef.id, xp_bonus_awarded: true });
         }
@@ -121,6 +117,10 @@ const DailyReflectionDialog: React.FC<DailyReflectionDialogProps> = ({ open, onO
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Loading Reflection</DialogTitle>
+            <DialogDescription>Retrieving your temporal insights...</DialogDescription>
+          </DialogHeader>
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, forwardRef } from 'react';
 import { 
   DndContext, DragEndEvent, closestCorners, KeyboardSensor, PointerSensor, 
   useSensor, useSensors, DragStartEvent, DragOverEvent, DragOverlay, defaultDropAnimationSideEffects
@@ -18,16 +18,16 @@ import { getLucideIconComponent, cn } from '@/lib/utils';
 interface SinkKanbanBoardProps {
   retiredTasks: RetiredTask[];
   groupBy: 'environment' | 'priority' | 'type';
-  showEmptyColumns: boolean; // NEW: Receive toggle state
+  showEmptyColumns: boolean;
   onRemoveRetiredTask: (id: string, name: string) => void;
   onRezoneTask: (task: RetiredTask) => void;
   updateRetiredTask: (updates: Partial<RetiredTask> & { id: string }) => Promise<void>;
   onOpenDetailDialog: (task: RetiredTask) => void;
 }
 
-const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({ 
+const SinkKanbanBoard = forwardRef<HTMLDivElement, SinkKanbanBoardProps>(({ 
   retiredTasks, groupBy, showEmptyColumns, updateRetiredTask, onOpenDetailDialog 
-}) => {
+}, ref) => {
   const { user } = useSession();
   const { environments, isLoading: envLoading } = useEnvironments();
   const { addRetiredTask } = useRetiredTasks();
@@ -43,14 +43,13 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   const normalize = (s: string) => {
     if (!s) return '';
     return s.toLowerCase()
-      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Remove emojis
-      .replace(/[^a-z0-9]/g, '');            // Remove special characters
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+      .replace(/[^a-z0-9]/g, '');
   };
 
   const groupedTasks = useMemo(() => {
     const groups: Record<string, RetiredTask[]> = {};
     
-    // 1. Pre-initialize columns IF showEmptyColumns is true
     if (showEmptyColumns) {
       if (groupBy === 'priority') {
         ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
@@ -60,8 +59,6 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
         environments.forEach(e => groups[e.value] = []);
       }
     } else {
-      // Still need core structure for Priority/Type even if empty is false, 
-      // but we'll prune them later if they stay empty.
       if (groupBy === 'priority') {
         ['critical', 'standard', 'backburner'].forEach(k => groups[k] = []);
       } else if (groupBy === 'type') {
@@ -69,7 +66,6 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       }
     }
 
-    // 2. Assign tasks to groups
     retiredTasks.forEach(task => {
       let key = 'standard';
       
@@ -100,13 +96,11 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
       groups[key].push(task);
     });
 
-    // 3. Prune empty columns if showEmptyColumns is false
     if (!showEmptyColumns) {
       Object.keys(groups).forEach(key => {
         if (groups[key].length === 0) delete groups[key];
       });
       
-      // Safety: If totally empty, show at least some columns so board isn't blank
       if (Object.keys(groups).length === 0) {
         if (groupBy === 'environment') environments.slice(0, 3).forEach(e => groups[e.value] = []);
         else if (groupBy === 'priority') groups['standard'] = [];
@@ -169,44 +163,47 @@ const SinkKanbanBoard: React.FC<SinkKanbanBoardProps> = ({
   if (envLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-      <div className="flex w-full gap-6 items-start pb-4 overflow-x-auto custom-scrollbar">
-        {Object.entries(groupedTasks).map(([id, tasks]) => {
-          let label = id;
-          let Icon: React.ElementType = Info;
-          const env = environments.find(e => e.value === id);
-          if (groupBy === 'environment') {
-            label = env?.label || id;
-            Icon = getLucideIconComponent(env?.icon || 'Info');
-          } else if (groupBy === 'priority') {
-            label = id === 'critical' ? '🔥 Critical' : id === 'backburner' ? '🔵 Backburner' : '⚪ Standard';
-            Icon = id === 'critical' ? Star : Info;
-          } else {
-            label = id === 'work' ? '💻 Work' : id === 'breaks' ? '☕ Breaks' : '✨ Not Work';
-            Icon = id === 'work' ? Briefcase : (id === 'breaks' ? Coffee : Star);
-          }
+    <div ref={ref}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+        <div className="flex w-full gap-6 items-start pb-4 overflow-x-auto custom-scrollbar">
+          {Object.entries(groupedTasks).map(([id, tasks]) => {
+            let label = id;
+            let Icon: React.ElementType = Info;
+            const env = environments.find(e => e.value === id);
+            if (groupBy === 'environment') {
+              label = env?.label || id;
+              Icon = getLucideIconComponent(env?.icon || 'Info');
+            } else if (groupBy === 'priority') {
+              label = id === 'critical' ? '🔥 Critical' : id === 'backburner' ? '🔵 Backburner' : '⚪ Standard';
+              Icon = id === 'critical' ? Star : Info;
+            } else {
+              label = id === 'work' ? '💻 Work' : id === 'breaks' ? '☕ Breaks' : '✨ Not Work';
+              Icon = id === 'work' ? Briefcase : (id === 'breaks' ? Coffee : Star);
+            }
 
-          return (
-            <KanbanColumn 
-              key={id} 
-              id={id} 
-              title={label} 
-              icon={<Icon className="h-4 w-4" />} 
-              tasks={tasks} 
-              totalEnergy={tasks.reduce((s, t) => s + (t.energy_cost || 0), 0)} 
-              onQuickAdd={handleQuickAdd} 
-              activeId={activeTask?.id || null} 
-              overId={overId} 
-              onOpenDetailDialog={onOpenDetailDialog} 
-            />
-          );
-        })}
-      </div>
-      <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.5' } } }) }}>
-        {activeTask ? <SortableTaskCard task={activeTask} onOpenDetailDialog={onOpenDetailDialog} /> : null}
-      </DragOverlay>
-    </DndContext>
+            return (
+              <KanbanColumn 
+                key={id} 
+                id={id} 
+                title={label} 
+                icon={<Icon className="h-4 w-4" />} 
+                tasks={tasks} 
+                totalEnergy={tasks.reduce((s, t) => s + (t.energy_cost || 0), 0)} 
+                onQuickAdd={handleQuickAdd} 
+                activeId={activeTask?.id || null} 
+                overId={overId} 
+                onOpenDetailDialog={onOpenDetailDialog} 
+              />
+            );
+          })}
+        </div>
+        <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.5' } } }) }}>
+          {activeTask ? <SortableTaskCard task={activeTask} onOpenDetailDialog={onOpenDetailDialog} /> : null}
+        </DragOverlay>
+      </DndContext>
+    </div>
   );
-};
+});
 
+SinkKanbanBoard.displayName = 'SinkKanbanBoard';
 export default SinkKanbanBoard;

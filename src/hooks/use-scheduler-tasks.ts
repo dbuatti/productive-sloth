@@ -157,76 +157,130 @@ export const useSchedulerTasks = (selectedDate: string) => {
       const { data: freshEnvs } = await supabase.from('environments').select('value, target_weight').eq('user_id', userId);
       const zoneWeights: ZoneWeight[] = (freshEnvs || []).map(e => ({ value: e.value, target_weight: Number(e.target_weight || 0) }));
       
-      let pool: UnifiedTask[] = [];
-      let scheduledTaskIdsToDelete: string[] = [];
-      let retiredTaskIdsToDelete: string[] = [];
-      let tasksToInsert: NewDBScheduledTask[] = [];
+      const processDay = async (dateStr: string, currentPool: UnifiedTask[]) => {
+        let scheduledTaskIdsToDelete: string[] = [];
+        let retiredTaskIdsToDelete: string[] = [];
+        let tasksToInsert: NewDBScheduledTask[] = [];
+        let remainingPool = [...currentPool];
 
-      if (taskSource === 'rebalance-day' || taskSource === 'all-flexible') {
-        const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', targetDateString).eq('is_flexible', true).eq('is_locked', false);
-        (dt || []).forEach(t => {
-          pool.push({ 
-            id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30,
-            break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner,
-            energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
-            created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false
+        // If re-balancing existing day, pull flexible tasks into pool
+        if (taskSource === 'rebalance-day' || taskSource === 'all-flexible' || taskSource === 'global-all-future') {
+          const { data: dt } = await supabase.from('scheduled_tasks').select('*').eq('user_id', userId).eq('scheduled_date', dateStr).eq('is_flexible', true).eq('is_locked', false);
+          (dt || []).forEach(t => {
+            remainingPool.push({ 
+              id: t.id, name: t.name, duration: t.start_time && t.end_time ? differenceInMinutes(parseISO(t.end_time), parseISO(t.start_time)) : 30,
+              break_duration: t.break_duration, is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner,
+              energy_cost: t.energy_cost, source: 'scheduled', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
+              created_at: t.created_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false
+            });
+            scheduledTaskIdsToDelete.push(t.id);
           });
-          scheduledTaskIdsToDelete.push(t.id);
-        });
-      }
+        }
 
-      if (taskSource === 'rebalance-day' || taskSource === 'sink-only' || taskSource === 'sink-to-gaps') {
+        const targetDayAsDate = parseISO(dateStr);
+        const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDayAsDate);
+        let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDayAsDate), 17);
+        if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
+
+        const sortedPool = sortAndChunkTasks(remainingPool, profile, sortPreference, differenceInMinutes(workdayEnd, workdayStart), zoneWeights);
+        const staticConstraints = getStaticConstraints(profile, targetDayAsDate, workdayStart, workdayEnd);
+        
+        let currentOccupied = mergeOverlappingTimeBlocks(staticConstraints);
+        let cursor = isSameDay(targetDayAsDate, new Date()) ? max([new Date(), workdayStart]) : workdayStart;
+
+        const finalTasksToInsert: NewDBScheduledTask[] = [];
+        const unplacedTasks: UnifiedTask[] = [];
+
+        for (const t of sortedPool) {
+          const totalDur = (t.duration || 30) + (t.break_duration || 0);
+          const slot = findFirstAvailableSlot(totalDur, currentOccupied, cursor, workdayEnd);
+          if (slot) {
+            finalTasksToInsert.push({
+              name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(),
+              break_duration: t.break_duration || undefined, scheduled_date: dateStr,
+              is_critical: t.is_critical, is_flexible: true, is_locked: false, energy_cost: t.energy_cost,
+              is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment,
+              is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break
+            });
+            cursor = slot.end;
+            currentOccupied.push({ start: slot.start, end: slot.end, duration: totalDur });
+            currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
+          } else {
+            unplacedTasks.push(t);
+          }
+        }
+
+        return { scheduledTaskIdsToDelete, tasksToInsert: finalTasksToInsert, unplacedTasks };
+      };
+
+      if (taskSource === 'global-all-future') {
+        // Global logic: Iterate through next N days
+        let currentPool: UnifiedTask[] = [];
         const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
-        (ret || []).forEach(t => {
-          pool.push({
+        const retiredTaskIdsToDelete = (ret || []).map(t => {
+          currentPool.push({
             id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration,
             is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner,
             energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
             created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false
           });
-          retiredTaskIdsToDelete.push(t.id);
+          return t.id;
+        });
+
+        let allScheduledToDelete: string[] = [];
+        let allTasksToInsert: NewDBScheduledTask[] = [];
+        let poolCursor = [...currentPool];
+
+        for (let i = 0; i < futureDaysToSchedule; i++) {
+          const dateStr = format(addDays(parseISO(targetDateString), i), 'yyyy-MM-dd');
+          const { scheduledTaskIdsToDelete, tasksToInsert, unplacedTasks } = await processDay(dateStr, poolCursor);
+          allScheduledToDelete.push(...scheduledTaskIdsToDelete);
+          allTasksToInsert.push(...tasksToInsert);
+          poolCursor = unplacedTasks;
+        }
+
+        await autoBalanceScheduleMutation.mutateAsync({
+          scheduledTaskIdsToDelete: allScheduledToDelete,
+          retiredTaskIdsToDelete,
+          tasksToInsert: allTasksToInsert,
+          tasksToKeepInSink: poolCursor.map(t => ({
+            user_id: userId, name: t.name, duration: t.duration, break_duration: t.break_duration,
+            original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false,
+            energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost,
+            task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break
+          })),
+          selectedDate: targetDateString
+        });
+      } else {
+        // Single day logic
+        let initialPool: UnifiedTask[] = [];
+        let retiredTaskIdsToDelete: string[] = [];
+        if (taskSource === 'sink-only' || taskSource === 'sink-to-gaps' || taskSource === 'rebalance-day') {
+          const { data: ret } = await supabase.from('aethersink').select('*').eq('user_id', userId).eq('is_locked', false);
+          (ret || []).forEach(t => {
+            initialPool.push({
+              id: t.id, name: t.name, duration: t.duration || 30, break_duration: t.break_duration,
+              is_critical: t.is_critical, is_flexible: true, is_backburner: t.is_backburner,
+              energy_cost: t.energy_cost, source: 'retired', originalId: t.id, is_custom_energy_cost: t.is_custom_energy_cost,
+              created_at: t.retired_at, task_environment: t.task_environment, is_work: t.is_work || false, is_break: t.is_break || false
+            });
+            retiredTaskIdsToDelete.push(t.id);
+          });
+        }
+
+        const { scheduledTaskIdsToDelete, tasksToInsert, unplacedTasks } = await processDay(targetDateString, initialPool);
+        
+        await autoBalanceScheduleMutation.mutateAsync({
+          scheduledTaskIdsToDelete, retiredTaskIdsToDelete, tasksToInsert,
+          tasksToKeepInSink: unplacedTasks.map(t => ({
+            user_id: userId, name: t.name, duration: t.duration, break_duration: t.break_duration,
+            original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false,
+            energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost,
+            task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break
+          })),
+          selectedDate: targetDateString
         });
       }
-
-      const targetDayAsDate = parseISO(targetDateString);
-      const workdayStart = profile.default_auto_schedule_start_time ? setTimeOnDate(targetDayAsDate, profile.default_auto_schedule_start_time) : startOfDay(targetDayAsDate);
-      let workdayEnd = profile.default_auto_schedule_end_time ? setTimeOnDate(startOfDay(targetDayAsDate), profile.default_auto_schedule_end_time) : addHours(startOfDay(targetDayAsDate), 17);
-      if (isBefore(workdayEnd, workdayStart)) workdayEnd = addDays(workdayEnd, 1);
-
-      const sortedPool = sortAndChunkTasks(pool, profile, sortPreference, differenceInMinutes(workdayEnd, workdayStart), zoneWeights);
-      const staticConstraints = getStaticConstraints(profile, targetDayAsDate, workdayStart, workdayEnd);
-      
-      let currentOccupied = mergeOverlappingTimeBlocks(staticConstraints);
-      let cursor = isSameDay(targetDayAsDate, new Date()) ? max([new Date(), workdayStart]) : workdayStart;
-
-      for (const t of sortedPool) {
-        const totalDur = (t.duration || 30) + (t.break_duration || 0);
-        const slot = findFirstAvailableSlot(totalDur, currentOccupied, cursor, workdayEnd);
-        if (slot) {
-          tasksToInsert.push({
-            name: t.name, start_time: slot.start.toISOString(), end_time: slot.end.toISOString(),
-            break_duration: t.break_duration || undefined, scheduled_date: targetDateString,
-            is_critical: t.is_critical, is_flexible: true, is_locked: false, energy_cost: t.energy_cost,
-            is_custom_energy_cost: t.is_custom_energy_cost, task_environment: t.task_environment,
-            is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break
-          });
-          cursor = slot.end;
-          currentOccupied.push({ start: slot.start, end: slot.end, duration: totalDur });
-          currentOccupied = mergeOverlappingTimeBlocks(currentOccupied);
-          pool = pool.filter(p => p.id !== t.id);
-        }
-      }
-
-      await autoBalanceScheduleMutation.mutateAsync({
-        scheduledTaskIdsToDelete, retiredTaskIdsToDelete, tasksToInsert,
-        tasksToKeepInSink: pool.map(t => ({
-          user_id: userId, name: t.name, duration: t.duration, break_duration: t.break_duration,
-          original_scheduled_date: targetDateString, is_critical: t.is_critical, is_locked: false,
-          energy_cost: t.energy_cost, is_completed: false, is_custom_energy_cost: t.is_custom_energy_cost,
-          task_environment: t.task_environment, is_backburner: t.is_backburner, is_work: t.is_work, is_break: t.is_break
-        })),
-        selectedDate: targetDateString
-      });
       showSuccess("Timeline Stream Synchronized.");
     } catch (e: any) {
       showError(`Engine Error: ${e.message}`);

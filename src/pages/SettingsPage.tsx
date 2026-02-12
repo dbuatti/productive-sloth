@@ -5,12 +5,16 @@ import { useSession } from '@/hooks/use-session';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
-import { Settings, Trash2, ArrowLeft, ChevronUp, ChevronDown, Cpu, CalendarDays, ShieldAlert } from 'lucide-react';
+import { Settings, Trash2, ArrowLeft, ChevronUp, ChevronDown, Cpu, CalendarDays, ShieldAlert, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import ProfileSettings from '@/components/settings/ProfileSettings';
+import LogicSettings from '@/components/settings/LogicSettings';
+import AnchorSettings from '@/components/settings/AnchorSettings';
+import EnvironmentManager from '@/components/EnvironmentManager';
+import EnvironmentOrderSettings from '@/components/EnvironmentOrderSettings';
 import { MAX_ENERGY } from '@/lib/constants';
 
 const SettingsPage: React.FC = () => {
@@ -19,17 +23,17 @@ const SettingsPage: React.FC = () => {
   
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('aetherflow_settings_collapsed_v2');
+      const saved = localStorage.getItem('aetherflow_settings_collapsed_v3');
       if (saved) {
         try { return JSON.parse(saved); } catch (e) { console.error(e); }
       }
     }
-    return { profile: true, anchors: true, logic: true, environments: true, preferences: true, danger: false };
+    return { profile: true, anchors: true, logic: true, environments: true, danger: false };
   });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('aetherflow_settings_collapsed_v2', JSON.stringify(openSections));
+      localStorage.setItem('aetherflow_settings_collapsed_v3', JSON.stringify(openSections));
     }
   }, [openSections]);
 
@@ -51,6 +55,15 @@ const SettingsPage: React.FC = () => {
 
   if (!user || !profile) return null;
 
+  const SectionHeader = ({ id, title, icon: Icon, isOpen }: any) => (
+    <CardHeader className="cursor-pointer hover:bg-secondary/20 transition-colors p-4">
+      <CardTitle className="flex items-center justify-between text-lg font-black uppercase tracking-tighter">
+        <div className="flex items-center gap-2"><Icon className="h-5 w-5 text-primary" />{title}</div>
+        {isOpen ? <ChevronUp className="h-4 w-4 opacity-30" /> : <ChevronDown className="h-4 w-4 opacity-30" />}
+      </CardTitle>
+    </CardHeader>
+  );
+
   return (
     <div className="space-y-8 animate-slide-in-up pb-20">
       <div className="flex items-center justify-between border-b pb-4">
@@ -65,14 +78,45 @@ const SettingsPage: React.FC = () => {
       </div>
       
       <div className="space-y-6">
+        {/* Profile Section */}
         <Collapsible open={openSections.profile} onOpenChange={() => toggleSection('profile')}>
           <CollapsibleTrigger asChild>
-            <div className="cursor-pointer group">
-              <ProfileSettings />
-            </div>
+            <div className="cursor-pointer group"><ProfileSettings /></div>
           </CollapsibleTrigger>
         </Collapsible>
 
+        {/* Engine Logic Section */}
+        <Collapsible open={openSections.logic} onOpenChange={() => toggleSection('logic')}>
+          <CollapsibleTrigger asChild>
+            <div className="cursor-pointer group"><LogicSettings /></div>
+          </CollapsibleTrigger>
+        </Collapsible>
+
+        {/* Temporal Anchors Section */}
+        <Collapsible open={openSections.anchors} onOpenChange={() => toggleSection('anchors')}>
+          <CollapsibleTrigger asChild>
+            <div className="cursor-pointer group"><AnchorSettings /></div>
+          </CollapsibleTrigger>
+        </Collapsible>
+
+        {/* Spatial Matrix Section */}
+        <Collapsible open={openSections.environments} onOpenChange={() => toggleSection('environments')}>
+          <Card className="rounded-xl shadow-sm border-white/5 bg-card/40">
+            <CollapsibleTrigger asChild>
+              <SectionHeader id="environments" title="Spatial Matrix" icon={Layers} isOpen={openSections.environments} />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="p-4 pt-0 space-y-8">
+                <EnvironmentManager />
+                <div className="pt-8 border-t border-white/5">
+                  <EnvironmentOrderSettings />
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Danger Zone */}
         <Collapsible open={openSections.danger} onOpenChange={() => toggleSection('danger')}>
           <Card className="rounded-xl shadow-sm border-destructive/20 bg-destructive/[0.02]">
             <CollapsibleTrigger asChild>

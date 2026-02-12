@@ -174,35 +174,48 @@ const SchedulerPage: React.FC<{ view: 'schedule' | 'sink' | 'recap' }> = ({ view
       )}
       
       <div className="max-w-4xl mx-auto w-full space-y-6">
-        <SchedulerDashboardPanel scheduleSummary={scheduleSummary} onAetherDump={aetherDump} isProcessingCommand={isProcessingCommand} hasFlexibleTasks={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} onRefreshSchedule={() => queryClient.invalidateQueries()} isLoading={isDashboardLoading} />
-        <CalendarStrip selectedDay={selectedDay} setSelectedDay={setSelectedDay} datesWithTasks={datesWithTasks} isLoadingDatesWithTasks={isLoadingDatesWithTasks} weekStartsOn={profile?.week_starts_on ?? 0} blockedDays={profile?.blocked_days || []} />
+        <SchedulerDashboardPanel 
+          scheduleSummary={scheduleSummary} 
+          isLoading={isDashboardLoading} 
+        />
+        <CalendarStrip 
+          selectedDay={selectedDay} 
+          setSelectedDay={setSelectedDay} 
+          datesWithTasks={datesWithTasks} 
+          isLoadingDatesWithTasks={isLoadingDatesWithTasks} 
+        />
         <SchedulerContextBar />
-        <Card className="p-4 rounded-xl shadow-sm border-white/5"><CardHeader className="p-0 pb-4"><CardTitle className="text-xl font-bold flex items-center gap-2"><ListTodo className="h-6 w-6 text-primary" /> Quick Add</CardTitle></CardHeader><CardContent className="p-0"><SchedulerInput onCommand={handleCommand} isLoading={isProcessingCommand} inputValue={inputValue} setInputValue={setInputValue} onDetailedInject={() => (setCreateTaskDefaultValues({ defaultPriority: 'MEDIUM', defaultDueDate: selectedDayAsDate }), setIsCreateTaskDialogOpen(true))} onQuickBreak={async () => handleCommand('break 15')} /></CardContent></Card>
+        <Card className="p-4 rounded-xl shadow-sm border-white/5">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-xl font-bold flex items-center gap-2">
+              <ListTodo className="h-6 w-6 text-primary" /> Quick Add
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <SchedulerInput 
+              onCommand={handleCommand} 
+              isLoading={isProcessingCommand} 
+              inputValue={inputValue} 
+              setInputValue={setInputValue} 
+              onDetailedInject={() => (setCreateTaskDefaultValues({ defaultPriority: 'MEDIUM', defaultDueDate: selectedDayAsDate }), setIsCreateTaskDialogOpen(true))} 
+              onQuickBreak={async () => handleCommand('break 15')} 
+            />
+          </CardContent>
+        </Card>
         <SchedulerActionCenter 
           isProcessingCommand={isProcessingCommand} 
           dbScheduledTasks={dbScheduledTasks} 
           retiredTasksCount={retiredTasks.length} 
-          sortBy={sortBy} 
           onRebalanceToday={() => handleAutoScheduleAndSort(sortBy, 'sink-to-gaps', [], selectedDay)} 
-          onRebalanceDay={() => handleAutoScheduleAndSort(sortBy, 'rebalance-day', [], selectedDay)}
-          onReshuffleEverything={() => handleAutoScheduleAndSort(sortBy, 'all-flexible', [], selectedDay)} 
           onCompactSchedule={async () => handleCommand('compact')} 
           onRandomizeBreaks={async () => randomizeBreaks({ selectedDate: selectedDay, workdayStartTime, workdayEndTime, currentDbTasks: dbScheduledTasks })} 
           onZoneFocus={() => handleAutoScheduleAndSort(sortBy, 'sink-only', selectedEnvironments, selectedDay)} 
           onRechargeEnergy={() => rechargeEnergy()} 
           onQuickBreak={async () => handleCommand('break 15')} 
-          onQuickScheduleBlock={async (d, s) => { /* logic */ }} 
-          onSortFlexibleTasks={async (s) => setSortBy(s)} 
           onAetherDump={aetherDump} 
-          onAetherDumpMega={aetherDumpMega} 
           onRefreshSchedule={() => queryClient.invalidateQueries()} 
-          onOpenWorkdayWindowDialog={() => setShowWorkdayWindowDialog(true)} 
           onStartRegenPod={() => setShowRegenPodSetup(true)} 
-          hasFlexibleTasksOnCurrentDay={dbScheduledTasks.some(t => t.is_flexible && !t.is_locked)} 
-          navigate={navigate} 
-          onGlobalAutoSchedule={() => handleAutoScheduleAndSort(sortBy, 'global-all-future', [], selectedDay, 30)} 
           onClearToday={clearScheduledTasks} 
-          onPullNext={() => pullNextFromSink({ selectedDateString: selectedDay, workdayStart: workdayStartTime, workdayEnd: workdayEndTime, T_current, staticConstraints })} 
         />
         <NowFocusCard activeItem={activeItemToday} nextItem={nextItemToday} onEnterFocusMode={() => setIsFocusModeActive(true)} isLoading={isDashboardLoading} />
         <SchedulerDisplay schedule={calculatedSchedule} T_current={T_current} onRemoveTask={removeScheduledTask} onRetireTask={retireTask} onCompleteTask={async (t) => { await completeScheduledTaskMutation(t); await rechargeEnergy(-(t.energy_cost)); }} activeItemId={activeItemToday?.id || null} selectedDayString={selectedDay} onScrollToItem={() => {}} isProcessingCommand={isProcessingCommand} onFreeTimeClick={(s, e) => (setCreateTaskDefaultValues({ defaultPriority: 'MEDIUM', defaultDueDate: selectedDayAsDate, defaultStartTime: s, defaultEndTime: e }), setIsCreateTaskDialogOpen(true))} isDayLockedDown={isDayLockedDown} onToggleDayLock={async () => toggleAllScheduledTasksLock({ selectedDate: selectedDay, lockState: !isDayLockedDown })} />

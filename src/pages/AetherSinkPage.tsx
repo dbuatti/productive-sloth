@@ -108,7 +108,6 @@ const AetherSinkPage: React.FC = () => {
         onAutoScheduleSink={handleAutoScheduleSink} 
         isLoading={isLoadingRetiredTasks} 
         isProcessingCommand={isProcessingCommand} 
-        setIsProcessingCommand={setIsProcessingCommand}
         profile={profile}
         retiredSortBy={retiredSortBy} 
         setRetiredSortBy={setRetiredSortBy} 

@@ -16,6 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { CompletedTaskLogEntry } from '@/types/scheduler';
 import { assignEmoji, getEmojiHue } from '@/lib/scheduler-utils';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 const RecapPage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,7 +43,13 @@ const RecapPage: React.FC = () => {
         .lte('completed_at', end);
 
       if (error) throw error;
-      return data as CompletedTaskLogEntry[];
+      
+      // Map the database fields to match the CompletedTaskLogEntry interface
+      return (data || []).map(task => ({
+        ...task,
+        name: task.task_name,
+        effective_duration_minutes: task.duration_used || task.duration_scheduled || 30,
+      })) as CompletedTaskLogEntry[];
     },
     enabled: !!user?.id && !!formattedSelectedDate,
   });
@@ -152,7 +160,7 @@ const RecapPage: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   {completedTasks.map((task) => {
-                    const hue = getEmojiHue(task.task_name);
+                    const hue = getEmojiHue(task.name);
                     return (
                       <div 
                         key={task.id} 
@@ -160,9 +168,9 @@ const RecapPage: React.FC = () => {
                         style={{ borderLeft: `4px solid hsl(${hue} 70% 50%)` }}
                       >
                         <div className="flex items-center gap-4 min-w-0">
-                          <span className="text-2xl shrink-0">{assignEmoji(task.task_name)}</span>
+                          <span className="text-2xl shrink-0">{assignEmoji(task.name)}</span>
                           <div className="min-w-0">
-                            <p className="font-black uppercase tracking-tighter truncate text-sm sm:text-base">{task.task_name}</p>
+                            <p className="font-black uppercase tracking-tighter truncate text-sm sm:text-base">{task.name}</p>
                             <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground/60">
                               <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {format(parseISO(task.completed_at), 'h:mm a')}</span>
                               <span className="flex items-center gap-1"><Zap className="h-3 w-3 text-logo-yellow" /> {task.energy_cost}⚡</span>

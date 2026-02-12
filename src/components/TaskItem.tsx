@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, Clock, AlignLeft, AlertCircle, Briefcase, Coffee, Copy, ArrowRight } from "lucide-react"; 
+import { MoreHorizontal, Pencil, Trash, Sparkles, Zap, CalendarDays, AlignLeft, AlertCircle, Briefcase, Coffee, Copy, ArrowRight, Clock } from "lucide-react"; 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Task } from "@/types";
 import { useTasks } from "@/hooks/use-tasks";
 import { toast } from "sonner";
-import { format, isValid, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import XPGainAnimation from "./XPGainAnimation";
 import TaskDetailSheetForTasks from "./TaskDetailSheetForTasks";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
@@ -20,9 +19,23 @@ interface TaskItemProps {
   task: Task;
 }
 
+const PRIORITY_STYLES = {
+  HIGH: {
+    badge: 'bg-destructive/10 text-destructive border-destructive/20',
+    border: 'border-l-destructive',
+  },
+  MEDIUM: {
+    badge: 'bg-logo-orange/10 text-logo-orange border-logo-orange/20',
+    border: 'border-l-logo-orange',
+  },
+  LOW: {
+    badge: 'bg-logo-green/10 text-logo-green border-logo-green/20',
+    border: 'border-l-logo-green',
+  },
+};
+
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { deleteTask, updateTask, duplicateTask } = useTasks();
   const navigate = useNavigate();
 
@@ -32,18 +45,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
 
   const handleEditClick = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setSelectedTask(task);
     setIsSheetOpen(true);
   };
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm(`Are you sure you want to delete "${task.title}"?`)) {
-      try {
-        await deleteTask(task.id);
-      } catch ( error ) {
-        console.error("Failed to delete task:", error);
-      }
+      await deleteTask(task.id);
     }
   };
 
@@ -75,225 +83,89 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
     });
   };
 
-  const handleToggleWork = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    await updateTask({ id: task.id, is_work: !task.is_work });
-  };
-
-  const handleToggleBreak = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    await updateTask({ id: task.id, is_break: !task.is_break });
-  };
-
-  const getPriorityBadgeClasses = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'HIGH': return 'bg-destructive text-destructive-foreground border-destructive';
-      case 'MEDIUM': return 'bg-logo-orange/20 text-logo-orange border-logo-orange';
-      case 'LOW': return 'bg-logo-green/20 text-logo-green border-logo-green';
-      default: return 'bg-muted text-muted-foreground border-border';
-    }
-  };
-
-  const getPriorityLeftBorderClass = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'HIGH': return 'border-l-destructive hover:border-destructive';
-      case 'MEDIUM': return 'border-l-logo-orange hover:border-logo-orange';
-      case 'LOW': return 'border-l-logo-green hover:border-logo-green';
-      default: return 'border-l-border hover:border-border';
-    }
-  };
-
+  const styles = PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.MEDIUM;
   const formattedDueDate = task.due_date ? format(new Date(task.due_date), "MMM d") : 'N/A';
 
   return (
     <>
       <Card 
         className={cn(
-          "relative flex items-center justify-between p-4 transition-all duration-300 rounded-lg shadow-sm cursor-pointer",
-          "bg-card hover:bg-secondary/50 animate-hover-lift border-l-4",
-          getPriorityLeftBorderClass(task.priority),
-          task.is_completed ? "opacity-70 border-l-muted" : "opacity-100",
-          "hover:shadow-lg hover:shadow-primary/10",
-          "border-b border-dashed border-border/50 last:border-b-0"
+          "group relative flex items-center justify-between p-4 transition-all duration-300 rounded-xl shadow-sm cursor-pointer",
+          "bg-card/40 backdrop-blur-sm hover:bg-secondary/40 animate-pop-in border-l-4",
+          styles.border,
+          task.is_completed && "opacity-50 grayscale"
         )}
         onClick={handleEditClick}
-        aria-label={`Task: ${task.title}, Priority: ${task.priority}, Due: ${formattedDueDate}`}
       >
         <div className="flex items-center space-x-4 flex-grow min-w-0">
           <Checkbox 
             checked={task.is_completed} 
             onCheckedChange={handleToggleComplete} 
             id={`task-${task.id}`}
-            className="data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shrink-0 h-6 w-6"
-            aria-label={`Mark task "${task.title}" as complete`}
+            className="h-5 w-5 rounded-md"
+            onClick={(e) => e.stopPropagation()}
           />
           
-          <label 
-            htmlFor={`task-${task.id}`} 
-            className={`text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex flex-col items-start min-w-0 flex-grow`}
-          >
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 w-full">
+          <div className="flex flex-col min-w-0 flex-grow">
+            <div className="flex items-center gap-2 mb-1">
               {task.is_critical && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="relative flex items-center justify-center h-5 w-5 rounded-full bg-logo-yellow text-white shrink-0">
-                      <AlertCircle className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </div>
+                    <AlertCircle className="h-4 w-4 text-logo-yellow fill-current" />
                   </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Critical Task: Must be completed today!</p>
-                  </TooltipContent>
+                  <TooltipContent>Critical Objective</TooltipContent>
                 </Tooltip>
               )}
-              
-              <Badge 
-                variant="outline" 
-                className={cn(
-                  "capitalize px-2.5 py-1 text-xs font-semibold shrink-0",
-                  getPriorityBadgeClasses(task.priority)
-                )}
-              >
-                {task.priority.toLowerCase()}
-              </Badge>
-              
               <span className={cn(
-                "truncate flex-grow text-base",
-                task.is_completed ? "line-through text-muted-foreground italic" : "text-foreground"
+                "font-bold text-sm sm:text-base truncate",
+                task.is_completed && "line-through text-muted-foreground"
               )}>
                 {task.title}
               </span>
-              
-              {!task.is_completed && task.energy_cost !== undefined && task.energy_cost > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge 
-                      variant="outline" 
-                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold font-mono text-logo-yellow border-logo-yellow/50 bg-logo-yellow/10 shrink-0"
-                    >
-                      {task.energy_cost}
-                      <Zap className="h-3.5 w-3.5" />
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Energy Cost</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              
-              {!task.is_completed && task.metadata_xp !== undefined && task.metadata_xp > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge 
-                      variant="outline" 
-                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold font-mono text-primary border-primary/50 bg-primary/10 shrink-0"
-                    >
-                      +{task.metadata_xp}
-                      <Sparkles className="h-3.5 w-3.5" />
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>XP Gain</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              
-              {task.description && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlignLeft className="h-4 w-4 text-muted-foreground shrink-0" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Has description</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-
-              {task.is_work && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Briefcase className="h-4 w-4 text-primary shrink-0" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Work Task</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-
-              {task.is_break && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Coffee className="h-4 w-4 text-logo-orange shrink-0" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Break Task</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
             </div>
             
-            <div className="flex items-center space-x-4 text-xs mt-2 text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" />
-                <span>{formattedDueDate}</span>
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className={cn("text-[10px] font-black uppercase tracking-widest px-1.5 h-5", styles.badge)}>
+                {task.priority}
+              </Badge>
+              
+              {task.is_work && <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-black uppercase border-primary/20 text-primary/60">Work</Badge>}
+              {task.is_break && <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-black uppercase border-logo-orange/20 text-logo-orange/60">Break</Badge>}
+              
+              <div className="flex items-center gap-3 ml-auto text-[10px] font-mono text-muted-foreground/60">
+                <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {formattedDueDate}</span>
+                {task.energy_cost > 0 && <span className="flex items-center gap-0.5 text-logo-yellow">{task.energy_cost}<Zap className="h-3 w-3" /></span>}
+                {task.metadata_xp > 0 && <span className="flex items-center gap-0.5 text-primary">+{task.metadata_xp}<Sparkles className="h-3 w-3" /></span>}
+              </div>
             </div>
-          </label>
+          </div>
         </div>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
               variant="ghost" 
-              className="h-9 w-9 p-0 hover:bg-secondary transition-colors duration-200 shrink-0 ml-2"
+              size="icon"
+              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={(e) => e.stopPropagation()}
-              aria-label="Task options menu"
             >
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4.5 w-4.5" />
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleScheduleNow} className="cursor-pointer">
-              <Clock className="mr-2 h-4 w-4" />
-              Schedule Now
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDuplicate} className="cursor-pointer">
-              <Copy className="mr-2 h-4 w-4" />
-              Duplicate
-            </DropdownMenuItem>
-            {!task.is_completed && (
-              <DropdownMenuItem onClick={handleMoveToTomorrow} className="cursor-pointer">
-                <ArrowRight className="mr-2 h-4 w-4" />
-                Punt to Tomorrow
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={handleToggleWork} className="cursor-pointer">
-              <Briefcase className="mr-2 h-4 w-4" />
-              {task.is_work ? 'Remove Work Tag' : 'Mark as Work'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleToggleBreak} className="cursor-pointer">
-              <Coffee className="mr-2 h-4 w-4" />
-              {task.is_break ? 'Remove Break Tag' : 'Mark as Break'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleEditClick} className="cursor-pointer">
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDeleteClick} className="text-destructive cursor-pointer">
-              <Trash className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end" className="glass-card">
+            <DropdownMenuItem onClick={handleScheduleNow} className="gap-2"><Clock className="h-4 w-4" /> Schedule Now</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleDuplicate} className="gap-2"><Copy className="h-4 w-4" /> Duplicate</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMoveToTomorrow} className="gap-2"><ArrowRight className="h-4 w-4" /> Punt Tomorrow</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleEditClick} className="gap-2"><Pencil className="h-4 w-4" /> Edit Details</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleDeleteClick} className="gap-2 text-destructive"><Trash className="h-4 w-4" /> Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </Card>
       
       <TaskDetailSheetForTasks 
-        task={selectedTask} 
-        open={isSheetOpen && selectedTask?.id === task.id} 
-        onOpenChange={(open) => {
-          setIsSheetOpen(open);
-          if (!open) setSelectedTask(null);
-        }} 
+        task={task} 
+        open={isSheetOpen} 
+        onOpenChange={setIsSheetOpen} 
       />
     </>
   );

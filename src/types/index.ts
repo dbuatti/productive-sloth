@@ -1,6 +1,6 @@
-import { TaskEnvironment } from "./scheduler";
+import { TaskEnvironment, TaskPriority, TaskStatusFilter, TemporalFilter, SortBy } from "./scheduler";
 
-export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
+export type { TaskPriority, TaskStatusFilter, TemporalFilter, SortBy };
 
 export interface Task {
   id: string;
@@ -17,9 +17,9 @@ export interface Task {
   is_critical: boolean;
   is_custom_energy_cost: boolean;
   is_backburner: boolean;
-  is_work: boolean; // NEW: Added
-  is_break: boolean; // NEW: Added
-  task_environment?: TaskEnvironment; // Added for consistency
+  is_work: boolean;
+  is_break: boolean;
+  task_environment?: TaskEnvironment;
 }
 
 export interface NewTask {
@@ -32,11 +32,7 @@ export interface NewTask {
   is_critical?: boolean;
   is_custom_energy_cost?: boolean;
   is_backburner?: boolean;
-  is_work?: boolean; // NEW: Added
-  is_break?: boolean; // NEW: Added
-  task_environment?: TaskEnvironment; // Added
+  is_work?: boolean;
+  is_break?: boolean;
+  task_environment?: TaskEnvironment;
 }
-
-export type TaskStatusFilter = 'ALL' | 'ACTIVE' | 'COMPLETED';
-export type TemporalFilter = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS';
-export type SortBy = 'PRIORITY_HIGH_TO_LOW' | 'PRIORITY_LOW_TO_HIGH' | 'TIME_EARLIEST_TO_LATEST' | 'TIME_LATEST_TO_EARLIEST' | 'EMOJI' | 'NAME_ASC' | 'NAME_DESC' | 'ENVIRONMENT_RATIO';

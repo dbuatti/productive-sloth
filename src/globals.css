@@ -33,7 +33,7 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 191 91% 36%;
 
-    --radius: 0.85rem;
+    --radius: 1rem;
 
     --logo-yellow: 48 96% 53%;
     --logo-orange: 24 95% 53%;
@@ -104,115 +104,22 @@
   body {
     @apply bg-background text-foreground antialiased overflow-x-hidden;
     background-image: 
-      radial-gradient(at 0% 0%, hsl(var(--primary) / 0.12) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, hsl(var(--accent) / 0.08) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, hsl(var(--primary) / 0.05) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, hsl(var(--accent) / 0.1) 0px, transparent 50%);
+      radial-gradient(at 0% 0%, hsl(var(--primary) / 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, hsl(var(--accent) / 0.05) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsl(var(--primary) / 0.03) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, hsl(var(--accent) / 0.06) 0px, transparent 50%);
     background-attachment: fixed;
-    /* Refined base font size for better mobile readability */
     font-size: 15px;
-  }
-  
-  /* Mobile-specific font adjustments */
-  @media (max-width: 640px) {
-    h1 { font-size: 1.5rem; }
-    h2 { font-size: 1.25rem; }
-    h3 { font-size: 1.1rem; }
-    .text-4xl { font-size: 2.25rem; }
-    .text-5xl { font-size: 2.75rem; }
-    .text-6xl { font-size: 3.25rem; }
   }
 }
 
 @layer utilities {
-  /* Ethereal Surfaces - Professional Polish */
   .glass-card {
-    background-color: hsl(var(--background) / 0.5);
-    backdrop-filter: blur(24px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15);
-    border-radius: 0.85rem;
-  }
-  @media (max-width: 768px) {
-    .glass-card {
-      border-radius: 1.25rem;
-      background-color: hsl(var(--background) / 0.6);
-      /* Softer shadow on mobile for a more integrated feel */
-      box-shadow: 0 4px 15px -5px rgba(0, 0, 0, 0.1);
-    }
-  }
-
-  .glass-header {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    background-color: hsl(var(--background) / 0.6);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  /* Custom Scrollbar - Invisible */
-  .custom-scrollbar {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none;  /* Internet Explorer 10+ */
-  }
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 0px;
-    height: 0px;
-  }
-
-  /* Typography */
-  .text-gradient-primary {
-    background: linear-gradient(to bottom right, hsl(var(--primary)), hsl(var(--accent)));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
-  /* Shimmer Animation */
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-
-  .animate-shimmer {
-    background: linear-gradient(
-      90deg, 
-      transparent, 
-      hsl(var(--primary) / 0.1), 
-      transparent
-    );
-    background-size: 200% 100%;
-    animation: shimmer 2s infinite linear;
-  }
-
-  /* Active Row Animation */
-  @keyframes pulse-active-row {
-    0%, 100% {
-      border-color: hsl(var(--live-progress) / 0.2);
-      background-color: hsl(var(--live-progress) / 0.05);
-      box-shadow: 0 0 0px hsl(var(--live-progress) / 0);
-    }
-    50% {
-      border-color: hsl(var(--live-progress) / 0.6);
-      background-color: hsl(var(--live-progress) / 0.1);
-      box-shadow: 0 0 20px hsl(var(--live-progress) / 0.2);
-      transform: translateY(-1px);
-    }
-  }
-
-  .animate-active-task {
-    animation: pulse-active-row 3s infinite ease-in-out;
+    @apply bg-background/40 backdrop-blur-xl border border-white/10 shadow-xl;
   }
 
   .animate-hover-lift {
-    transition: all 0.3s cubic-bezier(0.33, 1, 0.68, 1);
-  }
-  
-  .animate-hover-lift:hover {
-    transform: translateY(-4px);
-    border-color: hsl(var(--primary) / 0.4);
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg hover:border-primary/30;
   }
 
   .animate-pop-in {
@@ -230,21 +137,14 @@
     }
   }
 
-  /* Status Bar Styling */
-  .status-bar-track {
-    background-color: hsl(var(--secondary) / 0.5);
-    border-radius: 9999px;
-    height: 0.75rem;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    position: relative;
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
   }
-
-  .status-bar-fill {
-    height: 100%;
-    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-    border-radius: 9999px;
-    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--live-progress)));
-    box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
   }
 }
